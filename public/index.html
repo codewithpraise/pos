@@ -30,7 +30,8 @@
       </div>
       <h3>SECURE REGISTER LOGIN</h3>
       <p>Enter Cashier Security PIN to open shift register</p>
-      
+
+      <!-- Terminal Mode Selector -->
       <div style="margin-bottom: 16px; width: 100%; text-align: left;">
         <label style="font-size: 10px; color: var(--text-gray); text-transform: uppercase; font-weight: 700; margin-bottom: 4px; display: block;">Terminal Mode:</label>
         <select id="login-terminal-role" class="pos-input" style="min-height: 40px; height: 40px; padding: 6px 12px; font-size: 12px;">
@@ -38,38 +39,44 @@
           <option value="CFD">Customer Facing Display (CFD)</option>
           <option value="KDS">Kitchen Display System (KDS)</option>
         </select>
-      <!-- Hidden numeric input to capture physical keyboard & mobile keypad entries natively -->
-      <input type="password" id="hidden-pin-input" autocomplete="one-time-code" pattern="[0-9]*" inputmode="numeric" maxlength="4" style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; left: -9999px;">
+      </div>
 
-      <div class="pin-display">
+      <!-- Hidden numeric input — captures physical keyboard & mobile soft keyboard natively.
+           Must have pointer-events auto (not none) so focus() works on mobile WebView/Safari. -->
+      <input type="tel" id="hidden-pin-input" autocomplete="one-time-code" inputmode="numeric" maxlength="4"
+             style="position:fixed; top:-100vh; left:-100vw; width:1px; height:1px; opacity:0; border:none; outline:none;">
+
+      <!-- PIN Display dots -->
+      <div class="pin-display" id="pin-display-dots">
         <span class="dot"></span>
         <span class="dot"></span>
         <span class="dot"></span>
         <span class="dot"></span>
       </div>
-      
-      <div class="pin-pad">
-        <button class="pin-btn">1</button>
-        <button class="pin-btn">2</button>
-        <button class="pin-btn">3</button>
-        <button class="pin-btn">4</button>
-        <button class="pin-btn">5</button>
-        <button class="pin-btn">6</button>
-        <button class="pin-btn">7</button>
-        <button class="pin-btn">8</button>
-        <button class="pin-btn">9</button>
-        <button class="pin-btn btn-clear">CLR</button>
-        <button class="pin-btn">0</button>
-        <button class="pin-btn btn-enter">ENT</button>
+
+      <!-- On-screen PIN Pad -->
+      <div class="pin-pad" id="pin-pad">
+        <button class="pin-btn" type="button" data-digit="1">1</button>
+        <button class="pin-btn" type="button" data-digit="2">2</button>
+        <button class="pin-btn" type="button" data-digit="3">3</button>
+        <button class="pin-btn" type="button" data-digit="4">4</button>
+        <button class="pin-btn" type="button" data-digit="5">5</button>
+        <button class="pin-btn" type="button" data-digit="6">6</button>
+        <button class="pin-btn" type="button" data-digit="7">7</button>
+        <button class="pin-btn" type="button" data-digit="8">8</button>
+        <button class="pin-btn" type="button" data-digit="9">9</button>
+        <button class="pin-btn btn-clear" type="button" data-action="clear">CLR</button>
+        <button class="pin-btn" type="button" data-digit="0">0</button>
+        <button class="pin-btn btn-enter" type="button" data-action="enter">ENT</button>
       </div>
-      
+
       <div class="auth-error-msg" id="auth-error"></div>
       <div class="hint-credentials">Developer Seed PINs: Cashier: <strong>5678</strong> | Admin: <strong>1234</strong></div>
     </div>
   </div>
 
-  <!-- MAIN POS LAYOUT -->
-  <div class="pos-app-layout">
+  <!-- MAIN POS LAYOUT — hidden on initial load, shown by JS after successful PIN auth -->
+  <div class="pos-app-layout" id="pos-app-layout" style="display:none;">
     
     <!-- SIDEBAR (Desktop / Tablet viewports) -->
     <aside class="pos-sidebar" id="app-sidebar">

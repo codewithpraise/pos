@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // NEXOVA COMMERCE ECOSYSTEM - MAIN REGISTER CONTROLLER
 // UI thread bindings and Web Worker event choreography
 // ============================================================================
@@ -537,84 +537,113 @@
     };
   }
 
+  // Helper: focus hidden PIN input to pop soft keyboard on mobile
+  function focusPinInput() {
+    var input = document.getElementById('hidden-pin-input');
+    if (input) { input.removeAttribute('readonly'); input.focus({ preventScroll: true }); }
+  }
+
+  // Bulletproof PIN Pad: on-screen buttons + physical keyboard + mobile soft keyboard
+  function initPinPad() {
+    var hiddenInput = document.getElementById('hidden-pin-input');
+    var pinPad = document.getElementById('pin-pad');
+    var authCard = document.querySelector('.auth-card');
+    var authLockScreen = document.getElementById('auth-lock-screen');
+
+    function isLockActive() {
+      return authLockScreen && authLockScreen.classList.contains('active');
+    }
+
+    function appendDigit(d) {
+      if (state.currentPin.length < 4) {
+        state.currentPin += String(d);
+        updatePinDisplayDots();
+        playAudioSignal('click');
+        if (hiddenInput) hiddenInput.value = state.currentPin;
+        if (state.currentPin.length === 4) { setTimeout(function(){ verifyPinCredentials(); }, 120); }
+      }
+    }
+
+    function clearPin() {
+      state.currentPin = '';
+      if (hiddenInput) hiddenInput.value = '';
+      updatePinDisplayDots();
+      playAudioSignal('click');
+    }
+
+    function backspacePin() {
+      if (state.currentPin.length > 0) {
+        state.currentPin = state.currentPin.slice(0, -1);
+        if (hiddenInput) hiddenInput.value = state.currentPin;
+        updatePinDisplayDots();
+        playAudioSignal('click');
+      }
+    }
+
+    // Layer 1: On-screen PIN pad buttons
+    if (pinPad) {
+      pinPad.addEventListener('pointerdown', function(e) {
+        e.preventDefault();
+        var btn = e.target.closest('.pin-btn');
+        if (!btn || !isLockActive()) return;
+        var digit = btn.dataset.digit;
+        var action = btn.dataset.action;
+        if (digit !== undefined) { appendDigit(digit); }
+        else if (action === 'clear') { clearPin(); }
+        else if (action === 'enter') { verifyPinCredentials(); }
+        if (hiddenInput) { setTimeout(function(){ hiddenInput.focus({ preventScroll: true }); }, 50); }
+      });
+    }
+
+    if (authCard) {
+      authCard.addEventListener('click', function(e) {
+        if (e.target && e.target.id === 'login-terminal-role') return;
+        if (hiddenInput) hiddenInput.focus({ preventScroll: true });
+      });
+    }
+
+    // Layer 2: Physical keyboard (CAPTURE phase, fires before HID scanner)
+    window.addEventListener('keydown', function(e) {
+      if (!isLockActive()) return;
+      if (document.activeElement && document.activeElement.id === 'login-terminal-role') return;
+      var key = e.key;
+      if (key >= '0' && key <= '9') { e.preventDefault(); e.stopImmediatePropagation(); appendDigit(key); return; }
+      if (key === 'Backspace') { e.preventDefault(); e.stopImmediatePropagation(); backspacePin(); return; }
+      if (key === 'Delete' || key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); clearPin(); return; }
+      if (key === 'Enter') { e.preventDefault(); e.stopImmediatePropagation(); verifyPinCredentials(); return; }
+    }, { capture: true });
+
+    // Layer 3: Hidden tel input for mobile soft keyboard
+    if (hiddenInput) {
+      hiddenInput.addEventListener('input', function(e) {
+        if (!isLockActive()) { hiddenInput.value = ''; return; }
+        var raw = (e.target.value || '').replace(/\D/g, '');
+        if (raw.length > state.currentPin.length && raw.startsWith(state.currentPin)) {
+          var newDigits = raw.slice(state.currentPin.length);
+          for (var i = 0; i < newDigits.length; i++) appendDigit(newDigits[i]);
+        } else {
+          state.currentPin = raw.substring(0, 4);
+          hiddenInput.value = state.currentPin;
+          updatePinDisplayDots();
+          if (state.currentPin.length === 4) { setTimeout(function(){ verifyPinCredentials(); }, 120); }
+        }
+      });
+      setTimeout(function() {
+        if (isLockActive()) hiddenInput.focus({ preventScroll: true });
+      }, 600);
+    }
+  }
+
+
   // Bind UI control nodes
   function bindDOMEvents() {
-    const pinPad = document.querySelector('.pin-pad');
-    const hiddenInput = document.getElementById('hidden-pin-input');
-
-    // Focus hidden input on auth card clicks to support direct keyboard entries
-    const authCard = document.querySelector('.auth-card');
-    if (authCard) {
-      authCard.addEventListener('click', (e) => {
-        if (e.target.id !== 'login-terminal-role' && hiddenInput) {
-          hiddenInput.focus();
-        }
-      });
-    }
-
-    // On-screen PIN pad click events
-    pinPad.addEventListener('click', (e) => {
-      const btn = e.target.closest('.pin-btn');
-      if (!btn) return;
-
-      playAudioSignal('click');
-
-      if (btn.classList.contains('btn-clear')) {
-        state.currentPin = '';
-        if (hiddenInput) hiddenInput.value = '';
-      } else if (btn.classList.contains('btn-enter')) {
-        verifyPinCredentials();
-      } else {
-        if (state.currentPin.length < 4) {
-          state.currentPin += btn.textContent;
-          if (hiddenInput) hiddenInput.value = state.currentPin;
-        }
-      }
-      updatePinDisplayDots();
-      if (hiddenInput) hiddenInput.focus();
-    });
-
-    // Hidden input hooks to capture physical keypad & soft keyboards natively
-    if (hiddenInput) {
-      // Auto-focus at boot
-      setTimeout(() => {
-        hiddenInput.focus();
-      }, 500);
-
-      hiddenInput.addEventListener('input', (e) => {
-        let val = e.target.value.replace(/\D/g, ''); // Digits only
-        if (val.length > 4) {
-          val = val.substring(0, 4);
-        }
-        state.currentPin = val;
-        e.target.value = val;
-        updatePinDisplayDots();
-
-        if (val.length === 4) {
-          setTimeout(() => {
-            verifyPinCredentials();
-          }, 120);
-        }
-      });
-
-      hiddenInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          verifyPinCredentials();
-        }
-      });
-    }
-
-    // Redirect keys to the hidden input if typing outside elements when lock screen is active
-    window.addEventListener('keydown', (e) => {
-      const lockScreen = document.getElementById('auth-lock-screen');
-      if (!lockScreen || !lockScreen.classList.contains('active')) return;
-      if (e.target.id === 'login-terminal-role') return;
-      
-      if (hiddenInput && document.activeElement !== hiddenInput) {
-        hiddenInput.focus();
-      }
-    });
+    // ── PIN PAD SYSTEM ────────────────────────────────────────────────────────
+    // Bulletproof PIN entry: works on physical keyboard, USB numpad, on-screen
+    // buttons, AND mobile soft keyboard. Three cooperating layers:
+    //   1. On-screen buttons (data-digit / data-action attributes)
+    //   2. Global keydown listener (physical keyboard / numpad — capture phase)
+    //   3. Hidden <input type=tel> that captures mobile soft keyboard input events
+    initPinPad();
 
     // Logout shift register
     document.getElementById('btn-lock-register').addEventListener('click', () => {
@@ -630,14 +659,14 @@
       state.activeCashier = null;
       state.currentPin = '';
       updatePinDisplayDots();
-      if (hiddenInput) {
-        hiddenInput.value = '';
-        setTimeout(() => {
-          hiddenInput.focus();
-        }, 100);
-      }
+      // Show auth lock screen, hide main layout
       document.getElementById('auth-lock-screen').classList.add('active');
+      const layout = document.getElementById('pos-app-layout');
+      if (layout) layout.style.display = 'none';
+      // Attempt to pop soft keyboard on mobile by focusing hidden input
+      setTimeout(() => focusPinInput(), 300);
     }
+
 
     // Theme toggler
     document.getElementById('theme-toggle-btn').addEventListener('click', () => {
@@ -683,7 +712,7 @@
     // Sidebar collapse toggler
     document.getElementById('sidebar-toggle-btn').addEventListener('click', (e) => {
       playAudioSignal('click');
-      const layout = document.querySelector('.pos-app-layout');
+      const layout = document.getElementById('pos-app-layout');
       layout.classList.toggle('sidebar-collapsed');
       
       const btn = e.currentTarget;
@@ -1273,7 +1302,7 @@
       btnCfdExit.addEventListener('click', () => {
         playAudioSignal('click');
         document.getElementById('view-cfd').style.display = 'none';
-        document.querySelector('.pos-app-layout').style.display = '';
+        document.getElementById('pos-app-layout').style.display = 'grid';
         document.getElementById('auth-lock-screen').classList.add('active');
         state.terminalRole = null;
         state.currentPin = '';
@@ -1286,7 +1315,7 @@
       btnKdsExit.addEventListener('click', () => {
         playAudioSignal('click');
         document.getElementById('view-kds').style.display = 'none';
-        document.querySelector('.pos-app-layout').style.display = '';
+        document.getElementById('pos-app-layout').style.display = 'grid';
         document.getElementById('auth-lock-screen').classList.add('active');
         state.terminalRole = null;
         state.currentPin = '';
@@ -1770,7 +1799,7 @@
       state.terminalRole = 'CFD';
       document.getElementById('auth-lock-screen').classList.remove('active');
       document.getElementById('view-cfd').style.display = 'block';
-      document.querySelector('.pos-app-layout').style.display = 'none';
+      document.getElementById('pos-app-layout').style.display = 'none';
       playAudioSignal('login');
       return;
     }
@@ -1779,7 +1808,7 @@
       state.terminalRole = 'KDS';
       document.getElementById('auth-lock-screen').classList.remove('active');
       document.getElementById('view-kds').style.display = 'block';
-      document.querySelector('.pos-app-layout').style.display = 'none';
+      document.getElementById('pos-app-layout').style.display = 'none';
       playAudioSignal('login');
       // Fetch latest orders
       syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
@@ -1802,7 +1831,7 @@
         document.getElementById('auth-lock-screen').classList.remove('active');
         document.getElementById('view-cfd').style.display = 'none';
         document.getElementById('view-kds').style.display = 'none';
-        document.querySelector('.pos-app-layout').style.display = '';
+        document.getElementById('pos-app-layout').style.display = 'grid';
         
         // Update cashier UI displays
         document.getElementById('cashier-display-name').textContent = matched.id.replace('emp_', '').toUpperCase();
@@ -1945,15 +1974,21 @@
     const onboardingComplete = state.preferences['onboarding_complete'] === 'true';
     const wizardOverlay = document.getElementById('first-boot-wizard');
     const lockScreen = document.getElementById('auth-lock-screen');
+    const layout = document.getElementById('pos-app-layout');
 
     if (!onboardingComplete) {
       if (wizardOverlay) wizardOverlay.style.display = 'flex';
       if (lockScreen) lockScreen.classList.remove('active');
+      if (layout) layout.style.display = 'grid'; // Show layout, wizard is on top
       return;
     } else {
       if (wizardOverlay) wizardOverlay.style.display = 'none';
-      if (lockScreen && !state.activeCashier && !state.terminalRole) {
-        lockScreen.classList.add('active');
+      if (!state.activeCashier && !state.terminalRole) {
+        if (lockScreen) lockScreen.classList.add('active');
+        if (layout) layout.style.display = 'none';
+      } else {
+        if (lockScreen) lockScreen.classList.remove('active');
+        if (layout) layout.style.display = 'grid';
       }
     }
 
@@ -4203,6 +4238,10 @@
   function setupHIDScannerInterceptor() {
     window.addEventListener('keydown', (e) => {
       const now = performance.now();
+      // Do not process keystrokes when lock screen is active (handled by initPinPad)
+      const _lockActive = document.getElementById('auth-lock-screen');
+      if (_lockActive && _lockActive.classList.contains('active')) return;
+
       const delta = now - lastKeyTime;
 
       // Inter-key delta > 80ms = human typing; reset buffer
@@ -4243,36 +4282,10 @@
     window.addEventListener('keydown', (e) => {
       const activeTag = document.activeElement.tagName;
       
-      // Keyboard PIN pad input logic when lock screen is active
+      // PIN entry is handled by initPinPad() (capture-phase, registered in bindDOMEvents).
+      // If lock screen is active, bail here so other hotkeys don't fire.
       const lockScreen = document.getElementById('auth-lock-screen');
-      if (lockScreen && lockScreen.classList.contains('active')) {
-        const key = e.key;
-        if (key >= '0' && key <= '9') {
-          e.preventDefault();
-          playAudioSignal('click');
-          if (state.currentPin.length < 4) {
-            state.currentPin += key;
-          }
-          updatePinDisplayDots();
-          return;
-        } else if (key === 'Backspace') {
-          e.preventDefault();
-          playAudioSignal('click');
-          state.currentPin = state.currentPin.slice(0, -1);
-          updatePinDisplayDots();
-          return;
-        } else if (key === 'Enter') {
-          e.preventDefault();
-          verifyPinCredentials();
-          return;
-        } else if (key === 'Escape') {
-          e.preventDefault();
-          playAudioSignal('click');
-          state.currentPin = '';
-          updatePinDisplayDots();
-          return;
-        }
-      }
+      if (lockScreen && lockScreen.classList.contains('active')) return;
 
       // Ignore keys inside active inputs/textareas/select boxes for hotkeys
       if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') {

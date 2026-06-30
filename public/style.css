@@ -1838,18 +1838,18 @@ button:not(:disabled):active {
   left: 0;
   right: 0;
   bottom: 0;
+  inset: 0; /* Modern shorthand, better mobile support */
   background: var(--bg-obsidian);
   z-index: 9999;
   display: none;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 40px 16px;
   box-sizing: border-box;
-  
-  /* Flexbox rules to center child when space permits, scroll from top when overflowed */
-  display: none; /* Default hidden */
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
+  min-height: 100dvh; /* Dynamic viewport height: accounts for mobile browser chrome */
 }
 
 .auth-overlay.active {
