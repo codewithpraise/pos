@@ -537,100 +537,144 @@
     };
   }
 
-  // Helper: focus hidden PIN input to pop soft keyboard on mobile
+  // =============================================================================
+  // PIN PAD SYSTEM - Mobile-first, works on Android WebView, iOS, physical keyboard
+  // =============================================================================
+  // Key design decisions:
+  //  1. On-screen buttons: touchstart (instant) + click fallback. NEVER pointerdown
+  //     with preventDefault - that kills touch interaction on Android WebView.
+  //  2. touch-action:manipulation on buttons eliminates 300ms tap delay.
+  //  3. Physical keyboard: capture-phase keydown with stopImmediatePropagation.
+  //  4. Mobile numpad: hidden tel input focused on dot-area tap.
+  // =============================================================================
+
   function focusPinInput() {
-    var input = document.getElementById('hidden-pin-input');
-    if (input) { input.removeAttribute('readonly'); input.focus({ preventScroll: true }); }
+    var el = document.getElementById('hidden-pin-input');
+    if (!el) return;
+    el.style.opacity = '0.01';
+    el.style.position = 'fixed';
+    el.style.top = '0px';
+    el.style.left = '0px';
+    el.style.width = '1px';
+    el.style.height = '1px';
+    el.style.zIndex = '-1';
+    el.focus();
   }
 
-  // Bulletproof PIN Pad: on-screen buttons + physical keyboard + mobile soft keyboard
   function initPinPad() {
-    var hiddenInput = document.getElementById('hidden-pin-input');
-    var pinPad = document.getElementById('pin-pad');
-    var authCard = document.querySelector('.auth-card');
     var authLockScreen = document.getElementById('auth-lock-screen');
+    var pinPad = document.getElementById('pin-pad');
+    var hiddenInput = document.getElementById('hidden-pin-input');
 
     function isLockActive() {
       return authLockScreen && authLockScreen.classList.contains('active');
     }
 
-    function appendDigit(d) {
-      if (state.currentPin.length < 4) {
-        state.currentPin += String(d);
-        updatePinDisplayDots();
-        playAudioSignal('click');
-        if (hiddenInput) hiddenInput.value = state.currentPin;
-        if (state.currentPin.length === 4) { setTimeout(function(){ verifyPinCredentials(); }, 120); }
+    function addDigit(d) {
+      if (!isLockActive() || state.currentPin.length >= 4) return;
+      state.currentPin += String(d);
+      if (hiddenInput) hiddenInput.value = state.currentPin;
+      updatePinDisplayDots();
+      playAudioSignal('click');
+      if (state.currentPin.length === 4) {
+        setTimeout(function() { verifyPinCredentials(); }, 100);
       }
     }
 
-    function clearPin() {
-      state.currentPin = '';
-      if (hiddenInput) hiddenInput.value = '';
+    function doBackspace() {
+      if (!isLockActive() || state.currentPin.length === 0) return;
+      state.currentPin = state.currentPin.slice(0, -1);
+      if (hiddenInput) hiddenInput.value = state.currentPin;
       updatePinDisplayDots();
       playAudioSignal('click');
     }
 
-    function backspacePin() {
-      if (state.currentPin.length > 0) {
-        state.currentPin = state.currentPin.slice(0, -1);
-        if (hiddenInput) hiddenInput.value = state.currentPin;
-        updatePinDisplayDots();
-        playAudioSignal('click');
-      }
+    function doClear() {
+      state.currentPin = '';
+      if (hiddenInput) hiddenInput.value = '';
+      updatePinDisplayDots();
+      if (isLockActive()) playAudioSignal('click');
     }
 
-    // Layer 1: On-screen PIN pad buttons
+    // â”€â”€ LAYER 1: On-screen PIN pad buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // touchstart = instant response, no 300ms delay.
+    // click = fallback for mouse/desktop.
+    // passive:true on touchstart lets browser do scroll optimization.
+    // NO pointerdown+preventDefault: kills :active state and feedback on Android.
     if (pinPad) {
-      pinPad.addEventListener('pointerdown', function(e) {
-        e.preventDefault();
+      var touchHandled = false;
+
+      pinPad.addEventListener('touchstart', function(e) {
         var btn = e.target.closest('.pin-btn');
         if (!btn || !isLockActive()) return;
-        var digit = btn.dataset.digit;
-        var action = btn.dataset.action;
-        if (digit !== undefined) { appendDigit(digit); }
-        else if (action === 'clear') { clearPin(); }
-        else if (action === 'enter') { verifyPinCredentials(); }
-        if (hiddenInput) { setTimeout(function(){ hiddenInput.focus({ preventScroll: true }); }, 50); }
+        touchHandled = true;
+        var digit = btn.getAttribute('data-digit');
+        var action = btn.getAttribute('data-action');
+        if (digit !== null) {
+          addDigit(digit);
+        } else if (action === 'clear') {
+          doClear();
+        } else if (action === 'enter') {
+          verifyPinCredentials();
+        }
+      }, { passive: true });
+
+      pinPad.addEventListener('click', function(e) {
+        if (touchHandled) { touchHandled = false; return; }
+        var btn = e.target.closest('.pin-btn');
+        if (!btn || !isLockActive()) return;
+        var digit = btn.getAttribute('data-digit');
+        var action = btn.getAttribute('data-action');
+        if (digit !== null) {
+          addDigit(digit);
+        } else if (action === 'clear') {
+          doClear();
+        } else if (action === 'enter') {
+          verifyPinCredentials();
+        }
       });
     }
 
-    if (authCard) {
-      authCard.addEventListener('click', function(e) {
-        if (e.target && e.target.id === 'login-terminal-role') return;
-        if (hiddenInput) hiddenInput.focus({ preventScroll: true });
-      });
-    }
-
-    // Layer 2: Physical keyboard (CAPTURE phase, fires before HID scanner)
+    // â”€â”€ LAYER 2: Physical keyboard (capture phase, before HID scanner) â”€â”€â”€â”€â”€â”€â”€â”€
     window.addEventListener('keydown', function(e) {
       if (!isLockActive()) return;
       if (document.activeElement && document.activeElement.id === 'login-terminal-role') return;
-      var key = e.key;
-      if (key >= '0' && key <= '9') { e.preventDefault(); e.stopImmediatePropagation(); appendDigit(key); return; }
-      if (key === 'Backspace') { e.preventDefault(); e.stopImmediatePropagation(); backspacePin(); return; }
-      if (key === 'Delete' || key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); clearPin(); return; }
-      if (key === 'Enter') { e.preventDefault(); e.stopImmediatePropagation(); verifyPinCredentials(); return; }
+      var k = e.key;
+      if (k >= '0' && k <= '9') {
+        e.preventDefault(); e.stopImmediatePropagation(); addDigit(k); return;
+      }
+      if (k === 'Backspace') {
+        e.preventDefault(); e.stopImmediatePropagation(); doBackspace(); return;
+      }
+      if (k === 'Delete' || k === 'Escape') {
+        e.preventDefault(); e.stopImmediatePropagation(); doClear(); return;
+      }
+      if (k === 'Enter') {
+        e.preventDefault(); e.stopImmediatePropagation(); verifyPinCredentials(); return;
+      }
     }, { capture: true });
 
-    // Layer 3: Hidden tel input for mobile soft keyboard
+    // â”€â”€ LAYER 3: Mobile soft keyboard (hidden tel input) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Tap the PIN display dots to open the numpad on mobile.
     if (hiddenInput) {
+      var pinDotsArea = document.getElementById('pin-display-dots');
+      if (pinDotsArea) {
+        pinDotsArea.addEventListener('click', function() {
+          if (isLockActive()) focusPinInput();
+        });
+      }
+
       hiddenInput.addEventListener('input', function(e) {
-        if (!isLockActive()) { hiddenInput.value = ''; return; }
-        var raw = (e.target.value || '').replace(/\D/g, '');
-        if (raw.length > state.currentPin.length && raw.startsWith(state.currentPin)) {
-          var newDigits = raw.slice(state.currentPin.length);
-          for (var i = 0; i < newDigits.length; i++) appendDigit(newDigits[i]);
-        } else {
-          state.currentPin = raw.substring(0, 4);
-          hiddenInput.value = state.currentPin;
-          updatePinDisplayDots();
-          if (state.currentPin.length === 4) { setTimeout(function(){ verifyPinCredentials(); }, 120); }
+        if (!isLockActive()) { e.target.value = ''; return; }
+        var raw = (e.target.value || '').replace(/[^0-9]/g, '');
+        if (raw.length > 4) raw = raw.slice(0, 4);
+        state.currentPin = raw;
+        e.target.value = raw;
+        updatePinDisplayDots();
+        if (raw.length === 4) {
+          setTimeout(function() { verifyPinCredentials(); }, 100);
         }
       });
-      setTimeout(function() {
-        if (isLockActive()) hiddenInput.focus({ preventScroll: true });
-      }, 600);
     }
   }
 

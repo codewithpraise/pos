@@ -41,20 +41,22 @@
         </select>
       </div>
 
-      <!-- Hidden numeric input — captures physical keyboard & mobile soft keyboard natively.
-           Must have pointer-events auto (not none) so focus() works on mobile WebView/Safari. -->
+      <!-- Hidden tel input: focuses to pop numpad on mobile when dots are tapped.
+           Positioned at 0,0 with opacity:0.01 so Android WebView accepts focus().
+           opacity:0 or display:none would prevent focus on some Android versions. -->
       <input type="tel" id="hidden-pin-input" autocomplete="one-time-code" inputmode="numeric" maxlength="4"
-             style="position:fixed; top:-100vh; left:-100vw; width:1px; height:1px; opacity:0; border:none; outline:none;">
+             style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;border:none;outline:none;background:transparent;color:transparent;z-index:-1;caret-color:transparent;">
 
-      <!-- PIN Display dots -->
-      <div class="pin-display" id="pin-display-dots">
+      <!-- PIN Display dots — tap to open soft keyboard on mobile -->
+      <div class="pin-display" id="pin-display-dots" title="Tap to enter PIN with keyboard" style="cursor:pointer; padding: 8px 16px; border-radius: 8px; transition: background 0.15s;">
         <span class="dot"></span>
         <span class="dot"></span>
         <span class="dot"></span>
         <span class="dot"></span>
       </div>
+      <p style="font-size:9px;color:var(--text-gray);margin-bottom:12px;margin-top:-8px;">↑ Tap dots to type with keyboard</p>
 
-      <!-- On-screen PIN Pad -->
+      <!-- On-screen PIN Pad: 3x4 grid (1-9, CLR, 0, ⌫) -->
       <div class="pin-pad" id="pin-pad">
         <button class="pin-btn" type="button" data-digit="1">1</button>
         <button class="pin-btn" type="button" data-digit="2">2</button>

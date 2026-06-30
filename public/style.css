@@ -1928,22 +1928,34 @@ button:not(:disabled):active {
   color: var(--text-white);
   font-size: 18px;
   font-weight: 700;
+  font-family: var(--font-body);
   border-radius: 12px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 48px; /* Touch target minimum height */
-  transition: var(--transition-tactile);
+  min-height: 56px; /* Generous touch target for mobile */
+  transition: background 0.08s ease, transform 0.08s ease;
+  /* Critical for mobile: eliminate 300ms tap delay */
+  touch-action: manipulation;
+  /* Remove default Android blue highlight so our own active state shows */
+  -webkit-tap-highlight-color: transparent;
+  /* Ensure text is selectable on buttons for screen readers */
+  user-select: none;
+  -webkit-user-select: none;
+  /* Prevent text cursor on mobile long-press */
+  -webkit-touch-callout: none;
 }
 
 .pin-btn:hover {
-  background: rgba(255,255,255,0.03);
+  background: rgba(255,255,255,0.06);
   border-color: var(--text-white);
 }
 
 .pin-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.92);
+  background: rgba(255,255,255,0.12);
+  border-color: var(--accent-emerald);
 }
 
 .pin-btn.btn-clear {
