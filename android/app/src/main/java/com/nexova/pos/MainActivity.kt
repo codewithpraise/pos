@@ -190,6 +190,18 @@ class MainActivity : AppCompatActivity() {
             layoutParams = lp
         }
 
+        val localBtn = Button(this).apply {
+            text = "START FRESH (RUN LOCALLY)"
+            textSize = 13f
+            setTextColor(0xFFFFFFFF.toInt())
+            setBackgroundColor(0xFF1F1F2E.toInt())
+            letterSpacing = 0.1f
+            setPadding(0, 0, 0, 0)
+            val lp = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 128)
+            lp.topMargin = 16
+            layoutParams = lp
+        }
+
         connectBtn.setOnClickListener {
             val ip = ipInput.text.toString().trim()
             val port = portInput.text.toString().trim().ifEmpty { "3000" }
@@ -227,6 +239,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        localBtn.setOnClickListener {
+            val url = "file:///android_asset/index.html"
+            prefs.edit().putString("server_url", url).apply()
+            serverUrl = url
+            showWebView(url)
+        }
+
         root.addView(title)
         root.addView(subtitle)
         root.addView(label)
@@ -234,6 +253,7 @@ class MainActivity : AppCompatActivity() {
         root.addView(portLabel)
         root.addView(portInput)
         root.addView(connectBtn)
+        root.addView(localBtn)
         root.addView(statusText)
         setContentView(root)
     }
@@ -247,6 +267,8 @@ class MainActivity : AppCompatActivity() {
                 databaseEnabled = true
                 allowFileAccess = true
                 allowContentAccess = true
+                allowFileAccessFromFileURLs = true
+                allowUniversalAccessFromFileURLs = true
                 mediaPlaybackRequiresUserGesture = false // Fixes Audio Crash
                 mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                 cacheMode = WebSettings.LOAD_DEFAULT
@@ -322,6 +344,11 @@ class MainActivity : AppCompatActivity() {
             }, "AndroidPOS")
 
             webChromeClient = object : WebChromeClient() {
+                override fun onPermissionRequest(request: PermissionRequest) {
+                    runOnUiThread {
+                        request.grant(request.resources)
+                    }
+                }
                 override fun onGeolocationPermissionsShowPrompt(origin: String, callback: GeolocationPermissions.Callback) {
                     callback.invoke(origin, true, false)
                 }
@@ -335,6 +362,9 @@ class MainActivity : AppCompatActivity() {
                 }
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                     val reqUrl = request?.url?.toString() ?: return false
+                    if (reqUrl.startsWith("file:///android_asset/")) {
+                        return false
+                    }
                     return !reqUrl.startsWith("http://${getServerHost()}")
                 }
                 private fun getServerHost(): String {
