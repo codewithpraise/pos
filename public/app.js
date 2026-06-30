@@ -559,6 +559,42 @@
       updatePinDisplayDots();
     });
 
+    // Global keyboard listener for login PIN pad when lock screen is active
+    window.addEventListener('keydown', (e) => {
+      const lockScreen = document.getElementById('auth-lock-screen');
+      if (!lockScreen || !lockScreen.classList.contains('active')) return;
+
+      // Skip keyboard hijacking if focusing selection input fields on the page
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      const key = e.key;
+
+      if (key >= '0' && key <= '9') {
+        e.preventDefault();
+        playAudioSignal('click');
+        if (state.currentPin.length < 4) {
+          state.currentPin += key;
+          updatePinDisplayDots();
+          if (state.currentPin.length === 4) {
+            setTimeout(() => {
+              verifyPinCredentials();
+            }, 120);
+          }
+        }
+      } else if (key === 'Backspace' || key === 'Delete' || key.toLowerCase() === 'c') {
+        e.preventDefault();
+        playAudioSignal('click');
+        state.currentPin = '';
+        updatePinDisplayDots();
+      } else if (key === 'Enter') {
+        e.preventDefault();
+        playAudioSignal('click');
+        verifyPinCredentials();
+      }
+    });
+
     // Logout shift register
     document.getElementById('btn-lock-register').addEventListener('click', () => {
       playAudioSignal('click');
@@ -896,6 +932,71 @@
           });
           state.preferences['google_drive_oauth_token'] = '';
         }
+      });
+    }
+
+    const changePinBtn = document.getElementById('btn-change-my-pin');
+    if (changePinBtn) {
+      changePinBtn.addEventListener('click', async () => {
+        playAudioSignal('click');
+        const currentPinInput = document.getElementById('setting-change-pin-current');
+        const newPinInput = document.getElementById('setting-change-pin-new');
+        const confirmPinInput = document.getElementById('setting-change-pin-confirm');
+
+        const currentVal = currentPinInput.value.trim();
+        const newVal = newPinInput.value.trim();
+        const confirmVal = confirmPinInput.value.trim();
+
+        if (!currentVal || !newVal || !confirmVal) {
+          alert('All passcode PIN fields are required.');
+          return;
+        }
+
+        if (newVal.length !== 4 || isNaN(newVal)) {
+          alert('New passcode PIN must be exactly 4 digits.');
+          return;
+        }
+
+        if (newVal !== confirmVal) {
+          alert('New passcode PINs do not match.');
+          return;
+        }
+
+        if (!state.activeCashier) {
+          alert('No active logged-in cashier context found.');
+          return;
+        }
+
+        // Find employee record
+        const emp = state.employees.find(e => e.id === state.activeCashier.id);
+        if (!emp) {
+          alert(`Employee record not found for ID: ${state.activeCashier.id}`);
+          return;
+        }
+
+        // Verify current PIN matches stored hash
+        const isMatched = await verifyPinClient(currentVal, emp.auth_hash);
+        if (!isMatched) {
+          alert('Current passcode PIN is incorrect.');
+          return;
+        }
+
+        // Hash and save new passcode
+        const newHash = await hashPin(newVal);
+        const updatedPayload = {
+          ...emp,
+          auth_hash: newHash
+        };
+
+        syncWorker.postMessage({
+          type: 'SAVE_EMPLOYEE',
+          payload: updatedPayload
+        });
+
+        alert('Passcode successfully updated!');
+        currentPinInput.value = '';
+        newPinInput.value = '';
+        confirmPinInput.value = '';
       });
     }
 
