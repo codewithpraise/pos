@@ -539,8 +539,20 @@
 
   // Bind UI control nodes
   function bindDOMEvents() {
-    // PIN pad digits click events
     const pinPad = document.querySelector('.pin-pad');
+    const hiddenInput = document.getElementById('hidden-pin-input');
+
+    // Focus hidden input on auth card clicks to support direct keyboard entries
+    const authCard = document.querySelector('.auth-card');
+    if (authCard) {
+      authCard.addEventListener('click', (e) => {
+        if (e.target.id !== 'login-terminal-role' && hiddenInput) {
+          hiddenInput.focus();
+        }
+      });
+    }
+
+    // On-screen PIN pad click events
     pinPad.addEventListener('click', (e) => {
       const btn = e.target.closest('.pin-btn');
       if (!btn) return;
@@ -549,49 +561,58 @@
 
       if (btn.classList.contains('btn-clear')) {
         state.currentPin = '';
+        if (hiddenInput) hiddenInput.value = '';
       } else if (btn.classList.contains('btn-enter')) {
         verifyPinCredentials();
       } else {
         if (state.currentPin.length < 4) {
           state.currentPin += btn.textContent;
+          if (hiddenInput) hiddenInput.value = state.currentPin;
         }
       }
       updatePinDisplayDots();
+      if (hiddenInput) hiddenInput.focus();
     });
 
-    // Global keyboard listener for login PIN pad when lock screen is active
+    // Hidden input hooks to capture physical keypad & soft keyboards natively
+    if (hiddenInput) {
+      // Auto-focus at boot
+      setTimeout(() => {
+        hiddenInput.focus();
+      }, 500);
+
+      hiddenInput.addEventListener('input', (e) => {
+        let val = e.target.value.replace(/\D/g, ''); // Digits only
+        if (val.length > 4) {
+          val = val.substring(0, 4);
+        }
+        state.currentPin = val;
+        e.target.value = val;
+        updatePinDisplayDots();
+
+        if (val.length === 4) {
+          setTimeout(() => {
+            verifyPinCredentials();
+          }, 120);
+        }
+      });
+
+      hiddenInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          verifyPinCredentials();
+        }
+      });
+    }
+
+    // Redirect keys to the hidden input if typing outside elements when lock screen is active
     window.addEventListener('keydown', (e) => {
       const lockScreen = document.getElementById('auth-lock-screen');
       if (!lockScreen || !lockScreen.classList.contains('active')) return;
-
-      // Skip keyboard hijacking if focusing selection input fields on the page
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') {
-        return;
-      }
-
-      const key = e.key;
-
-      if (key >= '0' && key <= '9') {
-        e.preventDefault();
-        playAudioSignal('click');
-        if (state.currentPin.length < 4) {
-          state.currentPin += key;
-          updatePinDisplayDots();
-          if (state.currentPin.length === 4) {
-            setTimeout(() => {
-              verifyPinCredentials();
-            }, 120);
-          }
-        }
-      } else if (key === 'Backspace' || key === 'Delete' || key.toLowerCase() === 'c') {
-        e.preventDefault();
-        playAudioSignal('click');
-        state.currentPin = '';
-        updatePinDisplayDots();
-      } else if (key === 'Enter') {
-        e.preventDefault();
-        playAudioSignal('click');
-        verifyPinCredentials();
+      if (e.target.id === 'login-terminal-role') return;
+      
+      if (hiddenInput && document.activeElement !== hiddenInput) {
+        hiddenInput.focus();
       }
     });
 
@@ -609,6 +630,12 @@
       state.activeCashier = null;
       state.currentPin = '';
       updatePinDisplayDots();
+      if (hiddenInput) {
+        hiddenInput.value = '';
+        setTimeout(() => {
+          hiddenInput.focus();
+        }, 100);
+      }
       document.getElementById('auth-lock-screen').classList.add('active');
     }
 

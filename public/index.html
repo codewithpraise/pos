@@ -38,8 +38,9 @@
           <option value="CFD">Customer Facing Display (CFD)</option>
           <option value="KDS">Kitchen Display System (KDS)</option>
         </select>
-      </div>
-      
+      <!-- Hidden numeric input to capture physical keyboard & mobile keypad entries natively -->
+      <input type="password" id="hidden-pin-input" autocomplete="one-time-code" pattern="[0-9]*" inputmode="numeric" maxlength="4" style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; left: -9999px;">
+
       <div class="pin-display">
         <span class="dot"></span>
         <span class="dot"></span>
