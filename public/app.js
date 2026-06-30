@@ -3403,8 +3403,10 @@
       return;
     }
 
-    const REORDER_LIMIT = 10;
-    const itemsToReorder = state.catalog.filter(item => (item.stock_level || 0) < REORDER_LIMIT);
+    const itemsToReorder = state.catalog.filter(item => {
+      const limit = item.low_stock_threshold !== undefined ? item.low_stock_threshold : 10;
+      return (item.stock_level || 0) < limit;
+    });
 
     if (itemsToReorder.length === 0) {
       alertsContainer.innerHTML = `<p class="text-muted" style="text-align: center; margin-top: 20px;">All stock levels above threshold. No reorders pending.</p>`;
@@ -3456,7 +3458,7 @@
         <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(239,68,68,0.03); border:1px solid rgba(239,68,68,0.1); padding:8px; border-radius:4px;">
           <div>
             <span style="font-weight:700; color:var(--alert-coral);">${item.name}</span><br>
-            <span style="font-size:9px; color:var(--text-gray);">SKU: ${item.sku} | Qty: ${item.stock_level || 0} (Limit: 10)</span>
+            <span style="font-size:9px; color:var(--text-gray);">SKU: ${item.sku} | Qty: ${item.stock_level || 0} (Limit: ${item.low_stock_threshold !== undefined ? item.low_stock_threshold : 10})</span>
           </div>
           <span style="font-size:10px; font-weight:700; color:var(--accent-amber);">${poIdText}</span>
         </div>
