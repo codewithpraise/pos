@@ -98,6 +98,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun stopMulticastListener() {
+        discoveryThread?.interrupt()
+        discoveryThread = null
+        try {
+            if (multicastLock?.isHeld == true) {
+                multicastLock?.release()
+            }
+        } catch (e: Exception) {}
+    }
+
     private fun showServerSetup() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -275,7 +285,7 @@ class MainActivity : AppCompatActivity() {
                 fun encryptAES(text: String, passphrase: String): String {
                     return try {
                         val salt = "nexova_salt".toByteArray()
-                        val spec = PBEKeySpec(passphrase.toCharArray(), salt, 1000, 256)
+                        val spec = PBEKeySpec(passphrase.toCharArray(), salt, 600000, 256)
                         val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
                         val secretKey = SecretKeySpec(factory.generateSecret(spec).encoded, "AES")
 
@@ -300,7 +310,7 @@ class MainActivity : AppCompatActivity() {
                         val encrypted = combined.copyOfRange(12, combined.size)
 
                         val salt = "nexova_salt".toByteArray()
-                        val spec = PBEKeySpec(passphrase.toCharArray(), salt, 1000, 256)
+                        val spec = PBEKeySpec(passphrase.toCharArray(), salt, 600000, 256)
                         val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
                         val secretKey = SecretKeySpec(factory.generateSecret(spec).encoded, "AES")
 

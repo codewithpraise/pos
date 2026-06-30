@@ -65,9 +65,9 @@ Nexova is a zero-trust, masterless, offline-first Point of Sale (POS) system and
    ```
 3. Create a local `.env` configuration file in the project root:
    ```env
-   SUPABASE_URL=https://wzvwyfyefbdrqscxhwsf.supabase.co
-   SUPABASE_ANON_KEY=sb_publishable_P6-5AYr2f-c-XFyp5iea6A_d2Kfjxem
-   STORE_TERMINAL_ID=terminal_pc_master
+    SUPABASE_URL=https://your_project_id.supabase.co
+    SUPABASE_ANON_KEY=your_supabase_anon_key_here
+    STORE_TERMINAL_ID=terminal_pc_master
    ```
 4. Run `npm start` to launch the SQLite database engine, initialize WAL indexes, and start the local sync hub:
    ```bash

@@ -180,15 +180,11 @@ const LicenseEngine = (() => {
 
   // ── Public API ─────────────────────────────────────────────────────────────
   async function init() {
-    // Demo Mode, Local Filesystem, or non-secure contexts fallback bypass
-    const urlParams = new URLSearchParams(window.location.search);
-    const isLocalContext = window.location.protocol === 'file:' || 
-                           window.location.hostname === 'localhost' || 
-                           window.location.hostname === '127.0.0.1' || 
-                           urlParams.get('demo') === 'true';
+    // Strict licensing enforcement. Local demo bypasses are disabled for production builds.
+    const LICENSE_BYPASS = false; 
 
-    if (isLocalContext || !window.crypto || !window.crypto.subtle) {
-      console.log("[License] Running in local/demo context or Web Crypto unavailable. Bypassing license gate.");
+    if (LICENSE_BYPASS) {
+      console.log("[License] Development bypass active. Bypassing license gate.");
       window.__nexovaTier = 'ENTERPRISE';
       window.__nexovaHWID = 'DEV_LOCAL_BYPASS';
       return true; // Auto-verify

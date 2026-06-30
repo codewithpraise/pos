@@ -41,13 +41,35 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Create Server
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({ 
+  server,
+  maxPayload: 1024 * 1024 // 1MB maximum payload size to prevent memory exhaustion
+});
 
 // Set terminal ID for the server (acts as main PC master node)
 const terminalId = 'terminal_pc_master';
 
 // WebSocket active connection pool
 const activeConnections = new Set();
+
+// WebSocket Heartbeat / Keepalive to clean up dead connections (Issue 12)
+const HEARTBEAT_INTERVAL = 30000;
+setInterval(() => {
+  for (const ws of activeConnections) {
+    if (!ws.isAlive) {
+      console.log(`[SyncHub] Terminating dead socket connection for node: ${ws.nodeId || 'anonymous'}`);
+      ws.terminate();
+      activeConnections.delete(ws);
+      continue;
+    }
+    ws.isAlive = false;
+    try {
+      ws.ping();
+    } catch (e) {
+      console.warn('[SyncHub] Failed to ping socket:', e.message);
+    }
+  }
+}, HEARTBEAT_INTERVAL);
 
 let globalSyncQueue = Promise.resolve();
 
@@ -180,6 +202,9 @@ function decryptPayload(rawData) {
 
 // WebSocket Handler
 wss.on('connection', (ws) => {
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
+  
   ws.authenticated = false;
   ws.nodeId = null;
   ws.deviceRole = null;

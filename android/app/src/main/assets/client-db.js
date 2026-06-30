@@ -20,7 +20,7 @@
         {
           name: 'PBKDF2',
           salt: enc.encode(salt),
-          iterations: 1000,
+          iterations: 600000, // OWASP recommendation
           hash: 'SHA-256'
         },
         keyMaterial,
