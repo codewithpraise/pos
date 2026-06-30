@@ -1,0 +1,1660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Nexova Commerce POS</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  
+  <!-- Premium Font Pairing: Fraunces (boutique headers), Outfit (headers), Manrope (interface/numbers), Literata (receipts) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Manrope:wght@200..800&family=Outfit:wght@100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-obsidian-emerald">
+
+  <!-- MOBILE OFFLINE GLOW PILL -->
+  <div class="offline-pill" id="mobile-offline-pill">
+    <span class="pill-dot"></span>
+    <span class="pill-text">Offline (Syncing paused - safe to keep selling)</span>
+  </div>
+
+  <!-- AUTH LOCK SCREEN (Centered login PIN pad overlay) -->
+  <div class="auth-overlay active" id="auth-lock-screen">
+    <div class="auth-card">
+      <div class="security-shield" style="display: flex; justify-content: center; margin-bottom: 16px; color: var(--accent-emerald);">
+        <svg class="svg-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      <h3>SECURE REGISTER LOGIN</h3>
+      <p>Enter Cashier Security PIN to open shift register</p>
+      
+      <div style="margin-bottom: 16px; width: 100%; text-align: left;">
+        <label style="font-size: 10px; color: var(--text-gray); text-transform: uppercase; font-weight: 700; margin-bottom: 4px; display: block;">Terminal Mode:</label>
+        <select id="login-terminal-role" class="pos-input" style="min-height: 40px; height: 40px; padding: 6px 12px; font-size: 12px;">
+          <option value="REGISTER">Register Mode (POS Checkout)</option>
+          <option value="CFD">Customer Facing Display (CFD)</option>
+          <option value="KDS">Kitchen Display System (KDS)</option>
+        </select>
+      </div>
+      
+      <div class="pin-display">
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+      </div>
+      
+      <div class="pin-pad">
+        <button class="pin-btn">1</button>
+        <button class="pin-btn">2</button>
+        <button class="pin-btn">3</button>
+        <button class="pin-btn">4</button>
+        <button class="pin-btn">5</button>
+        <button class="pin-btn">6</button>
+        <button class="pin-btn">7</button>
+        <button class="pin-btn">8</button>
+        <button class="pin-btn">9</button>
+        <button class="pin-btn btn-clear">CLR</button>
+        <button class="pin-btn">0</button>
+        <button class="pin-btn btn-enter">ENT</button>
+      </div>
+      
+      <div class="auth-error-msg" id="auth-error"></div>
+      <div class="hint-credentials">Developer Seed PINs: Cashier: <strong>5678</strong> | Admin: <strong>1234</strong></div>
+    </div>
+  </div>
+
+  <!-- MAIN POS LAYOUT -->
+  <div class="pos-app-layout">
+    
+    <!-- SIDEBAR (Desktop / Tablet viewports) -->
+    <aside class="pos-sidebar" id="app-sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-logo">N</div>
+        <div class="brand-text">
+          <h1 id="sidebar-store-name">NEXOVA</h1>
+          <span>Point of Sale</span>
+        </div>
+      </div>
+      
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-screen="checkout">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          </span>
+          <span class="nav-label">Checkout</span>
+        </button>
+        <button class="nav-item" data-screen="catalog">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </span>
+          <span class="nav-label">Catalog</span>
+        </button>
+        <button class="nav-item" data-screen="catalog-manager" id="nav-catalog-manager">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          </span>
+          <span class="nav-label">Inventory</span>
+        </button>
+        <button class="nav-item" data-screen="history">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </span>
+          <span class="nav-label">History</span>
+        </button>
+        <button class="nav-item" data-screen="analytics">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+          </span>
+          <span class="nav-label">Analytics</span>
+        </button>
+        <button class="nav-item" data-screen="customers">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </span>
+          <span class="nav-label">Customers</span>
+        </button>
+        <button class="nav-item" data-screen="suppliers">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v4"/><path d="M14 2v6h6"/><path d="M20 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/><path d="M12 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/><path d="M20 18h2v-4a2 2 0 0 0-2-2h-3"/><path d="M14 18h-2"/></svg>
+          </span>
+          <span class="nav-label">Suppliers</span>
+        </button>
+        <button class="nav-item" data-screen="credit-book">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z"/><path d="M6 6h10M6 10h10"/></svg>
+          </span>
+          <span class="nav-label">Credit Book</span>
+        </button>
+        <button class="nav-item" data-screen="staff">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><circle cx="19" cy="11" r="2"/></svg>
+          </span>
+          <span class="nav-label">Staff</span>
+        </button>
+        <button class="nav-item" data-screen="logs">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </span>
+          <span class="nav-label">Sync Logs</span>
+        </button>
+        <button class="nav-item" data-screen="settings">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </span>
+          <span class="nav-label">Settings</span>
+        </button>
+      </nav>
+      
+      <div class="sidebar-footer">
+        <div class="cashier-info">
+          <div class="cashier-avatar" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 4px; border: 1px solid var(--border-titanium); background: rgba(255,255,255,0.02); color: var(--text-gray);">
+            <svg class="svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <div class="cashier-meta">
+            <span class="cashier-name" id="cashier-display-name">Cashier Name</span>
+            <span class="cashier-role" id="cashier-display-role">CASHIER</span>
+          </div>
+        </div>
+        <button class="btn-lock-shift" id="btn-lock-register" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <svg class="svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span class="btn-label">LOCK REG</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- MAIN INTERFACE VIEWPORT -->
+    <div class="pos-main-container">
+      
+      <!-- TOP STATUS BAR -->
+      <header class="pos-topbar">
+        <div class="topbar-left">
+          <button class="sidebar-toggle-btn" id="sidebar-toggle-btn">◀</button>
+          <span class="active-view-title" id="active-view-title">Checkout</span>
+        </div>
+        
+        <div class="topbar-right">
+          <div class="storage-lock-badge offline" id="storage-lock-badge">
+            <span class="lock-dot"></span>
+            <span class="lock-text" id="storage-lock-text">STORAGE: UNLOCKED</span>
+          </div>
+
+          <div class="network-badge online" id="net-badge">
+            <span class="badge-dot"></span>
+            <span class="badge-text" id="net-status-text">ONLINE</span>
+          </div>
+          
+          <div class="clock-badge">
+            <span class="badge-lbl">HLC:</span>
+            <span class="badge-val" id="hlc-clock">0000000000000:000000:web_node</span>
+          </div>
+          
+          <button class="theme-toggle-btn" id="theme-toggle-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 4px; border: 1px solid var(--border-titanium); background: transparent; color: var(--text-white); cursor: pointer;" title="Toggle Theme">
+            <svg class="svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M12 2a10 10 0 0 0 0 20Z" fill="currentColor"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- CLOCK DRIFT CRITICAL WARNING BANNER -->
+      <div class="clock-drift-banner" id="clock-drift-banner" style="display: none;">
+        <span style="display: inline-flex; align-items: center; gap: 8px;">
+          <svg class="svg-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--warning); flex-shrink: 0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <strong>SYNC PAUSED:</strong> Device system clock drift exceeds 5 minutes. Please update your device clock to match the server time to resume syncing.
+        </span>
+      </div>
+
+      <!-- SCREEN WRAPPERS -->
+      <div class="pos-content-pane">
+        
+        <!-- View 1: Checkout -->
+        <section class="content-view active" id="view-checkout">
+          <div class="checkout-split">
+            
+            <!-- Left Panel: Cart items ledger -->
+            <div class="checkout-cart">
+              <div class="ledger-header">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <span class="title">Active Order</span>
+                  <button class="btn-toggle-catalog" id="btn-toggle-quick-catalog" style="background: transparent; border: 1px solid var(--border-titanium); color: var(--text-gray); font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 4px; cursor: pointer; transition: var(--transition-tactile); min-height: 24px; text-transform: uppercase; letter-spacing: 0.5px;">Hide Grid</button>
+                </div>
+                <button class="btn-clear-cart action-danger" id="btn-void-order">Void Order</button>
+              </div>
+              
+              <div class="ledger-body">
+                <table class="cart-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 45%;">Product</th>
+                      <th style="width: 15%; text-align: right;">Price</th>
+                      <th style="width: 20%; text-align: center;">Qty</th>
+                      <th style="width: 20%; text-align: right;">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cart-items-tbody">
+                    <!-- Inserted dynamically -->
+                  </tbody>
+                </table>
+                
+                <div class="cart-empty-state" id="cart-empty-msg">
+                  <div class="empty-cart-icon" style="color: var(--text-gray); display: flex; justify-content: center; margin-bottom: 12px;">
+                    <svg class="svg-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                  </div>
+                  <p>Order cart is empty.</p>
+                  <span>Scan barcode, select products, or search database.</span>
+                </div>
+              </div>
+              
+              <div class="ledger-footer">
+                <div class="totals-grid">
+                  <div class="totals-row">
+                    <span>Subtotal</span>
+                    <span id="txt-subtotal">Rs. 0.00</span>
+                  </div>
+                  <div class="totals-row">
+                    <span id="txt-tax-rate-label">Tax (8.0%)</span>
+                    <span id="txt-tax">Rs. 0.00</span>
+                  </div>
+                  <div class="totals-row grand-total">
+                    <span>Total Due</span>
+                    <span id="txt-total">Rs. 0.00</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Middle Panel: Quick-Access Product Grid -->
+            <div class="checkout-quick-catalog" id="checkout-quick-catalog">
+              <div class="quick-catalog-header">
+                <span class="lbl">Quick Products</span>
+                <div class="quick-catalog-filters" id="checkout-quick-filters">
+                  <!-- dynamic category pills -->
+                </div>
+              </div>
+              <div class="quick-catalog-search-row">
+                <input type="text" id="checkout-quick-search" class="pos-input" placeholder="Quick search..." autocomplete="off">
+              </div>
+              <div class="quick-catalog-grid" id="checkout-quick-grid">
+                <!-- dynamic product cards -->
+              </div>
+            </div>
+
+            <!-- Right Panel: Searching catalog, attached customer, payment modes, and payment action -->
+            <div class="checkout-actions">
+              
+              <!-- SKU Catalog Search Card -->
+              <div class="action-card search-card collapsible open">
+                <div class="card-toggle-header">
+                  <span class="lbl">SKU / GTIN Lookup</span>
+                  <span class="toggle-icon">▼</span>
+                </div>
+                <div class="card-collapsible-content">
+                  <div style="display: flex; gap: 8px; width: 100%;">
+                    <input type="text" id="checkout-search-input" class="pos-input" placeholder="Search catalog sku, name, or scan barcode..." autocomplete="off" style="flex-grow: 1;">
+                    <button class="action-btn" id="btn-desktop-camera-scanner" title="Scan with camera" style="padding: 0; min-height: 48px; width: 48px; display: flex; align-items: center; justify-content: center; background: var(--panel-graphite-light); border: 1px solid var(--border-titanium); color: var(--text-white); flex-shrink: 0; cursor: pointer; transition: var(--transition-tactile);">
+                      <svg class="svg-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    </button>
+                  </div>
+                  <div class="search-dropdown" id="search-dropdown-results"></div>
+                </div>
+              </div>
+
+              <!-- Customer Loyalty Association -->
+              <div class="action-card customer-card collapsible">
+                <div class="card-toggle-header">
+                  <span class="lbl">Customer Loyalty Link</span>
+                  <span class="toggle-icon">▼</span>
+                </div>
+                <div class="card-collapsible-content">
+                  <div class="card-header-inner" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-top: 4px;">
+                    <span class="lbl" style="font-size: 10px; color: var(--text-gray);">Loyalty Profile</span>
+                    <button class="btn-link-customer" id="btn-open-customer-link">Attach</button>
+                  </div>
+                  <div class="card-body" id="checkout-customer-attached">
+                    <span class="text-muted">No customer attached to transaction.</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Payment Panel -->
+              <div class="action-card payment-card">
+                <span class="lbl">Payment Method</span>
+                <div class="payment-modes-grid">
+                  <button class="payment-btn active" data-mode="CASH" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 11px;">
+                    <svg class="svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
+                    Cash
+                  </button>
+                  <button class="payment-btn" data-mode="CARD" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 11px;">
+                    <svg class="svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                    Card
+                  </button>
+                  <button class="payment-btn" data-mode="QR" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 11px;">
+                    <svg class="svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                    QR Code
+                  </button>
+                  <button class="payment-btn" data-mode="SPLIT" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 11px;">
+                    <svg class="svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+                    Split
+                  </button>
+                  <button class="payment-btn" data-mode="CREDIT" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 11px;">
+                    <svg class="svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z"/><path d="M6 6h10M6 10h10"/></svg>
+                    Credit (Udhaar)
+                  </button>
+                </div>
+
+                <!-- Hidden split details form -->
+                <div class="split-pay-panel" id="checkout-split-fields" style="display: none;">
+                  <div class="split-row">
+                    <label>Cash portion ($):</label>
+                    <input type="number" id="split-cash-amount" class="pos-input" min="0" step="0.01" value="0.00" inputmode="decimal">
+                  </div>
+                  <div class="split-row">
+                    <label>Card portion ($):</label>
+                    <input type="number" id="split-card-amount" class="pos-input" min="0" step="0.01" value="0.00" inputmode="decimal">
+                  </div>
+                </div>
+
+                <button class="btn-checkout-pay action-success" id="btn-checkout-complete">
+                  <span>COMPLETE ORDER (F1)</span>
+                </button>
+              </div>
+
+              <!-- F-Keys Help Indicator (Collapsible) -->
+              <div class="action-card collapsible" id="card-shortcuts">
+                <div class="card-toggle-header">
+                  <span class="lbl">System Shortcuts</span>
+                  <span class="toggle-icon">▼</span>
+                </div>
+                <div class="card-collapsible-content">
+                  <div class="shortcuts-legend" style="padding-top: 4px; display: flex; flex-wrap: wrap; gap: 6px;">
+                    <span class="badge">F1: Pay</span>
+                    <span class="badge">F2: Void</span>
+                    <span class="badge">F5: Focus SKU</span>
+                    <span class="badge">F8: Speech Coach</span>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Speech NLP feedback drawer (Collapsible) -->
+              <div class="action-card collapsible" id="card-speech-coach">
+                <div class="card-toggle-header">
+                  <span class="lbl">Speech Analytics Coach</span>
+                  <span class="toggle-icon">▼</span>
+                </div>
+                <div class="card-collapsible-content">
+                  <div class="speech-nlp-box" style="padding-top: 4px;">
+                    <div class="speech-controls-row">
+                      <button class="btn-speech-trigger" id="btn-speech-record">START SPEECH COACH (F8)</button>
+                      <span class="speech-status" id="speech-status">OFFLINE</span>
+                    </div>
+                    <div class="speech-metrics-row">
+                      <span>Rate: <strong id="speech-wpm">0 WPM</strong></span>
+                      <span>Fillers: <strong id="speech-fillers">0</strong></span>
+                      <span>Sentiment: <strong id="speech-sentiment">NEUTRAL</strong></span>
+                    </div>
+                    <div class="speech-live-transcript" id="speech-live-text">
+                      Speak checkout phrases to receive disfluency reviews.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        <!-- View 2: Quick-Access Catalog (For Mobile) -->
+        <section class="content-view" id="view-catalog">
+          <div class="quick-catalog-mobile-view" style="padding: 20px; display: flex; flex-direction: column; gap: 16px; height: 100%; overflow: hidden;">
+            <div class="quick-catalog-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-titanium); padding-bottom: 12px; flex-shrink: 0;">
+              <div>
+                <h2 style="font-family: var(--font-display); font-size: 20px; color: var(--text-white); font-weight: 800; margin: 0; text-transform: uppercase;">Quick Products</h2>
+                <span style="font-size: 11px; color: var(--text-gray);">Tap items to add directly to checkout.</span>
+              </div>
+              <div class="quick-catalog-filters" id="mobile-quick-filters" style="display: flex; gap: 8px; overflow-x: auto;">
+                <!-- dynamic category pills -->
+              </div>
+            </div>
+            <div class="quick-catalog-search-row" style="flex-shrink: 0;">
+              <input type="text" id="mobile-quick-search" class="pos-input" placeholder="Search products..." autocomplete="off">
+            </div>
+            <div class="quick-catalog-grid" id="mobile-quick-grid" style="flex-grow: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; overflow-y: auto; padding-bottom: 20px;">
+              <!-- dynamic product cards -->
+            </div>
+          </div>
+        </section>
+
+        <!-- View 2.b: Catalog Manager -->
+        <section class="content-view" id="view-catalog-manager">
+          <div class="view-header">
+            <div class="header-left">
+              <h2>Product Catalog Management</h2>
+              <div class="category-filters" id="catalog-category-list">
+                <!-- populated dynamically -->
+              </div>
+            </div>
+            <button class="action-btn action-success" id="btn-catalog-create-product">+ Add Product</button>
+          </div>
+          
+          <div class="catalog-table-wrapper">
+            <div class="search-bar-row">
+              <input type="text" id="catalog-search-input" class="pos-input" placeholder="Search catalog items...">
+            </div>
+            
+            <div class="catalog-grid-table">
+              <div class="catalog-grid-header">
+                <div style="width: 15%; text-align: left;">SKU</div>
+                <div style="width: 15%; text-align: left;">GTIN</div>
+                <div style="width: 30%; text-align: left;">Product Name</div>
+                <div style="width: 15%; text-align: left;">Category</div>
+                <div style="width: 10%; text-align: right;">Base Price</div>
+                <div style="width: 10%; text-align: right;">Stock Level</div>
+                <div style="width: 10%; text-align: center;">Actions</div>
+              </div>
+              <div id="catalog-virtual-container" style="height: calc(100vh - 280px); overflow-y: auto;">
+                <!-- VirtualList will append spacer and row items dynamically here -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- View 3: Sales History -->
+        <section class="content-view" id="view-history">
+          <div class="history-layout">
+            
+            <!-- Left Column: completed transactions list -->
+            <div class="history-list-pane">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h2>Receipt History Ledger</h2>
+                <button class="btn-toggle-preview" id="btn-toggle-history-preview" style="background: transparent; border: 1px solid var(--border-titanium); color: var(--text-gray); font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 4px; cursor: pointer; transition: var(--transition-tactile); min-height: 24px; text-transform: uppercase; letter-spacing: 0.5px;">Hide Preview</button>
+              </div>
+              <div class="search-bar-row">
+                <input type="text" id="history-search-input" class="pos-input" placeholder="Search receipt transaction IDs...">
+              </div>
+              <div class="transactions-list-container" id="history-transactions-list">
+                <!-- Inserted dynamically -->
+              </div>
+            </div>
+
+            <!-- Right Column: receipt HTML print renderer -->
+            <div class="receipt-preview-pane">
+              <h3>Active Receipt Print Preview</h3>
+              <div class="receipt-paper" id="receipt-printout-render">
+                <p class="text-center text-muted" style="margin-top: 100px;">Select a completed sales transaction to preview thermal receipt details.</p>
+              </div>
+              <div class="receipt-actions">
+                <button class="action-btn action-success" id="btn-reprint-receipt-bridge">DUPLICATE RECEIPT TICKET</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- View 4: Performance Analytics -->
+        <section class="content-view" id="view-analytics">
+          <h2>Sales Dashboard & Telemetry</h2>
+          <div class="kpi-grid">
+            <div class="kpi-card accent-emerald">
+              <span class="kpi-lbl">ACCUMULATED REVENUE</span>
+              <span class="kpi-val" id="analytics-revenue-value">Rs. 0.00</span>
+            </div>
+            <div class="kpi-card accent-blue">
+              <span class="kpi-lbl">TOTAL SALES ORDERS</span>
+              <span class="kpi-val" id="analytics-orders-count">0</span>
+            </div>
+            <div class="kpi-card accent-amber">
+              <span class="kpi-lbl">AVERAGE TICKET VALUE</span>
+              <span class="kpi-val" id="analytics-average-value">Rs. 0.00</span>
+            </div>
+            <div class="kpi-card accent-coral">
+              <span class="kpi-lbl">TOTAL PIECES SOLD</span>
+              <span class="kpi-val" id="analytics-items-value">0</span>
+            </div>
+          </div>
+          
+          <div class="chart-container-card">
+            <h3>Hourly Sales Distributions</h3>
+            <div class="bar-chart-visual" id="analytics-histogram-bars">
+              <!-- Render columns dynamically -->
+            </div>
+            <div class="heatmap-legend" style="margin-top: 24px;">
+              <span>Low density hours</span>
+              <div class="legend-gradient"></div>
+              <span>Peak sales hours</span>
+            </div>
+          </div>
+
+          <!-- Cash Flow, Profit Margin & Stock Reorder dashboard -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px;">
+            <!-- Left Card: Net Cash Flow & Profit Margin Analysis -->
+            <div class="chart-container-card" style="margin-top: 0; padding: 24px; background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px;">
+              <h3>Business Intelligence & Cash Flow</h3>
+              <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-titanium); padding-bottom: 8px;">
+                  <span style="font-size: 12px; color: var(--text-gray);">Accounts Receivable (Khata Book):</span>
+                  <span style="font-weight: 700; color: var(--accent-emerald);" id="bi-receivables-val">Rs. 0.00</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-titanium); padding-bottom: 8px;">
+                  <span style="font-size: 12px; color: var(--text-gray);">Accounts Payable (Supplier Debt):</span>
+                  <span style="font-weight: 700; color: var(--alert-coral);" id="bi-payables-val">Rs. 0.00</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-titanium); padding-bottom: 8px; font-weight: 800;">
+                  <span style="font-size: 12px; color: var(--text-white);">Net Cash Position (Liquid Moat):</span>
+                  <span id="bi-net-cash-val">Rs. 0.00</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 4px;">
+                  <span style="font-size: 12px; color: var(--text-gray);">Average Profit Margin Rate:</span>
+                  <span style="font-weight: 700; color: var(--success);" id="bi-margin-rate-val">0.00%</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Card: Smart Reorder Engine Monitor -->
+            <div class="chart-container-card" style="margin-top: 0; padding: 24px; background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; display: flex; flex-direction: column; height: 100%;">
+              <h3>Smart Reorder Engine Logs</h3>
+              <div id="bi-reorder-alerts-container" style="flex-grow: 1; overflow-y: auto; font-size: 11px; margin-top: 16px; display: flex; flex-direction: column; gap: 8px; max-height: 160px;">
+                <!-- Alerts are listed dynamically -->
+                <p class="text-muted" style="text-align: center; margin-top: 20px;">All stock levels above threshold. No reorders pending.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- View 5: Customer Directory -->
+        <section class="content-view" id="view-customers">
+          <div class="view-header">
+            <h2>Loyalty Customer Database</h2>
+            <button class="action-btn action-success" id="btn-customers-create">+ Create Profile</button>
+          </div>
+          
+          <div class="customers-table-wrapper">
+            <div class="search-bar-row">
+              <input type="text" id="customers-search-input" class="pos-input" placeholder="Search profiles by name, phone or email...">
+            </div>
+            
+            <table class="catalog-table">
+              <thead>
+                <tr>
+                  <th style="width: 30%;">Customer Name</th>
+                  <th style="width: 20%;">Phone Number</th>
+                  <th style="width: 25%;">Email Address</th>
+                  <th style="width: 10%; text-align: center;">Visits</th>
+                  <th style="width: 15%; text-align: right;">Total Spend</th>
+                  <th style="width: 10%; text-align: center;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="customers-table-tbody">
+                <!-- dynamic rows -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- View 6: Staff Management -->
+        <section class="content-view" id="view-staff">
+          <div class="view-header">
+            <h2>System Employees & Cashiers</h2>
+            <button class="action-btn action-success" id="btn-staff-create">+ Add Employee</button>
+          </div>
+          
+          <div class="staff-table-wrapper">
+            <table class="catalog-table">
+              <thead>
+                <tr>
+                  <th>Employee ID</th>
+                  <th>Role Label</th>
+                  <th>Account Status</th>
+                  <th>Synchronization Clock</th>
+                  <th style="text-align: center;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="staff-table-tbody">
+                <!-- dynamic rows -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- View 7: CRDT Sync Stream Logs -->
+        <section class="content-view" id="view-logs">
+          <div class="view-header">
+            <h2>Lamport delta-CRDT Broadcast Log Feed</h2>
+            <button class="action-btn" id="btn-clear-logs-feed">Clear Stream Logs</button>
+          </div>
+          <div class="sync-logs-feed" id="sync-logs-feed-container">
+            <!-- filled by WebSocket/IndexedDB updates -->
+          </div>
+        </section>
+
+        <!-- View 8: Global Configuration settings -->
+        <section class="content-view" id="view-settings">
+          <h2>Terminal Preferences & Settings</h2>
+          
+          <div class="settings-grid">
+            <div class="settings-section">
+              <h3>Store Information</h3>
+              <div class="settings-row">
+                <label>Boutique Store Name:</label>
+                <input type="text" id="setting-store-name" class="pos-input">
+              </div>
+              <div class="settings-row">
+                <label>Tax Percentage (%):</label>
+                <input type="number" id="setting-tax-rate" class="pos-input" min="0" max="100" step="0.1">
+              </div>
+              <div class="settings-row">
+                <label>Print Tagline footer:</label>
+                <input type="text" id="setting-receipt-tagline" class="pos-input">
+              </div>
+              <div class="settings-row">
+                <label>JazzCash/EasyPaisa Wallet Phone #:</label>
+                <input type="text" id="setting-wallet-phone" class="pos-input" placeholder="e.g. +923001234567">
+              </div>
+            </div>
+
+            <div class="settings-section">
+              <h3>Network Encryption & Pair</h3>
+              <div class="settings-row">
+                <label>P2P Sync Encryption Key:</label>
+                <div class="password-wrapper">
+                  <input type="password" id="setting-sync-passphrase" class="pos-input" placeholder="Encryption Passphrase">
+                  <button type="button" class="btn-toggle-password" title="Toggle visibility">
+                    <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div style="margin-top: 12px; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                <span style="font-size: 10px; color: var(--text-gray);">Scan QR to pair client devices:</span>
+                <div id="setting-qr-container" style="background: white; padding: 12px; border-radius: 8px; width: 128px; height: 128px; display: flex; align-items: center; justify-content: center;">
+                  <!-- QR code will render here -->
+                </div>
+              </div>
+            </div>
+            
+            <div class="settings-section">
+              <h3>UI & Branding Layout</h3>
+              <div class="settings-row">
+                <label>Boutique Theme Palette:</label>
+                <select id="setting-theme-palette" class="pos-input">
+                  <option value="Obsidian Emerald">Obsidian Emerald</option>
+                  <option value="Midnight Sapphire">Midnight Sapphire</option>
+                  <option value="Warm Amber">Warm Amber</option>
+                  <option value="Minimalist Chrome">Minimalist Chrome</option>
+                  <option value="Monochrome Ivory">Monochrome Ivory</option>
+                </select>
+              </div>
+              <div class="settings-row">
+                <label>Receipt Column Width (Chars):</label>
+                <select id="setting-receipt-width" class="pos-input">
+                  <option value="42">42 Columns (Wide standard)</option>
+                  <option value="32">32 Columns (Narrow/Compact)</option>
+                </select>
+              </div>
+              <div class="settings-row flex-row">
+                <label for="setting-glass-fx" style="cursor: pointer;">Enable Glassmorphic UI filters</label>
+                <input type="checkbox" id="setting-glass-fx" class="pos-checkbox">
+              </div>
+            </div>
+
+            <!-- ── Component C: Thermal Printer & Cash Drawer ─────────────────── -->
+            <div class="settings-section full-width" id="settings-hardware" style="margin-top: 24px;">
+              <h3>Hardware: Thermal Printer &amp; Cash Drawer</h3>
+              <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 16px;">
+                Connect a USB thermal printer via WebUSB for zero-dialog receipt printing and automatic cash drawer control. For iOS / unsupported browsers, configure a local relay URL instead.
+              </p>
+              <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
+                <button class="action-btn" id="btn-connect-printer" style="min-width: 180px;">
+                  Connect USB Printer
+                </button>
+                <button class="action-btn" id="btn-drawer-closed" style="min-width: 180px;">
+                  Acknowledge Drawer Closed
+                </button>
+                <button class="action-btn action-warning" id="btn-no-sale" style="min-width: 180px;">
+                  NO SALE (Manager PIN)
+                </button>
+              </div>
+              <div class="settings-row">
+                <label>Network Relay URL (iOS / non-USB fallback):</label>
+                <input type="url" id="setting-printer-relay" class="pos-input" placeholder="e.g. http://192.168.1.100:9100" />
+              </div>
+            </div>
+
+            <!-- ── Component H: Bulk CSV Catalog Importer ─────────────────────── -->
+            <div class="settings-section full-width admin-only" id="settings-csv-import" style="margin-top: 24px; display: none;">
+              <h3>Bulk Catalog Import (CSV)</h3>
+              <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 12px;">
+                Import products from a CSV file. Required columns: <strong>sku</strong>, <strong>name</strong>. Optional: price, cost, category, stock (or qty), gtin (or barcode), emoji.<br>
+                The first row must be a header row. 100-item batches are yielded to maintain 60fps UI during import.
+              </p>
+              <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 12px;">
+                <label for="csv-import-file" class="action-btn" style="cursor: pointer; min-width: 180px; text-align: center;">
+                  📂 Choose CSV File
+                </label>
+                <input type="file" id="csv-import-file" accept=".csv,text/csv" style="display: none;" />
+                <span id="csv-import-status" style="font-size: 11px; color: var(--text-gray);"></span>
+              </div>
+              <!-- Progress bar -->
+              <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden;">
+                <div id="csv-import-progress" style="height: 100%; width: 0%; background: var(--accent-emerald); transition: width 0.2s ease; border-radius: 2px;"></div>
+              </div>
+            </div>
+
+            <div class="settings-section full-width admin-only" id="settings-device-whitelisting" style="display: none;">
+              <h3>Device Security & Pairing Requests</h3>
+              <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 12px;">Approve or reject tablet registers, CFD displays, and other nodes requesting to sync with this Master register.</p>
+              <div id="device-list-container">
+                <table class="pos-table" style="width: 100%;">
+                  <thead>
+                    <tr>
+                      <th style="text-align: left; padding: 12px 8px;">Device Name</th>
+                      <th style="text-align: left; padding: 12px 8px;">Node ID</th>
+                      <th style="text-align: left; padding: 12px 8px;">Platform / User-Agent</th>
+                      <th style="text-align: left; padding: 12px 8px;">Status</th>
+                      <th style="text-align: right; padding: 12px 8px; width: 180px;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="device-list-tbody">
+                    <!-- Populated dynamically -->
+                    <tr>
+                      <td colspan="5" style="text-align: center; color: var(--text-gray); padding: 24px;">Loading whitelisted devices...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="settings-section full-width">
+              <h3>Database Storage & Reset Checks</h3>
+              <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 12px;">Reset operations purge the local IndexedDB client shell database tables. Reseeding replaces catalog default products.</p>
+              <div class="maintenance-actions">
+                <button class="action-btn" id="btn-maintenance-reseed">RE-SEED CATALOG & SETTINGS</button>
+                <button class="action-btn action-danger" id="btn-maintenance-grand-reset">DESTRUCTIVE GRAND RESET</button>
+              </div>
+            </div>
+
+            <div class="settings-section full-width">
+              <h3>Google Drive Cloud Sync Backup</h3>
+              <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 12px;">Secure your database backup inside your personal Google Drive. It keeps data private and costs zero server hosting fees.</p>
+              <div class="settings-row" style="margin-bottom: 12px; max-width: 400px; text-align: left;">
+                <label>Google OAuth Access Token:</label>
+                <input type="password" id="setting-google-drive-token" class="pos-input" placeholder="Paste Google OAuth2 Access Token here">
+              </div>
+              <div class="maintenance-actions">
+                <button class="action-btn action-success" id="btn-cloud-sync">BACKUP TO GOOGLE DRIVE</button>
+                <span id="cloud-sync-status" style="font-size: 11px; color: var(--text-gray); font-family: monospace;">Last backup: Never</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- View 11: Suppliers (Distributors & Purchase Ledger) -->
+        <section class="content-view" id="view-suppliers">
+          <div class="view-header">
+            <h2>Suppliers & Purchase Ledger</h2>
+            <button class="action-btn action-success" id="btn-suppliers-create">+ Add Supplier</button>
+          </div>
+          
+          <div class="suppliers-split-grid" style="display: grid; grid-template-columns: 350px 1fr; gap: 24px; height: calc(100vh - 160px); align-items: start;">
+            <!-- Left panel: List of distributors -->
+            <div class="card-panel-wrapper" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 16px; height: 100%; display: flex; flex-direction: column; gap: 16px; overflow: hidden;">
+              <input type="text" id="supplier-search" class="pos-input" placeholder="Search suppliers..." style="width: 100%;">
+              <div id="supplier-list-container" style="overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;">
+                <!-- dynamic list of suppliers -->
+                <p class="text-center text-muted" style="margin-top: 50px;">No suppliers registered.</p>
+              </div>
+            </div>
+
+            <!-- Right panel: Detailed Ledger & Actions -->
+            <div class="card-panel-wrapper" id="supplier-detail-panel" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 24px; height: 100%; display:none; flex-direction: column; gap: 20px; overflow-y: auto;">
+              <!-- Dynamic details rendered here -->
+            </div>
+            
+            <div class="card-panel-wrapper" id="supplier-detail-empty" style="background: var(--panel-graphite); border: 1px dashed var(--border-titanium); border-radius: 8px; padding: 48px; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text-gray);">
+              <div>
+                <div style="display: flex; justify-content: center; margin-bottom: 20px; color: var(--accent-emerald);">
+                  <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                </div>
+                <h3>Supplier Ledger Workspace</h3>
+                <p style="font-size: 12px; max-width: 320px; margin: 8px auto 0;">Select a supplier to manage purchase orders, view invoices, and track accounts payable balances.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- View 12: Credit Book (Udhaar/Customer Credit ledger) -->
+        <section class="content-view" id="view-credit-book">
+          <div class="view-header">
+            <h2>Credit Book (Udhaar/Khata Ledger)</h2>
+          </div>
+          
+          <div class="suppliers-split-grid" style="display: grid; grid-template-columns: 350px 1fr; gap: 24px; height: calc(100vh - 160px); align-items: start;">
+            <!-- Left panel: List of customers with credit -->
+            <div class="card-panel-wrapper" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 16px; height: 100%; display: flex; flex-direction: column; gap: 16px; overflow: hidden;">
+              <input type="text" id="credit-customer-search" class="pos-input" placeholder="Search customer credit ledger..." style="width: 100%;">
+              <div id="credit-customer-list-container" style="overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;">
+                <!-- dynamic list of customers with outstanding balances -->
+                <p class="text-center text-muted" style="margin-top: 50px;">No customer credit accounts active.</p>
+              </div>
+            </div>
+
+            <!-- Right panel: Ledger details -->
+            <div class="card-panel-wrapper" id="credit-detail-panel" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 24px; height: 100%; display:none; flex-direction: column; gap: 20px; overflow-y: auto;">
+              <!-- Dynamic credit ledger statements rendered here -->
+            </div>
+
+            <div class="card-panel-wrapper" id="credit-detail-empty" style="background: var(--panel-graphite); border: 1px dashed var(--border-titanium); border-radius: 8px; padding: 48px; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text-gray);">
+              <div>
+                <div style="display: flex; justify-content: center; margin-bottom: 20px; color: var(--accent-emerald);">
+                  <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z"/></svg>
+                </div>
+                <h3>Accounts Receivable Ledger</h3>
+                <p style="font-size: 12px; max-width: 320px; margin: 8px auto 0;">Select a customer to track credit balance sheet, log payments, and generate WhatsApp recovery reminders.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+    <!-- PERSISTENT BOTTOM NAVIGATION (Mobile / Touch devices viewports) -->
+    <nav class="pos-bottom-nav">
+      <button class="nav-btn active" data-screen="checkout">
+        <span class="nav-icon">
+          <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        </span>
+        <span class="nav-label">Checkout</span>
+      </button>
+      <button class="nav-btn" data-screen="catalog">
+        <span class="nav-icon">
+          <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </span>
+        <span class="nav-label">Catalog</span>
+      </button>
+      <button class="nav-btn" data-screen="history">
+        <span class="nav-icon">
+          <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </span>
+        <span class="nav-label">History</span>
+      </button>
+      <button class="nav-btn" data-screen="settings">
+        <span class="nav-icon">
+          <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </span>
+        <span class="nav-label">Settings</span>
+      </button>
+    </nav>
+
+  </div>
+
+  <!-- DIALOG MODAL 1: ADD/EDIT PRODUCT -->
+  <div class="modal-overlay" id="modal-product">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-product-title">Add New Product</h3>
+        <button class="btn-close-modal" id="btn-close-product-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-row">
+          <label>Product SKU (Unique Key):</label>
+          <input type="text" id="form-product-sku" class="pos-input" placeholder="e.g. COFFEE-CAP">
+        </div>
+        <div class="settings-row">
+          <label>Product GTIN Barcode:</label>
+          <input type="text" id="form-product-gtin" class="pos-input" placeholder="13-digit barcode number">
+        </div>
+        <input type="hidden" id="form-product-emoji" value="">
+        <div class="settings-row">
+          <label>Product Name Label:</label>
+          <input type="text" id="form-product-name" class="pos-input" placeholder="Display product name">
+        </div>
+        <div class="settings-row">
+          <label>Visual Category:</label>
+          <select id="form-product-category" class="pos-input">
+            <option value="Drinks">Drinks</option>
+            <option value="Pastries">Pastries</option>
+            <option value="Accessories">Accessories</option>
+            <option value="Apparel">Apparel</option>
+            <option value="Utilities">Utilities</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <label>Retail Price (in cents):</label>
+          <input type="number" id="form-product-price" class="pos-input" placeholder="e.g. 350 for $3.50">
+        </div>
+        <div class="settings-row">
+          <label>Supplier Cost (in cents):</label>
+          <input type="number" id="form-product-cost" class="pos-input" placeholder="e.g. 100 for $1.00">
+        </div>
+        <div class="settings-row">
+          <label>Stock Level inventory count:</label>
+          <input type="number" id="form-product-stock" class="pos-input" placeholder="Initial stock units count">
+        </div>
+        <div class="settings-row">
+          <label>Low-Stock Alert Threshold:</label>
+          <input type="number" id="form-product-threshold" class="pos-input" placeholder="Alert threshold (default: 10)" value="10">
+        </div>
+        <div class="settings-row flex-row" id="form-product-audit-row" style="margin-top: 10px;">
+          <label for="form-product-audit-reset" style="cursor: pointer; font-size: 11px; color: var(--alert-coral); flex-grow: 1;">Physical Inventory Audit Reset (Overrides offline sales)</label>
+          <input type="checkbox" id="form-product-audit-reset" class="pos-checkbox">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="action-btn" id="btn-cancel-product-modal">Cancel</button>
+        <button class="action-btn action-success" id="btn-submit-product-modal">Save Product</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIALOG MODAL 2: ADD/EDIT CUSTOMER -->
+  <div class="modal-overlay" id="modal-customer">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-customer-title">Create Loyalty Customer</h3>
+        <button class="btn-close-modal" id="btn-close-customer-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="form-customer-id">
+        <div class="settings-row">
+          <label>Customer Full Name:</label>
+          <input type="text" id="form-customer-name" class="pos-input" placeholder="Full name">
+        </div>
+        <div class="settings-row">
+          <label>Phone Number:</label>
+          <input type="text" id="form-customer-phone" class="pos-input" placeholder="e.g. 555-0100">
+        </div>
+        <div class="settings-row">
+          <label>Email Address:</label>
+          <input type="email" id="form-customer-email" class="pos-input" placeholder="name@example.com">
+        </div>
+        <div class="settings-row" id="form-customer-spend-row" style="display:none;">
+          <label>Total Spend Balance (Cents):</label>
+          <input type="number" id="form-customer-spend" class="pos-input">
+        </div>
+        <div class="settings-row" id="form-customer-visits-row" style="display:none;">
+          <label>Visits counter:</label>
+          <input type="number" id="form-customer-visits" class="pos-input">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="action-btn" id="btn-cancel-customer-modal">Cancel</button>
+        <button class="action-btn action-success" id="btn-submit-customer-modal">Save Customer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIALOG MODAL 3: ATTACH CUSTOMER FINDER -->
+  <div class="modal-overlay" id="modal-customer-link">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Link loyalty customer profile</h3>
+        <button class="btn-close-modal" id="btn-close-customer-link-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="customer-link-search" class="pos-input" placeholder="Search customer name or phone...">
+        <div class="customer-results-list" id="customer-link-results-list" style="margin-top: 12px; max-height: 250px; overflow-y: auto;">
+          <!-- dynamic results items -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="action-btn" id="btn-create-customer-from-link">+ Create Profile</button>
+        <button class="action-btn" id="btn-close-customer-link-modal-footer">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIALOG MODAL 4: ADD EMPLOYEE -->
+  <div class="modal-overlay" id="modal-employee">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Register Employee</h3>
+        <button class="btn-close-modal" id="btn-close-employee-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-row">
+          <label>Employee ID (User ID):</label>
+          <input type="text" id="form-employee-id" class="pos-input" placeholder="e.g. emp_lucas">
+        </div>
+        <div class="settings-row">
+          <label>Register Security PIN Code (Numeric):</label>
+          <div class="password-wrapper">
+            <input type="password" id="form-employee-pin" class="pos-input" placeholder="4-digit PIN number" maxlength="4">
+            <button type="button" class="btn-toggle-password" title="Toggle visibility">
+              <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label>Employee Role:</label>
+          <select id="form-employee-role" class="pos-input">
+            <option value="CASHIER">CASHIER</option>
+            <option value="MANAGER">MANAGER</option>
+            <option value="ADMIN">ADMIN</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="action-btn" id="btn-cancel-employee-modal">Cancel</button>
+        <button class="action-btn action-success" id="btn-submit-employee-modal">Create Employee</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIALOG MODAL 5: GRAND DESTRUCTIVE RESET -->
+  <div class="modal-overlay" id="modal-reset">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="text-coral">DESTRUCTIVE GRAND RESET</h3>
+        <button class="btn-close-modal" id="btn-close-reset-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <p>This will erase all sales ledgers, customer receipts, and change logs. It will force a complete database rebuild from seed baseline. This requires Admin authentication.</p>
+        <div class="settings-row" style="margin-top: 16px;">
+          <label>Enter Admin PIN Code (e.g. 1234):</label>
+          <div class="password-wrapper">
+            <input type="password" id="reset-admin-pin-auth" class="pos-input" placeholder="Enter Admin security PIN">
+            <button type="button" class="btn-toggle-password" title="Toggle visibility">
+              <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="auth-error-msg" id="reset-modal-error"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="action-btn" id="btn-cancel-reset-modal">Cancel</button>
+        <button class="action-btn action-danger" id="btn-confirm-reset-modal">EXECUTE DATABASE PURGE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIALOG MODAL 6: BLIND SHIFT RECONCILIATION Z-REPORT -->
+  <div class="modal-overlay" id="modal-shift-reconcile">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Shift Close & Z-Report</h3>
+        <button class="btn-close-modal" id="btn-close-shift-reconcile-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 16px; font-size: 12px; color: var(--text-gray);">
+          <strong>Security Protocol:</strong> Count all cash in the drawer and declare below. Calculated system totals are hidden to prevent theft.
+        </p>
+        
+        <div class="reconcile-denominations-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+          <div class="settings-row">
+            <label>Rs. 5000 Notes:</label>
+            <input type="number" class="pos-input denom-input" data-val="5000" placeholder="0" min="0">
+          </div>
+          <div class="settings-row">
+            <label>Rs. 1000 Notes:</label>
+            <input type="number" class="pos-input denom-input" data-val="1000" placeholder="0" min="0">
+          </div>
+          <div class="settings-row">
+            <label>Rs. 500 Notes:</label>
+            <input type="number" class="pos-input denom-input" data-val="500" placeholder="0" min="0">
+          </div>
+          <div class="settings-row">
+            <label>Rs. 100 Notes:</label>
+            <input type="number" class="pos-input denom-input" data-val="100" placeholder="0" min="0">
+          </div>
+          <div class="settings-row">
+            <label>Rs. 50 Notes:</label>
+            <input type="number" class="pos-input denom-input" data-val="50" placeholder="0" min="0">
+          </div>
+          <div class="settings-row">
+            <label>Rs. 20 Notes:</label>
+            <input type="number" class="pos-input denom-input" data-val="20" placeholder="0" min="0">
+          </div>
+          <div class="settings-row">
+            <label>Rs. 10 Notes:</label>
+            <input type="number" class="pos-input denom-input" data-val="10" placeholder="0" min="0">
+          </div>
+          <div class="settings-row">
+            <label>Coins & Small Cash:</label>
+            <input type="number" class="pos-input denom-input" data-val="1" placeholder="0" min="0" step="0.01">
+          </div>
+        </div>
+
+        <div style="margin-top: 20px; padding: 12px; background: rgba(255,255,255,0.02); border: 1px dashed var(--border-titanium); border-radius: 8px; text-align: center;">
+          <span style="font-size: 11px; color: var(--text-gray); display: block; margin-bottom: 4px;">DECLARED DRAWER CASH</span>
+          <span style="font-size: 24px; font-weight: 800; color: var(--text-white);" id="shift-reconcile-total-declared">Rs. 0.00</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="action-btn" id="btn-cancel-shift-reconcile-modal">Cancel</button>
+        <button class="action-btn action-success" id="btn-submit-shift-reconcile-modal">Confirm & Lock Shift</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIALOG MODAL 7: DYNAMIC QR PAYMENT PRESENTER -->
+  <div class="modal-overlay" id="modal-qr-pay">
+    <div class="modal-card" style="max-width: 420px;">
+      <div class="modal-header">
+        <h3>Digital QR Wallet Payment</h3>
+        <button class="btn-close-modal" id="btn-close-qr-pay-modal">×</button>
+      </div>
+      <div class="modal-body" style="text-align: center; display: flex; flex-direction: column; align-items: center; gap: 16px;">
+        <span style="font-size: 12px; color: var(--text-gray);">Please scan the QR code to send payment of:</span>
+        <span style="font-size: 28px; font-weight: 800; color: var(--accent-emerald);" id="qr-pay-amount-label">$0.00</span>
+        
+        <!-- Beautiful QR Display Canvas Container -->
+        <div id="qr-pay-canvas-container" style="width: 200px; height: 200px; padding: 12px; background: white; border-radius: 4px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px rgba(0,0,0,0.4);"></div>
+
+        <span style="font-size: 10px; color: var(--text-gray);">Security verified via real-time SMS bank transaction interception pipeline.</span>
+
+        <!-- SMS INTERCEPT SIMULATOR PANEL -->
+        <div style="width: 100%; text-align: left; padding: 12px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 8px; margin-top: 10px;">
+          <span style="font-size: 11px; font-weight: 700; color: var(--warning); display: inline-flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+            <svg class="svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            SMS BANK TRANSACTION INTERCEPTOR (SANDBOX)
+          </span>
+          <div class="settings-row" style="margin-bottom: 8px;">
+            <label style="font-size: 10px;">Bank Gateway Shortcode (e.g. 8558, 3737):</label>
+            <input type="text" id="sms-sim-sender" class="pos-input" value="8558" style="padding: 4px 8px; font-size: 11px;">
+          </div>
+          <div class="settings-row" style="margin-bottom: 8px;">
+            <label style="font-size: 10px;">Encrypted Bank Transaction SMS Payload:</label>
+            <textarea id="sms-sim-body" class="pos-input" style="padding: 4px 8px; font-size: 11px; height: 50px; font-family: monospace; resize: none;"></textarea>
+          </div>
+          <button class="action-btn action-success" id="btn-trigger-sms-simulation" style="width:100%; min-height: 32px; font-size: 11px; padding: 6px;">
+            SIMULATE SECURE INCOMING BANK TRANSACTION
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="action-btn" id="btn-close-qr-pay-modal-footer">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- View 9: CFD Mode (Customer Facing Display) -->
+  <section class="content-view" id="view-cfd" style="background: var(--bg-obsidian); height: 100vh; width: 100vw; position: fixed; top: 0; left: 0; z-index: 1000; display: none; padding: 32px; box-sizing: border-box;">
+    <button id="btn-cfd-exit" style="position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.05); color: var(--text-gray); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 6px 12px; font-size: 10px; cursor: pointer; z-index: 1001;">EXIT CFD</button>
+    <div style="display: grid; grid-template-columns: 1.2fr 1fr; height: 100%; gap: 32px;">
+      <!-- Left Pane: live updating cart -->
+      <div style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 16px; padding: 32px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden;">
+        <div>
+          <h2 style="font-family: var(--font-display); font-size: 26px; color: var(--text-white); margin-bottom: 20px; border-bottom: 1px solid var(--border-titanium); padding-bottom: 12px; font-weight: 800;">YOUR ORDER</h2>
+          <div id="cfd-cart-items" style="display: flex; flex-direction: column; gap: 16px; max-height: 50vh; overflow-y: auto;">
+            <p class="text-muted" style="text-align: center; margin-top: 100px;">Ordering is open. Welcome!</p>
+          </div>
+        </div>
+        <div style="border-top: 1px dashed var(--border-titanium); padding-top: 20px; margin-top: 20px;">
+          <div style="display: flex; justify-content: space-between; font-size: 32px; font-weight: 900; color: var(--accent-emerald);">
+            <span>Total Amount</span>
+            <span id="cfd-total-amount">Rs. 0.00</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Right Pane: dynamic QR / welcome banner -->
+      <div style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 16px; padding: 32px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 24px;">
+        <div id="cfd-display-welcome" style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+          <div style="margin-bottom: 16px; color: var(--accent-emerald); display: flex; justify-content: center;">
+            <svg class="svg-icon" viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8zM6 1v3M10 1v3M14 1v3"/></svg>
+          </div>
+          <h1 style="font-family: var(--font-display); font-size: 36px; color: var(--text-white); font-weight: 900;" id="cfd-store-title">NEXOVA</h1>
+          <p style="color: var(--text-gray); font-size: 14px; margin-top: 8px;">Handcrafted Quality. Zero-Latency Sync.</p>
+        </div>
+        <div id="cfd-display-pay" style="display: none; flex-direction: column; align-items: center; justify-content: center; gap: 24px; width: 100%;">
+          <span style="font-size: 16px; color: var(--text-white); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Scan QR Code to Pay:</span>
+          <div style="width: 240px; height: 240px; padding: 16px; background: white; border-radius: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 12px 40px rgba(0,0,0,0.6);">
+            <svg width="210" height="210" viewBox="0 0 29 29" fill="none" style="shape-rendering: crispEdges;">
+              <path d="M0 0h7v7H0zM22 0h7v7h-7zM0 22h7v7H0z" fill="#000"/>
+              <path d="M2 2h3v3H2zM24 2h3v3h-3zM2 24h3v3H2zM9 0h1v4H9zM12 0h2v1h-2zM15 0h3v1h-3zM19 0h2v2h-2zM12 3h1v3h-1zM15 3h2v1h-2zM18 2v1h1v1h-1v1h1v1h-2v1h4V2h-3zM9 6v1h2V6zM15 6h1v1h-1zM12 8h1v3h-1zM14 9h2v1h-2zM18 8h3v1h-3zM10 11h1v1h-1zM15 11h3v1h-3zM21 11h1v2h-1zM23 9h4v2h-2v1h2v2h-4v-1h2v-1h-2zM0 9h2v1H0zM3 9h3v2H3zM7 9v3h1V9zM2 12h1v1H2zM4 12h3v1H4zM9 13h1v2H9zM12 14v1h3v-1zM17 14h2v1h-2zM10 16h4v1h-4zM16 16h2v3h-1v-2h-1zM19 16h2v1h-2zM23 15h5v2h-5zM22 17h1v1h-1zM25 18h1v2h-1zM28 17h1v3h-1zM0 18h4v1H0zM6 18h2v2H6zM11 19h1v1h-1zM13 19h3v1h-3zM18 20h2v1h-2zM21 21h2v1h-2zM24 21h1v1h-1zM27 21h2v1h-2zM1 21h1v2H1zM4 21h2v1H4zM7 21v2h1v-2zM9 22h2v1H9zM13 22h1v3h-1zM16 22h1v3h-1zM18 23h3v1h-3zM23 23h1v2h-1zM26 23h2v1h-2zM3 24h3v1H3z" fill="#000"/>
+            </svg>
+          </div>
+          <span style="font-size: 32px; font-weight: 900; color: var(--accent-emerald);" id="cfd-pay-total">Rs. 0.00</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- View 10: KDS Mode (Kitchen Display System) -->
+  <section class="content-view" id="view-kds" style="background: var(--bg-obsidian); height: 100vh; width: 100vw; position: fixed; top: 0; left: 0; z-index: 1000; display: none; padding: 32px; box-sizing: border-box; overflow-y: auto;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--border-titanium); padding-bottom: 16px;">
+      <h2 style="font-family: var(--font-display); font-size: 26px; color: var(--text-white); font-weight: 800; margin: 0;">KITCHEN ORDERS MONITOR</h2>
+      <button class="btn-lock-shift" id="btn-kds-exit" style="padding: 8px 16px; font-size: 12px;">EXIT KDS MODE</button>
+    </div>
+    <div id="kds-tickets-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px;">
+      <!-- dynamic ticket cards -->
+      <p class="text-muted" style="grid-column: 1/-1; text-align: center; margin-top: 100px;">No pending kitchen orders.</p>
+    </div>
+  </section>
+
+  <!-- LICENSE / LOCKOUT SYSTEM OVERLAY -->
+  <div class="auth-overlay" id="license-lockout-overlay" style="display: none; z-index: 99999; background: rgba(10, 10, 15, 0.98);">
+    <div class="auth-card" style="max-width: 480px; width: 90%; padding: 36px; border: 2px solid var(--alert-coral); box-shadow: 0 20px 50px rgba(0,0,0,0.8);">
+      <div style="display: flex; justify-content: center; margin-bottom: 20px; color: var(--alert-coral);">
+        <svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <h3 style="font-family: var(--font-display); font-size: 22px; color: var(--text-white); font-weight: 800; margin-bottom: 8px; text-transform: uppercase; text-align: center;" id="license-lockout-title">REGISTER SYSTEM LOCKED</h3>
+      <p style="font-size: 12px; color: var(--text-gray); margin-bottom: 24px; line-height: 1.5; text-align: center;" id="license-lockout-desc">Your Nexova trial license has expired. Please enter a valid activation key or bind a phone number to continue operations.</p>
+      
+      <div style="display: flex; flex-direction: column; gap: 16px; width: 100%;">
+        <div class="settings-row" style="text-align: left;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">LICENSE ACTIVATION KEY:</label>
+          <input type="text" id="lockout-license-key" class="pos-input" placeholder="e.g. NEXOVA-PRO-ABCD-EFGH" style="margin-top: 4px; text-transform: uppercase;">
+        </div>
+        
+        <!-- EasyPaisa/JazzCash OTP Phone Verification option -->
+        <div style="border-top: 1px dashed var(--border-titanium); padding-top: 16px; margin-top: 8px; text-align: left;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">MOBILE PHONE BINDING (OTP verification):</label>
+          <div style="display: flex; gap: 8px; margin-top: 4px;">
+            <input type="text" id="lockout-phone" class="pos-input" placeholder="03XXXXXXXXX" style="flex-grow: 1;">
+            <button class="action-btn action-success" id="btn-lockout-send-otp" style="min-width: 100px; font-size: 11px;">Send OTP</button>
+          </div>
+        </div>
+
+        <div id="lockout-otp-row" style="display: none; text-align: left;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">ENTER 6-DIGIT OTP:</label>
+          <input type="text" id="lockout-otp-code" class="pos-input" placeholder="XXXXXX" maxlength="6" style="margin-top: 4px;">
+        </div>
+
+        <div id="lockout-error-msg" style="color: var(--alert-coral); font-size: 11px; font-weight: 700; text-align: center; display: none;"></div>
+        
+        <button class="action-btn action-success" id="btn-lockout-submit" style="width: 100%; min-height: 48px; margin-top: 12px; font-weight: 800; font-size: 13px; text-transform: uppercase;">
+          ACTIVATE REGISTER
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FIRST BOOT ONBOARDING WIZARD OVERLAY -->
+  <div class="auth-overlay" id="first-boot-wizard" style="display: none; z-index: 9999;">
+    <div class="auth-card" style="max-width: 540px; width: 90%; padding: 36px; background: rgba(18, 24, 36, 0.96); border: 2px solid var(--accent-emerald); box-shadow: 0 20px 50px rgba(0,0,0,0.8);">
+      <div class="security-shield" style="display: flex; justify-content: center; margin-bottom: 16px; color: var(--accent-emerald);">
+        <svg class="svg-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      <h3 style="font-family: var(--font-display); font-size: 24px; color: var(--text-white); font-weight: 800; margin-bottom: 8px; text-transform: uppercase;">NEXOVA CORE BOOTSTRAP</h3>
+      <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 24px; line-height: 1.4;">Configure your zero-trust offline-resilient register node. No internet data leaks, complete tenant isolation.</p>
+      
+      <div class="wizard-step" id="wizard-step-1" style="width: 100%; text-align: left; display: flex; flex-direction: column; gap: 16px;">
+        <div class="settings-row" style="margin-bottom: 4px;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">BOOTSTRAP STRATEGY:</label>
+          <select id="wizard-setup-type" class="pos-input" style="margin-top: 4px;">
+            <option value="NEW">Bootstrap a New Store Network</option>
+            <option value="JOIN">Join an Existing Store Network</option>
+          </select>
+        </div>
+        
+        <div id="wizard-new-store-fields" style="display: flex; flex-direction: column; gap: 16px; width: 100%;">
+          <div class="settings-row">
+            <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">BOUTIQUE STORE NAME:</label>
+            <input type="text" id="wizard-store-name" class="pos-input" placeholder="e.g. MONOCHROME COFFEE" style="margin-top: 4px;">
+          </div>
+          <div class="settings-row">
+            <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">TAX PERCENTAGE RATE (%):</label>
+            <input type="number" id="wizard-tax-rate" class="pos-input" value="8.0" step="0.1" style="margin-top: 4px;">
+          </div>
+          <div class="settings-row">
+            <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">OWNER SECURITY PIN (4-digit):</label>
+            <div class="password-wrapper">
+              <input type="password" id="wizard-admin-pin" class="pos-input" placeholder="e.g. 1234" maxlength="4" style="margin-top: 4px;">
+              <button type="button" class="btn-toggle-password" title="Toggle visibility">
+                <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="settings-row">
+            <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">NETWORK ENCRYPTION SECRET KEY:</label>
+            <div class="password-wrapper">
+              <input type="password" id="wizard-sync-passphrase" class="pos-input" placeholder="Passphrase to encrypt all P2P local Wi-Fi data" style="margin-top: 4px;">
+              <button type="button" class="btn-toggle-password" title="Toggle visibility">
+                <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="settings-row">
+            <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">BRANDING COLOR PALETTE:</label>
+            <select id="wizard-theme" class="pos-input" style="margin-top: 4px;">
+              <option value="Obsidian Emerald">Obsidian Emerald</option>
+              <option value="Midnight Sapphire">Midnight Sapphire</option>
+              <option value="Warm Amber">Warm Amber</option>
+              <option value="Minimalist Chrome">Minimalist Chrome</option>
+              <option value="Monochrome Ivory">Monochrome Ivory</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="wizard-join-store-fields" style="display: none; flex-direction: column; gap: 16px; width: 100%;">
+          <div class="settings-row">
+            <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">SCAN PAIRING QR CODE:</label>
+            <button type="button" class="action-btn action-success" id="btn-wizard-scan-qr" style="width: 100%; margin-top: 4px;">SCAN PARTNER REGISTER QR</button>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 10px; color: var(--text-gray); text-transform: uppercase;">
+            <div style="flex: 1; height: 1px; background: var(--border-titanium);"></div>
+            <span>or enter manually</span>
+            <div style="flex: 1; height: 1px; background: var(--border-titanium);"></div>
+          </div>
+          <div class="settings-row">
+            <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">PRIMARY REGISTER SERVER URL:</label>
+            <input type="url" id="wizard-join-server-url" class="pos-input" placeholder="e.g. http://192.168.1.100:3000" style="margin-top: 4px;">
+          </div>
+          <div class="settings-row">
+            <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">ENTER SHARED SYNC PASSPHRASE KEY:</label>
+            <div class="password-wrapper">
+              <input type="password" id="wizard-join-passphrase" class="pos-input" placeholder="Required to decrypt network traffic" style="margin-top: 4px;">
+              <button type="button" class="btn-toggle-password" title="Toggle visibility">
+                <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              </button>
+            </div>
+          </div>
+          <p style="font-size: 10px; color: var(--text-gray); line-height: 1.4; margin-top: 8px;">
+            * This terminal will automatically join and sync catalog products, cashier settings, and order history from active peer master registers.
+          </p>
+        </div>
+        
+        <!-- ── EULA + Legal Acceptance (Component L) ── -->
+        <div style="margin-top: 20px; padding: 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 6px;">
+          <p style="font-size: 11px; color: var(--text-gray); line-height: 1.7; margin: 0 0 12px;">
+            <strong style="color: var(--text-white); display: block; margin-bottom: 6px; font-size: 12px;">END-USER LICENSE AGREEMENT</strong>
+            <strong>(1) AS-IS SOFTWARE:</strong> Nexova Commerce is provided "as-is" without any warranty, express or implied. The developer is not liable for any financial loss, data corruption, or business disruption arising from use of this software.<br><br>
+            <strong>(2) DATA RESPONSIBILITY:</strong> All transaction data, customer records, and inventory information is stored locally on this device and/or your designated sync server. The developer has zero access to, and assumes zero liability for, your business data. You are solely responsible for backups and regulatory compliance.<br><br>
+            <strong>(3) LICENSE REVOCATION:</strong> Use of this software without a valid cryptographic license key constitutes a breach of this agreement and entitles the developer to remotely invalidate the license at any time.
+          </p>
+          <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
+            <input type="checkbox" id="wizard-eula-checkbox" style="margin-top: 2px; accent-color: var(--accent-emerald); width: 16px; height: 16px; flex-shrink: 0;" />
+            <span style="font-size: 11px; color: var(--text-gray);">I have read and agree to the End-User License Agreement. I understand that all data is my sole responsibility.</span>
+          </label>
+        </div>
+
+        <button class="action-btn action-success" id="btn-submit-wizard" style="width: 100%; min-height: 48px; margin-top: 16px; font-weight: 800; font-size: 13px; text-transform: uppercase;">
+          CONFIRM STORE BOOTSTRAP
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEVICE PAIRING / WHITELIST OVERLAY -->
+  <div class="auth-overlay" id="device-pairing-overlay" style="display: none; z-index: 9998;">
+    <div class="auth-card" style="max-width: 480px; width: 90%; padding: 36px; background: #000000; border: 1px solid var(--border-titanium); border-radius: 4px;">
+      <div id="device-pairing-icon" style="margin-bottom: 16px; color: var(--accent-emerald); display: flex; justify-content: center;">
+        <svg class="svg-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      <h3 id="device-pairing-title" style="font-family: var(--font-display); font-size: 20px; color: var(--text-white); font-weight: 800; margin-bottom: 8px; text-transform: uppercase; text-align: center;">Device Pairing Required</h3>
+      <p id="device-pairing-desc" style="font-size: 12px; color: var(--text-gray); margin-bottom: 24px; line-height: 1.5; text-align: center;">This terminal is not yet registered. Enter a friendly name to request pairing with the master PC.</p>
+      
+      <div id="device-pairing-form" style="width: 100%; text-align: left; display: flex; flex-direction: column; gap: 16px;">
+        <div class="settings-row">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">DEVICE FRIENDLY NAME:</label>
+          <input type="text" id="pairing-device-name" class="pos-input" placeholder="e.g. Drive-Thru Tablet" style="margin-top: 4px; border-radius: 4px; width: 100%;">
+        </div>
+        <div class="settings-row">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">NETWORK ENCRYPTION KEY (PASSPHRASE):</label>
+          <div class="password-wrapper">
+            <input type="password" id="pairing-sync-passphrase" class="pos-input" placeholder="Enter store network key" style="margin-top: 4px; border-radius: 4px; width: 100%;">
+            <button type="button" class="btn-toggle-password" title="Toggle visibility">
+              <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
+        </div>
+        <button class="action-btn action-success" id="btn-submit-pairing" style="width: 100%; min-height: 48px; font-weight: 800; font-size: 13px; text-transform: uppercase; border-radius: 4px; margin-top: 10px;">
+          Request Pairing
+        </button>
+      </div>
+      
+      <div id="device-pairing-pending" style="width: 100%; display: none; flex-direction: column; align-items: center; gap: 16px;">
+        <div class="loader-spinner" style="border: 2px solid rgba(255,255,255,0.05); border-top: 2px solid var(--accent-emerald); width: 32px; height: 32px; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+        <p style="font-size: 12px; color: var(--text-gray); line-height: 1.5; text-align: center;">
+          Pairing request submitted as <strong id="pairing-submitted-name" style="color: var(--text-white);"></strong>.<br>
+          Ask your Admin to approve device <strong id="pairing-device-id" style="color: var(--accent-emerald);"></strong> in the Master PC Settings panel.
+        </p>
+        <div id="pairing-qr-container" style="background: white; padding: 12px; border-radius: 4px; margin-top: 8px; width: 144px; height: 144px; display: flex; align-items: center; justify-content: center;"></div>
+        <button class="action-btn action-secondary" id="btn-cancel-pairing" style="width: 100%; min-height: 36px; margin-top: 12px; border-radius: 4px; font-size: 11px; text-transform: uppercase;">
+          Request Again / Change Name
+        </button>
+      </div>
+    </div>
+  </div>
+
+  </div>
+
+  <!-- DIALOG MODAL 11: ADD/EDIT SUPPLIER (DISTRIBUTOR) -->
+  <div class="modal-overlay" id="modal-supplier">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-supplier-title">Add New Supplier</h3>
+        <button class="btn-close-modal" id="btn-close-supplier-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="form-supplier-id">
+        <div class="settings-row">
+          <label>Supplier / Distributor Name:</label>
+          <input type="text" id="form-supplier-name" class="pos-input" placeholder="e.g. Metro Wholesale Pakistan">
+        </div>
+        <div class="settings-row">
+          <label>Phone Number:</label>
+          <input type="text" id="form-supplier-phone" class="pos-input" placeholder="e.g. +92-300-1234567">
+        </div>
+        <div class="settings-row">
+          <label>Email Address:</label>
+          <input type="email" id="form-supplier-email" class="pos-input" placeholder="distributor@wholesale.com">
+        </div>
+        <div class="settings-row">
+          <label>Office Address:</label>
+          <input type="text" id="form-supplier-address" class="pos-input" placeholder="Distributor address">
+        </div>
+        <div class="settings-row">
+          <label>Credit Limit (in minor units / paisas):</label>
+          <input type="number" id="form-supplier-credit-limit" class="pos-input" placeholder="e.g. 50000000 for Rs. 500,000">
+        </div>
+        <div class="settings-row">
+          <label>Additional Notes:</label>
+          <textarea id="form-supplier-notes" class="pos-input" placeholder="Contract terms or remarks..." style="height: 60px; resize: none;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="action-btn" id="btn-cancel-supplier-modal">Cancel</button>
+        <button class="action-btn action-success" id="btn-submit-supplier-modal">Save Supplier</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIALOG MODAL 12: CREATE PURCHASE ORDER -->
+  <div class="modal-overlay" id="modal-po">
+    <div class="modal-card" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3>Create Purchase Order (PO)</h3>
+        <button class="btn-close-modal" id="btn-close-po-modal">×</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+        <input type="hidden" id="form-po-distributor-id">
+        
+        <div class="settings-row">
+          <label>Target Supplier:</label>
+          <input type="text" id="form-po-distributor-name" class="pos-input" readonly style="opacity: 0.7;">
+        </div>
+
+        <div style="border-top: 1px solid var(--border-titanium); padding-top: 12px;">
+          <h4 style="margin-bottom: 8px; font-size: 12px; color: var(--text-white);">Order Items Selection</h4>
+          
+          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <select id="form-po-item-sku-select" class="pos-input" style="flex-grow: 1;">
+              <option value="">-- Select Product --</option>
+              <!-- filled by JS -->
+            </select>
+            <input type="number" id="form-po-item-qty" class="pos-input" placeholder="Qty" style="width: 80px;" min="1" value="10">
+            <input type="number" id="form-po-item-cost" class="pos-input" placeholder="Cost price" style="width: 100px;">
+            <button class="action-btn action-success" id="btn-po-add-item-row" style="min-height: 40px; padding: 6px 12px;">Add</button>
+          </div>
+
+          <table class="cart-table" style="font-size: 11px;">
+            <thead>
+              <tr>
+                <th style="width: 40%;">Product</th>
+                <th style="width: 15%; text-align: center;">Qty</th>
+                <th style="width: 20%; text-align: right;">Unit Cost</th>
+                <th style="width: 20%; text-align: right;">Subtotal</th>
+                <th style="width: 5%; text-align: center;"></th>
+              </tr>
+            </thead>
+            <tbody id="po-items-tbody">
+              <!-- items inserted here -->
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="settings-row">
+            <label>Expected Delivery Date:</label>
+            <input type="date" id="form-po-expected-delivery" class="pos-input">
+          </div>
+          <div class="settings-row">
+            <label>PO Status:</label>
+            <select id="form-po-status" class="pos-input">
+              <option value="DRAFT">DRAFT</option>
+              <option value="SENT">SENT</option>
+              <option value="CONFIRMED">CONFIRMED</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="settings-row">
+          <label>PO Instruction Notes:</label>
+          <input type="text" id="form-po-notes" class="pos-input" placeholder="e.g. deliver to back warehouse gate">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="action-btn" id="btn-cancel-po-modal">Cancel</button>
+        <button class="action-btn action-success" id="btn-submit-po-modal">Generate Purchase Order</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIALOG MODAL 13: RECORD DISTRIBUTOR PAYMENT -->
+  <div class="modal-overlay" id="modal-distributor-payment">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Record Supplier Payment</h3>
+        <button class="btn-close-modal" id="btn-close-distributor-payment-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="form-dp-distributor-id">
+        <div class="settings-row">
+          <label>Supplier Name:</label>
+          <input type="text" id="form-dp-distributor-name" class="pos-input" readonly style="opacity: 0.7;">
+        </div>
+        <div class="settings-row">
+          <label>Select Purchase Order Reference (Optional):</label>
+          <select id="form-dp-po-id" class="pos-input">
+            <option value="">-- No Direct PO Reference --</option>
+            <!-- filled by JS -->
+          </select>
+        </div>
+        <div class="settings-row">
+          <label>Payment Amount (in Rupees):</label>
+          <input type="number" id="form-dp-amount" class="pos-input" placeholder="e.g. 15000 for Rs. 15,000" min="1" step="0.01">
+        </div>
+        <div class="settings-row">
+          <label>Payment Mode / Account Channel:</label>
+          <select id="form-dp-method" class="pos-input">
+            <option value="CASH">Cash Drawer</option>
+            <option value="BANK_TRANSFER">Bank HBL/UBL Transfer</option>
+            <option value="RAAST">Raast Direct Pay</option>
+            <option value="EASYPAISA">EasyPaisa Wallet</option>
+            <option value="JAZZCASH">JazzCash Wallet</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <label>Reference Note (Receipt # / TX Hash):</label>
+          <input type="text" id="form-dp-ref-note" class="pos-input" placeholder="e.g. Trans ID: 29420842042">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="action-btn" id="btn-cancel-distributor-payment-modal">Cancel</button>
+        <button class="action-btn action-success" id="btn-submit-distributor-payment-modal">Post Supplier Payment</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIALOG MODAL 14: GOODS RECEIPT NOTE (GRN) PO RECEIVAL -->
+  <div class="modal-overlay" id="modal-po-receive">
+    <div class="modal-card" style="max-width: 500px;">
+      <div class="modal-header">
+        <h3>Goods Receipt Note (GRN) Entry</h3>
+        <button class="btn-close-modal" id="btn-close-po-receive-modal">×</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+        <input type="hidden" id="form-recv-po-id">
+        <p style="font-size: 11px; color: var(--text-gray);">
+          Verify incoming physical cargo boxes against generated Purchase Order items. Unsaved received amounts will automatically post to current stock levels.
+        </p>
+        <table class="cart-table" style="font-size: 11px;">
+          <thead>
+            <tr>
+              <th style="width: 50%;">Product</th>
+              <th style="width: 25%; text-align: center;">Ordered / Recv</th>
+              <th style="width: 25%; text-align: right;">Receive Now</th>
+            </tr>
+          </thead>
+          <tbody id="po-receive-tbody">
+            <!-- dynamic items -->
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button class="action-btn" id="btn-cancel-po-receive-modal">Cancel</button>
+        <button class="action-btn action-success" id="btn-submit-po-receive-modal">Approve GRN & Update Inventory</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FLOATING SCANNER FAB (Mobile only) -->
+  <button class="floating-scanner-fab" id="btn-mobile-scanner-fab" title="Scan Barcode" style="display: flex; align-items: center; justify-content: center;">
+    <span class="fab-icon" style="display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;">
+      <svg class="svg-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+    </span>
+  </button>
+
+  <!-- CAMERA BARCODE SCANNER MODAL -->
+  <div class="modal-overlay scanner-overlay" id="modal-mobile-scanner">
+    <div class="scanner-viewport">
+      <video id="scanner-video" autoplay playsinline muted></video>
+      <div class="scanner-laser"></div>
+      <div class="scanner-frame"></div>
+      <button class="btn-close-scanner" id="btn-close-mobile-scanner">×</button>
+      <div class="scanner-footer-input">
+        <input type="text" id="scanner-manual-input" placeholder="Type barcode and press Enter..." class="pos-input">
+      </div>
+    </div>
+  </div>
+
+  <!-- ZXING BARCODE DECODER LIBRARY (Polyfill Fallback) -->
+  <script src="https://unpkg.com/@zxing/library@0.21.0/umd/index.min.js"></script>
+  <!-- DATABASE MANAGER -->
+  <script src="client-db.js"></script>
+  <!-- AUDIO FEEDBACK BRIDGE -->
+  <script src="client-audio.js"></script>
+  <!-- SPEECH ANALYTICS PROCESSOR -->
+  <script src="client-speech.js"></script>
+  <!-- OFFLINE QR CODE ENGINE -->
+  <script src="qrcode.min.js"></script>
+  <!-- CRYPTOGRAPHIC LICENSE ENGINE — must load before app.js -->
+  <script src="license-engine.js"></script>
+  <!-- VIRTUAL LIST WINDOWING ENGINE — 60fps for large catalogs -->
+  <script src="virtual-list.js"></script>
+  <!-- ESC/POS THERMAL PRINTER ENGINE — WebUSB direct printing -->
+  <script src="escpos-engine.js"></script>
+  <!-- MAIN CONTROLLER REGISTER -->
+  <script src="app.js"></script>
+
+  <!-- PWA Service Worker bootstrap -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then((reg) => console.log('[PWA] Service worker registered successfully. Scope:', reg.scope))
+          .catch((err) => console.warn('[PWA] Service worker registration failed:', err));
+      });
+    }
+  </script>
+</body>
+</html>

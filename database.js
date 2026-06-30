@@ -1,0 +1,983 @@
+// ============================================================================
+// NEXOVA COMMERCE ECOSYSTEM - SECURE LOCAL DATABASE LAYER (WAL MODE)
+// Powered by SQLite with asynchronous Promise wrappers & change logging
+// ============================================================================
+
+const path = require('path');
+const sqlite3 = require('sqlite3').verbose();
+const crypto = require('crypto');
+const { HLC, shouldApplyDelta } = require('./crdt-engine');
+
+const dbPath = path.join(__dirname, 'nexova.db');
+let sqliteDb = null;
+let currentHlc = null;
+let currentDbVersion = 0; // Incremented on each local transaction change
+
+// Schema version: increment when adding columns/tables that clients must have before syncing
+const SERVER_SCHEMA_VERSION = 3;
+module.exports && Object.assign(module.exports, { SERVER_SCHEMA_VERSION });
+
+// Secure PBKDF2 password hashing helper (OWASP approved, zero external dependencies)
+function hashPin(pin, salt) {
+  if (!salt) salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.pbkdf2Sync(pin, salt, 100000, 64, 'sha256').toString('hex');
+  return `${salt}:${hash}`;
+}
+
+function verifyPin(pin, storedHash) {
+  if (!storedHash || !storedHash.includes(':')) return false;
+  const [salt, hash] = storedHash.split(':');
+  const checkHash = crypto.pbkdf2Sync(pin, salt, 100000, 64, 'sha256').toString('hex');
+  return hash === checkHash;
+}
+
+// Asynchronous wrapper for sqlite3 commands
+const db = {
+  run(sql, params = []) {
+    return new Promise((resolve, reject) => {
+      sqliteDb.run(sql, params, function (err) {
+        if (err) reject(err);
+        else resolve({ lastID: this.lastID, changes: this.changes });
+      });
+    });
+  },
+  all(sql, params = []) {
+    return new Promise((resolve, reject) => {
+      sqliteDb.all(sql, params, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+  },
+  get(sql, params = []) {
+    return new Promise((resolve, reject) => {
+      sqliteDb.get(sql, params, (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+  },
+  exec(sql) {
+    return new Promise((resolve, reject) => {
+      sqliteDb.exec(sql, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  },
+  async beginImmediate() {
+    await this.run('BEGIN IMMEDIATE TRANSACTION;');
+  },
+  async commit() {
+    await this.run('COMMIT;');
+  },
+  async rollback() {
+    await this.run('ROLLBACK;');
+  }
+};
+
+// Initialize Database & WAL mode
+async function initDatabase(terminalId) {
+  currentHlc = new HLC(terminalId || 'terminal_pc_01');
+  
+  sqliteDb = new sqlite3.Database(dbPath);
+  
+  // Enable WAL + maximum durability under power failure
+  await db.exec('PRAGMA journal_mode = WAL;');
+  await db.exec('PRAGMA foreign_keys = ON;');
+  await db.exec('PRAGMA synchronous = FULL;');  // Survive sudden power cuts at cost of ~10% write speed
+  try { await db.exec('PRAGMA strict = ON;'); } catch(e) {} // SQLite ≥3.37 strict type enforcement
+
+  console.log('[Database] Schema version:', SERVER_SCHEMA_VERSION);
+  console.log('[Database] Executing SQLite index maintenance pass...');
+  try {
+    await db.exec('PRAGMA reindex;');
+    await db.exec('PRAGMA vacuum;');
+    await db.exec('PRAGMA analyze;');
+    console.log('[Database] SQLite optimization pass completed.');
+  } catch (err) {
+    console.warn('[Database] SQLite optimization pass was bypassed:', err.message);
+  }
+  
+  // Create schemas for all 6 domains
+  await db.exec(`
+    -- Domain 1: Transaction & LineItem Core Ledger
+    CREATE TABLE IF NOT EXISTS transactions (
+      id TEXT PRIMARY KEY,
+      employee_id TEXT,
+      terminal_id TEXT,
+      subtotal_minor_units INTEGER,
+      tax_minor_units INTEGER,
+      total_minor_units INTEGER,
+      status TEXT, -- DRAFT, HELD, COMPLETED, VOIDED
+      payment_mode TEXT DEFAULT 'CASH',
+      payment_details TEXT DEFAULT '',
+      created_at INTEGER,
+      updated_at INTEGER,
+      sync_hlc TEXT,
+      is_dirty INTEGER,
+      is_deleted INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS line_items (
+      id TEXT PRIMARY KEY,
+      transaction_id TEXT,
+      sku TEXT,
+      quantity INTEGER,
+      unit_price_minor_units INTEGER,
+      applied_discount_minor_units INTEGER,
+      sync_hlc TEXT,
+      is_deleted INTEGER,
+      FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
+      FOREIGN KEY(sku) REFERENCES inventory_catalog(sku) ON DELETE RESTRICT
+    );
+
+    -- Domain 2: Inventory & Stock Management
+    CREATE TABLE IF NOT EXISTS inventory_catalog (
+      sku TEXT PRIMARY KEY,
+      gtin TEXT UNIQUE,
+      name TEXT,
+      base_price_minor_units INTEGER,
+      stock_level INTEGER,
+      reserved_stock INTEGER,
+      search_vector TEXT,
+      col_version INTEGER,
+      sync_hlc TEXT
+    );
+
+    -- Domain 3: Employee Access & Security
+    CREATE TABLE IF NOT EXISTS employees (
+      id TEXT PRIMARY KEY,
+      auth_hash TEXT,
+      biometric_token TEXT,
+      role TEXT, -- CASHIER, MANAGER, ADMIN
+      is_active INTEGER,
+      sync_hlc TEXT
+    );
+
+    -- Domain 4: Sync Queues & CRDT Delta payloads
+    CREATE TABLE IF NOT EXISTS crsql_changes (
+      table_name TEXT,
+      pk TEXT,
+      cid TEXT,
+      val TEXT,
+      col_version INTEGER,
+      db_version INTEGER,
+      site_id TEXT,
+      cl INTEGER, -- causal length (1 for active, 0 for tombstone/delete)
+      sync_hlc TEXT,
+      PRIMARY KEY (table_name, pk, cid)
+    );
+
+    -- Domain 5: Speech Analytics & Fraud Logs
+    CREATE TABLE IF NOT EXISTS speech_analytics_logs (
+      id TEXT PRIMARY KEY,
+      transaction_id TEXT,
+      utterance_duration_ms INTEGER,
+      speaker_diarization_tag TEXT,
+      filler_word_count INTEGER,
+      sentiment_score REAL,
+      flagged_fraud_risk INTEGER,
+      disfluency_markers TEXT, -- JSON Array
+      sync_hlc TEXT,
+      FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE SET NULL
+    );
+
+    -- Domain 6: Local Preference Data Store
+    CREATE TABLE IF NOT EXISTS local_preferences (
+      key TEXT PRIMARY KEY,
+      value_type TEXT, -- INT, STR, BOOL, JSON
+      value_payload TEXT,
+      is_idempotent_flag INTEGER,
+      updated_at INTEGER
+    );
+
+    -- Domain 7: Customers
+    CREATE TABLE IF NOT EXISTS customers (
+      id TEXT PRIMARY KEY,
+      name TEXT,
+      phone TEXT,
+      email TEXT,
+      total_spend_cents INTEGER DEFAULT 0,
+      visits INTEGER DEFAULT 0,
+      created_at INTEGER,
+      sync_hlc TEXT
+    );
+
+    -- Domain 8: Categories
+    CREATE TABLE IF NOT EXISTS categories (
+      name TEXT PRIMARY KEY,
+      sync_hlc TEXT
+    );
+
+    -- Domain 9: Stock Movements
+    CREATE TABLE IF NOT EXISTS stock_movements (
+      id TEXT PRIMARY KEY,
+      sku TEXT,
+      change_qty INTEGER,
+      reason TEXT,
+      created_at INTEGER,
+      sync_hlc TEXT
+    );
+
+    -- Domain 10: Employee Shifts
+    CREATE TABLE IF NOT EXISTS employee_shifts (
+      id TEXT PRIMARY KEY,
+      employee_id TEXT,
+      clock_in INTEGER,
+      clock_out INTEGER,
+      sync_hlc TEXT
+    );
+
+    -- Domain 11: Approved Devices Whitelist
+    CREATE TABLE IF NOT EXISTS approved_devices (
+      node_id TEXT PRIMARY KEY,
+      device_name TEXT,
+      user_agent TEXT,
+      approved_at INTEGER,
+      status TEXT
+    );
+
+    -- Domain 12: Distributors (Suppliers)
+    CREATE TABLE IF NOT EXISTS distributors (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      phone TEXT,
+      email TEXT,
+      address TEXT,
+      credit_limit_minor INTEGER DEFAULT 0,
+      notes TEXT,
+      created_at INTEGER,
+      sync_hlc TEXT,
+      is_deleted INTEGER DEFAULT 0
+    );
+
+    -- Domain 13: Purchase Orders
+    CREATE TABLE IF NOT EXISTS purchase_orders (
+      id TEXT PRIMARY KEY,
+      distributor_id TEXT NOT NULL,
+      status TEXT DEFAULT 'DRAFT',  -- DRAFT, SENT, CONFIRMED, PARTIAL, RECEIVED, CANCELLED
+      total_minor INTEGER DEFAULT 0,
+      notes TEXT,
+      expected_delivery INTEGER,
+      created_at INTEGER,
+      updated_at INTEGER,
+      sync_hlc TEXT,
+      is_deleted INTEGER DEFAULT 0
+    );
+
+    -- Domain 14: Purchase Order Line Items
+    CREATE TABLE IF NOT EXISTS po_line_items (
+      id TEXT PRIMARY KEY,
+      po_id TEXT NOT NULL,
+      sku TEXT,
+      product_name TEXT,
+      quantity_ordered INTEGER,
+      quantity_received INTEGER DEFAULT 0,
+      unit_cost_minor INTEGER,
+      sync_hlc TEXT,
+      is_deleted INTEGER DEFAULT 0
+    );
+
+    -- Domain 15: Distributor Payments
+    CREATE TABLE IF NOT EXISTS distributor_payments (
+      id TEXT PRIMARY KEY,
+      distributor_id TEXT NOT NULL,
+      po_id TEXT,
+      amount_minor INTEGER NOT NULL,
+      payment_method TEXT DEFAULT 'CASH',
+      reference_note TEXT,
+      paid_at INTEGER,
+      sync_hlc TEXT,
+      is_deleted INTEGER DEFAULT 0
+    );
+
+    -- Domain 16: Customer Credit Ledger (Udhaar/Khata)
+    CREATE TABLE IF NOT EXISTS customer_credit (
+      id TEXT PRIMARY KEY,
+      customer_id TEXT NOT NULL,
+      transaction_id TEXT,
+      type TEXT,  -- CREDIT, PAYMENT
+      amount_minor INTEGER NOT NULL,
+      payment_method TEXT DEFAULT 'CASH',
+      due_date INTEGER,
+      notes TEXT,
+      created_at INTEGER,
+      sync_hlc TEXT,
+      is_deleted INTEGER DEFAULT 0
+    );
+
+    -- Domain 17: FBR E-Invoice Offline Submission Queue (Rule 150XC)
+    -- Invoices generated offline are queued here and batch-uploaded on reconnection
+    CREATE TABLE IF NOT EXISTS fbr_submissions (
+      id TEXT PRIMARY KEY,                -- matches transaction_id
+      transaction_id TEXT NOT NULL,
+      invoice_number TEXT NOT NULL,       -- FBR-POS-{ts}-{rand}
+      invoice_payload TEXT NOT NULL,      -- JSON blob of full invoice data
+      total_minor INTEGER NOT NULL,
+      tax_minor INTEGER NOT NULL,
+      status TEXT DEFAULT 'PENDING',      -- PENDING | SUBMITTED | FAILED | REJECTED
+      retry_count INTEGER DEFAULT 0,
+      fbr_response TEXT,                  -- raw FBR API response JSON
+      created_at INTEGER NOT NULL,
+      submitted_at INTEGER,
+      sync_hlc TEXT
+    );
+  `);
+
+  // Run migrations (ALTER TABLE try-catches) to align with KMP
+  try {
+    await db.exec("ALTER TABLE inventory_catalog ADD COLUMN category TEXT DEFAULT 'Uncategorized';");
+  } catch (e) {}
+  try {
+    await db.exec("ALTER TABLE inventory_catalog ADD COLUMN emoji TEXT DEFAULT '';");
+  } catch (e) {}
+  try {
+    await db.exec("ALTER TABLE inventory_catalog ADD COLUMN cost_price_minor_units INTEGER DEFAULT 0;");
+  } catch (e) {}
+  try {
+    await db.exec("ALTER TABLE transactions ADD COLUMN payment_mode TEXT DEFAULT 'CASH';");
+  } catch (e) {}
+  try {
+    await db.exec("ALTER TABLE transactions ADD COLUMN payment_details TEXT DEFAULT '';");
+  } catch (e) {}
+  try {
+    await db.exec("ALTER TABLE employee_shifts ADD COLUMN declared_cash_minor_units INTEGER DEFAULT 0;");
+  } catch (e) {}
+  try {
+    await db.exec("ALTER TABLE employee_shifts ADD COLUMN expected_cash_minor_units INTEGER DEFAULT 0;");
+  } catch (e) {}
+  try {
+    await db.exec("ALTER TABLE employee_shifts ADD COLUMN variance_minor_units INTEGER DEFAULT 0;");
+  } catch (e) {}
+  try {
+    await db.exec("ALTER TABLE inventory_catalog ADD COLUMN is_deleted INTEGER DEFAULT 0;");
+  } catch (e) {}
+  try {
+    await db.exec("ALTER TABLE employees ADD COLUMN is_deleted INTEGER DEFAULT 0;");
+  } catch (e) {}
+  try {
+    await db.exec("ALTER TABLE customers ADD COLUMN is_deleted INTEGER DEFAULT 0;");
+  } catch (e) {}
+  try {
+    await db.exec("ALTER TABLE transactions ADD COLUMN discount_minor_units INTEGER DEFAULT 0;");
+  } catch (e) {}
+  try {
+    await db.exec("ALTER TABLE inventory_catalog ADD COLUMN low_stock_threshold INTEGER DEFAULT 10;");
+  } catch (e) {}
+  // PN-Counter columns for ghost-free offline inventory merging
+  try {
+    await db.exec("ALTER TABLE inventory_catalog ADD COLUMN stock_additions INTEGER DEFAULT 0;");
+  } catch (e) {}
+  try {
+    await db.exec("ALTER TABLE inventory_catalog ADD COLUMN stock_subtractions INTEGER DEFAULT 0;");
+  } catch (e) {}
+  // Immutable ledger void columns
+  try {
+    await db.exec("ALTER TABLE transactions ADD COLUMN voided_transaction_id TEXT;");
+  } catch (e) {}
+  try {
+    await db.exec("ALTER TABLE transactions ADD COLUMN void_reason TEXT;");
+  } catch (e) {}
+
+  // Aborted sales log table (Manager PIN void audit trail)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS aborted_sales_log (
+      id TEXT PRIMARY KEY,
+      cashier_id TEXT,
+      manager_id TEXT,
+      items_json TEXT,
+      total_minor INTEGER,
+      void_reason TEXT,
+      created_at INTEGER,
+      sync_hlc TEXT
+    );
+    CREATE TABLE IF NOT EXISTS telemetry_logs (
+      id TEXT PRIMARY KEY,
+      node_id TEXT,
+      error_type TEXT,
+      error_message TEXT,
+      stack_trace TEXT,
+      hlc TEXT,
+      last_clicks TEXT,
+      created_at INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS license_store (
+      key TEXT PRIMARY KEY,
+      value TEXT,
+      updated_at INTEGER
+    );
+  `);
+
+  // Create indexing matrices to optimize reads/writes
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_transactions_status_created ON transactions(status, created_at);
+    CREATE INDEX IF NOT EXISTS idx_transactions_hlc_dirty ON transactions(sync_hlc, is_dirty);
+    CREATE INDEX IF NOT EXISTS idx_line_items_tx ON line_items(transaction_id);
+    CREATE INDEX IF NOT EXISTS idx_line_items_sku ON line_items(sku);
+    CREATE INDEX IF NOT EXISTS idx_speech_tx ON speech_analytics_logs(transaction_id);
+    CREATE INDEX IF NOT EXISTS idx_speech_fraud ON speech_analytics_logs(flagged_fraud_risk);
+    CREATE INDEX IF NOT EXISTS idx_purchase_orders_dist ON purchase_orders(distributor_id);
+    CREATE INDEX IF NOT EXISTS idx_po_line_items_po ON po_line_items(po_id);
+    CREATE INDEX IF NOT EXISTS idx_distributor_payments_dist ON distributor_payments(distributor_id);
+    CREATE INDEX IF NOT EXISTS idx_customer_credit_cust ON customer_credit(customer_id);
+    CREATE INDEX IF NOT EXISTS idx_fbr_submissions_status ON fbr_submissions(status, created_at);
+  `);
+
+  // Load the current db_version from crsql_changes to resume correctly
+  const maxDbVer = await db.get('SELECT MAX(db_version) as max_ver FROM crsql_changes');
+  currentDbVersion = (maxDbVer && maxDbVer.max_ver) ? maxDbVer.max_ver : 0;
+
+  // Auto-approve Master PC
+  await db.run(
+    "INSERT OR REPLACE INTO approved_devices (node_id, device_name, user_agent, approved_at, status) VALUES (?, ?, ?, ?, ?)",
+    [terminalId, 'Master Register PC', 'Node.js Runtime', Date.now(), 'APPROVED']
+  );
+  await db.run(
+    "INSERT OR REPLACE INTO approved_devices (node_id, device_name, user_agent, approved_at, status) VALUES (?, ?, ?, ?, ?)",
+    ['nexova_master_pc_01', 'Master Register PC (Web UI)', 'Browser UI', Date.now(), 'APPROVED']
+  );
+
+  // Run seeding if inventory is empty
+  const hasInventory = await db.get('SELECT COUNT(*) as count FROM inventory_catalog');
+  if (hasInventory.count === 0) {
+    await seedDatabase();
+  }
+}
+
+// Seed the database with realistic retail items & employee accounts
+async function seedDatabase() {
+  await db.beginImmediate();
+  try {
+    const siteId = currentHlc.nodeId;
+    const now = Date.now();
+    
+    // Seed Employees
+    const empAdminId = crypto.randomUUID();
+    const empCashierId = crypto.randomUUID();
+    
+    const adminHlc = currentHlc.tick();
+    await db.run(
+      'INSERT INTO employees (id, auth_hash, biometric_token, role, is_active, sync_hlc) VALUES (?, ?, ?, ?, ?, ?)',
+      [empAdminId, hashPin('1234'), 'secure_biometric_admin_token', 'ADMIN', 1, adminHlc]
+    );
+    await logLocalChange('employees', empAdminId, 'auth_hash', hashPin('1234'), 1, 1, adminHlc);
+    await logLocalChange('employees', empAdminId, 'role', 'ADMIN', 1, 1, adminHlc);
+    await logLocalChange('employees', empAdminId, 'is_active', 1, 1, 1, adminHlc);
+
+    const cashierHlc = currentHlc.tick();
+    await db.run(
+      'INSERT INTO employees (id, auth_hash, biometric_token, role, is_active, sync_hlc) VALUES (?, ?, ?, ?, ?, ?)',
+      [empCashierId, hashPin('5678'), 'secure_biometric_cashier_token', 'CASHIER', 1, cashierHlc]
+    );
+    await logLocalChange('employees', empCashierId, 'auth_hash', hashPin('5678'), 1, 1, cashierHlc);
+    await logLocalChange('employees', empCashierId, 'role', 'CASHIER', 1, 1, cashierHlc);
+    await logLocalChange('employees', empCashierId, 'is_active', 1, 1, 1, cashierHlc);
+
+    // Seed Customers (3 real profiles)
+    const seedCustomers = [
+      { id: 'cust_alexander', name: 'Alexander Mercer', phone: '+1-555-0199', email: 'alex.mercer@proton.me', spend: 58240, visits: 42 },
+      { id: 'cust_elena', name: 'Elena Rostova', phone: '+1-555-0248', email: 'elena.rostova@designhaus.co', spend: 39450, visits: 29 },
+      { id: 'cust_marcus', name: 'Marcus Vance', phone: '+1-555-0312', email: 'marcus.vance@vancecap.com', spend: 18420, visits: 15 }
+    ];
+
+    for (const c of seedCustomers) {
+      const custHlc = currentHlc.tick();
+      await db.run(
+        'INSERT INTO customers (id, name, phone, email, total_spend_cents, visits, created_at, sync_hlc) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [c.id, c.name, c.phone, c.email, c.spend, c.visits, now, custHlc]
+      );
+      await logLocalChange('customers', c.id, 'name', c.name, 1, 1, custHlc);
+      await logLocalChange('customers', c.id, 'phone', c.phone, 1, 1, custHlc);
+      await logLocalChange('customers', c.id, 'email', c.email, 1, 1, custHlc);
+      await logLocalChange('customers', c.id, 'total_spend_cents', c.spend, 1, 1, custHlc);
+      await logLocalChange('customers', c.id, 'visits', c.visits, 1, 1, custHlc);
+    }
+
+    // Seed Inventory (12 items)
+    const seedCatalog = [
+      { sku: 'COFFEE-ESP', gtin: '0000000000001', name: 'Signature Espresso', price: 350, qty: 100 },
+      { sku: 'COFFEE-LAT', gtin: '0000000000002', name: 'Cold Brew Latte', price: 475, qty: 80 },
+      { sku: 'COFFEE-CBD', gtin: '0000000000003', name: 'Nitro Cold Brew', price: 550, qty: 60 },
+      { sku: 'PASTRY-CRO', gtin: '0000000000004', name: 'Butter Croissant', price: 325, qty: 40 },
+      { sku: 'PASTRY-MUF', gtin: '0000000000005', name: 'Blueberry Muffin', price: 375, qty: 30 },
+      { sku: 'PASTRY-COK', gtin: '0000000000006', name: 'Choco Chip Cookie', price: 250, qty: 50 },
+      { sku: 'TECH-CHG',  gtin: '0000000000007', name: 'Rapid USB-C Charger', price: 1999, qty: 25 },
+      { sku: 'TECH-CBL',  gtin: '0000000000008', name: 'Braid Type-C Cable 1m', price: 999, qty: 45 },
+      { sku: 'RETAIL-MUG', gtin: '0000000000009', name: 'Nexova Ceramic Mug', price: 1450, qty: 20 },
+      { sku: 'RETAIL-TSH', gtin: '0000000000010', name: 'Nova Cotton Tee (L)', price: 2499, qty: 15 },
+      { sku: 'RETAIL-BAG', gtin: '0000000000011', name: 'Canvas Tote Bag', price: 1200, qty: 35 },
+      { sku: 'WATER-SPK', gtin: '0000000000012', name: 'Sparkling Mineral Water', price: 200, qty: 120 }
+    ];
+
+    for (const item of seedCatalog) {
+      const itemHlc = currentHlc.tick();
+      await db.run(
+        'INSERT INTO inventory_catalog (sku, gtin, name, base_price_minor_units, stock_level, reserved_stock, search_vector, col_version, sync_hlc) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [item.sku, item.gtin, item.name, item.price, item.qty, 0, `${item.sku} ${item.name} ${item.gtin}`.toLowerCase(), 1, itemHlc]
+      );
+      
+      // Log individual columns to CRDT ledger
+      await logLocalChange('inventory_catalog', item.sku, 'gtin', item.gtin, 1, 1, itemHlc);
+      await logLocalChange('inventory_catalog', item.sku, 'name', item.name, 1, 1, itemHlc);
+      await logLocalChange('inventory_catalog', item.sku, 'base_price_minor_units', item.price, 1, 1, itemHlc);
+      await logLocalChange('inventory_catalog', item.sku, 'stock_level', item.qty, 1, 1, itemHlc);
+      await logLocalChange('inventory_catalog', item.sku, 'reserved_stock', 0, 1, 1, itemHlc);
+    }
+
+    // Seed Local Preferences
+    await db.run('INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
+      ['onboarding_complete', 'BOOL', 'true', 1, now]
+    );
+    await db.run('INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
+      ['store_tax_rate', 'STR', '0.08', 0, now]
+    );
+    await db.run('INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
+      ['store_name', 'STR', 'NEXOVA COFFEE & RETAIL', 0, now]
+    );
+    await db.run('INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
+      ['store_theme_palette', 'STR', 'Obsidian Emerald', 0, now]
+    );
+    await db.run('INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
+      ['store_logo_emoji', 'STR', 'N', 0, now]
+    );
+    await db.run('INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
+      ['store_receipt_tagline', 'STR', 'Stability meets Speed. Thank you!', 0, now]
+    );
+    await db.run('INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
+      ['whitelabel_show_branding', 'STR', 'true', 0, now]
+    );
+    await db.run('INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
+      ['glassmorphism_enabled', 'STR', 'true', 0, now]
+    );
+    await db.run('INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
+      ['terminal_name', 'STR', 'Nexova Master PC 01', 0, now]
+    );
+    await db.run('INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
+      ['store_receipt_width', 'STR', '42', 0, now]
+    );
+
+    await db.commit();
+  } catch (error) {
+    await db.rollback();
+    console.error('Seeding transaction failed:', error);
+    throw error;
+  }
+}
+
+// Log column mutations into the CRDT changes catalog
+async function logLocalChange(tableName, pk, cid, val, colVersion, cl, syncHlc) {
+  currentDbVersion++;
+  const siteId = currentHlc.nodeId;
+  const valStr = val === null ? null : String(val);
+  
+  await db.run(`
+    INSERT INTO crsql_changes (table_name, pk, cid, val, col_version, db_version, site_id, cl, sync_hlc)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(table_name, pk, cid) DO UPDATE SET
+      val = excluded.val,
+      col_version = excluded.col_version,
+      db_version = excluded.db_version,
+      site_id = excluded.site_id,
+      cl = excluded.cl,
+      sync_hlc = excluded.sync_hlc
+  `, [tableName, pk, cid, valStr, colVersion, currentDbVersion, siteId, cl, syncHlc]);
+}
+
+// Fetch all local changes since a given db_version
+async function getChangesSince(version) {
+  return await db.all(
+    'SELECT * FROM crsql_changes WHERE db_version > ? ORDER BY db_version ASC',
+    [version]
+  );
+}
+
+let dbQueue = Promise.resolve();
+
+// Apply incoming delta-changes from a remote terminal node
+async function applyRemoteChanges(changes) {
+  return new Promise((resolve, reject) => {
+    dbQueue = dbQueue.then(async () => {
+      try {
+        const result = await applyRemoteChangesInternal(changes);
+        resolve(result);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  });
+}
+
+async function recalculateCachedStock(sku) {
+  const baseStockRow = await db.get(
+    "SELECT val, sync_hlc FROM crsql_changes WHERE table_name = 'inventory_catalog' AND pk = ? AND cid = 'stock_level'",
+    [sku]
+  );
+  const baseStock = baseStockRow ? Number(baseStockRow.val) : 0;
+  const baseHlc = baseStockRow ? baseStockRow.sync_hlc : '0000000000000:000000:seed';
+
+  const deltas = await db.all(
+    "SELECT val FROM crsql_changes WHERE table_name = 'inventory_catalog_counters' AND pk LIKE ? AND cid = 'delta' AND sync_hlc > ?",
+    [sku + '/%', baseHlc]
+  );
+  let totalDelta = 0;
+  for (const row of deltas) {
+    totalDelta += Number(row.val);
+  }
+
+  const finalStock = Math.max(0, baseStock + totalDelta);
+  await db.run(
+    "UPDATE inventory_catalog SET stock_level = ? WHERE sku = ?",
+    [finalStock, sku]
+  );
+  console.log(`[Database] Recalculated stock for ${sku}: base=${baseStock} (${baseHlc}), delta=${totalDelta}, final=${finalStock}`);
+  return finalStock;
+}
+
+async function applyRemoteChangesInternal(changes) {
+  if (!Array.isArray(changes) || changes.length === 0) return { applied: 0, conflicts: 0 };
+  
+  let appliedCount = 0;
+  let conflictCount = 0;
+
+  await db.beginImmediate();
+  try {
+    for (const change of changes) {
+      // Tick local HLC with remote clock to capture causal path
+      currentHlc.merge(change.sync_hlc);
+      
+      // Get existing local record version of this column from crsql_changes
+      const local = await db.get(
+        'SELECT col_version, sync_hlc FROM crsql_changes WHERE table_name = ? AND pk = ? AND cid = ?',
+        [change.table_name, change.pk, change.cid]
+      );
+      
+      const shouldApply = shouldApplyDelta(local, change);
+      
+      if (shouldApply) {
+        appliedCount++;
+        // Apply write directly to the target schema table
+        await applyChangeToSchema(change.table_name, change.pk, change.cid, change.val, change.cl);
+        
+        // Log the change into our crsql_changes virtual catalog (mark db_version higher)
+        currentDbVersion++;
+        await db.run(`
+          INSERT INTO crsql_changes (table_name, pk, cid, val, col_version, db_version, site_id, cl, sync_hlc)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(table_name, pk, cid) DO UPDATE SET
+            val = excluded.val,
+            col_version = excluded.col_version,
+            db_version = excluded.db_version,
+            site_id = excluded.site_id,
+            cl = excluded.cl,
+            sync_hlc = excluded.sync_hlc
+        `, [change.table_name, change.pk, change.cid, change.val, change.col_version, currentDbVersion, change.site_id, change.cl, change.sync_hlc]);
+
+        // Recalculate stock level if PN delta changes or manual stock updates occur
+        if (change.table_name === 'inventory_catalog_counters') {
+          const sku = change.pk.split('/')[0];
+          await recalculateCachedStock(sku);
+        } else if (change.table_name === 'inventory_catalog' && change.cid === 'stock_level') {
+          await recalculateCachedStock(change.pk);
+        }
+      } else {
+        conflictCount++;
+      }
+    }
+    await db.commit();
+  } catch (error) {
+    await db.rollback();
+    console.error('Failed applying remote changes:', error);
+    throw error;
+  }
+  
+  return { applied: appliedCount, conflicts: conflictCount };
+}
+
+// Dynamically updates a single column value in the main tables based on delta CRDTs
+async function applyChangeToSchema(tableName, pk, cid, val, cl) {
+  // If cl is 0, it denotes a soft deletion (tombstone)
+  if (cl === 0) {
+    if (tableName === 'transactions') {
+      await db.run('UPDATE transactions SET is_deleted = 1, status = ? WHERE id = ?', ['VOIDED', pk]);
+    } else if (tableName === 'line_items') {
+      await db.run('UPDATE line_items SET is_deleted = 1 WHERE id = ?', [pk]);
+    } else if (tableName === 'inventory_catalog') {
+      await db.run('UPDATE inventory_catalog SET is_deleted = 1 WHERE sku = ?', [pk]);
+    } else if (tableName === 'employees') {
+      await db.run('UPDATE employees SET is_deleted = 1, is_active = 0 WHERE id = ?', [pk]);
+    } else if (tableName === 'customers') {
+      await db.run('UPDATE customers SET is_deleted = 1 WHERE id = ?', [pk]);
+    } else if (tableName === 'local_preferences') {
+      await db.run('DELETE FROM local_preferences WHERE key = ?', [pk]);
+    } else if (tableName === 'distributors') {
+      await db.run('UPDATE distributors SET is_deleted = 1 WHERE id = ?', [pk]);
+    } else if (tableName === 'purchase_orders') {
+      await db.run('UPDATE purchase_orders SET is_deleted = 1 WHERE id = ?', [pk]);
+    } else if (tableName === 'po_line_items') {
+      await db.run('UPDATE po_line_items SET is_deleted = 1 WHERE id = ?', [pk]);
+    } else if (tableName === 'distributor_payments') {
+      await db.run('UPDATE distributor_payments SET is_deleted = 1 WHERE id = ?', [pk]);
+    } else if (tableName === 'customer_credit') {
+      await db.run('UPDATE customer_credit SET is_deleted = 1 WHERE id = ?', [pk]);
+    }
+    return;
+  }
+
+  // Parse numeric values back to integers
+  let parsedVal = val;
+  if (val !== null && !isNaN(val) && val.trim() !== '') {
+    parsedVal = Number(val);
+  }
+
+  // Check if target record exists. If not, insert a skeletal record to populate.
+  if (tableName === 'transactions') {
+    const exists = await db.get('SELECT 1 FROM transactions WHERE id = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO transactions (id, status, is_deleted, created_at) VALUES (?, ?, 0, ?)', [pk, 'DRAFT', Date.now()]);
+    }
+    await db.run(`UPDATE transactions SET ${cid} = ?, updated_at = ? WHERE id = ?`, [parsedVal, Date.now(), pk]);
+  } 
+  
+  else if (tableName === 'line_items') {
+    const exists = await db.get('SELECT 1 FROM line_items WHERE id = ?', [pk]);
+    if (!exists) {
+      let txId = null;
+      if (pk.startsWith('li_')) {
+        txId = pk.split('_').slice(1, -1).join('_');
+      }
+      await db.run('INSERT INTO line_items (id, transaction_id, sku, quantity, unit_price_minor_units, applied_discount_minor_units, is_deleted) VALUES (?, ?, ?, 1, 0, 0, 0)', [pk, txId, 'COFFEE-ESP']);
+    }
+    await db.run(`UPDATE line_items SET ${cid} = ? WHERE id = ?`, [parsedVal, pk]);
+  }
+  
+  else if (tableName === 'inventory_catalog') {
+    const exists = await db.get('SELECT 1 FROM inventory_catalog WHERE sku = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO inventory_catalog (sku, stock_level, reserved_stock, name, base_price_minor_units) VALUES (?, 0, 0, ?, 0)', [pk, pk]);
+    }
+    await db.run(`UPDATE inventory_catalog SET ${cid} = ? WHERE sku = ?`, [parsedVal, pk]);
+  }
+  
+  else if (tableName === 'employees') {
+    const exists = await db.get('SELECT 1 FROM employees WHERE id = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO employees (id, is_active) VALUES (?, 1)', [pk]);
+    }
+    await db.run(`UPDATE employees SET ${cid} = ? WHERE id = ?`, [parsedVal, pk]);
+  }
+  
+  else if (tableName === 'local_preferences') {
+    const exists = await db.get('SELECT 1 FROM local_preferences WHERE key = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, "STR", "", 0, ?)', [pk, Date.now()]);
+    }
+    await db.run(`UPDATE local_preferences SET ${cid} = ?, updated_at = ? WHERE key = ?`, [val, Date.now(), pk]);
+  }
+  
+  else if (tableName === 'customers') {
+    const exists = await db.get('SELECT 1 FROM customers WHERE id = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO customers (id, name, phone, email, total_spend_cents, visits, created_at) VALUES (?, ?, "", "", 0, 0, ?)', [pk, pk, Date.now()]);
+    }
+    await db.run(`UPDATE customers SET ${cid} = ? WHERE id = ?`, [parsedVal, pk]);
+  }
+
+  else if (tableName === 'categories') {
+    const exists = await db.get('SELECT 1 FROM categories WHERE name = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO categories (name) VALUES (?)', [pk]);
+    }
+    await db.run(`UPDATE categories SET ${cid} = ? WHERE name = ?`, [parsedVal, pk]);
+  }
+
+  else if (tableName === 'stock_movements') {
+    const exists = await db.get('SELECT 1 FROM stock_movements WHERE id = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO stock_movements (id, created_at) VALUES (?, ?)', [pk, Date.now()]);
+    }
+    await db.run(`UPDATE stock_movements SET ${cid} = ? WHERE id = ?`, [parsedVal, pk]);
+  }
+
+  else if (tableName === 'employee_shifts') {
+    const exists = await db.get('SELECT 1 FROM employee_shifts WHERE id = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO employee_shifts (id, clock_in) VALUES (?, ?)', [pk, Date.now()]);
+    }
+    await db.run(`UPDATE employee_shifts SET ${cid} = ? WHERE id = ?`, [parsedVal, pk]);
+  }
+
+  else if (tableName === 'distributors') {
+    const exists = await db.get('SELECT 1 FROM distributors WHERE id = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO distributors (id, name, created_at, is_deleted) VALUES (?, ?, ?, 0)', [pk, pk, Date.now()]);
+    }
+    await db.run(`UPDATE distributors SET ${cid} = ? WHERE id = ?`, [parsedVal, pk]);
+  }
+
+  else if (tableName === 'purchase_orders') {
+    const exists = await db.get('SELECT 1 FROM purchase_orders WHERE id = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO purchase_orders (id, distributor_id, status, created_at, is_deleted) VALUES (?, "unknown", "DRAFT", ?, 0)', [pk, Date.now()]);
+    }
+    await db.run(`UPDATE purchase_orders SET ${cid} = ?, updated_at = ? WHERE id = ?`, [parsedVal, Date.now(), pk]);
+  }
+
+  else if (tableName === 'po_line_items') {
+    const exists = await db.get('SELECT 1 FROM po_line_items WHERE id = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO po_line_items (id, po_id, quantity_ordered, quantity_received, unit_cost_minor, is_deleted) VALUES (?, "unknown", 0, 0, 0, 0)', [pk]);
+    }
+    await db.run(`UPDATE po_line_items SET ${cid} = ? WHERE id = ?`, [parsedVal, pk]);
+  }
+
+  else if (tableName === 'distributor_payments') {
+    const exists = await db.get('SELECT 1 FROM distributor_payments WHERE id = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO distributor_payments (id, distributor_id, amount_minor, paid_at, is_deleted) VALUES (?, "unknown", 0, ?, 0)', [pk, Date.now()]);
+    }
+    await db.run(`UPDATE distributor_payments SET ${cid} = ? WHERE id = ?`, [parsedVal, pk]);
+  }
+
+  else if (tableName === 'customer_credit') {
+    const exists = await db.get('SELECT 1 FROM customer_credit WHERE id = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO customer_credit (id, customer_id, amount_minor, created_at, is_deleted) VALUES (?, "unknown", 0, ?, 0)', [pk, Date.now()]);
+    }
+    await db.run(`UPDATE customer_credit SET ${cid} = ? WHERE id = ?`, [parsedVal, pk]);
+  }
+}
+
+// ── Device Whitelist Management ────────────────────────────────────────────
+async function getDeviceStatus(nodeId) {
+  const row = await db.get('SELECT status FROM approved_devices WHERE node_id = ?', [nodeId]);
+  return row ? row.status : null;
+}
+
+async function addPendingDevice(nodeId, name, userAgent) {
+  await db.run(
+    'INSERT OR IGNORE INTO approved_devices (node_id, device_name, user_agent, approved_at, status) VALUES (?, ?, ?, ?, ?)',
+    [nodeId, name || 'Unknown Device', userAgent || 'Unknown', null, 'PENDING']
+  );
+}
+
+async function approveDevice(nodeId) {
+  await db.run(
+    "UPDATE approved_devices SET status = 'APPROVED', approved_at = ? WHERE node_id = ?",
+    [Date.now(), nodeId]
+  );
+}
+
+async function rejectDevice(nodeId) {
+  await db.run('DELETE FROM approved_devices WHERE node_id = ?', [nodeId]);
+}
+
+async function getPendingDevices() {
+  return await db.all("SELECT * FROM approved_devices WHERE status = 'PENDING'");
+}
+
+async function getAllDevices() {
+  return await db.all("SELECT * FROM approved_devices");
+}
+
+// ── CRDT Tombstone Garbage Collection ──────────────────────────────────────
+// Safe to call only when ALL registered nodes have ACK'd changes up to safeVersion.
+// Called automatically weekly by the server's GC scheduler.
+async function pruneAcknowledgedChanges(safeVersion) {
+  if (!safeVersion || safeVersion < 1) return 0;
+  const result = await db.run(
+    'DELETE FROM crsql_changes WHERE db_version <= ?',
+    [safeVersion]
+  );
+  console.log(`[GC] Pruned CRDT log entries up to version ${safeVersion}. Rows affected: ${result.changes || 0}`);
+  return result.changes || 0;
+}
+
+// ── Immutable Ledger: Void via Contra-Entry ─────────────────────────────────
+// Never deletes transactions. Creates a mirror negative entry.
+async function createVoidContraEntry(originalTransactionId, managerId, voidReason) {
+  const original = await db.get('SELECT * FROM transactions WHERE id = ?', [originalTransactionId]);
+  if (!original) throw new Error(`Transaction ${originalTransactionId} not found.`);
+  if (original.status === 'VOIDED') throw new Error('Transaction is already voided.');
+
+  const contraId = `void_${originalTransactionId}_${Date.now()}`;
+  const now = Date.now();
+  const hlc = currentHlc ? currentHlc.now() : String(now);
+
+  await db.run('BEGIN IMMEDIATE TRANSACTION;');
+  try {
+    // Mark original as VOIDED
+    await db.run(
+      `UPDATE transactions SET status = 'VOIDED', voided_transaction_id = ?, void_reason = ?, updated_at = ?, sync_hlc = ? WHERE id = ?`,
+      [contraId, voidReason || 'Manager void', now, hlc, originalTransactionId]
+    );
+    // Create contra-entry (negative mirror)
+    await db.run(
+      `INSERT INTO transactions (id, employee_id, terminal_id, subtotal_minor_units, tax_minor_units, total_minor_units, status, payment_mode, payment_details, created_at, updated_at, sync_hlc, is_dirty, is_deleted, voided_transaction_id, void_reason)
+       VALUES (?, ?, ?, ?, ?, ?, 'VOID_CONTRA', ?, '', ?, ?, ?, 1, 0, ?, ?)`,
+      [
+        contraId, managerId, original.terminal_id,
+        -(original.subtotal_minor_units || 0),
+        -(original.tax_minor_units || 0),
+        -(original.total_minor_units || 0),
+        original.payment_mode || 'CASH',
+        now, now, hlc,
+        originalTransactionId, voidReason || 'Manager void'
+      ]
+    );
+    await db.run('COMMIT;');
+    console.log(`[Ledger] Void contra-entry created: ${contraId} for ${originalTransactionId}`);
+    return contraId;
+  } catch (err) {
+    await db.run('ROLLBACK;');
+    throw err;
+  }
+}
+
+// ── Monotonic Time Anchor ───────────────────────────────────────────────────
+async function updateSecureTimeAnchor() {
+  try {
+    await db.run(
+      `INSERT INTO license_store (key, value, updated_at) VALUES ('last_known_secure_time', ?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+      [String(Date.now()), Date.now()]
+    );
+  } catch (e) { /* non-fatal */ }
+}
+
+// ── Telemetry log storage ───────────────────────────────────────────────────
+async function saveTelemetryLog(log) {
+  try {
+    await db.run(
+      `INSERT OR IGNORE INTO telemetry_logs (id, node_id, error_type, error_message, stack_trace, hlc, last_clicks, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [log.id, log.nodeId, log.errorType, log.errorMessage, log.stackTrace, log.hlc, log.lastClicks, log.createdAt || Date.now()]
+    );
+  } catch (e) { /* non-fatal */ }
+}
+
+module.exports = {
+  initDatabase,
+  db,
+  verifyPin,
+  hashPin,
+  getChangesSince,
+  applyRemoteChanges,
+  compactTombstones: pruneAcknowledgedChanges, // backward-compat alias
+  pruneAcknowledgedChanges,
+  createVoidContraEntry,
+  updateSecureTimeAnchor,
+  saveTelemetryLog,
+  logLocalChange,
+  recalculateCachedStock,
+  getDeviceStatus,
+  addPendingDevice,
+  approveDevice,
+  rejectDevice,
+  getPendingDevices,
+  getAllDevices,
+  SERVER_SCHEMA_VERSION,
+  getHlc: () => currentHlc,
+  getDbVersion: () => currentDbVersion
+};
+
