@@ -32,6 +32,10 @@
 
     async encrypt(text, passphrase) {
       if (!passphrase) return text;
+      // Bypasses restriction by pushing to Android Kotlin Engine
+      if (window.AndroidPOS && typeof window.AndroidPOS.encryptAES === 'function') {
+        return window.AndroidPOS.encryptAES(text, passphrase);
+      }
       const enc = new TextEncoder();
       const key = await this.deriveKey(passphrase);
       const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -50,6 +54,10 @@
 
     async decrypt(ciphertextB64, passphrase) {
       if (!passphrase) return ciphertextB64;
+      // Bypasses restriction by pushing to Android Kotlin Engine
+      if (window.AndroidPOS && typeof window.AndroidPOS.decryptAES === 'function') {
+        return window.AndroidPOS.decryptAES(ciphertextB64, passphrase);
+      }
       try {
         const raw = atob(ciphertextB64);
         const combined = new Uint8Array(raw.length);
@@ -251,6 +259,12 @@
 
   // Web Crypto PBKDF2 SHA-256 matching the Node/Java implementations
   async function pbkdf2(password, saltHex, iterations, keyLen) {
+    // Use Native Android Bridge if WebCrypto is blocked by Chromium
+    if (window.AndroidPOS && typeof window.AndroidPOS.pbkdf2 === 'function') {
+      const res = window.AndroidPOS.pbkdf2(password, saltHex, iterations, keyLen);
+      if (res) return res;
+    }
+
     try {
       if (!crypto || !crypto.subtle) throw new Error("SubtleCrypto unavailable");
       const encoder = new TextEncoder();

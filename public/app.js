@@ -4217,8 +4217,12 @@
 
   // --- AUDIO SYNTH BRIDGE ---
   function playAudioSignal(type) {
-    if (typeof playTone === 'function') {
-      playTone(type);
+    try {
+      if (typeof playTone === 'function') {
+        playTone(type);
+      }
+    } catch (e) {
+      console.warn('[Audio] playAudioSignal failed safely:', e);
     }
   }
 
