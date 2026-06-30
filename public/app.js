@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 // NEXOVA COMMERCE ECOSYSTEM - MAIN REGISTER CONTROLLER
 // UI thread bindings and Web Worker event choreography
 // ============================================================================
@@ -596,31 +596,11 @@
       if (isLockActive()) playAudioSignal('click');
     }
 
-    // â”€â”€ LAYER 1: On-screen PIN pad buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    // touchstart = instant response, no 300ms delay.
-    // click = fallback for mouse/desktop.
-    // passive:true on touchstart lets browser do scroll optimization.
-    // NO pointerdown+preventDefault: kills :active state and feedback on Android.
+    // ── LAYER 1: On-screen PIN pad buttons ───────────────────────────────────
+    // Using standard click listener which is highly compatible. 
+    // touch-action: manipulation on .pin-btn in CSS eliminates the 300ms mobile tap delay.
     if (pinPad) {
-      var touchHandled = false;
-
-      pinPad.addEventListener('touchstart', function(e) {
-        var btn = e.target.closest('.pin-btn');
-        if (!btn || !isLockActive()) return;
-        touchHandled = true;
-        var digit = btn.getAttribute('data-digit');
-        var action = btn.getAttribute('data-action');
-        if (digit !== null) {
-          addDigit(digit);
-        } else if (action === 'clear') {
-          doClear();
-        } else if (action === 'enter') {
-          verifyPinCredentials();
-        }
-      }, { passive: true });
-
       pinPad.addEventListener('click', function(e) {
-        if (touchHandled) { touchHandled = false; return; }
         var btn = e.target.closest('.pin-btn');
         if (!btn || !isLockActive()) return;
         var digit = btn.getAttribute('data-digit');
@@ -3351,7 +3331,7 @@
     const query = document.getElementById('history-search-input').value.toLowerCase().trim();
 
     const matches = state.transactions.filter(tx => {
-      if (!query) return True
+      if (!query) return true;
       const dateStr = new Date(tx.ts || tx.created_at || 0).toLocaleDateString().toLowerCase();
       const amountStr = ((tx.total || 0) / 100).toFixed(2);
       const cashierStr = (tx.cashier_id || '').toLowerCase();

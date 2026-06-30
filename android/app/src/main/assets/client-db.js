@@ -94,17 +94,148 @@
   }
   globalScope.optimizeSqliteStorageEngine = optimizeSqliteStorageEngine;
 
+
+  // ============================================================================
+  // PURE JS CRYPTOGRAPHIC FALLBACKS
+  // Used when window.crypto.subtle is not supported or restricted (non-HTTPS)
+  // ============================================================================
+  function sha256_js(bytes) {
+    var K = [
+      0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+      0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+      0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+      0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+      0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+      0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+      0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+      0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+    ];
+    var H = [
+      0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
+    ];
+    var len = bytes.length;
+    var words = [];
+    for (var i = 0; i < len; i++) {
+      words[i >> 2] |= bytes[i] << (24 - (i % 4) * 8);
+    }
+    var bitLen = len * 8;
+    words[len >> 2] |= 0x80 << (24 - (len % 4) * 8);
+    var wordsLen = ((len + 8) >> 6) + 1 << 4;
+    while (words.length < wordsLen) words.push(0);
+    words[wordsLen - 2] = Math.floor(bitLen / 0x100000000);
+    words[wordsLen - 1] = bitLen & 0xFFFFFFFF;
+    var w = new Int32Array(64);
+    var hash = new Int32Array(H);
+    for (var i = 0; i < wordsLen; i += 16) {
+      for (var j = 0; j < 16; j++) w[j] = words[i + j];
+      for (var j = 16; j < 64; j++) {
+        var s0 = (w[j - 15] >>> 7 | w[j - 15] << 25) ^ (w[j - 15] >>> 18 | w[j - 15] << 14) ^ (w[j - 15] >>> 3);
+        var s1 = (w[j - 2] >>> 17 | w[j - 2] << 15) ^ (w[j - 2] >>> 19 | w[j - 2] << 13) ^ (w[j - 2] >>> 10);
+        w[j] = (w[j - 16] + s0 + w[j - 7] + s1) | 0;
+      }
+      var a1 = hash[0], b1 = hash[1], c1 = hash[2], d1 = hash[3];
+      var e1 = hash[4], f1 = hash[5], g1 = hash[6], h1 = hash[7];
+      for (var j = 0; j < 64; j++) {
+        var S1 = (e1 >>> 6 | e1 << 26) ^ (e1 >>> 11 | e1 << 21) ^ (e1 >>> 25 | e1 << 7);
+        var ch = (e1 & f1) ^ (~e1 & g1);
+        var temp1 = (h1 + S1 + ch + K[j] + w[j]) | 0;
+        var S0 = (a1 >>> 2 | a1 << 30) ^ (a1 >>> 13 | a1 << 19) ^ (a1 >>> 22 | a1 << 10);
+        var maj = (a1 & b1) ^ (a1 & c1) ^ (b1 & c1);
+        var temp2 = (S0 + maj) | 0;
+        h1 = g1;
+        g1 = f1;
+        f1 = e1;
+        e1 = (d1 + temp1) | 0;
+        d1 = c1;
+        c1 = b1;
+        b1 = a1;
+        a1 = (temp1 + temp2) | 0;
+      }
+      hash[0] = (hash[0] + a1) | 0;
+      hash[1] = (hash[1] + b1) | 0;
+      hash[2] = (hash[2] + c1) | 0;
+      hash[3] = (hash[3] + d1) | 0;
+      hash[4] = (hash[4] + e1) | 0;
+      hash[5] = (hash[5] + f1) | 0;
+      hash[6] = (hash[6] + g1) | 0;
+      hash[7] = (hash[7] + h1) | 0;
+    }
+    var result = new Uint8Array(32);
+    for (var i = 0; i < 8; i++) {
+      result[i * 4] = hash[i] >>> 24;
+      result[i * 4 + 1] = hash[i] >>> 16 & 0xFF;
+      result[i * 4 + 2] = hash[i] >>> 8 & 0xFF;
+      result[i * 4 + 3] = hash[i] & 0xFF;
+    }
+    return result;
+  }
+
+  function hmac_sha256_js(keyBytes, messageBytes) {
+    var key = keyBytes;
+    if (key.length > 64) {
+      key = sha256_js(key);
+    }
+    if (key.length < 64) {
+      var temp = new Uint8Array(64);
+      temp.set(key);
+      key = temp;
+    }
+    var o_key_pad = new Uint8Array(64);
+    var i_key_pad = new Uint8Array(64);
+    for (var i = 0; i < 64; i++) {
+      o_key_pad[i] = key[i] ^ 0x5c;
+      i_key_pad[i] = key[i] ^ 0x36;
+    }
+    var innerMsg = new Uint8Array(64 + messageBytes.length);
+    innerMsg.set(i_key_pad);
+    innerMsg.set(messageBytes, 64);
+    var innerHash = sha256_js(innerMsg);
+    var outerMsg = new Uint8Array(64 + 32);
+    outerMsg.set(o_key_pad);
+    outerMsg.set(innerHash, 64);
+    return sha256_js(outerMsg);
+  }
+
+  function pbkdf2_sha256_js(passwordStr, saltBytes, iterations, keyLen) {
+    var passwordBytes = new TextEncoder().encode(passwordStr);
+    var result = new Uint8Array(keyLen);
+    var offset = 0;
+    var blockNum = 1;
+    while (offset < keyLen) {
+      var blockMsg = new Uint8Array(saltBytes.length + 4);
+      blockMsg.set(saltBytes);
+      blockMsg[saltBytes.length] = blockNum >>> 24 & 0xFF;
+      blockMsg[saltBytes.length + 1] = blockNum >>> 16 & 0xFF;
+      blockMsg[saltBytes.length + 2] = blockNum >>> 8 & 0xFF;
+      blockMsg[saltBytes.length + 3] = blockNum & 0xFF;
+      var u = hmac_sha256_js(passwordBytes, blockMsg);
+      var u_sum = new Uint8Array(u);
+      for (var i = 1; i < iterations; i++) {
+        u = hmac_sha256_js(passwordBytes, u);
+        for (var j = 0; j < 32; j++) {
+          u_sum[j] ^= u[j];
+        }
+      }
+      var take = Math.min(32, keyLen - offset);
+      result.set(u_sum.subarray(0, take), offset);
+      offset += take;
+      blockNum++;
+    }
+    return result;
+  }
+
   // Simple async SHA-256 utility for PIN hashing matching the Java/Node backend
   async function hashPin(pin) {
     try {
+      if (!crypto || !crypto.subtle) throw new Error("SubtleCrypto unavailable");
       const msgUint8 = new TextEncoder().encode(pin);
       const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     } catch (e) {
-      // Fallback if subtle crypto is not supported in some older test environments
-      console.warn("subtle crypto unavailable, using manual SHA-256 fallback");
-      return fallbackSha256(pin);
+      console.warn("SubtleCrypto digest unavailable, using JS-native fallback SHA-256");
+      const hashBytes = sha256_js(new TextEncoder().encode(pin));
+      return Array.from(hashBytes).map(b => b.toString(16).padStart(2, '0')).join('');
     }
   }
 
@@ -120,28 +251,35 @@
 
   // Web Crypto PBKDF2 SHA-256 matching the Node/Java implementations
   async function pbkdf2(password, saltHex, iterations, keyLen) {
-    const encoder = new TextEncoder();
-    const baseKey = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(password),
-      'PBKDF2',
-      false,
-      ['deriveBits']
-    );
-    // Convert hex salt to Uint8Array
-    const saltBytes = new Uint8Array(saltHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
-    const derivedBits = await crypto.subtle.deriveBits(
-      {
-        name: 'PBKDF2',
-        salt: saltBytes,
-        iterations: iterations,
-        hash: 'SHA-256'
-      },
-      baseKey,
-      keyLen * 8
-    );
-    const derivedBytes = new Uint8Array(derivedBits);
-    return Array.from(derivedBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    try {
+      if (!crypto || !crypto.subtle) throw new Error("SubtleCrypto unavailable");
+      const encoder = new TextEncoder();
+      const baseKey = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(password),
+        'PBKDF2',
+        false,
+        ['deriveBits']
+      );
+      const saltBytes = new Uint8Array(saltHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+      const derivedBits = await crypto.subtle.deriveBits(
+        {
+          name: 'PBKDF2',
+          salt: saltBytes,
+          iterations: iterations,
+          hash: 'SHA-256'
+        },
+        baseKey,
+        keyLen * 8
+      );
+      const derivedBytes = new Uint8Array(derivedBits);
+      return Array.from(derivedBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) {
+      console.warn("SubtleCrypto pbkdf2 unavailable, using JS-native fallback PBKDF2");
+      const saltBytes = new Uint8Array(saltHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+      const derivedBytes = pbkdf2_sha256_js(password, saltBytes, iterations, keyLen);
+      return Array.from(derivedBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
   }
 
   async function verifyPinClient(pin, storedHash) {
