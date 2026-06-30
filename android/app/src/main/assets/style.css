@@ -1856,6 +1856,35 @@ button:not(:disabled):active {
   display: flex;
 }
 
+/* Ensure auth card never overflows on tiny screens */
+@media (max-height: 700px) {
+  .auth-overlay {
+    align-items: flex-start;
+    padding: 16px;
+  }
+  .auth-card {
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Compact PIN pad on landscape phones */
+@media (max-height: 500px) {
+  .pin-btn {
+    min-height: 44px !important;
+  }
+  .pin-pad {
+    gap: 6px !important;
+  }
+  .auth-card {
+    padding: 12px !important;
+  }
+  .security-shield {
+    display: none !important;
+  }
+}
+
 .auth-card {
   background: var(--panel-graphite);
   border: 1px solid var(--border-titanium);
@@ -1999,6 +2028,8 @@ button:not(:disabled):active {
    ============================================================================ */
 .pos-bottom-nav {
   display: none;
+  /* Safe area padding for notched/gesture-bar phones */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* TABLET AND DESKTOP VIEWS */
@@ -2065,9 +2096,9 @@ button:not(:disabled):active {
     font-size: 18px;
   }
 
-  /* Make room for bottom bar */
+  /* Make room for bottom nav + safe area */
   .pos-main-container {
-    padding-bottom: 60px;
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
   }
 
   /* Collapse Checkout Split columns into Single Column */
@@ -2143,6 +2174,9 @@ button:not(:disabled):active {
   .pos-bottom-nav .nav-btn {
     min-height: 56px;
     font-size: 10px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
   }
 
   .search-result-item {

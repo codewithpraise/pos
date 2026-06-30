@@ -427,8 +427,8 @@
 
         case 'BOOTSTRAP_SUCCESS':
           playAudioSignal('success');
-          alert('Core Database Bootstrapped successfully.');
-          window.location.reload();
+          showNotificationToast('Core Database Bootstrapped. Reloading...', null, 2000);
+          setTimeout(function() { window.location.reload(); }, 2000);
           break;
 
         case 'EPHEMERAL_RECEIVED': {
@@ -444,7 +444,7 @@
         case 'CHECKOUT_SUCCESS':
           setButtonLoading('btn-checkout-complete', false, '', 'Complete Order');
           playAudioSignal('success');
-          alert(`Transaction completed successfully! ID: ${transactionId}`);
+          showNotificationToast(`✅ Transaction #${transactionId.slice(-8).toUpperCase()} completed!`, null, 4000);
 
           // ── Component F: Update monotonic time anchor ─────────────────────
           LicenseEngine.updateTimeAnchor().catch(() => {});
@@ -508,8 +508,8 @@
 
         case 'RESET_SUCCESS':
           playAudioSignal('reset');
-          alert('Database reset completed successfully.');
-          window.location.reload();
+          showNotificationToast('Database reset completed. Reloading...', null, 2000);
+          setTimeout(function() { window.location.reload(); }, 2000);
           break;
 
         case 'FORCE_RELOAD':
@@ -701,14 +701,15 @@
 
     function performLogout() {
       state.activeCashier = null;
+      state.terminalRole = null;
       state.currentPin = '';
       updatePinDisplayDots();
       // Show auth lock screen, hide main layout
       document.getElementById('auth-lock-screen').classList.add('active');
       const layout = document.getElementById('pos-app-layout');
       if (layout) layout.style.display = 'none';
-      // Attempt to pop soft keyboard on mobile by focusing hidden input
-      setTimeout(() => focusPinInput(), 300);
+      // Re-focus hidden input on mobile for soft keyboard
+      setTimeout(function() { focusPinInput(); }, 300);
     }
 
 
@@ -746,8 +747,16 @@
     });
 
     // Mobile Bottom Navigation clicks
+    // Use touchstart for instant response on Android (no 300ms delay)
     document.querySelectorAll('.pos-bottom-nav .nav-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      var navTouched = false;
+      btn.addEventListener('touchstart', function(e) {
+        navTouched = true;
+        const targetScreen = e.currentTarget.getAttribute('data-screen');
+        switchActiveScreen(targetScreen);
+      }, { passive: true });
+      btn.addEventListener('click', function(e) {
+        if (navTouched) { navTouched = false; return; }
         const targetScreen = e.currentTarget.getAttribute('data-screen');
         switchActiveScreen(targetScreen);
       });
@@ -784,13 +793,21 @@
     document.getElementById('btn-void-order').addEventListener('click', () => {
       if (state.activeCart.length === 0) return;
       playAudioSignal('click');
-      if (confirm('Are you sure you want to void this checkout order?')) {
+      // Use a non-blocking confirmation approach for mobile compatibility
+      const voidOverlay = document.createElement('div');
+      voidOverlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;';
+      voidOverlay.innerHTML = '<div style="background:var(--panel-graphite);border:1px solid var(--border-titanium);border-radius:16px;padding:24px;max-width:320px;width:100%;text-align:center;"><p style="color:var(--text-white);font-size:14px;margin-bottom:20px;font-weight:600;">Void this order?</p><p style="color:var(--text-gray);font-size:12px;margin-bottom:24px;">This will clear the current cart. This cannot be undone.</p><div style="display:flex;gap:12px;"><button id="void-cancel-btn" style="flex:1;min-height:48px;background:transparent;border:1px solid var(--border-titanium);color:var(--text-gray);border-radius:8px;font-size:13px;cursor:pointer;touch-action:manipulation;">Cancel</button><button id="void-confirm-btn" style="flex:1;min-height:48px;background:var(--alert-coral);border:none;color:white;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation;">VOID ORDER</button></div></div>';
+      document.body.appendChild(voidOverlay);
+      voidOverlay.querySelector('#void-cancel-btn').addEventListener('click', function() { voidOverlay.remove(); });
+      voidOverlay.querySelector('#void-confirm-btn').addEventListener('click', function() {
+        voidOverlay.remove();
         state.activeCart = [];
         state.attachedCustomer = null;
-        document.getElementById('checkout-customer-attached').innerHTML = `<span class="text-muted">No customer attached to transaction.</span>`;
+        document.getElementById('checkout-customer-attached').innerHTML = '<span class="text-muted">No customer attached to transaction.</span>';
         document.getElementById('btn-open-customer-link').textContent = 'Attach';
         renderCart();
-      }
+        playAudioSignal('click');
+      });
     });
 
     // Barcode / SKU search autocomplete inputs
@@ -1971,6 +1988,12 @@
     } else if (screenName === 'credit-book') {
       syncWorker.postMessage({ type: 'GET_CUSTOMER_CREDIT' });
       syncWorker.postMessage({ type: 'GET_CUSTOMERS' });
+    } else if (screenName === 'analytics') {
+      syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
+      syncWorker.postMessage({ type: 'GET_DISTRIBUTORS' });
+      syncWorker.postMessage({ type: 'GET_PURCHASE_ORDERS' });
+    } else if (screenName === 'logs') {
+      syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
     }
     
     // Toggle mobile scanner FAB visibility
@@ -3327,8 +3350,18 @@
 
     const query = document.getElementById('history-search-input').value.toLowerCase().trim();
 
-    const matches = state.transactions.filter(tx => 
-      !query || tx.id.toLowerCase().includes(query)
+    const matches = state.transactions.filter(tx => {
+      if (!query) return True
+      const dateStr = new Date(tx.ts || tx.created_at || 0).toLocaleDateString().toLowerCase();
+      const amountStr = ((tx.total || 0) / 100).toFixed(2);
+      const cashierStr = (tx.cashier_id || '').toLowerCase();
+      const modeStr = (tx.payment_mode || '').toLowerCase();
+      return tx.id.toLowerCase().includes(query) ||
+             dateStr.includes(query) ||
+             amountStr.includes(query) ||
+             cashierStr.includes(query) ||
+             modeStr.includes(query);
+    }
     );
 
     if (matches.length === 0) {
