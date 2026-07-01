@@ -112,6 +112,15 @@ class MainActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun getServerUrl(): String = serverUrl
+
+        @JavascriptInterface
+        fun consumeFreshStartFlag(): Boolean {
+            val fresh = prefs.getBoolean("fresh_start", false)
+            if (fresh) {
+                prefs.edit().putBoolean("fresh_start", false).apply()
+            }
+            return fresh
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -295,9 +304,12 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        localBtn.setOnClickListener {
-            val url = "file:///android_asset/index.html?reset=true"
-            prefs.edit().putString("server_url", url).apply()
+         localBtn.setOnClickListener {
+            val url = "file:///android_asset/index.html"
+            prefs.edit()
+                .putString("server_url", url)
+                .putBoolean("fresh_start", true)
+                .apply()
             serverUrl = url
             showWebView(url)
         }

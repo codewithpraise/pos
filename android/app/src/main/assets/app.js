@@ -41,10 +41,19 @@
     try {
       await NexovaDB.init(); // Initialize IndexedDB on main thread for local PIN auth
       
-      // Support starting fresh: clear DB and preferences if reset param is detected
+      // Support starting fresh: clear DB and preferences if reset param or bridge flag is detected
+      var shouldReset = false;
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('reset') === 'true') {
-        console.warn('[App] Reset query parameter detected. Resetting database to factory settings...');
+        shouldReset = true;
+      } else if (window.AndroidPOS && typeof window.AndroidPOS.consumeFreshStartFlag === 'function') {
+        if (window.AndroidPOS.consumeFreshStartFlag()) {
+          shouldReset = true;
+        }
+      }
+
+      if (shouldReset) {
+        console.warn('[App] Reset command detected. Resetting database to factory settings...');
         await NexovaDB.destructiveReset();
         localStorage.clear();
         // Clean URL to prevent infinite reset loops
