@@ -44,12 +44,11 @@
         </select>
       </div>
 
-      <!-- PIN Display dots -->
-      <div class="pin-display" id="pin-display-dots" style="padding: 8px 16px; border-radius: 8px;">
-        <span class="dot"></span>
-        <span class="dot"></span>
-        <span class="dot"></span>
-        <span class="dot"></span>
+      <!-- Real passcode input for native keyboard, physical keyboard, and scanner support -->
+      <div style="margin-bottom: 20px; display: flex; justify-content: center; position: relative;">
+        <input type="password" id="pin-input" class="pin-input-field" 
+               inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="••••"
+               autocomplete="one-time-code">
       </div>
 
       <!-- On-screen PIN Pad: 3x4 grid (1-9, CLR, 0, ⌫) -->

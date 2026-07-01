@@ -570,13 +570,11 @@
   function initPinPad() {
     var authLockScreen = document.getElementById('auth-lock-screen');
     var pinPad = document.getElementById('pin-pad');
-    var hiddenInput = document.getElementById('hidden-pin-input');
+    var pinInput = document.getElementById('pin-input');
 
     function isLockActive() {
       return !!(authLockScreen && authLockScreen.classList.contains('active'));
     }
-
-    function focusPinInput() {} // Deprecated: No longer using Android soft keyboard for PIN.
 
     function addDigit(d) {
       if (!isLockActive() || state.currentPin.length >= 4) return;
@@ -584,6 +582,7 @@
       updatePinDisplayDots();
       try { playAudioSignal('click'); } catch(e) {}
       if (state.currentPin.length === 4) {
+        if (pinInput) pinInput.blur();
         setTimeout(function() { verifyPinCredentials(); }, 120);
       }
     }
@@ -602,12 +601,10 @@
     }
 
     // ── LAYER 1: On-screen PIN pad buttons ───────────────────────────────────
-    // Using pointerdown for instantaneous, non-glitchy tap response across all devices.
     if (pinPad) {
       pinPad.addEventListener('pointerdown', function(e) {
         var btn = e.target.closest('.pin-btn');
         if (!btn || !isLockActive()) return;
-        // Do not call preventDefault here, allow button active states to show.
         
         var digit = btn.getAttribute('data-digit');
         var action = btn.getAttribute('data-action');
@@ -623,10 +620,20 @@
       });
     }
 
-    // ── LAYER 2: Physical keyboard (capture phase, before HID scanner) ────────
+    // ── LAYER 2: Physical keyboard and barcode scanners ──────────────────────
     window.addEventListener('keydown', function(e) {
       if (!isLockActive()) return;
       if (document.activeElement && document.activeElement.id === 'login-terminal-role') return;
+      
+      // Let the native input events handle keys when focused on pin-input directly
+      if (document.activeElement && document.activeElement.id === 'pin-input') {
+        if (e.key === 'Enter') {
+          e.preventDefault(); e.stopImmediatePropagation();
+          if (pinInput) pinInput.blur();
+          verifyPinCredentials();
+        }
+        return;
+      }
       
       var k = e.key;
       if (k >= '0' && k <= '9') {
@@ -643,7 +650,21 @@
       }
     }, { capture: true });
 
-    // Layer 3 (mobile soft keyboard) has been removed to enforce usage of the custom PIN pad.
+    // ── LAYER 3: Native typing on the passcode input field ────────────────────
+    if (pinInput) {
+      pinInput.addEventListener('input', function(e) {
+        var raw = (e.target.value || '').replace(/[^0-9]/g, '');
+        if (raw.length > 4) raw = raw.slice(0, 4);
+        state.currentPin = raw;
+        if (e.target.value !== raw) {
+          e.target.value = raw;
+        }
+        if (raw.length === 4) {
+          pinInput.blur();
+          setTimeout(function() { verifyPinCredentials(); }, 120);
+        }
+      });
+    }
   }
 
 
@@ -676,8 +697,11 @@
       document.getElementById('auth-lock-screen').classList.add('active');
       const layout = document.getElementById('pos-app-layout');
       if (layout) layout.style.display = 'none';
-      // Re-focus hidden input on mobile for soft keyboard
-      setTimeout(function() { focusPinInput(); }, 300);
+      // Re-focus new input for native keyboard
+      setTimeout(function() { 
+        const pinInput = document.getElementById('pin-input');
+        if (pinInput) pinInput.focus();
+      }, 300);
     }
 
 
@@ -1885,9 +1909,12 @@
       return;
     }
 
-    // Show subtle loading state on the dots
-    const dots = document.querySelectorAll('.pin-display .dot');
-    dots.forEach(function(d) { d.style.opacity = '0.5'; });
+    // Show subtle loading state on the input
+    const pinInput = document.getElementById('pin-input');
+    if (pinInput) {
+      pinInput.style.opacity = '0.5';
+      pinInput.disabled = true;
+    }
 
     try {
       // STEP 1: Try local IndexedDB offline PBKDF2 verification
@@ -1920,8 +1947,11 @@
         }
       }
 
-      // Restore dots
-      dots.forEach(function(d) { d.style.opacity = '1'; });
+      // Restore input state
+      if (pinInput) {
+        pinInput.style.opacity = '1';
+        pinInput.disabled = false;
+      }
 
       if (matched) {
         matched.clockIn = Date.now();
@@ -1942,9 +1972,14 @@
         try { playAudioSignal('error'); } catch(e) {}
         state.currentPin = '';
         updatePinDisplayDots();
+        if (pinInput) pinInput.focus();
       }
     } catch (e) {
-      dots.forEach(function(d) { d.style.opacity = '1'; });
+      if (pinInput) {
+        pinInput.style.opacity = '1';
+        pinInput.disabled = false;
+        pinInput.focus();
+      }
       if (errorMsg) errorMsg.textContent = 'Error: ' + e.message;
       console.error('[Auth] verifyPinCredentials failed:', e);
     }
@@ -1952,14 +1987,10 @@
 
   // UI state transition dots
   function updatePinDisplayDots() {
-    const dots = document.querySelectorAll('.pin-display .dot');
-    dots.forEach((dot, index) => {
-      if (index < state.currentPin.length) {
-        dot.classList.add('filled');
-      } else {
-        dot.classList.remove('filled');
-      }
-    });
+    const pinInput = document.getElementById('pin-input');
+    if (pinInput) {
+      pinInput.value = state.currentPin;
+    }
   }
 
   // Tab screen switches
