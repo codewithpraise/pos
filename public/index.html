@@ -44,20 +44,13 @@
         </select>
       </div>
 
-      <!-- Hidden tel input: focuses to pop numpad on mobile when dots are tapped.
-           Positioned at 0,0 with opacity:0.01 so Android WebView accepts focus().
-           opacity:0 or display:none would prevent focus on some Android versions. -->
-      <input type="tel" id="hidden-pin-input" autocomplete="one-time-code" inputmode="numeric" maxlength="4"
-             style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;border:none;outline:none;background:transparent;color:transparent;z-index:-1;caret-color:transparent;">
-
-      <!-- PIN Display dots — tap to open soft keyboard on mobile -->
-      <div class="pin-display" id="pin-display-dots" title="Tap to enter PIN with keyboard" style="cursor:pointer; padding: 8px 16px; border-radius: 8px; transition: background 0.15s;">
+      <!-- PIN Display dots -->
+      <div class="pin-display" id="pin-display-dots" style="padding: 8px 16px; border-radius: 8px;">
         <span class="dot"></span>
         <span class="dot"></span>
         <span class="dot"></span>
         <span class="dot"></span>
       </div>
-      <p style="font-size:9px;color:var(--text-gray);margin-bottom:12px;margin-top:-8px;">↑ Tap dots to type with keyboard</p>
 
       <!-- On-screen PIN Pad: 3x4 grid (1-9, CLR, 0, ⌫) -->
       <div class="pin-pad" id="pin-pad">
