@@ -579,7 +579,9 @@
     function addDigit(d) {
       if (!isLockActive() || state.currentPin.length >= 4) return;
       state.currentPin += String(d);
-      if (hiddenInput) hiddenInput.value = state.currentPin;
+      if (hiddenInput && document.activeElement !== hiddenInput) {
+        hiddenInput.value = state.currentPin;
+      }
       updatePinDisplayDots();
       try { playAudioSignal('click'); } catch(e) {}
       if (state.currentPin.length === 4) {
@@ -590,14 +592,18 @@
     function doBackspace() {
       if (!isLockActive() || state.currentPin.length === 0) return;
       state.currentPin = state.currentPin.slice(0, -1);
-      if (hiddenInput) hiddenInput.value = state.currentPin;
+      if (hiddenInput && document.activeElement !== hiddenInput) {
+        hiddenInput.value = state.currentPin;
+      }
       updatePinDisplayDots();
       try { playAudioSignal('click'); } catch(e) {}
     }
 
     function doClear() {
       state.currentPin = '';
-      if (hiddenInput) hiddenInput.value = '';
+      if (hiddenInput && document.activeElement !== hiddenInput) {
+        hiddenInput.value = '';
+      }
       updatePinDisplayDots();
       if (isLockActive()) { try { playAudioSignal('click'); } catch(e) {} }
     }
@@ -650,6 +656,16 @@
     window.addEventListener('keydown', function(e) {
       if (!isLockActive()) return;
       if (document.activeElement && document.activeElement.id === 'login-terminal-role') return;
+      
+      // Fix for Android WebView: Let the soft keyboard natively handle keys via the 'input' event 
+      // when the hidden input is focused, preventing IME composition breakage.
+      if (document.activeElement && document.activeElement.id === 'hidden-pin-input') {
+        if (e.key === 'Enter') {
+          e.preventDefault(); e.stopImmediatePropagation(); verifyPinCredentials();
+        }
+        return; 
+      }
+      
       var k = e.key;
       if (k >= '0' && k <= '9') {
         e.preventDefault(); e.stopImmediatePropagation(); addDigit(k); return;
@@ -679,7 +695,10 @@
         var raw = (e.target.value || '').replace(/[^0-9]/g, '');
         if (raw.length > 4) raw = raw.slice(0, 4);
         state.currentPin = raw;
-        e.target.value = raw;
+        // Only update DOM if necessary, to prevent Android IME cursor reset
+        if (e.target.value !== raw) {
+          e.target.value = raw;
+        }
         updatePinDisplayDots();
         if (raw.length === 4) {
           setTimeout(function() { verifyPinCredentials(); }, 100);
