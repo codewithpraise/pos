@@ -24,7 +24,11 @@ kotlin {
                 implementation(compose.desktop.currentOs)
                 // SQLite JDBC driver for database access (bundles native Windows DLLs)
                 implementation("org.xerial:sqlite-jdbc:3.45.1.0")
-                // Ktor Client for WebSockets synchronization
+                // Ktor Client & Server dependencies for WebSockets synchronization
+                implementation("io.ktor:ktor-server-core:2.3.8")
+                implementation("io.ktor:ktor-server-auth-jwt:2.3.8")
+                implementation("io.ktor:ktor-server-netty:2.3.8")
+                implementation("io.ktor:ktor-server-websockets:2.3.8")
                 implementation("io.ktor:ktor-client-core:2.3.8")
                 implementation("io.ktor:ktor-client-okhttp:2.3.8")
                 implementation("io.ktor:ktor-client-websockets:2.3.8")
