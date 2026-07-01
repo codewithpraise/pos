@@ -22,11 +22,11 @@ We use Supabase strictly as a background disaster recovery layer. The system rem
    ```bash
    npx supabase init
    ```
-2. Copy the SQL migration script located in [init_disaster_recovery.sql](file:///c:/Users/DELL/Desktop/nexova/supabase/migrations/20260630000000_init_disaster_recovery.sql) and paste it into the **SQL Editor** on your Supabase dashboard (`wzvwyfyefbdrqscxhwsf`), then click **Run**.
+2. Copy the SQL migration script located in [init_disaster_recovery.sql](file:///c:/Users/DELL/Desktop/nexova/supabase/migrations/20260630000000_init_disaster_recovery.sql) and paste it into the **SQL Editor** on your Supabase dashboard, then click **Run**.
 3. Create a `.env` file in the root directory:
    ```env
-   SUPABASE_URL=https://wzvwyfyefbdrqscxhwsf.supabase.co
-   SUPABASE_ANON_KEY=sb_publishable_P6-5AYr2f-c-XFyp5iea6A_d2Kfjxem
+   SUPABASE_URL=https://your-supabase-project.supabase.co
+   SUPABASE_ANON_KEY=your-supabase-anon-key
    STORE_TERMINAL_ID=terminal_pc_master
    ```
 4. Verify the setup runs correctly:

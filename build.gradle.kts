@@ -24,11 +24,7 @@ kotlin {
                 implementation(compose.desktop.currentOs)
                 // SQLite JDBC driver for database access (bundles native Windows DLLs)
                 implementation("org.xerial:sqlite-jdbc:3.45.1.0")
-                // Ktor for WebSockets and HTTP server sync features
-                implementation("io.ktor:ktor-server-core:2.3.8")
-                implementation("io.ktor:ktor-server-auth-jwt:2.3.8")
-                implementation("io.ktor:ktor-server-netty:2.3.8")
-                implementation("io.ktor:ktor-server-websockets:2.3.8")
+                // Ktor Client for WebSockets synchronization
                 implementation("io.ktor:ktor-client-core:2.3.8")
                 implementation("io.ktor:ktor-client-okhttp:2.3.8")
                 implementation("io.ktor:ktor-client-websockets:2.3.8")
@@ -37,14 +33,20 @@ kotlin {
                 // Coroutines + Swing Main dispatcher for JVM desktop
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.8.0")
-                // JavaFX dependencies for modern WebView embedding on Windows
+                // JavaFX dependencies for modern WebView embedding (resolved dynamically per OS target)
                 val openjfxVersion = "21.0.2"
-                implementation("org.openjfx:javafx-base:$openjfxVersion:win")
-                implementation("org.openjfx:javafx-controls:$openjfxVersion:win")
-                implementation("org.openjfx:javafx-graphics:$openjfxVersion:win")
-                implementation("org.openjfx:javafx-web:$openjfxVersion:win")
-                implementation("org.openjfx:javafx-swing:$openjfxVersion:win")
-                implementation("org.openjfx:javafx-media:$openjfxVersion:win")
+                val osName = System.getProperty("os.name").lowercase()
+                val classifier = when {
+                    osName.contains("win") -> "win"
+                    osName.contains("mac") -> "mac"
+                    else -> "linux"
+                }
+                implementation("org.openjfx:javafx-base:$openjfxVersion:$classifier")
+                implementation("org.openjfx:javafx-controls:$openjfxVersion:$classifier")
+                implementation("org.openjfx:javafx-graphics:$openjfxVersion:$classifier")
+                implementation("org.openjfx:javafx-web:$openjfxVersion:$classifier")
+                implementation("org.openjfx:javafx-swing:$openjfxVersion:$classifier")
+                implementation("org.openjfx:javafx-media:$openjfxVersion:$classifier")
             }
         }
     }

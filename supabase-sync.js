@@ -9,13 +9,15 @@ const { db } = require('./database'); // Import our existing SQLite wrapper
 
 const url = process.env.SUPABASE_URL;
 const key = process.env.SUPABASE_ANON_KEY;
-
-if (!url || !key) {
-  console.warn('[CloudSync] Warning: SUPABASE_URL or SUPABASE_ANON_KEY not set. Cloud disaster recovery is inactive.');
-}
-
-const supabase = (url && key) ? createClient(url, key) : null;
 const STORE_ID = process.env.STORE_TERMINAL_ID || 'default_store';
+
+const supabase = (url && key) ? createClient(url, key, {
+  global: {
+    headers: {
+      'x-store-id': STORE_ID
+    }
+  }
+}) : null;
 
 let isSyncing = false;
 

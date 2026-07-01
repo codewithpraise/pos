@@ -17,3 +17,8 @@ out/
 *.log
 gradle-8.5/
 
+# Android build secrets and config
+local.properties
+*.jks
+*.keystore
+*.pk8

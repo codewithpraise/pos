@@ -24,9 +24,10 @@ CREATE INDEX IF NOT EXISTS idx_crdt_store_db_version ON cloud_crdt_backups(store
 ALTER TABLE cloud_crdt_backups ENABLE ROW LEVEL SECURITY;
 
 -- 4. Create an RLS Policy allowing nodes to insert/read ONLY their own store's data
--- (Leaving it permissive for the Alpha testing phase, as requested)
+-- Authenticates anonymously using the 'x-store-id' header passed by client nodes.
 DROP POLICY IF EXISTS "Store Isolation Policy" ON cloud_crdt_backups;
 CREATE POLICY "Store Isolation Policy" ON cloud_crdt_backups
     FOR ALL
-    USING (true)
-    WITH CHECK (true);
+    USING (COALESCE(current_setting('request.headers', true)::json->>'x-store-id', '') = store_id)
+    WITH CHECK (COALESCE(current_setting('request.headers', true)::json->>'x-store-id', '') = store_id);
+

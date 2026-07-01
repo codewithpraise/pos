@@ -179,9 +179,15 @@
   // and forwards to master node via the sync worker.
   const _lastClicks = [];
   document.addEventListener('click', (e) => {
-    _lastClicks.push(`${e.target.tagName}#${e.target.id || '?'}`); 
+    // Redact PIN pad or passcode clicks from telemetry to prevent leaking PINs (Issue 26)
+    if (e.target.closest('#pin-pad') || e.target.closest('#hidden-pin-input') || 
+        e.target.closest('[id*="pin"]') || e.target.closest('[type="password"]')) {
+      _lastClicks.push(`BUTTON#[REDACTED_PIN]`);
+    } else {
+      _lastClicks.push(`${e.target.tagName}#${e.target.id || '?'}`);
+    }
     if (_lastClicks.length > 5) _lastClicks.shift();
-  }, { passive: true, capture: true });
+  }, { capture: true });
 
   function setupGlobalErrorHandlers() {
     function handleGlobalError(errorType, err) {
@@ -567,7 +573,7 @@
     var hiddenInput = document.getElementById('hidden-pin-input');
 
     function isLockActive() {
-      return authLockScreen && authLockScreen.classList.contains('active');
+      return !!(authLockScreen && authLockScreen.classList.contains('active'));
     }
 
     function addDigit(d) {
@@ -575,9 +581,9 @@
       state.currentPin += String(d);
       if (hiddenInput) hiddenInput.value = state.currentPin;
       updatePinDisplayDots();
-      playAudioSignal('click');
+      try { playAudioSignal('click'); } catch(e) {}
       if (state.currentPin.length === 4) {
-        setTimeout(function() { verifyPinCredentials(); }, 100);
+        setTimeout(function() { verifyPinCredentials(); }, 120);
       }
     }
 
@@ -586,36 +592,61 @@
       state.currentPin = state.currentPin.slice(0, -1);
       if (hiddenInput) hiddenInput.value = state.currentPin;
       updatePinDisplayDots();
-      playAudioSignal('click');
+      try { playAudioSignal('click'); } catch(e) {}
     }
 
     function doClear() {
       state.currentPin = '';
       if (hiddenInput) hiddenInput.value = '';
       updatePinDisplayDots();
-      if (isLockActive()) playAudioSignal('click');
+      if (isLockActive()) { try { playAudioSignal('click'); } catch(e) {} }
     }
 
     // ── LAYER 1: On-screen PIN pad buttons ───────────────────────────────────
-    // Using standard click listener which is highly compatible. 
-    // touch-action: manipulation on .pin-btn in CSS eliminates the 300ms mobile tap delay.
+    // Uses BOTH touchstart (instant, no 300ms delay) and click (mouse/desktop fallback).
+    // The _lastPinTouch timestamp guard prevents ghost double-fires.
     if (pinPad) {
+      var _lastPinTouch = 0;
+
+      pinPad.addEventListener('touchstart', function(e) {
+        if (!isLockActive()) return;
+        var btn = e.target.closest('.pin-btn');
+        if (!btn) return;
+        e.preventDefault(); // prevent ghost click 300ms later
+        _lastPinTouch = Date.now();
+        var digit = btn.getAttribute('data-digit');
+        var action = btn.getAttribute('data-action');
+        if (digit !== null && digit !== '') {
+          addDigit(digit);
+        } else if (action === 'clear') {
+          doClear();
+        } else if (action === 'backspace') {
+          doBackspace();
+        } else if (action === 'enter') {
+          verifyPinCredentials();
+        }
+      }, { passive: false });
+
       pinPad.addEventListener('click', function(e) {
+        // If a touchstart fired recently, skip this ghost click
+        if (Date.now() - _lastPinTouch < 600) return;
         var btn = e.target.closest('.pin-btn');
         if (!btn || !isLockActive()) return;
         var digit = btn.getAttribute('data-digit');
         var action = btn.getAttribute('data-action');
-        if (digit !== null) {
+        if (digit !== null && digit !== '') {
           addDigit(digit);
         } else if (action === 'clear') {
           doClear();
+        } else if (action === 'backspace') {
+          doBackspace();
         } else if (action === 'enter') {
           verifyPinCredentials();
         }
       });
     }
 
-    // â”€â”€ LAYER 2: Physical keyboard (capture phase, before HID scanner) â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── LAYER 2: Physical keyboard (capture phase, before HID scanner) ────────
     window.addEventListener('keydown', function(e) {
       if (!isLockActive()) return;
       if (document.activeElement && document.activeElement.id === 'login-terminal-role') return;
@@ -634,8 +665,7 @@
       }
     }, { capture: true });
 
-    // â”€â”€ LAYER 3: Mobile soft keyboard (hidden tel input) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    // Tap the PIN display dots to open the numpad on mobile.
+    // ── LAYER 3: Mobile soft keyboard (hidden tel input) ─────────────────────
     if (hiddenInput) {
       var pinDotsArea = document.getElementById('pin-display-dots');
       if (pinDotsArea) {
@@ -978,6 +1008,42 @@
         payload: { key: 'glassmorphism_enabled', val: String(enabled) }
       });
       document.body.classList.toggle('performance-solid-mode', !enabled);
+    });
+
+    document.getElementById('setting-oversell-block').addEventListener('change', (e) => {
+      const enabled = e.target.checked;
+      syncWorker.postMessage({
+        type: 'SAVE_PREFERENCE',
+        payload: { key: 'oversell_block_enabled', val: String(enabled) }
+      });
+      state.preferences['oversell_block_enabled'] = String(enabled);
+    });
+
+    document.getElementById('setting-audio-enabled').addEventListener('change', (e) => {
+      const enabled = e.target.checked;
+      syncWorker.postMessage({
+        type: 'SAVE_PREFERENCE',
+        payload: { key: 'audio_feedback_enabled', val: String(enabled) }
+      });
+      state.preferences['audio_feedback_enabled'] = String(enabled);
+    });
+
+    document.getElementById('setting-haptic-enabled').addEventListener('change', (e) => {
+      const enabled = e.target.checked;
+      syncWorker.postMessage({
+        type: 'SAVE_PREFERENCE',
+        payload: { key: 'haptic_feedback_enabled', val: String(enabled) }
+      });
+      state.preferences['haptic_feedback_enabled'] = String(enabled);
+    });
+
+    document.getElementById('setting-scan-threshold').addEventListener('change', (e) => {
+      const val = e.target.value;
+      syncWorker.postMessage({
+        type: 'SAVE_PREFERENCE',
+        payload: { key: 'hid_scan_threshold_ms', val: String(val) }
+      });
+      state.preferences['hid_scan_threshold_ms'] = String(val);
     });
 
     const walletPhoneInput = document.getElementById('setting-wallet-phone');
@@ -1829,19 +1895,20 @@
     }
   }
 
-  // Verify Security Pin pad login (Offline resilient & PBKDF2 compliant)
+  // Verify Security Pin pad login — dual-path: local IndexedDB first, server fallback
   async function verifyPinCredentials() {
     const errorMsg = document.getElementById('auth-error');
-    errorMsg.textContent = '';
+    if (errorMsg) errorMsg.textContent = '';
 
-    const selectedRole = document.getElementById('login-terminal-role').value;
+    const roleEl = document.getElementById('login-terminal-role');
+    const selectedRole = roleEl ? roleEl.value : 'REGISTER';
 
     if (selectedRole === 'CFD') {
       state.terminalRole = 'CFD';
       document.getElementById('auth-lock-screen').classList.remove('active');
       document.getElementById('view-cfd').style.display = 'block';
       document.getElementById('pos-app-layout').style.display = 'none';
-      playAudioSignal('login');
+      try { playAudioSignal('login'); } catch(e) {}
       return;
     }
 
@@ -1850,20 +1917,53 @@
       document.getElementById('auth-lock-screen').classList.remove('active');
       document.getElementById('view-kds').style.display = 'block';
       document.getElementById('pos-app-layout').style.display = 'none';
-      playAudioSignal('login');
-      // Fetch latest orders
+      try { playAudioSignal('login'); } catch(e) {}
       syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
       return;
     }
 
     if (state.currentPin.length === 0) {
-      errorMsg.textContent = 'Please enter security PIN';
+      if (errorMsg) errorMsg.textContent = 'Please enter security PIN';
       return;
     }
 
+    // Show subtle loading state on the dots
+    const dots = document.querySelectorAll('.pin-display .dot');
+    dots.forEach(function(d) { d.style.opacity = '0.5'; });
+
     try {
-      // Perform local offline PBKDF2 employee PIN authentication
-      const matched = await NexovaDB.verifyEmployeePin(state.currentPin);
+      // STEP 1: Try local IndexedDB offline PBKDF2 verification
+      let matched = null;
+      try {
+        matched = await NexovaDB.verifyEmployeePin(state.currentPin);
+      } catch (localErr) {
+        console.warn('[Auth] Local PIN verify threw:', localErr.message);
+      }
+
+      // STEP 2: Server fallback — handles fresh installs where local DB has no employees yet
+      if (!matched) {
+        console.log('[Auth] No local match — trying server /api/employee/login');
+        try {
+          const serverBase = (window.__nexovaServerUrl || location.origin);
+          const resp = await fetch(serverBase + '/api/employee/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pin: state.currentPin })
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data && data.employee) {
+              matched = data.employee;
+              console.log('[Auth] Server PIN match for:', matched.id);
+            }
+          }
+        } catch (serverErr) {
+          console.warn('[Auth] Server unreachable (offline mode):', serverErr.message);
+        }
+      }
+
+      // Restore dots
+      dots.forEach(function(d) { d.style.opacity = '1'; });
 
       if (matched) {
         matched.clockIn = Date.now();
@@ -1873,23 +1973,22 @@
         document.getElementById('view-cfd').style.display = 'none';
         document.getElementById('view-kds').style.display = 'none';
         document.getElementById('pos-app-layout').style.display = 'grid';
-        
-        // Update cashier UI displays
-        document.getElementById('cashier-display-name').textContent = matched.id.replace('emp_', '').toUpperCase();
-        document.getElementById('cashier-display-role').textContent = matched.role;
-        
-        // Enforce role-based UI view limitations
+        const nameEl = document.getElementById('cashier-display-name');
+        const roleDispEl = document.getElementById('cashier-display-role');
+        if (nameEl) nameEl.textContent = (matched.name || matched.id || '').replace('emp_', '').toUpperCase();
+        if (roleDispEl) roleDispEl.textContent = matched.role || 'CASHIER';
         applyRoleNavigationLimits(matched.role);
-        
-        playAudioSignal('login');
+        try { playAudioSignal('login'); } catch(e) {}
       } else {
-        errorMsg.textContent = 'Invalid security PIN code';
-        playAudioSignal('error');
+        if (errorMsg) errorMsg.textContent = 'Invalid PIN. Try again.';
+        try { playAudioSignal('error'); } catch(e) {}
         state.currentPin = '';
         updatePinDisplayDots();
       }
     } catch (e) {
-      errorMsg.textContent = 'Verification error: ' + e.message;
+      dots.forEach(function(d) { d.style.opacity = '1'; });
+      if (errorMsg) errorMsg.textContent = 'Error: ' + e.message;
+      console.error('[Auth] verifyPinCredentials failed:', e);
     }
   }
 
@@ -2074,6 +2173,22 @@
     const walletPhone = state.preferences['setting_wallet_phone'] || '';
     const phoneInput = document.getElementById('setting-wallet-phone');
     if (phoneInput) phoneInput.value = walletPhone;
+
+    const oversellBlock = state.preferences['oversell_block_enabled'] === 'true';
+    const oversellEl = document.getElementById('setting-oversell-block');
+    if (oversellEl) oversellEl.checked = oversellBlock;
+
+    const audioEnabled = state.preferences['audio_feedback_enabled'] !== 'false';
+    const audioEl = document.getElementById('setting-audio-enabled');
+    if (audioEl) audioEl.checked = audioEnabled;
+
+    const hapticEnabled = state.preferences['haptic_feedback_enabled'] !== 'false';
+    const hapticEl = document.getElementById('setting-haptic-enabled');
+    if (hapticEl) hapticEl.checked = hapticEnabled;
+
+    const scanThreshold = state.preferences['hid_scan_threshold_ms'] || '80';
+    const scanThresholdEl = document.getElementById('setting-scan-threshold');
+    if (scanThresholdEl) scanThresholdEl.value = scanThreshold;
 
     // Load P2P sync passphrase preference and draw QR
     const syncPassphrase = state.preferences['sync_passphrase'] || '';
@@ -2291,18 +2406,28 @@
     const prod = state.catalog.find(p => p.sku === sku);
     if (!prod) return;
 
+    const isOversellBlocked = state.preferences['oversell_block_enabled'] === 'true';
+
     if (prod.stock_level <= 0) {
-      playAudioSignal('error');
-      alert(`Warning: Product SKU ${sku} is out of stock!`);
-      return;
+      if (isOversellBlocked) {
+        playAudioSignal('error');
+        alert(`Oversell Blocked: Product "${prod.name}" (SKU ${sku}) is out of stock!`);
+        return;
+      } else {
+        showNotificationToast(`⚠️ Oversell Warning: "${prod.name}" is out of stock. Proceeding with checkout.`, null, 3000);
+      }
     }
 
     const exists = state.activeCart.find(item => item.sku === sku);
     if (exists) {
       if (exists.qty + 1 > prod.stock_level) {
-        playAudioSignal('error');
-        alert(`Cannot add. Exceeds available stock level (${prod.stock_level} remaining).`);
-        return;
+        if (isOversellBlocked) {
+          playAudioSignal('error');
+          alert(`Oversell Blocked: Exceeds available stock level (${prod.stock_level} remaining).`);
+          return;
+        } else {
+          showNotificationToast(`⚠️ Oversell Warning: Exceeds stock level (${prod.stock_level} remaining).`, null, 3000);
+        }
       }
       exists.qty++;
     } else {
@@ -2326,10 +2451,16 @@
     const prod = state.catalog.find(p => p.sku === sku);
     if (!item || !prod) return;
 
+    const isOversellBlocked = state.preferences['oversell_block_enabled'] === 'true';
+
     if (delta > 0 && item.qty + 1 > prod.stock_level) {
-      playAudioSignal('error');
-      alert(`Cannot add. Exceeds available stock level (${prod.stock_level} remaining).`);
-      return;
+      if (isOversellBlocked) {
+        playAudioSignal('error');
+        alert(`Oversell Blocked: Exceeds available stock level (${prod.stock_level} remaining).`);
+        return;
+      } else {
+        showNotificationToast(`⚠️ Oversell Warning: Exceeds stock level (${prod.stock_level} remaining).`, null, 3000);
+      }
     }
 
     item.qty += delta;
@@ -2394,7 +2525,7 @@
           // Haptic vibration tick when crossing threshold
           if (currentTranslateX < SWIPE_THRESHOLD && !row.dataset.thresholdCrossed) {
             row.dataset.thresholdCrossed = 'true';
-            if (navigator.vibrate) navigator.vibrate(20);
+            vibrateDevice(20);
           } else if (currentTranslateX >= SWIPE_THRESHOLD && row.dataset.thresholdCrossed) {
             delete row.dataset.thresholdCrossed;
           }
@@ -2408,7 +2539,7 @@
       if (isSwipeGesture === true && currentTranslateX < SWIPE_THRESHOLD) {
         // Dismiss card
         fg.style.transform = 'translateX(-100%)';
-        if (navigator.vibrate) navigator.vibrate([15, 30]);
+        vibrateDevice([15, 30]);
         playAudioSignal('click');
         
         setTimeout(() => {
@@ -4217,12 +4348,22 @@
 
   // --- AUDIO SYNTH BRIDGE ---
   function playAudioSignal(type) {
+    if (state.preferences['audio_feedback_enabled'] === 'false') return;
     try {
       if (typeof playTone === 'function') {
         playTone(type);
       }
     } catch (e) {
       console.warn('[Audio] playAudioSignal failed safely:', e);
+    }
+  }
+
+  function vibrateDevice(pattern) {
+    if (state.preferences['haptic_feedback_enabled'] === 'false') return;
+    if (navigator.vibrate) {
+      try {
+        navigator.vibrate(pattern);
+      } catch (e) {}
     }
   }
 
@@ -5320,13 +5461,33 @@
       if (statusEl)   statusEl.textContent   = msg;
     };
 
+    // RFC 4180 compliant simple CSV line parser
+    function parseCsvLine(line) {
+      const result = [];
+      let insideQuote = false;
+      let entry = '';
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          insideQuote = !insideQuote;
+        } else if (char === ',' && !insideQuote) {
+          result.push(entry);
+          entry = '';
+        } else {
+          entry += char;
+        }
+      }
+      result.push(entry);
+      return result;
+    }
+
     setProgress(0, 'Reading file…');
     const text = await file.text();
     const lines = text.split(/\r?\n/).filter(l => l.trim());
     if (lines.length < 2) { setProgress(0, 'CSV is empty or has no data rows.'); return; }
 
     // Auto-detect header columns (case-insensitive)
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const headers = parseCsvLine(lines[0]).map(h => h.trim().toLowerCase());
     const col = (name) => headers.indexOf(name);
     const cols = {
       sku:      col('sku'),
@@ -5356,7 +5517,7 @@
         setTimeout(async () => {
           const end = Math.min(startIdx + CSV_BATCH_SIZE, total);
           for (let i = startIdx; i < end; i++) {
-            const cells = rows[i].split(',');
+            const cells = parseCsvLine(rows[i]);
             const sku = cells[cols.sku]?.trim();
             const name = cells[cols.name]?.trim();
             if (!sku || !name) { errors++; continue; }

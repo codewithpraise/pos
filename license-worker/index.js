@@ -1,9 +1,7 @@
 // license-worker/index.js
 // Cloudflare Worker script for Nexova POS license check
 
-const SECRET_KEY = "nexova_jwt_secret_signature_key"; // Replace with secure key in production
-
-async function generateJWT(payload) {
+async function generateJWT(payload, secretKey) {
   const header = { alg: "HS256", typ: "JWT" };
   const encodedHeader = btoa(JSON.stringify(header)).replace(/=+$/, "");
   const encodedPayload = btoa(JSON.stringify(payload)).replace(/=+$/, "");
@@ -11,7 +9,7 @@ async function generateJWT(payload) {
   // Minimal standard crypto signature
   const rawSignature = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(SECRET_KEY),
+    new TextEncoder().encode(secretKey),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
@@ -30,7 +28,7 @@ async function generateJWT(payload) {
   return `${encodedHeader}.${encodedPayload}.${encodedSignature}`;
 }
 
-async function verifyJWT(token) {
+async function verifyJWT(token, secretKey) {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return false;
@@ -38,7 +36,7 @@ async function verifyJWT(token) {
 
     const rawSignature = await crypto.subtle.importKey(
       "raw",
-      new TextEncoder().encode(SECRET_KEY),
+      new TextEncoder().encode(secretKey),
       { name: "HMAC", hash: "SHA-256" },
       false,
       ["verify"]
@@ -62,7 +60,6 @@ async function verifyJWT(token) {
       return false; // Expired
     }
     return decodedPayload;
-  } catch (e) {
     return false;
   }
 }
@@ -129,7 +126,7 @@ export default {
           activatedAt: now
         };
 
-        const token = await generateJWT(jwtPayload);
+        const token = await generateJWT(jwtPayload, env.JWT_SECRET || "nexova_jwt_secret_signature_key");
 
         return new Response(JSON.stringify({ success: true, token, expiresAt, tier }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
@@ -147,7 +144,7 @@ export default {
           });
         }
 
-        const payload = await verifyJWT(token);
+        const payload = await verifyJWT(token, env.JWT_SECRET || "nexova_jwt_secret_signature_key");
         if (!payload) {
           return new Response(JSON.stringify({ error: "Invalid or expired license token." }), {
             status: 403,

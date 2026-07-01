@@ -708,6 +708,22 @@
                 <label for="setting-glass-fx" style="cursor: pointer;">Enable Glassmorphic UI filters</label>
                 <input type="checkbox" id="setting-glass-fx" class="pos-checkbox">
               </div>
+              <div class="settings-row flex-row">
+                <label for="setting-oversell-block" style="cursor: pointer;">Hard-block out-of-stock checkouts (Oversell Guard)</label>
+                <input type="checkbox" id="setting-oversell-block" class="pos-checkbox">
+              </div>
+              <div class="settings-row flex-row">
+                <label for="setting-audio-enabled" style="cursor: pointer;">Enable audio / sound effects</label>
+                <input type="checkbox" id="setting-audio-enabled" class="pos-checkbox" checked>
+              </div>
+              <div class="settings-row flex-row">
+                <label for="setting-haptic-enabled" style="cursor: pointer;">Enable tactile haptic feedback</label>
+                <input type="checkbox" id="setting-haptic-enabled" class="pos-checkbox" checked>
+              </div>
+              <div class="settings-row">
+                <label>HID Scanner Timing Threshold (ms):</label>
+                <input type="number" id="setting-scan-threshold" class="pos-input" min="20" max="500" value="80">
+              </div>
             </div>
 
             <div class="settings-section">

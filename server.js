@@ -5,6 +5,11 @@
 
 const express = require('express');
 const http = require('http');
+const https = require('https');
+const fs = require('fs');
+const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const WebSocket = require('ws');
 const path = require('path');
 const crypto = require('crypto');
@@ -36,11 +41,47 @@ const { pushOfflineBackupsToCloud } = require('./supabase-sync');
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Rate limiter specifically for login/PIN endpoints (max 10 attempts per minute)
+const loginLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10,
+  message: { error: 'Too many authentication attempts. Please try again after 60 seconds.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply security middleware (Issue 9)
+app.use(helmet({
+  contentSecurityPolicy: false, // Enable inline assets for the POS web application context
+}));
+app.use(cors());
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Create Server
-const server = http.createServer(app);
+// Create Server with optional TLS/HTTPS (Issue 5)
+const keyPath = path.join(__dirname, 'key.pem');
+const certPath = path.join(__dirname, 'cert.pem');
+let server;
+let protocol = 'http';
+
+if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
+  try {
+    const options = {
+      key: fs.readFileSync(keyPath),
+      cert: fs.readFileSync(certPath)
+    };
+    server = https.createServer(options, app);
+    protocol = 'https';
+    console.log('[SyncHub] TLS certificates found. Initializing WSS / HTTPS server.');
+  } catch (err) {
+    console.error('[SyncHub] Failed to load TLS certificates, falling back to HTTP:', err.message);
+    server = http.createServer(app);
+  }
+} else {
+  server = http.createServer(app);
+}
+
 const wss = new WebSocket.Server({ 
   server,
   maxPayload: 1024 * 1024 // 1MB maximum payload size to prevent memory exhaustion
@@ -514,7 +555,7 @@ app.post('/api/fbr/retry', requireAdmin, async (req, res) => {
 
 
 // 1. Employee Login verification (Requires approved device token)
-app.post('/api/employee/login', requireAuth, async (req, res) => {
+app.post('/api/employee/login', loginLimiter, requireAuth, async (req, res) => {
   const { pin } = req.body;
   if (!pin) return res.status(400).json({ error: 'PIN is required' });
 
@@ -765,15 +806,14 @@ app.post('/api/reset', requireAdmin, async (req, res) => {
 });
 
 // ── Immutable Ledger: Void Transaction (Manager PIN required) ─────────────────
-app.post('/api/void-transaction', async (req, res) => {
+app.post('/api/void-transaction', loginLimiter, async (req, res) => {
   try {
     const { transactionId, managerPin, voidReason } = req.body;
     if (!transactionId || !managerPin) return res.status(400).json({ error: 'transactionId and managerPin required.' });
-    const mgr = await db.get("SELECT id FROM employees WHERE auth_hash IS NOT NULL AND (role='MANAGER' OR role='ADMIN') AND is_active=1");
-    if (!mgr) return res.status(403).json({ error: 'No active manager found.' });
-    const mgrFull = await db.get('SELECT * FROM employees WHERE id = ?', [mgr.id]);
-    if (!verifyPin(managerPin, mgrFull.auth_hash)) return res.status(403).json({ error: 'Invalid manager PIN.' });
-    const contraId = await createVoidContraEntry(transactionId, mgr.id, voidReason || 'Manager void');
+    const managers = await db.all("SELECT * FROM employees WHERE auth_hash IS NOT NULL AND (role='MANAGER' OR role='ADMIN') AND is_active=1");
+    const matchedMgr = managers.find(m => verifyPin(managerPin, m.auth_hash));
+    if (!matchedMgr) return res.status(403).json({ error: 'Invalid manager PIN.' });
+    const contraId = await createVoidContraEntry(transactionId, matchedMgr.id, voidReason || 'Manager void');
     res.json({ success: true, contraId });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -815,6 +855,16 @@ app.post('/api/admin/gc', async (req, res) => {
 // Serve download portal
 app.get('/download', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'download.html'));
+});
+
+// Expose Server Version API endpoint (Issue 31)
+app.get('/api/version', (req, res) => {
+  res.json({
+    appName: "Nexova POS",
+    serverVersion: "1.0.0",
+    schemaVersion: SERVER_SCHEMA_VERSION,
+    status: "healthy"
+  });
 });
 
 // Serve frontend shell entry

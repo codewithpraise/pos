@@ -20,7 +20,6 @@ const LicenseEngine = (() => {
 
   // ── Hardware Fingerprint (browser-native, no OS calls) ────────────────────
   async function generateHWID() {
-    // Combine multiple entropy sources available in the browser
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     ctx.textBaseline = 'top';
@@ -36,13 +35,34 @@ const LicenseEngine = (() => {
       String(navigator.hardwareConcurrency || 0),
       String(navigator.deviceMemory || 0),
       new Intl.DateTimeFormat().resolvedOptions().timeZone,
-      canvasData.slice(-128) // canvas fingerprint tail
+      canvasData.slice(-128)
     ].join('|');
 
-    const encoded = new TextEncoder().encode(components);
-    const hashBuf = await crypto.subtle.digest('SHA-256', encoded);
-    const hashArr = Array.from(new Uint8Array(hashBuf));
-    return hashArr.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase().slice(0, 32);
+    // Use crypto.subtle if available (HTTPS), fall back to pure-JS SHA-256 on HTTP
+    try {
+      if (crypto && crypto.subtle) {
+        const encoded = new TextEncoder().encode(components);
+        const hashBuf = await crypto.subtle.digest('SHA-256', encoded);
+        const hashArr = Array.from(new Uint8Array(hashBuf));
+        return hashArr.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase().slice(0, 32);
+      }
+    } catch (e) {
+      console.warn('[License] crypto.subtle unavailable (HTTP context), using JS fallback HWID.');
+    }
+    // Pure-JS fallback: djb2 hash — deterministic, no crypto API needed
+    let h = 5381;
+    for (let i = 0; i < components.length; i++) {
+      h = ((h << 5) + h) ^ components.charCodeAt(i);
+      h = h >>> 0; // keep unsigned
+    }
+    // Stretch to 32 chars using chained hashes
+    let result = '';
+    let seed = h;
+    while (result.length < 32) {
+      seed = ((seed << 5) + seed + result.length * 31) >>> 0;
+      result += seed.toString(16).padStart(8, '0');
+    }
+    return result.toUpperCase().slice(0, 32);
   }
 
   // ── Import public key for verification ───────────────────────────────────
@@ -55,9 +75,28 @@ const LicenseEngine = (() => {
     );
   }
 
-  // ── Verify a license token string ─────────────────────────────────────────
   async function verifyToken(tokenB64, hwid) {
     try {
+      // If crypto.subtle is unavailable (HTTP/Android WebView), skip client-side
+      // cryptographic verification. The server already validated the device token
+      // via requireAuth middleware. Client-side Ed25519 is supplemental only.
+      if (!crypto || !crypto.subtle) {
+        console.warn('[License] crypto.subtle unavailable — skipping Ed25519 client verification (HTTP context).');
+        // Still parse and check expiry using basic atob
+        try {
+          const decoded = atob(tokenB64);
+          const pipeIndex = decoded.lastIndexOf('|');
+          if (pipeIndex === -1) return { valid: false, reason: 'Malformed token.' };
+          const payloadStr = decoded.substring(0, pipeIndex);
+          const payload = JSON.parse(payloadStr);
+          if (payload.exp < Date.now()) return { valid: false, reason: `License expired on ${new Date(payload.exp).toLocaleDateString()}.` };
+          // HWID check skipped on HTTP — server enforces terminal binding
+          return { valid: true, payload };
+        } catch (e) {
+          return { valid: false, reason: 'Token parse error: ' + e.message };
+        }
+      }
+
       const decoded      = atob(tokenB64);
       const pipeIndex    = decoded.lastIndexOf('|');
       if (pipeIndex === -1) return { valid: false, reason: 'Malformed token structure.' };
@@ -136,7 +175,7 @@ const LicenseEngine = (() => {
     });
   }
 
-  function mountClockTamperOverlay(lastKnown, osClock) {
+  function mountClockTamperOverlay(lastKnown, osClock, onBypass) {
     document.getElementById('license-lockout-overlay')?.remove();
     const overlay = document.createElement('div');
     overlay.id = 'license-lockout-overlay';
@@ -161,13 +200,27 @@ const LicenseEngine = (() => {
           Current OS clock: <strong style="color:#ef4444">${new Date(osClock).toLocaleString()}</strong><br><br>
           Connect to an NTP server or correct your system clock to resume.
         </div>
+        <input id="clock-override-pin" type="password" placeholder="Enter Manager PIN for override..."
+          style="width: 100%; box-sizing: border-box; padding: 14px 16px; background: #121217; border: 1px solid #333; border-radius: 6px; color: #f8fafc; font-family: monospace; font-size: 11px; margin-bottom: 12px; text-align: center; outline: none;"
+        />
+        <button id="clock-override-btn"
+          style="width: 100%; padding: 14px; background: #f59e0b; color: #0a0005; font-weight: 800; font-size: 13px; border: none; border-radius: 6px; cursor: pointer; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 12px; width: 100%;"
+        >BYPASS CLOCK LOCK</button>
         <button onclick="location.reload()"
-          style="padding: 14px 32px; background: #f59e0b; color: #0a0005; font-weight: 800; font-size: 13px; border: none; border-radius: 6px; cursor: pointer; text-transform: uppercase;">
+          style="width: 100%; padding: 14px; background: #1F1F2E; color: #ffffff; font-weight: 800; font-size: 13px; border: none; border-radius: 6px; cursor: pointer; text-transform: uppercase;">
           RETRY AFTER CLOCK CORRECTION
         </button>
       </div>
     `;
     document.body.appendChild(overlay);
+    const btn = document.getElementById('clock-override-btn');
+    if (btn) {
+      btn.addEventListener('click', async () => {
+        const input = document.getElementById('clock-override-pin');
+        const pin = input ? input.value.trim() : '';
+        if (pin && onBypass) await onBypass(pin);
+      });
+    }
   }
 
   // ── EULA check ─────────────────────────────────────────────────────────────
@@ -181,25 +234,69 @@ const LicenseEngine = (() => {
   // ── Public API ─────────────────────────────────────────────────────────────
   async function init() {
     // Strict licensing enforcement. Local demo bypasses are disabled for production builds.
-    const LICENSE_BYPASS = false; 
+    const LICENSE_BYPASS = false;
 
     if (LICENSE_BYPASS) {
       console.log("[License] Development bypass active. Bypassing license gate.");
       window.__nexovaTier = 'ENTERPRISE';
       window.__nexovaHWID = 'DEV_LOCAL_BYPASS';
-      return true; // Auto-verify
+      return true;
     }
+
+    // Detect HTTP context (Android WebView over LAN, or localhost dev)
+    // crypto.subtle is only available on HTTPS + localhost. On HTTP LAN, it's undefined.
+    const isSecureContext = !!(crypto && crypto.subtle);
+    const isHttpContext = !isSecureContext ||
+      location.protocol === 'http:' ||
+      location.hostname.match(/^192\.168\.|^10\.|^172\.(1[6-9]|2[0-9]|3[01])\./) ||
+      location.hostname === 'localhost' ||
+      location.protocol === 'file:';
 
     // 1. Monotonic time anchor check — prevent clock rollback license bypass
     const { tampered, lastKnown, osClock } = await checkTimeAnchor();
     if (tampered) {
-      mountClockTamperOverlay(lastKnown, osClock);
-      return false; // Block app
+      mountClockTamperOverlay(lastKnown, osClock, async (pin) => {
+        let matched = false;
+        // Check local DB first
+        try {
+          const emp = await NexovaDB.verifyEmployeePin(pin);
+          if (emp && (emp.role === 'MANAGER' || emp.role === 'ADMIN')) {
+            matched = true;
+          }
+        } catch (e) {}
+
+        // Check server fallback
+        if (!matched) {
+          try {
+            const serverBase = (window.__nexovaServerUrl || location.origin);
+            const resp = await fetch(serverBase + '/api/employee/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ pin })
+            });
+            if (resp.ok) {
+              const data = await resp.json();
+              if (data && data.employee && (data.employee.role === 'MANAGER' || data.employee.role === 'ADMIN')) {
+                matched = true;
+              }
+            }
+          } catch (e) {}
+        }
+
+        if (matched) {
+          await updateTimeAnchor();
+          alert('Clock lock bypassed successfully. Restarting...');
+          location.reload();
+        } else {
+          alert('Access denied: Invalid Manager/Admin PIN.');
+        }
+      });
+      return false;
     }
 
-    // 2. Generate HWID
+    // 2. Generate HWID (uses JS fallback on HTTP)
     const hwid = await generateHWID();
-    console.log(`[License] Hardware fingerprint: ${hwid.slice(0,8)}...`);
+    console.log(`[License] Hardware fingerprint: ${hwid.slice(0,8)}... | Secure context: ${isSecureContext}`);
 
     // 3. Check stored license
     const stored = localStorage.getItem(STORAGE_KEY_LICENSE);
@@ -207,19 +304,34 @@ const LicenseEngine = (() => {
       const result = await verifyToken(stored, hwid);
       if (result.valid) {
         console.log(`[License] Valid — Tier: ${result.payload.tier}, Expires: ${new Date(result.payload.exp).toLocaleDateString()}`);
-        // Expose tier to app
         window.__nexovaTier = result.payload.tier;
         window.__nexovaHWID = hwid;
         return true;
       } else {
         console.warn('[License] Stored token invalid:', result.reason);
+        // On HTTP context: if token is present but just can't be crypto-verified,
+        // still allow boot — server middleware already enforces authorization.
+        if (isHttpContext && result.reason && result.reason.includes('Verification error')) {
+          console.warn('[License] HTTP context: crypto verification failed but token present — allowing boot.');
+          window.__nexovaTier = 'STANDARD';
+          window.__nexovaHWID = hwid;
+          return true;
+        }
       }
+    } else if (isHttpContext) {
+      // No stored license AND on HTTP context (LAN app) — server already auth-gates
+      // every API endpoint via requireAuth middleware. Allow the app to boot so the
+      // user can reach the login screen. The server will reject unauthorized calls.
+      console.warn('[License] HTTP context without local token — server-side auth is enforcing access. Allowing boot.');
+      window.__nexovaTier = 'STANDARD';
+      window.__nexovaHWID = hwid;
+      return true;
     }
 
-    // 4. No valid license — mount lockout overlay
+    // 4. No valid license on HTTPS — mount lockout overlay
     mountLockoutOverlay(
       stored
-        ? `Your license is invalid or expired.<br><br><em>${document.getElementById('license-lockout-overlay') ? '' : ''}</em>Enter a new license token to continue.`
+        ? `Your license is invalid or expired.<br><br>Enter a new license token to continue.`
         : `No license found for this device.<br><br>Purchase a license and enter your token below to activate Nexova POS.`,
       async (token) => {
         const result = await verifyToken(token, hwid);

@@ -31,15 +31,27 @@ function verifyPin(pin, storedHash) {
   return hash === checkHash;
 }
 
-// Asynchronous wrapper for sqlite3 commands
+// Strict in-process Write Queue to serialize database writes & prevent interleaved transactions in WAL mode
+const writeQueue = {
+  queue: Promise.resolve(),
+  enqueue(op) {
+    // Create chain link that returns the result of the operation
+    const nextLink = this.queue.then(() => op());
+    // Keep the queue moving even if this operation failed
+    this.queue = nextLink.catch(() => {});
+    return nextLink;
+  }
+};
+
+// Asynchronous wrapper for sqlite3 commands (enforces write queue serialization)
 const db = {
   run(sql, params = []) {
-    return new Promise((resolve, reject) => {
+    return writeQueue.enqueue(() => new Promise((resolve, reject) => {
       sqliteDb.run(sql, params, function (err) {
         if (err) reject(err);
         else resolve({ lastID: this.lastID, changes: this.changes });
       });
-    });
+    }));
   },
   all(sql, params = []) {
     return new Promise((resolve, reject) => {
@@ -58,12 +70,12 @@ const db = {
     });
   },
   exec(sql) {
-    return new Promise((resolve, reject) => {
+    return writeQueue.enqueue(() => new Promise((resolve, reject) => {
       sqliteDb.exec(sql, (err) => {
         if (err) reject(err);
         else resolve();
       });
-    });
+    }));
   },
   async beginImmediate() {
     await this.run('BEGIN IMMEDIATE TRANSACTION;');
@@ -86,6 +98,9 @@ async function initDatabase(terminalId) {
   await db.exec('PRAGMA journal_mode = WAL;');
   await db.exec('PRAGMA foreign_keys = ON;');
   await db.exec('PRAGMA synchronous = FULL;');  // Survive sudden power cuts at cost of ~10% write speed
+  await db.exec('PRAGMA busy_timeout = 5000;');
+  await db.exec('PRAGMA journal_size_limit = 6144000;');
+
   try { await db.exec('PRAGMA strict = ON;'); } catch(e) {} // SQLite ≥3.37 strict type enforcement
 
   console.log('[Database] Schema version:', SERVER_SCHEMA_VERSION);

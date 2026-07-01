@@ -76,16 +76,29 @@ Nexova is a zero-trust, masterless, offline-first Point of Sale (POS) system and
 5. Open your browser to `http://localhost:3000`.
 
 ### Executing Client Releases
-* **Desktop Executable**: Double-click the pre-built `NexovaPOS.exe` or `NexovaPOS.msi` inside the project root folder.
-* **Android Client**: Install `nexova-pos-debug.apk` directly on Android tablets or mobile registers.
+* **Desktop Client**: Compile and run the desktop app using Gradle:
+  ```bash
+  # Compile and run immediately
+  ./gradlew run
+  
+  # Package the installer/executable for your current OS
+  ./gradlew packageDistributionForCurrentOS
+  ```
+  This generates native installers (MSI/EXE on Windows, DMG/PKG on macOS, DEB/RPM on Linux) under `build/compose/binaries`.
+* **Android Client**: Build and run the Android app:
+  ```bash
+  cd android
+  ./gradlew assembleDebug
+  ```
+  This outputs `app-debug.apk` under `android/app/build/outputs/apk/debug/`. Install this APK on Android registers or tablets.
 
 ### Cloud Setup (Disaster Recovery Provisioning)
 1. Go to your **Supabase Dashboard** -> **SQL Editor**.
-2. Run the DDL migration queries written in [init_disaster_recovery.sql](file:///c:/Users/DELL/Desktop/nexova/supabase/migrations/20260630000000_init_disaster_recovery.sql) to set up remote tables and Row Level Security (RLS) rules.
+2. Run the DDL migration queries written in [init_disaster_recovery.sql](file:///c:/Users/DELL/Desktop/nexova/supabase/migrations/20260630000000_init_disaster_recovery.sql) to set up remote tables and secure Row Level Security (RLS) rules checking `x-store-id` headers.
 3. Test your connection:
-   ```bash
-   node test_supabase.js
-   ```
+  ```bash
+  node scripts/test_supabase.js
+  ```
 
 ---
 
