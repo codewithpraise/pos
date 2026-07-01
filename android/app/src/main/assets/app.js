@@ -1967,9 +1967,11 @@
           });
           if (resp.ok) {
             const data = await resp.json();
-            if (data && data.employee) {
-              matched = data.employee;
-              console.log('[Auth] Server PIN match for:', matched.id);
+            if (data) {
+              matched = data.employee || (data.id ? data : null);
+              if (matched) {
+                console.log('[Auth] Server PIN match for:', matched.id);
+              }
             }
           }
         } catch (serverErr) {
