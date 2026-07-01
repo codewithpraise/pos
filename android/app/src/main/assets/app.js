@@ -40,6 +40,16 @@
   async function init() {
     try {
       await NexovaDB.init(); // Initialize IndexedDB on main thread for local PIN auth
+      
+      // Support starting fresh: clear DB and preferences if reset param is detected
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('reset') === 'true') {
+        console.warn('[App] Reset query parameter detected. Resetting database to factory settings...');
+        await NexovaDB.destructiveReset();
+        localStorage.clear();
+        // Clean URL to prevent infinite reset loops
+        window.history.replaceState(null, null, window.location.pathname);
+      }
     } catch (e) {
       console.error('[App] Failed to initialize local database on main thread:', e);
     }
@@ -394,6 +404,17 @@
         case 'EMPLOYEES_DATA':
           state.employees = employees;
           renderStaffScreen();
+          
+          // Auto onboarding check: If lock screen is active but we have no employees to log in as,
+          // force show the onboarding wizard so the owner can bootstrap their network or join.
+          var lockScreenActive = document.getElementById('auth-lock-screen')?.classList.contains('active');
+          if ((!employees || employees.length === 0) && lockScreenActive) {
+            console.warn('[App] Zero active employees found in database. Showing onboarding wizard.');
+            var wizardOverlay = document.getElementById('first-boot-wizard');
+            var lockScreen = document.getElementById('auth-lock-screen');
+            if (wizardOverlay) wizardOverlay.style.display = 'flex';
+            if (lockScreen) lockScreen.classList.remove('active');
+          }
           break;
 
         case 'PREFERENCES_DATA':
@@ -1938,7 +1959,10 @@
           const serverBase = (window.__nexovaServerUrl || location.origin);
           const resp = await fetch(serverBase + '/api/employee/login', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${state.deviceToken || ''}`
+            },
             body: JSON.stringify({ pin: state.currentPin })
           });
           if (resp.ok) {

@@ -1,4 +1,4 @@
-﻿package com.nexova.pos
+package com.nexova.pos
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -296,7 +296,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         localBtn.setOnClickListener {
-            val url = "file:///android_asset/index.html"
+            val url = "file:///android_asset/index.html?reset=true"
             prefs.edit().putString("server_url", url).apply()
             serverUrl = url
             showWebView(url)
