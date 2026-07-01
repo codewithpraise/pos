@@ -601,8 +601,9 @@
     }
 
     // ── LAYER 1: On-screen PIN pad buttons ───────────────────────────────────
+    // Using click for maximum cross-platform compatibility and instant execution.
     if (pinPad) {
-      pinPad.addEventListener('pointerdown', function(e) {
+      pinPad.addEventListener('click', function(e) {
         var btn = e.target.closest('.pin-btn');
         if (!btn || !isLockActive()) return;
         
@@ -625,13 +626,8 @@
       if (!isLockActive()) return;
       if (document.activeElement && document.activeElement.id === 'login-terminal-role') return;
       
-      // Let the native input events handle keys when focused on pin-input directly
+      // Let form submit and input events handle keys when focused on pin-input directly
       if (document.activeElement && document.activeElement.id === 'pin-input') {
-        if (e.key === 'Enter') {
-          e.preventDefault(); e.stopImmediatePropagation();
-          if (pinInput) pinInput.blur();
-          verifyPinCredentials();
-        }
         return;
       }
       
@@ -663,6 +659,16 @@
           pinInput.blur();
           setTimeout(function() { verifyPinCredentials(); }, 120);
         }
+      });
+    }
+
+    // ── FORM SUBMISSION: Native Enter/Go handler for mobile soft keyboard ──────
+    var pinForm = document.getElementById('pin-form');
+    if (pinForm) {
+      pinForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (pinInput) pinInput.blur();
+        verifyPinCredentials();
       });
     }
   }

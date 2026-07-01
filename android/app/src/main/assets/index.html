@@ -45,11 +45,12 @@
       </div>
 
       <!-- Real passcode input for native keyboard, physical keyboard, and scanner support -->
-      <div style="margin-bottom: 20px; display: flex; justify-content: center; position: relative;">
+      <form id="pin-form" style="margin-bottom: 20px; display: flex; justify-content: center; position: relative; width: 100%;">
         <input type="password" id="pin-input" class="pin-input-field" 
                inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="••••"
                autocomplete="one-time-code">
-      </div>
+        <button type="submit" style="display: none;"></button>
+      </form>
 
       <!-- On-screen PIN Pad: 3x4 grid (1-9, CLR, 0, ⌫) -->
       <div class="pin-pad" id="pin-pad">
