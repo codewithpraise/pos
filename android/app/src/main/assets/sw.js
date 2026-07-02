@@ -3,7 +3,7 @@
 // Caches core application assets for local-first operations
 // ============================================================================
 
-const CACHE_NAME = 'nexova-pos-cache-v5';
+const CACHE_NAME = 'nexova-pos-cache-v6';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -17,6 +17,8 @@ const ASSETS_TO_CACHE = [
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',
+  '/polyfill.min.js',
+  '/NotoNastaliqUrdu-Regular.ttf',
   'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Manrope:wght@200..800&family=Outfit:wght@100..900&display=swap',
   'https://unpkg.com/@zxing/library@0.21.0/umd/index.min.js'
 ];

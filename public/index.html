@@ -767,15 +767,15 @@
               <h3>Change My Security PIN</h3>
               <div class="settings-row">
                 <label>Current Security PIN:</label>
-                <input type="password" id="setting-change-pin-current" class="pos-input" maxlength="4" placeholder="4-digit PIN" aria-label="4-digit PIN">
+                <input type="password" id="setting-change-pin-current" class="pos-input" maxlength="4" placeholder="4-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
               </div>
               <div class="settings-row">
                 <label>New Security PIN:</label>
-                <input type="password" id="setting-change-pin-new" class="pos-input" maxlength="4" placeholder="4-digit PIN" aria-label="4-digit PIN">
+                <input type="password" id="setting-change-pin-new" class="pos-input" maxlength="4" placeholder="4-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
               </div>
               <div class="settings-row">
                 <label>Confirm New PIN:</label>
-                <input type="password" id="setting-change-pin-confirm" class="pos-input" maxlength="4" placeholder="4-digit PIN" aria-label="4-digit PIN">
+                <input type="password" id="setting-change-pin-confirm" class="pos-input" maxlength="4" placeholder="4-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
               </div>
               <button type="button" class="action-btn action-success" id="btn-change-my-pin" style="width: 100%; margin-top: 12px;">Update My Passcode</button>
             </div>
@@ -1212,7 +1212,7 @@
         </div>
         <div class="settings-row">
           <label>Phone Number:</label>
-          <input type="text" id="form-customer-phone" class="pos-input" placeholder="e.g. 555-0100" aria-label="e.g. 555-0100">
+          <input type="text" id="form-customer-phone" class="pos-input" placeholder="e.g. 555-0100" inputmode="numeric" pattern="[0-9]*" aria-label="e.g. 555-0100">
         </div>
         <div class="settings-row">
           <label>Email Address:</label>
@@ -1269,7 +1269,7 @@
         <div class="settings-row">
           <label>Register Security PIN Code (Numeric):</label>
           <div class="password-wrapper">
-            <input type="password" id="form-employee-pin" class="pos-input" placeholder="4-digit PIN number" maxlength="4" aria-label="4-digit PIN number">
+            <input type="password" id="form-employee-pin" class="pos-input" placeholder="4-digit PIN number" maxlength="4" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN number">
             <button type="button" class="btn-toggle-password" title="Toggle visibility">
               <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -1372,7 +1372,7 @@
         <div class="settings-row" style="margin-top: 16px;">
           <label>Enter Admin PIN Code (e.g. 1234):</label>
           <div class="password-wrapper">
-            <input type="password" id="reset-admin-pin-auth" class="pos-input" placeholder="Enter Admin security PIN" aria-label="Enter Admin security PIN">
+            <input type="password" id="reset-admin-pin-auth" class="pos-input" placeholder="Enter Admin security PIN" inputmode="numeric" pattern="[0-9]*" aria-label="Enter Admin security PIN">
             <button type="button" class="btn-toggle-password" title="Toggle visibility">
               <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -1562,14 +1562,14 @@
         <div style="border-top: 1px dashed var(--border-titanium); padding-top: 16px; margin-top: 8px; text-align: left;">
           <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">MOBILE PHONE BINDING (OTP verification):</label>
           <div style="display: flex; gap: 8px; margin-top: 4px;">
-            <input type="text" id="lockout-phone" class="pos-input" placeholder="03XXXXXXXXX" style="flex-grow: 1;" aria-label="03XXXXXXXXX">
+            <input type="text" id="lockout-phone" class="pos-input" placeholder="03XXXXXXXXX" style="flex-grow: 1;" inputmode="numeric" pattern="[0-9]*" aria-label="03XXXXXXXXX">
             <button class="action-btn action-success" id="btn-lockout-send-otp" style="min-width: 100px; font-size: 11px;">Send OTP</button>
           </div>
         </div>
 
         <div id="lockout-otp-row" style="display: none; text-align: left;">
           <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">ENTER 6-DIGIT OTP:</label>
-          <input type="text" id="lockout-otp-code" class="pos-input" placeholder="XXXXXX" maxlength="6" style="margin-top: 4px;" aria-label="XXXXXX">
+          <input type="text" id="lockout-otp-code" class="pos-input" placeholder="XXXXXX" maxlength="6" style="margin-top: 4px;" inputmode="numeric" pattern="[0-9]*" aria-label="XXXXXX">
         </div>
 
         <div id="lockout-error-msg" style="color: var(--alert-coral); font-size: 11px; font-weight: 700; text-align: center; display: none;"></div>
@@ -1859,7 +1859,7 @@
         </div>
         <div class="settings-row">
           <label>Phone Number:</label>
-          <input type="text" id="form-supplier-phone" class="pos-input" placeholder="e.g. +92-300-1234567" aria-label="e.g. +92-300-1234567">
+          <input type="text" id="form-supplier-phone" class="pos-input" placeholder="e.g. +92-300-1234567" inputmode="numeric" pattern="[0-9]*" aria-label="e.g. +92-300-1234567">
         </div>
         <div class="settings-row">
           <label>Email Address:</label>

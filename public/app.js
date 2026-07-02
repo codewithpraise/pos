@@ -3213,6 +3213,8 @@
         if (verifyResp.ok) {
           const res = await verifyResp.json();
           if (res.success) {
+            window.__nexovaTier = res.payload.tier; // CRITICAL FIX
+            applyTierRestrictions(); // Force UI to unlock features
             console.log(`[License] Valid ${res.payload.tier} license verified. Expires: ${new Date(res.payload.expiresAt).toLocaleDateString()}`);
             lockoutOverlay.style.display = 'none';
             if (res.payload.tier !== 'TRIAL') {
@@ -3230,6 +3232,8 @@
           if (pipeIndex !== -1) {
             const claims = JSON.parse(decoded.substring(0, pipeIndex));
             if (claims.hwid === deviceFingerprint && claims.exp > Date.now()) {
+              window.__nexovaTier = claims.tier; // CRITICAL FIX
+              applyTierRestrictions(); // Force UI to unlock features
               console.log(`[License] Offline verify success. Tier: ${claims.tier}`);
               lockoutOverlay.style.display = 'none';
               if (claims.tier !== 'TRIAL') {

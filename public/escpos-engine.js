@@ -173,7 +173,11 @@ const EscPosEngine = (() => {
       return;
     }
     if (_device && _endpoint) {
-      await _device.transferOut(_endpoint, bytes);
+      const CHUNK_SIZE = 256; // Safe buffer limit for generic Chinese printers
+      for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+        await _device.transferOut(_endpoint, bytes.slice(i, i + CHUNK_SIZE));
+        await new Promise(resolve => setTimeout(resolve, 10)); // 10ms micro-pause
+      }
       return;
     }
     // Network socket relay fallback (for iOS or unsupported browsers)
