@@ -1776,10 +1776,7 @@
             
             // 3. Use non-blocking toast instead of alert
             playAudioSignal('success');
-            showNotificationToast('Store bootstrapped in Offline Mode. Reloading...');
-            
-            // 4. Force hard reload after 1.5 seconds
-            setTimeout(() => { window.location.reload(); }, 1500);
+            showNotificationToast('Bootstrapping store in Standalone Offline Mode...');
           });
         } else {
           const syncPassphrase = document.getElementById('wizard-join-passphrase').value;
