@@ -3521,6 +3521,9 @@
 
   async function startMobileScanner() {
     playAudioSignal('click');
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
     const modal = document.getElementById('modal-mobile-scanner');
     if (!modal) return;
     

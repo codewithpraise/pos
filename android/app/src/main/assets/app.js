@@ -74,9 +74,17 @@
         window.history.replaceState(null, null, window.location.pathname);
       }
 
+      // CRITICAL FIX: Enforce License Gate FIRST. Do not allow wizard access if unlicensed.
+      const licenseOk = await LicenseEngine.init();
+      if (!licenseOk) {
+        const wizardOverlay = document.getElementById('first-boot-wizard');
+        if (wizardOverlay) wizardOverlay.style.display = 'none'; // Force hide wizard
+        return; // Hard-stop
+      }
+
       // Early Onboarding & View Routing Check to prevent flashing/incorrect states
       const pref = await NexovaDB.get('local_preferences', 'onboarding_complete');
-      const onboardingComplete = pref && pref.value_payload === 'true';
+      const onboardingComplete = (pref && pref.value_payload === 'true') || localStorage.getItem('onboarding_complete') === 'true';
       
       const wizardOverlay = document.getElementById('first-boot-wizard');
       const lockScreen = document.getElementById('auth-lock-screen');
@@ -147,10 +155,7 @@
       console.warn('[App] Device registration pass skipped or failed:', e);
     }
 
-    // ── Component A: License gate — blocks all app logic if invalid ────────
-    // EULA is checked inside the onboarding wizard; license is checked here.
-    const licenseOk = await LicenseEngine.init();
-    if (!licenseOk) return; // Hard-stop: lockout overlay is mounted by LicenseEngine
+
 
     setupGlobalErrorHandlers(); // Component I: crash telemetry
     setupWebWorker();
@@ -1750,20 +1755,30 @@
               throw new Error(err.error || 'Server bootstrap failed');
             }
             // Proceed with local IndexedDB bootstrap
+            localStorage.setItem('onboarding_complete', 'true');
             syncWorker.postMessage({
               type: 'BOOTSTRAP_STORE',
               payload: { storeName, taxRate, adminPin, syncPassphrase, theme }
             });
           })
           .catch((err) => {
-            console.warn('[Bootstrap] Server unavailable, falling back to standalone local-only register mode:', err);
-            // Proceed with local IndexedDB bootstrap directly
+            console.warn('[Bootstrap] Server unavailable, falling back to standalone local:', err);
+            
+            // 1. Synchronously save onboarding state so it survives the reload
+            localStorage.setItem('onboarding_complete', 'true');
+            
+            // 2. Post to worker
             syncWorker.postMessage({
               type: 'BOOTSTRAP_STORE',
               payload: { storeName, taxRate, adminPin, syncPassphrase, theme }
             });
+            
+            // 3. Use non-blocking toast instead of alert
             playAudioSignal('success');
-            alert('Register bootstrapped successfully in Standalone Offline Mode (local database initialized).');
+            showNotificationToast('Store bootstrapped in Offline Mode. Reloading...');
+            
+            // 4. Force hard reload after 1.5 seconds
+            setTimeout(() => { window.location.reload(); }, 1500);
           });
         } else {
           const syncPassphrase = document.getElementById('wizard-join-passphrase').value;
@@ -2214,30 +2229,7 @@
     initLedgerModules();
   }
 
-  // Check if store is running in the 3-day grace trial period
-  function isGraceTrialActive() {
-    const token = localStorage.getItem('nexova_license_token');
-    if (token) {
-      try {
-        const decoded = atob(token);
-        const pipeIndex = decoded.lastIndexOf('|');
-        if (pipeIndex !== -1) {
-          const claims = JSON.parse(decoded.substring(0, pipeIndex));
-          if (claims.tier && claims.tier !== 'TRIAL') {
-            return false;
-          }
-        }
-      } catch (e) {}
-    }
-    
-    if (!state.preferences) return true;
-    const bootstrapTimePref = state.preferences['store_bootstrap_time'];
-    if (!bootstrapTimePref) return true;
-    const bootstrapTime = parseInt(bootstrapTimePref);
-    const trialDuration = 7 * 24 * 60 * 60 * 1000;
-    const elapsed = Date.now() - bootstrapTime;
-    return (trialDuration - elapsed) > 0;
-  }
+
 
   // UI Tearing role limiting rules
   function applyRoleNavigationLimits(role) {
@@ -3186,6 +3178,21 @@
     const lockoutOverlay = document.getElementById('license-lockout-overlay');
     if (!lockoutOverlay) return;
 
+    // Helper to draw countdown badge
+    function showTrialBadge(remainingDays) {
+      const headerTitle = document.getElementById('active-view-title');
+      if (headerTitle) {
+        let trialLabel = document.getElementById('trial-countdown-badge');
+        if (!trialLabel) {
+          trialLabel = document.createElement('span');
+          trialLabel.id = 'trial-countdown-badge';
+          trialLabel.style.cssText = 'font-size: 9.5px; padding: 3px 10px; border-radius: 99px; background: rgba(255, 179, 71, 0.1); color: var(--warning); border: 1px solid rgba(255,179,71,0.2); margin-left: 10px; font-weight: 700; font-family: var(--font-body); letter-spacing: 0.5px; vertical-align: middle;';
+          headerTitle.parentNode.appendChild(trialLabel);
+        }
+        trialLabel.textContent = `TRIAL MODE: ${remainingDays} DAYS LEFT`;
+      }
+    }
+
     // 2.b If LicenseEngine already validated a paid tier, return early
     if (window.__nexovaTier && window.__nexovaTier !== 'TRIAL') {
       console.log(`[License] Valid ${window.__nexovaTier} license verified by LicenseEngine.`);
@@ -3217,7 +3224,12 @@
             applyTierRestrictions(); // Force UI to unlock features
             console.log(`[License] Valid ${res.payload.tier} license verified. Expires: ${new Date(res.payload.expiresAt).toLocaleDateString()}`);
             lockoutOverlay.style.display = 'none';
-            if (res.payload.tier !== 'TRIAL') {
+            if (res.payload.tier === 'TRIAL') {
+              const expires = res.payload.expiresAt ? new Date(res.payload.expiresAt).getTime() : Date.now();
+              const remainingMs = expires - Date.now();
+              const remainingDays = Math.max(0, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)));
+              showTrialBadge(remainingDays);
+            } else {
               document.getElementById('trial-countdown-badge')?.remove();
             }
             return;
@@ -3236,7 +3248,12 @@
               applyTierRestrictions(); // Force UI to unlock features
               console.log(`[License] Offline verify success. Tier: ${claims.tier}`);
               lockoutOverlay.style.display = 'none';
-              if (claims.tier !== 'TRIAL') {
+              if (claims.tier === 'TRIAL') {
+                const expires = claims.exp ? claims.exp : Date.now();
+                const remainingMs = expires - Date.now();
+                const remainingDays = Math.max(0, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)));
+                showTrialBadge(remainingDays);
+              } else {
                 document.getElementById('trial-countdown-badge')?.remove();
               }
               return;
@@ -3246,44 +3263,7 @@
       }
     }
 
-    // 4. Trial expiration countdown logic (7 days grace period)
-    const bootstrapTimePref = state.preferences['store_bootstrap_time'];
-    const bootstrapTime = bootstrapTimePref ? parseInt(bootstrapTimePref) : Date.now();
-    
-    // If not written yet, write bootstrap time to preferences
-    if (!bootstrapTimePref) {
-      syncWorker.postMessage({
-        type: 'SAVE_PREFERENCE',
-        payload: { key: 'store_bootstrap_time', val: String(Date.now()), value_type: 'INT' }
-      });
-      state.preferences['store_bootstrap_time'] = String(Date.now());
-    }
-
-    const trialDuration = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
-    const elapsed = Date.now() - bootstrapTime;
-    const remainingMs = trialDuration - elapsed;
-
-    if (remainingMs > 0) {
-      const remainingDays = Math.ceil(remainingMs / (24 * 60 * 60 * 1000));
-      console.log(`[License] Register running in grace trial period. ${remainingDays} days remaining.`);
-      lockoutOverlay.style.display = 'none';
-      
-      // Show non-obtrusive banner in header
-      const headerTitle = document.getElementById('active-view-title');
-      if (headerTitle) {
-        let trialLabel = document.getElementById('trial-countdown-badge');
-        if (!trialLabel) {
-          trialLabel = document.createElement('span');
-          trialLabel.id = 'trial-countdown-badge';
-          trialLabel.style.cssText = 'font-size: 9.5px; padding: 3px 10px; border-radius: 99px; background: rgba(255, 179, 71, 0.1); color: var(--warning); border: 1px solid rgba(255,179,71,0.2); margin-left: 10px; font-weight: 700; font-family: var(--font-body); letter-spacing: 0.5px; vertical-align: middle;';
-          headerTitle.parentNode.appendChild(trialLabel);
-        }
-        trialLabel.textContent = `TRIAL MODE: ${remainingDays} DAYS LEFT`;
-      }
-      return;
-    }
-
-    // 5. If trial has expired and no license matches: Lock down terminal UI!
+    // 4. If no valid license or phone binding is found: Lock down terminal UI!
     lockoutOverlay.style.display = 'flex';
     const authScreen = document.getElementById('auth-lock-screen');
     if (authScreen) authScreen.classList.remove('active');
@@ -3550,7 +3530,6 @@
     const manualInput = document.getElementById('scanner-manual-input');
     if (manualInput) {
       manualInput.value = '';
-      manualInput.focus();
     }
 
     try {
