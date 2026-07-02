@@ -179,9 +179,9 @@ const LicenseEngine = (() => {
         </div>
         
         <div style="text-align: left; margin-bottom: 16px; width: 100%;">
-          <label for="license-code-input" style="display: block; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px;">6-Digit Activation Code</label>
-          <input id="license-code-input" type="text" maxlength="6" placeholder="Enter 6-Digit Activation Code..." aria-label="Enter 6-Digit Activation Code"
-            style="width: 100%; box-sizing: border-box; padding: 14px 16px; background: #121217; border: 1px solid #333; border-radius: 6px; color: #f8fafc; font-family: monospace; font-size: 16px; outline: none; text-align: center; letter-spacing: 4px; font-weight: 700;"
+          <label for="license-code-input" style="display: block; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px;">Activation Code / Key</label>
+          <input id="license-code-input" type="text" maxlength="30" placeholder="Enter Code or Master Key..." aria-label="Enter Activation Code or Master Key"
+            style="width: 100%; box-sizing: border-box; padding: 14px 16px; background: #121217; border: 1px solid #333; border-radius: 6px; color: #f8fafc; font-family: monospace; font-size: 16px; outline: none; text-align: center; letter-spacing: 2px; font-weight: 700;"
           />
         </div>
         
