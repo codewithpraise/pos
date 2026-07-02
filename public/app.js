@@ -161,7 +161,6 @@
     setupWebWorker();
     bindDOMEvents();
     setupGlobalHotkeys();
-    applyPreferencesFromState();
     await checkAndRequestStoragePersist();
     initOtaUpdater();
   }
@@ -2889,8 +2888,9 @@
     // 0. Database Hydration Check (Data Continuity)
     const licenseToken = localStorage.getItem('nexova_license_token');
     const databaseHydrated = state.preferences['database_hydrated'] === 'true';
+    const onboardingComplete = state.preferences['onboarding_complete'] === 'true';
 
-    if (licenseToken && !databaseHydrated) {
+    if (licenseToken && onboardingComplete && !databaseHydrated) {
       if (!window.__hydrationInProgress) {
         window.__hydrationInProgress = true;
         mountHydrationOverlay();
