@@ -2600,6 +2600,7 @@ button:not(:disabled):active {
   display: none;
   align-items: center;
   justify-content: center;
+  z-index: 9999999 !important;
 }
 .scanner-overlay.active {
   display: flex;

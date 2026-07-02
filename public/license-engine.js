@@ -188,6 +188,23 @@ const LicenseEngine = (() => {
         <button id="license-activate-btn"
           style="width: 100%; padding: 14px; background: #10b981; color: #060608; font-weight: 800; font-size: 13px; border: none; border-radius: 6px; cursor: pointer; letter-spacing: 0.05em; text-transform: uppercase; transition: opacity 0.15s;"
         >ACTIVATE TERMINAL</button>
+
+        <div id="in-app-signup-container" style="margin-top: 24px; padding-top: 24px; border-top: 1px dashed #222; text-align: left;">
+            <h4 style="color: #fff; margin-bottom: 12px; font-size:13px; font-weight:700;">New to Nexova? Start Free Trial</h4>
+            <input type="text" id="signup-store-name" placeholder="Business Name"
+              style="width: 100%; box-sizing: border-box; padding: 12px; background: #121217; border: 1px solid #333; border-radius: 6px; color: #f8fafc; font-size: 13px; margin-bottom: 10px; outline: none;"
+            />
+            <input type="email" id="signup-email" placeholder="Email Address"
+              style="width: 100%; box-sizing: border-box; padding: 12px; background: #121217; border: 1px solid #333; border-radius: 6px; color: #f8fafc; font-size: 13px; margin-bottom: 10px; outline: none;"
+            />
+            <input type="tel" id="signup-phone" inputmode="numeric" pattern="[0-9]*" placeholder="Mobile Number"
+              style="width: 100%; box-sizing: border-box; padding: 12px; background: #121217; border: 1px solid #333; border-radius: 6px; color: #f8fafc; font-size: 13px; margin-bottom: 16px; outline: none;"
+            />
+            <button id="btn-in-app-signup"
+              style="width: 100%; padding: 14px; background: #10b981; color: #060608; font-weight: 800; font-size: 13px; border: none; border-radius: 6px; cursor: pointer; text-transform: uppercase;"
+            >START 7-DAY FREE TRIAL</button>
+        </div>
+
         <p style="font-size: 10px; color: #475569; margin-top: 20px;">Register at the Onboarding Portal to obtain your 6-digit code.</p>
       </div>
     `;
@@ -232,6 +249,60 @@ const LicenseEngine = (() => {
         alert('Connection error. Ensure your server is running.');
         btn.disabled = false;
         btn.innerText = 'ACTIVATE TERMINAL';
+      }
+    });
+
+    // In-app signup form submit handler
+    document.getElementById('btn-in-app-signup').addEventListener('click', async () => {
+      const storeName = document.getElementById('signup-store-name').value.trim();
+      const email = document.getElementById('signup-email').value.trim();
+      const phone = document.getElementById('signup-phone').value.trim();
+      
+      if (!storeName || !email || !phone) {
+        alert('All fields are required to start a trial.');
+        return;
+      }
+
+      const btn = document.getElementById('btn-in-app-signup');
+      btn.textContent = 'Registering...';
+      btn.disabled = true;
+
+      try {
+        const serverBase = (window.__nexovaServerUrl || location.origin);
+        
+        // 1. Register and get 6-digit code
+        const onboardRes = await fetch(serverBase + '/api/onboard', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: storeName, email, phone, tier: 'TRIAL', mode: 'subscription' })
+        });
+        const onboardData = await onboardRes.json();
+
+        if (!onboardData.code) throw new Error(onboardData.error || 'Failed to generate activation code.');
+
+        // 2. Auto-activate the code for this mobile device
+        const hwid = await generateHWID();
+        const activateRes = await fetch(serverBase + '/api/license/activate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: onboardData.code, hwid: hwid, phone })
+        });
+        const activateData = await activateRes.json();
+
+        if (activateData.token) {
+          localStorage.setItem(STORAGE_KEY_LICENSE, activateData.token);
+          window.__nexovaTier = activateData.tier;
+          window.__nexovaHWID = hwid;
+          alert('Trial Activated! Welcome to Nexova POS.');
+          window.location.reload();
+        } else {
+          throw new Error(activateData.error || 'Token activation failed.');
+        }
+      } catch (e) {
+        alert('Registration Error: ' + e.message);
+      } finally {
+        btn.textContent = 'START 7-DAY FREE TRIAL';
+        btn.disabled = false;
       }
     });
   }
@@ -576,7 +647,7 @@ const LicenseEngine = (() => {
           return true;
         }
       }
-    } else if (isHttpContext) {
+    } else if (isHttpContext && location.protocol !== 'file:') {
       // No stored license AND on HTTP context (LAN app) — server already auth-gates
       // every API endpoint via requireAuth middleware. Allow the app to boot so the
       // user can reach the login screen. The server will reject unauthorized calls.
