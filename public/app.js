@@ -348,7 +348,7 @@
 
     // Handle incoming messages from worker thread
     syncWorker.onmessage = (event) => {
-      const { type, nodeId, hlc, appliedCount, conflictCount, catalog, customers, employees, prefs, transactions, change, transactionId, error, isPaired } = event.data;
+      const { type, nodeId, hlc, appliedCount, conflictCount, catalog, customers, employees, prefs, transactions, change, transactionId, error, isPaired, onboardingComplete } = event.data;
 
       switch (type) {
         case 'INIT_SUCCESS':
@@ -356,7 +356,7 @@
           document.getElementById('hlc-clock').textContent = hlc;
           state.nodeId = nodeId;
           state.deviceToken = event.data.deviceToken;
-          if (!isPaired) {
+          if (!isPaired && !onboardingComplete) {
             // Auto configure hash passphrase if present
             const hashParams = new URLSearchParams(window.location.hash.substring(1));
             const hashPass = hashParams.get('passphrase');

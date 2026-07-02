@@ -604,13 +604,17 @@
           request.onerror = (event) => {
             const err = event.target.error;
             if (err && (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || err.code === 22)) {
-              window.dispatchEvent(new CustomEvent('CRITICAL_STORAGE_ERROR', { detail: 'Device storage is full. Please free up space immediately.' }));
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('CRITICAL_STORAGE_ERROR', { detail: 'Device storage is full. Please free up space immediately.' }));
+              }
             }
             reject(err);
           };
         } catch (err) {
           if (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || err.code === 22) {
-            window.dispatchEvent(new CustomEvent('CRITICAL_STORAGE_ERROR', { detail: 'Device storage is full. Please free up space immediately.' }));
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('CRITICAL_STORAGE_ERROR', { detail: 'Device storage is full. Please free up space immediately.' }));
+            }
           }
           reject(err);
         }
@@ -631,13 +635,17 @@
           request.onerror = (event) => {
             const err = event.target.error;
             if (err && (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || err.code === 22)) {
-              window.dispatchEvent(new CustomEvent('CRITICAL_STORAGE_ERROR', { detail: 'Device storage is full. Please free up space immediately.' }));
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('CRITICAL_STORAGE_ERROR', { detail: 'Device storage is full. Please free up space immediately.' }));
+              }
             }
             reject(err);
           };
         } catch (err) {
           if (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || err.code === 22) {
-            window.dispatchEvent(new CustomEvent('CRITICAL_STORAGE_ERROR', { detail: 'Device storage is full. Please free up space immediately.' }));
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('CRITICAL_STORAGE_ERROR', { detail: 'Device storage is full. Please free up space immediately.' }));
+            }
           }
           reject(err);
         }
