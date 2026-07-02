@@ -153,37 +153,6 @@ class MainActivity : AppCompatActivity() {
         
         prefs = getSharedPreferences("nexova_prefs", Context.MODE_PRIVATE)
 
-        // 2. Kiosk system overlay check (Draw over other apps for background boot launching)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (!Settings.canDrawOverlays(this)) {
-                try {
-                    val intent = Intent(
-                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:$packageName")
-                    )
-                    startActivity(intent)
-                    Toast.makeText(this, "Please allow 'Display over other apps' to enable Auto-Boot Recovery for your POS.", Toast.LENGTH_LONG).show()
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "Failed to start manage overlay setting: ${e.message}")
-                }
-            }
-        }
-
-        // 3. Doze Mode sync daemon battery optimization exemption check
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-            if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
-                try {
-                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                        data = Uri.parse("package:$packageName")
-                    }
-                    startActivity(intent)
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "Failed to request battery optimization ignore: ${e.message}")
-                }
-            }
-        }
-
         // 4. Request Bluetooth dynamic runtime permission (Android 12+) and Camera permission
         val requiredPermissions = mutableListOf<String>()
         if (checkSelfPermission(android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -277,6 +246,65 @@ class MainActivity : AppCompatActivity() {
         }
 
         wv.webChromeClient = object : WebChromeClient() {
+            override fun onJsAlert(
+                view: WebView?,
+                url: String?,
+                message: String?,
+                result: JsResult?
+            ): Boolean {
+                androidx.appcompat.app.AlertDialog.Builder(this@MainActivity, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
+                    .setTitle("Nexova POS")
+                    .setMessage(message)
+                    .setPositiveButton(android.R.string.ok) { _, _ -> result?.confirm() }
+                    .setOnCancelListener { result?.cancel() }
+                    .setCancelable(false)
+                    .show()
+                return true
+            }
+
+            override fun onJsConfirm(
+                view: WebView?,
+                url: String?,
+                message: String?,
+                result: JsResult?
+            ): Boolean {
+                androidx.appcompat.app.AlertDialog.Builder(this@MainActivity, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
+                    .setTitle("Nexova POS")
+                    .setMessage(message)
+                    .setPositiveButton(android.R.string.ok) { _, _ -> result?.confirm() }
+                    .setNegativeButton(android.R.string.cancel) { _, _ -> result?.cancel() }
+                    .setOnCancelListener { result?.cancel() }
+                    .setCancelable(false)
+                    .show()
+                return true
+            }
+
+            override fun onJsPrompt(
+                view: WebView?,
+                url: String?,
+                message: String?,
+                defaultValue: String?,
+                result: JsPromptResult?
+            ): Boolean {
+                val input = android.widget.EditText(this@MainActivity).apply {
+                    setText(defaultValue)
+                }
+                androidx.appcompat.app.AlertDialog.Builder(this@MainActivity, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
+                    .setTitle("Nexova POS")
+                    .setMessage(message)
+                    .setView(input)
+                    .setPositiveButton(android.R.string.ok) { _, _ ->
+                        result?.confirm(input.text.toString())
+                    }
+                    .setNegativeButton(android.R.string.cancel) { _, _ ->
+                        result?.cancel()
+                    }
+                    .setOnCancelListener { result?.cancel() }
+                    .setCancelable(false)
+                    .show()
+                return true
+            }
+
             override fun onPermissionRequest(request: PermissionRequest) {
                 runOnUiThread { 
                     // Explicitly capture and grant WebRTC/Camera permissions for barcode scanners

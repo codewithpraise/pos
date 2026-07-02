@@ -342,8 +342,9 @@
     syncWorker = new Worker('sync-worker.js');
     window.syncWorker = syncWorker;
     
-    // Post initial setup signal
-    syncWorker.postMessage({ type: 'INIT' });
+    // Post initial setup signal with serverUrl
+    const serverUrl = window.__nexovaServerUrl || location.origin;
+    syncWorker.postMessage({ type: 'INIT', payload: { serverUrl } });
 
     // Handle incoming messages from worker thread
     syncWorker.onmessage = (event) => {

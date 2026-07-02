@@ -30,7 +30,10 @@ function serializePRALPayload(fbrInvoiceNumber, now, total, tax, subtotal, cart,
 }
 
 // Initialize Database and Sync Client
-async function initializeSyncEngine() {
+async function initializeSyncEngine(serverUrl) {
+  if (serverUrl) {
+    self.serverUrl = serverUrl;
+  }
   try {
     await NexovaDB.init();
 
@@ -177,12 +180,22 @@ self.onmessage = async (event) => {
   try {
     switch (type) {
       case 'INIT':
-        await initializeSyncEngine();
+        await initializeSyncEngine(payload ? payload.serverUrl : null);
         break;
 
       case 'BOOTSTRAP_STORE': {
         const { storeName, taxRate, adminPin, syncPassphrase, theme } = payload;
         await NexovaDB.bootstrapStore(storeName, taxRate, adminPin, syncPassphrase, theme);
+        
+        // Mark database as hydrated locally since it was just bootstrapped fresh
+        await NexovaDB.put('local_preferences', {
+          key: 'database_hydrated',
+          value_type: 'BOOL',
+          value_payload: 'true',
+          is_idempotent_flag: 1,
+          updated_at: Date.now()
+        });
+
         if (syncClient) {
           syncClient.passphrase = syncPassphrase;
         }
@@ -198,7 +211,13 @@ self.onmessage = async (event) => {
         const { licenseToken } = payload;
         try {
           console.log('[SyncWorker] Starting database hydration pull...');
-          const response = await fetch('/api/sync/bootstrap', {
+          const isFile = location.protocol === 'file:' || location.origin === 'null';
+          const base = self.serverUrl || (isFile ? 'https://nexova-license-worker.pages.dev' : location.origin);
+          
+          // Ensure we don't try to fetch relative to file:// origin
+          const bootstrapUrl = base.startsWith('http') ? (base + '/api/sync/bootstrap') : '/api/sync/bootstrap';
+
+          const response = await fetch(bootstrapUrl, {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${licenseToken}`,
