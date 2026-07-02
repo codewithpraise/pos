@@ -1644,7 +1644,8 @@
       if (bScan2) bScan2.addEventListener('click', () => startMobileScanner());
 
       // Back
-      btnBack.addEventListener('click', () => {
+      btnBack.addEventListener('click', (e) => {
+        if (e) e.preventDefault();
         playAudioSignal('click');
         goTo(wizStep === 2 ? 1 : wizStep - 1, wizPath, 'back');
       });
@@ -1709,7 +1710,8 @@
       }
 
       // Next / Submit
-      btnNext.addEventListener('click', () => {
+      btnNext.addEventListener('click', (e) => {
+        if (e) e.preventDefault();
         playAudioSignal('click');
         if (!validate()) return;
         if (wizStep < MAX_STEPS) {
@@ -1725,7 +1727,8 @@
 
     const btnSubmitWizard = document.getElementById('btn-submit-wizard');
     if (btnSubmitWizard) {
-      btnSubmitWizard.addEventListener('click', async () => {
+      btnSubmitWizard.addEventListener('click', async (e) => {
+        if (e) e.preventDefault();
         playAudioSignal('click');
         const strategy = document.getElementById('wizard-setup-type').value;
         if (strategy === 'NEW') {
@@ -2908,7 +2911,7 @@
     if (!onboardingComplete) {
       if (wizardOverlay) wizardOverlay.style.display = 'flex';
       if (lockScreen) lockScreen.classList.remove('active');
-      if (layout) layout.style.display = 'grid'; // Show layout, wizard is on top
+      if (layout) layout.style.display = 'none'; // Hide layout while wizard is active
       showPairingOverlay(false); // Hide pairing screen if onboarding is active
       return;
     } else {

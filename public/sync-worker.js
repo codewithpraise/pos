@@ -231,7 +231,8 @@ self.onmessage = async (event) => {
             headers: {
               'Authorization': `Bearer ${licenseToken}`,
               'Content-Type': 'application/json'
-            }
+            },
+            signal: AbortSignal.timeout(15000)
           });
           const result = await response.json();
           if (!response.ok) {
