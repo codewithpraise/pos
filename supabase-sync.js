@@ -84,4 +84,4 @@ async function pushOfflineBackupsToCloud() {
 }
 
 // Export the daemon
-module.exports = { pushOfflineBackupsToCloud };
+module.exports = { pushOfflineBackupsToCloud, supabase };

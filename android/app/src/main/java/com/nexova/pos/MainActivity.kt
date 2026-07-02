@@ -125,6 +125,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Keep screen active while register UI is open (Retail stability)
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         prefs = getSharedPreferences("nexova_prefs", Context.MODE_PRIVATE)
         serverUrl = prefs.getString("server_url", "") ?: ""
 

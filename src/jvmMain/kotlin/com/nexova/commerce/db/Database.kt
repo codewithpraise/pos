@@ -2012,6 +2012,61 @@ object Database {
     }
 
     @Synchronized
+    fun isInitialized(): Boolean {
+        try {
+            conn?.prepareStatement("SELECT value_payload FROM local_preferences WHERE key = 'onboarding_complete'")?.use { pstmt ->
+                pstmt.executeQuery().use { rs ->
+                    if (rs.next()) {
+                        val onboardingComplete = rs.getString("value_payload")
+                        if (onboardingComplete != "true") return false
+                    } else {
+                        return false
+                    }
+                }
+            }
+            conn?.prepareStatement("SELECT COUNT(*) as count FROM employees WHERE role = 'ADMIN' AND is_active = 1")?.use { pstmt ->
+                pstmt.executeQuery().use { rs ->
+                    if (rs.next()) {
+                        return rs.getInt("count") > 0
+                    }
+                }
+            }
+            return false
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return false
+        }
+    }
+
+    @Synchronized
+    fun factoryReset(): Boolean {
+        conn?.autoCommit = false
+        try {
+            conn?.createStatement()?.use { stmt ->
+                val tables = listOf(
+                    "transactions", "line_items", "inventory_catalog", "employees",
+                    "crsql_changes", "speech_analytics_logs", "local_preferences",
+                    "customers", "categories", "stock_movements", "employee_shifts",
+                    "approved_devices", "distributors", "purchase_orders", "po_line_items",
+                    "distributor_payments", "customer_credit", "fbr_submissions",
+                    "aborted_sales_log", "telemetry_logs"
+                )
+                for (table in tables) {
+                    try { stmt.execute("DELETE FROM $table;") } catch (e: Exception) {}
+                }
+            }
+            conn?.commit()
+            return true
+        } catch (e: Exception) {
+            conn?.rollback()
+            e.printStackTrace()
+            return false
+        } finally {
+            conn?.autoCommit = true
+        }
+    }
+
+    @Synchronized
     fun addSpeechLog(
         id: String,
         transactionId: String?,

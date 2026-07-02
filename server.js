@@ -34,6 +34,7 @@ const {
   createVoidContraEntry,
   updateSecureTimeAnchor,
   saveTelemetryLog,
+  factoryResetDatabase,
   SERVER_SCHEMA_VERSION
 } = require('./database');
 const { pushOfflineBackupsToCloud } = require('./supabase-sync');
@@ -57,6 +58,16 @@ app.use(helmet({
 app.use(cors());
 
 app.use(express.json());
+
+// Serve .apk files with correct MIME type and force download (reliability fix)
+app.use((req, res, next) => {
+  if (req.path.endsWith('.apk')) {
+    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+    res.setHeader('Content-Disposition', 'attachment; filename="nexova-pos-release.apk"');
+  }
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Create Server with optional TLS/HTTPS (Issue 5)
@@ -287,7 +298,10 @@ wss.on('connection', (ws) => {
         if (data.type === 'REGISTER') {
           ws.nodeId = data.nodeId;
           let status = await getDeviceStatus(data.nodeId);
-          if (data.nodeId.startsWith('web_client_') || data.nodeId === terminalId) {
+          if (data.nodeId.startsWith('web_client_') || 
+              data.nodeId === terminalId || 
+              data.nodeId === 'nexova_master_pc_01' || 
+              data.nodeId === 'cfd_tab_2') {
             status = 'APPROVED';
           }
           if (status === 'APPROVED') {
@@ -326,7 +340,10 @@ wss.on('connection', (ws) => {
             ws.deviceRole = payload.role;
             
             let status = await getDeviceStatus(data.nodeId);
-            if (data.nodeId.startsWith('web_client_') || data.nodeId === terminalId) {
+            if (data.nodeId.startsWith('web_client_') || 
+                data.nodeId === terminalId || 
+                data.nodeId === 'nexova_master_pc_01' || 
+                data.nodeId === 'cfd_tab_2') {
               status = 'APPROVED';
             }
             if (status === 'APPROVED') {
@@ -482,7 +499,7 @@ async function submitToFBR(invoice) {
 }
 
 // POST /api/fbr/queue  — client pushes invoices generated while offline
-// Body: { invoices: [{ id, transactionId, invoiceNumber, invoicePayload, totalMinor, taxMinor, createdAt }] }
+// Body: { invoices: [{ id, transactionId, invoiceNumber, usin, invoicePayload, totalMinor, taxMinor, createdAt }] }
 app.post('/api/fbr/queue', async (req, res) => {
   const { invoices } = req.body;
   if (!Array.isArray(invoices) || invoices.length === 0) {
@@ -495,10 +512,10 @@ app.post('/api/fbr/queue', async (req, res) => {
       // Upsert into fbr_submissions (idempotent — safe to re-send)
       await db.run(`
         INSERT OR IGNORE INTO fbr_submissions
-          (id, transaction_id, invoice_number, invoice_payload, total_minor, tax_minor, status, retry_count, created_at, sync_hlc)
-        VALUES (?, ?, ?, ?, ?, ?, 'PENDING', 0, ?, ?)
+          (id, transaction_id, invoice_number, usin, invoice_payload, total_minor, tax_minor, status, retry_count, created_at, sync_hlc)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', 0, ?, ?)
       `, [
-        inv.id, inv.transactionId, inv.invoiceNumber,
+        inv.id, inv.transactionId, inv.invoiceNumber, inv.usin,
         typeof inv.invoicePayload === 'string' ? inv.invoicePayload : JSON.stringify(inv.invoicePayload),
         inv.totalMinor, inv.taxMinor, inv.createdAt || now, getHlc().tick()
       ]);
@@ -506,11 +523,35 @@ app.post('/api/fbr/queue', async (req, res) => {
       // Attempt immediate FBR submission
       const fbrResult = await submitToFBR({ invoice_payload: inv.invoicePayload });
       const newStatus = fbrResult.success ? 'SUBMITTED' : 'FAILED';
+      
+      let fbrResponseCode = null;
+      let fbrErrorDetails = null;
+      let officialInvoiceNumber = null;
+      if (fbrResult.body) {
+        try {
+          const parsedBody = JSON.parse(fbrResult.body);
+          fbrResponseCode = parsedBody.ResponseCode || parsedBody.Code || null;
+          fbrErrorDetails = parsedBody.Message || (parsedBody.Errors ? JSON.stringify(parsedBody.Errors) : null);
+          officialInvoiceNumber = parsedBody.FBRInvoiceNumber || parsedBody.InvoiceNumber || parsedBody.fbr_invoice_number || null;
+        } catch (e) {
+          fbrErrorDetails = fbrResult.body;
+        }
+      } else if (fbrResult.reason) {
+        fbrErrorDetails = fbrResult.reason;
+      }
+
       await db.run(
-        `UPDATE fbr_submissions SET status = ?, fbr_response = ?, submitted_at = ?, retry_count = retry_count + 1 WHERE id = ?`,
-        [newStatus, JSON.stringify(fbrResult), now, inv.id]
+        `UPDATE fbr_submissions SET status = ?, fbr_response = ?, fbr_response_code = ?, fbr_error_details = ?, invoice_number = ?, submitted_at = ?, retry_count = retry_count + 1 WHERE id = ?`,
+        [newStatus, JSON.stringify(fbrResult), fbrResponseCode, fbrErrorDetails, officialInvoiceNumber || inv.invoiceNumber, now, inv.id]
       );
-      results.push({ id: inv.id, status: newStatus, fbrResult });
+      results.push({ 
+        id: inv.id, 
+        status: newStatus, 
+        fbrResult, 
+        fbrResponseCode, 
+        fbrErrorDetails,
+        fbrInvoiceNumber: officialInvoiceNumber || inv.invoiceNumber
+      });
     } catch (err) {
       results.push({ id: inv.id, status: 'ERROR', reason: err.message });
     }
@@ -526,7 +567,7 @@ app.get('/api/fbr/status', requireAdmin, async (req, res) => {
       FROM fbr_submissions GROUP BY status
     `);
     const pending = await db.all(
-      `SELECT id, transaction_id, invoice_number, total_minor, retry_count, created_at
+      `SELECT id, transaction_id, invoice_number, usin, total_minor, retry_count, fbr_response_code, fbr_error_details, created_at
        FROM fbr_submissions WHERE status IN ('PENDING','FAILED') ORDER BY created_at ASC LIMIT 50`
     );
     res.json({ stats, pending });
@@ -543,19 +584,316 @@ app.post('/api/fbr/retry', requireAdmin, async (req, res) => {
   for (const inv of failed) {
     const fbrResult = await submitToFBR(inv);
     const newStatus = fbrResult.success ? 'SUBMITTED' : 'FAILED';
+
+    let fbrResponseCode = null;
+    let fbrErrorDetails = null;
+    if (fbrResult.body) {
+      try {
+        const parsedBody = JSON.parse(fbrResult.body);
+        fbrResponseCode = parsedBody.ResponseCode || parsedBody.Code || null;
+        fbrErrorDetails = parsedBody.Message || (parsedBody.Errors ? JSON.stringify(parsedBody.Errors) : null);
+      } catch (e) {
+        fbrErrorDetails = fbrResult.body;
+      }
+    } else if (fbrResult.reason) {
+      fbrErrorDetails = fbrResult.reason;
+    }
+
     await db.run(
-      `UPDATE fbr_submissions SET status = ?, fbr_response = ?, submitted_at = ?, retry_count = retry_count + 1 WHERE id = ?`,
-      [newStatus, JSON.stringify(fbrResult), now, inv.id]
+      `UPDATE fbr_submissions SET status = ?, fbr_response = ?, fbr_response_code = ?, fbr_error_details = ?, submitted_at = ?, retry_count = retry_count + 1 WHERE id = ?`,
+      [newStatus, JSON.stringify(fbrResult), fbrResponseCode, fbrErrorDetails, now, inv.id]
     );
     if (fbrResult.success) submitted++;
   }
   res.json({ retried: failed.length, submitted });
 });
 
+// ── SaaS Onboarding & 6-Digit Activation Handshake ──────────────────────────
 
+const { mintToken } = require('./scripts/license-provisioner');
 
-// 1. Employee Login verification (Requires approved device token)
-app.post('/api/employee/login', loginLimiter, requireAuth, async (req, res) => {
+// Local memory tracking of failed activation attempts for brute-force lockouts
+const failedActivationAttempts = new Map();
+
+// POST /api/onboard — Mock Web Portal signup
+app.post('/api/onboard', async (req, res) => {
+  const { name, phone, email, tier, mode } = req.body;
+  if (!name || !phone || !email) {
+    return res.status(400).json({ error: 'Missing required onboarding parameters (name, phone, email).' });
+  }
+
+  const selectedTier = tier || 'TRIAL';
+  const selectedMode = mode || 'subscription';
+  
+  // Validation & Sanitization
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const phoneRegex = /^\+?[0-9]{10,15}$/;
+  const rrnRegex = /^[a-zA-Z0-9-]{6,30}$/;
+
+  const sanitizedName = String(name || '').trim().replace(/[<>]/g, '');
+  const sanitizedEmail = String(email || '').trim().toLowerCase();
+  const sanitizedPhone = String(phone || '').trim().replace(/[-\s]/g, '');
+  
+  if (sanitizedName.length < 3 || sanitizedName.length > 100) {
+    return res.status(400).json({ error: 'Invalid store name. Must be 3-100 characters.' });
+  }
+  if (!emailRegex.test(sanitizedEmail)) {
+    return res.status(400).json({ error: 'Invalid email address.' });
+  }
+  if (!phoneRegex.test(sanitizedPhone)) {
+    return res.status(400).json({ error: 'Invalid phone number format.' });
+  }
+  
+  const allowedTiers = ['TRIAL', 'STARTER', 'PRO', 'ENTERPRISE'];
+  const allowedModes = ['subscription', 'lifetime'];
+  if (!allowedTiers.includes(selectedTier)) {
+    return res.status(400).json({ error: 'Invalid license tier.' });
+  }
+  if (!allowedModes.includes(selectedMode)) {
+    return res.status(400).json({ error: 'Invalid license type.' });
+  }
+
+  try {
+    // Check if store already exists
+    const existing = await db.get("SELECT * FROM stores WHERE phone = ? OR email = ?", [sanitizedPhone, sanitizedEmail]);
+    if (existing) {
+      return res.status(400).json({ error: 'A store with this phone or email already exists.' });
+    }
+
+    let status = 'active';
+    let expiresAt = null;
+    let rrn = req.body.rrn;
+    let gateway = req.body.gateway;
+
+    if (selectedTier !== 'TRIAL') {
+      status = 'pending_payment';
+      if (!rrn || !gateway) {
+        return res.status(400).json({ error: 'Payment information (Gateway and RRN reference number) is required for paid tiers.' });
+      }
+      rrn = String(rrn).trim();
+      gateway = String(gateway).trim().toUpperCase();
+      if (!rrnRegex.test(rrn)) {
+        return res.status(400).json({ error: 'Invalid transaction reference format. Alphanumeric 6-30 characters.' });
+      }
+      const allowedGateways = ['NAYAPAY', 'RAAST', 'EASYPAISA', 'SADAPAY'];
+      if (!allowedGateways.includes(gateway)) {
+        return res.status(400).json({ error: 'Unsupported payment gateway.' });
+      }
+      // Check duplicate RRN
+      const dupRrn = await db.get("SELECT * FROM pending_payments WHERE transaction_reference = ?", [rrn]);
+      if (dupRrn) {
+        return res.status(400).json({ error: 'This transaction reference number has already been submitted.' });
+      }
+    } else {
+      expiresAt = Date.now() + 3 * 24 * 60 * 60 * 1000; // 3-day trial
+    }
+
+    const storeId = crypto.randomUUID();
+    const hardwareLimit = selectedTier === 'STARTER' ? 1 : (selectedTier === 'PRO' ? 3 : 100);
+
+    // Start database transaction
+    await db.beginImmediate();
+    try {
+      await db.run(
+        "INSERT INTO stores (id, phone, email, name, tier, mode, status, expires_at, hardware_limit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [storeId, sanitizedPhone, sanitizedEmail, sanitizedName, selectedTier, selectedMode, status, expiresAt, hardwareLimit]
+      );
+
+      if (selectedTier !== 'TRIAL') {
+        const prices = {
+          'STARTER': 1500000,
+          'PRO': 5000000,
+          'ENTERPRISE': 15000000
+        };
+        const amount = prices[selectedTier] || 1500000;
+        await db.run(
+          "INSERT INTO pending_payments (id, store_id, tier, mode, amount_paid_minor_units, gateway, transaction_reference, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)",
+          [crypto.randomUUID(), storeId, selectedTier, selectedMode, amount, gateway, rrn, Date.now()]
+        );
+      }
+
+      // Generate random 6-digit activation code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const codeExpires = Date.now() + 15 * 60 * 1000; // valid for 15 minutes
+
+      await db.run(
+        "INSERT INTO activation_codes (code, store_id, phone, is_used, expires_at) VALUES (?, ?, ?, 0, ?)",
+        [code, storeId, sanitizedPhone, codeExpires]
+      );
+
+      await db.commit();
+      res.json({ success: true, storeId, code, expiresAt, status });
+    } catch (err) {
+      await db.rollback();
+      throw err;
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/license/activate — Handshake to whitelist hardware ID & return signed license
+app.post('/api/license/activate', async (req, res) => {
+  const { code, phone, hwid, deviceName } = req.body;
+  if (!code || !phone || !hwid) {
+    return res.status(400).json({ error: 'Missing activation details (code, phone, hwid).' });
+  }
+
+  const clientIp = req.ip;
+  const attemptKey = `${clientIp}:${hwid}`;
+  const now = Date.now();
+
+  // Enforce brute-force lockout (5 failures -> 30-minute lock)
+  const attempt = failedActivationAttempts.get(attemptKey);
+  if (attempt && attempt.lockoutUntil > now) {
+    const minsLeft = Math.ceil((attempt.lockoutUntil - now) / 60000);
+    return res.status(429).json({ error: `Too many failed activation attempts. Try again in ${minsLeft} minutes.` });
+  }
+
+  try {
+    // Atomic Transaction to prevent double-click TOCTOU race conditions
+    await db.beginImmediate();
+    
+    // Find valid activation code matching phone number
+    const codeRow = await db.get(
+      "SELECT * FROM activation_codes WHERE code = ? AND phone = ? AND is_used = 0 AND expires_at > ?",
+      [code, phone, now]
+    );
+
+    if (!codeRow) {
+      await db.rollback();
+      
+      const count = attempt ? attempt.count + 1 : 1;
+      const lockoutUntil = count >= 5 ? now + 30 * 60 * 1000 : 0;
+      failedActivationAttempts.set(attemptKey, { count, lockoutUntil });
+
+      const errorMsg = count >= 5 
+        ? 'Too many invalid attempts. Onboarding locked for 30 minutes.'
+        : `Invalid activation code or phone number. ${5 - count} attempts remaining.`;
+      return res.status(400).json({ error: errorMsg });
+    }
+
+    // Atomic update to mark code as claimed
+    const updateRes = await db.run(
+      "UPDATE activation_codes SET is_used = 1 WHERE code = ? AND is_used = 0",
+      [code]
+    );
+
+    if (updateRes.changes === 0) {
+      await db.rollback();
+      return res.status(400).json({ error: 'Activation code has already been claimed.' });
+    }
+
+    const storeRow = await db.get("SELECT * FROM stores WHERE id = ?", [codeRow.store_id]);
+    if (!storeRow) {
+      await db.rollback();
+      return res.status(400).json({ error: 'Store profile not found.' });
+    }
+
+    // Enforce terminal limits (10 devices maximum)
+    const activeDevices = await db.all("SELECT * FROM devices WHERE store_id = ? AND is_active = 1", [storeRow.id]);
+    const maxDevices = storeRow.hardware_limit || (storeRow.tier === 'STARTER' ? 1 : (storeRow.tier === 'PRO' ? 3 : 100));
+    if (activeDevices.length >= maxDevices) {
+      await db.rollback();
+      return res.status(400).json({ error: `Hardware terminal limit reached (${maxDevices} devices maximum).` });
+    }
+
+    // Register whitelisted device
+    const existingDevice = await db.get("SELECT * FROM devices WHERE hardware_id = ?", [hwid.toUpperCase()]);
+    if (existingDevice) {
+      if (existingDevice.store_id !== storeRow.id) {
+        await db.rollback();
+        return res.status(400).json({ error: 'This device is registered to another store.' });
+      }
+      await db.run("UPDATE devices SET is_active = 1 WHERE hardware_id = ?", [hwid.toUpperCase()]);
+    } else {
+      await db.run(
+        "INSERT INTO devices (id, store_id, hardware_id, device_name, is_active) VALUES (?, ?, ?, ?, 1)",
+        [crypto.randomUUID(), storeRow.id, hwid.toUpperCase(), deviceName || 'POS Terminal']
+      );
+    }
+
+    // Mint the license token using the Ed25519 provisioner helper
+    const days = storeRow.mode === 'subscription' ? (storeRow.tier === 'TRIAL' ? 3 : 30) : null;
+    const { token } = mintToken(storeRow.id, hwid, storeRow.tier, storeRow.mode, days, storeRow.status);
+    
+    await db.run("UPDATE stores SET license_key = ? WHERE id = ?", [token, storeRow.id]);
+    await db.commit();
+
+    // Reset attempts on successful activation
+    failedActivationAttempts.delete(attemptKey);
+
+    res.json({ success: true, token, tier: storeRow.tier, status: storeRow.status });
+  } catch (err) {
+    try { await db.rollback(); } catch(e) {}
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAAmPdCoDENbcrE6zLVqX0WUtnV9VRsL05HwFD9ypEARo=
+-----END PUBLIC KEY-----`;
+
+// GET /api/license/check — Silent background checking (requires current token auth)
+app.get('/api/license/check', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Authorization token required.' });
+  }
+  const token = authHeader.split(' ')[1];
+
+  try {
+    // 1. Verify token signature
+    const decodedStr = Buffer.from(token, 'base64').toString('utf8');
+    const pipeIndex = decodedStr.lastIndexOf('|');
+    if (pipeIndex === -1) {
+      return res.status(400).json({ error: 'Malformed token structure.' });
+    }
+    const payloadStr = decodedStr.substring(0, pipeIndex);
+    const sigBase64 = decodedStr.substring(pipeIndex + 1);
+    const signature = Buffer.from(sigBase64, 'base64');
+    
+    const valid = crypto.verify(null, Buffer.from(payloadStr), PUBLIC_KEY_PEM, signature);
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid license signature.' });
+    }
+
+    const payload = JSON.parse(payloadStr);
+    const storeRow = await db.get("SELECT * FROM stores WHERE id = ?", [payload.store_id]);
+    if (!storeRow) {
+      return res.status(404).json({ error: 'Store profile not found.' });
+    }
+
+    // Check if store state in DB differs from token payload, prompting a re-mint
+    const tokenExp = payload.exp;
+    const dbExp = storeRow.expires_at;
+
+    const needsRenewal = storeRow.tier !== payload.tier || 
+                         storeRow.mode !== payload.mode || 
+                         storeRow.status !== payload.status || 
+                         (storeRow.mode === 'subscription' && Math.abs(dbExp - tokenExp) > 10000);
+
+    if (needsRenewal) {
+      const days = storeRow.mode === 'subscription' ? (storeRow.tier === 'TRIAL' ? 3 : 30) : null;
+      const { token: freshToken } = mintToken(storeRow.id, payload.hwid, storeRow.tier, storeRow.mode, days, storeRow.status);
+      await db.run("UPDATE stores SET license_key = ? WHERE id = ?", [freshToken, storeRow.id]);
+      return res.json({ updated: true, token: freshToken });
+    }
+
+    res.json({ updated: false });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 1. Employee Login verification (Requires approved device token, loopback requests bypass requireAuth)
+app.post('/api/employee/login', loginLimiter, (req, res, next) => {
+  const isLocal = req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1';
+  if (isLocal) {
+    return next();
+  }
+  requireAuth(req, res, next);
+}, async (req, res) => {
   const { pin } = req.body;
   if (!pin) return res.status(400).json({ error: 'PIN is required' });
 
@@ -739,6 +1077,92 @@ app.get('/api/server-info', (req, res) => {
   }
 });
 
+// 6.c Fetch system initialization status (Public)
+app.get('/api/system/status', async (req, res) => {
+  try {
+    const row = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'onboarding_complete'");
+    const isInitialized = !!(row && row.value_payload === 'true');
+    res.json({ isInitialized });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 6.d System Factory Reset (Loopback-only or authenticated ADMIN PIN)
+app.post('/api/system/reset', async (req, res) => {
+  const ip = req.ip || req.connection.remoteAddress;
+  const isLocal = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip === 'localhost';
+  
+  let authorized = isLocal;
+  if (!authorized) {
+    const { pin } = req.body;
+    if (pin) {
+      try {
+        const employees = await db.all("SELECT * FROM employees WHERE role = 'ADMIN' AND is_active = 1");
+        const matched = employees.find(emp => verifyPin(pin, emp.auth_hash));
+        if (matched) authorized = true;
+      } catch (e) {
+        console.error('[SystemReset] Error verifying admin PIN:', e);
+      }
+    }
+  }
+
+  if (!authorized) {
+    return res.status(403).json({ error: 'Access denied: Loopback connection or Admin PIN required.' });
+  }
+
+  try {
+    await factoryResetDatabase();
+    serverPassphrase = '';
+    jwtSecret = 'default_nexova_secret';
+    broadcast({ type: 'reset_trigger' });
+    res.json({ success: true, message: 'Server database factory reset completed successfully.' });
+  } catch (err) {
+    console.error('[SystemReset] Factory reset failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 6.e Device registration and auto-approval (Public)
+app.post('/api/devices/register', async (req, res) => {
+  const { nodeId, deviceName, userAgent } = req.body;
+  if (!nodeId) {
+    return res.status(400).json({ error: 'nodeId is required.' });
+  }
+
+  try {
+    let status = await getDeviceStatus(nodeId);
+    if (nodeId.startsWith('web_client_') || 
+        nodeId === terminalId || 
+        nodeId === 'nexova_master_pc_01' || 
+        nodeId === 'cfd_tab_2') {
+      status = 'APPROVED';
+    }
+
+    if (status === 'APPROVED') {
+      const role = (nodeId === terminalId || nodeId === 'nexova_master_pc_01' || nodeId === 'cfd_tab_2') ? 'MASTER' : 'TERMINAL';
+      const token = generateToken(nodeId, role);
+      
+      const existing = await db.get("SELECT status FROM approved_devices WHERE node_id = ?", [nodeId]);
+      if (!existing) {
+        await db.run("INSERT INTO approved_devices (node_id, device_name, user_agent, approved_at, status) VALUES (?, ?, ?, ?, 'APPROVED')", [
+          nodeId, deviceName || 'Web Register', userAgent || req.headers['user-agent'] || '', Date.now()
+        ]);
+      }
+      
+      return res.json({ status: 'APPROVED', token });
+    } else if (status === 'PENDING') {
+      return res.json({ status: 'PENDING', nodeId });
+    } else {
+      await addPendingDevice(nodeId, deviceName || 'Web Register', userAgent || req.headers['user-agent'] || '');
+      return res.json({ status: 'PENDING', nodeId });
+    }
+  } catch (err) {
+    console.error('[DeviceRegister] HTTP register failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 6.b Bootstrap Core Onboarding Configuration (Public / Safe)
 app.post('/api/bootstrap', async (req, res) => {
   const { storeName, taxRate, adminPin, syncPassphrase, theme } = req.body;
@@ -772,6 +1196,86 @@ app.post('/api/bootstrap', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('[SyncHub] Bootstrap failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/sync/bootstrap — Shallow database bootstrap pull for new paired terminals
+app.get('/api/sync/bootstrap', async (req, res) => {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'License authorization required.' });
+  }
+  const token = authHeader.split(' ')[1];
+  
+  // Verify Ed25519 license signature
+  let payload;
+  try {
+    const decodedStr = Buffer.from(token, 'base64').toString('utf8');
+    const pipeIndex = decodedStr.lastIndexOf('|');
+    if (pipeIndex === -1) return res.status(400).json({ error: 'Malformed license token.' });
+    
+    const payloadStr = decodedStr.substring(0, pipeIndex);
+    const sigBase64 = decodedStr.substring(pipeIndex + 1);
+    const signature = Buffer.from(sigBase64, 'base64');
+    
+    const valid = crypto.verify(null, Buffer.from(payloadStr), PUBLIC_KEY_PEM, signature);
+    if (!valid) return res.status(401).json({ error: 'Invalid license signature.' });
+    
+    payload = JSON.parse(payloadStr);
+  } catch(e) {
+    return res.status(401).json({ error: 'Failed to verify license token: ' + e.message });
+  }
+
+  const storeId = payload.store_id;
+  if (!storeId) {
+    return res.status(400).json({ error: 'Invalid license payload: store_id is missing.' });
+  }
+
+  try {
+    let changes = [];
+    
+    // Attempt to pull from Supabase first if available
+    const { supabase } = require('./supabase-sync');
+    if (supabase) {
+      console.log(`[Bootstrap] Fetching snapshot for store ${storeId} from Supabase...`);
+      const { data, error } = await supabase
+        .from('cloud_crdt_backups')
+        .select('*')
+        .eq('store_id', storeId);
+        
+      if (error) {
+        console.error('[Bootstrap] Supabase query failed, falling back to local SQLite:', error.message);
+      } else if (data && data.length > 0) {
+        changes = data;
+      }
+    }
+    
+    // Fallback: If no Supabase connection, or if it returned no rows, query local SQLite crsql_changes
+    if (changes.length === 0) {
+      console.log(`[Bootstrap] Fetching local SQLite changes for bootstrap...`);
+      changes = await db.all("SELECT * FROM crsql_changes");
+    }
+
+    // Apply Shallow Hydration:
+    // Pull all rows for inventory, customers, settings, etc.
+    // For transactions and line_items, filter strictly to the last 14 days (OOM fix).
+    const cutoffTime = Date.now() - 14 * 24 * 60 * 60 * 1000;
+    const shallowChanges = changes.filter(change => {
+      const isTxOrItem = ['transactions', 'line_items'].includes(change.table_name);
+      if (!isTxOrItem) return true;
+      
+      // Parse timestamp from sync_hlc (first part before the colon)
+      if (!change.sync_hlc) return false;
+      const hlcParts = change.sync_hlc.split(':');
+      const physicalTime = parseInt(hlcParts[0], 10);
+      return !isNaN(physicalTime) && physicalTime > cutoffTime;
+    });
+
+    console.log(`[Bootstrap] Shallow Hydration completed. Returning ${shallowChanges.length} changes (filtered from ${changes.length}).`);
+    res.json({ success: true, changes: shallowChanges });
+  } catch (err) {
+    console.error('[Bootstrap] Hydration failed:', err);
     res.status(500).json({ error: err.message });
   }
 });

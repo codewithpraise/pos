@@ -54,13 +54,97 @@
 
       if (shouldReset) {
         console.warn('[App] Reset command detected. Resetting database to factory settings...');
-        await NexovaDB.destructiveReset();
+        
+        // Factory reset local server if present and accessible
+        try {
+          const serverBase = (window.__nexovaServerUrl || location.origin);
+          if (location.protocol !== 'file:') {
+            await fetch(serverBase + '/api/system/reset', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+        } catch (serverErr) {
+          console.warn('[App] Failed to contact server for factory reset:', serverErr.message);
+        }
+
+        await NexovaDB.destructReset();
         localStorage.clear();
         // Clean URL to prevent infinite reset loops
         window.history.replaceState(null, null, window.location.pathname);
       }
+
+      // Early Onboarding & View Routing Check to prevent flashing/incorrect states
+      const pref = await NexovaDB.get('local_preferences', 'onboarding_complete');
+      const onboardingComplete = pref && pref.value_payload === 'true';
+      
+      const wizardOverlay = document.getElementById('first-boot-wizard');
+      const lockScreen = document.getElementById('auth-lock-screen');
+      const layout = document.getElementById('pos-app-layout');
+      
+      if (!onboardingComplete) {
+        if (wizardOverlay) wizardOverlay.style.display = 'flex';
+        if (lockScreen) lockScreen.classList.remove('active');
+        if (layout) layout.style.display = 'grid'; // Show layout, wizard is on top
+        showPairingOverlay(false);
+      } else {
+        if (wizardOverlay) wizardOverlay.style.display = 'none';
+        if (lockScreen) lockScreen.classList.add('active');
+        if (layout) layout.style.display = 'none';
+      }
     } catch (e) {
       console.error('[App] Failed to initialize local database on main thread:', e);
+    }
+
+    // Determine/register device friendly name and token early via HTTP to prevent connection race conditions
+    try {
+      let terminalNamePref = await NexovaDB.get('local_preferences', 'terminal_name');
+      let terminalName = terminalNamePref ? terminalNamePref.value_payload : null;
+      let nodeId = '';
+      if (!terminalName) {
+        nodeId = 'web_client_' + Math.random().toString(36).substring(2, 9);
+        await NexovaDB.put('local_preferences', {
+          key: 'terminal_name',
+          value_type: 'STR',
+          value_payload: nodeId,
+          is_idempotent_flag: 0,
+          updated_at: Date.now()
+        });
+      } else {
+        nodeId = terminalName.replace(/\s+/g, '_').toLowerCase();
+      }
+      state.nodeId = nodeId;
+
+      let deviceTokenPref = await NexovaDB.get('local_preferences', 'device_token');
+      let deviceToken = deviceTokenPref ? deviceTokenPref.value_payload : null;
+
+      if (!deviceToken && location.protocol !== 'file:') {
+        console.log(`[App] No device token stored, registering node: ${nodeId} via HTTP...`);
+        const serverBase = (window.__nexovaServerUrl || location.origin);
+        const regResp = await fetch(serverBase + '/api/devices/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nodeId: nodeId, deviceName: terminalName || 'Web Register' })
+        });
+        if (regResp.ok) {
+          const regData = await regResp.json();
+          if (regData.status === 'APPROVED' && regData.token) {
+            console.log('[App] Auto-approved via HTTP. Token stored.');
+            await NexovaDB.put('local_preferences', {
+              key: 'device_token',
+              value_type: 'STR',
+              value_payload: regData.token,
+              is_idempotent_flag: 0,
+              updated_at: Date.now()
+            });
+            state.deviceToken = regData.token;
+          }
+        }
+      } else {
+        state.deviceToken = deviceToken;
+      }
+    } catch (e) {
+      console.warn('[App] Device registration pass skipped or failed:', e);
     }
 
     // ── Component A: License gate — blocks all app logic if invalid ────────
@@ -230,6 +314,24 @@
     window.addEventListener('unhandledrejection', (e) => handleGlobalError('UNHANDLED_REJECTION', e.reason), { capture: true });
   }
 
+  function showPairingOverlay(show, section) {
+    const overlay = document.getElementById('device-pairing-overlay');
+    if (!overlay) return;
+    
+    const wizard = document.getElementById('first-boot-wizard');
+    const wizardVisible = wizard && wizard.style.display === 'flex';
+    if (wizardVisible) {
+      overlay.style.display = 'none';
+      return;
+    }
+
+    overlay.style.display = show ? 'flex' : 'none';
+    if (show && section) {
+      document.getElementById('device-pairing-form').style.display = section === 'form' ? 'flex' : 'none';
+      document.getElementById('device-pairing-pending').style.display = section === 'pending' ? 'flex' : 'none';
+    }
+  }
+
   // Setup communication channel with off-thread Web Worker
   function setupWebWorker() {
     syncWorker = new Worker('sync-worker.js');
@@ -248,7 +350,6 @@
           document.getElementById('hlc-clock').textContent = hlc;
           state.nodeId = nodeId;
           state.deviceToken = event.data.deviceToken;
-          
           if (!isPaired) {
             // Auto configure hash passphrase if present
             const hashParams = new URLSearchParams(window.location.hash.substring(1));
@@ -263,10 +364,7 @@
               return;
             }
             
-            // Show pairing screen
-            document.getElementById('device-pairing-overlay').style.display = 'flex';
-            document.getElementById('device-pairing-form').style.display = 'flex';
-            document.getElementById('device-pairing-pending').style.display = 'none';
+            showPairingOverlay(true, 'form');
           }
           
           // Request baseline values
@@ -280,21 +378,19 @@
           syncWorker.postMessage({ type: 'GET_DISTRIBUTOR_PAYMENTS' });
           syncWorker.postMessage({ type: 'GET_CUSTOMER_CREDIT' });
           break;
-
+ 
         case 'DEVICE_APPROVED':
           console.log('[App] Device successfully paired and approved.');
           state.deviceToken = event.data.token;
-          document.getElementById('device-pairing-overlay').style.display = 'none';
+          showPairingOverlay(false);
           if (state.activeScreen === 'settings') {
             loadWhitelistDevices();
           }
           break;
-
+ 
         case 'DEVICE_PENDING':
           console.log('[App] Device pairing is pending approval.');
-          document.getElementById('device-pairing-overlay').style.display = 'flex';
-          document.getElementById('device-pairing-form').style.display = 'none';
-          document.getElementById('device-pairing-pending').style.display = 'flex';
+          showPairingOverlay(true, 'pending');
           document.getElementById('pairing-submitted-name').textContent = document.getElementById('pairing-device-name').value || 'Web Register';
           document.getElementById('pairing-device-id').textContent = nodeId || state.nodeId || 'Loading...';
           // Generate QR Code with full pairing URL — admin scans to auto-approve
@@ -312,20 +408,40 @@
             });
           })();
           break;
-
+ 
         case 'DEVICE_REJECTED':
           console.warn('[App] Device was rejected.');
           alert('This device was rejected by the administrator. Please pair again.');
-          document.getElementById('device-pairing-overlay').style.display = 'flex';
-          document.getElementById('device-pairing-form').style.display = 'flex';
-          document.getElementById('device-pairing-pending').style.display = 'none';
+          showPairingOverlay(true, 'form');
           break;
-
         case 'DEVICE_UNAUTHORIZED':
           console.warn('[App] Device token unauthorized.');
-          document.getElementById('device-pairing-overlay').style.display = 'flex';
-          document.getElementById('device-pairing-form').style.display = 'flex';
-          document.getElementById('device-pairing-pending').style.display = 'none';
+          showPairingOverlay(true, 'form');
+          break;
+
+        case 'HYDRATE_SUCCESS':
+          console.log('[App] Database hydration completed successfully.');
+          const statusEl = document.getElementById('hydration-status');
+          if (statusEl) {
+            statusEl.style.color = '#10b981';
+            statusEl.textContent = `Sync Complete! Applied ${event.data.applied} mutations.`;
+          }
+          setTimeout(() => {
+            document.getElementById('hydration-overlay')?.remove();
+            window.__hydrationInProgress = false;
+            window.location.reload();
+          }, 1500);
+          break;
+
+        case 'HYDRATE_ERROR':
+          console.error('[App] Database hydration failed:', event.data.error);
+          const statusElErr = document.getElementById('hydration-status');
+          if (statusElErr) {
+            statusElErr.style.color = '#ef4444';
+            statusElErr.innerHTML = `Hydration failed: ${event.data.error}<br><br>
+              <button onclick="window.location.reload()" style="padding: 10px 20px; background: #ef4444; border: none; border-radius: 4px; color: #fff; font-weight: 700; cursor: pointer; margin-top: 10px;">Retry Bootstrapping</button>`;
+          }
+          window.__hydrationInProgress = false;
           break;
 
         case 'INIT_ERROR':
@@ -339,15 +455,20 @@
 
         case 'DEVICE_REQUEST_RECEIVED':
           playAudioSignal('click');
+          if (state.activeScreen === 'settings') {
+            loadWhitelistDevices();
+          }
           showNotificationToast(`New device "${event.data.deviceName}" is requesting network pairing.`, () => {
-            switchActiveScreen('settings');
-            setTimeout(() => {
-              const el = document.getElementById('settings-device-whitelisting');
-              if (el) {
-                el.scrollIntoView({ behavior: 'smooth' });
-                loadWhitelistDevices();
-              }
-            }, 100);
+            if (state.activeScreen !== 'settings') {
+              switchActiveScreen('settings');
+              setTimeout(() => {
+                const el = document.getElementById('settings-device-whitelisting');
+                if (el) {
+                  el.scrollIntoView({ behavior: 'smooth' });
+                  loadWhitelistDevices();
+                }
+              }, 100);
+            }
           });
           break;
 
@@ -461,11 +582,71 @@
           calculateAnalytics();
           break;
 
-        case 'BOOTSTRAP_SUCCESS':
+        case 'BOOTSTRAP_SUCCESS': {
           playAudioSignal('success');
-          showNotificationToast('Core Database Bootstrapped. Reloading...', null, 2000);
-          setTimeout(function() { window.location.reload(); }, 2000);
+          showNotificationToast('Core Database Bootstrapped Successfully!', null, 3000);
+
+          // Get device token from server immediately upon bootstrap success (avoiding 401 on settings load)
+          (async () => {
+            try {
+              const serverBase = (window.__nexovaServerUrl || location.origin);
+              const regResp = await fetch(serverBase + '/api/devices/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nodeId: state.nodeId, deviceName: 'Web Register' })
+              });
+              if (regResp.ok) {
+                const regData = await regResp.json();
+                if (regData.status === 'APPROVED' && regData.token) {
+                  console.log('[App] Post-bootstrap registration success. Token acquired.');
+                  await NexovaDB.put('local_preferences', {
+                    key: 'device_token',
+                    value_type: 'STR',
+                    value_payload: regData.token,
+                    is_idempotent_flag: 0,
+                    updated_at: Date.now()
+                  });
+                  state.deviceToken = regData.token;
+                }
+              }
+            } catch (err) {
+              console.warn('Failed post-bootstrap token registration:', err);
+            }
+          })();
+          
+          // Request fresh state data from the worker
+          syncWorker.postMessage({ type: 'GET_PREFERENCES' });
+          syncWorker.postMessage({ type: 'GET_CATALOG' });
+          syncWorker.postMessage({ type: 'GET_EMPLOYEES' });
+          syncWorker.postMessage({ type: 'GET_CUSTOMERS' });
+
+          // Auto-login as ADMIN
+          state.activeCashier = {
+            id: 'admin',
+            name: 'ADMIN',
+            role: 'ADMIN',
+            clockIn: Date.now()
+          };
+          state.terminalRole = 'REGISTER';
+          
+          // Transition UI immediately
+          const wizardOverlay = document.getElementById('first-boot-wizard');
+          if (wizardOverlay) wizardOverlay.style.display = 'none';
+          
+          const lockScreen = document.getElementById('auth-lock-screen');
+          if (lockScreen) lockScreen.classList.remove('active');
+          
+          const layout = document.getElementById('pos-app-layout');
+          if (layout) layout.style.display = 'grid';
+
+          const nameEl = document.getElementById('cashier-display-name');
+          const roleDispEl = document.getElementById('cashier-display-role');
+          if (nameEl) nameEl.textContent = 'ADMIN';
+          if (roleDispEl) roleDispEl.textContent = 'ADMIN';
+          
+          applyRoleNavigationLimits('ADMIN');
           break;
+        }
 
         case 'EPHEMERAL_RECEIVED': {
           const { topic, data } = event.data;
@@ -714,6 +895,13 @@
     //   3. Hidden <input type=tel> that captures mobile soft keyboard input events
     initPinPad();
 
+    const scanPairingQrBtn = document.getElementById('btn-scan-pairing-qr');
+    if (scanPairingQrBtn) {
+      scanPairingQrBtn.addEventListener('click', () => {
+        startMobileScanner();
+      });
+    }
+
     // Logout shift register
     document.getElementById('btn-lock-register').addEventListener('click', () => {
       playAudioSignal('click');
@@ -876,6 +1064,7 @@
         } else {
           splitFields.style.display = 'none';
         }
+        updateTotalsBoard();
       });
     });
 
@@ -988,6 +1177,29 @@
       state.preferences['store_tax_rate'] = e.target.value;
       applyPreferencesFromState();
     });
+
+    const langBtn = document.getElementById('lang-toggle-btn');
+    if (langBtn) {
+      langBtn.addEventListener('click', () => {
+        playAudioSignal('click');
+        const currentLang = state.preferences['system_language'] || 'en';
+        const newLang = currentLang === 'en' ? 'ur' : 'en';
+        setLanguage(newLang);
+      });
+    }
+
+    const taxModeEl = document.getElementById('setting-tax-mode');
+    if (taxModeEl) {
+      taxModeEl.addEventListener('change', (e) => {
+        const mode = e.target.value;
+        syncWorker.postMessage({
+          type: 'SAVE_PREFERENCE',
+          payload: { key: 'store_tax_mode', val: mode }
+        });
+        state.preferences['store_tax_mode'] = mode;
+        applyPreferencesFromState();
+      });
+    }
 
     document.getElementById('setting-receipt-tagline').addEventListener('change', (e) => {
       syncWorker.postMessage({
@@ -1308,7 +1520,8 @@
             tax: payload.tax,
             total: payload.total,
             paymentMode: payload.paymentMode,
-            paymentDetails: finalDetails
+            paymentDetails: finalDetails,
+            tier: window.__nexovaTier || 'STARTER'
           }
         });
         state.pendingQrCheckout = null;
@@ -1318,22 +1531,177 @@
       }
     });
 
-    // First Boot Onboarding Wizard bindings
-    const wizardSetupType = document.getElementById('wizard-setup-type');
-    if (wizardSetupType) {
-      wizardSetupType.addEventListener('change', (e) => {
-        const type = e.target.value;
-        document.getElementById('wizard-new-store-fields').style.display = type === 'NEW' ? 'flex' : 'none';
-        document.getElementById('wizard-join-store-fields').style.display = type === 'JOIN' ? 'flex' : 'none';
-      });
-    }
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    //  MULTI-STEP ONBOARDING WIZARD CONTROLLER
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    (function initWizardController() {
+      let wizStep = 1;
+      let wizPath = 'NEW';
+      const MAX_STEPS = 4;
+      const subtitles = {
+        1:   "Let's get your point-of-sale ready in just a few steps.",
+        '2a': 'Tell us about your store — this will appear on receipts and the POS header.',
+        '2b':"Enter the network details to connect to an existing store.",
+        3:   "Set your security credentials to protect this register.",
+        4:   "Review your configuration before we initialize the database.",
+      };
 
-    const btnWizardScanQr = document.getElementById('btn-wizard-scan-qr');
-    if (btnWizardScanQr) {
-      btnWizardScanQr.addEventListener('click', () => {
-        startMobileScanner();
+      const btnNext    = document.getElementById('btn-wiz-next');
+      const btnBack    = document.getElementById('btn-wiz-back');
+      const subtitle   = document.getElementById('wizard-step-subtitle');
+      const allPanels  = document.querySelectorAll('.wiz-panel');
+      const dots       = document.querySelectorAll('.wiz-dot');
+      const wizSetType = document.getElementById('wizard-setup-type');
+      const wizardThemeSel = document.getElementById('wizard-theme');
+      if (wizardThemeSel) {
+        wizardThemeSel.addEventListener('change', (e) => {
+          const val = e.target.value;
+          const themeClass = 'theme-' + val.toLowerCase().replace(/\s+/g, '-');
+          const body = document.body;
+          const themes = ['theme-obsidian-emerald', 'theme-midnight-sapphire', 'theme-warm-amber', 'theme-minimalist-chrome', 'theme-monochrome-ivory'];
+          themes.forEach(t => body.classList.remove(t));
+          body.classList.add(themeClass);
+        });
+      }
+
+      if (!btnNext) return;
+
+      function getStepKey() {
+        return wizStep === 2 ? (wizPath === 'NEW' ? '2a' : '2b') : String(wizStep);
+      }
+      function panelId() {
+        return wizStep === 2 ? ('wiz-panel-' + (wizPath === 'NEW' ? '2a' : '2b')) : ('wiz-panel-' + wizStep);
+      }
+      function showPanel(direction) {
+        allPanels.forEach(p => { p.style.display = 'none'; p.classList.remove('slide-back'); });
+        const p = document.getElementById(panelId());
+        if (!p) return;
+        if (direction === 'back') p.classList.add('slide-back');
+        p.style.display = 'flex';
+      }
+      function updateDots() {
+        dots.forEach((dot, i) => {
+          const s = i + 1;
+          dot.style.width      = s === wizStep ? '28px' : '6px';
+          dot.style.background = s < wizStep ? 'rgba(0,214,143,0.35)' : s === wizStep ? 'var(--accent-emerald)' : 'rgba(255,255,255,0.12)';
+        });
+      }
+      function updateNav() {
+        btnBack.style.display = wizStep > 1 ? 'flex' : 'none';
+        if (wizStep === 1) {
+          btnNext.style.display = 'none';
+        } else if (wizStep === MAX_STEPS) {
+          btnNext.style.display = 'flex';
+          btnNext.innerHTML = 'Launch Register <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>';
+        } else {
+          btnNext.style.display = 'flex';
+          btnNext.innerHTML = 'Continue <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>';
+        }
+      }
+      function render(dir) {
+        if (wizSetType) wizSetType.value = wizPath;
+        showPanel(dir);
+        updateDots();
+        if (subtitle) subtitle.textContent = subtitles[getStepKey()] || '';
+        updateNav();
+      }
+      function goTo(step, path, dir) {
+        if (path) wizPath = path;
+        wizStep = step;
+        render(dir || 'forward');
+      }
+
+      // Step 1 path choice
+      const bNew  = document.getElementById('btn-wiz-choose-new');
+      const bJoin = document.getElementById('btn-wiz-choose-join');
+      if (bNew)  bNew.addEventListener('click',  () => { playAudioSignal('click'); goTo(2,'NEW'); });
+      if (bJoin) bJoin.addEventListener('click', () => { playAudioSignal('click'); goTo(2,'JOIN'); });
+
+      // Scan QR buttons
+      const bScan1 = document.getElementById('btn-wizard-scan-qr-direct');
+      const bScan2 = document.getElementById('btn-wizard-scan-qr');
+      if (bScan1) bScan1.addEventListener('click', () => startMobileScanner());
+      if (bScan2) bScan2.addEventListener('click', () => startMobileScanner());
+
+      // Back
+      btnBack.addEventListener('click', () => {
+        playAudioSignal('click');
+        goTo(wizStep === 2 ? 1 : wizStep - 1, wizPath, 'back');
       });
-    }
+
+      // Passphrase strength meter
+      const pp = document.getElementById('wizard-sync-passphrase');
+      if (pp) pp.addEventListener('input', () => {
+        const v = pp.value;
+        const bar = document.getElementById('wiz-strength-bar');
+        const lbl = document.getElementById('wiz-strength-label');
+        if (!bar) return;
+        let s = 0;
+        if (v.length >= 8)  s++;
+        if (v.length >= 14) s++;
+        if (/[A-Z]/.test(v)) s++;
+        if (/[0-9]/.test(v)) s++;
+        if (/[^A-Za-z0-9]/.test(v)) s++;
+        const c = ['#ef4444','#f59e0b','#f59e0b','#00d68f','#00d68f'];
+        const t = ['Weak','Fair','Fair','Strong','Excellent'];
+        bar.style.width = (s/5*100)+'%';
+        bar.style.background = c[s-1]||'#ef4444';
+        if (lbl) { lbl.style.color = c[s-1]||'#ef4444'; lbl.textContent = t[s-1]||'Too Short'; }
+      });
+
+      // Populate review summary
+      function populateReview() {
+        const v = id => (document.getElementById(id)||{}).value||'';
+        const e = id => document.getElementById(id);
+        if (wizPath === 'NEW') {
+          if (e('wiz-sum-store'))  e('wiz-sum-store').textContent  = v('wizard-store-name') || 'â€”';
+          if (e('wiz-sum-tax'))    e('wiz-sum-tax').textContent    = v('wizard-tax-rate') + '%';
+          if (e('wiz-sum-theme'))  e('wiz-sum-theme').textContent  = v('wizard-theme') || 'â€”';
+          if (e('wiz-sum-mode'))   e('wiz-sum-mode').textContent   = 'Master Register';
+        } else {
+          if (e('wiz-sum-store'))  e('wiz-sum-store').textContent  = v('wizard-join-server-url') || '(QR paired)';
+          if (e('wiz-sum-tax'))    e('wiz-sum-tax').textContent    = 'From Master';
+          if (e('wiz-sum-theme'))  e('wiz-sum-theme').textContent  = 'From Master';
+          if (e('wiz-sum-mode'))   e('wiz-sum-mode').textContent   = 'Client Node';
+        }
+      }
+
+      // Validation
+      function validate() {
+        const v = id => (document.getElementById(id)||{}).value||'';
+        const focus = id => { const el = document.getElementById(id); if (el) el.focus(); };
+        if (wizStep === 2 && wizPath === 'NEW') {
+          if (!v('wizard-store-name').trim()) { showNotificationToast('Store name is required.','error',3000); focus('wizard-store-name'); return false; }
+        }
+        if (wizStep === 2 && wizPath === 'JOIN') {
+          if (!v('wizard-join-passphrase').trim()) { showNotificationToast('Network key is required.','error',3000); return false; }
+        }
+        if (wizStep === 3) {
+          const pin = v('wizard-admin-pin').trim();
+          if (!pin || pin.length !== 4 || isNaN(pin)) { showNotificationToast('Owner PIN must be exactly 4 digits.','error',3000); focus('wizard-admin-pin'); return false; }
+          if (!v('wizard-sync-passphrase').trim()) { showNotificationToast('Network encryption key is required.','error',3000); focus('wizard-sync-passphrase'); return false; }
+        }
+        if (wizStep === 4) {
+          const eula = document.getElementById('wizard-eula-checkbox');
+          if (!eula || !eula.checked) { showNotificationToast('Please accept the EULA to continue.','error',3000); return false; }
+        }
+        return true;
+      }
+
+      // Next / Submit
+      btnNext.addEventListener('click', () => {
+        playAudioSignal('click');
+        if (!validate()) return;
+        if (wizStep < MAX_STEPS) {
+          if (wizStep === 3) populateReview();
+          goTo(wizStep + 1, wizPath, 'forward');
+        } else {
+          document.getElementById('btn-submit-wizard') && document.getElementById('btn-submit-wizard').click();
+        }
+      });
+
+      render('forward');
+    })();
 
     const btnSubmitWizard = document.getElementById('btn-submit-wizard');
     if (btnSubmitWizard) {
@@ -1534,6 +1902,45 @@
         }
       });
     }
+
+    const btnLockScreenReset = document.getElementById('btn-lock-screen-reset');
+    if (btnLockScreenReset) {
+      btnLockScreenReset.addEventListener('click', async () => {
+        playAudioSignal('click');
+        if (confirm('Are you sure you want to perform a factory reset? This will clear all local configuration and transaction data.')) {
+          try {
+            const serverBase = (window.__nexovaServerUrl || location.origin);
+            if (location.protocol !== 'file:') {
+              await fetch(serverBase + '/api/system/reset', { method: 'POST' });
+            }
+          } catch (err) {
+            console.warn('Failed to contact server for reset:', err);
+          }
+          await NexovaDB.destructReset();
+          localStorage.clear();
+          window.location.reload();
+        }
+      });
+    }
+
+    document.querySelectorAll('.btn-pairing-reset-action').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        playAudioSignal('click');
+        if (confirm('Are you sure you want to cancel setup and return to onboarding? This will clear pairing configurations.')) {
+          try {
+            const serverBase = (window.__nexovaServerUrl || location.origin);
+            if (location.protocol !== 'file:') {
+              await fetch(serverBase + '/api/system/reset', { method: 'POST' });
+            }
+          } catch (err) {
+            console.warn('Failed to contact server for reset:', err);
+          }
+          await NexovaDB.destructReset();
+          localStorage.clear();
+          window.location.reload();
+        }
+      });
+    });
 
     // Search input keyup handlers for Quick-Access grids
     const checkoutQuickSearch = document.getElementById('checkout-quick-search');
@@ -1793,6 +2200,31 @@
     initLedgerModules();
   }
 
+  // Check if store is running in the 3-day grace trial period
+  function isGraceTrialActive() {
+    const token = localStorage.getItem('nexova_license_token');
+    if (token) {
+      try {
+        const decoded = atob(token);
+        const pipeIndex = decoded.lastIndexOf('|');
+        if (pipeIndex !== -1) {
+          const claims = JSON.parse(decoded.substring(0, pipeIndex));
+          if (claims.tier && claims.tier !== 'TRIAL') {
+            return false;
+          }
+        }
+      } catch (e) {}
+    }
+    
+    if (!state.preferences) return true;
+    const bootstrapTimePref = state.preferences['store_bootstrap_time'];
+    if (!bootstrapTimePref) return true;
+    const bootstrapTime = parseInt(bootstrapTimePref);
+    const trialDuration = 3 * 24 * 60 * 60 * 1000;
+    const elapsed = Date.now() - bootstrapTime;
+    return (trialDuration - elapsed) > 0;
+  }
+
   // UI Tearing role limiting rules
   function applyRoleNavigationLimits(role) {
     const body = document.body;
@@ -1800,18 +2232,107 @@
     if (role === 'CASHIER') {
       body.classList.add('is-cashier');
       
-      // Hide admin sections in main viewports
-      const adminNavItems = document.querySelectorAll('.nav-item[data-screen="settings"], .nav-item[data-screen="logs"], .nav-item[data-screen="staff"], .nav-item[data-screen="analytics"], .nav-item[data-screen="catalog-manager"], .nav-item[data-screen="suppliers"], .nav-item[data-screen="credit-book"]');
-      adminNavItems.forEach(el => el.style.display = 'none');
+      // Bring back all OG tabs! Do not hide any nav items in the sidebar.
+      // Every tab is shown, but gated by the virtual Supervisor PIN pad prompt.
+      const allNavItems = document.querySelectorAll('.nav-item');
+      allNavItems.forEach(el => el.style.display = 'flex');
       
       // Default screen is checkout
       switchActiveScreen('checkout');
     } else {
       body.classList.remove('is-cashier');
       
-      // Show settings/logs/staff/analytics buttons/panels for Admin
-      const adminNavItems = document.querySelectorAll('.nav-item[data-screen="settings"], .nav-item[data-screen="logs"], .nav-item[data-screen="staff"], .nav-item[data-screen="analytics"], .nav-item[data-screen="catalog-manager"], .nav-item[data-screen="suppliers"], .nav-item[data-screen="credit-book"]');
+      const adminNavItems = document.querySelectorAll('.nav-item');
       adminNavItems.forEach(el => el.style.display = 'flex');
+    }
+
+    // Apply store tier access limits
+    applyTierRestrictions();
+  }
+
+  // Definitive POS Tier Architecture & Feature Mapping
+  function applyTierRestrictions() {
+    let tier = window.__nexovaTier || 'STARTER';
+    
+    // Grace trial or explicit TRIAL tier gets full ENTERPRISE capabilities
+    if (tier === 'TRIAL' || isGraceTrialActive()) {
+      tier = 'ENTERPRISE';
+    }
+
+    // 1. Hide/show Enterprise exclusive tabs in sidebar
+    const enterpriseTabs = document.querySelectorAll('.nav-item[data-screen="fbr-fiscal"], .nav-item[data-screen="multi-store"], .nav-item[data-screen="data-portability"]');
+    if (tier === 'ENTERPRISE') {
+      enterpriseTabs.forEach(el => el.style.display = 'flex');
+    } else {
+      enterpriseTabs.forEach(el => el.style.display = 'none');
+    }
+
+    // 2. Inject premium blockers for Starter Tier inside Analytics and Credit Book
+    const viewAnalytics = document.getElementById('view-analytics');
+    if (viewAnalytics) {
+      document.getElementById('starter-analytics-upgrade-blocker')?.remove();
+      if (tier === 'STARTER') {
+        const blocker = document.createElement('div');
+        blocker.id = 'starter-analytics-upgrade-blocker';
+        blocker.className = 'glass-blocker';
+        blocker.innerHTML = `
+          <div class="blocker-content">
+            <div style="font-size: 48px; margin-bottom: 20px;">💎</div>
+            <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--text-white); margin-bottom: 8px; text-transform: uppercase;">Unlock Real-Time Analytics</h2>
+            <p style="color: var(--text-gray); font-size: 13px; max-width: 360px; margin: 0 auto 24px; line-height: 1.5;">Track net profit margins, payment mode trends, and automated sales metrics on the PRO Tier.</p>
+            <button class="action-btn action-success" id="btn-upgrade-analytics" style="min-height: 48px; padding: 0 24px; font-weight: 800; font-size: 12px; text-transform: uppercase;">Upgrade Store License</button>
+          </div>
+        `;
+        viewAnalytics.style.position = 'relative';
+        viewAnalytics.appendChild(blocker);
+        
+        document.getElementById('btn-upgrade-analytics')?.addEventListener('click', () => {
+          switchActiveScreen('settings');
+        });
+      }
+    }
+
+    const viewCreditBook = document.getElementById('view-credit-book');
+    if (viewCreditBook) {
+      document.getElementById('starter-credit-upgrade-blocker')?.remove();
+      if (tier === 'STARTER') {
+        const blocker = document.createElement('div');
+        blocker.id = 'starter-credit-upgrade-blocker';
+        blocker.className = 'glass-blocker';
+        blocker.innerHTML = `
+          <div class="blocker-content">
+            <div style="font-size: 48px; margin-bottom: 20px;">📕</div>
+            <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--text-white); margin-bottom: 8px; text-transform: uppercase;">Digital Credit Ledger (Khata)</h2>
+            <p style="color: var(--text-gray); font-size: 13px; max-width: 360px; margin: 0 auto 24px; line-height: 1.5;">Log local customer credit outstanding, liability history, and click-to-chat links on the PRO Tier.</p>
+            <button class="action-btn action-success" id="btn-upgrade-credit" style="min-height: 48px; padding: 0 24px; font-weight: 800; font-size: 12px; text-transform: uppercase;">Upgrade Store License</button>
+          </div>
+        `;
+        viewCreditBook.style.position = 'relative';
+        viewCreditBook.appendChild(blocker);
+        
+        document.getElementById('btn-upgrade-credit')?.addEventListener('click', () => {
+          switchActiveScreen('settings');
+        });
+      }
+    }
+
+    // 3. For Starter Tier: Disable Sync Client and post state change to worker
+    if (tier === 'STARTER' && syncWorker) {
+      syncWorker.postMessage({
+        type: 'SET_ONLINE_STATE',
+        payload: { isOnline: false }
+      });
+      const badge = document.getElementById('net-badge');
+      const text = document.getElementById('net-status-text');
+      if (badge && text) {
+        badge.className = 'network-badge offline';
+        text.textContent = 'OFFLINE (LOCAL TIER)';
+      }
+    } else if (syncWorker) {
+      syncWorker.postMessage({
+        type: 'SET_ONLINE_STATE',
+        payload: { isOnline: navigator.onLine }
+      });
     }
   }
 
@@ -1825,11 +2346,47 @@
           'Authorization': `Bearer ${state.deviceToken || ''}`
         }
       });
+      if (res.status === 401) {
+        console.warn('[App] Device token was rejected by server (401). Attempting auto-registration recovery...');
+        state.deviceToken = null;
+        await NexovaDB.delete('local_preferences', 'device_token');
+
+        try {
+          const serverBase = (window.__nexovaServerUrl || location.origin);
+          const regResp = await fetch(serverBase + '/api/devices/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nodeId: state.nodeId, deviceName: 'Web Register' })
+          });
+          if (regResp.ok) {
+            const regData = await regResp.json();
+            if (regData.status === 'APPROVED' && regData.token) {
+              console.log('[App] Auto-registration recovery success. Token stored.');
+              await NexovaDB.put('local_preferences', {
+                key: 'device_token',
+                value_type: 'STR',
+                value_payload: regData.token,
+                is_idempotent_flag: 0,
+                updated_at: Date.now()
+              });
+              state.deviceToken = regData.token;
+              // Retry loading devices with the fresh token
+              return loadWhitelistDevices();
+            }
+          }
+        } catch (err) {
+          console.warn('[App] Auto-registration recovery failed:', err);
+        }
+
+        showPairingOverlay(true, 'form');
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-gray); padding: 24px;">Unauthorized. Please request pairing.</td></tr>`;
+        return;
+      }
       if (!res.ok) throw new Error('Failed to load devices: ' + res.statusText);
       const devices = await res.json();
       tbody.innerHTML = '';
       if (devices.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-gray); padding: 24px;">No devices registered.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-gray); padding: 24px;">No pairing requests yet.</td></tr>`;
         return;
       }
       devices.forEach(dev => {
@@ -1845,8 +2402,8 @@
             `<button class="action-btn action-danger btn-reject-device" data-id="${dev.node_id}" style="min-height: 32px; padding: 4px 8px; font-size: 10px;">Reject</button>`;
              
         row.innerHTML = `
-          <td style="padding: 12px 8px; font-family: monospace;">${dev.node_id}</td>
           <td style="padding: 12px 8px; font-weight: 600;">${dev.device_name}</td>
+          <td style="padding: 12px 8px; font-family: monospace;">${dev.node_id}</td>
           <td style="padding: 12px 8px; font-size: 10px; color: var(--text-gray); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${dev.user_agent}</td>
           <td style="padding: 12px 8px; ${statusStyle}">${dev.status}</td>
           <td style="padding: 12px 8px; text-align: right;">${actions}</td>
@@ -2032,10 +2589,40 @@
     if (pinInput) {
       pinInput.value = state.currentPin;
     }
+
+    // Update the visual dot elements in the premium .pin-display overlay
+    const dots = document.querySelectorAll('#pin-display .dot');
+    dots.forEach((dot, index) => {
+      if (index < state.currentPin.length) {
+        dot.classList.add('filled');
+      } else {
+        dot.classList.remove('filled');
+      }
+    });
   }
 
   // Tab screen switches
-  function switchActiveScreen(screenName) {
+  async function switchActiveScreen(screenName) {
+    // Gating check: Cashier accessing Supervisor/Owner screens
+    const isManagerScreen = ['settings', 'logs', 'staff', 'catalog-manager', 'suppliers', 'fbr-fiscal', 'multi-store', 'data-portability'].includes(screenName);
+    if (isManagerScreen && state.activeCashier && state.activeCashier.role === 'CASHIER') {
+      const pin = await promptManagerPIN();
+      if (!pin) return;
+      
+      let matched = null;
+      try {
+        matched = await NexovaDB.verifyEmployeePin(pin);
+      } catch (err) {
+        console.warn('[Auth] Manager PIN verify failed:', err);
+      }
+      
+      if (!matched || (matched.role !== 'ADMIN' && matched.role !== 'MANAGER')) {
+        alert('Access denied: Invalid Manager/Admin PIN.');
+        return;
+      }
+      console.log(`[Auth] Supervisor authorization granted for: ${matched.name}. Entering ${screenName}.`);
+    }
+
     playAudioSignal('click');
     state.activeScreen = screenName;
 
@@ -2090,6 +2677,38 @@
         const adminSection = document.getElementById('settings-device-whitelisting');
         if (adminSection) adminSection.style.display = 'none';
       }
+      
+      // Update SaaS License Status Card in UI
+      (() => {
+        const tierVal = document.getElementById('license-active-tier-val');
+        const expiryVal = document.getElementById('license-active-expiry-val');
+        const devicesVal = document.getElementById('license-active-devices-val');
+        
+        if (tierVal && expiryVal && devicesVal) {
+          const tier = window.__nexovaTier || 'STARTER';
+          const isTrial = isGraceTrialActive() || tier === 'TRIAL';
+          tierVal.textContent = isTrial ? 'FREE TRIAL (ENTERPRISE FEATURES)' : tier;
+          
+          const token = localStorage.getItem('nexova_license_token');
+          if (token) {
+            try {
+              const decoded = atob(token);
+              const pipeIndex = decoded.lastIndexOf('|');
+              if (pipeIndex !== -1) {
+                const claims = JSON.parse(decoded.substring(0, pipeIndex));
+                expiryVal.textContent = claims.exp ? new Date(claims.exp).toLocaleDateString() : 'Lifetime License';
+                devicesVal.textContent = claims.tier === 'STARTER' ? '1 Terminal' : (claims.tier === 'PRO' ? '3 Terminals' : '100 Terminals (Unlimited)');
+              }
+            } catch (e) {
+              expiryVal.textContent = 'Invalid license token';
+              devicesVal.textContent = 'Restricted';
+            }
+          } else {
+            expiryVal.textContent = '3-Day Grace Period';
+            devicesVal.textContent = '100 Terminals';
+          }
+        }
+      })();
     } else if (screenName === 'suppliers') {
       syncWorker.postMessage({ type: 'GET_DISTRIBUTORS' });
       syncWorker.postMessage({ type: 'GET_PURCHASE_ORDERS' });
@@ -2114,6 +2733,86 @@
         mobileScannerFab.style.display = 'none';
       }
     }
+  }
+
+  // Sleek Platinized Supervisor PIN Overlay Prompter
+  function promptManagerPIN() {
+    return new Promise((resolve) => {
+      document.getElementById('manager-pin-overlay')?.remove();
+      
+      const overlay = document.createElement('div');
+      overlay.id = 'manager-pin-overlay';
+      overlay.style.cssText = `
+        position: fixed; inset: 0; z-index: 999999;
+        background: rgba(5,5,8,0.95);
+        display: flex; align-items: center; justify-content: center;
+        backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      `;
+      
+      overlay.innerHTML = `
+        <div class="auth-card" style="max-width: 320px; width: 90%; padding: 24px; border: 1px solid var(--border-titanium); background: var(--panel-graphite); box-shadow: 0 20px 40px rgba(0,0,0,0.6); border-radius: 8px; text-align: center;">
+          <div style="color: var(--accent-amber); margin-bottom: 12px;">
+            <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <h3 style="font-family: var(--font-display); font-size: 14px; font-weight: 800; color: var(--text-white); margin-bottom: 4px; text-transform: uppercase;">Supervisor Auth</h3>
+          <p style="font-size: 10px; color: var(--text-gray); margin-bottom: 16px;">Enter Manager or Admin PIN to authorize access.</p>
+          
+          <input type="password" id="mgr-pin-input" maxlength="4" placeholder="••••" readonly style="width: 100%; height: 44px; background: #000; border: 1px solid var(--border-titanium); color: #fff; text-align: center; font-size: 20px; letter-spacing: 8px; outline: none; border-radius: 4px; margin-bottom: 16px;">
+          
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px;">
+            <button class="mgr-pin-btn" type="button" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">1</button>
+            <button class="mgr-pin-btn" type="button" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">2</button>
+            <button class="mgr-pin-btn" type="button" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">3</button>
+            <button class="mgr-pin-btn" type="button" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">4</button>
+            <button class="mgr-pin-btn" type="button" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">5</button>
+            <button class="mgr-pin-btn" type="button" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">6</button>
+            <button class="mgr-pin-btn" type="button" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">7</button>
+            <button class="mgr-pin-btn" type="button" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">8</button>
+            <button class="mgr-pin-btn" type="button" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">9</button>
+            <button id="btn-mgr-clear" type="button" style="height: 40px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: var(--alert-coral); font-size: 10px; font-weight: 800; border-radius: 4px; cursor: pointer;">CLR</button>
+            <button class="mgr-pin-btn" type="button" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">0</button>
+            <button id="btn-mgr-enter" type="button" style="height: 40px; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2); color: var(--accent-emerald); font-size: 10px; font-weight: 800; border-radius: 4px; cursor: pointer;">ENT</button>
+          </div>
+          
+          <button id="btn-mgr-cancel" type="button" style="width: 100%; height: 32px; background: transparent; border: 1px solid var(--border-titanium); color: var(--text-gray); font-size: 10px; font-weight: 700; border-radius: 4px; cursor: pointer;">
+            CANCEL
+          </button>
+        </div>
+      `;
+      
+      document.body.appendChild(overlay);
+      
+      const pinInput = document.getElementById('mgr-pin-input');
+      let currentPin = '';
+      
+      overlay.querySelectorAll('.mgr-pin-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          playAudioSignal('click');
+          if (currentPin.length < 4) {
+            currentPin += btn.textContent;
+            pinInput.value = currentPin;
+          }
+        });
+      });
+      
+      document.getElementById('btn-mgr-clear').addEventListener('click', () => {
+        playAudioSignal('click');
+        currentPin = '';
+        pinInput.value = '';
+      });
+      
+      document.getElementById('btn-mgr-cancel').addEventListener('click', () => {
+        playAudioSignal('click');
+        overlay.remove();
+        resolve(null);
+      });
+      
+      document.getElementById('btn-mgr-enter').addEventListener('click', () => {
+        playAudioSignal('click');
+        overlay.remove();
+        resolve(currentPin);
+      });
+    });
   }
 
   // Network badge UI update
@@ -2144,9 +2843,59 @@
     applyPreferencesFromState();
   }
 
+  // Serve a dynamic glassmorphic loading screen for bootstrap hydration
+  function mountHydrationOverlay() {
+    if (document.getElementById('hydration-overlay')) return;
+    const overlay = document.createElement('div');
+    overlay.id = 'hydration-overlay';
+    overlay.style.cssText = `
+      position: fixed; inset: 0; z-index: 999999;
+      background: rgba(6, 6, 8, 0.9);
+      backdrop-filter: blur(20px);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-family: 'Manrope', sans-serif; padding: 32px;
+      color: #f8fafc;
+    `;
+    overlay.innerHTML = `
+      <div style="max-width: 400px; width: 100%; text-align: center;">
+        <div style="position: relative; width: 64px; height: 64px; margin: 0 auto 24px auto;">
+          <div style="position: absolute; inset: 0; border: 4px solid rgba(13, 148, 136, 0.1); border-radius: 50%;"></div>
+          <div style="position: absolute; inset: 0; border: 4px solid #0d9488; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        </div>
+        <div style="font-size: 20px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 12px; color: #ffffff;">
+          Syncing Cloud Data...
+        </div>
+        <div style="font-size: 13px; color: #94a3b8; line-height: 1.6; margin-bottom: 16px;">
+          Downloading your store catalog, customers, and setting up secure offline-first databases.
+        </div>
+        <p id="hydration-status" style="font-size: 11px; color: #0d9488; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Initializing download...</p>
+      </div>
+      <style>
+        @keyframes spin { to { transform: rotate(360deg); } }
+      </style>
+    `;
+    document.body.appendChild(overlay);
+  }
+
   // Apply whitelabel customizations to browser window
   function applyPreferencesFromState() {
-    // 0. First Boot Onboarding Check
+    // 0. Database Hydration Check (Data Continuity)
+    const licenseToken = localStorage.getItem('nexova_license_token');
+    const databaseHydrated = state.preferences['database_hydrated'] === 'true';
+
+    if (licenseToken && !databaseHydrated) {
+      if (!window.__hydrationInProgress) {
+        window.__hydrationInProgress = true;
+        mountHydrationOverlay();
+        syncWorker.postMessage({
+          type: 'HYDRATE_DATABASE',
+          payload: { licenseToken }
+        });
+      }
+      return;
+    }
+
+    // 0.b First Boot Onboarding Check
     const onboardingComplete = state.preferences['onboarding_complete'] === 'true';
     const wizardOverlay = document.getElementById('first-boot-wizard');
     const lockScreen = document.getElementById('auth-lock-screen');
@@ -2156,12 +2905,18 @@
       if (wizardOverlay) wizardOverlay.style.display = 'flex';
       if (lockScreen) lockScreen.classList.remove('active');
       if (layout) layout.style.display = 'grid'; // Show layout, wizard is on top
+      showPairingOverlay(false); // Hide pairing screen if onboarding is active
       return;
     } else {
       if (wizardOverlay) wizardOverlay.style.display = 'none';
       if (!state.activeCashier && !state.terminalRole) {
         if (lockScreen) lockScreen.classList.add('active');
         if (layout) layout.style.display = 'none';
+        // Auto-focus passcode input so mobile/virtual keyboard opens or physical keyboards capture immediately
+        setTimeout(() => {
+          const pinInput = document.getElementById('pin-input');
+          if (pinInput) pinInput.focus();
+        }, 300);
       } else {
         if (lockScreen) lockScreen.classList.remove('active');
         if (layout) layout.style.display = 'grid';
@@ -2181,6 +2936,15 @@
     const tax = state.preferences['store_tax_rate'] || '8.0';
     document.getElementById('setting-tax-rate').value = parseFloat(tax).toFixed(1);
     document.getElementById('txt-tax-rate-label').textContent = `Tax (${parseFloat(tax).toFixed(1)}%)`;
+
+    const taxMode = state.preferences['store_tax_mode'] || 'FLAT';
+    const taxModeEl = document.getElementById('setting-tax-mode');
+    if (taxModeEl) taxModeEl.value = taxMode;
+
+    const lang = state.preferences['system_language'] || 'en';
+    setTimeout(() => {
+      setLanguage(lang);
+    }, 100);
 
     const tagline = state.preferences['store_receipt_tagline'] || 'Stability meets Speed. Thank you!';
     document.getElementById('setting-receipt-tagline').value = tagline;
@@ -2261,6 +3025,8 @@
             text: pairingUrl,
             width: 104,
             height: 104,
+            colorDark : "#000000",
+            colorLight : "#ffffff",
             correctLevel: QRCode.CorrectLevel.H
           });
         } catch (qrErr) {
@@ -2272,6 +3038,104 @@
     // Refresh totals on checkout
     renderCart();
     performLicenseCheck();
+  }
+
+  // Dynamic UI Language Localization (English / Urdu)
+  function setLanguage(lang) {
+    state.preferences['system_language'] = lang;
+    syncWorker.postMessage({
+      type: 'SAVE_PREFERENCE',
+      payload: { key: 'system_language', val: lang }
+    });
+
+    const isUrdu = lang === 'ur';
+    const langBtn = document.getElementById('lang-toggle-btn');
+    if (langBtn) {
+      langBtn.textContent = isUrdu ? 'English' : 'اردو';
+    }
+
+    // Toggle RTL document flow and fonts
+    if (isUrdu) {
+      document.body.classList.add('rtl');
+      document.body.style.fontFamily = "'Noto Nastaliq Urdu', 'Outfit', sans-serif";
+    } else {
+      document.body.classList.remove('rtl');
+      document.body.style.fontFamily = "";
+    }
+
+    // Map of CSS selectors to translated texts
+    const textMapping = {
+      '[data-screen="checkout"] .nav-label': isUrdu ? 'بلنگ (بِکاو)' : 'Checkout',
+      '[data-screen="catalog"] .nav-label': isUrdu ? 'مصنوعات' : 'Catalog',
+      '[data-screen="catalog-manager"] .nav-label': isUrdu ? 'انوینٹری' : 'Inventory',
+      '[data-screen="history"] .nav-label': isUrdu ? 'ریکارڈ تاریخ' : 'History',
+      '[data-screen="analytics"] .nav-label': isUrdu ? 'رپورٹس' : 'Analytics',
+      '[data-screen="customers"] .nav-label': isUrdu ? 'گاہکوں کا کھاتہ' : 'Customers',
+      '[data-screen="suppliers"] .nav-label': isUrdu ? 'سپلائرز' : 'Suppliers',
+      '[data-screen="credit-book"] .nav-label': isUrdu ? 'ادھار بک' : 'Credit Book',
+      '[data-screen="staff"] .nav-label': isUrdu ? 'سٹاف ممبرز' : 'Staff',
+      '[data-screen="logs"] .nav-label': isUrdu ? 'لاگز' : 'Sync Logs',
+      '[data-screen="settings"] .nav-label': isUrdu ? 'سیٹنگز' : 'Settings',
+      '.ledger-header .title': isUrdu ? 'موجودہ آرڈر' : 'Active Order',
+      '#btn-void-order': isUrdu ? 'آرڈر کینسل کریں' : 'Void Order',
+      '.cart-table th:nth-child(1)': isUrdu ? 'آئٹم' : 'Product',
+      '.cart-table th:nth-child(2)': isUrdu ? 'قیمت' : 'Price',
+      '.cart-table th:nth-child(3)': isUrdu ? 'تعداد' : 'Qty',
+      '.cart-table th:nth-child(4)': isUrdu ? 'ٹوٹل' : 'Total',
+      '.ledger-footer .totals-row:nth-child(1) span:nth-child(1)': isUrdu ? 'کل رقم' : 'Subtotal',
+      '.ledger-footer .totals-row:nth-child(3) span:nth-child(1)': isUrdu ? 'قابلِ ادائیگی رقم' : 'Total Due',
+      '#checkout-quick-catalog .lbl': isUrdu ? 'فوری مصنوعات' : 'Quick Products',
+      '#checkout-quick-search': isUrdu ? 'تلاش کریں...' : 'Quick search...',
+      '.checkout-actions .lbl-cust': isUrdu ? 'گاہک منسلک کریں' : 'Customer Profile',
+      '#checkout-customer-attached .text-muted': isUrdu ? 'کوئی گاہک منسلک نہیں ہے۔' : 'No customer attached to transaction.',
+      '.payment-card .lbl': isUrdu ? 'ادائیگی کا طریقہ' : 'Payment Method',
+      '[data-mode="CASH"]': isUrdu ? 'کیش' : 'Cash',
+      '[data-mode="CARD"]': isUrdu ? 'کارڈ' : 'Card',
+      '[data-mode="QR"]': isUrdu ? 'کیو آر کوڈ' : 'QR Code',
+      '[data-mode="SPLIT"]': isUrdu ? 'تقسیم ادائیگی' : 'Split',
+      '[data-mode="CREDIT"]': isUrdu ? 'ادھار' : 'Credit (Udhaar)',
+      '#btn-checkout-complete span': isUrdu ? 'آرڈر مکمل کریں (F1)' : 'COMPLETE ORDER (F1)',
+      '#btn-wiz-choose-new': isUrdu ? 'نیا سٹور بنائیں' : 'Set Up New Standalone Store',
+      '#btn-wiz-choose-join': isUrdu ? 'نیٹ ورک میں شامل ہوں' : 'Join Existing Store Network',
+      '#wizard-step-title': isUrdu ? 'نیکسوا سیٹ اپ' : 'Nexova Setup',
+      '#btn-wiz-back': isUrdu ? 'پیچھے جائیں' : 'Back',
+      '#btn-wiz-next': isUrdu ? 'آگے بڑھیں' : 'Continue'
+    };
+
+    for (const [selector, text] of Object.entries(textMapping)) {
+      const el = document.querySelector(selector);
+      if (el) {
+        const textNode = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim() !== '');
+        if (textNode) {
+          textNode.textContent = text;
+        } else {
+          el.textContent = text;
+        }
+      }
+    }
+
+    // Refresh totals labels dynamically
+    const sub = calculateSubtotal();
+    const taxMode = state.preferences['store_tax_mode'] || 'FLAT';
+    let taxLabel = 'Tax';
+    let rateStr = '';
+
+    if (taxMode === 'FBR_FOOD') {
+      const payModeBtn = document.querySelector('.payment-btn.active');
+      const paymentMode = payModeBtn ? payModeBtn.getAttribute('data-mode') : 'CASH';
+      rateStr = (paymentMode === 'CARD' || paymentMode === 'QR' || paymentMode === 'MOBILE') ? '5.0%' : '15.0%';
+      taxLabel = isUrdu ? `ٹیکس FBR (${rateStr})` : `FBR Tax (${rateStr})`;
+    } else if (taxMode === 'FBR_RETAIL') {
+      rateStr = '18.0%';
+      taxLabel = isUrdu ? `ٹیکس FBR (${rateStr})` : `FBR Tax (${rateStr})`;
+    } else {
+      const taxRate = parseFloat(state.preferences['store_tax_rate'] || '8.0');
+      rateStr = `${taxRate.toFixed(1)}%`;
+      taxLabel = isUrdu ? `ٹیکس (${rateStr})` : `Tax (${rateStr})`;
+    }
+
+    const taxLabelEl = document.getElementById('txt-tax-rate-label');
+    if (taxLabelEl) taxLabelEl.textContent = taxLabel;
   }
 
   // Client license validation check
@@ -2299,11 +3163,19 @@
     }
 
     // 2. Fetch license preference fields
-    const licenseToken = state.preferences['license_token'] || null;
+    const licenseToken = localStorage.getItem('nexova_license_token') || null;
     const phoneBound = state.preferences['license_phone_bound'] || null;
 
     const lockoutOverlay = document.getElementById('license-lockout-overlay');
     if (!lockoutOverlay) return;
+
+    // 2.b If LicenseEngine already validated a paid tier, return early
+    if (window.__nexovaTier && window.__nexovaTier !== 'TRIAL') {
+      console.log(`[License] Valid ${window.__nexovaTier} license verified by LicenseEngine.`);
+      lockoutOverlay.style.display = 'none';
+      document.getElementById('trial-countdown-badge')?.remove();
+      return;
+    }
 
     // 3. If phone is bound via OTP bypass, register is unlocked
     if (phoneBound) {
@@ -2326,6 +3198,9 @@
           if (res.success) {
             console.log(`[License] Valid ${res.payload.tier} license verified. Expires: ${new Date(res.payload.expiresAt).toLocaleDateString()}`);
             lockoutOverlay.style.display = 'none';
+            if (res.payload.tier !== 'TRIAL') {
+              document.getElementById('trial-countdown-badge')?.remove();
+            }
             return;
           }
         }
@@ -2333,12 +3208,16 @@
         console.warn('[License] Offline verification backup fallback - checking claims...');
         // Offline JWT decode/signature check fallback if internet is down
         try {
-          const parts = licenseToken.split('.');
-          if (parts.length === 3) {
-            const claims = JSON.parse(atob(parts[1]));
-            if (claims.nodeId === deviceFingerprint && claims.expiresAt > Date.now()) {
+          const decoded = atob(licenseToken);
+          const pipeIndex = decoded.lastIndexOf('|');
+          if (pipeIndex !== -1) {
+            const claims = JSON.parse(decoded.substring(0, pipeIndex));
+            if (claims.hwid === deviceFingerprint && claims.exp > Date.now()) {
               console.log(`[License] Offline verify success. Tier: ${claims.tier}`);
               lockoutOverlay.style.display = 'none';
+              if (claims.tier !== 'TRIAL') {
+                document.getElementById('trial-countdown-badge')?.remove();
+              }
               return;
             }
           }
@@ -2359,7 +3238,7 @@
       state.preferences['store_bootstrap_time'] = String(Date.now());
     }
 
-    const trialDuration = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+    const trialDuration = 3 * 24 * 60 * 60 * 1000; // 3 days in milliseconds
     const elapsed = Date.now() - bootstrapTime;
     const remainingMs = trialDuration - elapsed;
 
@@ -2375,7 +3254,7 @@
         if (!trialLabel) {
           trialLabel = document.createElement('span');
           trialLabel.id = 'trial-countdown-badge';
-          trialLabel.style.cssText = 'font-size: 10px; padding: 2px 8px; border-radius: 99px; background: rgba(245,158,11,0.15); color: var(--warning); margin-left: 12px; font-weight: 700; font-family: var(--font-body); letter-spacing: 0.5px;';
+          trialLabel.style.cssText = 'font-size: 9.5px; padding: 3px 10px; border-radius: 99px; background: rgba(255, 179, 71, 0.1); color: var(--warning); border: 1px solid rgba(255,179,71,0.2); margin-left: 10px; font-weight: 700; font-family: var(--font-body); letter-spacing: 0.5px; vertical-align: middle;';
           headerTitle.parentNode.appendChild(trialLabel);
         }
         trialLabel.textContent = `TRIAL MODE: ${remainingDays} DAYS LEFT`;
@@ -2632,7 +3511,7 @@
       }
     }
   };
-  globalScope.NexovaPairingEngine = NexovaPairingEngine;
+  window.NexovaPairingEngine = NexovaPairingEngine;
 
   let scannerStream = null;
   let zxingCodeReader = null;
@@ -2891,16 +3770,66 @@
     const sub = calculateSubtotal();
     const ratePref = state.preferences['store_tax_rate'] || '8.0';
     let rate = parseFloat(ratePref);
-    if (rate > 1) rate = rate / 100.0; // Auto-conversion guardrail
+
+    const taxMode = state.preferences['store_tax_mode'] || 'FLAT';
+    if (taxMode === 'FBR_FOOD') {
+      const payModeBtn = document.querySelector('.payment-btn.active');
+      const paymentMode = payModeBtn ? payModeBtn.getAttribute('data-mode') : 'CASH';
+      if (paymentMode === 'CARD' || paymentMode === 'QR' || paymentMode === 'MOBILE') {
+        rate = 5.0;
+      } else {
+        rate = 15.0;
+      }
+    } else if (taxMode === 'FBR_RETAIL') {
+      rate = 18.0;
+    }
+
+    if (rate > 1) rate = rate / 100.0;
     return Math.round(sub * rate);
   }
 
   function calculateGrandTotal() {
-    return calculateSubtotal() + calculateTax();
+    const isFbrEnabled = (window.__nexovaTier === 'ENTERPRISE' || window.__nexovaTier === 'TRIAL');
+    const fbrFee = isFbrEnabled ? 100 : 0;
+    return calculateSubtotal() + calculateTax() + fbrFee;
   }
 
   function updateTotalsBoard() {
     const sub = calculateSubtotal();
+    const taxMode = state.preferences['store_tax_mode'] || 'FLAT';
+    let label = 'Tax';
+    let rateStr = '';
+
+    if (taxMode === 'FBR_FOOD') {
+      const payModeBtn = document.querySelector('.payment-btn.active');
+      const paymentMode = payModeBtn ? payModeBtn.getAttribute('data-mode') : 'CASH';
+      if (paymentMode === 'CARD' || paymentMode === 'QR' || paymentMode === 'MOBILE') {
+        rateStr = '5.0%';
+      } else {
+        rateStr = '15.0%';
+      }
+      const isUrdu = state.preferences['system_language'] === 'ur';
+      label = isUrdu ? `ٹیکس FBR (${rateStr})` : `FBR Tax (${rateStr})`;
+    } else if (taxMode === 'FBR_RETAIL') {
+      rateStr = '18.0%';
+      const isUrdu = state.preferences['system_language'] === 'ur';
+      label = isUrdu ? `ٹیکس FBR (${rateStr})` : `FBR Tax (${rateStr})`;
+    } else {
+      const taxRate = parseFloat(state.preferences['store_tax_rate'] || '8.0');
+      rateStr = `${taxRate.toFixed(1)}%`;
+      const isUrdu = state.preferences['system_language'] === 'ur';
+      label = isUrdu ? `ٹیکس (${rateStr})` : `Tax (${rateStr})`;
+    }
+
+    const taxLabelEl = document.getElementById('txt-tax-rate-label');
+    if (taxLabelEl) taxLabelEl.textContent = label;
+
+    const isFbrEnabled = (window.__nexovaTier === 'ENTERPRISE' || window.__nexovaTier === 'TRIAL');
+    const fbrFeeEl = document.getElementById('row-fbr-fee');
+    if (fbrFeeEl) {
+      fbrFeeEl.style.display = isFbrEnabled ? 'flex' : 'none';
+    }
+
     const tax = calculateTax();
     const total = calculateGrandTotal();
 
@@ -2990,7 +3919,8 @@
         tax,
         total,
         paymentMode,
-        paymentDetails
+        paymentDetails,
+        tier: window.__nexovaTier || 'STARTER'
       }
     });
   }
@@ -3235,6 +4165,14 @@
 
     if (!sku || !name || !price) {
       alert('SKU, Name, and Price are required.');
+      return;
+    }
+
+    // Enforce Starter Tier maximum limit of 1,000 SKUs
+    const tier = window.__nexovaTier || 'STARTER';
+    const isNew = !document.getElementById('form-product-sku').disabled;
+    if (tier === 'STARTER' && isNew && state.catalog && state.catalog.length >= 1000) {
+      alert('Product SKU limit reached (Starter Tier is capped at 1,000 SKUs). Please upgrade to the PRO Tier.');
       return;
     }
 
@@ -3614,6 +4552,14 @@
     text += separator + '\n';
     text += spaceBetween('SUBTOTAL:', `Rs. ${(tx.subtotal_minor_units/100).toFixed(2)}`) + '\n';
     text += spaceBetween('TAX CHARGES:', `Rs. ${(tx.tax_minor_units/100).toFixed(2)}`) + '\n';
+    
+    // Inject FBR POS Fee Rs. 1.00 line item if active in this transaction (Compliance)
+    const totalWithoutFee = tx.subtotal_minor_units + tx.tax_minor_units;
+    const hasFbrFee = (tx.total_minor_units - totalWithoutFee >= 100);
+    if (hasFbrFee) {
+      text += spaceBetween('FBR POS FEE:', 'Rs. 1.00') + '\n';
+    }
+    
     text += dblSeparator + '\n';
     text += spaceBetween('GRAND TOTAL DUE:', `Rs. ${(tx.total_minor_units/100).toFixed(2)}`) + '\n';
     text += dblSeparator + '\n';
@@ -3896,7 +4842,18 @@
           <span style="font-size:10px; padding:2px 6px; background:rgba(16,185,129,0.1); border-radius:4px; color:var(--accent-emerald); font-weight:700;">v${newVer}</span>
         </div>
         <p style="font-size:10px; color:var(--text-gray); margin:0;">${changelog || 'Performance fixes and enhancements.'}</p>
-        <button id="btn-ota-apply" class="action-btn action-success" style="padding:6px; min-height:28px; font-size:11px; margin-top:4px; font-weight:700; width:100%;">APPLY SILENT PATCH</button>
+        <div style="display:flex; flex-direction:column; gap:6px; margin:8px 0;">
+          <a href="/downloads/nexova-pos-latest.apk" download style="text-align:center; padding:8px; background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.2); border-radius:4px; color:var(--accent-emerald); font-size:10px; font-weight:700; text-decoration:none; display:block; transition: background 0.2s;">
+            📥 DOWNLOAD ANDROID APK (TABLET)
+          </a>
+          <a href="/downloads/nexova-pos-setup.exe" download style="text-align:center; padding:8px; background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.2); border-radius:4px; color:var(--accent-emerald); font-size:10px; font-weight:700; text-decoration:none; display:block; transition: background 0.2s;">
+            📥 DOWNLOAD WINDOWS SETUP (EXE)
+          </a>
+          <a href="/downloads/nexova-pos-setup.msi" download style="text-align:center; padding:8px; background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.2); border-radius:4px; color:var(--accent-emerald); font-size:10px; font-weight:700; text-decoration:none; display:block; transition: background 0.2s;">
+            📥 DOWNLOAD WINDOWS SETUP (MSI)
+          </a>
+        </div>
+        <button id="btn-ota-apply" class="action-btn action-success" style="padding:6px; min-height:28px; font-size:11px; margin-top:4px; font-weight:700; width:100%;">APPLY SILENT PATCH (RELOAD)</button>
       `;
 
       document.body.appendChild(toast);
@@ -3926,7 +4883,7 @@
     }
 
     setTimeout(checkUpdates, 5000);
-    setInterval(checkUpdates, 300000);
+    setInterval(checkUpdates, 3600000); // Poll hourly
   }
 
   function plotHourlySalesChart(txs) {
@@ -5643,11 +6600,367 @@
     }
   }
 
+  const CLIENT_VERSION = '1.0.0';
+
+  async function checkForUpdates() {
+    try {
+      const resp = await fetch('/version.json');
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && data.version && data.version !== CLIENT_VERSION) {
+          console.log(`[Update] New version detected: ${data.version} (Current: ${CLIENT_VERSION})`);
+          showUpdateNotification(data.version, data.changelog);
+        }
+      }
+    } catch (err) {
+      console.warn('[Update] Failed to fetch version updates:', err);
+    }
+  }
+
+  function showUpdateNotification(newVersion, changelog) {
+    if (document.getElementById('update-notification-banner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'update-notification-banner';
+    banner.style.cssText = `
+      position: fixed; bottom: 20px; right: 20px; z-index: 99999;
+      background: rgba(13, 148, 136, 0.95); backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px;
+      padding: 16px; width: 320px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      color: #fff; font-family: var(--font-body); animation: slideUp 0.3s ease-out;
+    `;
+    banner.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+        <span style="font-weight: 800; font-size: 14px; letter-spacing: -0.01em;">Software Update Available</span>
+        <button id="btn-close-update-banner" style="background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer; padding: 0; font-size: 16px;">&times;</button>
+      </div>
+      <p style="font-size: 12px; margin: 0 0 12px 0; color: rgba(255,255,255,0.9); line-height: 1.5;">
+        A new version (v${newVersion}) is available. Update to get the latest features and stability fixes.
+      </p>
+      <div style="display: flex; gap: 8px;">
+        <a href="/downloads/nexova-pos-latest.apk" target="_blank" style="flex: 1; text-align: center; text-decoration: none; padding: 8px 12px; background: #fff; color: #0d9488; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">GET APK</a>
+        <a href="/downloads/nexova-pos-setup.msi" target="_blank" style="flex: 1; text-align: center; text-decoration: none; padding: 8px 12px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">GET WINDOWS</a>
+      </div>
+      <style>
+        @keyframes slideUp { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+      </style>
+    `;
+    document.body.appendChild(banner);
+    document.getElementById('btn-close-update-banner').addEventListener('click', () => banner.remove());
+  }
+
   // Start app execution
   document.addEventListener('DOMContentLoaded', () => {
     init().then(() => {
       bindPrinterSettings();
+      initDataManagement();
+      checkForUpdates();
+      setInterval(checkForUpdates, 3600000); // Check hourly
     });
   });
-})();
 
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  //  DATA MANAGEMENT MODULE â€” Export, Restore, Delete Store, Danger Zone
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  function initDataManagement() {
+    function triggerFileDownload(content, filename, type) {
+      const blob = new Blob([content], { type });
+      const url  = URL.createObjectURL(blob);
+      const a    = Object.assign(document.createElement('a'), { href: url, download: filename });
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+    }
+
+    function showExportMsg(msg, ok) {
+      const el = document.getElementById('export-status-msg');
+      if (!el) return;
+      el.style.display  = 'block';
+      el.style.color    = ok ? 'var(--accent-emerald)' : '#ef4444';
+      el.textContent    = msg;
+      setTimeout(() => { el.style.display = 'none'; }, 5000);
+    }
+
+    // â”€â”€ Export Full JSON â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── SaaS License Updates Manual Sync ──
+    const btnSyncLicense = document.getElementById('btn-sync-license-now');
+    if (btnSyncLicense) {
+      btnSyncLicense.addEventListener('click', async () => {
+        try {
+          btnSyncLicense.disabled = true;
+          btnSyncLicense.textContent = 'Syncing...';
+          const token = localStorage.getItem('nexova_license_token');
+          const hwid = window.__nexovaHWID;
+          if (token && hwid) {
+            const serverBase = window.__nexovaServerUrl || location.origin;
+            const res = await fetch(`${serverBase}/api/license/check?hwid=${encodeURIComponent(hwid)}`, {
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.updated && data.token) {
+                localStorage.setItem('nexova_license_token', data.token);
+                alert('License successfully updated! App will reload now.');
+                location.reload();
+              } else {
+                alert('License is already up to date.');
+              }
+            } else if (res.status === 401 || res.status === 404) {
+              alert('License has been revoked or expired on the server.');
+              localStorage.removeItem('nexova_license_token');
+              location.reload();
+            } else {
+              alert('Failed to connect to license server.');
+            }
+          } else {
+            alert('No active license found to update. Please activate the terminal first.');
+          }
+        } catch (err) {
+          alert('Sync error: ' + err.message);
+        } finally {
+          btnSyncLicense.disabled = false;
+          btnSyncLicense.textContent = 'Check for License Upgrades';
+        }
+      });
+    }
+
+    const btnExportJson = document.getElementById('btn-export-json');
+    if (btnExportJson) {
+      btnExportJson.addEventListener('click', async () => {
+        try {
+          btnExportJson.disabled = true;
+          btnExportJson.textContent = 'Exporting...';
+          const json = await serializeDatabaseToJSON();
+          const ts   = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+          const name = ((state.preferences && state.preferences['store_name'])
+            ? state.preferences['store_name'].replace(/\s+/g, '_').toLowerCase()
+            : 'nexova') + '_backup_' + ts + '.json';
+          triggerFileDownload(json, name, 'application/json');
+          showExportMsg('Full database exported successfully.', true);
+          showNotificationToast('Database exported as JSON', null, 3000);
+        } catch (e) {
+          showExportMsg('Export failed: ' + e.message, false);
+        } finally {
+          btnExportJson.disabled = false;
+          btnExportJson.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export Full Database (JSON)';
+        }
+      });
+    }
+
+    // â”€â”€ Export Transactions CSV â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    const btnExportCsv = document.getElementById('btn-export-csv-transactions');
+    if (btnExportCsv) {
+      btnExportCsv.addEventListener('click', async () => {
+        try {
+          btnExportCsv.disabled = true;
+          btnExportCsv.textContent = 'Generating CSV...';
+          const txns = await NexovaDB.getAll('transactions');
+          const items = await NexovaDB.getAll('line_items');
+          const itemMap = {};
+          items.forEach(i => { (itemMap[i.tx_id] = itemMap[i.tx_id] || []).push(i); });
+          const rows = [['Date','Order ID','Cashier','Payment Method','Items','Subtotal','Tax','Total','Notes']];
+          txns.forEach(tx => {
+            const txItems = (itemMap[tx.id] || []).map(i => i.product_name + ' x' + i.qty).join('; ');
+            rows.push([
+              new Date(tx.created_at).toLocaleString(),
+              tx.id, tx.cashier_name || '', tx.payment_method || '',
+              txItems,
+              (tx.subtotal || 0).toFixed(2),
+              (tx.tax_amount || 0).toFixed(2),
+              (tx.total || 0).toFixed(2),
+              tx.notes || ''
+            ]);
+          });
+          const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\r\n');
+          const ts  = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+          triggerFileDownload(csv, 'nexova_transactions_' + ts + '.csv', 'text/csv');
+          showExportMsg(txns.length + ' transactions exported as CSV.', true);
+          showNotificationToast('Transactions exported as CSV', null, 3000);
+        } catch (e) {
+          showExportMsg('CSV export failed: ' + e.message, false);
+        } finally {
+          btnExportCsv.disabled = false;
+          btnExportCsv.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg> Export Transactions (CSV)';
+        }
+      });
+    }
+
+    // â”€â”€ Restore from File â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    let restoreFileData = null;
+    const inputRestoreFile = document.getElementById('input-restore-file');
+    const btnRestoreFile   = document.getElementById('btn-restore-from-file');
+    const restoreFileName  = document.getElementById('restore-file-name');
+    const restoreWarning   = document.getElementById('restore-warning');
+
+    if (inputRestoreFile) {
+      inputRestoreFile.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            restoreFileData = JSON.parse(ev.target.result);
+            if (restoreFileName) restoreFileName.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+            if (restoreWarning) restoreWarning.style.display = 'block';
+            if (btnRestoreFile) { btnRestoreFile.disabled = false; btnRestoreFile.style.opacity = '1'; btnRestoreFile.style.cursor = 'pointer'; }
+          } catch (_) {
+            showNotificationToast('Invalid backup file â€” must be a valid Nexova JSON export.', 'error', 4000);
+            restoreFileData = null;
+          }
+        };
+        reader.readAsText(file);
+      });
+    }
+
+    if (btnRestoreFile) {
+      btnRestoreFile.addEventListener('click', async () => {
+        if (!restoreFileData) return;
+        if (!confirm('This will merge the backup into your current database. Conflicting records will be overwritten. Continue?')) return;
+        try {
+          btnRestoreFile.textContent = 'Restoring...';
+          btnRestoreFile.disabled = true;
+          const stores = Object.keys(restoreFileData);
+          for (const storeName of stores) {
+            const records = restoreFileData[storeName];
+            if (!Array.isArray(records) || records.length === 0) continue;
+            for (const record of records) {
+              try { await NexovaDB.put(storeName, record); } catch (_) { }
+            }
+          }
+          showNotificationToast('Backup restored successfully. Reloading...', null, 3000);
+          setTimeout(() => window.location.reload(), 2000);
+        } catch (err) {
+          showNotificationToast('Restore failed: ' + err.message, 'error', 5000);
+          btnRestoreFile.disabled = false;
+          btnRestoreFile.textContent = 'Import & Restore';
+        }
+      });
+    }
+
+    // â”€â”€ Open Delete Store Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    const btnOpenDeleteStore = document.getElementById('btn-open-delete-store');
+    if (btnOpenDeleteStore) {
+      btnOpenDeleteStore.addEventListener('click', () => {
+        playAudioSignal('click');
+        document.getElementById('delete-store-step1').style.display = 'block';
+        document.getElementById('delete-store-step2').style.display = 'none';
+        const err = document.getElementById('delete-store-error');
+        if (err) err.textContent = '';
+        const inp1 = document.getElementById('delete-confirm-store-name');
+        const inp2 = document.getElementById('delete-confirm-pin');
+        if (inp1) inp1.value = '';
+        if (inp2) inp2.value = '';
+        const modal = document.getElementById('modal-delete-store');
+        if (modal) modal.classList.add('active');
+      });
+    }
+
+    // Close buttons
+    ['btn-close-delete-store-modal', 'btn-close-delete-store-modal2'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) btn.addEventListener('click', () => {
+        const modal = document.getElementById('modal-delete-store');
+        if (modal) modal.classList.remove('active');
+      });
+    });
+
+    // Export before delete
+    const btnExportBeforeDelete = document.getElementById('btn-export-before-delete');
+    if (btnExportBeforeDelete) {
+      btnExportBeforeDelete.addEventListener('click', async () => {
+        btnExportBeforeDelete.textContent = 'Exporting...';
+        try {
+          const json = await serializeDatabaseToJSON();
+          const ts   = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+          triggerFileDownload(json, 'nexova_pre_delete_backup_' + ts + '.json', 'application/json');
+          showNotificationToast('Backup downloaded. You can now safely delete the store.', null, 4000);
+        } catch (e) {
+          showNotificationToast('Export error: ' + e.message, 'error', 4000);
+        } finally {
+          btnExportBeforeDelete.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export First';
+        }
+      });
+    }
+
+    // Step 1 â†’ Step 2
+    const btnProceed = document.getElementById('btn-delete-store-proceed');
+    if (btnProceed) {
+      btnProceed.addEventListener('click', () => {
+        document.getElementById('delete-store-step1').style.display = 'none';
+        document.getElementById('delete-store-step2').style.display = 'block';
+        setTimeout(() => {
+          const inp = document.getElementById('delete-confirm-store-name');
+          if (inp) inp.focus();
+        }, 100);
+      });
+    }
+
+    // Back to step 1
+    const btnDeleteBack = document.getElementById('btn-delete-store-back');
+    if (btnDeleteBack) {
+      btnDeleteBack.addEventListener('click', () => {
+        document.getElementById('delete-store-step1').style.display = 'block';
+        document.getElementById('delete-store-step2').style.display = 'none';
+      });
+    }
+
+    // Execute delete
+    const btnDeleteExecute = document.getElementById('btn-delete-store-execute');
+    if (btnDeleteExecute) {
+      btnDeleteExecute.addEventListener('click', async () => {
+        const nameInput = (document.getElementById('delete-confirm-store-name') || {}).value || '';
+        const pinInput  = (document.getElementById('delete-confirm-pin') || {}).value || '';
+        const errorEl   = document.getElementById('delete-store-error');
+
+        const configuredName = (state.preferences && state.preferences['store_name']) || '';
+        if (nameInput.trim().toLowerCase() !== configuredName.trim().toLowerCase()) {
+          if (errorEl) { errorEl.textContent = 'Store name does not match. Please type it exactly as configured.'; errorEl.style.display = 'block'; }
+          return;
+        }
+
+        const admin = state.employees?.find(e => e.role === 'ADMIN');
+        if (!admin || !pinInput) {
+          if (errorEl) { errorEl.textContent = 'Admin PIN required.'; errorEl.style.display = 'block'; }
+          return;
+        }
+
+        let pinOk = false;
+        try {
+          pinOk = await verifyPinClient(pinInput, admin.auth_hash);
+        } catch (_) {
+          pinOk = false;
+        }
+
+        if (!pinOk) {
+          if (errorEl) { errorEl.textContent = 'Incorrect PIN. Please try again.'; errorEl.style.display = 'block'; }
+          return;
+        }
+
+        btnDeleteExecute.textContent = 'Deleting...';
+        btnDeleteExecute.disabled = true;
+        try {
+          try {
+            await fetch('/api/system/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: pinInput }) });
+          } catch (_) {}
+          await NexovaDB.destructReset();
+          localStorage.clear();
+          showNotificationToast('Store deleted. Redirecting to setup...', null, 2500);
+          setTimeout(() => window.location.reload(), 2500);
+        } catch (err) {
+          if (errorEl) { errorEl.textContent = 'Deletion failed: ' + err.message; errorEl.style.display = 'block'; }
+          btnDeleteExecute.disabled = false;
+          btnDeleteExecute.textContent = 'DELETE STORE PERMANENTLY';
+        }
+      });
+    }
+
+    // Grand Reset
+    const btnOpenGrandReset = document.getElementById('btn-open-grand-reset');
+    if (btnOpenGrandReset) {
+      btnOpenGrandReset.addEventListener('click', () => {
+        playAudioSignal('click');
+        const modal = document.getElementById('modal-reset');
+        if (modal) modal.classList.add('active');
+      });
+    }
+  }
+})();

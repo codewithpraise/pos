@@ -26,7 +26,7 @@
   </div>
 
   <!-- AUTH LOCK SCREEN (Centered login PIN pad overlay) -->
-  <div class="auth-overlay active" id="auth-lock-screen">
+  <div class="auth-overlay" id="auth-lock-screen">
     <div class="auth-card">
       <div class="security-shield" style="display: flex; justify-content: center; margin-bottom: 16px; color: var(--accent-emerald);">
         <svg class="svg-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -37,7 +37,7 @@
       <!-- Terminal Mode Selector -->
       <div style="margin-bottom: 16px; width: 100%; text-align: left;">
         <label style="font-size: 10px; color: var(--text-gray); text-transform: uppercase; font-weight: 700; margin-bottom: 4px; display: block;">Terminal Mode:</label>
-        <select id="login-terminal-role" class="pos-input" style="min-height: 40px; height: 40px; padding: 6px 12px; font-size: 12px;">
+        <select id="login-terminal-role" class="pos-input" style="min-height: 40px; height: 40px; padding: 6px 12px; font-size: 12px;" aria-label="Login Terminal Role">
           <option value="REGISTER">Register Mode (POS Checkout)</option>
           <option value="CFD">Customer Facing Display (CFD)</option>
           <option value="KDS">Kitchen Display System (KDS)</option>
@@ -48,7 +48,7 @@
       <form id="pin-form" style="margin-bottom: 20px; display: flex; justify-content: center; position: relative; width: 100%;">
         <input type="password" id="pin-input" class="pin-input-field" 
                inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="••••"
-               autocomplete="one-time-code">
+               autocomplete="one-time-code" aria-label="••••">
         <button type="submit" style="display: none;"></button>
       </form>
 
@@ -70,6 +70,12 @@
 
       <div class="auth-error-msg" id="auth-error"></div>
       <div class="hint-credentials">Developer Seed PINs: Cashier: <strong>5678</strong> | Admin: <strong>1234</strong></div>
+      <!-- Loopback Reset Trigger for recovery -->
+      <div style="margin-top: 16px; text-align: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
+        <button type="button" class="btn-link" id="btn-lock-screen-reset" style="font-size: 10px; color: var(--text-gray); background: none; border: none; text-decoration: underline; cursor: pointer; opacity: 0.6; transition: opacity 0.2s;">
+          Factory Reset / Re-Onboard Register
+        </button>
+      </div>
     </div>
   </div>
 
@@ -153,6 +159,24 @@
           </span>
           <span class="nav-label">Settings</span>
         </button>
+        <button class="nav-item" data-screen="fbr-fiscal" id="nav-fbr-fiscal" style="display: none;">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          </span>
+          <span class="nav-label">FBR Fiscal Hub</span>
+        </button>
+        <button class="nav-item" data-screen="multi-store" id="nav-multi-store" style="display: none;">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </span>
+          <span class="nav-label">Multi-Store</span>
+        </button>
+        <button class="nav-item" data-screen="data-portability" id="nav-data-portability" style="display: none;">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </span>
+          <span class="nav-label">Data Migration</span>
+        </button>
       </nav>
       
       <div class="sidebar-footer">
@@ -198,10 +222,13 @@
             <span class="badge-val" id="hlc-clock">0000000000000:000000:web_node</span>
           </div>
           
-          <button class="theme-toggle-btn" id="theme-toggle-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 4px; border: 1px solid var(--border-titanium); background: transparent; color: var(--text-white); cursor: pointer;" title="Toggle Theme">
-            <svg class="svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M12 2a10 10 0 0 0 0 20Z" fill="currentColor"/></svg>
-          </button>
-        </div>
+           <button class="theme-toggle-btn" id="lang-toggle-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 36px; border-radius: 4px; border: 1px solid var(--border-titanium); background: transparent; color: var(--text-white); cursor: pointer; font-size: 11px; font-weight: 700; margin-right: 8px;" title="Toggle Language (English / اردو)">
+             اردو
+           </button>
+           <button class="theme-toggle-btn" id="theme-toggle-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 4px; border: 1px solid var(--border-titanium); background: transparent; color: var(--text-white); cursor: pointer;" title="Toggle Theme">
+             <svg class="svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M12 2a10 10 0 0 0 0 20Z" fill="currentColor"/></svg>
+           </button>
+         </div>
       </header>
 
       <!-- CLOCK DRIFT CRITICAL WARNING BANNER -->
@@ -263,6 +290,10 @@
                     <span id="txt-tax-rate-label">Tax (8.0%)</span>
                     <span id="txt-tax">Rs. 0.00</span>
                   </div>
+                  <div class="totals-row" id="row-fbr-fee" style="display: none;">
+                    <span>FBR POS Service Fee</span>
+                    <span>Rs. 1.00</span>
+                  </div>
                   <div class="totals-row grand-total">
                     <span>Total Due</span>
                     <span id="txt-total">Rs. 0.00</span>
@@ -280,7 +311,7 @@
                 </div>
               </div>
               <div class="quick-catalog-search-row">
-                <input type="text" id="checkout-quick-search" class="pos-input" placeholder="Quick search..." autocomplete="off">
+                <input type="text" id="checkout-quick-search" class="pos-input" placeholder="Quick search..." autocomplete="off" aria-label="Quick search...">
               </div>
               <div class="quick-catalog-grid" id="checkout-quick-grid">
                 <!-- dynamic product cards -->
@@ -298,7 +329,7 @@
                 </div>
                 <div class="card-collapsible-content">
                   <div style="display: flex; gap: 8px; width: 100%;">
-                    <input type="text" id="checkout-search-input" class="pos-input" placeholder="Search catalog sku, name, or scan barcode..." autocomplete="off" style="flex-grow: 1;">
+                    <input type="text" id="checkout-search-input" class="pos-input" placeholder="Search catalog sku, name, or scan barcode..." autocomplete="off" style="flex-grow: 1;" aria-label="Search catalog sku, name, or scan barcode...">
                     <button class="action-btn" id="btn-desktop-camera-scanner" title="Scan with camera" style="padding: 0; min-height: 48px; width: 48px; display: flex; align-items: center; justify-content: center; background: var(--panel-graphite-light); border: 1px solid var(--border-titanium); color: var(--text-white); flex-shrink: 0; cursor: pointer; transition: var(--transition-tactile);">
                       <svg class="svg-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                     </button>
@@ -354,11 +385,11 @@
                 <div class="split-pay-panel" id="checkout-split-fields" style="display: none;">
                   <div class="split-row">
                     <label>Cash portion ($):</label>
-                    <input type="number" id="split-cash-amount" class="pos-input" min="0" step="0.01" value="0.00" inputmode="decimal">
+                    <input type="number" id="split-cash-amount" class="pos-input" min="0" step="0.01" value="0.00" inputmode="decimal" aria-label="Split Cash Amount">
                   </div>
                   <div class="split-row">
                     <label>Card portion ($):</label>
-                    <input type="number" id="split-card-amount" class="pos-input" min="0" step="0.01" value="0.00" inputmode="decimal">
+                    <input type="number" id="split-card-amount" class="pos-input" min="0" step="0.01" value="0.00" inputmode="decimal" aria-label="Split Card Amount">
                   </div>
                 </div>
 
@@ -424,7 +455,7 @@
               </div>
             </div>
             <div class="quick-catalog-search-row" style="flex-shrink: 0;">
-              <input type="text" id="mobile-quick-search" class="pos-input" placeholder="Search products..." autocomplete="off">
+              <input type="text" id="mobile-quick-search" class="pos-input" placeholder="Search products..." autocomplete="off" aria-label="Search products...">
             </div>
             <div class="quick-catalog-grid" id="mobile-quick-grid" style="flex-grow: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; overflow-y: auto; padding-bottom: 20px;">
               <!-- dynamic product cards -->
@@ -446,7 +477,7 @@
           
           <div class="catalog-table-wrapper">
             <div class="search-bar-row">
-              <input type="text" id="catalog-search-input" class="pos-input" placeholder="Search catalog items...">
+              <input type="text" id="catalog-search-input" class="pos-input" placeholder="Search catalog items..." aria-label="Search catalog items...">
             </div>
             
             <div class="catalog-grid-table">
@@ -477,7 +508,7 @@
                 <button class="btn-toggle-preview" id="btn-toggle-history-preview" style="background: transparent; border: 1px solid var(--border-titanium); color: var(--text-gray); font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 4px; cursor: pointer; transition: var(--transition-tactile); min-height: 24px; text-transform: uppercase; letter-spacing: 0.5px;">Hide Preview</button>
               </div>
               <div class="search-bar-row">
-                <input type="text" id="history-search-input" class="pos-input" placeholder="Search receipt transaction IDs...">
+                <input type="text" id="history-search-input" class="pos-input" placeholder="Search receipt transaction IDs..." aria-label="Search receipt transaction IDs...">
               </div>
               <div class="transactions-list-container" id="history-transactions-list">
                 <!-- Inserted dynamically -->
@@ -576,7 +607,7 @@
           
           <div class="customers-table-wrapper">
             <div class="search-bar-row">
-              <input type="text" id="customers-search-input" class="pos-input" placeholder="Search profiles by name, phone or email...">
+              <input type="text" id="customers-search-input" class="pos-input" placeholder="Search profiles by name, phone or email..." aria-label="Search profiles by name, phone or email...">
             </div>
             
             <table class="catalog-table">
@@ -642,19 +673,27 @@
               <h3>Store Information</h3>
               <div class="settings-row">
                 <label>Boutique Store Name:</label>
-                <input type="text" id="setting-store-name" class="pos-input">
+                <input type="text" id="setting-store-name" class="pos-input" aria-label="Setting Store Name">
               </div>
               <div class="settings-row">
                 <label>Tax Percentage (%):</label>
-                <input type="number" id="setting-tax-rate" class="pos-input" min="0" max="100" step="0.1">
+                <input type="number" id="setting-tax-rate" class="pos-input" min="0" max="100" step="0.1" aria-label="Setting Tax Rate">
+              </div>
+              <div class="settings-row">
+                <label>Tax Rule Mode:</label>
+                <select id="setting-tax-mode" class="pos-input" aria-label="Setting Tax Mode">
+                  <option value="FLAT">Standard Flat Tax</option>
+                  <option value="FBR_FOOD">FBR Tier-1 Food (5% Card / 15% Cash)</option>
+                  <option value="FBR_RETAIL">FBR Tier-1 Retail (18% Flat)</option>
+                </select>
               </div>
               <div class="settings-row">
                 <label>Print Tagline footer:</label>
-                <input type="text" id="setting-receipt-tagline" class="pos-input">
+                <input type="text" id="setting-receipt-tagline" class="pos-input" aria-label="Setting Receipt Tagline">
               </div>
               <div class="settings-row">
                 <label>JazzCash/EasyPaisa Wallet Phone #:</label>
-                <input type="text" id="setting-wallet-phone" class="pos-input" placeholder="e.g. +923001234567">
+                <input type="text" id="setting-wallet-phone" class="pos-input" placeholder="e.g. +923001234567" aria-label="e.g. +923001234567">
               </div>
             </div>
 
@@ -663,7 +702,7 @@
               <div class="settings-row">
                 <label>P2P Sync Encryption Key:</label>
                 <div class="password-wrapper">
-                  <input type="password" id="setting-sync-passphrase" class="pos-input" placeholder="Encryption Passphrase">
+                  <input type="password" id="setting-sync-passphrase" class="pos-input" placeholder="Encryption Passphrase" aria-label="Encryption Passphrase">
                   <button type="button" class="btn-toggle-password" title="Toggle visibility">
                     <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -682,7 +721,7 @@
               <h3>UI & Branding Layout</h3>
               <div class="settings-row">
                 <label>Boutique Theme Palette:</label>
-                <select id="setting-theme-palette" class="pos-input">
+                <select id="setting-theme-palette" class="pos-input" aria-label="Setting Theme Palette">
                   <option value="Obsidian Emerald">Obsidian Emerald</option>
                   <option value="Midnight Sapphire">Midnight Sapphire</option>
                   <option value="Warm Amber">Warm Amber</option>
@@ -692,7 +731,7 @@
               </div>
               <div class="settings-row">
                 <label>Receipt Column Width (Chars):</label>
-                <select id="setting-receipt-width" class="pos-input">
+                <select id="setting-receipt-width" class="pos-input" aria-label="Setting Receipt Width">
                   <option value="42">42 Columns (Wide standard)</option>
                   <option value="32">32 Columns (Narrow/Compact)</option>
                 </select>
@@ -715,7 +754,7 @@
               </div>
               <div class="settings-row">
                 <label>HID Scanner Timing Threshold (ms):</label>
-                <input type="number" id="setting-scan-threshold" class="pos-input" min="20" max="500" value="80">
+                <input type="number" id="setting-scan-threshold" class="pos-input" min="20" max="500" value="80" aria-label="Setting Scan Threshold">
               </div>
             </div>
 
@@ -723,15 +762,15 @@
               <h3>Change My Security PIN</h3>
               <div class="settings-row">
                 <label>Current Security PIN:</label>
-                <input type="password" id="setting-change-pin-current" class="pos-input" maxlength="4" placeholder="4-digit PIN">
+                <input type="password" id="setting-change-pin-current" class="pos-input" maxlength="4" placeholder="4-digit PIN" aria-label="4-digit PIN">
               </div>
               <div class="settings-row">
                 <label>New Security PIN:</label>
-                <input type="password" id="setting-change-pin-new" class="pos-input" maxlength="4" placeholder="4-digit PIN">
+                <input type="password" id="setting-change-pin-new" class="pos-input" maxlength="4" placeholder="4-digit PIN" aria-label="4-digit PIN">
               </div>
               <div class="settings-row">
                 <label>Confirm New PIN:</label>
-                <input type="password" id="setting-change-pin-confirm" class="pos-input" maxlength="4" placeholder="4-digit PIN">
+                <input type="password" id="setting-change-pin-confirm" class="pos-input" maxlength="4" placeholder="4-digit PIN" aria-label="4-digit PIN">
               </div>
               <button type="button" class="action-btn action-success" id="btn-change-my-pin" style="width: 100%; margin-top: 12px;">Update My Passcode</button>
             </div>
@@ -755,7 +794,7 @@
               </div>
               <div class="settings-row">
                 <label>Network Relay URL (iOS / non-USB fallback):</label>
-                <input type="url" id="setting-printer-relay" class="pos-input" placeholder="e.g. http://192.168.1.100:9100" />
+                <input type="url" id="setting-printer-relay" class="pos-input" placeholder="e.g. http://192.168.1.100:9100" / aria-label="e.g. http://192.168.1.100:9100">
               </div>
             </div>
 
@@ -803,26 +842,193 @@
               </div>
             </div>
 
-            <div class="settings-section full-width">
-              <h3>Database Storage & Reset Checks</h3>
-              <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 12px;">Reset operations purge the local IndexedDB client shell database tables. Reseeding replaces catalog default products.</p>
-              <div class="maintenance-actions">
-                <button class="action-btn" id="btn-maintenance-reseed">RE-SEED CATALOG & SETTINGS</button>
-                <button class="action-btn action-danger" id="btn-maintenance-grand-reset">DESTRUCTIVE GRAND RESET</button>
+
+            <!-- SaaS License Status Card (Self-Service) -->
+            <div class="settings-section full-width dm-card">
+              <div class="dm-card-header">
+                <div class="dm-icon dm-icon-blue">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <div>
+                  <h3 style="margin:0;font-size:14px;font-weight:700;color:var(--text-white);">SaaS License & Subscription</h3>
+                  <p style="margin:4px 0 0;font-size:11px;color:var(--text-gray);">Manage your offline-resilient digital register license and check for upgrades.</p>
+                </div>
+              </div>
+              <div style="margin-top: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                <div style="border: 1px solid var(--border-titanium); padding: 12px; border-radius: 6px; text-align: left;">
+                  <span style="font-size: 9px; color: var(--text-gray); text-transform: uppercase;">Active License Tier</span>
+                  <div style="font-size: 16px; font-weight: 800; color: var(--accent-emerald); margin-top: 4px;" id="license-active-tier-val">Loading...</div>
+                </div>
+                <div style="border: 1px solid var(--border-titanium); padding: 12px; border-radius: 6px; text-align: left;">
+                  <span style="font-size: 9px; color: var(--text-gray); text-transform: uppercase;">License Type & Expiry</span>
+                  <div style="font-size: 13px; font-weight: 700; color: var(--text-white); margin-top: 4px;" id="license-active-expiry-val">Loading...</div>
+                </div>
+                <div style="border: 1px solid var(--border-titanium); padding: 12px; border-radius: 6px; text-align: left;">
+                  <span style="font-size: 9px; color: var(--text-gray); text-transform: uppercase;">Hardware Limits</span>
+                  <div style="font-size: 13px; font-weight: 700; color: var(--text-white); margin-top: 4px;" id="license-active-devices-val">Loading...</div>
+                </div>
+              </div>
+              <div class="dm-actions" style="margin-top: 16px;">
+                <button class="action-btn dm-btn-primary" id="btn-sync-license-now" type="button">
+                  Check for License Upgrades
+                </button>
               </div>
             </div>
 
-            <div class="settings-section full-width">
-              <h3>Google Drive Cloud Sync Backup</h3>
-              <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 12px;">Secure your database backup inside your personal Google Drive. It keeps data private and costs zero server hosting fees.</p>
-              <div class="settings-row" style="margin-bottom: 12px; max-width: 400px; text-align: left;">
-                <label>Google OAuth Access Token:</label>
-                <input type="password" id="setting-google-drive-token" class="pos-input" placeholder="Paste Google OAuth2 Access Token here">
+            <!-- DATA MANAGEMENT: Export · Backup · Restore · Danger Zone -->
+            <div class="settings-section full-width dm-card">
+              <div class="dm-card-header">
+                <div class="dm-icon dm-icon-blue"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+                <div><h3 style="margin:0;font-size:14px;font-weight:700;color:var(--text-white);">Export Data</h3><p style="margin:4px 0 0;font-size:11px;color:var(--text-gray);">Download a full database snapshot as JSON or export transactions as CSV.</p></div>
               </div>
-              <div class="maintenance-actions">
-                <button class="action-btn action-success" id="btn-cloud-sync">BACKUP TO GOOGLE DRIVE</button>
-                <span id="cloud-sync-status" style="font-size: 11px; color: var(--text-gray); font-family: monospace;">Last backup: Never</span>
+              <div class="dm-actions">
+                <button class="action-btn dm-btn-primary" id="btn-export-json"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export Full Database (JSON)</button>
+                <button class="action-btn dm-btn-secondary" id="btn-export-csv-transactions"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg> Export Transactions (CSV)</button>
               </div>
+              <p id="export-status-msg" style="font-size:10px;color:var(--accent-emerald);margin-top:8px;display:none;"></p>
+            </div>
+
+            <div class="settings-section full-width dm-card">
+              <div class="dm-card-header">
+                <div class="dm-icon dm-icon-emerald"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg></div>
+                <div><h3 style="margin:0;font-size:14px;font-weight:700;color:var(--text-white);">Cloud Backup</h3><p style="margin:4px 0 0;font-size:11px;color:var(--text-gray);">Backup your entire database to Google Drive. Zero server costs — stays in your account.</p></div>
+              </div>
+              <div class="settings-row" style="margin-bottom:12px;">
+                <label style="font-size:11px;font-weight:700;color:var(--text-gray);text-transform:uppercase;letter-spacing:0.5px;">Google OAuth 2.0 Access Token</label>
+                <div class="password-wrapper" style="margin-top:6px;">
+                  <input type="password" id="setting-google-drive-token" class="pos-input" placeholder="Paste your Google OAuth2 access token" aria-label="Paste your Google OAuth2 access token">
+                  <button type="button" class="btn-toggle-password" title="Toggle"><svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button>
+                </div>
+              </div>
+              <div class="dm-actions">
+                <button class="action-btn dm-btn-emerald" id="btn-cloud-sync"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg> Backup to Google Drive</button>
+              </div>
+              <p id="cloud-sync-status" style="font-size:10px;color:var(--text-dim);margin-top:10px;font-family:var(--font-mono);">Last backup: Never</p>
+            </div>
+
+            <div class="settings-section full-width dm-card">
+              <div class="dm-card-header">
+                <div class="dm-icon dm-icon-amber"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></div>
+                <div><h3 style="margin:0;font-size:14px;font-weight:700;color:var(--text-white);">Restore from Backup</h3><p style="margin:4px 0 0;font-size:11px;color:var(--text-gray);">Import a previously exported JSON backup file. Existing records will be merged.</p></div>
+              </div>
+              <div class="dm-actions">
+                <label class="action-btn dm-btn-secondary" for="input-restore-file" style="cursor:pointer;user-select:none;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Choose Backup File</label>
+                <input type="file" id="input-restore-file" accept=".json" style="display:none;">
+                <button class="action-btn dm-btn-emerald" id="btn-restore-from-file" disabled style="opacity:0.4;cursor:not-allowed;">Import &amp; Restore</button>
+              </div>
+              <p id="restore-file-name" style="font-size:10px;color:var(--text-dim);margin-top:8px;">No file selected</p>
+              <div id="restore-warning" style="display:none;margin-top:10px;padding:10px 14px;background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.2);border-radius:8px;font-size:11px;color:#f59e0b;line-height:1.5;">Warning: This will merge the backup into your current database. Conflicting records will be overwritten. Ensure this is a valid Nexova backup file before importing.</div>
+            </div>
+
+            <div class="settings-section full-width dm-card">
+              <div class="dm-card-header">
+                <div class="dm-icon dm-icon-blue"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 1.41 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg></div>
+                <div><h3 style="margin:0;font-size:14px;font-weight:700;color:var(--text-white);">Database Maintenance</h3><p style="margin:4px 0 0;font-size:11px;color:var(--text-gray);">Re-seed default catalog products without affecting transaction history.</p></div>
+              </div>
+              <div class="dm-actions">
+                <button class="action-btn dm-btn-secondary" id="btn-maintenance-reseed"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 8v4l3 3"/></svg> Re-seed Catalog &amp; Settings</button>
+              </div>
+            </div>
+
+            <div class="settings-section full-width dm-card dm-danger-card" id="dm-danger-zone">
+              <div class="dm-danger-header"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>Danger Zone</span></div>
+              <p style="font-size:11px;color:#7a8bb0;margin-bottom:16px;line-height:1.5;">These actions are irreversible. We strongly recommend exporting a backup before proceeding.</p>
+              <div class="dm-danger-row" id="btn-open-delete-store">
+                <div><div style="font-size:13px;font-weight:700;color:#f0f4ff;">Delete Store &amp; Start Fresh</div><div style="font-size:10px;color:#7a8bb0;margin-top:2px;">Wipe all store data and return to the initial setup wizard</div></div>
+                <button class="dm-danger-btn" type="button">Delete Store</button>
+              </div>
+              <div class="dm-danger-row" id="btn-open-grand-reset">
+                <div><div style="font-size:13px;font-weight:700;color:#f0f4ff;">Purge Transaction History</div><div style="font-size:10px;color:#7a8bb0;margin-top:2px;">Erase all sales, orders, and change logs — catalog &amp; settings remain</div></div>
+                <button class="dm-danger-btn" type="button" id="btn-maintenance-grand-reset">Purge History</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- View 8.b: FBR Fiscal Hub (Enterprise Exclusive) -->
+        <section class="content-view" id="view-fbr-fiscal">
+          <div class="view-header">
+            <h2>FBR Fiscal Integration Hub</h2>
+            <button class="action-btn action-success" id="btn-flush-fbr-now">Flush Queue (Rule 150XC)</button>
+          </div>
+          <div class="kpi-grid">
+            <div class="kpi-card accent-emerald">
+              <span class="kpi-lbl">Sync Status</span>
+              <span class="kpi-val" id="fbr-status-val">ACTIVE</span>
+            </div>
+            <div class="kpi-card accent-amber">
+              <span class="kpi-lbl">Pending Queue</span>
+              <span class="kpi-val" id="fbr-pending-count">0 Invoices</span>
+            </div>
+            <div class="kpi-card accent-blue">
+              <span class="kpi-lbl">Integrated Today</span>
+              <span class="kpi-val" id="fbr-integrated-count">0</span>
+            </div>
+          </div>
+          <div class="catalog-table-wrapper" style="margin-top: 24px;">
+            <h3>FBR PRAL Transaction Outbox (Strict FIFO Queue)</h3>
+            <table class="catalog-table" style="margin-top: 12px;">
+              <thead>
+                <tr>
+                  <th style="width: 25%;">USIN</th>
+                  <th style="width: 25%;">Invoice Number</th>
+                  <th style="width: 15%; text-align: right;">Total Amount</th>
+                  <th style="width: 15%; text-align: right;">Sales Tax</th>
+                  <th style="width: 20%; text-align: center;">PRAL Sync Response</th>
+                </tr>
+              </thead>
+              <tbody id="fbr-queue-tbody">
+                <tr>
+                  <td colspan="5" style="text-align: center; color: var(--text-gray); padding: 24px;">No pending invoices in queue. System synchronized.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- View 8.c: Multi-Store Context Dashboard (Enterprise Exclusive) -->
+        <section class="content-view" id="view-multi-store">
+          <div class="view-header">
+            <h2>Multi-Store Context Switcher</h2>
+          </div>
+          <div style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 32px; max-width: 600px; margin-top: 16px;">
+            <h3 style="color: var(--text-white); margin-bottom: 8px;">Active Store Context</h3>
+            <p style="color: var(--text-gray); font-size: 11px; margin-bottom: 20px;">Toggle the unified interface context between your registered branches. Inventory catalog, staff list, and sales ledger sync instantly.</p>
+            
+            <div class="settings-row" style="text-align: left; margin-bottom: 24px;">
+              <label style="font-size: 11px; font-weight: 700; color: var(--text-white); text-transform: uppercase;">Select Active Branch:</label>
+              <select id="multi-store-select" class="pos-input" style="margin-top: 8px; font-size: 13px;" aria-label="Multi Store Select">
+                <option value="current" selected>DHA Phase 6 Main Branch (Primary)</option>
+                <option value="clifton">Clifton Block 4 Retail Outlet</option>
+                <option value="gulshan">Gulshan-e-Iqbal Block 13 Depot</option>
+              </select>
+            </div>
+            <button class="action-btn action-success" id="btn-switch-store-context" style="width: 100%; min-height: 48px; font-weight: 800;">
+              SWITCH TERMINAL CONTEXT
+            </button>
+          </div>
+        </section>
+
+        <!-- View 8.d: Data Portability Suite (Enterprise Exclusive) -->
+        <section class="content-view" id="view-data-portability">
+          <div class="view-header">
+            <h2>Data Portability &amp; Schema Migration Suite</h2>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-top: 16px;">
+            <div class="settings-section" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 24px;">
+              <h3>Automated SQL Schema Conversion</h3>
+              <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 16px; line-height: 1.5;">Convert offline SQLite snapshots directly into standard PostgreSQL schemas compatible with external ERPs.</p>
+              <button class="action-btn" id="btn-migration-schema-sql" style="width: 100%;">Generate Schema SQL</button>
+            </div>
+            <div class="settings-section" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 24px;">
+              <h3>Spreadsheet Data Cleaning</h3>
+              <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 16px; line-height: 1.5;">Scrub, clean, and format raw spreadsheet catalog imports, fixing character encodings and formatting whitespace.</p>
+              <button class="action-btn" id="btn-migration-scrub-sheets" style="width: 100%;">Scrub Raw Catalog Sheets</button>
+            </div>
+            <div class="settings-section" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 24px;">
+              <h3>Historical Ledger Export</h3>
+              <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 16px; line-height: 1.5;">Download fully compiled double-entry accounting logs spanning all registers and transaction history.</p>
+              <button class="action-btn dm-btn-primary" id="btn-migration-export-ledger" style="width: 100%;">Export Accounting Ledger</button>
             </div>
           </div>
         </section>
@@ -837,7 +1043,7 @@
           <div class="suppliers-split-grid" style="display: grid; grid-template-columns: 350px 1fr; gap: 24px; height: calc(100vh - 160px); align-items: start;">
             <!-- Left panel: List of distributors -->
             <div class="card-panel-wrapper" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 16px; height: 100%; display: flex; flex-direction: column; gap: 16px; overflow: hidden;">
-              <input type="text" id="supplier-search" class="pos-input" placeholder="Search suppliers..." style="width: 100%;">
+              <input type="text" id="supplier-search" class="pos-input" placeholder="Search suppliers..." style="width: 100%;" aria-label="Search suppliers...">
               <div id="supplier-list-container" style="overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;">
                 <!-- dynamic list of suppliers -->
                 <p class="text-center text-muted" style="margin-top: 50px;">No suppliers registered.</p>
@@ -870,7 +1076,7 @@
           <div class="suppliers-split-grid" style="display: grid; grid-template-columns: 350px 1fr; gap: 24px; height: calc(100vh - 160px); align-items: start;">
             <!-- Left panel: List of customers with credit -->
             <div class="card-panel-wrapper" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 16px; height: 100%; display: flex; flex-direction: column; gap: 16px; overflow: hidden;">
-              <input type="text" id="credit-customer-search" class="pos-input" placeholder="Search customer credit ledger..." style="width: 100%;">
+              <input type="text" id="credit-customer-search" class="pos-input" placeholder="Search customer credit ledger..." style="width: 100%;" aria-label="Search customer credit ledger...">
               <div id="credit-customer-list-container" style="overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;">
                 <!-- dynamic list of customers with outstanding balances -->
                 <p class="text-center text-muted" style="margin-top: 50px;">No customer credit accounts active.</p>
@@ -937,20 +1143,20 @@
       <div class="modal-body">
         <div class="settings-row">
           <label>Product SKU (Unique Key):</label>
-          <input type="text" id="form-product-sku" class="pos-input" placeholder="e.g. COFFEE-CAP">
+          <input type="text" id="form-product-sku" class="pos-input" placeholder="e.g. COFFEE-CAP" aria-label="e.g. COFFEE-CAP">
         </div>
         <div class="settings-row">
           <label>Product GTIN Barcode:</label>
-          <input type="text" id="form-product-gtin" class="pos-input" placeholder="13-digit barcode number">
+          <input type="text" id="form-product-gtin" class="pos-input" placeholder="13-digit barcode number" aria-label="13-digit barcode number">
         </div>
         <input type="hidden" id="form-product-emoji" value="">
         <div class="settings-row">
           <label>Product Name Label:</label>
-          <input type="text" id="form-product-name" class="pos-input" placeholder="Display product name">
+          <input type="text" id="form-product-name" class="pos-input" placeholder="Display product name" aria-label="Display product name">
         </div>
         <div class="settings-row">
           <label>Visual Category:</label>
-          <select id="form-product-category" class="pos-input">
+          <select id="form-product-category" class="pos-input" aria-label="Form Product Category">
             <option value="Drinks">Drinks</option>
             <option value="Pastries">Pastries</option>
             <option value="Accessories">Accessories</option>
@@ -960,19 +1166,19 @@
         </div>
         <div class="settings-row">
           <label>Retail Price (in cents):</label>
-          <input type="number" id="form-product-price" class="pos-input" placeholder="e.g. 350 for $3.50">
+          <input type="number" id="form-product-price" class="pos-input" placeholder="e.g. 350 for $3.50" aria-label="e.g. 350 for $3.50">
         </div>
         <div class="settings-row">
           <label>Supplier Cost (in cents):</label>
-          <input type="number" id="form-product-cost" class="pos-input" placeholder="e.g. 100 for $1.00">
+          <input type="number" id="form-product-cost" class="pos-input" placeholder="e.g. 100 for $1.00" aria-label="e.g. 100 for $1.00">
         </div>
         <div class="settings-row">
           <label>Stock Level inventory count:</label>
-          <input type="number" id="form-product-stock" class="pos-input" placeholder="Initial stock units count">
+          <input type="number" id="form-product-stock" class="pos-input" placeholder="Initial stock units count" aria-label="Initial stock units count">
         </div>
         <div class="settings-row">
           <label>Low-Stock Alert Threshold:</label>
-          <input type="number" id="form-product-threshold" class="pos-input" placeholder="Alert threshold (default: 10)" value="10">
+          <input type="number" id="form-product-threshold" class="pos-input" placeholder="Alert threshold (default: 10)" value="10" aria-label="Alert threshold (default: 10)">
         </div>
         <div class="settings-row flex-row" id="form-product-audit-row" style="margin-top: 10px;">
           <label for="form-product-audit-reset" style="cursor: pointer; font-size: 11px; color: var(--alert-coral); flex-grow: 1;">Physical Inventory Audit Reset (Overrides offline sales)</label>
@@ -997,23 +1203,23 @@
         <input type="hidden" id="form-customer-id">
         <div class="settings-row">
           <label>Customer Full Name:</label>
-          <input type="text" id="form-customer-name" class="pos-input" placeholder="Full name">
+          <input type="text" id="form-customer-name" class="pos-input" placeholder="Full name" aria-label="Full name">
         </div>
         <div class="settings-row">
           <label>Phone Number:</label>
-          <input type="text" id="form-customer-phone" class="pos-input" placeholder="e.g. 555-0100">
+          <input type="text" id="form-customer-phone" class="pos-input" placeholder="e.g. 555-0100" aria-label="e.g. 555-0100">
         </div>
         <div class="settings-row">
           <label>Email Address:</label>
-          <input type="email" id="form-customer-email" class="pos-input" placeholder="name@example.com">
+          <input type="email" id="form-customer-email" class="pos-input" placeholder="name@example.com" aria-label="name@example.com">
         </div>
         <div class="settings-row" id="form-customer-spend-row" style="display:none;">
           <label>Total Spend Balance (Cents):</label>
-          <input type="number" id="form-customer-spend" class="pos-input">
+          <input type="number" id="form-customer-spend" class="pos-input" aria-label="Form Customer Spend">
         </div>
         <div class="settings-row" id="form-customer-visits-row" style="display:none;">
           <label>Visits counter:</label>
-          <input type="number" id="form-customer-visits" class="pos-input">
+          <input type="number" id="form-customer-visits" class="pos-input" aria-label="Form Customer Visits">
         </div>
       </div>
       <div class="modal-footer">
@@ -1031,7 +1237,7 @@
         <button class="btn-close-modal" id="btn-close-customer-link-modal">×</button>
       </div>
       <div class="modal-body">
-        <input type="text" id="customer-link-search" class="pos-input" placeholder="Search customer name or phone...">
+        <input type="text" id="customer-link-search" class="pos-input" placeholder="Search customer name or phone..." aria-label="Search customer name or phone...">
         <div class="customer-results-list" id="customer-link-results-list" style="margin-top: 12px; max-height: 250px; overflow-y: auto;">
           <!-- dynamic results items -->
         </div>
@@ -1053,12 +1259,12 @@
       <div class="modal-body">
         <div class="settings-row">
           <label>Employee ID (User ID):</label>
-          <input type="text" id="form-employee-id" class="pos-input" placeholder="e.g. emp_lucas">
+          <input type="text" id="form-employee-id" class="pos-input" placeholder="e.g. emp_lucas" aria-label="e.g. emp_lucas">
         </div>
         <div class="settings-row">
           <label>Register Security PIN Code (Numeric):</label>
           <div class="password-wrapper">
-            <input type="password" id="form-employee-pin" class="pos-input" placeholder="4-digit PIN number" maxlength="4">
+            <input type="password" id="form-employee-pin" class="pos-input" placeholder="4-digit PIN number" maxlength="4" aria-label="4-digit PIN number">
             <button type="button" class="btn-toggle-password" title="Toggle visibility">
               <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -1067,7 +1273,7 @@
         </div>
         <div class="settings-row">
           <label>Employee Role:</label>
-          <select id="form-employee-role" class="pos-input">
+          <select id="form-employee-role" class="pos-input" aria-label="Form Employee Role">
             <option value="CASHIER">CASHIER</option>
             <option value="MANAGER">MANAGER</option>
             <option value="ADMIN">ADMIN</option>
@@ -1077,6 +1283,74 @@
       <div class="modal-footer">
         <button class="action-btn" id="btn-cancel-employee-modal">Cancel</button>
         <button class="action-btn action-success" id="btn-submit-employee-modal">Create Employee</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIALOG MODAL: DELETE STORE CONFIRMATION -->
+  <div class="modal-overlay" id="modal-delete-store">
+    <div class="modal-card" style="max-width:480px; border:1px solid rgba(239,68,68,0.2); background:linear-gradient(160deg,#1a1018 0%,#0e0a0d 100%);">
+      <!-- Step 1: Warning -->
+      <div id="delete-store-step1">
+        <div class="modal-header" style="border-bottom-color:rgba(239,68,68,0.1);">
+          <div style="display:flex;align-items:center;gap:10px;"><div style="width:32px;height:32px;background:rgba(239,68,68,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></polyline></svg></div><h3 style="color:#ef4444;font-size:16px;font-weight:800;">Delete Store</h3></div>
+          <button class="btn-close-modal" id="btn-close-delete-store-modal">&#215;</button>
+        </div>
+        <div class="modal-body">
+          <div style="padding:16px;background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.12);border-radius:10px;margin-bottom:16px;">
+            <p style="font-size:12px;color:#f87171;font-weight:700;margin-bottom:8px;">This will permanently erase:</p>
+            <ul style="font-size:11px;color:#7a8bb0;line-height:2;list-style:none;padding:0;margin:0;">
+              <li style="display:flex;align-items:center;gap:8px;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#ef4444" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> All transactions &amp; order history</li>
+              <li style="display:flex;align-items:center;gap:8px;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#ef4444" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Product catalog &amp; inventory</li>
+              <li style="display:flex;align-items:center;gap:8px;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#ef4444" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Customers, employees &amp; all settings</li>
+              <li style="display:flex;align-items:center;gap:8px;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#ef4444" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> All paired devices &amp; network config</li>
+            </ul>
+          </div>
+          <p style="font-size:11px;color:#7a8bb0;line-height:1.6;margin-bottom:16px;">After deletion you will be taken back to the setup wizard to configure a new store from scratch. <strong style="color:#f0f4ff;">There is no undo.</strong></p>
+          <div style="padding:12px 14px;background:rgba(0,214,143,0.05);border:1px solid rgba(0,214,143,0.1);border-radius:8px;font-size:11px;color:#7a8bb0;margin-bottom:4px;">
+            <strong style="color:#00d68f;display:block;margin-bottom:4px;">Recommendation</strong>
+            Export a full database backup before deleting. Use Settings &rarr; Export Data to download your backup.
+          </div>
+        </div>
+        <div class="modal-footer" style="gap:10px;">
+          <button class="action-btn" id="btn-export-before-delete" style="flex:1;border-color:rgba(0,214,143,0.2);color:#00d68f;background:rgba(0,214,143,0.06);">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export First
+          </button>
+          <button class="action-btn action-danger" id="btn-delete-store-proceed" style="flex:1;">
+            Continue Without Backup
+          </button>
+        </div>
+      </div>
+      <!-- Step 2: Double-confirm with store name + PIN -->
+      <div id="delete-store-step2" style="display:none;">
+        <div class="modal-header" style="border-bottom-color:rgba(239,68,68,0.1);">
+          <h3 style="color:#ef4444;font-size:16px;font-weight:800;">Confirm Deletion</h3>
+          <button class="btn-close-modal" id="btn-close-delete-store-modal2">&#215;</button>
+        </div>
+        <div class="modal-body" style="display:flex;flex-direction:column;gap:16px;">
+          <p style="font-size:12px;color:#7a8bb0;line-height:1.6;">Type your store name exactly as configured, then enter the Admin PIN to confirm.</p>
+          <div class="settings-row">
+            <label style="font-size:11px;font-weight:700;color:var(--text-gray);text-transform:uppercase;letter-spacing:0.5px;">Type Store Name to Confirm</label>
+            <input type="text" id="delete-confirm-store-name" class="pos-input" placeholder="e.g. Monochrome Coffee" style="margin-top:6px;" autocomplete="off" aria-label="e.g. Monochrome Coffee">
+            <p id="delete-name-hint" style="font-size:10px;color:var(--text-dim);margin-top:4px;">Store name must match exactly (case-insensitive)</p>
+          </div>
+          <div class="settings-row">
+            <label style="font-size:11px;font-weight:700;color:var(--text-gray);text-transform:uppercase;letter-spacing:0.5px;">Admin PIN</label>
+            <div class="password-wrapper" style="margin-top:6px;">
+              <input type="password" id="delete-confirm-pin" class="pos-input" placeholder="4-digit owner PIN" maxlength="4" inputmode="numeric" aria-label="4-digit owner PIN">
+              <button type="button" class="btn-toggle-password" title="Toggle"><svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button>
+            </div>
+          </div>
+          <div class="auth-error-msg" id="delete-store-error"></div>
+        </div>
+        <div class="modal-footer" style="gap:10px;">
+          <button class="action-btn" id="btn-delete-store-back">Back</button>
+          <button class="action-btn action-danger" id="btn-delete-store-execute" style="flex:1;">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/></svg>
+            DELETE STORE PERMANENTLY
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -1093,7 +1367,7 @@
         <div class="settings-row" style="margin-top: 16px;">
           <label>Enter Admin PIN Code (e.g. 1234):</label>
           <div class="password-wrapper">
-            <input type="password" id="reset-admin-pin-auth" class="pos-input" placeholder="Enter Admin security PIN">
+            <input type="password" id="reset-admin-pin-auth" class="pos-input" placeholder="Enter Admin security PIN" aria-label="Enter Admin security PIN">
             <button type="button" class="btn-toggle-password" title="Toggle visibility">
               <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -1124,35 +1398,35 @@
         <div class="reconcile-denominations-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
           <div class="settings-row">
             <label>Rs. 5000 Notes:</label>
-            <input type="number" class="pos-input denom-input" data-val="5000" placeholder="0" min="0">
+            <input type="number" class="pos-input denom-input" data-val="5000" placeholder="0" min="0" aria-label="0">
           </div>
           <div class="settings-row">
             <label>Rs. 1000 Notes:</label>
-            <input type="number" class="pos-input denom-input" data-val="1000" placeholder="0" min="0">
+            <input type="number" class="pos-input denom-input" data-val="1000" placeholder="0" min="0" aria-label="0">
           </div>
           <div class="settings-row">
             <label>Rs. 500 Notes:</label>
-            <input type="number" class="pos-input denom-input" data-val="500" placeholder="0" min="0">
+            <input type="number" class="pos-input denom-input" data-val="500" placeholder="0" min="0" aria-label="0">
           </div>
           <div class="settings-row">
             <label>Rs. 100 Notes:</label>
-            <input type="number" class="pos-input denom-input" data-val="100" placeholder="0" min="0">
+            <input type="number" class="pos-input denom-input" data-val="100" placeholder="0" min="0" aria-label="0">
           </div>
           <div class="settings-row">
             <label>Rs. 50 Notes:</label>
-            <input type="number" class="pos-input denom-input" data-val="50" placeholder="0" min="0">
+            <input type="number" class="pos-input denom-input" data-val="50" placeholder="0" min="0" aria-label="0">
           </div>
           <div class="settings-row">
             <label>Rs. 20 Notes:</label>
-            <input type="number" class="pos-input denom-input" data-val="20" placeholder="0" min="0">
+            <input type="number" class="pos-input denom-input" data-val="20" placeholder="0" min="0" aria-label="0">
           </div>
           <div class="settings-row">
             <label>Rs. 10 Notes:</label>
-            <input type="number" class="pos-input denom-input" data-val="10" placeholder="0" min="0">
+            <input type="number" class="pos-input denom-input" data-val="10" placeholder="0" min="0" aria-label="0">
           </div>
           <div class="settings-row">
             <label>Coins & Small Cash:</label>
-            <input type="number" class="pos-input denom-input" data-val="1" placeholder="0" min="0" step="0.01">
+            <input type="number" class="pos-input denom-input" data-val="1" placeholder="0" min="0" step="0.01" aria-label="0">
           </div>
         </div>
 
@@ -1192,11 +1466,11 @@
           </span>
           <div class="settings-row" style="margin-bottom: 8px;">
             <label style="font-size: 10px;">Bank Gateway Shortcode (e.g. 8558, 3737):</label>
-            <input type="text" id="sms-sim-sender" class="pos-input" value="8558" style="padding: 4px 8px; font-size: 11px;">
+            <input type="text" id="sms-sim-sender" class="pos-input" value="8558" style="padding: 4px 8px; font-size: 11px;" aria-label="Sms Sim Sender">
           </div>
           <div class="settings-row" style="margin-bottom: 8px;">
             <label style="font-size: 10px;">Encrypted Bank Transaction SMS Payload:</label>
-            <textarea id="sms-sim-body" class="pos-input" style="padding: 4px 8px; font-size: 11px; height: 50px; font-family: monospace; resize: none;"></textarea>
+            <textarea id="sms-sim-body" class="pos-input" style="padding: 4px 8px; font-size: 11px; height: 50px; font-family: monospace; resize: none;" aria-label="Sms Sim Body"></textarea>
           </div>
           <button class="action-btn action-success" id="btn-trigger-sms-simulation" style="width:100%; min-height: 32px; font-size: 11px; padding: 6px;">
             SIMULATE SECURE INCOMING BANK TRANSACTION
@@ -1276,21 +1550,21 @@
       <div style="display: flex; flex-direction: column; gap: 16px; width: 100%;">
         <div class="settings-row" style="text-align: left;">
           <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">LICENSE ACTIVATION KEY:</label>
-          <input type="text" id="lockout-license-key" class="pos-input" placeholder="e.g. NEXOVA-PRO-ABCD-EFGH" style="margin-top: 4px; text-transform: uppercase;">
+          <input type="text" id="lockout-license-key" class="pos-input" placeholder="e.g. NEXOVA-PRO-ABCD-EFGH" style="margin-top: 4px; text-transform: uppercase;" aria-label="e.g. NEXOVA-PRO-ABCD-EFGH">
         </div>
         
         <!-- EasyPaisa/JazzCash OTP Phone Verification option -->
         <div style="border-top: 1px dashed var(--border-titanium); padding-top: 16px; margin-top: 8px; text-align: left;">
           <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">MOBILE PHONE BINDING (OTP verification):</label>
           <div style="display: flex; gap: 8px; margin-top: 4px;">
-            <input type="text" id="lockout-phone" class="pos-input" placeholder="03XXXXXXXXX" style="flex-grow: 1;">
+            <input type="text" id="lockout-phone" class="pos-input" placeholder="03XXXXXXXXX" style="flex-grow: 1;" aria-label="03XXXXXXXXX">
             <button class="action-btn action-success" id="btn-lockout-send-otp" style="min-width: 100px; font-size: 11px;">Send OTP</button>
           </div>
         </div>
 
         <div id="lockout-otp-row" style="display: none; text-align: left;">
           <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">ENTER 6-DIGIT OTP:</label>
-          <input type="text" id="lockout-otp-code" class="pos-input" placeholder="XXXXXX" maxlength="6" style="margin-top: 4px;">
+          <input type="text" id="lockout-otp-code" class="pos-input" placeholder="XXXXXX" maxlength="6" style="margin-top: 4px;" aria-label="XXXXXX">
         </div>
 
         <div id="lockout-error-msg" style="color: var(--alert-coral); font-size: 11px; font-weight: 700; text-align: center; display: none;"></div>
@@ -1303,114 +1577,204 @@
   </div>
 
   <!-- FIRST BOOT ONBOARDING WIZARD OVERLAY -->
-  <div class="auth-overlay" id="first-boot-wizard" style="display: none; z-index: 9999;">
-    <div class="auth-card" style="max-width: 540px; width: 90%; padding: 36px; background: rgba(18, 24, 36, 0.96); border: 2px solid var(--accent-emerald); box-shadow: 0 20px 50px rgba(0,0,0,0.8);">
-      <div class="security-shield" style="display: flex; justify-content: center; margin-bottom: 16px; color: var(--accent-emerald);">
-        <svg class="svg-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-      </div>
-      <h3 style="font-family: var(--font-display); font-size: 24px; color: var(--text-white); font-weight: 800; margin-bottom: 8px; text-transform: uppercase;">NEXOVA CORE BOOTSTRAP</h3>
-      <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 24px; line-height: 1.4;">Configure your zero-trust offline-resilient register node. No internet data leaks, complete tenant isolation.</p>
-      
-      <div class="wizard-step" id="wizard-step-1" style="width: 100%; text-align: left; display: flex; flex-direction: column; gap: 16px;">
-        <div class="settings-row" style="margin-bottom: 4px;">
-          <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">BOOTSTRAP STRATEGY:</label>
-          <select id="wizard-setup-type" class="pos-input" style="margin-top: 4px;">
-            <option value="NEW">Bootstrap a New Store Network</option>
-            <option value="JOIN">Join an Existing Store Network</option>
-          </select>
+  <div class="auth-overlay" id="first-boot-wizard" style="display: none; z-index: 9999; overflow-y: auto; align-items: flex-start; padding: 24px 0;">
+    <div id="wizard-card" style="max-width: 520px; width: 92%; margin: auto; background: linear-gradient(160deg, #1a1a28 0%, #0e0e1a 60%, #080810 100%); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; box-shadow: 0 40px 80px rgba(0,0,0,0.9), 0 0 80px rgba(0,214,143,0.04), inset 0 1px 0 rgba(255,255,255,0.07); overflow: hidden; position: relative;">
+
+      <!-- Wizard Header -->
+      <div style="padding: 28px 32px 0; text-align: center;">
+        <div style="width: 52px; height: 52px; background: linear-gradient(135deg, #00d68f 0%, #00a876 100%); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; box-shadow: 0 0 30px rgba(0,214,143,0.35), 0 6px 12px rgba(0,0,0,0.5); font-family: var(--font-display); font-size: 24px; font-weight: 900; color: #060d0d;">N</div>
+        <h2 style="font-family: var(--font-display); font-size: 22px; font-weight: 800; color: #f0f4ff; letter-spacing: -0.3px; margin-bottom: 6px;">Nexova Setup</h2>
+        <p id="wizard-step-subtitle" style="font-size: 12px; color: #7a8bb0; line-height: 1.5; margin-bottom: 24px; min-height: 36px;">Let's get your point-of-sale ready in just a few steps.</p>
+        <!-- Step Progress Dots -->
+        <div id="wizard-step-dots" style="display: flex; align-items: center; justify-content: center; gap: 0; margin-bottom: 28px;">
+          <div class="wiz-dot active" data-step="1" style="width: 28px; height: 6px; border-radius: 3px; background: #00d68f; transition: all 0.35s cubic-bezier(0.16,1,0.3,1);"></div>
+          <div style="width: 20px; height: 2px; background: rgba(255,255,255,0.07);"></div>
+          <div class="wiz-dot" data-step="2" style="width: 6px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.12); transition: all 0.35s cubic-bezier(0.16,1,0.3,1);"></div>
+          <div style="width: 20px; height: 2px; background: rgba(255,255,255,0.07);"></div>
+          <div class="wiz-dot" data-step="3" style="width: 6px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.12); transition: all 0.35s cubic-bezier(0.16,1,0.3,1);"></div>
+          <div style="width: 20px; height: 2px; background: rgba(255,255,255,0.07);"></div>
+          <div class="wiz-dot" data-step="4" style="width: 6px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.12); transition: all 0.35s cubic-bezier(0.16,1,0.3,1);"></div>
         </div>
-        
-        <div id="wizard-new-store-fields" style="display: flex; flex-direction: column; gap: 16px; width: 100%;">
-          <div class="settings-row">
-            <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">BOUTIQUE STORE NAME:</label>
-            <input type="text" id="wizard-store-name" class="pos-input" placeholder="e.g. MONOCHROME COFFEE" style="margin-top: 4px;">
+      </div>
+
+      <!-- Wizard Panels -->
+      <div style="padding: 0 32px; min-height: 280px;">
+
+        <!-- STEP 1: Choose Path -->
+        <div class="wiz-panel" id="wiz-panel-1" style="display: flex; flex-direction: column; gap: 12px;">
+          <!-- PRIMARY CTA: Scan to Pair -->
+          <button type="button" id="btn-wizard-scan-qr-direct" style="width:100%; min-height:64px; border:none; border-radius:12px; background:linear-gradient(135deg,#00d68f 0%,#00a876 100%); color:#060d0d; font-family:var(--font-display); font-weight:800; font-size:15px; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:12px; box-shadow:0 6px 24px rgba(0,214,143,0.35); transition:all 0.2s ease;">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+            Scan QR Code to Pair
+          </button>
+          <p style="font-size:10px; color:#4a5478; text-align:center; margin:-4px 0 4px;">Secondary device? Scan the Master register's pairing QR to join instantly.</p>
+          <!-- Divider -->
+          <div style="display:flex; align-items:center; gap:12px; margin: 4px 0;">
+            <div style="flex:1; height:1px; background:rgba(255,255,255,0.06);"></div>
+            <span style="font-size:9px; font-weight:800; letter-spacing:1px; color:#4a5478; text-transform:uppercase;">or set up from scratch</span>
+            <div style="flex:1; height:1px; background:rgba(255,255,255,0.06);"></div>
           </div>
-          <div class="settings-row">
-            <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">TAX PERCENTAGE RATE (%):</label>
-            <input type="number" id="wizard-tax-rate" class="pos-input" value="8.0" step="0.1" style="margin-top: 4px;">
-          </div>
-          <div class="settings-row">
-            <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">OWNER SECURITY PIN (4-digit):</label>
-            <div class="password-wrapper">
-              <input type="password" id="wizard-admin-pin" class="pos-input" placeholder="e.g. 1234" maxlength="4" style="margin-top: 4px;">
-              <button type="button" class="btn-toggle-password" title="Toggle visibility">
-                <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-              </button>
+          <!-- Set Up New -->
+          <button type="button" id="btn-wiz-choose-new" style="width:100%; min-height:56px; border:1px solid rgba(255,255,255,0.08); border-radius:12px; background:rgba(255,255,255,0.04); color:#f0f4ff; font-family:var(--font-display); font-weight:700; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:14px; padding:0 20px; transition:all 0.2s ease; text-align:left;">
+            <div style="width:36px; height:36px; border-radius:8px; background:rgba(0,214,143,0.12); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#00d68f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             </div>
-          </div>
-          <div class="settings-row">
-            <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">NETWORK ENCRYPTION SECRET KEY:</label>
-            <div class="password-wrapper">
-              <input type="password" id="wizard-sync-passphrase" class="pos-input" placeholder="Passphrase to encrypt all P2P local Wi-Fi data" style="margin-top: 4px;">
-              <button type="button" class="btn-toggle-password" title="Toggle visibility">
-                <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-              </button>
+            <div style="flex:1;">
+              <div style="font-size:13px; font-weight:700; color:#f0f4ff;">Set Up New Store</div>
+              <div style="font-size:10px; color:#7a8bb0; margin-top:2px;">Bootstrap a fresh Master register node</div>
             </div>
-          </div>
-          <div class="settings-row">
-            <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">BRANDING COLOR PALETTE:</label>
-            <select id="wizard-theme" class="pos-input" style="margin-top: 4px;">
-              <option value="Obsidian Emerald">Obsidian Emerald</option>
-              <option value="Midnight Sapphire">Midnight Sapphire</option>
-              <option value="Warm Amber">Warm Amber</option>
-              <option value="Minimalist Chrome">Minimalist Chrome</option>
-              <option value="Monochrome Ivory">Monochrome Ivory</option>
-            </select>
+            <svg style="opacity:0.35; flex-shrink:0;" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <!-- Join Existing -->
+          <button type="button" id="btn-wiz-choose-join" style="width:100%; min-height:56px; border:1px solid rgba(255,255,255,0.08); border-radius:12px; background:rgba(255,255,255,0.04); color:#f0f4ff; font-family:var(--font-display); font-weight:700; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:14px; padding:0 20px; transition:all 0.2s ease; text-align:left;">
+            <div style="width:36px; height:36px; border-radius:8px; background:rgba(79,158,255,0.12); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#4f9eff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            </div>
+            <div style="flex:1;">
+              <div style="font-size:13px; font-weight:700; color:#f0f4ff;">Join Existing Network</div>
+              <div style="font-size:10px; color:#7a8bb0; margin-top:2px;">Connect to a running store network manually</div>
+            </div>
+            <svg style="opacity:0.35; flex-shrink:0;" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <!-- Hidden compat input -->
+          <select id="wizard-setup-type" style="display:none;" aria-label="Wizard Setup Type"><option value="NEW">New</option><option value="JOIN">Join</option></select>
+        </div>
+
+        <!-- STEP 2a: Store Details (NEW path) -->
+        <div class="wiz-panel" id="wiz-panel-2a" style="display:none; flex-direction:column; gap:14px;">
+          <div id="wizard-new-store-fields" style="display:flex; flex-direction:column; gap:14px;">
+            <div class="wiz-field-group">
+              <label class="wiz-label">Store Name</label>
+              <input type="text" id="wizard-store-name" class="pos-input" placeholder="e.g. Monochrome Coffee" style="margin-top:6px;" aria-label="e.g. Monochrome Coffee">
+              <span class="wiz-hint">Appears on receipts and the POS header</span>
+            </div>
+            <div class="wiz-field-group">
+              <label class="wiz-label">Tax Rate (%)</label>
+              <input type="number" id="wizard-tax-rate" class="pos-input" value="8.0" step="0.1" min="0" max="100" style="margin-top:6px;" aria-label="Wizard Tax Rate">
+              <span class="wiz-hint">Applied to taxable items at checkout</span>
+            </div>
+            <div class="wiz-field-group">
+              <label class="wiz-label">Branding Theme</label>
+              <select id="wizard-theme" class="pos-input" style="margin-top:6px;" aria-label="Wizard Theme">
+                <option value="Obsidian Emerald">Obsidian Emerald (Default)</option>
+                <option value="Midnight Sapphire">Midnight Sapphire</option>
+                <option value="Warm Amber">Warm Amber</option>
+                <option value="Minimalist Chrome">Minimalist Chrome</option>
+                <option value="Monochrome Ivory">Monochrome Ivory (Light)</option>
+              </select>
+              <span class="wiz-hint">Color palette for the entire POS interface</span>
+            </div>
           </div>
         </div>
 
-        <div id="wizard-join-store-fields" style="display: none; flex-direction: column; gap: 16px; width: 100%;">
-          <div class="settings-row">
-            <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">SCAN PAIRING QR CODE:</label>
-            <button type="button" class="action-btn action-success" id="btn-wizard-scan-qr" style="width: 100%; margin-top: 4px;">SCAN PARTNER REGISTER QR</button>
-          </div>
-          <div style="display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 10px; color: var(--text-gray); text-transform: uppercase;">
-            <div style="flex: 1; height: 1px; background: var(--border-titanium);"></div>
-            <span>or enter manually</span>
-            <div style="flex: 1; height: 1px; background: var(--border-titanium);"></div>
-          </div>
-          <div class="settings-row">
-            <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">PRIMARY REGISTER SERVER URL:</label>
-            <input type="url" id="wizard-join-server-url" class="pos-input" placeholder="e.g. http://192.168.1.100:3000" style="margin-top: 4px;">
-          </div>
-          <div class="settings-row">
-            <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">ENTER SHARED SYNC PASSPHRASE KEY:</label>
-            <div class="password-wrapper">
-              <input type="password" id="wizard-join-passphrase" class="pos-input" placeholder="Required to decrypt network traffic" style="margin-top: 4px;">
-              <button type="button" class="btn-toggle-password" title="Toggle visibility">
-                <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-              </button>
+        <!-- STEP 2b: Join Network -->
+        <div class="wiz-panel" id="wiz-panel-2b" style="display:none; flex-direction:column; gap:14px;">
+          <div id="wizard-join-store-fields" style="display:flex; flex-direction:column; gap:14px;">
+            <button type="button" id="btn-wizard-scan-qr" style="width:100%; min-height:56px; border:1px solid rgba(0,214,143,0.3); border-radius:12px; background:rgba(0,214,143,0.08); color:#00d68f; font-family:var(--font-display); font-weight:800; font-size:13px; text-transform:uppercase; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; transition:all 0.2s ease;">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+              Scan Partner Register QR
+            </button>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <div style="flex:1; height:1px; background:rgba(255,255,255,0.06);"></div>
+              <span style="font-size:9px; color:#4a5478; text-transform:uppercase; letter-spacing:1px;">or enter manually</span>
+              <div style="flex:1; height:1px; background:rgba(255,255,255,0.06);"></div>
+            </div>
+            <div class="wiz-field-group">
+              <label class="wiz-label">Master Register URL</label>
+              <input type="url" id="wizard-join-server-url" class="pos-input" placeholder="e.g. http://192.168.1.100:3000" style="margin-top:6px;" aria-label="e.g. http://192.168.1.100:3000">
+              <span class="wiz-hint">Local network IP of the Master PC running Nexova</span>
+            </div>
+            <div class="wiz-field-group">
+              <label class="wiz-label">Network Encryption Key</label>
+              <div class="password-wrapper" style="margin-top:6px;">
+                <input type="password" id="wizard-join-passphrase" class="pos-input" placeholder="Shared store passphrase" aria-label="Shared store passphrase">
+                <button type="button" class="btn-toggle-password" title="Toggle visibility">
+                  <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                </button>
+              </div>
+              <span class="wiz-hint">Must match exactly with the Master register's key</span>
             </div>
           </div>
-          <p style="font-size: 10px; color: var(--text-gray); line-height: 1.4; margin-top: 8px;">
-            * This terminal will automatically join and sync catalog products, cashier settings, and order history from active peer master registers.
-          </p>
         </div>
-        
-        <!-- ── EULA + Legal Acceptance (Component L) ── -->
-        <div style="margin-top: 20px; padding: 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 6px;">
-          <p style="font-size: 11px; color: var(--text-gray); line-height: 1.7; margin: 0 0 12px;">
-            <strong style="color: var(--text-white); display: block; margin-bottom: 6px; font-size: 12px;">END-USER LICENSE AGREEMENT</strong>
-            <strong>(1) AS-IS SOFTWARE:</strong> Nexova Commerce is provided "as-is" without any warranty, express or implied. The developer is not liable for any financial loss, data corruption, or business disruption arising from use of this software.<br><br>
-            <strong>(2) DATA RESPONSIBILITY:</strong> All transaction data, customer records, and inventory information is stored locally on this device and/or your designated sync server. The developer has zero access to, and assumes zero liability for, your business data. You are solely responsible for backups and regulatory compliance.<br><br>
-            <strong>(3) LICENSE REVOCATION:</strong> Use of this software without a valid cryptographic license key constitutes a breach of this agreement and entitles the developer to remotely invalidate the license at any time.
-          </p>
-          <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
-            <input type="checkbox" id="wizard-eula-checkbox" style="margin-top: 2px; accent-color: var(--accent-emerald); width: 16px; height: 16px; flex-shrink: 0;" />
-            <span style="font-size: 11px; color: var(--text-gray);">I have read and agree to the End-User License Agreement. I understand that all data is my sole responsibility.</span>
+
+        <!-- STEP 3: Security -->
+        <div class="wiz-panel" id="wiz-panel-3" style="display:none; flex-direction:column; gap:14px;">
+          <div class="wiz-field-group">
+            <label class="wiz-label">Owner PIN <span style="color:#4a5478; font-weight:500; font-size:10px;">(4 digits)</span></label>
+            <div class="password-wrapper" style="margin-top:6px;">
+              <input type="password" id="wizard-admin-pin" class="pos-input" placeholder="e.g. 1234" maxlength="4" inputmode="numeric" pattern="[0-9]*" aria-label="e.g. 1234">
+              <button type="button" class="btn-toggle-password" title="Toggle visibility">
+                <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              </button>
+            </div>
+            <span class="wiz-hint">Required to unlock the register and access admin settings</span>
+          </div>
+          <div class="wiz-field-group">
+            <label class="wiz-label">Network Encryption Key</label>
+            <div class="password-wrapper" style="margin-top:6px;">
+              <input type="password" id="wizard-sync-passphrase" class="pos-input" placeholder="Secure passphrase for P2P Wi-Fi sync" aria-label="Secure passphrase for P2P Wi-Fi sync">
+              <button type="button" class="btn-toggle-password" title="Toggle visibility">
+                <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              </button>
+            </div>
+            <span class="wiz-hint">Encrypts all data synced between registers on your local network</span>
+          </div>
+          <div id="wiz-passphrase-strength" style="padding:10px 14px; border-radius:8px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <span style="font-size:10px; font-weight:700; color:#7a8bb0; text-transform:uppercase; letter-spacing:0.5px;">Key Strength</span>
+              <span id="wiz-strength-label" style="font-size:10px; font-weight:800; color:#00d68f;">â€”</span>
+            </div>
+            <div style="height:4px; background:rgba(255,255,255,0.06); border-radius:2px; overflow:hidden;">
+              <div id="wiz-strength-bar" style="height:100%; width:0; background:#00d68f; border-radius:2px; transition:all 0.3s ease;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 4: Review & EULA -->
+        <div class="wiz-panel" id="wiz-panel-4" style="display:none; flex-direction:column; gap:14px;">
+          <div id="wiz-review-summary" style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:16px; display:flex; flex-direction:column; gap:10px;">
+            <div style="font-size:10px; font-weight:800; color:#4a5478; letter-spacing:0.8px; text-transform:uppercase; margin-bottom:2px;">Configuration Summary</div>
+            <div style="display:flex; justify-content:space-between;"><span style="font-size:11px; color:#7a8bb0;">Store Name</span><span style="font-size:11px; font-weight:700; color:#f0f4ff;" id="wiz-sum-store">â€”</span></div>
+            <div style="height:1px; background:rgba(255,255,255,0.04);"></div>
+            <div style="display:flex; justify-content:space-between;"><span style="font-size:11px; color:#7a8bb0;">Tax Rate</span><span style="font-size:11px; font-weight:700; color:#f0f4ff;" id="wiz-sum-tax">â€”</span></div>
+            <div style="height:1px; background:rgba(255,255,255,0.04);"></div>
+            <div style="display:flex; justify-content:space-between;"><span style="font-size:11px; color:#7a8bb0;">Theme</span><span style="font-size:11px; font-weight:700; color:#f0f4ff;" id="wiz-sum-theme">â€”</span></div>
+            <div style="height:1px; background:rgba(255,255,255,0.04);"></div>
+            <div style="display:flex; justify-content:space-between;"><span style="font-size:11px; color:#7a8bb0;">Mode</span><span style="font-size:11px; font-weight:700; color:#00d68f;" id="wiz-sum-mode">Master Register</span></div>
+          </div>
+          <div style="background:rgba(255,255,255,0.015); border:1px solid rgba(255,255,255,0.05); border-radius:10px; padding:14px; max-height:130px; overflow-y:auto;">
+            <p style="font-size:10px; color:#7a8bb0; line-height:1.7; margin:0;">
+              <strong style="color:#f0f4ff; display:block; margin-bottom:8px; font-size:11px;">End-User License Agreement</strong>
+              <strong style="color:#c8d0e7;">(1) AS-IS:</strong> Nexova Commerce is provided without warranty. The developer assumes no liability for financial loss or data corruption.<br><br>
+              <strong style="color:#c8d0e7;">(2) DATA:</strong> All data is stored locally on your device. The developer has zero access to your business data. Backups are your sole responsibility.<br><br>
+              <strong style="color:#c8d0e7;">(3) LICENSE:</strong> Use without a valid license constitutes a breach of this agreement and may result in remote deactivation.
+            </p>
+          </div>
+          <label style="display:flex; align-items:flex-start; gap:12px; cursor:pointer; padding:12px 14px; background:rgba(255,255,255,0.02); border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+            <input type="checkbox" id="wizard-eula-checkbox" style="margin-top:1px; accent-color:#00d68f; width:16px; height:16px; flex-shrink:0;" / aria-label="Wizard Eula Checkbox">
+            <span style="font-size:11px; color:#7a8bb0; line-height:1.5;">I have read and agree to the EULA. All data is my sole responsibility.</span>
           </label>
         </div>
 
-        <button class="action-btn action-success" id="btn-submit-wizard" style="width: 100%; min-height: 48px; margin-top: 16px; font-weight: 800; font-size: 13px; text-transform: uppercase;">
-          CONFIRM STORE BOOTSTRAP
+      </div><!-- /panels -->
+
+      <!-- Wizard Footer: Navigation -->
+      <div style="padding: 20px 32px 28px; display:flex; gap:10px; align-items:center;">
+        <button type="button" id="btn-wiz-back" style="min-height:48px; padding:0 22px; border:1px solid rgba(255,255,255,0.08); border-radius:10px; background:rgba(255,255,255,0.04); color:#7a8bb0; font-family:var(--font-display); font-weight:700; font-size:13px; cursor:pointer; display:none; align-items:center; gap:8px; transition:all 0.2s ease; flex-shrink:0;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg> Back
+        </button>
+        <button type="button" id="btn-wiz-next" style="flex:1; min-height:48px; border:none; border-radius:10px; background:linear-gradient(135deg,#00d68f 0%,#00a876 100%); color:#060d0d; font-family:var(--font-display); font-weight:800; font-size:14px; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 16px rgba(0,214,143,0.3); transition:all 0.2s ease;">
+          Continue <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
       </div>
+
+      <!-- Hidden submit trigger for existing JS handler -->
+      <button id="btn-submit-wizard" style="display:none;"></button>
     </div>
   </div>
-
   <!-- DEVICE PAIRING / WHITELIST OVERLAY -->
   <div class="auth-overlay" id="device-pairing-overlay" style="display: none; z-index: 9998;">
     <div class="auth-card" style="max-width: 480px; width: 90%; padding: 36px; background: #000000; border: 1px solid var(--border-titanium); border-radius: 4px;">
@@ -1423,12 +1787,12 @@
       <div id="device-pairing-form" style="width: 100%; text-align: left; display: flex; flex-direction: column; gap: 16px;">
         <div class="settings-row">
           <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">DEVICE FRIENDLY NAME:</label>
-          <input type="text" id="pairing-device-name" class="pos-input" placeholder="e.g. Drive-Thru Tablet" style="margin-top: 4px; border-radius: 4px; width: 100%;">
+          <input type="text" id="pairing-device-name" class="pos-input" placeholder="e.g. Drive-Thru Tablet" style="margin-top: 4px; border-radius: 4px; width: 100%;" aria-label="e.g. Drive-Thru Tablet">
         </div>
         <div class="settings-row">
           <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">NETWORK ENCRYPTION KEY (PASSPHRASE):</label>
           <div class="password-wrapper">
-            <input type="password" id="pairing-sync-passphrase" class="pos-input" placeholder="Enter store network key" style="margin-top: 4px; border-radius: 4px; width: 100%;">
+            <input type="password" id="pairing-sync-passphrase" class="pos-input" placeholder="Enter store network key" style="margin-top: 4px; border-radius: 4px; width: 100%;" aria-label="Enter store network key">
             <button type="button" class="btn-toggle-password" title="Toggle visibility">
               <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -1438,6 +1802,20 @@
         <button class="action-btn action-success" id="btn-submit-pairing" style="width: 100%; min-height: 48px; font-weight: 800; font-size: 13px; text-transform: uppercase; border-radius: 4px; margin-top: 10px;">
           Request Pairing
         </button>
+        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin: 8px 0;">
+          <hr style="flex-grow: 1; border: none; border-top: 1px solid var(--border-titanium);">
+          <span style="font-size: 10px; color: var(--text-gray); font-weight: 700; text-transform: uppercase;">OR</span>
+          <hr style="flex-grow: 1; border: none; border-top: 1px solid var(--border-titanium);">
+        </div>
+        <button class="action-btn" id="btn-scan-pairing-qr" type="button" style="width: 100%; min-height: 48px; font-weight: 800; font-size: 13px; text-transform: uppercase; border-radius: 4px; display: flex; align-items: center; justify-content: center; gap: 8px; background: #0d9488; color: white;">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Scan QR Code to Pair
+        </button>
+        <div style="margin-top: 12px; text-align: center;">
+          <button type="button" class="btn-link btn-pairing-reset-action" style="font-size: 10px; color: var(--text-gray); background: none; border: none; text-decoration: underline; cursor: pointer; opacity: 0.6;">
+            Back to Onboarding Setup
+          </button>
+        </div>
       </div>
       
       <div id="device-pairing-pending" style="width: 100%; display: none; flex-direction: column; align-items: center; gap: 16px;">
@@ -1450,6 +1828,11 @@
         <button class="action-btn action-secondary" id="btn-cancel-pairing" style="width: 100%; min-height: 36px; margin-top: 12px; border-radius: 4px; font-size: 11px; text-transform: uppercase;">
           Request Again / Change Name
         </button>
+        <div style="margin-top: 12px; text-align: center; width: 100%;">
+          <button type="button" class="btn-link btn-pairing-reset-action" style="font-size: 10px; color: var(--text-gray); background: none; border: none; text-decoration: underline; cursor: pointer; opacity: 0.6;">
+            Reset Setup / Start Over
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -1467,27 +1850,27 @@
         <input type="hidden" id="form-supplier-id">
         <div class="settings-row">
           <label>Supplier / Distributor Name:</label>
-          <input type="text" id="form-supplier-name" class="pos-input" placeholder="e.g. Metro Wholesale Pakistan">
+          <input type="text" id="form-supplier-name" class="pos-input" placeholder="e.g. Metro Wholesale Pakistan" aria-label="e.g. Metro Wholesale Pakistan">
         </div>
         <div class="settings-row">
           <label>Phone Number:</label>
-          <input type="text" id="form-supplier-phone" class="pos-input" placeholder="e.g. +92-300-1234567">
+          <input type="text" id="form-supplier-phone" class="pos-input" placeholder="e.g. +92-300-1234567" aria-label="e.g. +92-300-1234567">
         </div>
         <div class="settings-row">
           <label>Email Address:</label>
-          <input type="email" id="form-supplier-email" class="pos-input" placeholder="distributor@wholesale.com">
+          <input type="email" id="form-supplier-email" class="pos-input" placeholder="distributor@wholesale.com" aria-label="distributor@wholesale.com">
         </div>
         <div class="settings-row">
           <label>Office Address:</label>
-          <input type="text" id="form-supplier-address" class="pos-input" placeholder="Distributor address">
+          <input type="text" id="form-supplier-address" class="pos-input" placeholder="Distributor address" aria-label="Distributor address">
         </div>
         <div class="settings-row">
           <label>Credit Limit (in minor units / paisas):</label>
-          <input type="number" id="form-supplier-credit-limit" class="pos-input" placeholder="e.g. 50000000 for Rs. 500,000">
+          <input type="number" id="form-supplier-credit-limit" class="pos-input" placeholder="e.g. 50000000 for Rs. 500,000" aria-label="e.g. 50000000 for Rs. 500,000">
         </div>
         <div class="settings-row">
           <label>Additional Notes:</label>
-          <textarea id="form-supplier-notes" class="pos-input" placeholder="Contract terms or remarks..." style="height: 60px; resize: none;"></textarea>
+          <textarea id="form-supplier-notes" class="pos-input" placeholder="Contract terms or remarks..." style="height: 60px; resize: none;" aria-label="Contract terms or remarks..."></textarea>
         </div>
       </div>
       <div class="modal-footer">
@@ -1509,19 +1892,19 @@
         
         <div class="settings-row">
           <label>Target Supplier:</label>
-          <input type="text" id="form-po-distributor-name" class="pos-input" readonly style="opacity: 0.7;">
+          <input type="text" id="form-po-distributor-name" class="pos-input" readonly style="opacity: 0.7;" aria-label="Form Po Distributor Name">
         </div>
 
         <div style="border-top: 1px solid var(--border-titanium); padding-top: 12px;">
           <h4 style="margin-bottom: 8px; font-size: 12px; color: var(--text-white);">Order Items Selection</h4>
           
           <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-            <select id="form-po-item-sku-select" class="pos-input" style="flex-grow: 1;">
+            <select id="form-po-item-sku-select" class="pos-input" style="flex-grow: 1;" aria-label="Form Po Item Sku Select">
               <option value="">-- Select Product --</option>
               <!-- filled by JS -->
             </select>
-            <input type="number" id="form-po-item-qty" class="pos-input" placeholder="Qty" style="width: 80px;" min="1" value="10">
-            <input type="number" id="form-po-item-cost" class="pos-input" placeholder="Cost price" style="width: 100px;">
+            <input type="number" id="form-po-item-qty" class="pos-input" placeholder="Qty" style="width: 80px;" min="1" value="10" aria-label="Qty">
+            <input type="number" id="form-po-item-cost" class="pos-input" placeholder="Cost price" style="width: 100px;" aria-label="Cost price">
             <button class="action-btn action-success" id="btn-po-add-item-row" style="min-height: 40px; padding: 6px 12px;">Add</button>
           </div>
 
@@ -1544,11 +1927,11 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
           <div class="settings-row">
             <label>Expected Delivery Date:</label>
-            <input type="date" id="form-po-expected-delivery" class="pos-input">
+            <input type="date" id="form-po-expected-delivery" class="pos-input" aria-label="Form Po Expected Delivery">
           </div>
           <div class="settings-row">
             <label>PO Status:</label>
-            <select id="form-po-status" class="pos-input">
+            <select id="form-po-status" class="pos-input" aria-label="Form Po Status">
               <option value="DRAFT">DRAFT</option>
               <option value="SENT">SENT</option>
               <option value="CONFIRMED">CONFIRMED</option>
@@ -1558,7 +1941,7 @@
 
         <div class="settings-row">
           <label>PO Instruction Notes:</label>
-          <input type="text" id="form-po-notes" class="pos-input" placeholder="e.g. deliver to back warehouse gate">
+          <input type="text" id="form-po-notes" class="pos-input" placeholder="e.g. deliver to back warehouse gate" aria-label="e.g. deliver to back warehouse gate">
         </div>
       </div>
       <div class="modal-footer">
@@ -1579,22 +1962,22 @@
         <input type="hidden" id="form-dp-distributor-id">
         <div class="settings-row">
           <label>Supplier Name:</label>
-          <input type="text" id="form-dp-distributor-name" class="pos-input" readonly style="opacity: 0.7;">
+          <input type="text" id="form-dp-distributor-name" class="pos-input" readonly style="opacity: 0.7;" aria-label="Form Dp Distributor Name">
         </div>
         <div class="settings-row">
           <label>Select Purchase Order Reference (Optional):</label>
-          <select id="form-dp-po-id" class="pos-input">
+          <select id="form-dp-po-id" class="pos-input" aria-label="Form Dp Po Id">
             <option value="">-- No Direct PO Reference --</option>
             <!-- filled by JS -->
           </select>
         </div>
         <div class="settings-row">
           <label>Payment Amount (in Rupees):</label>
-          <input type="number" id="form-dp-amount" class="pos-input" placeholder="e.g. 15000 for Rs. 15,000" min="1" step="0.01">
+          <input type="number" id="form-dp-amount" class="pos-input" placeholder="e.g. 15000 for Rs. 15,000" min="1" step="0.01" aria-label="e.g. 15000 for Rs. 15,000">
         </div>
         <div class="settings-row">
           <label>Payment Mode / Account Channel:</label>
-          <select id="form-dp-method" class="pos-input">
+          <select id="form-dp-method" class="pos-input" aria-label="Form Dp Method">
             <option value="CASH">Cash Drawer</option>
             <option value="BANK_TRANSFER">Bank HBL/UBL Transfer</option>
             <option value="RAAST">Raast Direct Pay</option>
@@ -1604,7 +1987,7 @@
         </div>
         <div class="settings-row">
           <label>Reference Note (Receipt # / TX Hash):</label>
-          <input type="text" id="form-dp-ref-note" class="pos-input" placeholder="e.g. Trans ID: 29420842042">
+          <input type="text" id="form-dp-ref-note" class="pos-input" placeholder="e.g. Trans ID: 29420842042" aria-label="e.g. Trans ID: 29420842042">
         </div>
       </div>
       <div class="modal-footer">
@@ -1661,7 +2044,7 @@
       <div class="scanner-frame"></div>
       <button class="btn-close-scanner" id="btn-close-mobile-scanner">×</button>
       <div class="scanner-footer-input">
-        <input type="text" id="scanner-manual-input" placeholder="Type barcode and press Enter..." class="pos-input">
+        <input type="text" id="scanner-manual-input" placeholder="Type barcode and press Enter..." class="pos-input" aria-label="Type barcode and press Enter...">
       </div>
     </div>
   </div>

@@ -90,6 +90,13 @@ const EscPosEngine = (() => {
     text(divider());
     text(formatLine('Subtotal', `Rs.${(data.subtotal / 100).toFixed(2)}`));
     if (data.tax) text(formatLine(`Tax (${data.taxRate || 0}%)`, `Rs.${(data.tax / 100).toFixed(2)}`));
+    
+    // FBR POS fee printing (Compliance)
+    const isFbrEnabled = (data.total - data.subtotal - data.tax >= 100);
+    if (isFbrEnabled) {
+      text(formatLine('FBR POS Fee', 'Rs.1.00'));
+    }
+
     push(CMD.BOLD_ON);
     text(formatLine('TOTAL', `Rs.${(data.total / 100).toFixed(2)}`));
     push(CMD.BOLD_OFF);

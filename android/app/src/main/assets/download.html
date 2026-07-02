@@ -171,6 +171,11 @@
     .btn svg {
       margin-right: 8px;
     }
+
+    input:focus, select:focus {
+      border-color: var(--accent-teal) !important;
+      box-shadow: 0 0 10px var(--accent-teal-glow);
+    }
   </style>
 </head>
 <body>
@@ -181,40 +186,162 @@
     <p class="subtitle">Distributed Offline-First Point of Sale Ecosystem.<br>Download the client to pair this device with the store network.</p>
 
     <div class="portal-grid">
-      <!-- Android Native APK Card -->
-      <div class="card">
-        <h2>Android Native Client</h2>
-        <p>Install the dedicated Android App for optimized scanner performance, system auto-start, and persistent local caching bounds.</p>
-        <a href="/apk/nexova-pos.apk" class="btn" download>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Download APK Installer
-        </a>
-        <ol style="margin-top: 20px;">
-          <li>Once the file downloads, tap <strong>nexova-pos.apk</strong> to launch the package manager.</li>
-          <li>If prompted, enable <strong>"Install from Unknown Sources"</strong> in your device security settings.</li>
-          <li>Complete installation, launch Nexova POS, and enter a friendly name to pair the device.</li>
-        </ol>
+      <!-- Store Onboarding / Activation Code Generation Card -->
+      <div class="card" id="onboard-card">
+        <h2>Store Onboarding Portal</h2>
+        <p>Register your store and obtain a 6-digit activation code to initialize your retail terminal.</p>
+        
+        <form id="onboard-form" style="display: flex; flex-direction: column; gap: 16px; margin-top: 16px;">
+          <div style="display: flex; flex-direction: column; gap: 4px; text-align: left;">
+            <label for="onboard-name" style="font-size: 11px; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Store Name</label>
+            <input type="text" id="onboard-name" required placeholder="e.g. Nexova Coffee & Retail" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); padding: 12px; color: var(--text-white); font-family: var(--font-body); font-size: 13px; width: 100%; border-radius: 4px; outline: none; transition: border-color 0.2s;">
+          </div>
+          
+          <div style="display: flex; flex-direction: column; gap: 4px; text-align: left;">
+            <label for="onboard-email" style="font-size: 11px; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Owner Email</label>
+            <input type="email" id="onboard-email" required placeholder="owner@store.com" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); padding: 12px; color: var(--text-white); font-family: var(--font-body); font-size: 13px; width: 100%; border-radius: 4px; outline: none; transition: border-color 0.2s;">
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px; text-align: left;">
+            <label for="onboard-phone" style="font-size: 11px; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Phone Number (NayaPay linked)</label>
+            <input type="tel" id="onboard-phone" required placeholder="e.g. +923001234567" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); padding: 12px; color: var(--text-white); font-family: var(--font-body); font-size: 13px; width: 100%; border-radius: 4px; outline: none; transition: border-color 0.2s;">
+          </div>
+
+          <div style="display: flex; gap: 12px;">
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 4px; text-align: left;">
+              <label for="onboard-tier" style="font-size: 11px; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">License Tier</label>
+              <select id="onboard-tier" style="background: var(--bg-obsidian); border: 1px solid var(--border-titanium); padding: 12px; color: var(--text-white); font-family: var(--font-body); font-size: 13px; width: 100%; border-radius: 4px; outline: none; cursor: pointer;">
+                <option value="TRIAL">3-Day Free Trial</option>
+                <option value="STARTER">Starter Tier</option>
+                <option value="PRO" selected>Pro Tier</option>
+                <option value="ENTERPRISE">Enterprise Tier</option>
+              </select>
+            </div>
+            
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 4px; text-align: left;">
+              <label for="onboard-mode" style="font-size: 11px; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">License Type</label>
+              <select id="onboard-mode" style="background: var(--bg-obsidian); border: 1px solid var(--border-titanium); padding: 12px; color: var(--text-white); font-family: var(--font-body); font-size: 13px; width: 100%; border-radius: 4px; outline: none; cursor: pointer;">
+                <option value="subscription" selected>Monthly Subscription</option>
+                <option value="lifetime">Lifetime Deal (LTD)</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" class="btn" style="margin-top: 8px;">
+            Generate Activation Code
+          </button>
+        </form>
+
+        <div id="activation-code-display" style="display: none; text-align: center; padding: 24px 0; margin-top: 16px; border-top: 1px solid var(--border-titanium);">
+          <div style="font-size: 11px; font-weight: 700; color: var(--text-gray); text-transform: uppercase; letter-spacing: 1px;">Your Activation Code</div>
+          <div id="code-number" style="font-family: var(--font-display); font-size: 48px; font-weight: 800; color: var(--text-white); margin: 12px 0; letter-spacing: 6px; text-shadow: 0 0 15px var(--accent-teal-glow);">000000</div>
+          <p style="font-size: 12px; margin-bottom: 12px; color: var(--accent-teal);">Code expires in <span id="countdown">15:00</span></p>
+          <p style="font-size: 11px; color: var(--text-gray); line-height: 1.5;">Enter this code and your phone number in the POS application activation screen to whitelist your terminal.</p>
+          <button id="btn-reset" class="btn btn-secondary" style="height: 40px; margin-top: 16px; font-size: 12px;">Onboard Another Store</button>
+        </div>
       </div>
 
-      <!-- Progressive Web App Card -->
-      <div class="card">
-        <h2>Progressive Web App (PWA)</h2>
-        <p>Run the zero-trust POS directly in your browser with full offline support and instant homescreen launching.</p>
-        <a href="/" class="btn btn-secondary">
-          Launch PWA Client
-        </a>
-        <ol style="margin-top: 20px;">
-          <li><strong>For iOS Safari:</strong> Tap the <strong>Share</strong> button, scroll down, and select <strong>"Add to Home Screen"</strong>.</li>
-          <li><strong>For Android Chrome:</strong> Tap the <strong>three dots</strong> menu, and select <strong>"Install App"</strong>.</li>
-          <li>Launch the app from your homescreen to enable secure, standalone full-screen cashier grids.</li>
-        </ol>
+        <!-- Android Native APK Card -->
+        <div class="card">
+          <h2>Android Native Client</h2>
+          <p>Install the dedicated Android App for optimized scanner performance, system auto-start, and persistent local caching bounds.</p>
+          <a href="/apk/nexova-pos.apk" class="btn" download>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download APK Installer
+          </a>
+          <ol style="margin-top: 20px;">
+            <li>Once the file downloads, tap <strong>nexova-pos.apk</strong> to launch the package manager.</li>
+            <li>If prompted, enable <strong>"Install from Unknown Sources"</strong> in your device security settings.</li>
+            <li>Complete installation, launch Nexova POS, and enter a friendly name to pair the device.</li>
+          </ol>
+        </div>
+  
+        <!-- Progressive Web App Card -->
+        <div class="card">
+          <h2>Progressive Web App (PWA)</h2>
+          <p>Run the zero-trust POS directly in your browser with full offline support and instant homescreen launching.</p>
+          <a href="/" class="btn btn-secondary">
+            Launch PWA Client
+          </a>
+          <ol style="margin-top: 20px;">
+            <li><strong>For iOS Safari:</strong> Tap the <strong>Share</strong> button, scroll down, and select <strong>"Add to Home Screen"</strong>.</li>
+            <li><strong>For Android Chrome:</strong> Tap the <strong>three dots</strong> menu, and select <strong>"Install App"</strong>.</li>
+            <li>Launch the app from your homescreen to enable secure, standalone full-screen cashier grids.</li>
+          </ol>
+        </div>
+      </div>
+  
+      <div class="footer">
+        NEXOVA ENTERPRISE POS v1.0.0 // ZERO-TRUST SYSTEM
       </div>
     </div>
-
-    <div class="footer">
-      NEXOVA ENTERPRISE POS v1.0.0 // ZERO-TRUST SYSTEM
-    </div>
-  </div>
-
-</body>
+  
+    <script>
+      document.getElementById('onboard-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('onboard-name').value;
+        const email = document.getElementById('onboard-email').value;
+        const phone = document.getElementById('onboard-phone').value;
+        const tier = document.getElementById('onboard-tier').value;
+        const mode = document.getElementById('onboard-mode').value;
+  
+        const btn = e.target.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.innerText = 'Registering Store...';
+  
+        try {
+          const response = await fetch('/api/onboard', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email, phone, tier, mode })
+          });
+          const result = await response.json();
+          
+          if (!response.ok) {
+            alert(result.error || 'Failed to onboard store.');
+            btn.disabled = false;
+            btn.innerText = 'Generate Activation Code';
+            return;
+          }
+  
+          document.getElementById('onboard-form').style.display = 'none';
+          document.getElementById('activation-code-display').style.display = 'block';
+          document.getElementById('code-number').innerText = result.code;
+  
+          // Start 15-minute countdown
+          let secondsLeft = 15 * 60;
+          const countdownEl = document.getElementById('countdown');
+          
+          clearInterval(window.countdownTimer);
+          window.countdownTimer = setInterval(() => {
+            secondsLeft--;
+            if (secondsLeft <= 0) {
+              clearInterval(window.countdownTimer);
+              countdownEl.innerText = 'EXPIRED';
+              document.getElementById('code-number').style.color = '#ef4444';
+            } else {
+              const mins = Math.floor(secondsLeft / 60);
+              const secs = secondsLeft % 60;
+              countdownEl.innerText = `${mins}:${secs.toString().padStart(2, '0')}`;
+            }
+          }, 1000);
+  
+        } catch (err) {
+          alert('Network error connecting to the onboarding service.');
+          btn.disabled = false;
+          btn.innerText = 'Generate Activation Code';
+        }
+      });
+  
+      document.getElementById('btn-reset').addEventListener('click', () => {
+        document.getElementById('onboard-form').reset();
+        document.getElementById('onboard-form').style.display = 'flex';
+        document.getElementById('activation-code-display').style.display = 'none';
+        const btn = document.getElementById('onboard-form').querySelector('button[type="submit"]');
+        btn.disabled = false;
+        btn.innerText = 'Generate Activation Code';
+        clearInterval(window.countdownTimer);
+      });
+    </script>
+  </body>
 </html>

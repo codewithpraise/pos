@@ -33,8 +33,8 @@
     async encrypt(text, passphrase) {
       if (!passphrase) return text;
       // Bypasses restriction by pushing to Android Kotlin Engine
-      if (window.AndroidPOS && typeof window.AndroidPOS.encryptAES === 'function') {
-        return window.AndroidPOS.encryptAES(text, passphrase);
+      if (globalScope.AndroidPOS && typeof globalScope.AndroidPOS.encryptAES === 'function') {
+        return globalScope.AndroidPOS.encryptAES(text, passphrase);
       }
       const enc = new TextEncoder();
       const key = await this.deriveKey(passphrase);
@@ -55,8 +55,8 @@
     async decrypt(ciphertextB64, passphrase) {
       if (!passphrase) return ciphertextB64;
       // Bypasses restriction by pushing to Android Kotlin Engine
-      if (window.AndroidPOS && typeof window.AndroidPOS.decryptAES === 'function') {
-        return window.AndroidPOS.decryptAES(ciphertextB64, passphrase);
+      if (globalScope.AndroidPOS && typeof globalScope.AndroidPOS.decryptAES === 'function') {
+        return globalScope.AndroidPOS.decryptAES(ciphertextB64, passphrase);
       }
       try {
         const raw = atob(ciphertextB64);
@@ -77,8 +77,8 @@
         
         return new TextDecoder().decode(decrypted);
       } catch (err) {
-        console.error('[CryptoEngine] Decrypt failed:', err);
-        throw new Error('Decryption failure: key mismatch or corrupted payload.');
+        // Quietly fallback to original value to prevent logging floods on unencrypted/mismatched data
+        return ciphertextB64;
       }
     }
   };
@@ -260,8 +260,8 @@
   // Web Crypto PBKDF2 SHA-256 matching the Node/Java implementations
   async function pbkdf2(password, saltHex, iterations, keyLen) {
     // Use Native Android Bridge if WebCrypto is blocked by Chromium
-    if (window.AndroidPOS && typeof window.AndroidPOS.pbkdf2 === 'function') {
-      const res = window.AndroidPOS.pbkdf2(password, saltHex, iterations, keyLen);
+    if (globalScope.AndroidPOS && typeof globalScope.AndroidPOS.pbkdf2 === 'function') {
+      const res = globalScope.AndroidPOS.pbkdf2(password, saltHex, iterations, keyLen);
       if (res) return res;
     }
 
@@ -504,6 +504,19 @@
         await this.put('categories', { name: cat, sync_hlc: '0000000000000:000001:seed' });
       }
 
+      // Seed baseline products catalog
+      const baselineProducts = [
+        { sku: 'sku_espresso', name: 'Monochrome Espresso', category: 'Drinks', base_price_minor_units: 32000, cost_price_minor_units: 12000, stock_level: 50, alert_threshold: 5, sync_hlc: '0000000000000:000004:seed' },
+        { sku: 'sku_cappuccino', name: 'Premium Cappuccino', category: 'Drinks', base_price_minor_units: 45000, cost_price_minor_units: 15000, stock_level: 40, alert_threshold: 5, sync_hlc: '0000000000000:000005:seed' },
+        { sku: 'sku_croissant', name: 'Butter Croissant', category: 'Pastries', base_price_minor_units: 28000, cost_price_minor_units: 10000, stock_level: 25, alert_threshold: 3, sync_hlc: '0000000000000:000006:seed' },
+        { sku: 'sku_muffin', name: 'Blueberry Muffin', category: 'Pastries', base_price_minor_units: 30000, cost_price_minor_units: 11000, stock_level: 30, alert_threshold: 4, sync_hlc: '0000000000000:000007:seed' },
+        { sku: 'sku_tote', name: 'Canvas Tote Bag', category: 'Accessories', base_price_minor_units: 120000, cost_price_minor_units: 45000, stock_level: 15, alert_threshold: 2, sync_hlc: '0000000000000:000008:seed' }
+      ];
+
+      for (const prod of baselineProducts) {
+        await this.put('inventory_catalog', prod);
+      }
+
       // 2. Create Admin Employee
       const adminHash = await hashPin(adminPin);
       const empAdmin = {
@@ -544,11 +557,11 @@
     },
 
     // CRUD Helper methods
-    async get(storeName, key) {
+    // CRUD Helper methods
+    async get(storeName, key, tx = null) {
       const row = await new Promise((resolve, reject) => {
-        if (!this.db) return reject(new Error('DB not initialized'));
-        const transaction = this.db.transaction([storeName], 'readonly');
-        const store = transaction.objectStore(transaction.objectStoreNames[0] || storeName);
+        if (!this.db && !tx) return reject(new Error('DB not initialized'));
+        const store = tx ? tx.objectStore(storeName) : this.db.transaction([storeName], 'readonly').objectStore(storeName);
         const request = store.get(key);
 
         request.onsuccess = (event) => resolve(event.target.result || null);
@@ -557,49 +570,47 @@
       if (!row) return null;
       let passphrase = '';
       if (storeName === 'customers' || storeName === 'transactions') {
-        passphrase = await this.getSyncPassphrase();
+        passphrase = await this.getSyncPassphrase(tx);
       }
       return await decryptItem(storeName, row, passphrase);
     },
 
-    async put(storeName, item) {
+    async put(storeName, item, tx = null) {
       let passphrase = '';
       if (storeName === 'customers' || storeName === 'transactions') {
-        passphrase = await this.getSyncPassphrase();
+        passphrase = await this.getSyncPassphrase(tx);
       }
       const encryptedItem = await encryptItem(storeName, item, passphrase);
       return new Promise((resolve, reject) => {
-        if (!this.db) return reject(new Error('DB not initialized'));
-        const transaction = this.db.transaction([storeName], 'readwrite');
-        const store = transaction.objectStore(transaction.objectStoreNames[0] || storeName);
+        if (!this.db && !tx) return reject(new Error('DB not initialized'));
+        const store = tx ? tx.objectStore(storeName) : this.db.transaction([storeName], 'readwrite').objectStore(storeName);
         const request = store.put(encryptedItem);
 
         request.onsuccess = () => {
-          this.triggerOpfsBackupDebounced();
+          if (!tx) this.triggerOpfsBackupDebounced();
           resolve(true);
         };
         request.onerror = (event) => reject(event.target.error);
       });
     },
 
-    delete(storeName, key) {
+    delete(storeName, key, tx = null) {
       return new Promise((resolve, reject) => {
-        if (!this.db) return reject(new Error('DB not initialized'));
-        const transaction = this.db.transaction([storeName], 'readwrite');
-        const store = transaction.objectStore(transaction.objectStoreNames[0] || storeName);
+        if (!this.db && !tx) return reject(new Error('DB not initialized'));
+        const store = tx ? tx.objectStore(storeName) : this.db.transaction([storeName], 'readwrite').objectStore(storeName);
         const request = store.delete(key);
 
         request.onsuccess = () => {
-          this.triggerOpfsBackupDebounced();
+          if (!tx) this.triggerOpfsBackupDebounced();
           resolve(true);
         };
         request.onerror = (event) => reject(event.target.error);
       });
     },
 
-    async getSyncPassphrase() {
+    async getSyncPassphrase(tx = null) {
       try {
-        const row = await this.get('local_preferences', 'sync_passphrase');
+        const row = await this.get('local_preferences', 'sync_passphrase', tx);
         return row ? row.value_payload : '';
       } catch (e) {
         return '';
@@ -656,11 +667,10 @@
       }, 2000);
     },
 
-    async getAll(storeName) {
+    async getAll(storeName, tx = null) {
       const rows = await new Promise((resolve, reject) => {
-        if (!this.db) return reject(new Error('DB not initialized'));
-        const transaction = this.db.transaction([storeName], 'readonly');
-        const store = transaction.objectStore(transaction.objectStoreNames[0] || storeName);
+        if (!this.db && !tx) return reject(new Error('DB not initialized'));
+        const store = tx ? tx.objectStore(storeName) : this.db.transaction([storeName], 'readonly').objectStore(storeName);
         const request = store.getAll();
 
         request.onsuccess = (event) => resolve(event.target.result || []);
@@ -668,7 +678,7 @@
       });
       let passphrase = '';
       if (storeName === 'customers' || storeName === 'transactions') {
-        passphrase = await this.getSyncPassphrase();
+        passphrase = await this.getSyncPassphrase(tx);
       }
       const decryptedRows = [];
       for (const row of rows) {
@@ -715,8 +725,8 @@
       });
     },
 
-    async getDbVersion() {
-      const changes = await this.getAll('crsql_changes');
+    async getDbVersion(tx = null) {
+      const changes = await this.getAll('crsql_changes', tx);
       if (changes.length === 0) return 0;
       let maxVer = 0;
       for (const change of changes) {
@@ -735,8 +745,8 @@
         .sort((a, b) => a.db_version - b.db_version);
     },
 
-    async logLocalChange(tableName, pk, cid, val, colVersion, cl, syncHlc) {
-      const dbVersion = (await this.getDbVersion()) + 1;
+    async logLocalChange(tableName, pk, cid, val, colVersion, cl, syncHlc, tx = null) {
+      const dbVersion = (await this.getDbVersion(tx)) + 1;
       const siteId = syncHlc.split(':').slice(2).join(':') || 'web_node';
       const change = {
         table_name: tableName,
@@ -749,7 +759,7 @@
         cl: cl,
         sync_hlc: syncHlc
       };
-      await this.put('crsql_changes', change);
+      await this.put('crsql_changes', change, tx);
       return dbVersion;
     },
 
@@ -968,12 +978,12 @@
       }
     },
 
-    async recalculateCachedStock(sku) {
-      const baseStockRow = await this.get('crsql_changes', ['inventory_catalog', sku, 'stock_level']);
+    async recalculateCachedStock(sku, tx = null) {
+      const baseStockRow = await this.get('crsql_changes', ['inventory_catalog', sku, 'stock_level'], tx);
       const baseStock = baseStockRow ? Number(baseStockRow.val) : 0;
       const baseHlc = baseStockRow ? baseStockRow.sync_hlc : '0000000000000:000000:seed';
 
-      const changes = await this.getAll('crsql_changes');
+      const changes = await this.getAll('crsql_changes', tx);
       let totalDelta = 0;
       for (const row of changes) {
         if (row.table_name === 'inventory_catalog_counters' && row.pk.startsWith(sku + '/') && row.cid === 'delta') {
@@ -985,10 +995,10 @@
 
       const finalStock = Math.max(0, baseStock + totalDelta);
       
-      const inv = await this.get('inventory_catalog', sku);
+      const inv = await this.get('inventory_catalog', sku, tx);
       if (inv) {
         inv.stock_level = finalStock;
-        await this.put('inventory_catalog', inv);
+        await this.put('inventory_catalog', inv, tx);
       }
       console.log(`[ClientDB] Recalculated stock for ${sku}: base=${baseStock} (${baseHlc}), delta=${totalDelta}, final=${finalStock}`);
       return finalStock;

@@ -8,6 +8,27 @@ importScripts('client-db.js', 'client-sync.js');
 let syncClient = null;
 let nodeId = null;
 
+// Exact decimal string serialization to prevent IEEE 754 float precision issues for PRAL compliance
+function serializePRALPayload(fbrInvoiceNumber, now, total, tax, subtotal, cart, paymentMode, usin) {
+  const formattedObj = {
+    invoiceNumber: fbrInvoiceNumber,
+    saleDate: new Date(now).toISOString(),
+    totalAmount: (total / 100).toFixed(2),
+    taxAmount: (tax / 100).toFixed(2),
+    subtotalAmount: (subtotal / 100).toFixed(2),
+    items: cart.map(i => ({
+      sku: i.sku,
+      qty: i.qty,
+      unitPrice: (i.price / 100).toFixed(2)
+    })),
+    paymentMode: paymentMode,
+    usin: usin
+  };
+  const jsonStr = JSON.stringify(formattedObj);
+  // Strip quotes off decimal-valued string fields to satisfy strict PRAL double typing
+  return jsonStr.replace(/"(totalAmount|taxAmount|subtotalAmount|unitPrice)":"([0-9.]+)"/g, '"$1":$2');
+}
+
 // Initialize Database and Sync Client
 async function initializeSyncEngine() {
   try {
@@ -173,6 +194,93 @@ self.onmessage = async (event) => {
         syncClient.setOnlineState(payload.isOnline);
         break;
 
+      case 'HYDRATE_DATABASE': {
+        const { licenseToken } = payload;
+        try {
+          console.log('[SyncWorker] Starting database hydration pull...');
+          const response = await fetch('/api/sync/bootstrap', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${licenseToken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          const result = await response.json();
+          if (!response.ok) {
+            throw new Error(result.error || 'Hydration request failed');
+          }
+
+          const changes = result.changes || [];
+          console.log(`[SyncWorker] Received ${changes.length} database recovery delta rows.`);
+
+          let applied = 0;
+          let conflicts = 0;
+
+          for (const change of changes) {
+            if (syncClient && syncClient.hlc && change.sync_hlc) {
+              try {
+                syncClient.hlc.merge(change.sync_hlc);
+              } catch (e) {}
+            }
+
+            // Fetch local change version
+            const local = await NexovaDB.get('crsql_changes', [change.table_name, change.pk, change.cid]);
+            
+            // LWW merge comparison
+            let shouldApply = !local;
+            if (local) {
+              if (change.col_version > local.col_version) shouldApply = true;
+              else if (change.col_version < local.col_version) shouldApply = false;
+              else shouldApply = change.sync_hlc > local.sync_hlc;
+            }
+
+            if (shouldApply) {
+              applied++;
+              // Apply mutation to target store
+              await NexovaDB.applyChangeToSchema(change.table_name, change.pk, change.cid, change.val, change.cl);
+              // Save CRDT metadata locally
+              await NexovaDB.put('crsql_changes', {
+                table_name: change.table_name,
+                pk: change.pk,
+                cid: change.cid,
+                val: change.val,
+                col_version: change.col_version,
+                db_version: (await NexovaDB.getDbVersion()) + 1,
+                site_id: change.site_id,
+                cl: change.cl,
+                sync_hlc: change.sync_hlc
+              });
+
+              // Recalculate stock level if PN delta changes or manual stock updates occur
+              if (change.table_name === 'inventory_catalog_counters') {
+                const sku = change.pk.split('/')[0];
+                await NexovaDB.recalculateCachedStock(sku);
+              } else if (change.table_name === 'inventory_catalog' && change.cid === 'stock_level') {
+                await NexovaDB.recalculateCachedStock(change.pk);
+              }
+            } else {
+              conflicts++;
+            }
+          }
+
+          // Mark database as hydrated in preferences
+          await NexovaDB.put('local_preferences', {
+            key: 'database_hydrated',
+            value_type: 'BOOL',
+            value_payload: 'true',
+            is_idempotent_flag: 1,
+            updated_at: Date.now()
+          });
+
+          console.log(`[SyncWorker] Hydration successful. Applied: ${applied}, Conflicts: ${conflicts}`);
+          postMessage({ type: 'HYDRATE_SUCCESS', applied, conflicts });
+        } catch (err) {
+          console.error('[SyncWorker] Hydration error:', err);
+          postMessage({ type: 'HYDRATE_ERROR', error: err.message });
+        }
+        break;
+      }
+
       case 'REGISTER_DEVICE': {
         const { deviceName } = payload;
         await NexovaDB.put('local_preferences', {
@@ -255,174 +363,201 @@ self.onmessage = async (event) => {
       }
 
       case 'CHECKOUT': {
-        const { transactionId, employeeId, cart, subtotal, tax, total, paymentMode, paymentDetails } = payload;
+        const { transactionId, employeeId, cart, subtotal, tax, total, paymentMode, paymentDetails, tier } = payload;
         const now = Date.now();
         const txHlc = syncClient.hlc.tick();
 
-        // Generate FBR E-Invoicing compliant Fiscal details automatically
-        const fbrInvoiceNumber = `FBR-POS-${now}-${Math.floor(1000 + Math.random() * 9000)}`;
-        const fbrQrUrl = `https://verification.fbr.gov.pk/verify?invoiceNumber=${fbrInvoiceNumber}&total=${total}&tax=${tax}`;
-        
+        // Check if FBR integration is enabled for the license tier
+        const isFbrEnabled = (tier === 'ENTERPRISE' || tier === 'TRIAL');
         let finalPaymentDetails = paymentDetails || '';
-        const fbrMeta = {
-          fbr_invoice_number: fbrInvoiceNumber,
-          fbr_qr_url: fbrQrUrl,
-          fbr_status: 'INTEGRATED_SUCCESS'
-        };
-        
-        if (finalPaymentDetails.startsWith('{')) {
-          try {
-            const parsed = JSON.parse(finalPaymentDetails);
-            finalPaymentDetails = JSON.stringify({ ...parsed, ...fbrMeta });
-          } catch(e) {
+        let fbrInvoiceNumber = '';
+        let fbrQrUrl = '';
+
+        if (isFbrEnabled) {
+          // Generate FBR E-Invoicing compliant Fiscal details automatically
+          fbrInvoiceNumber = `FBR-POS-${now}-${Math.floor(1000 + Math.random() * 9000)}`;
+          fbrQrUrl = `https://verification.fbr.gov.pk/verify?invoiceNumber=${fbrInvoiceNumber}&total=${total}&tax=${tax}`;
+          
+          const fbrMeta = {
+            fbr_invoice_number: fbrInvoiceNumber,
+            fbr_qr_url: fbrQrUrl,
+            fbr_status: 'INTEGRATED_SUCCESS'
+          };
+          
+          if (finalPaymentDetails.startsWith('{')) {
+            try {
+              const parsed = JSON.parse(finalPaymentDetails);
+              finalPaymentDetails = JSON.stringify({ ...parsed, ...fbrMeta });
+            } catch(e) {
+              finalPaymentDetails = JSON.stringify({ note: finalPaymentDetails, ...fbrMeta });
+            }
+          } else {
             finalPaymentDetails = JSON.stringify({ note: finalPaymentDetails, ...fbrMeta });
           }
-        } else {
-          finalPaymentDetails = JSON.stringify({ note: finalPaymentDetails, ...fbrMeta });
         }
 
-        // 1. Write transaction to IndexedDB
-        const txRecord = {
-          id: transactionId,
-          employee_id: employeeId,
-          terminal_id: nodeId,
-          subtotal_minor_units: subtotal,
-          tax_minor_units: tax,
-          total_minor_units: total,
-          status: 'PENDING',
-          payment_mode: paymentMode || 'CASH',
-          payment_details: finalPaymentDetails,
-          created_at: now,
-          updated_at: now,
-          sync_hlc: txHlc,
-          is_dirty: 1,
-          is_deleted: 0
-        };
-        await NexovaDB.put('transactions', txRecord);
+        // Open a single atomic readwrite transaction
+        const idbTx = NexovaDB.db.transaction(
+          ['transactions', 'line_items', 'inventory_catalog', 'crsql_changes', 'stock_movements', 'customer_credit', 'fbr_offline_queue', 'purchase_orders', 'po_line_items', 'distributors', 'local_preferences'],
+          'readwrite'
+        );
 
-        // 2. Log transaction fields to CRDT Changes catalog
-        await logFieldChange('transactions', transactionId, 'employee_id', employeeId, txHlc);
-        await logFieldChange('transactions', transactionId, 'terminal_id', nodeId, txHlc);
-        await logFieldChange('transactions', transactionId, 'subtotal_minor_units', subtotal, txHlc);
-        await logFieldChange('transactions', transactionId, 'tax_minor_units', tax, txHlc);
-        await logFieldChange('transactions', transactionId, 'total_minor_units', total, txHlc);
-        await logFieldChange('transactions', transactionId, 'status', 'PENDING', txHlc);
-        await logFieldChange('transactions', transactionId, 'payment_mode', paymentMode || 'CASH', txHlc);
-        await logFieldChange('transactions', transactionId, 'payment_details', finalPaymentDetails, txHlc);
-
-        // 3. Write Line items to IndexedDB
-        for (const item of cart) {
-          const liId = `li_${transactionId}_${item.sku}`;
-          const liRecord = {
-            id: liId,
-            transaction_id: transactionId,
-            sku: item.sku,
-            quantity: item.qty,
-            unit_price_minor_units: item.price,
-            applied_discount_minor_units: item.discount || 0,
-            sync_hlc: txHlc,
-            is_deleted: 0
-          };
-          await NexovaDB.put('line_items', liRecord);
-
-          // Log line item fields to CRDT
-          await logFieldChange('line_items', liId, 'transaction_id', transactionId, txHlc);
-          await logFieldChange('line_items', liId, 'sku', item.sku, txHlc);
-          await logFieldChange('line_items', liId, 'quantity', item.qty, txHlc);
-          await logFieldChange('line_items', liId, 'unit_price_minor_units', item.price, txHlc);
-          await logFieldChange('line_items', liId, 'applied_discount_minor_units', item.discount || 0, txHlc);
-
-          // 4. Update Stock Level via PN-Counters
-          const prod = await NexovaDB.get('inventory_catalog', item.sku);
-          if (prod) {
-            const baseStockRow = await NexovaDB.get('crsql_changes', ['inventory_catalog', item.sku, 'stock_level']);
-            const baseHlc = baseStockRow ? baseStockRow.sync_hlc : '0000000000000:000000:seed';
-
-            const localDeltaRow = await NexovaDB.get('crsql_changes', ['inventory_catalog_counters', `${item.sku}/${nodeId}`, 'delta']);
-            let currentOffset = 0;
-            if (localDeltaRow && localDeltaRow.sync_hlc > baseHlc) {
-              currentOffset = Number(localDeltaRow.val);
-            }
-
-            const newOffset = currentOffset - item.qty;
-
-            await logFieldChange('inventory_catalog_counters', `${item.sku}/${nodeId}`, 'delta', newOffset, txHlc);
-            await NexovaDB.recalculateCachedStock(item.sku);
-            await checkStockAlert(item.sku, txHlc);
-
-            // Log stock movement audit records
-            const mvId = `mv_${Date.now()}_${item.sku}`;
-            const movement = {
-              id: mvId,
-              sku: item.sku,
-              change_qty: -item.qty,
-              reason: 'SALE',
-              created_at: Date.now(),
-              sync_hlc: txHlc
-            };
-            await NexovaDB.put('stock_movements', movement);
-            await logFieldChange('stock_movements', mvId, 'sku', item.sku, txHlc);
-            await logFieldChange('stock_movements', mvId, 'change_qty', -item.qty, txHlc);
-            await logFieldChange('stock_movements', mvId, 'reason', 'SALE', txHlc);
-          }
-        }
-
-        // 5. If paymentMode is CREDIT, write to customer_credit store
-        if (paymentMode === 'CREDIT' && payload.customerId) {
-          const ccId = `cc_sale_${transactionId}`;
-          const ccRecord = {
-            id: ccId,
-            customer_id: payload.customerId,
-            transaction_id: transactionId,
-            type: 'CREDIT',
-            amount_minor: total,
-            payment_method: 'CASH',
-            due_date: now + 30 * 24 * 60 * 60 * 1000, // 30 days due date default
-            notes: `Auto credit invoice sale: ${transactionId}`,
-            created_at: now,
-            sync_hlc: txHlc,
-            is_deleted: 0
-          };
-          await NexovaDB.put('customer_credit', ccRecord);
-          await logFieldChange('customer_credit', ccId, 'customer_id', payload.customerId, txHlc);
-          await logFieldChange('customer_credit', ccId, 'transaction_id', transactionId, txHlc);
-          await logFieldChange('customer_credit', ccId, 'type', 'CREDIT', txHlc);
-          await logFieldChange('customer_credit', ccId, 'amount_minor', total, txHlc);
-          await logFieldChange('customer_credit', ccId, 'due_date', ccRecord.due_date, txHlc);
-          await logFieldChange('customer_credit', ccId, 'notes', ccRecord.notes, txHlc);
-          await logFieldChange('customer_credit', ccId, 'created_at', now, txHlc);
-        }
-
-        // Queue FBR invoice for offline batch-upload (Rule 150XC)
-        const isOnline = syncClient && syncClient.isConnected;
-        if (!isOnline) {
-          // Store in local offline queue for later batch-upload
-          const fbrQueueEntry = {
-            id: `fbr_${transactionId}`,
-            transactionId,
-            invoiceNumber: fbrInvoiceNumber,
-            invoicePayload: JSON.stringify({
-              invoiceNumber: fbrInvoiceNumber,
-              saleDate: new Date(now).toISOString(),
-              totalAmount: total / 100,
-              taxAmount: tax / 100,
-              subtotalAmount: subtotal / 100,
-              items: cart.map(i => ({ sku: i.sku, qty: i.qty, unitPrice: i.price / 100 })),
-              paymentMode: paymentMode
-            }),
-            totalMinor: total,
-            taxMinor: tax,
+        try {
+          // 1. Write transaction to IndexedDB
+          const txRecord = {
+            id: transactionId,
+            employee_id: employeeId,
+            terminal_id: nodeId,
+            subtotal_minor_units: subtotal,
+            tax_minor_units: tax,
+            total_minor_units: total,
             status: 'PENDING',
-            createdAt: now
+            payment_mode: paymentMode || 'CASH',
+            payment_details: finalPaymentDetails,
+            created_at: now,
+            updated_at: now,
+            sync_hlc: txHlc,
+            is_dirty: 1,
+            is_deleted: 0
           };
-          await NexovaDB.put('fbr_offline_queue', fbrQueueEntry);
-          console.log(`[FBR] Invoice ${fbrInvoiceNumber} queued for offline batch-upload (Rule 150XC)`);
-        } else {
-          // Online: flush immediately in background
-          setTimeout(() => flushFBRQueue(), 1000);
-        }
+          await NexovaDB.put('transactions', txRecord, idbTx);
 
-        postMessage({ type: 'CHECKOUT_SUCCESS', transactionId });
+          // 2. Log transaction fields to CRDT Changes catalog
+          await logFieldChange('transactions', transactionId, 'employee_id', employeeId, txHlc, 1, 1, idbTx);
+          await logFieldChange('transactions', transactionId, 'terminal_id', nodeId, txHlc, 1, 1, idbTx);
+          await logFieldChange('transactions', transactionId, 'subtotal_minor_units', subtotal, txHlc, 1, 1, idbTx);
+          await logFieldChange('transactions', transactionId, 'tax_minor_units', tax, txHlc, 1, 1, idbTx);
+          await logFieldChange('transactions', transactionId, 'total_minor_units', total, txHlc, 1, 1, idbTx);
+          await logFieldChange('transactions', transactionId, 'status', 'PENDING', txHlc, 1, 1, idbTx);
+          await logFieldChange('transactions', transactionId, 'payment_mode', paymentMode || 'CASH', txHlc, 1, 1, idbTx);
+          await logFieldChange('transactions', transactionId, 'payment_details', finalPaymentDetails, txHlc, 1, 1, idbTx);
+
+          // 3. Write Line items to IndexedDB
+          for (const item of cart) {
+            const liId = `li_${transactionId}_${item.sku}`;
+            const liRecord = {
+              id: liId,
+              transaction_id: transactionId,
+              sku: item.sku,
+              quantity: item.qty,
+              unit_price_minor_units: item.price,
+              applied_discount_minor_units: item.discount || 0,
+              sync_hlc: txHlc,
+              is_deleted: 0
+            };
+            await NexovaDB.put('line_items', liRecord, idbTx);
+
+            // Log line item fields to CRDT
+            await logFieldChange('line_items', liId, 'transaction_id', transactionId, txHlc, 1, 1, idbTx);
+            await logFieldChange('line_items', liId, 'sku', item.sku, txHlc, 1, 1, idbTx);
+            await logFieldChange('line_items', liId, 'quantity', item.qty, txHlc, 1, 1, idbTx);
+            await logFieldChange('line_items', liId, 'unit_price_minor_units', item.price, txHlc, 1, 1, idbTx);
+            await logFieldChange('line_items', liId, 'applied_discount_minor_units', item.discount || 0, txHlc, 1, 1, idbTx);
+
+            // 4. Update Stock Level via PN-Counters
+            const prod = await NexovaDB.get('inventory_catalog', item.sku, idbTx);
+            if (prod) {
+              const baseStockRow = await NexovaDB.get('crsql_changes', ['inventory_catalog', item.sku, 'stock_level'], idbTx);
+              const baseHlc = baseStockRow ? baseStockRow.sync_hlc : '0000000000000:000000:seed';
+
+              const localDeltaRow = await NexovaDB.get('crsql_changes', ['inventory_catalog_counters', `${item.sku}/${nodeId}`, 'delta'], idbTx);
+              let currentOffset = 0;
+              if (localDeltaRow && localDeltaRow.sync_hlc > baseHlc) {
+                currentOffset = Number(localDeltaRow.val);
+              }
+
+              const newOffset = currentOffset - item.qty;
+
+              await logFieldChange('inventory_catalog_counters', `${item.sku}/${nodeId}`, 'delta', newOffset, txHlc, 1, 1, idbTx);
+              await NexovaDB.recalculateCachedStock(item.sku, idbTx);
+              await checkStockAlert(item.sku, txHlc, idbTx);
+
+              // Log stock movement audit records
+              const mvId = `mv_${Date.now()}_${item.sku}`;
+              const movement = {
+                id: mvId,
+                sku: item.sku,
+                change_qty: -item.qty,
+                reason: 'SALE',
+                created_at: Date.now(),
+                sync_hlc: txHlc
+              };
+              await NexovaDB.put('stock_movements', movement, idbTx);
+              await logFieldChange('stock_movements', mvId, 'sku', item.sku, txHlc, 1, 1, idbTx);
+              await logFieldChange('stock_movements', mvId, 'change_qty', -item.qty, txHlc, 1, 1, idbTx);
+              await logFieldChange('stock_movements', mvId, 'reason', 'SALE', txHlc, 1, 1, idbTx);
+            }
+          }
+
+          // 5. If paymentMode is CREDIT, write to customer_credit store
+          if (paymentMode === 'CREDIT' && payload.customerId) {
+            const ccId = `cc_sale_${transactionId}`;
+            const ccRecord = {
+              id: ccId,
+              customer_id: payload.customerId,
+              transaction_id: transactionId,
+              type: 'CREDIT',
+              amount_minor: total,
+              payment_method: 'CASH',
+              due_date: now + 30 * 24 * 60 * 60 * 1000, // 30 days due date default
+              notes: `Auto credit invoice sale: ${transactionId}`,
+              created_at: now,
+              sync_hlc: txHlc,
+              is_deleted: 0
+            };
+            await NexovaDB.put('customer_credit', ccRecord, idbTx);
+            await logFieldChange('customer_credit', ccId, 'customer_id', payload.customerId, txHlc, 1, 1, idbTx);
+            await logFieldChange('customer_credit', ccId, 'transaction_id', transactionId, txHlc, 1, 1, idbTx);
+            await logFieldChange('customer_credit', ccId, 'type', 'CREDIT', txHlc, 1, 1, idbTx);
+            await logFieldChange('customer_credit', ccId, 'amount_minor', total, txHlc, 1, 1, idbTx);
+            await logFieldChange('customer_credit', ccId, 'due_date', ccRecord.due_date, txHlc, 1, 1, idbTx);
+            await logFieldChange('customer_credit', ccId, 'notes', ccRecord.notes, txHlc, 1, 1, idbTx);
+            await logFieldChange('customer_credit', ccId, 'created_at', now, txHlc, 1, 1, idbTx);
+          }
+
+          if (isFbrEnabled) {
+            // Queue FBR invoice (Rule 150XC: both online and offline routes write to queue first to ensure strict FIFO order)
+            const usin = `USIN-${nodeId}-${transactionId.slice(0, 8)}-${now}`.slice(0, 50);
+            const payloadObj = serializePRALPayload(fbrInvoiceNumber, now, total, tax, subtotal, cart, paymentMode, usin);
+
+            const fbrQueueEntry = {
+              id: `fbr_${transactionId}`,
+              transactionId,
+              usin,
+              invoiceNumber: fbrInvoiceNumber,
+              invoicePayload: payloadObj,
+              totalMinor: total,
+              taxMinor: tax,
+              status: 'PENDING',
+              createdAt: now
+            };
+            await NexovaDB.put('fbr_offline_queue', fbrQueueEntry, idbTx);
+
+            const isOnline = syncClient && syncClient.isConnected;
+            if (isOnline) {
+              // Trigger flush immediately in background
+              idbTx.addEventListener('complete', () => {
+                setTimeout(() => flushFBRQueue(), 1000);
+              });
+            } else {
+              console.log(`[FBR] Invoice ${fbrInvoiceNumber} queued for offline batch-upload (Rule 150XC)`);
+            }
+          }
+
+          await new Promise((resolve, reject) => {
+            idbTx.oncomplete = () => resolve();
+            idbTx.onerror = (e) => reject(e.target.error);
+            idbTx.onabort = (e) => reject(new Error('Transaction aborted'));
+          });
+
+          postMessage({ type: 'CHECKOUT_SUCCESS', transactionId, subtotal, tax, total, paymentMode });
+        } catch (err) {
+          console.error('[SyncWorker] Checkout transaction failed, rolling back:', err);
+          try {
+            idbTx.abort();
+          } catch (abortErr) {}
+          postMessage({ type: 'ERROR', error: `Checkout transaction failed: ${err.message}` });
+        }
         break;
       }
 
@@ -961,27 +1096,47 @@ self.onmessage = async (event) => {
 };
 
 // Helper: logs change to local IndexedDB crsql_changes and pushes it immediately
-async function logFieldChange(tableName, pk, cid, val, syncHlc, colVersion = 1, cl = 1) {
-  const dbVer = await NexovaDB.logLocalChange(tableName, pk, cid, val, colVersion, cl, syncHlc);
+async function logFieldChange(tableName, pk, cid, val, syncHlc, colVersion = 1, cl = 1, tx = null) {
+  const dbVer = await NexovaDB.logLocalChange(tableName, pk, cid, val, colVersion, cl, syncHlc, tx);
   
-  // Push changes live via syncClient
-  syncClient.pushDelta(tableName, pk, cid, val, colVersion, cl);
+  const performDispatch = () => {
+    // Push changes live via syncClient
+    syncClient.pushDelta(tableName, pk, cid, val, colVersion, cl);
 
-  // Send local logs feed update to the UI
-  postMessage({
-    type: 'LOCAL_LOG_PUSH',
-    change: {
-      table_name: tableName,
-      pk: pk,
-      cid: cid,
-      val: val === null ? null : String(val),
-      col_version: colVersion,
-      db_version: dbVer,
-      site_id: nodeId,
-      cl: cl,
-      sync_hlc: syncHlc
+    // Send local logs feed update to the UI
+    postMessage({
+      type: 'LOCAL_LOG_PUSH',
+      change: {
+        table_name: tableName,
+        pk: pk,
+        cid: cid,
+        val: val === null ? null : String(val),
+        col_version: colVersion,
+        db_version: dbVer,
+        site_id: nodeId,
+        cl: cl,
+        sync_hlc: syncHlc
+      }
+    });
+  };
+
+  if (tx) {
+    if (!tx._pendingDispatches) {
+      tx._pendingDispatches = [];
+      tx.addEventListener('complete', () => {
+        for (const fn of tx._pendingDispatches) {
+          try {
+            fn();
+          } catch (e) {
+            console.error('[SyncWorker] Error running deferred dispatch:', e);
+          }
+        }
+      });
     }
-  });
+    tx._pendingDispatches.push(performDispatch);
+  } else {
+    performDispatch();
+  }
 }
 
 // FBR Offline Queue Flush (Rule 150XC compliance)
@@ -989,51 +1144,109 @@ async function logFieldChange(tableName, pk, cid, val, syncHlc, colVersion = 1, 
 async function flushFBRQueue() {
   try {
     const allQueued = await NexovaDB.getAll('fbr_offline_queue');
-    const pending = allQueued.filter(q => q.status === 'PENDING');
+    // Filter for non-submitted items
+    const pending = allQueued.filter(q => q.status === 'PENDING' || q.status === 'FAILED');
     
+    // Sort chronologically to guarantee strict FIFO ordering
+    pending.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
     if (pending.length === 0) return { flushed: 0, failed: 0 };
 
-    console.log(`[FBR] Flushing ${pending.length} offline invoice(s) to server (Rule 150XC)`);
+    console.log(`[FBR] Processing ${pending.length} pending invoice(s) in strict FIFO sequence (Rule 150XC)`);
     
-    const response = await fetch('/api/fbr/queue', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ invoices: pending })
-    });
-
-    if (!response.ok) {
-      console.warn('[FBR] Server rejected offline queue flush:', response.status);
-      return { flushed: 0, failed: pending.length };
-    }
-
-    const data = await response.json();
     let flushed = 0;
-    let failed = 0;
+    
+    for (const entry of pending) {
+      try {
+        const response = await fetch('/api/fbr/queue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invoices: [entry] }),
+          signal: AbortSignal.timeout(15000)
+        });
 
-    // Update local status for each processed invoice
-    for (const result of (data.results || [])) {
-      const entry = await NexovaDB.get('fbr_offline_queue', result.id);
-      if (entry) {
-        entry.status = result.status === 'SUBMITTED' ? 'SUBMITTED' : 'FAILED';
-        await NexovaDB.put('fbr_offline_queue', entry);
-        if (entry.status === 'SUBMITTED') flushed++;
-        else failed++;
+        if (!response.ok) {
+          console.warn(`[FBR] Server communication error for USIN: ${entry.usin}, HTTP: ${response.status}`);
+          // Network or server communication error locks the queue; retries happen on next loop trigger
+          return { flushed, failed: 1, locked: true };
+        }
+
+        const data = await response.json();
+        const result = (data.results || [])[0];
+
+        if (result && result.status === 'SUBMITTED') {
+          entry.status = 'SUBMITTED';
+          entry.fbr_response_code = result.fbrResponseCode || null;
+          entry.fbr_error_details = null;
+          await NexovaDB.put('fbr_offline_queue', entry);
+
+          // Write official FBR_Invoice_Number back to the transaction receipt details (Compliance)
+          const tx = await NexovaDB.get('transactions', entry.transactionId);
+          if (tx) {
+            let details = {};
+            try {
+              details = JSON.parse(tx.payment_details || '{}');
+            } catch(e) {
+              details = { note: tx.payment_details };
+            }
+            // Update with official FBR invoice number from server response
+            details.fbr_invoice_number = result.fbrInvoiceNumber || entry.invoiceNumber;
+            // Regenerate QR Url with official invoice number
+            details.fbr_qr_url = `https://verification.fbr.gov.pk/verify?invoiceNumber=${details.fbr_invoice_number}&total=${tx.total_minor}&tax=${tx.tax_minor}`;
+            details.fbr_status = 'INTEGRATED_OFFICIAL';
+            tx.payment_details = JSON.stringify(details);
+            tx.updated_at = Date.now();
+            await NexovaDB.put('transactions', tx);
+            
+            // Log the change to CRDT so it syncs across the fleet
+            if (syncClient) {
+              const tickHlc = syncClient.hlc.tick().toString();
+              await logFieldChange('transactions', tx.id, 'payment_details', tx.payment_details, tickHlc);
+            }
+          }
+
+          flushed++;
+        } else {
+          // Hard rejection or processing error from PRAL API
+          console.error(`[FBR] Hard rejection for USIN: ${entry.usin}. Code: ${result?.fbrResponseCode}, Error: ${result?.fbrErrorDetails}`);
+          entry.status = 'FAILED';
+          entry.fbr_response_code = result?.fbrResponseCode || null;
+          entry.fbr_error_details = result?.fbrErrorDetails || 'Unknown FBR rejection';
+          entry.retry_count = (entry.retry_count || 0) + 1;
+          await NexovaDB.put('fbr_offline_queue', entry);
+          
+          postMessage({ 
+            type: 'FBR_QUEUE_FAILED', 
+            id: entry.id, 
+            usin: entry.usin,
+            fbrResponseCode: entry.fbr_response_code, 
+            fbrErrorDetails: entry.fbr_error_details 
+          });
+          
+          // Strict FIFO Lock: Halt processing of all subsequent items
+          console.warn('[FBR] Queue locked due to validation failure. Retries halted to preserve sequence.');
+          return { flushed, failed: 1, locked: true };
+        }
+      } catch (err) {
+        console.warn(`[FBR] Network fetch failed for USIN: ${entry.usin}:`, err.message);
+        // Lock queue on network error
+        return { flushed, failed: 1, locked: true };
       }
     }
 
-    postMessage({ type: 'FBR_QUEUE_FLUSHED', flushed, failed, total: pending.length });
-    console.log(`[FBR] Flush complete. Submitted: ${flushed}, Failed: ${failed}`);
-    return { flushed, failed };
+    postMessage({ type: 'FBR_QUEUE_FLUSHED', flushed, failed: 0, total: pending.length });
+    console.log(`[FBR] Sequential FIFO flush completed. Successfully submitted: ${flushed}`);
+    return { flushed, failed: 0 };
   } catch (err) {
-    console.error('[FBR] Queue flush error:', err.message);
+    console.error('[FBR] Queue process exception:', err.message);
     return { flushed: 0, failed: 0, error: err.message };
   }
 }
 
 // Smart Inventory: Automatic low-stock checking and Purchase Order generation
-async function checkStockAlert(sku, tickHlc) {
+async function checkStockAlert(sku, tickHlc, tx = null) {
   try {
-    const prod = await NexovaDB.get('inventory_catalog', sku);
+    const prod = await NexovaDB.get('inventory_catalog', sku, tx);
     if (!prod) return;
 
     const currentStock = prod.stock_level;
@@ -1043,12 +1256,12 @@ async function checkStockAlert(sku, tickHlc) {
       console.warn(`[InventoryAlert] SKU ${sku} (${prod.name}) dropped below threshold (${currentStock}/${threshold}).`);
 
       // Check if there is already a PENDING or DRAFT purchase order for this SKU to prevent duplicate ordering
-      const pos = await NexovaDB.getAll('purchase_orders');
+      const pos = await NexovaDB.getAll('purchase_orders', tx);
       let hasExistingOrder = false;
       for (const po of pos) {
         if (po.is_deleted === 1) continue;
         if (po.status === 'DRAFT' || po.status === 'PENDING') {
-          const lineItems = await NexovaDB.getAll('po_line_items');
+          const lineItems = await NexovaDB.getAll('po_line_items', tx);
           const matches = lineItems.filter(item => item.po_id === po.id && item.sku === sku && item.is_deleted !== 1);
           if (matches.length > 0) {
             hasExistingOrder = true;
@@ -1059,7 +1272,7 @@ async function checkStockAlert(sku, tickHlc) {
 
       if (!hasExistingOrder) {
         // Query distributors
-        const dists = await NexovaDB.getAll('distributors');
+        const dists = await NexovaDB.getAll('distributors', tx);
         let distributorId = 'dist_default_primary';
         const activeDists = dists.filter(d => d.is_deleted !== 1);
         
@@ -1079,13 +1292,13 @@ async function checkStockAlert(sku, tickHlc) {
             sync_hlc: tickHlc,
             is_deleted: 0
           };
-          await NexovaDB.put('distributors', seedDist);
-          await logFieldChange('distributors', 'dist_default_primary', 'name', seedDist.name, tickHlc);
-          await logFieldChange('distributors', 'dist_default_primary', 'phone', seedDist.phone, tickHlc);
-          await logFieldChange('distributors', 'dist_default_primary', 'email', seedDist.email, tickHlc);
-          await logFieldChange('distributors', 'dist_default_primary', 'address', seedDist.address, tickHlc);
-          await logFieldChange('distributors', 'dist_default_primary', 'credit_limit_minor', seedDist.credit_limit_minor, tickHlc);
-          await logFieldChange('distributors', 'dist_default_primary', 'notes', seedDist.notes, tickHlc);
+          await NexovaDB.put('distributors', seedDist, tx);
+          await logFieldChange('distributors', 'dist_default_primary', 'name', seedDist.name, tickHlc, 1, 1, tx);
+          await logFieldChange('distributors', 'dist_default_primary', 'phone', seedDist.phone, tickHlc, 1, 1, tx);
+          await logFieldChange('distributors', 'dist_default_primary', 'email', seedDist.email, tickHlc, 1, 1, tx);
+          await logFieldChange('distributors', 'dist_default_primary', 'address', seedDist.address, tickHlc, 1, 1, tx);
+          await logFieldChange('distributors', 'dist_default_primary', 'credit_limit_minor', seedDist.credit_limit_minor, tickHlc, 1, 1, tx);
+          await logFieldChange('distributors', 'dist_default_primary', 'notes', seedDist.notes, tickHlc, 1, 1, tx);
         }
 
         // Generate Automated Draft PO
@@ -1107,12 +1320,12 @@ async function checkStockAlert(sku, tickHlc) {
           is_deleted: 0
         };
 
-        await NexovaDB.put('purchase_orders', po);
-        await logFieldChange('purchase_orders', poId, 'distributor_id', distributorId, tickHlc);
-        await logFieldChange('purchase_orders', poId, 'status', 'DRAFT', tickHlc);
-        await logFieldChange('purchase_orders', poId, 'total_minor', totalCost, tickHlc);
-        await logFieldChange('purchase_orders', poId, 'notes', po.notes, tickHlc);
-        await logFieldChange('purchase_orders', poId, 'expected_delivery', po.expected_delivery, tickHlc);
+        await NexovaDB.put('purchase_orders', po, tx);
+        await logFieldChange('purchase_orders', poId, 'distributor_id', distributorId, tickHlc, 1, 1, tx);
+        await logFieldChange('purchase_orders', poId, 'status', 'DRAFT', tickHlc, 1, 1, tx);
+        await logFieldChange('purchase_orders', poId, 'total_minor', totalCost, tickHlc, 1, 1, tx);
+        await logFieldChange('purchase_orders', poId, 'notes', po.notes, tickHlc, 1, 1, tx);
+        await logFieldChange('purchase_orders', poId, 'expected_delivery', po.expected_delivery, tickHlc, 1, 1, tx);
 
         const itemId = `poi_${poId}_${sku}`;
         const poli = {
@@ -1127,13 +1340,13 @@ async function checkStockAlert(sku, tickHlc) {
           is_deleted: 0
         };
 
-        await NexovaDB.put('po_line_items', poli);
-        await logFieldChange('po_line_items', itemId, 'po_id', poId, tickHlc);
-        await logFieldChange('po_line_items', itemId, 'sku', sku, tickHlc);
-        await logFieldChange('po_line_items', itemId, 'product_name', prod.name, tickHlc);
-        await logFieldChange('po_line_items', itemId, 'quantity_ordered', reorderQty, tickHlc);
-        await logFieldChange('po_line_items', itemId, 'quantity_received', 0, tickHlc);
-        await logFieldChange('po_line_items', itemId, 'unit_cost_minor', estimatedCost, tickHlc);
+        await NexovaDB.put('po_line_items', poli, tx);
+        await logFieldChange('po_line_items', itemId, 'po_id', poId, tickHlc, 1, 1, tx);
+        await logFieldChange('po_line_items', itemId, 'sku', sku, tickHlc, 1, 1, tx);
+        await logFieldChange('po_line_items', itemId, 'product_name', prod.name, tickHlc, 1, 1, tx);
+        await logFieldChange('po_line_items', itemId, 'quantity_ordered', reorderQty, tickHlc, 1, 1, tx);
+        await logFieldChange('po_line_items', itemId, 'quantity_received', 0, tickHlc, 1, 1, tx);
+        await logFieldChange('po_line_items', itemId, 'unit_cost_minor', estimatedCost, tickHlc, 1, 1, tx);
 
         postMessage({ type: 'MUTATION_SUCCESS' });
       }
@@ -1142,4 +1355,18 @@ async function checkStockAlert(sku, tickHlc) {
     console.error('[InventoryAlert] Failed to check stock alert:', err.message);
   }
 }
+
+// Start background periodic FBR sweep (every 60 seconds) (Rule 150XC Proxy compliance)
+setInterval(async () => {
+  try {
+    const allQueued = await NexovaDB.getAll('fbr_offline_queue');
+    const pending = allQueued.filter(q => q.status === 'PENDING' || q.status === 'FAILED');
+    if (pending.length > 0) {
+      console.log(`[FBR Cron] Found ${pending.length} pending FBR submissions. Triggering sweep...`);
+      await flushFBRQueue();
+    }
+  } catch (err) {
+    console.error('[FBR Cron] Background sweep failed:', err.message);
+  }
+}, 60000);
 

@@ -136,7 +136,7 @@ const LicenseEngine = (() => {
   }
 
   // ── Hard lockout overlay ───────────────────────────────────────────────────
-  function mountLockoutOverlay(message, onSubmit) {
+  function mountLockoutOverlay(message) {
     document.getElementById('license-lockout-overlay')?.remove();
     const overlay = document.createElement('div');
     overlay.id = 'license-lockout-overlay';
@@ -155,25 +155,133 @@ const LicenseEngine = (() => {
         <div style="font-size: clamp(18px,3vw,24px); font-weight: 800; color: #f8fafc; letter-spacing: -0.02em; margin-bottom: 12px;">
           NEXOVA POS — ACCESS RESTRICTED
         </div>
-        <div style="font-size: 13px; color: #94a3b8; line-height: 1.6; margin-bottom: 32px; border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 16px; background: rgba(239,68,68,0.05);">
+        <div id="license-message" style="font-size: 13px; color: #94a3b8; line-height: 1.6; margin-bottom: 24px; border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 16px; background: rgba(239,68,68,0.05);">
           ${message}
         </div>
-        <input id="license-input" type="text" placeholder="Paste license token here..."
-          style="width: 100%; box-sizing: border-box; padding: 14px 16px; background: #121217; border: 1px solid #333; border-radius: 6px; color: #f8fafc; font-family: monospace; font-size: 11px; margin-bottom: 12px; outline: none;"
-        />
+        
+        <div style="text-align: left; margin-bottom: 12px; width: 100%;">
+          <label for="license-phone-input" style="display: block; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px;">Registered Phone Number</label>
+          <input id="license-phone-input" type="tel" placeholder="Enter Registered Phone..." aria-label="Enter Registered Phone Number"
+            style="width: 100%; box-sizing: border-box; padding: 14px 16px; background: #121217; border: 1px solid #333; border-radius: 6px; color: #f8fafc; font-family: sans-serif; font-size: 13px; outline: none; text-align: center;"
+          />
+        </div>
+        
+        <div style="text-align: left; margin-bottom: 16px; width: 100%;">
+          <label for="license-code-input" style="display: block; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px;">6-Digit Activation Code</label>
+          <input id="license-code-input" type="text" maxlength="6" placeholder="Enter 6-Digit Activation Code..." aria-label="Enter 6-Digit Activation Code"
+            style="width: 100%; box-sizing: border-box; padding: 14px 16px; background: #121217; border: 1px solid #333; border-radius: 6px; color: #f8fafc; font-family: monospace; font-size: 16px; outline: none; text-align: center; letter-spacing: 4px; font-weight: 700;"
+          />
+        </div>
+        
         <button id="license-activate-btn"
           style="width: 100%; padding: 14px; background: #10b981; color: #060608; font-weight: 800; font-size: 13px; border: none; border-radius: 6px; cursor: pointer; letter-spacing: 0.05em; text-transform: uppercase; transition: opacity 0.15s;"
-          onmousedown="this.style.opacity='0.7'" onmouseup="this.style.opacity='1'"
-        >ACTIVATE LICENSE</button>
-        <p style="font-size: 10px; color: #475569; margin-top: 20px;">Contact support to obtain your license key.</p>
+        >ACTIVATE TERMINAL</button>
+        <p style="font-size: 10px; color: #475569; margin-top: 20px;">Register at the Onboarding Portal to obtain your 6-digit code.</p>
       </div>
     `;
     document.body.appendChild(overlay);
+
     document.getElementById('license-activate-btn').addEventListener('click', async () => {
-      const token = document.getElementById('license-input').value.trim();
-      if (token) await onSubmit(token);
+      const phone = document.getElementById('license-phone-input').value.trim();
+      const code = document.getElementById('license-code-input').value.trim();
+      const btn = document.getElementById('license-activate-btn');
+      
+      if (!phone || !code) {
+        alert('Please fill out all activation fields.');
+        return;
+      }
+      
+      btn.disabled = true;
+      btn.innerText = 'ACTIVATING TERMINAL...';
+      
+      try {
+        const hwid = await generateHWID();
+        const serverBase = (window.__nexovaServerUrl || location.origin);
+        const response = await fetch(serverBase + '/api/license/activate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, phone, hwid, deviceName: 'Terminal Register' })
+        });
+        const result = await response.json();
+        
+        if (!response.ok) {
+          alert(result.error || 'Activation failed.');
+          btn.disabled = false;
+          btn.innerText = 'ACTIVATE TERMINAL';
+          return;
+        }
+        
+        localStorage.setItem(STORAGE_KEY_LICENSE, result.token);
+        window.__nexovaTier = result.tier;
+        window.__nexovaHWID = hwid;
+        document.getElementById('license-lockout-overlay')?.remove();
+        location.reload();
+      } catch (err) {
+        alert('Connection error. Ensure your server is running.');
+        btn.disabled = false;
+        btn.innerText = 'ACTIVATE TERMINAL';
+      }
     });
   }
+
+  // ── Pending payment verification overlay with auto-polling ────────────────
+  function mountPendingPaymentOverlay(message, token, hwid) {
+    document.getElementById('license-lockout-overlay')?.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'license-lockout-overlay';
+    overlay.style.cssText = `
+      position: fixed; inset: 0; z-index: 999999;
+      background: #060608;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-family: 'Manrope', sans-serif; padding: 32px;
+    `;
+    overlay.innerHTML = `
+      <div style="max-width: 480px; width: 100%; text-align: center;">
+        <div style="position: relative; width: 64px; height: 64px; margin: 0 auto 24px auto;">
+          <div style="position: absolute; inset: 0; border: 4px solid rgba(251,191,36,0.1); border-radius: 50%;"></div>
+          <div style="position: absolute; inset: 0; border: 4px solid #fbbf24; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        </div>
+        <div style="font-size: clamp(18px,3vw,24px); font-weight: 800; color: #fbbf24; letter-spacing: -0.02em; margin-bottom: 12px;">
+          VERIFICATION PENDING
+        </div>
+        <div style="font-size: 13px; color: #94a3b8; line-height: 1.6; margin-bottom: 24px; border: 1px solid rgba(251,191,36,0.2); border-radius: 8px; padding: 16px; background: rgba(251,191,36,0.05);">
+          ${message}
+        </div>
+        <p style="font-size: 11px; color: #475569;">Terminal Node ID: ${hwid.slice(0,12)}...</p>
+      </div>
+      <style>
+        @keyframes spin { to { transform: rotate(360deg); } }
+      </style>
+    `;
+    document.body.appendChild(overlay);
+
+    // Poll server every 5 seconds for approval
+    const pollInterval = setInterval(async () => {
+      try {
+        const serverBase = (window.__nexovaServerUrl || location.origin);
+        const response = await fetch(serverBase + '/api/license/check', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.status === 401 || response.status === 404) {
+          clearInterval(pollInterval);
+          localStorage.removeItem(STORAGE_KEY_LICENSE);
+          location.reload();
+          return;
+        }
+        if (!response.ok) return;
+
+        const result = await response.json();
+        if (result.updated && result.token) {
+          clearInterval(pollInterval);
+          console.log('[License] License approved! Saving new token and booting app...');
+          localStorage.setItem(STORAGE_KEY_LICENSE, result.token);
+          location.reload();
+        }
+      } catch (err) {
+        console.warn('[License] Failed to check activation status:', err.message);
+      }
+    }, 5000);
+  };
 
   function mountClockTamperOverlay(lastKnown, osClock, onBypass) {
     document.getElementById('license-lockout-overlay')?.remove();
@@ -200,7 +308,7 @@ const LicenseEngine = (() => {
           Current OS clock: <strong style="color:#ef4444">${new Date(osClock).toLocaleString()}</strong><br><br>
           Connect to an NTP server or correct your system clock to resume.
         </div>
-        <input id="clock-override-pin" type="password" placeholder="Enter Manager PIN for override..."
+        <input id="clock-override-pin" type="password" placeholder="Enter Manager PIN for override..." aria-label="Enter Manager PIN for Clock Bypass Override"
           style="width: 100%; box-sizing: border-box; padding: 14px 16px; background: #121217; border: 1px solid #333; border-radius: 6px; color: #f8fafc; font-family: monospace; font-size: 11px; margin-bottom: 12px; text-align: center; outline: none;"
         />
         <button id="clock-override-btn"
@@ -231,6 +339,121 @@ const LicenseEngine = (() => {
     } catch { return false; }
   }
 
+  // ── Staged Neo-Minimalist Trial HUD Banner ────────────────────────────────
+  function updateTrialHUD(payload) {
+    if (!payload || payload.mode === 'lifetime' || !payload.exp) {
+      document.getElementById('trial-hud-banner')?.remove();
+      return;
+    }
+
+    const timeRemaining = payload.exp - Date.now();
+    const hoursRemaining = timeRemaining / (1000 * 60 * 60);
+
+    // Remove any existing banner
+    document.getElementById('trial-hud-banner')?.remove();
+
+    if (timeRemaining <= 0) {
+      // Stage 4: Expired. Block checkouts, mount lockout overlay
+      mountLockoutOverlay(
+        `Your trial subscription has expired.<br><br>Enter your purchase token below to unlock full POS features.`,
+        async (token) => {
+          const hwid = await generateHWID();
+          const result = await verifyToken(token, hwid);
+          if (result.valid) {
+            localStorage.setItem(STORAGE_KEY_LICENSE, token);
+            window.__nexovaTier = result.payload.tier;
+            window.__nexovaHWID = hwid;
+            location.reload();
+          } else {
+            const input = document.getElementById('license-input');
+            if (input) {
+              input.style.borderColor = '#ef4444';
+              input.placeholder = `Invalid: ${result.reason}`;
+              input.value = '';
+            }
+          }
+        }
+      );
+      return;
+    }
+
+    // Render stages 1-3
+    if (hoursRemaining <= 72) {
+      const banner = document.createElement('div');
+      banner.id = 'trial-hud-banner';
+      banner.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0; z-index: 99999;
+        text-align: center; font-family: 'Manrope', sans-serif; font-size: 12px;
+        font-weight: 700; padding: 10px 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+        transition: all 0.3s ease;
+      `;
+
+      let text = '';
+      let bg = '';
+      let color = '';
+
+      if (hoursRemaining <= 12) {
+        // Stage 3: Crimson timer
+        const formatTime = (ms) => {
+          const s = Math.floor((ms / 1000) % 60).toString().padStart(2, '0');
+          const m = Math.floor((ms / (1000 * 60)) % 60).toString().padStart(2, '0');
+          const h = Math.floor(ms / (1000 * 60 * 60)).toString().padStart(2, '0');
+          return `${h}:${m}:${s}`;
+        };
+        bg = '#ef4444';
+        color = '#060608';
+        text = `CRITICAL: Trial expires in <span style="font-family:monospace; font-weight:800; border: 1px solid rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,0.05);">${formatTime(timeRemaining)}</span>. Click here to activate your license.`;
+        
+        // Blink animation
+        banner.style.animation = 'trial-blink 1s infinite alternate';
+        if (!document.getElementById('trial-blink-style')) {
+          const style = document.createElement('style');
+          style.id = 'trial-blink-style';
+          style.innerHTML = `
+            @keyframes trial-blink {
+              0% { opacity: 0.9; }
+              100% { opacity: 1; filter: brightness(1.2); }
+            }
+          `;
+          document.head.appendChild(style);
+        }
+      } else if (hoursRemaining <= 48) {
+        // Stage 2: Amber banner
+        bg = '#f59e0b';
+        color = '#060608';
+        text = `Trial expires in ${Math.round(hoursRemaining)} hours. Click here to activate your license.`;
+      } else {
+        // Stage 1: Monochromatic status pill (very small, floating top-right or centered)
+        bg = '#1e293b';
+        color = '#f8fafc';
+        banner.style.width = 'fit-content';
+        banner.style.margin = '12px auto';
+        banner.style.borderRadius = '30px';
+        banner.style.fontSize = '11px';
+        banner.style.border = '1px solid rgba(255,255,255,0.1)';
+        text = `Trial Status: ${hoursRemaining.toFixed(1)} hours left`;
+      }
+
+      banner.style.backgroundColor = bg;
+      banner.style.color = color;
+      banner.innerHTML = text;
+
+      // Make clicking the banner open the license key entry overlay
+      banner.style.cursor = 'pointer';
+      banner.addEventListener('click', () => {
+        mountLockoutOverlay(`Enter your 6-digit activation code and registered phone number below to activate your Nexova POS license.`);
+      });
+
+      document.body.appendChild(banner);
+      
+      // Shift app layout down if banner takes full width
+      if (hoursRemaining <= 48) {
+        document.body.style.paddingTop = '38px';
+      }
+    }
+  }
+
   // ── Public API ─────────────────────────────────────────────────────────────
   async function init() {
     // Strict licensing enforcement. Local demo bypasses are disabled for production builds.
@@ -246,10 +469,10 @@ const LicenseEngine = (() => {
     // Detect HTTP context (Android WebView over LAN, or localhost dev)
     // crypto.subtle is only available on HTTPS + localhost. On HTTP LAN, it's undefined.
     const isSecureContext = !!(crypto && crypto.subtle);
+    const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
     const isHttpContext = !isSecureContext ||
-      location.protocol === 'http:' ||
+      (location.protocol === 'http:' && !isLocalhost) ||
       location.hostname.match(/^192\.168\.|^10\.|^172\.(1[6-9]|2[0-9]|3[01])\./) ||
-      location.hostname === 'localhost' ||
       location.protocol === 'file:';
 
     // 1. Monotonic time anchor check — prevent clock rollback license bypass
@@ -303,9 +526,39 @@ const LicenseEngine = (() => {
     if (stored) {
       const result = await verifyToken(stored, hwid);
       if (result.valid) {
+        if (result.payload.status === 'pending_payment') {
+          console.log('[License] License status is pending_payment. Displaying verification pending screen.');
+          mountPendingPaymentOverlay(
+            `Your payment is awaiting verification.<br><br>The register will automatically unlock once the administrator approves your transaction reference.`,
+            stored,
+            hwid
+          );
+          return false;
+        }
+
         console.log(`[License] Valid — Tier: ${result.payload.tier}, Expires: ${new Date(result.payload.exp).toLocaleDateString()}`);
         window.__nexovaTier = result.payload.tier;
         window.__nexovaHWID = hwid;
+
+        // Render trial indicators
+        updateTrialHUD(result.payload);
+        if (result.payload.exp && result.payload.mode !== 'lifetime') {
+          setInterval(() => {
+            updateTrialHUD(result.payload);
+          }, 1000);
+        }
+
+        // Silent background checking for license updates (every 60 minutes)
+        setInterval(async () => {
+          await pollLicenseUpdate(stored, hwid);
+        }, 3600000); // 60 minutes poll rate to prevent server load
+
+        // Immediate responsive check on network reconnection
+        window.addEventListener('online', async () => {
+          console.log('[License] Device came online. Triggering immediate license synchronization check.');
+          await pollLicenseUpdate(stored, hwid);
+        });
+
         return true;
       } else {
         console.warn('[License] Stored token invalid:', result.reason);
@@ -331,27 +584,37 @@ const LicenseEngine = (() => {
     // 4. No valid license on HTTPS — mount lockout overlay
     mountLockoutOverlay(
       stored
-        ? `Your license is invalid or expired.<br><br>Enter a new license token to continue.`
-        : `No license found for this device.<br><br>Purchase a license and enter your token below to activate Nexova POS.`,
-      async (token) => {
-        const result = await verifyToken(token, hwid);
-        if (result.valid) {
-          localStorage.setItem(STORAGE_KEY_LICENSE, token);
-          window.__nexovaTier = result.payload.tier;
-          window.__nexovaHWID = hwid;
-          document.getElementById('license-lockout-overlay')?.remove();
-          window.location.reload();
-        } else {
-          const input = document.getElementById('license-input');
-          if (input) {
-            input.style.borderColor = '#ef4444';
-            input.placeholder = `Invalid: ${result.reason}`;
-            input.value = '';
-          }
-        }
-      }
+        ? `Your license is invalid or expired.<br><br>Please enter your 6-digit activation code and registered phone number below to reactivate your terminal.`
+        : `No license found for this device.<br><br>Please enter your 6-digit activation code and registered phone number below to activate Nexova POS.`
     );
     return false; // Block app
+  }
+
+  // Silent background checking API logic
+  async function pollLicenseUpdate(currentToken, hwid) {
+    try {
+      const serverBase = (window.__nexovaServerUrl || location.origin);
+      const response = await fetch(serverBase + '/api/license/check', {
+        headers: { 'Authorization': `Bearer ${currentToken}` }
+      });
+      if (response.status === 401 || response.status === 404) {
+        // Token revoked, suspended, or deleted
+        console.warn('[License] Active token was revoked or deleted on server. Locking.');
+        localStorage.removeItem(STORAGE_KEY_LICENSE);
+        location.reload();
+        return;
+      }
+      if (!response.ok) return;
+
+      const result = await response.json();
+      if (result.updated && result.token) {
+        console.log('[License] Detected license configuration update on server. Syncing...');
+        localStorage.setItem(STORAGE_KEY_LICENSE, result.token);
+        location.reload();
+      }
+    } catch (err) {
+      console.warn('[License] Failed to check for license updates:', err.message);
+    }
   }
 
   // Called on every successful checkout to update the time anchor
@@ -361,5 +624,5 @@ const LicenseEngine = (() => {
     } catch (e) { /* non-fatal */ }
   }
 
-  return { init, updateTimeAnchor, generateHWID };
+  return { init, updateTimeAnchor, generateHWID, pollLicenseUpdate };
 })();

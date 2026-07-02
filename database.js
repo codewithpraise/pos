@@ -328,12 +328,15 @@ async function initDatabase(terminalId) {
       id TEXT PRIMARY KEY,                -- matches transaction_id
       transaction_id TEXT NOT NULL,
       invoice_number TEXT NOT NULL,       -- FBR-POS-{ts}-{rand}
+      usin TEXT,                          -- Local Offline Unique Sales Invoice Number (FBR compliance)
       invoice_payload TEXT NOT NULL,      -- JSON blob of full invoice data
       total_minor INTEGER NOT NULL,
       tax_minor INTEGER NOT NULL,
       status TEXT DEFAULT 'PENDING',      -- PENDING | SUBMITTED | FAILED | REJECTED
       retry_count INTEGER DEFAULT 0,
       fbr_response TEXT,                  -- raw FBR API response JSON
+      fbr_response_code INTEGER,          -- PRAL return diagnostic code
+      fbr_error_details TEXT,            -- API failure message
       created_at INTEGER NOT NULL,
       submitted_at INTEGER,
       sync_hlc TEXT
@@ -394,6 +397,15 @@ async function initDatabase(terminalId) {
   try {
     await db.exec("ALTER TABLE transactions ADD COLUMN void_reason TEXT;");
   } catch (e) {}
+  try {
+    await db.exec("ALTER TABLE fbr_submissions ADD COLUMN usin TEXT;");
+  } catch (e) {}
+  try {
+    await db.exec("ALTER TABLE fbr_submissions ADD COLUMN fbr_response_code INTEGER;");
+  } catch (e) {}
+  try {
+    await db.exec("ALTER TABLE fbr_submissions ADD COLUMN fbr_error_details TEXT;");
+  } catch (e) {}
 
   // Aborted sales log table (Manager PIN void audit trail)
   await db.exec(`
@@ -422,6 +434,48 @@ async function initDatabase(terminalId) {
       value TEXT,
       updated_at INTEGER
     );
+    CREATE TABLE IF NOT EXISTS stores (
+      id TEXT PRIMARY KEY,
+      phone TEXT UNIQUE NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      tier TEXT NOT NULL DEFAULT 'TRIAL',
+      mode TEXT NOT NULL DEFAULT 'subscription',
+      status TEXT NOT NULL DEFAULT 'active',
+      expires_at INTEGER, -- Unix timestamp in ms
+      license_key TEXT,
+      hardware_limit INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS devices (
+      id TEXT PRIMARY KEY,
+      store_id TEXT,
+      hardware_id TEXT UNIQUE NOT NULL,
+      device_name TEXT NOT NULL,
+      is_active INTEGER DEFAULT 1,
+      FOREIGN KEY(store_id) REFERENCES stores(id)
+    );
+    CREATE TABLE IF NOT EXISTS activation_codes (
+      code TEXT PRIMARY KEY,
+      store_id TEXT,
+      phone TEXT NOT NULL,
+      is_used INTEGER DEFAULT 0,
+      expires_at INTEGER NOT NULL, -- Unix timestamp in ms
+      FOREIGN KEY(store_id) REFERENCES stores(id)
+    );
+    CREATE TABLE IF NOT EXISTS pending_payments (
+      id TEXT PRIMARY KEY,
+      store_id TEXT,
+      tier TEXT NOT NULL,
+      mode TEXT NOT NULL,
+      amount_paid_minor_units INTEGER NOT NULL,
+      gateway TEXT NOT NULL,
+      transaction_reference TEXT UNIQUE NOT NULL,
+      status TEXT DEFAULT 'PENDING',
+      verification_notes TEXT,
+      created_at INTEGER,
+      verified_at INTEGER,
+      FOREIGN KEY(store_id) REFERENCES stores(id) ON DELETE CASCADE
+    );
   `);
 
   // Create indexing matrices to optimize reads/writes
@@ -437,6 +491,9 @@ async function initDatabase(terminalId) {
     CREATE INDEX IF NOT EXISTS idx_distributor_payments_dist ON distributor_payments(distributor_id);
     CREATE INDEX IF NOT EXISTS idx_customer_credit_cust ON customer_credit(customer_id);
     CREATE INDEX IF NOT EXISTS idx_fbr_submissions_status ON fbr_submissions(status, created_at);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_fbr_submissions_usin ON fbr_submissions(usin);
+    CREATE INDEX IF NOT EXISTS idx_payments_ref ON pending_payments(transaction_reference);
+    CREATE INDEX IF NOT EXISTS idx_payments_status ON pending_payments(status, created_at);
   `);
 
   // Load the current db_version from crsql_changes to resume correctly
@@ -541,19 +598,19 @@ async function seedDatabase() {
     }
 
     // Seed Local Preferences
-    await db.run('INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
+    await db.run('INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
       ['onboarding_complete', 'BOOL', 'true', 1, now]
     );
-    await db.run('INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
+    await db.run('INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
       ['store_tax_rate', 'STR', '0.08', 0, now]
     );
-    await db.run('INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
+    await db.run('INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
       ['store_name', 'STR', 'NEXOVA COFFEE & RETAIL', 0, now]
     );
-    await db.run('INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
+    await db.run('INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
       ['store_theme_palette', 'STR', 'Obsidian Emerald', 0, now]
     );
-    await db.run('INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
+    await db.run('INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
       ['store_logo_emoji', 'STR', 'N', 0, now]
     );
     await db.run('INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
@@ -971,6 +1028,28 @@ async function saveTelemetryLog(log) {
   } catch (e) { /* non-fatal */ }
 }
 
+async function factoryResetDatabase() {
+  await db.beginImmediate();
+  try {
+    const tables = [
+      'transactions', 'line_items', 'inventory_catalog', 'employees',
+      'crsql_changes', 'speech_analytics_logs', 'local_preferences',
+      'customers', 'categories', 'stock_movements', 'employee_shifts',
+      'approved_devices', 'distributors', 'purchase_orders', 'po_line_items',
+      'distributor_payments', 'customer_credit', 'fbr_submissions',
+      'aborted_sales_log', 'telemetry_logs'
+    ];
+    for (const table of tables) {
+      await db.run(`DELETE FROM ${table};`);
+    }
+    await db.commit();
+    console.log('[Database] Full database factory reset completed successfully.');
+  } catch (err) {
+    await db.rollback();
+    throw err;
+  }
+}
+
 module.exports = {
   initDatabase,
   db,
@@ -983,6 +1062,7 @@ module.exports = {
   createVoidContraEntry,
   updateSecureTimeAnchor,
   saveTelemetryLog,
+  factoryResetDatabase,
   logLocalChange,
   recalculateCachedStock,
   getDeviceStatus,

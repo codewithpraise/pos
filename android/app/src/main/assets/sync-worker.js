@@ -8,6 +8,27 @@ importScripts('client-db.js', 'client-sync.js');
 let syncClient = null;
 let nodeId = null;
 
+// Exact decimal string serialization to prevent IEEE 754 float precision issues for PRAL compliance
+function serializePRALPayload(fbrInvoiceNumber, now, total, tax, subtotal, cart, paymentMode, usin) {
+  const formattedObj = {
+    invoiceNumber: fbrInvoiceNumber,
+    saleDate: new Date(now).toISOString(),
+    totalAmount: (total / 100).toFixed(2),
+    taxAmount: (tax / 100).toFixed(2),
+    subtotalAmount: (subtotal / 100).toFixed(2),
+    items: cart.map(i => ({
+      sku: i.sku,
+      qty: i.qty,
+      unitPrice: (i.price / 100).toFixed(2)
+    })),
+    paymentMode: paymentMode,
+    usin: usin
+  };
+  const jsonStr = JSON.stringify(formattedObj);
+  // Strip quotes off decimal-valued string fields to satisfy strict PRAL double typing
+  return jsonStr.replace(/"(totalAmount|taxAmount|subtotalAmount|unitPrice)":"([0-9.]+)"/g, '"$1":$2');
+}
+
 // Initialize Database and Sync Client
 async function initializeSyncEngine() {
   try {
@@ -255,30 +276,37 @@ self.onmessage = async (event) => {
       }
 
       case 'CHECKOUT': {
-        const { transactionId, employeeId, cart, subtotal, tax, total, paymentMode, paymentDetails } = payload;
+        const { transactionId, employeeId, cart, subtotal, tax, total, paymentMode, paymentDetails, tier } = payload;
         const now = Date.now();
         const txHlc = syncClient.hlc.tick();
 
-        // Generate FBR E-Invoicing compliant Fiscal details automatically
-        const fbrInvoiceNumber = `FBR-POS-${now}-${Math.floor(1000 + Math.random() * 9000)}`;
-        const fbrQrUrl = `https://verification.fbr.gov.pk/verify?invoiceNumber=${fbrInvoiceNumber}&total=${total}&tax=${tax}`;
-        
+        // Check if FBR integration is enabled for the license tier
+        const isFbrEnabled = (tier === 'ENTERPRISE' || tier === 'TRIAL');
         let finalPaymentDetails = paymentDetails || '';
-        const fbrMeta = {
-          fbr_invoice_number: fbrInvoiceNumber,
-          fbr_qr_url: fbrQrUrl,
-          fbr_status: 'INTEGRATED_SUCCESS'
-        };
-        
-        if (finalPaymentDetails.startsWith('{')) {
-          try {
-            const parsed = JSON.parse(finalPaymentDetails);
-            finalPaymentDetails = JSON.stringify({ ...parsed, ...fbrMeta });
-          } catch(e) {
+        let fbrInvoiceNumber = '';
+        let fbrQrUrl = '';
+
+        if (isFbrEnabled) {
+          // Generate FBR E-Invoicing compliant Fiscal details automatically
+          fbrInvoiceNumber = `FBR-POS-${now}-${Math.floor(1000 + Math.random() * 9000)}`;
+          fbrQrUrl = `https://verification.fbr.gov.pk/verify?invoiceNumber=${fbrInvoiceNumber}&total=${total}&tax=${tax}`;
+          
+          const fbrMeta = {
+            fbr_invoice_number: fbrInvoiceNumber,
+            fbr_qr_url: fbrQrUrl,
+            fbr_status: 'INTEGRATED_SUCCESS'
+          };
+          
+          if (finalPaymentDetails.startsWith('{')) {
+            try {
+              const parsed = JSON.parse(finalPaymentDetails);
+              finalPaymentDetails = JSON.stringify({ ...parsed, ...fbrMeta });
+            } catch(e) {
+              finalPaymentDetails = JSON.stringify({ note: finalPaymentDetails, ...fbrMeta });
+            }
+          } else {
             finalPaymentDetails = JSON.stringify({ note: finalPaymentDetails, ...fbrMeta });
           }
-        } else {
-          finalPaymentDetails = JSON.stringify({ note: finalPaymentDetails, ...fbrMeta });
         }
 
         // 1. Write transaction to IndexedDB
@@ -393,33 +421,31 @@ self.onmessage = async (event) => {
           await logFieldChange('customer_credit', ccId, 'created_at', now, txHlc);
         }
 
-        // Queue FBR invoice for offline batch-upload (Rule 150XC)
-        const isOnline = syncClient && syncClient.isConnected;
-        if (!isOnline) {
-          // Store in local offline queue for later batch-upload
+        if (isFbrEnabled) {
+          // Queue FBR invoice (Rule 150XC: both online and offline routes write to queue first to ensure strict FIFO order)
+          const usin = `USIN-${nodeId}-${transactionId.slice(0, 8)}-${now}`.slice(0, 50);
+          const payloadObj = serializePRALPayload(fbrInvoiceNumber, now, total, tax, subtotal, cart, paymentMode, usin);
+
           const fbrQueueEntry = {
             id: `fbr_${transactionId}`,
             transactionId,
+            usin,
             invoiceNumber: fbrInvoiceNumber,
-            invoicePayload: JSON.stringify({
-              invoiceNumber: fbrInvoiceNumber,
-              saleDate: new Date(now).toISOString(),
-              totalAmount: total / 100,
-              taxAmount: tax / 100,
-              subtotalAmount: subtotal / 100,
-              items: cart.map(i => ({ sku: i.sku, qty: i.qty, unitPrice: i.price / 100 })),
-              paymentMode: paymentMode
-            }),
+            invoicePayload: payloadObj,
             totalMinor: total,
             taxMinor: tax,
             status: 'PENDING',
             createdAt: now
           };
           await NexovaDB.put('fbr_offline_queue', fbrQueueEntry);
-          console.log(`[FBR] Invoice ${fbrInvoiceNumber} queued for offline batch-upload (Rule 150XC)`);
-        } else {
-          // Online: flush immediately in background
-          setTimeout(() => flushFBRQueue(), 1000);
+
+          const isOnline = syncClient && syncClient.isConnected;
+          if (isOnline) {
+            // Trigger flush immediately in background
+            setTimeout(() => flushFBRQueue(), 1000);
+          } else {
+            console.log(`[FBR] Invoice ${fbrInvoiceNumber} queued for offline batch-upload (Rule 150XC)`);
+          }
         }
 
         postMessage({ type: 'CHECKOUT_SUCCESS', transactionId });
@@ -989,43 +1015,75 @@ async function logFieldChange(tableName, pk, cid, val, syncHlc, colVersion = 1, 
 async function flushFBRQueue() {
   try {
     const allQueued = await NexovaDB.getAll('fbr_offline_queue');
-    const pending = allQueued.filter(q => q.status === 'PENDING');
+    // Filter for non-submitted items
+    const pending = allQueued.filter(q => q.status === 'PENDING' || q.status === 'FAILED');
     
+    // Sort chronologically to guarantee strict FIFO ordering
+    pending.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
     if (pending.length === 0) return { flushed: 0, failed: 0 };
 
-    console.log(`[FBR] Flushing ${pending.length} offline invoice(s) to server (Rule 150XC)`);
+    console.log(`[FBR] Processing ${pending.length} pending invoice(s) in strict FIFO sequence (Rule 150XC)`);
     
-    const response = await fetch('/api/fbr/queue', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ invoices: pending })
-    });
-
-    if (!response.ok) {
-      console.warn('[FBR] Server rejected offline queue flush:', response.status);
-      return { flushed: 0, failed: pending.length };
-    }
-
-    const data = await response.json();
     let flushed = 0;
-    let failed = 0;
+    
+    for (const entry of pending) {
+      try {
+        const response = await fetch('/api/fbr/queue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invoices: [entry] }),
+          signal: AbortSignal.timeout(15000)
+        });
 
-    // Update local status for each processed invoice
-    for (const result of (data.results || [])) {
-      const entry = await NexovaDB.get('fbr_offline_queue', result.id);
-      if (entry) {
-        entry.status = result.status === 'SUBMITTED' ? 'SUBMITTED' : 'FAILED';
-        await NexovaDB.put('fbr_offline_queue', entry);
-        if (entry.status === 'SUBMITTED') flushed++;
-        else failed++;
+        if (!response.ok) {
+          console.warn(`[FBR] Server communication error for USIN: ${entry.usin}, HTTP: ${response.status}`);
+          // Network or server communication error locks the queue; retries happen on next loop trigger
+          return { flushed, failed: 1, locked: true };
+        }
+
+        const data = await response.json();
+        const result = (data.results || [])[0];
+
+        if (result && result.status === 'SUBMITTED') {
+          entry.status = 'SUBMITTED';
+          entry.fbr_response_code = result.fbrResponseCode || null;
+          entry.fbr_error_details = null;
+          await NexovaDB.put('fbr_offline_queue', entry);
+          flushed++;
+        } else {
+          // Hard rejection or processing error from PRAL API
+          console.error(`[FBR] Hard rejection for USIN: ${entry.usin}. Code: ${result?.fbrResponseCode}, Error: ${result?.fbrErrorDetails}`);
+          entry.status = 'FAILED';
+          entry.fbr_response_code = result?.fbrResponseCode || null;
+          entry.fbr_error_details = result?.fbrErrorDetails || 'Unknown FBR rejection';
+          entry.retry_count = (entry.retry_count || 0) + 1;
+          await NexovaDB.put('fbr_offline_queue', entry);
+          
+          postMessage({ 
+            type: 'FBR_QUEUE_FAILED', 
+            id: entry.id, 
+            usin: entry.usin,
+            fbrResponseCode: entry.fbr_response_code, 
+            fbrErrorDetails: entry.fbr_error_details 
+          });
+          
+          // Strict FIFO Lock: Halt processing of all subsequent items
+          console.warn('[FBR] Queue locked due to validation failure. Retries halted to preserve sequence.');
+          return { flushed, failed: 1, locked: true };
+        }
+      } catch (err) {
+        console.warn(`[FBR] Network fetch failed for USIN: ${entry.usin}:`, err.message);
+        // Lock queue on network error
+        return { flushed, failed: 1, locked: true };
       }
     }
 
-    postMessage({ type: 'FBR_QUEUE_FLUSHED', flushed, failed, total: pending.length });
-    console.log(`[FBR] Flush complete. Submitted: ${flushed}, Failed: ${failed}`);
-    return { flushed, failed };
+    postMessage({ type: 'FBR_QUEUE_FLUSHED', flushed, failed: 0, total: pending.length });
+    console.log(`[FBR] Sequential FIFO flush completed. Successfully submitted: ${flushed}`);
+    return { flushed, failed: 0 };
   } catch (err) {
-    console.error('[FBR] Queue flush error:', err.message);
+    console.error('[FBR] Queue process exception:', err.message);
     return { flushed: 0, failed: 0, error: err.message };
   }
 }
