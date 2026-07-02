@@ -196,6 +196,15 @@ self.onmessage = async (event) => {
           updated_at: Date.now()
         });
 
+        // Mark onboarding complete locally since the store is now bootstrapped
+        await NexovaDB.put('local_preferences', {
+          key: 'onboarding_complete',
+          value_type: 'BOOL',
+          value_payload: 'true',
+          is_idempotent_flag: 1,
+          updated_at: Date.now()
+        });
+
         if (syncClient) {
           syncClient.passphrase = syncPassphrase;
         }
