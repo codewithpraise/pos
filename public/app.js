@@ -161,6 +161,7 @@
     setupWebWorker();
     bindDOMEvents();
     setupGlobalHotkeys();
+    applyPreferencesFromState();
     await checkAndRequestStoragePersist();
     initOtaUpdater();
   }
@@ -2903,7 +2904,6 @@
     }
 
     // 0.b First Boot Onboarding Check
-    const onboardingComplete = state.preferences['onboarding_complete'] === 'true';
     const wizardOverlay = document.getElementById('first-boot-wizard');
     const lockScreen = document.getElementById('auth-lock-screen');
     const layout = document.getElementById('pos-app-layout');
