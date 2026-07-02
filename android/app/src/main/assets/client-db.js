@@ -364,6 +364,16 @@
     dbVersion: 3,
 
     init() {
+      if (navigator.storage && navigator.storage.persist) {
+        navigator.storage.persist().then(granted => {
+          if (!granted) {
+            console.warn("Persistent storage not granted. OS may clear data under storage pressure.");
+          } else {
+            console.log("Persistent storage granted. IndexedDB data protected.");
+          }
+        });
+      }
+
       return new Promise((resolve, reject) => {
         if (this.db) return resolve(this.db);
 
@@ -557,11 +567,11 @@
     },
 
     // CRUD Helper methods
-    async get(storeName, key) {
+    // CRUD Helper methods
+    async get(storeName, key, tx = null) {
       const row = await new Promise((resolve, reject) => {
-        if (!this.db) return reject(new Error('DB not initialized'));
-        const transaction = this.db.transaction([storeName], 'readonly');
-        const store = transaction.objectStore(transaction.objectStoreNames[0] || storeName);
+        if (!this.db && !tx) return reject(new Error('DB not initialized'));
+        const store = tx ? tx.objectStore(storeName) : this.db.transaction([storeName], 'readonly').objectStore(storeName);
         const request = store.get(key);
 
         request.onsuccess = (event) => resolve(event.target.result || null);
@@ -570,49 +580,73 @@
       if (!row) return null;
       let passphrase = '';
       if (storeName === 'customers' || storeName === 'transactions') {
-        passphrase = await this.getSyncPassphrase();
+        passphrase = await this.getSyncPassphrase(tx);
       }
       return await decryptItem(storeName, row, passphrase);
     },
 
-    async put(storeName, item) {
+    async put(storeName, item, tx = null) {
       let passphrase = '';
       if (storeName === 'customers' || storeName === 'transactions') {
-        passphrase = await this.getSyncPassphrase();
+        passphrase = await this.getSyncPassphrase(tx);
       }
       const encryptedItem = await encryptItem(storeName, item, passphrase);
       return new Promise((resolve, reject) => {
-        if (!this.db) return reject(new Error('DB not initialized'));
-        const transaction = this.db.transaction([storeName], 'readwrite');
-        const store = transaction.objectStore(transaction.objectStoreNames[0] || storeName);
-        const request = store.put(encryptedItem);
+        if (!this.db && !tx) return reject(new Error('DB not initialized'));
+        try {
+          const store = tx ? tx.objectStore(storeName) : this.db.transaction([storeName], 'readwrite').objectStore(storeName);
+          const request = store.put(encryptedItem);
 
-        request.onsuccess = () => {
-          this.triggerOpfsBackupDebounced();
-          resolve(true);
-        };
-        request.onerror = (event) => reject(event.target.error);
+          request.onsuccess = () => {
+            if (!tx) this.triggerOpfsBackupDebounced();
+            resolve(true);
+          };
+          request.onerror = (event) => {
+            const err = event.target.error;
+            if (err && (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || err.code === 22)) {
+              window.dispatchEvent(new CustomEvent('CRITICAL_STORAGE_ERROR', { detail: 'Device storage is full. Please free up space immediately.' }));
+            }
+            reject(err);
+          };
+        } catch (err) {
+          if (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || err.code === 22) {
+            window.dispatchEvent(new CustomEvent('CRITICAL_STORAGE_ERROR', { detail: 'Device storage is full. Please free up space immediately.' }));
+          }
+          reject(err);
+        }
       });
     },
 
-    delete(storeName, key) {
+    delete(storeName, key, tx = null) {
       return new Promise((resolve, reject) => {
-        if (!this.db) return reject(new Error('DB not initialized'));
-        const transaction = this.db.transaction([storeName], 'readwrite');
-        const store = transaction.objectStore(transaction.objectStoreNames[0] || storeName);
-        const request = store.delete(key);
+        if (!this.db && !tx) return reject(new Error('DB not initialized'));
+        try {
+          const store = tx ? tx.objectStore(storeName) : this.db.transaction([storeName], 'readwrite').objectStore(storeName);
+          const request = store.delete(key);
 
-        request.onsuccess = () => {
-          this.triggerOpfsBackupDebounced();
-          resolve(true);
-        };
-        request.onerror = (event) => reject(event.target.error);
+          request.onsuccess = () => {
+            if (!tx) this.triggerOpfsBackupDebounced();
+            resolve(true);
+          };
+          request.onerror = (event) => {
+            const err = event.target.error;
+            if (err && (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || err.code === 22)) {
+              window.dispatchEvent(new CustomEvent('CRITICAL_STORAGE_ERROR', { detail: 'Device storage is full. Please free up space immediately.' }));
+            }
+            reject(err);
+          };
+        } catch (err) {
+          if (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || err.code === 22) {
+            window.dispatchEvent(new CustomEvent('CRITICAL_STORAGE_ERROR', { detail: 'Device storage is full. Please free up space immediately.' }));
+          }
+          reject(err);
+        }
       });
     },
 
-    async getSyncPassphrase() {
+    async getSyncPassphrase(tx = null) {
       try {
-        const row = await this.get('local_preferences', 'sync_passphrase');
+        const row = await this.get('local_preferences', 'sync_passphrase', tx);
         return row ? row.value_payload : '';
       } catch (e) {
         return '';
@@ -669,11 +703,10 @@
       }, 2000);
     },
 
-    async getAll(storeName) {
+    async getAll(storeName, tx = null) {
       const rows = await new Promise((resolve, reject) => {
-        if (!this.db) return reject(new Error('DB not initialized'));
-        const transaction = this.db.transaction([storeName], 'readonly');
-        const store = transaction.objectStore(transaction.objectStoreNames[0] || storeName);
+        if (!this.db && !tx) return reject(new Error('DB not initialized'));
+        const store = tx ? tx.objectStore(storeName) : this.db.transaction([storeName], 'readonly').objectStore(storeName);
         const request = store.getAll();
 
         request.onsuccess = (event) => resolve(event.target.result || []);
@@ -681,7 +714,7 @@
       });
       let passphrase = '';
       if (storeName === 'customers' || storeName === 'transactions') {
-        passphrase = await this.getSyncPassphrase();
+        passphrase = await this.getSyncPassphrase(tx);
       }
       const decryptedRows = [];
       for (const row of rows) {
@@ -728,8 +761,8 @@
       });
     },
 
-    async getDbVersion() {
-      const changes = await this.getAll('crsql_changes');
+    async getDbVersion(tx = null) {
+      const changes = await this.getAll('crsql_changes', tx);
       if (changes.length === 0) return 0;
       let maxVer = 0;
       for (const change of changes) {
@@ -748,8 +781,8 @@
         .sort((a, b) => a.db_version - b.db_version);
     },
 
-    async logLocalChange(tableName, pk, cid, val, colVersion, cl, syncHlc) {
-      const dbVersion = (await this.getDbVersion()) + 1;
+    async logLocalChange(tableName, pk, cid, val, colVersion, cl, syncHlc, tx = null) {
+      const dbVersion = (await this.getDbVersion(tx)) + 1;
       const siteId = syncHlc.split(':').slice(2).join(':') || 'web_node';
       const change = {
         table_name: tableName,
@@ -762,7 +795,7 @@
         cl: cl,
         sync_hlc: syncHlc
       };
-      await this.put('crsql_changes', change);
+      await this.put('crsql_changes', change, tx);
       return dbVersion;
     },
 
@@ -981,12 +1014,12 @@
       }
     },
 
-    async recalculateCachedStock(sku) {
-      const baseStockRow = await this.get('crsql_changes', ['inventory_catalog', sku, 'stock_level']);
+    async recalculateCachedStock(sku, tx = null) {
+      const baseStockRow = await this.get('crsql_changes', ['inventory_catalog', sku, 'stock_level'], tx);
       const baseStock = baseStockRow ? Number(baseStockRow.val) : 0;
       const baseHlc = baseStockRow ? baseStockRow.sync_hlc : '0000000000000:000000:seed';
 
-      const changes = await this.getAll('crsql_changes');
+      const changes = await this.getAll('crsql_changes', tx);
       let totalDelta = 0;
       for (const row of changes) {
         if (row.table_name === 'inventory_catalog_counters' && row.pk.startsWith(sku + '/') && row.cid === 'delta') {
@@ -998,10 +1031,10 @@
 
       const finalStock = Math.max(0, baseStock + totalDelta);
       
-      const inv = await this.get('inventory_catalog', sku);
+      const inv = await this.get('inventory_catalog', sku, tx);
       if (inv) {
         inv.stock_level = finalStock;
-        await this.put('inventory_catalog', inv);
+        await this.put('inventory_catalog', inv, tx);
       }
       console.log(`[ClientDB] Recalculated stock for ${sku}: base=${baseStock} (${baseHlc}), delta=${totalDelta}, final=${finalStock}`);
       return finalStock;

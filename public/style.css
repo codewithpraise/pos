@@ -2,6 +2,18 @@
    NEXOVA COMMERCE ECOSYSTEM — OBSIDIAN PRECISION DESIGN SYSTEM v2
    ============================================================================ */
 
+/* Noto Nastaliq Urdu Font Integration */
+@font-face {
+  font-family: 'Noto Nastaliq Urdu';
+  src: url('NotoNastaliqUrdu-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+* {
+  touch-action: manipulation;
+}
+
 /* Google Fonts Import - Premium Typography */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
@@ -3568,4 +3580,14 @@ body.theme-monochrome-ivory .dm-btn-secondary {
 }
 body.theme-monochrome-ivory .dm-btn-secondary:hover {
   background: #dad8d3 !important;
+}
+
+#pos-app-layout {
+    min-height: 100dvh; /* 'dvh' accounts for mobile browser/keyboard bars */
+    overflow-x: hidden;
+}
+
+.cart-item-row {
+    touch-action: pan-y; /* Disables horizontal browser/OS gestures on this specific element */
+    overscroll-behavior-x: none;
 }

@@ -2,6 +2,18 @@
    NEXOVA COMMERCE ECOSYSTEM — OBSIDIAN PRECISION DESIGN SYSTEM v2
    ============================================================================ */
 
+/* Noto Nastaliq Urdu Font Integration */
+@font-face {
+  font-family: 'Noto Nastaliq Urdu';
+  src: url('NotoNastaliqUrdu-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+* {
+  touch-action: manipulation;
+}
+
 /* Google Fonts Import - Premium Typography */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
@@ -1129,9 +1141,9 @@ button:not(:disabled):active {
 }
 
 .payment-btn {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.07);
-  color: var(--text-gray);
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: var(--text-white);
   padding: 12px 0;
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
@@ -3317,6 +3329,34 @@ body.theme-monochrome-ivory .nav-item.active { background:rgba(0,0,0,0.08); colo
 }
 .dm-icon-blue   { background: rgba(79, 158, 255, 0.12); color: #4f9eff; }
 .dm-icon-emerald{ background: rgba(0, 214, 143, 0.12);  color: #00d68f; }
+.pin-btn {
+  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.36);
+  color: var(--text-white);
+  font-size: 18px;
+  font-weight: 600;
+  font-family: var(--font-display);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  transition: background 0.1s ease, transform 0.08s ease, border-color 0.1s ease, box-shadow 0.1s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  letter-spacing: -0.5px;
+}
+
+.pin-btn:hover {
+  background: rgba(255,255,255,0.28);
+  border-color: rgba(255,255,255,0.56);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+}
+
 .dm-icon-amber  { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
 
 .dm-actions {
@@ -3540,4 +3580,14 @@ body.theme-monochrome-ivory .dm-btn-secondary {
 }
 body.theme-monochrome-ivory .dm-btn-secondary:hover {
   background: #dad8d3 !important;
+}
+
+#pos-app-layout {
+    min-height: 100dvh; /* 'dvh' accounts for mobile browser/keyboard bars */
+    overflow-x: hidden;
+}
+
+.cart-item-row {
+    touch-action: pan-y; /* Disables horizontal browser/OS gestures on this specific element */
+    overscroll-behavior-x: none;
 }

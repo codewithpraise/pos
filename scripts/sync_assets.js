@@ -14,8 +14,8 @@ function copyRecursiveSync(src, dest) {
       fs.mkdirSync(dest, { recursive: true });
     }
     fs.readdirSync(src).forEach((childItemName) => {
-      // Skip the 'apk' directory under public if it exists
-      if (childItemName === 'apk') return;
+      // Skip the 'apk' and 'downloads' directories under public if they exist
+      if (childItemName === 'apk' || childItemName === 'downloads') return;
       
       copyRecursiveSync(
         path.join(src, childItemName),

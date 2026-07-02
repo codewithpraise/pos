@@ -419,6 +419,31 @@
           showPairingOverlay(true, 'form');
           break;
 
+        case 'HYDRATE_SUCCESS':
+          console.log('[App] Database hydration completed successfully.');
+          const statusEl = document.getElementById('hydration-status');
+          if (statusEl) {
+            statusEl.style.color = '#10b981';
+            statusEl.textContent = `Sync Complete! Applied ${event.data.applied} mutations.`;
+          }
+          setTimeout(() => {
+            document.getElementById('hydration-overlay')?.remove();
+            window.__hydrationInProgress = false;
+            window.location.reload();
+          }, 1500);
+          break;
+
+        case 'HYDRATE_ERROR':
+          console.error('[App] Database hydration failed:', event.data.error);
+          const statusElErr = document.getElementById('hydration-status');
+          if (statusElErr) {
+            statusElErr.style.color = '#ef4444';
+            statusElErr.innerHTML = `Hydration failed: ${event.data.error}<br><br>
+              <button onclick="window.location.reload()" style="padding: 10px 20px; background: #ef4444; border: none; border-radius: 4px; color: #fff; font-weight: 700; cursor: pointer; margin-top: 10px;">Retry Bootstrapping</button>`;
+          }
+          window.__hydrationInProgress = false;
+          break;
+
         case 'INIT_ERROR':
           console.error('[App] Worker failed to initialize:', error);
           alert('Database initialization failed: ' + error);
@@ -616,10 +641,12 @@
 
           const nameEl = document.getElementById('cashier-display-name');
           const roleDispEl = document.getElementById('cashier-display-role');
-          if (nameEl) nameEl.textContent = 'ADMIN';
           if (roleDispEl) roleDispEl.textContent = 'ADMIN';
           
           applyRoleNavigationLimits('ADMIN');
+          setTimeout(() => {
+              window.location.reload();
+          }, 1500);
           break;
         }
 
@@ -691,11 +718,15 @@
           break;
 
         case 'MUTATION_SUCCESS':
-          // Reload database views
+          // Reload ALL database views instantly to fix stale UI
           syncWorker.postMessage({ type: 'GET_CATALOG' });
           syncWorker.postMessage({ type: 'GET_CUSTOMERS' });
           syncWorker.postMessage({ type: 'GET_EMPLOYEES' });
           syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
+          syncWorker.postMessage({ type: 'GET_DISTRIBUTORS' });
+          syncWorker.postMessage({ type: 'GET_PURCHASE_ORDERS' });
+          syncWorker.postMessage({ type: 'GET_DISTRIBUTOR_PAYMENTS' });
+          syncWorker.postMessage({ type: 'GET_CUSTOMER_CREDIT' });
           break;
 
         case 'RESET_SUCCESS':
@@ -1242,6 +1273,13 @@
       state.preferences['haptic_feedback_enabled'] = String(enabled);
     });
 
+    document.getElementById('setting-fbr-enabled')?.addEventListener('change', (e) => {
+      const enabled = e.target.checked;
+      syncWorker.postMessage({ type: 'SAVE_PREFERENCE', payload: { key: 'fbr_integration_enabled', val: String(enabled) } });
+      state.preferences['fbr_integration_enabled'] = String(enabled);
+      renderCart(); // Instantly update checkout math
+    });
+
     document.getElementById('setting-scan-threshold').addEventListener('change', (e) => {
       const val = e.target.value;
       syncWorker.postMessage({
@@ -1478,7 +1516,7 @@
         return;
       }
       if (smsBody.includes(expectedTotalStr)) {
-        alert(`SMS verified! Payment matches grand total of $${expectedTotalStr}.`);
+        alert(`SMS verified! Payment matches grand total of Rs. ${expectedTotalStr}.`);
         document.getElementById('modal-qr-pay').classList.remove('active');
         const payload = state.pendingQrCheckout;
         const transactionId = 'tx_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
@@ -1496,7 +1534,8 @@
             total: payload.total,
             paymentMode: payload.paymentMode,
             paymentDetails: finalDetails,
-            tier: window.__nexovaTier || 'STARTER'
+            tier: window.__nexovaTier || 'STARTER',
+            fbr_integration_enabled: state.preferences['fbr_integration_enabled']
           }
         });
         state.pendingQrCheckout = null;
@@ -2195,7 +2234,7 @@
     const bootstrapTimePref = state.preferences['store_bootstrap_time'];
     if (!bootstrapTimePref) return true;
     const bootstrapTime = parseInt(bootstrapTimePref);
-    const trialDuration = 3 * 24 * 60 * 60 * 1000;
+    const trialDuration = 7 * 24 * 60 * 60 * 1000;
     const elapsed = Date.now() - bootstrapTime;
     return (trialDuration - elapsed) > 0;
   }
@@ -2818,9 +2857,59 @@
     applyPreferencesFromState();
   }
 
+  // Serve a dynamic glassmorphic loading screen for bootstrap hydration
+  function mountHydrationOverlay() {
+    if (document.getElementById('hydration-overlay')) return;
+    const overlay = document.createElement('div');
+    overlay.id = 'hydration-overlay';
+    overlay.style.cssText = `
+      position: fixed; inset: 0; z-index: 999999;
+      background: rgba(6, 6, 8, 0.9);
+      backdrop-filter: blur(20px);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-family: 'Manrope', sans-serif; padding: 32px;
+      color: #f8fafc;
+    `;
+    overlay.innerHTML = `
+      <div style="max-width: 400px; width: 100%; text-align: center;">
+        <div style="position: relative; width: 64px; height: 64px; margin: 0 auto 24px auto;">
+          <div style="position: absolute; inset: 0; border: 4px solid rgba(13, 148, 136, 0.1); border-radius: 50%;"></div>
+          <div style="position: absolute; inset: 0; border: 4px solid #0d9488; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        </div>
+        <div style="font-size: 20px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 12px; color: #ffffff;">
+          Syncing Cloud Data...
+        </div>
+        <div style="font-size: 13px; color: #94a3b8; line-height: 1.6; margin-bottom: 16px;">
+          Downloading your store catalog, customers, and setting up secure offline-first databases.
+        </div>
+        <p id="hydration-status" style="font-size: 11px; color: #0d9488; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Initializing download...</p>
+      </div>
+      <style>
+        @keyframes spin { to { transform: rotate(360deg); } }
+      </style>
+    `;
+    document.body.appendChild(overlay);
+  }
+
   // Apply whitelabel customizations to browser window
   function applyPreferencesFromState() {
-    // 0. First Boot Onboarding Check
+    // 0. Database Hydration Check (Data Continuity)
+    const licenseToken = localStorage.getItem('nexova_license_token');
+    const databaseHydrated = state.preferences['database_hydrated'] === 'true';
+
+    if (licenseToken && !databaseHydrated) {
+      if (!window.__hydrationInProgress) {
+        window.__hydrationInProgress = true;
+        mountHydrationOverlay();
+        syncWorker.postMessage({
+          type: 'HYDRATE_DATABASE',
+          payload: { licenseToken }
+        });
+      }
+      return;
+    }
+
+    // 0.b First Boot Onboarding Check
     const onboardingComplete = state.preferences['onboarding_complete'] === 'true';
     const wizardOverlay = document.getElementById('first-boot-wizard');
     const lockScreen = document.getElementById('auth-lock-screen');
@@ -2904,6 +2993,9 @@
     const hapticEnabled = state.preferences['haptic_feedback_enabled'] !== 'false';
     const hapticEl = document.getElementById('setting-haptic-enabled');
     if (hapticEl) hapticEl.checked = hapticEnabled;
+
+    const fbrToggle = document.getElementById('setting-fbr-enabled');
+    if (fbrToggle) fbrToggle.checked = state.preferences['fbr_integration_enabled'] === 'true';
 
     const scanThreshold = state.preferences['hid_scan_threshold_ms'] || '80';
     const scanThresholdEl = document.getElementById('setting-scan-threshold');
@@ -3163,7 +3255,7 @@
       state.preferences['store_bootstrap_time'] = String(Date.now());
     }
 
-    const trialDuration = 3 * 24 * 60 * 60 * 1000; // 3 days in milliseconds
+    const trialDuration = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
     const elapsed = Date.now() - bootstrapTime;
     const remainingMs = trialDuration - elapsed;
 
@@ -3219,7 +3311,7 @@
           <span class="item-title"><span class="cat-badge">${catAbbr}</span> ${p.name}</span>
           <div class="item-meta">SKU: ${p.sku} | Barcode: ${p.gtin || 'N/A'}</div>
         </div>
-        <span class="tx-amount">$${(p.base_price_minor_units / 100.0).toFixed(2)}</span>
+        <span class="tx-amount">Rs. ${(p.base_price_minor_units / 100.0).toFixed(2)}</span>
       `;
 
       row.addEventListener('click', () => {
@@ -3714,7 +3806,9 @@
   }
 
   function calculateGrandTotal() {
-    return calculateSubtotal() + calculateTax();
+    const isFbrEnabled = (window.__nexovaTier === 'ENTERPRISE' || window.__nexovaTier === 'TRIAL') && state.preferences['fbr_integration_enabled'] === 'true';
+    const fbrFee = isFbrEnabled ? 100 : 0;
+    return calculateSubtotal() + calculateTax() + fbrFee;
   }
 
   function updateTotalsBoard() {
@@ -3746,6 +3840,12 @@
 
     const taxLabelEl = document.getElementById('txt-tax-rate-label');
     if (taxLabelEl) taxLabelEl.textContent = label;
+
+    const isFbrEnabled = (window.__nexovaTier === 'ENTERPRISE' || window.__nexovaTier === 'TRIAL') && state.preferences['fbr_integration_enabled'] === 'true';
+    const fbrFeeEl = document.getElementById('row-fbr-fee');
+    if (fbrFeeEl) {
+      fbrFeeEl.style.display = isFbrEnabled ? 'flex' : 'none';
+    }
 
     const tax = calculateTax();
     const total = calculateGrandTotal();
@@ -3782,7 +3882,7 @@
       const card = parseFloat(document.getElementById('split-card-amount').value || 0) * 100;
       if (Math.round(cash + card) !== total) {
         playAudioSignal('error');
-        alert(`Split pay values mismatch total! Total: $${(total/100).toFixed(2)}, Split Sum: $${((cash+card)/100).toFixed(2)}`);
+        alert(`Split pay values mismatch total! Total: Rs. ${(total/100).toFixed(2)}, Split Sum: Rs. ${((cash+card)/100).toFixed(2)}`);
         return;
       }
       paymentDetails = JSON.stringify({ cash_cents: Math.round(cash), card_cents: Math.round(card) });
@@ -3837,7 +3937,8 @@
         total,
         paymentMode,
         paymentDetails,
-        tier: window.__nexovaTier || 'STARTER'
+        tier: window.__nexovaTier || 'STARTER',
+        fbr_integration_enabled: state.preferences['fbr_integration_enabled']
       }
     });
   }
@@ -4469,6 +4570,14 @@
     text += separator + '\n';
     text += spaceBetween('SUBTOTAL:', `Rs. ${(tx.subtotal_minor_units/100).toFixed(2)}`) + '\n';
     text += spaceBetween('TAX CHARGES:', `Rs. ${(tx.tax_minor_units/100).toFixed(2)}`) + '\n';
+    
+    // Inject FBR POS Fee Rs. 1.00 line item if active in this transaction (Compliance)
+    const totalWithoutFee = tx.subtotal_minor_units + tx.tax_minor_units;
+    const hasFbrFee = (tx.total_minor_units - totalWithoutFee >= 100);
+    if (hasFbrFee) {
+      text += spaceBetween('FBR POS FEE:', 'Rs. 1.00') + '\n';
+    }
+    
     text += dblSeparator + '\n';
     text += spaceBetween('GRAND TOTAL DUE:', `Rs. ${(tx.total_minor_units/100).toFixed(2)}`) + '\n';
     text += dblSeparator + '\n';
@@ -4751,37 +4860,40 @@
           <span style="font-size:10px; padding:2px 6px; background:rgba(16,185,129,0.1); border-radius:4px; color:var(--accent-emerald); font-weight:700;">v${newVer}</span>
         </div>
         <p style="font-size:10px; color:var(--text-gray); margin:0;">${changelog || 'Performance fixes and enhancements.'}</p>
-        <button id="btn-ota-apply" class="action-btn action-success" style="padding:6px; min-height:28px; font-size:11px; margin-top:4px; font-weight:700; width:100%;">APPLY SILENT PATCH</button>
+        <div style="display:flex; flex-direction:column; gap:6px; margin:8px 0;">
+          <a href="/downloads/nexova-pos-latest.apk" download style="text-align:center; padding:8px; background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.2); border-radius:4px; color:var(--accent-emerald); font-size:10px; font-weight:700; text-decoration:none; display:block; transition: background 0.2s;">
+            📥 DOWNLOAD ANDROID APK (TABLET)
+          </a>
+          <a href="/downloads/nexova-pos-setup.exe" download style="text-align:center; padding:8px; background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.2); border-radius:4px; color:var(--accent-emerald); font-size:10px; font-weight:700; text-decoration:none; display:block; transition: background 0.2s;">
+            📥 DOWNLOAD WINDOWS SETUP (EXE)
+          </a>
+          <a href="/downloads/nexova-pos-setup.msi" download style="text-align:center; padding:8px; background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.2); border-radius:4px; color:var(--accent-emerald); font-size:10px; font-weight:700; text-decoration:none; display:block; transition: background 0.2s;">
+            📥 DOWNLOAD WINDOWS SETUP (MSI)
+          </a>
+        </div>
+        <button id="btn-ota-apply" class="action-btn action-success" style="padding:6px; min-height:28px; font-size:11px; margin-top:4px; font-weight:700; width:100%;">APPLY SILENT PATCH (RELOAD)</button>
       `;
 
       document.body.appendChild(toast);
 
       document.getElementById('btn-ota-apply').addEventListener('click', async () => {
-        toast.innerHTML = '<p style="font-size:11px; text-align:center; margin:0; color:var(--text-white);">Invalidating cache & updating payload...</p>';
+        toast.innerHTML = '<p style="color:var(--text-white);">Clearing cache & applying patch...</p>';
         if ('serviceWorker' in navigator) {
-          try {
-            const registrations = await navigator.serviceWorker.getRegistrations();
-            for (const reg of registrations) {
-              await reg.unregister();
-            }
-            const keys = await caches.keys();
-            for (const key of keys) {
-              await caches.delete(key);
-            }
-            console.log('[OTA] Offline cache flushed.');
-          } catch(e) {
-            console.error('[OTA] Clear cache error:', e);
-          }
+            try {
+                const regs = await navigator.serviceWorker.getRegistrations();
+                for (let reg of regs) { await reg.unregister(); }
+                const cacheNames = await caches.keys();
+                for (let name of cacheNames) { await caches.delete(name); }
+            } catch(e) { console.error('Cache wipe failed', e); }
         }
         localStorage.setItem('nexova_client_version', newVer);
-        setTimeout(() => {
-          window.location.reload(true);
-        }, 1000);
+        // Force the WebView to ignore network cache on next load
+        window.location.href = window.location.pathname + '?v=' + new Date().getTime();
       });
     }
 
     setTimeout(checkUpdates, 5000);
-    setInterval(checkUpdates, 300000);
+    setInterval(checkUpdates, 3600000); // Poll hourly
   }
 
   function plotHourlySalesChart(txs) {
@@ -5342,8 +5454,11 @@
       if (e.key === 'Enter' && scanBuffer.length >= 6) {
         const barcode = scanBuffer.trim();
         scanBuffer = '';
+        
+        // KILL the event completely so it doesn't trigger UI clicks
         e.preventDefault();
-        e.stopPropagation(); // Prevent Enter from submitting active form
+        e.stopPropagation();
+        e.stopImmediatePropagation();
 
         console.log(`[HIDScanner] Captured barcode: ${barcode}`);
         const prod = state.catalog.find(p =>
@@ -6498,11 +6613,61 @@
     }
   }
 
+  const CLIENT_VERSION = '1.0.0';
+
+  async function checkForUpdates() {
+    try {
+      const resp = await fetch('/version.json');
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && data.version && data.version !== CLIENT_VERSION) {
+          console.log(`[Update] New version detected: ${data.version} (Current: ${CLIENT_VERSION})`);
+          showUpdateNotification(data.version, data.changelog);
+        }
+      }
+    } catch (err) {
+      console.warn('[Update] Failed to fetch version updates:', err);
+    }
+  }
+
+  function showUpdateNotification(newVersion, changelog) {
+    if (document.getElementById('update-notification-banner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'update-notification-banner';
+    banner.style.cssText = `
+      position: fixed; bottom: 20px; right: 20px; z-index: 99999;
+      background: rgba(13, 148, 136, 0.95); backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px;
+      padding: 16px; width: 320px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      color: #fff; font-family: var(--font-body); animation: slideUp 0.3s ease-out;
+    `;
+    banner.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+        <span style="font-weight: 800; font-size: 14px; letter-spacing: -0.01em;">Software Update Available</span>
+        <button id="btn-close-update-banner" style="background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer; padding: 0; font-size: 16px;">&times;</button>
+      </div>
+      <p style="font-size: 12px; margin: 0 0 12px 0; color: rgba(255,255,255,0.9); line-height: 1.5;">
+        A new version (v${newVersion}) is available. Update to get the latest features and stability fixes.
+      </p>
+      <div style="display: flex; gap: 8px;">
+        <a href="/downloads/nexova-pos-latest.apk" target="_blank" style="flex: 1; text-align: center; text-decoration: none; padding: 8px 12px; background: #fff; color: #0d9488; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">GET APK</a>
+        <a href="/downloads/nexova-pos-setup.msi" target="_blank" style="flex: 1; text-align: center; text-decoration: none; padding: 8px 12px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">GET WINDOWS</a>
+      </div>
+      <style>
+        @keyframes slideUp { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+      </style>
+    `;
+    document.body.appendChild(banner);
+    document.getElementById('btn-close-update-banner').addEventListener('click', () => banner.remove());
+  }
+
   // Start app execution
   document.addEventListener('DOMContentLoaded', () => {
     init().then(() => {
       bindPrinterSettings();
       initDataManagement();
+      checkForUpdates();
+      setInterval(checkForUpdates, 3600000); // Check hourly
     });
   });
 
@@ -6811,4 +6976,80 @@
       });
     }
   }
+
+  // Network connection debounced sync & flap protection
+  let networkDebounceTimer;
+  window.addEventListener('online', () => {
+      clearTimeout(networkDebounceTimer);
+      networkDebounceTimer = setTimeout(() => {
+          console.log('[Network] Connection stable. Triggering background sync.');
+          syncWorker.postMessage({ type: 'FORCE_FULL_SYNC' });
+          updateNetworkBadge(true);
+      }, 3000); // Wait 3 seconds to ensure stability
+  });
+
+  window.addEventListener('offline', () => {
+      clearTimeout(networkDebounceTimer);
+      updateNetworkBadge(false);
+  });
+
+  // Background Sync Doze Mode focus recovery & camera scanner battery saver
+  document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") {
+          // App went to background. Kill the camera instantly to save battery.
+          if (typeof closeMobileScanner === 'function') {
+              closeMobileScanner();
+          }
+      } else if (document.visibilityState === "visible") {
+          // App came back. Sweep sync.
+          syncWorker.postMessage({ type: 'FORCE_FULL_SYNC' });
+      }
+  });
+
+  // Intercept physical back button to close open modals
+  window.onNativeBackPressed = function() {
+    const activeModals = document.querySelectorAll('.modal.active, .modal-overlay.active');
+    if (activeModals.length > 0) {
+      // Close the top-most modal and tell Android we handled it
+      activeModals[activeModals.length - 1].classList.remove('active');
+      return true; 
+    }
+    return false; // Tell Android to do normal back navigation
+  };
+
+  // Handle storage quota exceeded event
+  window.addEventListener('CRITICAL_STORAGE_ERROR', (e) => {
+    let modal = document.getElementById('modal-critical-storage-error');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'modal-critical-storage-error';
+      modal.style.position = 'fixed';
+      modal.style.top = '0';
+      modal.style.left = '0';
+      modal.style.width = '100vw';
+      modal.style.height = '100vh';
+      modal.style.backgroundColor = 'rgba(239, 68, 68, 0.98)';
+      modal.style.zIndex = '999999';
+      modal.style.display = 'flex';
+      modal.style.flexDirection = 'column';
+      modal.style.justifyContent = 'center';
+      modal.style.alignItems = 'center';
+      modal.style.padding = '40px';
+      modal.style.color = '#FFFFFF';
+      modal.style.fontFamily = 'sans-serif';
+      modal.style.textAlign = 'center';
+      
+      modal.innerHTML = `
+        <div style="font-size: 72px; margin-bottom: 20px;">⚠️</div>
+        <h1 style="font-size: 28px; font-weight: bold; margin-bottom: 15px; text-transform: uppercase;">Storage Limit Exceeded</h1>
+        <p style="font-size: 16px; max-width: 600px; line-height: 1.5; margin-bottom: 30px;">
+          ${e.detail || 'Device storage is completely full. Please free up space immediately to prevent data loss.'}
+        </p>
+        <div style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 15px 25px; border-radius: 8px; font-size: 14px;">
+          <strong>ACTION REQUIRED:</strong> Delete unused files, photos, or apps from this Android tablet now.
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+  });
 })();

@@ -89,7 +89,13 @@ const LicenseEngine = (() => {
           if (pipeIndex === -1) return { valid: false, reason: 'Malformed token.' };
           const payloadStr = decoded.substring(0, pipeIndex);
           const payload = JSON.parse(payloadStr);
-          if (payload.exp < Date.now()) return { valid: false, reason: `License expired on ${new Date(payload.exp).toLocaleDateString()}.` };
+          if (payload.exp < Date.now()) {
+            if (!navigator.onLine && Date.now() < payload.exp + (48 * 60 * 60 * 1000)) {
+              console.warn("License expired, but terminal is offline. Granting 48hr grace period.");
+              return { valid: true, payload };
+            }
+            return { valid: false, reason: `License expired on ${new Date(payload.exp).toLocaleDateString()}.` };
+          }
           // HWID check skipped on HTTP — server enforces terminal binding
           return { valid: true, payload };
         } catch (e) {
@@ -112,7 +118,13 @@ const LicenseEngine = (() => {
 
       const payload = JSON.parse(payloadStr);
       if (payload.hwid !== hwid) return { valid: false, reason: `Hardware ID mismatch. Token HWID: ${payload.hwid.slice(0,8)}...` };
-      if (payload.exp < Date.now()) return { valid: false, reason: `License expired on ${new Date(payload.exp).toLocaleDateString()}.` };
+      if (payload.exp < Date.now()) {
+        if (!navigator.onLine && Date.now() < payload.exp + (48 * 60 * 60 * 1000)) {
+          console.warn("License expired, but terminal is offline. Granting 48hr grace period.");
+          return { valid: true, payload };
+        }
+        return { valid: false, reason: `License expired on ${new Date(payload.exp).toLocaleDateString()}.` };
+      }
 
       return { valid: true, payload };
     } catch (err) {
@@ -159,13 +171,19 @@ const LicenseEngine = (() => {
           ${message}
         </div>
         
-        <input id="license-phone-input" type="tel" placeholder="Enter Registered Phone..." aria-label="Enter Registered Phone Number"
-          style="width: 100%; box-sizing: border-box; padding: 14px 16px; background: #121217; border: 1px solid #333; border-radius: 6px; color: #f8fafc; font-family: sans-serif; font-size: 13px; margin-bottom: 12px; outline: none; text-align: center;"
-        />
+        <div style="text-align: left; margin-bottom: 12px; width: 100%;">
+          <label for="license-phone-input" style="display: block; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px;">Registered Phone Number</label>
+          <input id="license-phone-input" type="tel" placeholder="Enter Registered Phone..." aria-label="Enter Registered Phone Number"
+            style="width: 100%; box-sizing: border-box; padding: 14px 16px; background: #121217; border: 1px solid #333; border-radius: 6px; color: #f8fafc; font-family: sans-serif; font-size: 13px; outline: none; text-align: center;"
+          />
+        </div>
         
-        <input id="license-code-input" type="text" maxlength="6" placeholder="Enter 6-Digit Activation Code..." aria-label="Enter 6-Digit Activation Code"
-          style="width: 100%; box-sizing: border-box; padding: 14px 16px; background: #121217; border: 1px solid #333; border-radius: 6px; color: #f8fafc; font-family: monospace; font-size: 16px; margin-bottom: 16px; outline: none; text-align: center; letter-spacing: 4px; font-weight: 700;"
-        />
+        <div style="text-align: left; margin-bottom: 16px; width: 100%;">
+          <label for="license-code-input" style="display: block; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px;">6-Digit Activation Code</label>
+          <input id="license-code-input" type="text" maxlength="6" placeholder="Enter 6-Digit Activation Code..." aria-label="Enter 6-Digit Activation Code"
+            style="width: 100%; box-sizing: border-box; padding: 14px 16px; background: #121217; border: 1px solid #333; border-radius: 6px; color: #f8fafc; font-family: monospace; font-size: 16px; outline: none; text-align: center; letter-spacing: 4px; font-weight: 700;"
+          />
+        </div>
         
         <button id="license-activate-btn"
           style="width: 100%; padding: 14px; background: #10b981; color: #060608; font-weight: 800; font-size: 13px; border: none; border-radius: 6px; cursor: pointer; letter-spacing: 0.05em; text-transform: uppercase; transition: opacity 0.15s;"
@@ -217,6 +235,65 @@ const LicenseEngine = (() => {
       }
     });
   }
+
+  // ── Pending payment verification overlay with auto-polling ────────────────
+  function mountPendingPaymentOverlay(message, token, hwid) {
+    document.getElementById('license-lockout-overlay')?.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'license-lockout-overlay';
+    overlay.style.cssText = `
+      position: fixed; inset: 0; z-index: 999999;
+      background: #060608;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-family: 'Manrope', sans-serif; padding: 32px;
+    `;
+    overlay.innerHTML = `
+      <div style="max-width: 480px; width: 100%; text-align: center;">
+        <div style="position: relative; width: 64px; height: 64px; margin: 0 auto 24px auto;">
+          <div style="position: absolute; inset: 0; border: 4px solid rgba(251,191,36,0.1); border-radius: 50%;"></div>
+          <div style="position: absolute; inset: 0; border: 4px solid #fbbf24; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        </div>
+        <div style="font-size: clamp(18px,3vw,24px); font-weight: 800; color: #fbbf24; letter-spacing: -0.02em; margin-bottom: 12px;">
+          VERIFICATION PENDING
+        </div>
+        <div style="font-size: 13px; color: #94a3b8; line-height: 1.6; margin-bottom: 24px; border: 1px solid rgba(251,191,36,0.2); border-radius: 8px; padding: 16px; background: rgba(251,191,36,0.05);">
+          ${message}
+        </div>
+        <p style="font-size: 11px; color: #475569;">Terminal Node ID: ${hwid.slice(0,12)}...</p>
+      </div>
+      <style>
+        @keyframes spin { to { transform: rotate(360deg); } }
+      </style>
+    `;
+    document.body.appendChild(overlay);
+
+    // Poll server every 5 seconds for approval
+    const pollInterval = setInterval(async () => {
+      try {
+        const serverBase = (window.__nexovaServerUrl || location.origin);
+        const response = await fetch(serverBase + '/api/license/check', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.status === 401 || response.status === 404) {
+          clearInterval(pollInterval);
+          localStorage.removeItem(STORAGE_KEY_LICENSE);
+          location.reload();
+          return;
+        }
+        if (!response.ok) return;
+
+        const result = await response.json();
+        if (result.updated && result.token) {
+          clearInterval(pollInterval);
+          console.log('[License] License approved! Saving new token and booting app...');
+          localStorage.setItem(STORAGE_KEY_LICENSE, result.token);
+          location.reload();
+        }
+      } catch (err) {
+        console.warn('[License] Failed to check activation status:', err.message);
+      }
+    }, 5000);
+  };
 
   function mountClockTamperOverlay(lastKnown, osClock, onBypass) {
     document.getElementById('license-lockout-overlay')?.remove();
@@ -391,15 +468,6 @@ const LicenseEngine = (() => {
 
   // ── Public API ─────────────────────────────────────────────────────────────
   async function init() {
-    // Strict licensing enforcement. Local demo bypasses are disabled for production builds.
-    const LICENSE_BYPASS = false;
-
-    if (LICENSE_BYPASS) {
-      console.log("[License] Development bypass active. Bypassing license gate.");
-      window.__nexovaTier = 'ENTERPRISE';
-      window.__nexovaHWID = 'DEV_LOCAL_BYPASS';
-      return true;
-    }
 
     // Detect HTTP context (Android WebView over LAN, or localhost dev)
     // crypto.subtle is only available on HTTPS + localhost. On HTTP LAN, it's undefined.
@@ -456,11 +524,23 @@ const LicenseEngine = (() => {
     const hwid = await generateHWID();
     console.log(`[License] Hardware fingerprint: ${hwid.slice(0,8)}... | Secure context: ${isSecureContext}`);
 
+
+
     // 3. Check stored license
     const stored = localStorage.getItem(STORAGE_KEY_LICENSE);
     if (stored) {
       const result = await verifyToken(stored, hwid);
       if (result.valid) {
+        if (result.payload.status === 'pending_payment') {
+          console.log('[License] License status is pending_payment. Displaying verification pending screen.');
+          mountPendingPaymentOverlay(
+            `Your payment is awaiting verification.<br><br>The register will automatically unlock once the administrator approves your transaction reference.`,
+            stored,
+            hwid
+          );
+          return false;
+        }
+
         console.log(`[License] Valid — Tier: ${result.payload.tier}, Expires: ${new Date(result.payload.exp).toLocaleDateString()}`);
         window.__nexovaTier = result.payload.tier;
         window.__nexovaHWID = hwid;

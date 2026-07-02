@@ -89,7 +89,13 @@ const LicenseEngine = (() => {
           if (pipeIndex === -1) return { valid: false, reason: 'Malformed token.' };
           const payloadStr = decoded.substring(0, pipeIndex);
           const payload = JSON.parse(payloadStr);
-          if (payload.exp < Date.now()) return { valid: false, reason: `License expired on ${new Date(payload.exp).toLocaleDateString()}.` };
+          if (payload.exp < Date.now()) {
+            if (!navigator.onLine && Date.now() < payload.exp + (48 * 60 * 60 * 1000)) {
+              console.warn("License expired, but terminal is offline. Granting 48hr grace period.");
+              return { valid: true, payload };
+            }
+            return { valid: false, reason: `License expired on ${new Date(payload.exp).toLocaleDateString()}.` };
+          }
           // HWID check skipped on HTTP — server enforces terminal binding
           return { valid: true, payload };
         } catch (e) {
@@ -112,7 +118,13 @@ const LicenseEngine = (() => {
 
       const payload = JSON.parse(payloadStr);
       if (payload.hwid !== hwid) return { valid: false, reason: `Hardware ID mismatch. Token HWID: ${payload.hwid.slice(0,8)}...` };
-      if (payload.exp < Date.now()) return { valid: false, reason: `License expired on ${new Date(payload.exp).toLocaleDateString()}.` };
+      if (payload.exp < Date.now()) {
+        if (!navigator.onLine && Date.now() < payload.exp + (48 * 60 * 60 * 1000)) {
+          console.warn("License expired, but terminal is offline. Granting 48hr grace period.");
+          return { valid: true, payload };
+        }
+        return { valid: false, reason: `License expired on ${new Date(payload.exp).toLocaleDateString()}.` };
+      }
 
       return { valid: true, payload };
     } catch (err) {
@@ -456,15 +468,6 @@ const LicenseEngine = (() => {
 
   // ── Public API ─────────────────────────────────────────────────────────────
   async function init() {
-    // Strict licensing enforcement. Local demo bypasses are disabled for production builds.
-    const LICENSE_BYPASS = false;
-
-    if (LICENSE_BYPASS) {
-      console.log("[License] Development bypass active. Bypassing license gate.");
-      window.__nexovaTier = 'ENTERPRISE';
-      window.__nexovaHWID = 'DEV_LOCAL_BYPASS';
-      return true;
-    }
 
     // Detect HTTP context (Android WebView over LAN, or localhost dev)
     // crypto.subtle is only available on HTTPS + localhost. On HTTP LAN, it's undefined.
@@ -520,6 +523,8 @@ const LicenseEngine = (() => {
     // 2. Generate HWID (uses JS fallback on HTTP)
     const hwid = await generateHWID();
     console.log(`[License] Hardware fingerprint: ${hwid.slice(0,8)}... | Secure context: ${isSecureContext}`);
+
+
 
     // 3. Check stored license
     const stored = localStorage.getItem(STORAGE_KEY_LICENSE);

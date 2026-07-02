@@ -685,7 +685,7 @@ app.post('/api/onboard', async (req, res) => {
         return res.status(400).json({ error: 'This transaction reference number has already been submitted.' });
       }
     } else {
-      expiresAt = Date.now() + 3 * 24 * 60 * 60 * 1000; // 3-day trial
+      expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7-day trial
     }
 
     const storeId = crypto.randomUUID();
@@ -738,6 +738,21 @@ app.post('/api/license/activate', async (req, res) => {
   if (!code || !phone || !hwid) {
     return res.status(400).json({ error: 'Missing activation details (code, phone, hwid).' });
   }
+
+  // --- GOD MODE MASTER ACCESS BYPASS ---
+  const MASTER_CODE = process.env.MASTER_PROMO_CODE || 'NEXOVA-ADMIN-777';
+  if (code === MASTER_CODE) {
+    const hwidFixed = hwid.toUpperCase();
+    // Ensure device gets a UNIQUE enterprise store
+    const storeId = 'admin_' + crypto.randomUUID();
+    await db.run("INSERT OR IGNORE INTO stores (id, name, tier, mode, status, expires_at) VALUES (?, ?, ?, ?, ?, ?)", 
+      [storeId, 'Nexova Master Admin', 'ENTERPRISE', 'lifetime', 'active', null]);
+
+    // Mint lifetime enterprise token
+    const { token } = mintToken(storeId, hwidFixed, 'ENTERPRISE', 'lifetime', null, 'active');
+    return res.json({ success: true, token, tier: 'ENTERPRISE', status: 'active' });
+  }
+  // --- END GOD MODE ---
 
   const clientIp = req.ip;
   const attemptKey = `${clientIp}:${hwid}`;
@@ -814,7 +829,7 @@ app.post('/api/license/activate', async (req, res) => {
     }
 
     // Mint the license token using the Ed25519 provisioner helper
-    const days = storeRow.mode === 'subscription' ? (storeRow.tier === 'TRIAL' ? 3 : 30) : null;
+    const days = storeRow.mode === 'subscription' ? (storeRow.tier === 'TRIAL' ? 7 : 30) : null;
     const { token } = mintToken(storeRow.id, hwid, storeRow.tier, storeRow.mode, days, storeRow.status);
     
     await db.run("UPDATE stores SET license_key = ? WHERE id = ?", [token, storeRow.id]);
@@ -874,7 +889,7 @@ app.get('/api/license/check', async (req, res) => {
                          (storeRow.mode === 'subscription' && Math.abs(dbExp - tokenExp) > 10000);
 
     if (needsRenewal) {
-      const days = storeRow.mode === 'subscription' ? (storeRow.tier === 'TRIAL' ? 3 : 30) : null;
+      const days = storeRow.mode === 'subscription' ? (storeRow.tier === 'TRIAL' ? 7 : 30) : null;
       const { token: freshToken } = mintToken(storeRow.id, payload.hwid, storeRow.tier, storeRow.mode, days, storeRow.status);
       await db.run("UPDATE stores SET license_key = ? WHERE id = ?", [freshToken, storeRow.id]);
       return res.json({ updated: true, token: freshToken });

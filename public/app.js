@@ -641,10 +641,12 @@
 
           const nameEl = document.getElementById('cashier-display-name');
           const roleDispEl = document.getElementById('cashier-display-role');
-          if (nameEl) nameEl.textContent = 'ADMIN';
           if (roleDispEl) roleDispEl.textContent = 'ADMIN';
           
           applyRoleNavigationLimits('ADMIN');
+          setTimeout(() => {
+              window.location.reload();
+          }, 1500);
           break;
         }
 
@@ -716,11 +718,15 @@
           break;
 
         case 'MUTATION_SUCCESS':
-          // Reload database views
+          // Reload ALL database views instantly to fix stale UI
           syncWorker.postMessage({ type: 'GET_CATALOG' });
           syncWorker.postMessage({ type: 'GET_CUSTOMERS' });
           syncWorker.postMessage({ type: 'GET_EMPLOYEES' });
           syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
+          syncWorker.postMessage({ type: 'GET_DISTRIBUTORS' });
+          syncWorker.postMessage({ type: 'GET_PURCHASE_ORDERS' });
+          syncWorker.postMessage({ type: 'GET_DISTRIBUTOR_PAYMENTS' });
+          syncWorker.postMessage({ type: 'GET_CUSTOMER_CREDIT' });
           break;
 
         case 'RESET_SUCCESS':
@@ -1267,6 +1273,13 @@
       state.preferences['haptic_feedback_enabled'] = String(enabled);
     });
 
+    document.getElementById('setting-fbr-enabled')?.addEventListener('change', (e) => {
+      const enabled = e.target.checked;
+      syncWorker.postMessage({ type: 'SAVE_PREFERENCE', payload: { key: 'fbr_integration_enabled', val: String(enabled) } });
+      state.preferences['fbr_integration_enabled'] = String(enabled);
+      renderCart(); // Instantly update checkout math
+    });
+
     document.getElementById('setting-scan-threshold').addEventListener('change', (e) => {
       const val = e.target.value;
       syncWorker.postMessage({
@@ -1503,7 +1516,7 @@
         return;
       }
       if (smsBody.includes(expectedTotalStr)) {
-        alert(`SMS verified! Payment matches grand total of $${expectedTotalStr}.`);
+        alert(`SMS verified! Payment matches grand total of Rs. ${expectedTotalStr}.`);
         document.getElementById('modal-qr-pay').classList.remove('active');
         const payload = state.pendingQrCheckout;
         const transactionId = 'tx_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
@@ -1521,7 +1534,8 @@
             total: payload.total,
             paymentMode: payload.paymentMode,
             paymentDetails: finalDetails,
-            tier: window.__nexovaTier || 'STARTER'
+            tier: window.__nexovaTier || 'STARTER',
+            fbr_integration_enabled: state.preferences['fbr_integration_enabled']
           }
         });
         state.pendingQrCheckout = null;
@@ -2220,7 +2234,7 @@
     const bootstrapTimePref = state.preferences['store_bootstrap_time'];
     if (!bootstrapTimePref) return true;
     const bootstrapTime = parseInt(bootstrapTimePref);
-    const trialDuration = 3 * 24 * 60 * 60 * 1000;
+    const trialDuration = 7 * 24 * 60 * 60 * 1000;
     const elapsed = Date.now() - bootstrapTime;
     return (trialDuration - elapsed) > 0;
   }
@@ -2980,6 +2994,9 @@
     const hapticEl = document.getElementById('setting-haptic-enabled');
     if (hapticEl) hapticEl.checked = hapticEnabled;
 
+    const fbrToggle = document.getElementById('setting-fbr-enabled');
+    if (fbrToggle) fbrToggle.checked = state.preferences['fbr_integration_enabled'] === 'true';
+
     const scanThreshold = state.preferences['hid_scan_threshold_ms'] || '80';
     const scanThresholdEl = document.getElementById('setting-scan-threshold');
     if (scanThresholdEl) scanThresholdEl.value = scanThreshold;
@@ -3238,7 +3255,7 @@
       state.preferences['store_bootstrap_time'] = String(Date.now());
     }
 
-    const trialDuration = 3 * 24 * 60 * 60 * 1000; // 3 days in milliseconds
+    const trialDuration = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
     const elapsed = Date.now() - bootstrapTime;
     const remainingMs = trialDuration - elapsed;
 
@@ -3294,7 +3311,7 @@
           <span class="item-title"><span class="cat-badge">${catAbbr}</span> ${p.name}</span>
           <div class="item-meta">SKU: ${p.sku} | Barcode: ${p.gtin || 'N/A'}</div>
         </div>
-        <span class="tx-amount">$${(p.base_price_minor_units / 100.0).toFixed(2)}</span>
+        <span class="tx-amount">Rs. ${(p.base_price_minor_units / 100.0).toFixed(2)}</span>
       `;
 
       row.addEventListener('click', () => {
@@ -3789,7 +3806,7 @@
   }
 
   function calculateGrandTotal() {
-    const isFbrEnabled = (window.__nexovaTier === 'ENTERPRISE' || window.__nexovaTier === 'TRIAL');
+    const isFbrEnabled = (window.__nexovaTier === 'ENTERPRISE' || window.__nexovaTier === 'TRIAL') && state.preferences['fbr_integration_enabled'] === 'true';
     const fbrFee = isFbrEnabled ? 100 : 0;
     return calculateSubtotal() + calculateTax() + fbrFee;
   }
@@ -3824,7 +3841,7 @@
     const taxLabelEl = document.getElementById('txt-tax-rate-label');
     if (taxLabelEl) taxLabelEl.textContent = label;
 
-    const isFbrEnabled = (window.__nexovaTier === 'ENTERPRISE' || window.__nexovaTier === 'TRIAL');
+    const isFbrEnabled = (window.__nexovaTier === 'ENTERPRISE' || window.__nexovaTier === 'TRIAL') && state.preferences['fbr_integration_enabled'] === 'true';
     const fbrFeeEl = document.getElementById('row-fbr-fee');
     if (fbrFeeEl) {
       fbrFeeEl.style.display = isFbrEnabled ? 'flex' : 'none';
@@ -3865,7 +3882,7 @@
       const card = parseFloat(document.getElementById('split-card-amount').value || 0) * 100;
       if (Math.round(cash + card) !== total) {
         playAudioSignal('error');
-        alert(`Split pay values mismatch total! Total: $${(total/100).toFixed(2)}, Split Sum: $${((cash+card)/100).toFixed(2)}`);
+        alert(`Split pay values mismatch total! Total: Rs. ${(total/100).toFixed(2)}, Split Sum: Rs. ${((cash+card)/100).toFixed(2)}`);
         return;
       }
       paymentDetails = JSON.stringify({ cash_cents: Math.round(cash), card_cents: Math.round(card) });
@@ -3920,7 +3937,8 @@
         total,
         paymentMode,
         paymentDetails,
-        tier: window.__nexovaTier || 'STARTER'
+        tier: window.__nexovaTier || 'STARTER',
+        fbr_integration_enabled: state.preferences['fbr_integration_enabled']
       }
     });
   }
@@ -4859,26 +4877,18 @@
       document.body.appendChild(toast);
 
       document.getElementById('btn-ota-apply').addEventListener('click', async () => {
-        toast.innerHTML = '<p style="font-size:11px; text-align:center; margin:0; color:var(--text-white);">Invalidating cache & updating payload...</p>';
+        toast.innerHTML = '<p style="color:var(--text-white);">Clearing cache & applying patch...</p>';
         if ('serviceWorker' in navigator) {
-          try {
-            const registrations = await navigator.serviceWorker.getRegistrations();
-            for (const reg of registrations) {
-              await reg.unregister();
-            }
-            const keys = await caches.keys();
-            for (const key of keys) {
-              await caches.delete(key);
-            }
-            console.log('[OTA] Offline cache flushed.');
-          } catch(e) {
-            console.error('[OTA] Clear cache error:', e);
-          }
+            try {
+                const regs = await navigator.serviceWorker.getRegistrations();
+                for (let reg of regs) { await reg.unregister(); }
+                const cacheNames = await caches.keys();
+                for (let name of cacheNames) { await caches.delete(name); }
+            } catch(e) { console.error('Cache wipe failed', e); }
         }
         localStorage.setItem('nexova_client_version', newVer);
-        setTimeout(() => {
-          window.location.reload(true);
-        }, 1000);
+        // Force the WebView to ignore network cache on next load
+        window.location.href = window.location.pathname + '?v=' + new Date().getTime();
       });
     }
 
@@ -5444,8 +5454,11 @@
       if (e.key === 'Enter' && scanBuffer.length >= 6) {
         const barcode = scanBuffer.trim();
         scanBuffer = '';
+        
+        // KILL the event completely so it doesn't trigger UI clicks
         e.preventDefault();
-        e.stopPropagation(); // Prevent Enter from submitting active form
+        e.stopPropagation();
+        e.stopImmediatePropagation();
 
         console.log(`[HIDScanner] Captured barcode: ${barcode}`);
         const prod = state.catalog.find(p =>
@@ -6963,4 +6976,80 @@
       });
     }
   }
+
+  // Network connection debounced sync & flap protection
+  let networkDebounceTimer;
+  window.addEventListener('online', () => {
+      clearTimeout(networkDebounceTimer);
+      networkDebounceTimer = setTimeout(() => {
+          console.log('[Network] Connection stable. Triggering background sync.');
+          syncWorker.postMessage({ type: 'FORCE_FULL_SYNC' });
+          updateNetworkBadge(true);
+      }, 3000); // Wait 3 seconds to ensure stability
+  });
+
+  window.addEventListener('offline', () => {
+      clearTimeout(networkDebounceTimer);
+      updateNetworkBadge(false);
+  });
+
+  // Background Sync Doze Mode focus recovery & camera scanner battery saver
+  document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") {
+          // App went to background. Kill the camera instantly to save battery.
+          if (typeof closeMobileScanner === 'function') {
+              closeMobileScanner();
+          }
+      } else if (document.visibilityState === "visible") {
+          // App came back. Sweep sync.
+          syncWorker.postMessage({ type: 'FORCE_FULL_SYNC' });
+      }
+  });
+
+  // Intercept physical back button to close open modals
+  window.onNativeBackPressed = function() {
+    const activeModals = document.querySelectorAll('.modal.active, .modal-overlay.active');
+    if (activeModals.length > 0) {
+      // Close the top-most modal and tell Android we handled it
+      activeModals[activeModals.length - 1].classList.remove('active');
+      return true; 
+    }
+    return false; // Tell Android to do normal back navigation
+  };
+
+  // Handle storage quota exceeded event
+  window.addEventListener('CRITICAL_STORAGE_ERROR', (e) => {
+    let modal = document.getElementById('modal-critical-storage-error');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'modal-critical-storage-error';
+      modal.style.position = 'fixed';
+      modal.style.top = '0';
+      modal.style.left = '0';
+      modal.style.width = '100vw';
+      modal.style.height = '100vh';
+      modal.style.backgroundColor = 'rgba(239, 68, 68, 0.98)';
+      modal.style.zIndex = '999999';
+      modal.style.display = 'flex';
+      modal.style.flexDirection = 'column';
+      modal.style.justifyContent = 'center';
+      modal.style.alignItems = 'center';
+      modal.style.padding = '40px';
+      modal.style.color = '#FFFFFF';
+      modal.style.fontFamily = 'sans-serif';
+      modal.style.textAlign = 'center';
+      
+      modal.innerHTML = `
+        <div style="font-size: 72px; margin-bottom: 20px;">⚠️</div>
+        <h1 style="font-size: 28px; font-weight: bold; margin-bottom: 15px; text-transform: uppercase;">Storage Limit Exceeded</h1>
+        <p style="font-size: 16px; max-width: 600px; line-height: 1.5; margin-bottom: 30px;">
+          ${e.detail || 'Device storage is completely full. Please free up space immediately to prevent data loss.'}
+        </p>
+        <div style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 15px 25px; border-radius: 8px; font-size: 14px;">
+          <strong>ACTION REQUIRED:</strong> Delete unused files, photos, or apps from this Android tablet now.
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+  });
 })();

@@ -55,7 +55,12 @@ const EscPosEngine = (() => {
   }
 
   // ── Build receipt byte array ───────────────────────────────────────────────
-  function compileReceipt(data) {
+  async function compileReceipt(data) {
+    const isUrdu = (data.systemLanguage === 'ur') || (window.state && window.state.preferences && window.state.preferences['system_language'] === 'ur');
+    if (isUrdu) {
+      return await compileReceiptUrdu(data);
+    }
+
     const chunks = [];
 
     const push = (bytes) => chunks.push(new Uint8Array(bytes instanceof Uint8Array ? bytes : bytes));
@@ -90,6 +95,13 @@ const EscPosEngine = (() => {
     text(divider());
     text(formatLine('Subtotal', `Rs.${(data.subtotal / 100).toFixed(2)}`));
     if (data.tax) text(formatLine(`Tax (${data.taxRate || 0}%)`, `Rs.${(data.tax / 100).toFixed(2)}`));
+    
+    // FBR POS fee printing (Compliance)
+    const isFbrEnabled = (data.total - data.subtotal - data.tax >= 100);
+    if (isFbrEnabled) {
+      text(formatLine('FBR POS Fee', 'Rs.1.00'));
+    }
+
     push(CMD.BOLD_ON);
     text(formatLine('TOTAL', `Rs.${(data.total / 100).toFixed(2)}`));
     push(CMD.BOLD_OFF);
@@ -155,6 +167,11 @@ const EscPosEngine = (() => {
 
   // ── Send raw bytes to printer ──────────────────────────────────────────────
   async function _sendBytes(bytes) {
+    if (window.AndroidHardware && typeof window.AndroidHardware.printReceipt === 'function') {
+      const base64EncodedBytes = btoa(String.fromCharCode(...bytes));
+      window.AndroidHardware.printReceipt(base64EncodedBytes);
+      return;
+    }
     if (_device && _endpoint) {
       await _device.transferOut(_endpoint, bytes);
       return;
@@ -177,7 +194,7 @@ const EscPosEngine = (() => {
   // ── Print a receipt ────────────────────────────────────────────────────────
   async function printReceipt(data) {
     try {
-      const bytes = compileReceipt(data);
+      const bytes = await compileReceipt(data);
       await _sendBytes(bytes);
       console.log(`[Printer] Receipt sent — ${bytes.length} bytes.`);
       return true;
@@ -227,6 +244,142 @@ const EscPosEngine = (() => {
       drawerState: _drawerState,
       deviceName: _device?.productName || (_networkFallbackUrl ? 'Network Relay' : 'None')
     };
+  }
+
+  // ── Urdu Nastaliq Canvas-to-Raster Fallback ────────────────────────────────
+  async function compileReceiptUrdu(data) {
+    if (document.fonts) {
+      try {
+        await document.fonts.ready;
+      } catch (e) {
+        console.warn('[Printer] Font readiness check failed:', e);
+      }
+    }
+
+    const lines = [];
+    const width = PAPER_WIDTH_CHARS;
+    const dividerStr = '-'.repeat(width);
+
+    lines.push({ text: data.storeName || 'NEXOVA POS', bold: true, size: 'double', align: 'center' });
+    if (data.storeAddress) lines.push({ text: data.storeAddress, align: 'center' });
+    lines.push({ text: dividerStr, align: 'center' });
+    lines.push({ text: `تاریخ : ${new Date(data.timestamp || Date.now()).toLocaleString('ur-PK')}`, align: 'left' });
+    lines.push({ text: `حوالہ : ${data.transactionId || ''}`, align: 'left' });
+    lines.push({ text: `کیشیر: ${data.cashierName || 'N/A'}`, align: 'left' });
+    lines.push({ text: dividerStr, align: 'center' });
+
+    for (const item of (data.items || [])) {
+      const name = (item.name || '').slice(0, 20);
+      const price = `Rs.${(item.unitPrice / 100).toFixed(2)}`;
+      lines.push({ left: name, right: price, align: 'split' });
+      if (item.qty > 1) {
+        const sub = `  x${item.qty}`;
+        const total = `Rs.${(item.unitPrice * item.qty / 100).toFixed(2)}`;
+        lines.push({ left: sub, right: total, align: 'split' });
+      }
+    }
+
+    lines.push({ text: dividerStr, align: 'center' });
+    lines.push({ left: 'ذیلی کل', right: `Rs.${(data.subtotal / 100).toFixed(2)}`, align: 'split' });
+    if (data.tax) lines.push({ left: `ٹیکس (${data.taxRate || 0}%)`, right: `Rs.${(data.tax / 100).toFixed(2)}`, align: 'split' });
+    
+    const isFbrEnabled = (data.total - data.subtotal - data.tax >= 100);
+    if (isFbrEnabled) {
+      lines.push({ left: 'FBR POS فیس', right: 'Rs.1.00', align: 'split' });
+    }
+
+    lines.push({ left: 'کل رقم', right: `Rs.${(data.total / 100).toFixed(2)}`, bold: true, align: 'split' });
+    lines.push({ left: 'ادائیگی', right: data.paymentMode || 'CASH', align: 'split' });
+    if (data.change > 0) lines.push({ left: 'واپسی', right: `Rs.${(data.change / 100).toFixed(2)}`, align: 'split' });
+    lines.push({ text: dividerStr, align: 'center' });
+    lines.push({ text: 'خریداری کا شکریہ!', align: 'center' });
+    lines.push({ text: data.footerText || 'Powered by Nexova POS', align: 'center' });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 384;
+
+    let currentY = 10;
+    const lineHeights = lines.map(line => {
+      if (line.size === 'double') return 48;
+      return 32;
+    });
+    const totalHeight = lineHeights.reduce((a, b) => a + b, 0) + 40;
+    canvas.height = totalHeight;
+
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#000000';
+    
+    lines.forEach((line, index) => {
+      const isDouble = line.size === 'double';
+      const fontSize = isDouble ? 30 : 18;
+      const fontWeight = (line.bold || isDouble) ? 'bold' : 'normal';
+      ctx.font = `${fontWeight} ${fontSize}px "Noto Nastaliq Urdu", "Tahoma", "sans-serif"`;
+      ctx.textBaseline = 'top';
+
+      if (line.align === 'split') {
+        ctx.textAlign = 'left';
+        ctx.fillText(line.left, 10, currentY);
+        ctx.textAlign = 'right';
+        ctx.fillText(line.right, canvas.width - 10, currentY);
+      } else {
+        let x = 10;
+        if (line.align === 'center') {
+          x = canvas.width / 2;
+          ctx.textAlign = 'center';
+        } else if (line.align === 'right') {
+          x = canvas.width - 10;
+          ctx.textAlign = 'right';
+        } else {
+          x = 10;
+          ctx.textAlign = 'left';
+        }
+        ctx.fillText(line.text, x, currentY);
+      }
+      currentY += lineHeights[index];
+    });
+
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const pixels = imgData.data;
+    const widthBytes = canvas.width / 8;
+    const dataBytes = new Uint8Array(widthBytes * canvas.height);
+
+    for (let y = 0; y < canvas.height; y++) {
+      for (let x = 0; x < canvas.width; x++) {
+        const idx = (y * canvas.width + x) * 4;
+        const r = pixels[idx];
+        const g = pixels[idx + 1];
+        const b = pixels[idx + 2];
+        const a = pixels[idx + 3];
+        
+        const gray = (a < 128) ? 255 : (0.299 * r + 0.587 * g + 0.114 * b);
+        const isBlack = gray < 128;
+        
+        if (isBlack) {
+          const byteIdx = y * widthBytes + Math.floor(x / 8);
+          const bitIdx = 7 - (x % 8);
+          dataBytes[byteIdx] |= (1 << bitIdx);
+        }
+      }
+    }
+
+    const header = [
+      ...CMD.INIT,
+      GS, 0x76, 0x30, 0,
+      48, 0,
+      canvas.height & 0xFF, (canvas.height >> 8) & 0xFF
+    ];
+    const footer = [
+      ...CMD.FEED_3,
+      ...CMD.CUT_PARTIAL
+    ];
+
+    const bytes = new Uint8Array(header.length + dataBytes.length + footer.length);
+    bytes.set(header, 0);
+    bytes.set(dataBytes, header.length);
+    bytes.set(footer, header.length + dataBytes.length);
+    return bytes;
   }
 
   return { connect, printReceipt, kickDrawer, acknowledgeDrawerClosed, setNetworkFallback, isConnected, getStatus };

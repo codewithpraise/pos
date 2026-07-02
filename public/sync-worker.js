@@ -363,12 +363,12 @@ self.onmessage = async (event) => {
       }
 
       case 'CHECKOUT': {
-        const { transactionId, employeeId, cart, subtotal, tax, total, paymentMode, paymentDetails, tier } = payload;
+        const { transactionId, employeeId, cart, subtotal, tax, total, paymentMode, paymentDetails, tier, fbr_integration_enabled } = payload;
         const now = Date.now();
         const txHlc = syncClient.hlc.tick();
 
         // Check if FBR integration is enabled for the license tier
-        const isFbrEnabled = (tier === 'ENTERPRISE' || tier === 'TRIAL');
+        const isFbrEnabled = (tier === 'ENTERPRISE' || tier === 'TRIAL') && (fbr_integration_enabled === true || fbr_integration_enabled === 'true');
         let finalPaymentDetails = paymentDetails || '';
         let fbrInvoiceNumber = '';
         let fbrQrUrl = '';
