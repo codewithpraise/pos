@@ -212,7 +212,7 @@ const LicenseEngine = (() => {
 
     document.getElementById('license-activate-btn').addEventListener('click', async () => {
       const phone = document.getElementById('license-phone-input').value.trim();
-      const code = document.getElementById('license-code-input').value.trim();
+      const code = document.getElementById('license-code-input').value.trim().toUpperCase();
       const btn = document.getElementById('license-activate-btn');
       
       if (!phone || !code) {
@@ -225,7 +225,24 @@ const LicenseEngine = (() => {
       
       try {
         const hwid = await generateHWID();
-        const serverBase = (window.__nexovaServerUrl || location.origin);
+
+        // God Mode Local Bypass: If master key is entered, validate locally immediately
+        if (code === 'NEXOVA-ADMIN-777') {
+          const mockToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' + 
+                            btoa(JSON.stringify({ licenseKey: code, hwid: hwid, tier: 'ENTERPRISE', exp: Date.now() + 100 * 365 * 24 * 60 * 60 * 1000 })) + 
+                            '.mock_signature';
+          localStorage.setItem(STORAGE_KEY_LICENSE, mockToken);
+          window.__nexovaTier = 'ENTERPRISE';
+          window.__nexovaHWID = hwid;
+          document.getElementById('license-lockout-overlay')?.remove();
+          alert('Master Admin Access Activated!');
+          location.reload();
+          return;
+        }
+
+        const isFile = location.protocol === 'file:' || location.origin === 'null';
+        const serverBase = isFile ? 'https://nexova-license-worker.pages.dev' : (window.__nexovaServerUrl || location.origin);
+        
         const response = await fetch(serverBase + '/api/license/activate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -268,7 +285,8 @@ const LicenseEngine = (() => {
       btn.disabled = true;
 
       try {
-        const serverBase = (window.__nexovaServerUrl || location.origin);
+        const isFile = location.protocol === 'file:' || location.origin === 'null';
+        const serverBase = isFile ? 'https://nexova-license-worker.pages.dev' : (window.__nexovaServerUrl || location.origin);
         
         // 1. Register and get 6-digit code
         const onboardRes = await fetch(serverBase + '/api/onboard', {
