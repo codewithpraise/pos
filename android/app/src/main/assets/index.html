@@ -1,93 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script>
-    // UNIVERSAL BASE64-URL DECODER
-    window.safeAtob = function(base64Str) {
-        try {
-            // Replace URL-safe characters with standard Base64 characters
-            let str = String(base64Str).replace(/-/g, '+').replace(/_/g, '/');
-            // Pad the string with '=' until its length is a multiple of 4
-            while (str.length % 4 !== 0) str += '=';
-            return atob(str);
-        } catch (e) {
-            console.error('[safeAtob] CRITICAL DECODE FAILURE:', e.message);
-            console.error('[safeAtob] Problematic String:', base64Str);
-            if (typeof drawCrashConsole === 'function') {
-                drawCrashConsole('Base64 Decode Failure', 'safeAtob', 'Global', e);
-            }
-            throw e;
-        }
-    };
-
-    // BLACK BOX FLIGHT RECORDER
-    window.__nexovaLogs = [];
-    
-    function drawCrashConsole(msg, source, lineno, error) {
-        let consoleDiv = document.getElementById('nexova-crash-console');
-        if (!consoleDiv) {
-            consoleDiv = document.createElement('div');
-            consoleDiv.id = 'nexova-crash-console';
-            consoleDiv.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:50vh; background:rgba(0,0,0,0.95); color:#ff4444; z-index:999999999; overflow-y:auto; padding:20px; font-family:monospace; font-size:14px; border-bottom: 3px solid #ff0000;';
-            
-            // Add a close button
-            const closeBtn = document.createElement('button');
-            closeBtn.innerText = 'DISMISS LOGS (X)';
-            closeBtn.style.cssText = 'background:#ff4444; color:#fff; padding:10px; border:none; margin-bottom:15px; font-weight:bold; width:100%;';
-            closeBtn.onclick = () => consoleDiv.style.display = 'none';
-            consoleDiv.appendChild(closeBtn);
-            
-            document.body.appendChild(consoleDiv);
-        }
-        
-        consoleDiv.style.display = 'block';
-        const logEntry = document.createElement('div');
-        logEntry.style.marginBottom = '10px';
-        logEntry.style.borderBottom = '1px solid #333';
-        logEntry.style.paddingBottom = '5px';
-        logEntry.innerHTML = `<strong>[CRASH]</strong> ${msg}<br><span style="color:#888;">File: ${source} (Line: ${lineno})</span><br><span style="color:#ffa500;">${error ? error.stack : 'No stack trace'}</span>`;
-        consoleDiv.appendChild(logEntry);
-    }
-
-    // 1. Catch all standard JavaScript runtime errors
-    window.onerror = function(msg, url, lineNo, columnNo, error) {
-        const logStr = `Error: ${msg} at ${lineNo}:${columnNo}`;
-        window.__nexovaLogs.push(logStr);
-        console.error(logStr, error);
-        drawCrashConsole(msg, url, lineNo, error);
-        return false; 
-    };
-
-    // 2. Catch all asynchronous Promise failures (like failed fetch calls)
-    window.addEventListener('unhandledrejection', function(event) {
-        const msg = 'Unhandled Promise: ' + (event.reason ? event.reason.message : 'Unknown');
-        window.__nexovaLogs.push(msg);
-        console.error(msg, event.reason);
-        drawCrashConsole(msg, 'Async Promise', 'N/A', event.reason);
-    });
-  </script>
-  <script>
-    (function() {
-      function resolveServerUrl() {
-        if (window.AndroidPOS && typeof window.AndroidPOS.getServerUrl === 'function') {
-          const nativeUrl = window.AndroidPOS.getServerUrl();
-          if (nativeUrl && nativeUrl.trim() && !nativeUrl.startsWith('file:')) {
-            return nativeUrl.trim();
-          }
-        }
-        const localUrl = localStorage.getItem('nexova_server_url');
-        if (localUrl && localUrl.trim()) {
-          return localUrl.trim();
-        }
-        if (window.location.protocol !== 'file:') {
-          return window.location.origin;
-        }
-        return 'http://localhost:3000';
-      }
-      window.__nexovaServerUrl = resolveServerUrl();
-      console.log('[Bootstrap] Resolved backend server URL:', window.__nexovaServerUrl);
-    })();
-  </script>
+  <script src="bootstrap-init.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#0a0a0a">
@@ -1037,6 +951,78 @@
               </div>
               <div class="dm-actions">
                 <button class="action-btn dm-btn-secondary" id="btn-maintenance-reseed"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 8v4l3 3"/></svg> Re-seed Catalog &amp; Settings</button>
+              </div>
+            </div>
+
+            <!-- Sales Commission Tracking Admin (SaaS Premium) -->
+            <div class="settings-section full-width dm-card admin-only" id="settings-commissions" style="display: none; margin-top: 24px;">
+              <div class="dm-card-header">
+                <div class="dm-icon dm-icon-amber">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                </div>
+                <div>
+                  <h3 style="margin:0;font-size:14px;font-weight:700;color:var(--text-white);">Sales Commissions & Referrals</h3>
+                  <p style="margin:4px 0 0;font-size:11px;color:var(--text-gray);">Manage sales agent rosters, monitor commission payouts, and export performance metrics.</p>
+                </div>
+              </div>
+
+              <!-- Roster Actions & New Agent Registration -->
+              <div style="margin-top: 16px; padding: 12px; border: 1px solid var(--border-titanium); border-radius: 6px; background: rgba(255,255,255,0.01);">
+                <h4 style="margin:0 0 12px; font-size:12px; color:var(--text-white); font-weight:700;">Onboard/Update Sales Agent</h4>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
+                  <div style="flex: 1; min-width: 150px;">
+                    <label style="font-size:10px; color:var(--text-gray); display:block; margin-bottom:4px;">Select Employee:</label>
+                    <select id="comm-agent-employee-select" class="pos-input" aria-label="Select Employee for Sales Agent">
+                      <option value="">-- Choose Employee --</option>
+                    </select>
+                  </div>
+                  <div style="width: 150px;">
+                    <label style="font-size:10px; color:var(--text-gray); display:block; margin-bottom:4px;">Rate (Basis Points, 100=1%):</label>
+                    <input type="number" id="comm-agent-rate-bps" class="pos-input" value="300" min="0" max="5000" placeholder="e.g. 300 (3%)" aria-label="Commission Rate in Basis Points">
+                  </div>
+                  <button type="button" class="action-btn action-success" id="btn-comm-agent-save" style="height: 38px;">Save Agent</button>
+                </div>
+              </div>
+
+              <!-- Commission Ledger Tables -->
+              <div style="margin-top: 20px;">
+                <h4 style="margin:0 0 8px; font-size:12px; color:var(--text-white); font-weight:700;">Active Sales Agents</h4>
+                <table class="pos-table" style="width: 100%; margin-bottom: 20px;">
+                  <thead>
+                    <tr>
+                      <th style="text-align: left; padding: 8px;">Employee ID</th>
+                      <th style="text-align: left; padding: 8px;">Rate (bps)</th>
+                      <th style="text-align: left; padding: 8px;">Total Activations</th>
+                      <th style="text-align: left; padding: 8px;">Pending Commission</th>
+                      <th style="text-align: left; padding: 8px;">Paid Commission</th>
+                    </tr>
+                  </thead>
+                  <tbody id="comm-agents-tbody">
+                    <tr><td colspan="5" style="text-align: center; color: var(--text-gray); padding: 12px;">No sales agents onboarded yet.</td></tr>
+                  </tbody>
+                </table>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                  <h4 style="margin:0; font-size:12px; color:var(--text-white); font-weight:700;">Recent Commission Earnings Ledger</h4>
+                  <button type="button" class="action-btn dm-btn-secondary" id="btn-comm-export-csv" style="padding: 4px 8px; font-size: 10px;">Export CSV</button>
+                </div>
+                <table class="pos-table" style="width: 100%;">
+                  <thead>
+                    <tr>
+                      <th style="text-align: left; padding: 8px;">Agent ID</th>
+                      <th style="text-align: left; padding: 8px;">Code</th>
+                      <th style="text-align: left; padding: 8px;">Store</th>
+                      <th style="text-align: left; padding: 8px;">Tier</th>
+                      <th style="text-align: left; padding: 8px;">Gross</th>
+                      <th style="text-align: left; padding: 8px;">Commission</th>
+                      <th style="text-align: left; padding: 8px;">Status</th>
+                      <th style="text-align: right; padding: 8px;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="comm-ledger-tbody">
+                    <tr><td colspan="8" style="text-align: center; color: var(--text-gray); padding: 12px;">No commission records found.</td></tr>
+                  </tbody>
+                </table>
               </div>
             </div>
 
@@ -2183,18 +2169,11 @@
   <script src="virtual-list.js"></script>
   <!-- ESC/POS THERMAL PRINTER ENGINE — WebUSB direct printing -->
   <script src="escpos-engine.js"></script>
+  <!-- CHECKOUT & TAX CALCULATIONS ENGINE -->
+  <script src="checkout-engine.js"></script>
   <!-- MAIN CONTROLLER REGISTER -->
   <script src="app.js"></script>
 
-  <!-- PWA Service Worker bootstrap -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-          .then((reg) => console.log('[PWA] Service worker registered successfully. Scope:', reg.scope))
-          .catch((err) => console.warn('[PWA] Service worker registration failed:', err));
-      });
-    }
-  </script>
+  <script src="sw-loader.js"></script>
 </body>
 </html>

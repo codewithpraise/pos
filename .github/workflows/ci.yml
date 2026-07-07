@@ -18,14 +18,17 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: '22'
           cache: 'npm'
 
       - name: Install Dependencies
         run: npm ci
 
-      - name: Run Syntax & Lint Checks
-        run: npm run lint || true
+      - name: Run Syntax Check (Fail Fast)
+        run: npm run test:syntax
+
+      - name: Security Audit
+        run: npm audit --audit-level=high
 
       - name: Run Test Suite (Unit, DB, Backups)
         run: npm test
@@ -48,9 +51,9 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Grant Execute Permission for Gradle Wrapper
-        run: chmod +x gradlew || true
+        run: chmod +x gradlew
         working-directory: android
 
       - name: Compile Kotlin and Java Source Files
-        run: ./gradlew compileDebugKotlin
+        run: ./gradlew compileDebugKotlin --no-daemon
         working-directory: android

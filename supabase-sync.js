@@ -53,12 +53,19 @@ function validateAndSanitizeChange(row) {
     console.warn(`[CloudSync] Rejected row with invalid val_type="${valType}" for ${row.table_name}.${row.pk}.${row.cid}`);
     return null;
   }
+  // For object-type values, ensure they are serialised as a JSON string before upload
+  let serialisedVal = row.val;
+  if (serialisedVal !== null && valType === 'object' && typeof serialisedVal !== 'string') {
+    serialisedVal = JSON.stringify(serialisedVal);
+  } else if (serialisedVal !== null) {
+    serialisedVal = String(serialisedVal);
+  }
   return {
     store_id: STORE_ID,
     table_name: String(row.table_name || ''),
     pk: String(row.pk || ''),
     cid: String(row.cid || ''),
-    val: row.val === null ? null : String(row.val),
+    val: serialisedVal,
     val_type: valType,
     col_version: parseInt(row.col_version || 0),
     db_version: parseInt(row.db_version || 0),
@@ -119,12 +126,16 @@ async function pushOfflineBackupsToCloud() {
       const remoteGenId = remoteGen && remoteGen.length > 0 ? remoteGen[0].val : null;
 
       if (remoteGenId && remoteGenId !== localGenId) {
-        console.warn(`[CloudSync] Generation mismatch (Local: ${localGenId}, Remote: ${remoteGenId}). Purging remote backups for fresh sync...`);
-        await executeWithRetry(async () => {
-          const { error } = await supabase.from('cloud_crdt_backups').delete().eq('store_id', STORE_ID);
-          if (error) throw error;
-        });
-        console.log('[CloudSync] Remote backups purged successfully.');
+        // Generation mismatch: local DB was factory-reset. Halting cloud sync to
+        // prevent overwriting the remote backup with stale or empty local data.
+        // An operator must manually reconcile (reset the STORE_TERMINAL_ID or
+        // clear cloud_crdt_backups) before sync can resume.
+        console.error(`[CloudSync] GENERATION MISMATCH — SYNC HALTED.`);
+        console.error(`  Local generation : ${localGenId}`);
+        console.error(`  Remote generation: ${remoteGenId}`);
+        console.error(`  Action required: resolve mismatch manually or re-onboard this store.`);
+        isSyncing = false;
+        return; // Safe halt — do NOT purge remote backup
       }
     }
 

@@ -95,7 +95,8 @@
       combined.set(iv, salt.length);
       combined.set(new Uint8Array(encrypted), salt.length + iv.length);
       
-      return arrayBufferToBase64(combined);
+      // Prefix with 'NEX1:' so decrypt can reliably detect ciphertext vs plain values
+      return 'NEX1:' + arrayBufferToBase64(combined);
     },
 
     async decrypt(ciphertextB64, passphrase) {
@@ -104,12 +105,11 @@
       if (globalScope.AndroidPOS && typeof globalScope.AndroidPOS.decryptAES === 'function') {
         return globalScope.AndroidPOS.decryptAES(ciphertextB64, passphrase);
       }
+      // Only attempt decryption if value has NEX1: prefix — plain values pass through
+      if (!ciphertextB64 || !ciphertextB64.startsWith('NEX1:')) return ciphertextB64;
       try {
-        const combined = base64ToUint8Array(ciphertextB64);
-        if (combined.length < 28) {
-          // Payload is too short to contain salt and IV; might be plaintext
-          return ciphertextB64;
-        }
+        const combined = base64ToUint8Array(ciphertextB64.slice(5)); // strip 'NEX1:'
+        if (combined.length < 28) return ciphertextB64;
         
         const salt = combined.slice(0, 16);
         const iv = combined.slice(16, 28);
@@ -125,8 +125,7 @@
         
         return new TextDecoder().decode(decrypted);
       } catch (err) {
-        // Quietly fallback to original value to prevent logging floods on unencrypted/mismatched data
-        return ciphertextB64;
+        return ciphertextB64; // Return original on failure — do not log to prevent spam
       }
     }
   };
@@ -134,19 +133,10 @@
   globalScope.CryptoEngine = CryptoEngine;
 
   async function optimizeSqliteStorageEngine(dbConnectionInstance) {
-    console.log('[Database] Executing transactional index optimization pass...');
-    try {
-      if (dbConnectionInstance && dbConnectionInstance.db && typeof dbConnectionInstance.db.exec === 'function') {
-        await dbConnectionInstance.db.exec('PRAGMA reindex;');
-        await dbConnectionInstance.db.exec('PRAGMA vacuum;');
-        await dbConnectionInstance.db.exec('PRAGMA analyze;');
-        console.log('[Database] SQLite index maintenance completed.');
-      } else {
-        console.log('[Database] IndexedDB optimization pass: cleaning up memory tables...');
-      }
-    } catch (err) {
-      console.error('[Database] Index maintenance optimization was bypassed:', err.message);
-    }
+    // NOTE: PRAGMA commands are SQLite-only. IndexedDB does not support them.
+    // This function intentionally does nothing for IDB instances —
+    // browser garbage collection and quota management handle cleanup automatically.
+    console.log('[Database] IndexedDB initialised — no PRAGMA maintenance needed.');
   }
   globalScope.optimizeSqliteStorageEngine = optimizeSqliteStorageEngine;
 
@@ -608,8 +598,9 @@
         { key: 'whitelabel_show_branding', value_type: 'STR', value_payload: 'true', is_idempotent_flag: 0, updated_at: now },
         { key: 'glassmorphism_enabled', value_type: 'STR', value_payload: 'true', is_idempotent_flag: 0, updated_at: now },
         { key: 'terminal_name', value_type: 'STR', value_payload: 'Nexova Master PC 01', is_idempotent_flag: 0, updated_at: now },
-        { key: 'store_receipt_width', value_type: 'STR', value_payload: '42', is_idempotent_flag: 0, updated_at: now },
-        { key: 'sync_passphrase', value_type: 'STR', value_payload: syncPassphrase, is_idempotent_flag: 0, updated_at: now }
+        { key: 'store_receipt_width', value_type: 'STR', value_payload: '42', is_idempotent_flag: 0, updated_at: now }
+        // NOTE: sync_passphrase intentionally NOT stored in IndexedDB — it lives in
+        // server memory only and is sent to the worker over postMessage for session use.
       ];
 
       for (const pref of prefs) {

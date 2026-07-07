@@ -11,23 +11,23 @@ let nodeId = null;
 
 // Exact decimal string serialization to prevent IEEE 754 float precision issues for PRAL compliance
 function serializePRALPayload(fbrInvoiceNumber, now, total, tax, subtotal, cart, paymentMode, usin) {
+  // PRAL requires bare numeric doubles (not quoted strings) for monetary fields
+  // We build the object with numbers directly — no regex post-processing needed
   const formattedObj = {
     invoiceNumber: fbrInvoiceNumber,
     saleDate: new Date(now).toISOString(),
-    totalAmount: (total / 100).toFixed(2),
-    taxAmount: (tax / 100).toFixed(2),
-    subtotalAmount: (subtotal / 100).toFixed(2),
+    totalAmount: Number((total / 100).toFixed(2)),
+    taxAmount: Number((tax / 100).toFixed(2)),
+    subtotalAmount: Number((subtotal / 100).toFixed(2)),
     items: cart.map(i => ({
       sku: i.sku,
       qty: i.qty,
-      unitPrice: (i.price / 100).toFixed(2)
+      unitPrice: Number((i.price / 100).toFixed(2))
     })),
     paymentMode: paymentMode,
     usin: usin
   };
-  const jsonStr = JSON.stringify(formattedObj);
-  // Strip quotes off decimal-valued string fields to satisfy strict PRAL double typing
-  return jsonStr.replace(/"(totalAmount|taxAmount|subtotalAmount|unitPrice)":"([0-9.]+)"/g, '"$1":$2');
+  return JSON.stringify(formattedObj);
 }
 
 // Initialize Database and Sync Client
@@ -41,7 +41,7 @@ async function initializeSyncEngine(serverUrl) {
     // Fetch persistent terminal/node ID from local preferences or create one
     let terminalNamePref = await NexovaDB.get('local_preferences', 'terminal_name');
     if (!terminalNamePref || !terminalNamePref.value_payload) {
-      nodeId = 'web_client_' + Math.random().toString(36).substring(2, 9);
+      nodeId = 'web_client_' + (crypto.randomUUID ? crypto.randomUUID().replace(/-/g,'').slice(0,9) : Math.random().toString(36).substring(2, 9));
       await NexovaDB.put('local_preferences', {
         key: 'terminal_name',
         value_type: 'STR',
@@ -194,19 +194,16 @@ self.onmessage = async (event) => {
   // SAVE_TELEMETRY and CHECK_OVERSELL only need the DB (not the sync connection),
   // so they can run before the sync engine is fully initialized.
   const dbOnlyMessages = ['SAVE_TELEMETRY', 'CHECK_OVERSELL'];
-  if (!syncClient && type !== 'INIT' && !dbOnlyMessages.includes(type)) {
-    // Silently drop ALL non-mutation messages before init — they re-fire after INIT_SUCCESS
-    const silentDropTypes = [
-      'GET_PREFERENCES', 'GET_CATALOG', 'GET_EMPLOYEES', 'GET_CUSTOMERS',
-      'GET_TRANSACTIONS', 'GET_ANALYTICS', 'GET_SHIFTS', 'HYDRATE_DB',
-      'GET_INVENTORY', 'GET_ALERTS', 'GET_STAFF'
-    ];
-    if (silentDropTypes.includes(type)) {
-      return; // Silently drop — will re-fire after sync engine initializes
-    }
+  // GET_ messages only read from IndexedDB — they work before the WS sync engine initialises
+  const dbReadMessages = [
+    'GET_PREFERENCES', 'GET_CATALOG', 'GET_EMPLOYEES', 'GET_CUSTOMERS',
+    'GET_TRANSACTIONS', 'GET_ANALYTICS', 'GET_SHIFTS', 'HYDRATE_DB',
+    'GET_INVENTORY', 'GET_ALERTS', 'GET_STAFF'
+  ];
+  if (!syncClient && type !== 'INIT' && !dbOnlyMessages.includes(type) && !dbReadMessages.includes(type)) {
     // For mutation-type messages before init, return a soft warning (not a loud error)
     console.warn(`[SyncWorker] Message "${type}" received before sync engine initialized — queuing skipped.`);
-    return; // Do not postMessage ERROR — avoids the "[App] Worker encountered error" console spam
+    return;
   }
 
   try {
@@ -499,7 +496,7 @@ self.onmessage = async (event) => {
 
         // Open a single atomic readwrite transaction
         const idbTx = NexovaDB.db.transaction(
-          ['transactions', 'line_items', 'inventory_catalog', 'crsql_changes', 'stock_movements', 'customer_credit', 'fbr_offline_queue', 'purchase_orders', 'po_line_items', 'distributors', 'local_preferences'],
+          ['transactions', 'line_items', 'inventory_catalog', 'inventory_catalog_counters', 'crsql_changes', 'stock_movements', 'customer_credit', 'fbr_offline_queue', 'purchase_orders', 'po_line_items', 'distributors', 'local_preferences'],
           'readwrite'
         );
 

@@ -40,6 +40,12 @@ import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothSocket
+import android.app.DownloadManager
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
 
 // ============================================================
 // Android Keystore Helper – hardware-backed AES-GCM key management
@@ -160,7 +166,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun isCurrentOriginTrusted(): Boolean {
-        val url = currentLoadedUrl
+        val url = webView?.url ?: return false
         if (url.startsWith("file:///android_asset/")) return true
         if (serverUrl.isNotEmpty() && url.startsWith(serverUrl)) {
             return isUrlAllowed(url)
@@ -185,12 +191,12 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val encrypted = KeyStoreHelper.encrypt(url)
                     prefs.edit().putString("server_url_enc", encrypted).apply()
+                    serverUrl = url
+                    Toast.makeText(this@MainActivity, "Server updated: $url", Toast.LENGTH_SHORT).show()
                 } catch (e: Exception) {
-                    Log.w("AndroidPOSBridge", "Keystore unavailable, falling back to plaintext: ${e.message}")
-                    prefs.edit().putString("server_url", url).apply()
+                    Log.e("AndroidPOSBridge", "Failed to encrypt server URL with Keystore: ${e.message}")
+                    Toast.makeText(this@MainActivity, "Security Error: Keystore encryption failed.", Toast.LENGTH_LONG).show()
                 }
-                serverUrl = url
-                Toast.makeText(this@MainActivity, "Server updated: $url", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -324,6 +330,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     inner class POSHardwareInterface {
+        @SuppressLint("MissingPermission")
         @JavascriptInterface
         fun printReceipt(base64Payload: String) {
             if (!isCurrentOriginTrusted()) {
@@ -331,6 +338,58 @@ class MainActivity : AppCompatActivity() {
                 return
             }
             Log.d("POSHardwareInterface", "printReceipt called with base64 payload size: ${base64Payload.length}")
+            
+            // Decode print payload
+            val data = try {
+                Base64.decode(base64Payload, Base64.DEFAULT)
+            } catch (e: Exception) {
+                Log.e("POSHardwareInterface", "Failed to decode base64 receipt payload: ${e.message}")
+                return
+            }
+
+            // Perform Bluetooth printing in background thread
+            kotlin.concurrent.thread {
+                try {
+                    val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
+                    if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {
+                        Log.w("POSHardwareInterface", "Bluetooth adapter not available or disabled")
+                        return@thread
+                    }
+
+                    // Check BLUETOOTH_CONNECT permission on Android 12+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                        checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        Log.w("POSHardwareInterface", "Missing BLUETOOTH_CONNECT permission")
+                        return@thread
+                    }
+
+                    // Find paired printer (names typically contain thermal, pos, printer, mpt)
+                    val pairedDevices = bluetoothAdapter.bondedDevices
+                    val printerDevice = pairedDevices.firstOrNull { device ->
+                        val name = device.name.lowercase()
+                        name.contains("printer") || name.contains("pos") || name.contains("thermal") || name.contains("mpt")
+                    }
+
+                    if (printerDevice == null) {
+                        Log.w("POSHardwareInterface", "No paired Bluetooth thermal printer found.")
+                        return@thread
+                    }
+
+                    val uuid = java.util.UUID.fromString("00001101-0000-1000-8000-00805f9b34fb") // Classic Bluetooth SPP UUID
+                    val socket = printerDevice.createRfcommSocketToServiceRecord(uuid)
+                    socket.connect()
+                    val outputStream = socket.outputStream
+                    outputStream.write(data)
+                    outputStream.flush()
+                    // Feed and cut paper ESC/POS command (GS V 66 0)
+                    outputStream.write(byteArrayOf(0x1D, 0x56, 0x42, 0x00))
+                    outputStream.flush()
+                    socket.close()
+                    Log.i("POSHardwareInterface", "Receipt printed successfully over Bluetooth.")
+                } catch (e: Exception) {
+                    Log.e("POSHardwareInterface", "Bluetooth print failed: ${e.message}", e)
+                }
+            }
         }
     }
 
@@ -381,11 +440,7 @@ class MainActivity : AppCompatActivity() {
                 if (wv != null) {
                     wv.evaluateJavascript("window.onNativeBackPressed()") { result ->
                         if (result != "true") {
-                            if (wv.canGoBack()) {
-                                wv.goBack()
-                            } else {
-                                Toast.makeText(this@MainActivity, "Use the logout button to exit", Toast.LENGTH_SHORT).show()
-                            }
+                            Toast.makeText(this@MainActivity, "Use the logout button to exit", Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
@@ -394,11 +449,11 @@ class MainActivity : AppCompatActivity() {
 
         serverUrl = try {
             val enc = prefs.getString("server_url_enc", null)
-            if (!enc.isNullOrEmpty()) KeyStoreHelper.decrypt(enc).ifEmpty { prefs.getString("server_url", "") ?: "" }
-            else prefs.getString("server_url", "") ?: ""
+            if (!enc.isNullOrEmpty()) KeyStoreHelper.decrypt(enc)
+            else ""
         } catch (e: Exception) {
-            Log.w("MainActivity", "Keystore read failed, using plaintext fallback: ${e.message}")
-            prefs.getString("server_url", "") ?: ""
+            Log.e("MainActivity", "Keystore decryption failed: ${e.message}")
+            ""
         }
 
         // Screen Pinning for Kiosk mode (Bazari POS compliance)
@@ -751,41 +806,92 @@ class MainActivity : AppCompatActivity() {
     }
 
     // =========================================================================
-    // SILENT DOWNLOADER & PKG INSTALLER (KIOSK SECURITY HARDENING)
+    // SECURE DOWNLOADER & PKG INSTALLER (KIOSK SECURITY HARDENING)
     // =========================================================================
-    private fun startApkDownload(urlStr: String) {
-        kotlin.concurrent.thread {
-            try {
-                val url = URL(urlStr)
-                val connection = url.openConnection() as HttpURLConnection
-                connection.connect()
+    private fun verifyApkSignature(context: Context, apkFile: File): Boolean {
+        return try {
+            val pm = context.packageManager
+            val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                pm.getPackageArchiveInfo(apkFile.absolutePath, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES)
+            } else {
+                @Suppress("DEPRECATION")
+                pm.getPackageArchiveInfo(apkFile.absolutePath, android.content.pm.PackageManager.GET_SIGNATURES)
+            } ?: return false
 
-                val dir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
-                val file = File(dir, "update.apk")
-                if (file.exists()) file.delete()
+            val currentInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                pm.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES)
+            } else {
+                @Suppress("DEPRECATION")
+                pm.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_SIGNATURES)
+            }
 
-                val inputStream = connection.inputStream
-                val outputStream = FileOutputStream(file)
-                val buffer = ByteArray(4096)
-                var bytesRead: Int
-                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                    outputStream.write(buffer, 0, bytesRead)
-                }
-                outputStream.close()
-                inputStream.close()
+            val downloadedSigs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                info.signingInfo?.apkContentsSigners
+            } else {
+                @Suppress("DEPRECATION")
+                info.signatures
+            }
 
-                downloadedApkFile = file
+            val currentSigs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                currentInfo.signingInfo?.apkContentsSigners
+            } else {
+                @Suppress("DEPRECATION")
+                currentInfo.signatures
+            }
 
-                runOnUiThread {
-                    Toast.makeText(this@MainActivity, "Download complete. Preparing installation...", Toast.LENGTH_SHORT).show()
-                    executeApkInstall(file)
-                }
-            } catch (e: Exception) {
-                Log.e("MainActivity", "Download APK error: ${e.message}")
-                runOnUiThread {
-                    Toast.makeText(this@MainActivity, "Download failed: ${e.message}", Toast.LENGTH_LONG).show()
+            if (downloadedSigs.isNullOrEmpty() || currentSigs.isNullOrEmpty()) return false
+            
+            // Validate signature parity: downloaded APK must be signed by matching developer cert
+            downloadedSigs.any { downloadedSig ->
+                currentSigs.any { currentSig ->
+                    downloadedSig.toByteArray().contentEquals(currentSig.toByteArray())
                 }
             }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Signature verification failed: ${e.message}")
+            false
+        }
+    }
+
+    private fun startApkDownload(urlStr: String) {
+        val manager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        val destinationFile = File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "update.apk")
+        if (destinationFile.exists()) destinationFile.delete()
+
+        val request = DownloadManager.Request(Uri.parse(urlStr)).apply {
+            setTitle("Nexova POS Update")
+            setDescription("Downloading software updates")
+            setDestinationUri(Uri.fromFile(destinationFile))
+            setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+        }
+
+        val downloadId = manager.enqueue(request)
+
+        val onComplete = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
+                if (id == downloadId) {
+                    try {
+                        context.unregisterReceiver(this)
+                    } catch (e: Exception) {}
+                    
+                    downloadedApkFile = destinationFile
+                    Toast.makeText(context, "Download complete. Verifying update signature...", Toast.LENGTH_SHORT).show()
+                    
+                    if (verifyApkSignature(context, destinationFile)) {
+                        executeApkInstall(destinationFile)
+                    } else {
+                        Toast.makeText(context, "Security Alert: APK verification failed (signature mismatch)!", Toast.LENGTH_LONG).show()
+                        destinationFile.delete()
+                    }
+                }
+            }
+        }
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(onComplete, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(onComplete, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
         }
     }
 

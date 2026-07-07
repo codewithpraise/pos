@@ -31,7 +31,8 @@
     customerCredits: [],
     selectedDistributorId: null,
     selectedPurchaseOrderId: null,
-    preferencesLoaded: false
+    preferencesLoaded: false,
+    isCheckingOut: false
   };
 
   let syncWorker = null;
@@ -719,6 +720,7 @@
         }
 
         case 'CHECKOUT_SUCCESS':
+          state.isCheckingOut = false;
           setButtonLoading('btn-checkout-complete', false, '', 'Complete Order');
           playAudioSignal('success');
           showNotificationToast(`✅ Transaction #${transactionId.slice(-8).toUpperCase()} completed!`, null, 4000);
@@ -810,6 +812,7 @@
         }
 
         case 'ERROR':
+          state.isCheckingOut = false;
           setButtonLoading('btn-checkout-complete', false, '', 'Complete Order');
           console.warn('[App] Worker encountered error:', error);
           
@@ -1642,6 +1645,11 @@
         return;
       }
       if (smsBody.includes(expectedTotalStr)) {
+        if (state.isCheckingOut) {
+          console.warn('[App] Checkout already in progress, ignoring simulated checkout click.');
+          return;
+        }
+        state.isCheckingOut = true;
         alert(`SMS verified! Payment matches grand total of Rs. ${expectedTotalStr}.`);
         document.getElementById('modal-qr-pay').classList.remove('active');
         const payload = state.pendingQrCheckout;
@@ -1668,6 +1676,7 @@
       } else {
         playAudioSignal('error');
         alert(`Verification failed! The SMS text must contain the exact expected total amount: ${expectedTotalStr}`);
+        state.isCheckingOut = false;
       }
     });
 
@@ -2560,6 +2569,221 @@
     }
   }
 
+  // --- SALES COMMISSION TRACKING ADMIN REST UTILITIES ---
+  async function loadSalesCommissionsAdmin() {
+    const agentSelect = document.getElementById('comm-agent-employee-select');
+    const agentsTbody = document.getElementById('comm-agents-tbody');
+    const ledgerTbody = document.getElementById('comm-ledger-tbody');
+
+    if (!agentsTbody || !ledgerTbody) return;
+
+    try {
+      // 1. Populate Employee Dropdown
+      const employees = await NexovaDB.getAll('employees');
+      if (agentSelect) {
+        // Keep only first choose option
+        agentSelect.innerHTML = '<option value="">-- Choose Employee --</option>';
+        employees.forEach(emp => {
+          if (emp.is_active === 1) {
+            const opt = document.createElement('option');
+            opt.value = emp.id;
+            opt.textContent = `${emp.id.replace('emp_','').toUpperCase()} (${emp.role})`;
+            agentSelect.appendChild(opt);
+          }
+        });
+      }
+
+      // 2. Fetch and render Active Sales Agents roster
+      const agentsRes = await fetch(window.__nexovaServerUrl + '/api/admin/sales-agents', {
+        headers: { 'Authorization': `Bearer ${state.deviceToken || ''}` }
+      });
+      if (agentsRes.ok) {
+        const agents = await agentsRes.json();
+        agentsTbody.innerHTML = '';
+        if (agents.length === 0) {
+          agentsTbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-gray); padding: 12px;">No sales agents onboarded yet.</td></tr>`;
+        } else {
+          agents.forEach(ag => {
+            const row = document.createElement('tr');
+            row.style.borderBottom = '1px solid var(--border-titanium)';
+            row.innerHTML = `
+              <td style="padding: 8px; font-weight: 600;">${ag.employee_id.replace('emp_','').toUpperCase()}</td>
+              <td style="padding: 8px;">${ag.commission_rate_bps} (${(ag.commission_rate_bps/100).toFixed(2)}%)</td>
+              <td style="padding: 8px;">${ag.total_activations}</td>
+              <td style="padding: 8px; color: var(--accent-amber); font-weight:700;">Rs. ${(ag.pending_minor/100).toFixed(2)}</td>
+              <td style="padding: 8px; color: var(--accent-emerald); font-weight:700;">Rs. ${(ag.paid_minor/100).toFixed(2)}</td>
+            `;
+            agentsTbody.appendChild(row);
+          });
+        }
+      }
+
+      // 3. Fetch and render Commission Earnings Ledger
+      const commRes = await fetch(window.__nexovaServerUrl + '/api/admin/commissions', {
+        headers: { 'Authorization': `Bearer ${state.deviceToken || ''}` }
+      });
+      if (commRes.ok) {
+        const ledger = await commRes.json();
+        ledgerTbody.innerHTML = '';
+        if (ledger.length === 0) {
+          ledgerTbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-gray); padding: 12px;">No commission records found.</td></tr>`;
+        } else {
+          ledger.forEach(c => {
+            const row = document.createElement('tr');
+            row.style.borderBottom = '1px solid var(--border-titanium)';
+            
+            let statusStyle = 'color: var(--accent-amber);';
+            if (c.status === 'PAID') statusStyle = 'color: var(--accent-emerald);';
+            if (c.status === 'REVERSED') statusStyle = 'color: var(--alert-coral);';
+
+            let actionsHtml = '';
+            if (c.status === 'PENDING') {
+              actionsHtml = `
+                <button class="action-btn action-success btn-pay-comm" data-id="${c.id}" style="padding:2px 6px; font-size:10px; margin-right:4px;">Pay</button>
+                <button class="action-btn action-danger btn-reverse-comm" data-id="${c.id}" style="padding:2px 6px; font-size:10px;">Reverse</button>
+              `;
+            } else if (c.status === 'PAID') {
+              actionsHtml = `
+                <button class="action-btn action-danger btn-reverse-comm" data-id="${c.id}" style="padding:2px 6px; font-size:10px;">Reverse</button>
+              `;
+            } else {
+              actionsHtml = `<span style="font-size:9px; color:var(--text-gray); font-style:italic;" title="${c.reversal_reason || ''}">Reversed</span>`;
+            }
+
+            row.innerHTML = `
+              <td style="padding: 8px; font-weight:600;">${c.agent_id.substring(0,8)}...</td>
+              <td style="padding: 8px; font-family:monospace;">${c.activation_code}</td>
+              <td style="padding: 8px; font-size:10px; max-width:100px; overflow:hidden; text-overflow:ellipsis;">${c.store_id}</td>
+              <td style="padding: 8px; font-size:10px;">${c.tier}</td>
+              <td style="padding: 8px;">Rs. ${(c.gross_amount_minor/100).toFixed(2)}</td>
+              <td style="padding: 8px; font-weight:700;">Rs. ${(c.commission_minor_units/100).toFixed(2)}</td>
+              <td style="padding: 8px; font-weight:700; ${statusStyle}">${c.status}</td>
+              <td style="padding: 8px; text-align:right;">${actionsHtml}</td>
+            `;
+            ledgerTbody.appendChild(row);
+          });
+
+          // Bind Actions
+          ledgerTbody.querySelectorAll('.btn-pay-comm').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+              const id = e.currentTarget.getAttribute('data-id');
+              playAudioSignal('click');
+              if (confirm('Mark this commission as PAID?')) {
+                try {
+                  const payRes = await fetch(`${window.__nexovaServerUrl}/api/admin/commissions/${id}/pay`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${state.deviceToken || ''}` }
+                  });
+                  if (payRes.ok) {
+                    showNotificationToast('Commission paid successfully.');
+                    loadSalesCommissionsAdmin();
+                  } else {
+                    const errObj = await payRes.json();
+                    alert('Error: ' + errObj.error);
+                  }
+                } catch (err) {
+                  alert('Payout request failed: ' + err.message);
+                }
+              }
+            });
+          });
+
+          ledgerTbody.querySelectorAll('.btn-reverse-comm').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+              const id = e.currentTarget.getAttribute('data-id');
+              playAudioSignal('click');
+              const reason = prompt('Enter audit trail reason for this commission reversal:');
+              if (reason && reason.trim()) {
+                try {
+                  const revRes = await fetch(`${window.__nexovaServerUrl}/api/admin/commissions/${id}/reverse`, {
+                    method: 'POST',
+                    headers: { 
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${state.deviceToken || ''}` 
+                    },
+                    body: JSON.stringify({ reason })
+                  });
+                  if (revRes.ok) {
+                    showNotificationToast('Commission reversed successfully.');
+                    loadSalesCommissionsAdmin();
+                  } else {
+                    const errObj = await revRes.json();
+                    alert('Error: ' + errObj.error);
+                  }
+                } catch (err) {
+                  alert('Reversal request failed: ' + err.message);
+                }
+              }
+            });
+          });
+        }
+      }
+    } catch (err) {
+      console.error('[App] Failed to load sales commissions view:', err);
+    }
+  }
+
+  // Setup commission listener once DOM binds
+  document.addEventListener('DOMContentLoaded', () => {
+    const btnSaveAgent = document.getElementById('btn-comm-agent-save');
+    if (btnSaveAgent) {
+      btnSaveAgent.addEventListener('click', async () => {
+        playAudioSignal('click');
+        const empId = document.getElementById('comm-agent-employee-select').value;
+        const bps = parseInt(document.getElementById('comm-agent-rate-bps').value) || 300;
+        if (!empId) {
+          alert('Please select an employee roster record first.');
+          return;
+        }
+        try {
+          const res = await fetch(window.__nexovaServerUrl + '/api/admin/sales-agents', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${state.deviceToken || ''}`
+            },
+            body: JSON.stringify({ employee_id: empId, commission_rate_bps: bps })
+          });
+          if (res.ok) {
+            showNotificationToast('Sales Agent roster updated successfully.');
+            loadSalesCommissionsAdmin();
+          } else {
+            const errObj = await res.json();
+            alert('Save failed: ' + errObj.error);
+          }
+        } catch (err) {
+          alert('Roster update failed: ' + err.message);
+        }
+      });
+    }
+
+    const btnExport = document.getElementById('btn-comm-export-csv');
+    if (btnExport) {
+      btnExport.addEventListener('click', async () => {
+        playAudioSignal('click');
+        try {
+          const resp = await fetch(window.__nexovaServerUrl + '/api/admin/commissions/export', {
+            headers: { 'Authorization': `Bearer ${state.deviceToken || ''}` }
+          });
+          if (resp.ok) {
+            const blob = await resp.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'commissions.csv';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+          } else {
+            alert('Failed to export CSV: ' + resp.statusText);
+          }
+        } catch (err) {
+          alert('Export request failed: ' + err.message);
+        }
+      });
+    }
+  });
+
   async function approveDevice(nodeId) {
     playAudioSignal('click');
     try {
@@ -2683,6 +2907,8 @@
         matched.clockIn = Date.now();
         state.activeCashier = matched;
         state.terminalRole = 'REGISTER';
+        state.currentPin = ''; // Zero immediately
+        updatePinDisplayDots(); // Update display to show empty
         document.getElementById('auth-lock-screen').classList.remove('active');
         document.getElementById('view-cfd').style.display = 'none';
         document.getElementById('view-kds').style.display = 'none';
@@ -2801,9 +3027,16 @@
           adminSection.style.display = 'block';
           loadWhitelistDevices();
         }
+        const commSection = document.getElementById('settings-commissions');
+        if (commSection) {
+          commSection.style.display = 'block';
+          loadSalesCommissionsAdmin();
+        }
       } else {
         const adminSection = document.getElementById('settings-device-whitelisting');
         if (adminSection) adminSection.style.display = 'none';
+        const commSection = document.getElementById('settings-commissions');
+        if (commSection) commSection.style.display = 'none';
       }
       
       // Update SaaS License Status Card in UI
@@ -4014,34 +4247,17 @@
 
   // Calculate sum totals
   function calculateSubtotal() {
-    return state.activeCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    return CheckoutEngine.calculateSubtotal(state.activeCart);
   }
   function calculateTax() {
-    const ratePref = state.preferences['store_tax_rate'] || '8.0';
-    let rate = parseFloat(ratePref);
-
-    const taxMode = state.preferences['store_tax_mode'] || 'FLAT';
-    if (taxMode === 'FBR_FOOD') {
-      const payModeBtn = document.querySelector('.payment-btn.active');
-      const paymentMode = payModeBtn ? payModeBtn.getAttribute('data-mode') : 'CASH';
-      if (paymentMode === 'CARD' || paymentMode === 'QR' || paymentMode === 'MOBILE') {
-        rate = 5.0;
-      } else {
-        rate = 15.0;
-      }
-    } else if (taxMode === 'FBR_RETAIL') {
-      rate = 18.0;
-    }
-
-    if (rate > 1) rate = rate / 100.0;
-    
-    // Calculate rounded tax per item first to match invoice line additions & avoid float accumulator error
-    return state.activeCart.reduce((sum, item) => sum + Math.round(item.price * item.qty * rate), 0);
+    const payModeBtn = document.querySelector('.payment-btn.active');
+    const paymentMode = payModeBtn ? payModeBtn.getAttribute('data-mode') : 'CASH';
+    return CheckoutEngine.calculateTax(state.activeCart, state.preferences, paymentMode);
   }
   function calculateGrandTotal() {
-    const isFbrEnabled = (window.__nexovaTier === 'ENTERPRISE' || window.__nexovaTier === 'TRIAL') && state.preferences['fbr_integration_enabled'] === 'true';
-    const fbrFee = isFbrEnabled ? 100 : 0;
-    return calculateSubtotal() + calculateTax() + fbrFee;
+    const payModeBtn = document.querySelector('.payment-btn.active');
+    const paymentMode = payModeBtn ? payModeBtn.getAttribute('data-mode') : 'CASH';
+    return CheckoutEngine.calculateGrandTotal(state.activeCart, state.preferences, paymentMode, window.__nexovaTier || 'STARTER');
   }
 
   function updateTotalsBoard() {
@@ -4090,11 +4306,18 @@
 
   // Complete checkout process
   function submitCheckoutTransaction() {
+    if (state.isCheckingOut) {
+      console.warn('[App] Checkout already in progress, ignoring double click.');
+      return;
+    }
+
     if (state.activeCart.length === 0) {
       playAudioSignal('error');
       alert('Order is empty. Add products before checking out.');
       return;
     }
+
+    state.isCheckingOut = true;
 
     const payModeBtn = document.querySelector('.payment-btn.active');
     const paymentMode = payModeBtn ? payModeBtn.getAttribute('data-mode') : 'CASH';
@@ -4107,6 +4330,7 @@
     if (paymentMode === 'CREDIT' && !state.attachedCustomer) {
       playAudioSignal('error');
       alert('A customer profile must be linked to post a sale on credit (Udhaar/Khata).');
+      state.isCheckingOut = false;
       return;
     }
 
@@ -4116,6 +4340,7 @@
       if (Math.round(cash + card) !== total) {
         playAudioSignal('error');
         alert(`Split pay values mismatch total! Total: Rs. ${(total/100).toFixed(2)}, Split Sum: Rs. ${((cash+card)/100).toFixed(2)}`);
+        state.isCheckingOut = false;
         return;
       }
       paymentDetails = JSON.stringify({ cash_cents: Math.round(cash), card_cents: Math.round(card) });
@@ -4141,6 +4366,7 @@
     }
 
     if (paymentMode === 'QR') {
+      state.isCheckingOut = false; // Reset lock so user can retry or cancel
       openQrPaymentModal(total, {
         subtotal,
         tax,
@@ -5273,6 +5499,7 @@
   function closeQrPaymentModal() {
     document.getElementById('modal-qr-pay').classList.remove('active');
     state.pendingQrCheckout = null;
+    state.isCheckingOut = false; // Ensure checkout lock is released on QR cancel
     if (state.terminalRole === 'REGISTER') {
       syncWorker.postMessage({
         type: 'BROADCAST_CFD_PAY',

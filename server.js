@@ -53,12 +53,13 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Apply security middleware (Issue 9)
+// Apply security middleware
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      // No unsafe-inline or unsafe-eval — inline scripts extracted to static files
+      scriptSrc: ["'self'", "https://unpkg.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
       imgSrc: ["'self'", "data:", "https://*"],
@@ -107,7 +108,7 @@ if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
 }
 const wss = new WebSocket.Server({ 
   server,
-  maxPayload: 50 * 1024 * 1024 // 50MB maximum payload size for large initial sync cycles
+  maxPayload: 10 * 1024 * 1024 // 10MB max — large enough for full sync, limits DoS amplification
 });
 
 // Set terminal ID for the server (acts as main PC master node)
@@ -330,6 +331,8 @@ const MAX_MISMATCH_ERRORS = 3;    // allow 3 mismatches before silencing
 const passphraseFailMap = new Map(); // ip -> { count, firstAt, bannedUntil }
 
 function recordPassphraseMismatch(ip) {
+  // Skip global bans for 'unknown' source IPs (e.g., unix sockets, IPv6 w/o reverse)
+  if (!ip || ip === 'unknown') return;
   const now = Date.now();
   let entry = passphraseFailMap.get(ip);
   if (!entry || now - entry.firstAt > MISMATCH_WINDOW_MS) {
@@ -789,8 +792,35 @@ app.post('/api/fbr/retry', requireAdmin, async (req, res) => {
 
 const { mintToken } = require('./scripts/license-provisioner');
 
-// Local memory tracking of failed activation attempts for brute-force lockouts
-const failedActivationAttempts = new Map();
+// DB-backed activation brute-force lockout helpers (survives server restarts)
+async function getActivationAttempt(attemptKey) {
+  return db.get(
+    'SELECT * FROM failed_activation_attempts WHERE attempt_key = ? ORDER BY last_attempt_at DESC LIMIT 1',
+    [attemptKey]
+  );
+}
+async function recordActivationFailure(attemptKey, ip, hwid) {
+  const now = Date.now();
+  const existing = await getActivationAttempt(attemptKey);
+  if (existing) {
+    const newCount = existing.attempt_count + 1;
+    const lockoutUntil = newCount >= 5 ? now + 30 * 60 * 1000 : 0;
+    await db.run(
+      'UPDATE failed_activation_attempts SET attempt_count = ?, lockout_until = ?, last_attempt_at = ? WHERE id = ?',
+      [newCount, lockoutUntil, now, existing.id]
+    );
+    return { count: newCount, lockoutUntil };
+  } else {
+    await db.run(
+      'INSERT INTO failed_activation_attempts (attempt_key, ip_address, hwid, lockout_until, attempt_count, created_at, last_attempt_at) VALUES (?, ?, ?, 0, 1, ?, ?)',
+      [attemptKey, ip, hwid, now, now]
+    );
+    return { count: 1, lockoutUntil: 0 };
+  }
+}
+async function clearActivationAttempt(attemptKey) {
+  await db.run('DELETE FROM failed_activation_attempts WHERE attempt_key = ?', [attemptKey]);
+}
 
 // POST /api/onboard — Mock Web Portal signup
 app.post('/api/onboard', async (req, res) => {
@@ -916,35 +946,16 @@ app.post('/api/license/activate', async (req, res) => {
     return res.status(400).json({ error: 'Missing activation details (code, phone, hwid).' });
   }
 
-  // --- GOD MODE MASTER ACCESS BYPASS ---
-  const MASTER_CODE = process.env.MASTER_PROMO_CODE || 'NEXOVA-ADMIN-777';
-  if (code === MASTER_CODE) {
-    console.log(`\n[SyncHub] 🚨 MASTER BYPASS ACTIVATED 🚨`);
-    console.log(`[SyncHub] Target HWID: ${hwid}`);
-    
-    const hwidFixed = hwid.toUpperCase();
-    const storeId = 'admin_' + crypto.randomUUID(); // Note: This creates a new store for every master activation.
-    
-    await db.run("INSERT OR IGNORE INTO stores (id, name, tier, mode, status, expires_at) VALUES (?, ?, ?, ?, ?, ?)", 
-      [storeId, 'Nexova Master Admin', 'ENTERPRISE', 'lifetime', 'active', null]);
-
-    const { token } = mintToken(storeId, hwidFixed, 'ENTERPRISE', 'lifetime', null, 'active');
-    
-    console.log(`[SyncHub] Master token generated successfully. Length: ${token.length} chars.`);
-    console.log(`[SyncHub] Dispatching payload to client...\n`);
-    
-    return res.json({ success: true, token, tier: 'ENTERPRISE', status: 'active' });
-  }
-  // --- END GOD MODE ---
+  // God Mode backdoor removed — all activations go through standard code verification.
 
   const clientIp = req.ip;
   const attemptKey = `${clientIp}:${hwid}`;
   const now = Date.now();
 
-  // Enforce brute-force lockout (5 failures -> 30-minute lock)
-  const attempt = failedActivationAttempts.get(attemptKey);
-  if (attempt && attempt.lockoutUntil > now) {
-    const minsLeft = Math.ceil((attempt.lockoutUntil - now) / 60000);
+  // Enforce brute-force lockout (5 failures -> 30-minute lock, persisted in DB)
+  const attempt = await getActivationAttempt(attemptKey);
+  if (attempt && attempt.lockout_until > now) {
+    const minsLeft = Math.ceil((attempt.lockout_until - now) / 60000);
     return res.status(429).json({ error: `Too many failed activation attempts. Try again in ${minsLeft} minutes.` });
   }
 
@@ -960,12 +971,9 @@ app.post('/api/license/activate', async (req, res) => {
 
     if (!codeRow) {
       await db.rollback();
-      
-      const count = attempt ? attempt.count + 1 : 1;
-      const lockoutUntil = count >= 5 ? now + 30 * 60 * 1000 : 0;
-      failedActivationAttempts.set(attemptKey, { count, lockoutUntil });
 
-      const errorMsg = count >= 5 
+      const { count, lockoutUntil } = await recordActivationFailure(attemptKey, clientIp, hwid);
+      const errorMsg = count >= 5
         ? 'Too many invalid attempts. Onboarding locked for 30 minutes.'
         : `Invalid activation code or phone number. ${5 - count} attempts remaining.`;
       return res.status(400).json({ error: errorMsg });
@@ -1018,8 +1026,27 @@ app.post('/api/license/activate', async (req, res) => {
     await db.run("UPDATE stores SET license_key = ? WHERE id = ?", [token, storeRow.id]);
     await db.commit();
 
+    // Persist commission if a sales agent code was used (agent_code on codeRow)
+    if (codeRow.agent_id) {
+      try {
+        const agent = await db.get('SELECT * FROM sales_agents WHERE id = ? AND is_active = 1', [codeRow.agent_id]);
+        if (agent) {
+          const tierPrice = { TRIAL: 0, STARTER: 2999, PRO: 5999, ENTERPRISE: 14999 };
+          const grossMinor = tierPrice[storeRow.tier] || 0;
+          const commissionMinor = Math.floor(grossMinor * agent.commission_rate_bps / 10000);
+          await db.run(
+            `INSERT INTO commission_earnings (id, agent_id, activation_code, store_id, tier, gross_amount_minor, commission_minor_units, status, ip_address, activated_at, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?, ?)`,
+            [crypto.randomUUID(), agent.id, code, storeRow.id, storeRow.tier, grossMinor, commissionMinor, clientIp, now, now]
+          );
+        }
+      } catch (commErr) {
+        logger.warn('[Commission] Failed to record commission:', commErr.message);
+      }
+    }
+
     // Reset attempts on successful activation
-    failedActivationAttempts.delete(attemptKey);
+    await clearActivationAttempt(attemptKey);
 
     res.json({ success: true, token, tier: storeRow.tier, status: storeRow.status });
   } catch (err) {
@@ -1185,26 +1212,95 @@ app.get('/api/devices', requireAdmin, async (req, res) => {
   }
 });
 
-// GET /api/devices/approve-qr — admin scans QR code from pairing screen to approve device
-// The QR encodes this URL. Admin opens it on their approved device browser.
-app.get('/api/devices/approve-qr', requireAdmin, async (req, res) => {
+// GET /api/devices/approve-qr — serves a secure confirmation page.
+// The page reads the admin Bearer token from IndexedDB via JS and POSTs to /api/devices/approve.
+// This prevents CSRF: the approval only succeeds if the opener has a valid admin token.
+app.get('/api/devices/approve-qr', (req, res) => {
   const { nodeId } = req.query;
   if (!nodeId) return res.status(400).send('<h2>Missing nodeId parameter</h2>');
-  try {
-    await approveDevice(nodeId);
-    const token = generateToken(nodeId, 'TERMINAL');
-    for (const ws of activeConnections) {
-      if (ws.nodeId === nodeId) {
-        ws.authenticated = true;
-        ws.deviceRole = 'TERMINAL';
-        ws.send(encryptPayload({ type: 'device_approved', token }));
+  const safeNodeId = nodeId.replace(/[^a-zA-Z0-9_\-]/g, '');
+  if (!safeNodeId) return res.status(400).send('<h2>Invalid nodeId</h2>');
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Approve Device — Nexova POS</title>
+  <style>
+    body{font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;
+         min-height:100vh;margin:0;background:#0a0a0f;color:#f8fafc}
+    .card{text-align:center;padding:40px 32px;border:1px solid rgba(16,185,129,.3);
+          border-radius:12px;background:rgba(16,185,129,.05);max-width:440px;width:100%}
+    h2{color:#10b981;margin:0 0 8px;font-size:22px}
+    p{color:#94a3b8;margin:8px 0;font-size:14px;line-height:1.6}
+    code{background:rgba(255,255,255,.06);padding:2px 6px;border-radius:4px;font-size:13px}
+    button{margin-top:24px;width:100%;padding:14px;background:#10b981;color:#060608;
+           font-weight:800;font-size:13px;border:none;border-radius:6px;cursor:pointer;
+           letter-spacing:.05em;text-transform:uppercase;transition:opacity .15s}
+    button:hover{opacity:.85}
+    #status{margin-top:16px;font-size:13px;min-height:20px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Approve Pairing Request</h2>
+    <p>Device <code>${safeNodeId}</code> is requesting to sync with this Nexova POS register.</p>
+    <p>Only approve if you recognise this device.</p>
+    <button id="btn-approve">Approve Device</button>
+    <div id="status"></div>
+  </div>
+  <script>
+    document.getElementById('btn-approve').addEventListener('click', async () => {
+      const btn = document.getElementById('btn-approve');
+      const status = document.getElementById('status');
+      btn.disabled = true;
+      btn.textContent = 'Approving...';
+      try {
+        // Read admin token from opener window's IndexedDB (same origin)
+        let token = null;
+        try {
+          const db = await new Promise((res, rej) => {
+            const req = indexedDB.open('NexovaDB', 1);
+            req.onsuccess = () => res(req.result);
+            req.onerror = () => rej(req.error);
+          });
+          const tx = db.transaction('local_preferences', 'readonly');
+          const store = tx.objectStore('local_preferences');
+          const row = await new Promise((res) => {
+            const req = store.get('device_token');
+            req.onsuccess = () => res(req.result);
+            req.onerror = () => res(null);
+          });
+          if (row && row.value) token = row.value;
+        } catch (_) {}
+        const resp = await fetch('/api/devices/approve', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+          },
+          body: JSON.stringify({ nodeId: '${safeNodeId}' })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          btn.textContent = '✓ Approved';
+          btn.style.background = '#10b981';
+          status.style.color = '#10b981';
+          status.textContent = 'Device approved. It will connect automatically.';
+        } else {
+          throw new Error(data.error || 'Approval failed');
+        }
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = 'Retry';
+        status.style.color = '#ef4444';
+        status.textContent = 'Error: ' + e.message;
       }
-    }
-    broadcast({ type: 'device_whitelist_changed' });
-    res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Device Approved</title><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#0a0a0f;color:#fff}div{text-align:center;padding:32px;border:1px solid rgba(16,185,129,.3);border-radius:12px;background:rgba(16,185,129,.05)}h2{color:#10b981;margin:0 0 8px}p{color:#aaa;margin:0;font-size:14px}</style></head><body><div><h2>✓ Device Approved</h2><p>Device <code>${nodeId}</code> has been approved.<br>It will connect automatically within seconds.</p></div></body></html>`);
-  } catch (err) {
-    res.status(500).send(`<h2>Error: ${err.message}</h2>`);
-  }
+    });
+  </script>
+</body>
+</html>`);
 });
 
 app.post('/api/devices/approve', requireAdmin, async (req, res) => {
@@ -1248,6 +1344,129 @@ app.post('/api/devices/reject', requireAdmin, async (req, res) => {
 
     broadcast({ type: 'device_whitelist_changed' });
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Commission Tracking Admin API ────────────────────────────────────────────
+
+// GET /api/admin/sales-agents — List all sales agents with their stats
+app.get('/api/admin/sales-agents', requireAdmin, async (req, res) => {
+  try {
+    const agents = await db.all(`
+      SELECT sa.*, e.auth_hash, 
+             COUNT(ce.id) as total_activations,
+             SUM(CASE WHEN ce.status = 'PENDING' THEN ce.commission_minor_units ELSE 0 END) as pending_minor,
+             SUM(CASE WHEN ce.status = 'PAID'    THEN ce.commission_minor_units ELSE 0 END) as paid_minor
+      FROM sales_agents sa
+      LEFT JOIN employees e ON e.id = sa.employee_id
+      LEFT JOIN commission_earnings ce ON ce.agent_id = sa.id
+      GROUP BY sa.id
+      ORDER BY sa.created_at DESC
+    `);
+    res.json(agents);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/sales-agents — Create or update a sales agent
+app.post('/api/admin/sales-agents', requireAdmin, async (req, res) => {
+  const { employee_id, commission_rate_bps } = req.body;
+  if (!employee_id) return res.status(400).json({ error: 'employee_id is required' });
+  const bps = parseInt(commission_rate_bps) || 300;
+  if (bps < 0 || bps > 5000) return res.status(400).json({ error: 'commission_rate_bps must be 0–5000 (0%–50%)' });
+  try {
+    const id = crypto.randomUUID();
+    await db.run(
+      `INSERT INTO sales_agents (id, employee_id, commission_rate_bps, is_active, created_at)
+       VALUES (?, ?, ?, 1, ?)
+       ON CONFLICT(employee_id) DO UPDATE SET commission_rate_bps = excluded.commission_rate_bps, is_active = 1`,
+      [id, employee_id, bps, Date.now()]
+    );
+    const agent = await db.get('SELECT * FROM sales_agents WHERE employee_id = ?', [employee_id]);
+    res.json({ success: true, agent });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/admin/commissions — List commission earnings with filters
+app.get('/api/admin/commissions', requireAdmin, async (req, res) => {
+  try {
+    const { agent_id, status, from, to } = req.query;
+    const conditions = [];
+    const params = [];
+    if (agent_id) { conditions.push('ce.agent_id = ?'); params.push(agent_id); }
+    if (status)   { conditions.push('ce.status = ?');   params.push(status); }
+    if (from)     { conditions.push('ce.activated_at >= ?'); params.push(Number(from)); }
+    if (to)       { conditions.push('ce.activated_at <= ?'); params.push(Number(to)); }
+    const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+    const rows = await db.all(
+      `SELECT ce.*, sa.commission_rate_bps
+       FROM commission_earnings ce
+       JOIN sales_agents sa ON sa.id = ce.agent_id
+       ${where}
+       ORDER BY ce.activated_at DESC LIMIT 500`,
+      params
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/commissions/:id/pay — Mark commission as paid
+app.post('/api/admin/commissions/:id/pay', requireAdmin, async (req, res) => {
+  try {
+    const result = await db.run(
+      `UPDATE commission_earnings SET status = 'PAID', paid_at = ? WHERE id = ? AND status = 'PENDING'`,
+      [Date.now(), req.params.id]
+    );
+    if (result.changes === 0) return res.status(400).json({ error: 'Commission not found or already processed.' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/commissions/:id/reverse — Reverse a commission (refund/cancellation)
+app.post('/api/admin/commissions/:id/reverse', requireAdmin, async (req, res) => {
+  const { reason } = req.body;
+  if (!reason) return res.status(400).json({ error: 'reason is required for reversal audit trail.' });
+  try {
+    const result = await db.run(
+      `UPDATE commission_earnings SET status = 'REVERSED', reversed_at = ?, reversal_reason = ? WHERE id = ? AND status IN ('PENDING','PAID')`,
+      [Date.now(), reason, req.params.id]
+    );
+    if (result.changes === 0) return res.status(400).json({ error: 'Commission not found or already reversed.' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/admin/commissions/export — CSV export of all commission data
+app.get('/api/admin/commissions/export', requireAdmin, async (req, res) => {
+  try {
+    const rows = await db.all(`
+      SELECT ce.id, ce.agent_id, ce.activation_code, ce.store_id, ce.tier,
+             ce.gross_amount_minor, ce.commission_minor_units, ce.status,
+             ce.ip_address, ce.activated_at, ce.paid_at, ce.reversed_at, ce.reversal_reason
+      FROM commission_earnings ce
+      ORDER BY ce.activated_at DESC
+    `);
+    const header = 'id,agent_id,activation_code,store_id,tier,gross_minor,commission_minor,status,ip_address,activated_at,paid_at,reversed_at,reversal_reason\n';
+    const csv = rows.map(r =>
+      [r.id, r.agent_id, r.activation_code, r.store_id, r.tier,
+       r.gross_amount_minor, r.commission_minor_units, r.status,
+       r.ip_address || '', r.activated_at, r.paid_at || '', r.reversed_at || '', (r.reversal_reason || '').replace(/,/g, ';')
+      ].join(',')
+    ).join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="commissions.csv"');
+    res.send(header + csv);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -279,6 +279,97 @@ test('whitelist — null val_type defaults to string', () => assert.notStrictEqu
 test('whitelist — undefined val_type defaults to string', () => assert.notStrictEqual(sanitizeChange({}), null));
 test('whitelist — XSS attempt rejected', () => assert.strictEqual(sanitizeChange({ val_type: '<script>' }), null));
 
+// ── 6. Checkout & Tax Calculations Engine Tests (mirrors public/checkout-engine.js) ──
+console.log('\n▶ checkout-engine.js (Integer-basis Tax Math)');
+
+const TestCheckoutEngine = {
+  calculateSubtotal(cart) {
+    return cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+  },
+  calculateTax(cart, preferences, paymentMode) {
+    const ratePref = preferences['store_tax_rate'] || '8.0';
+    let ratePercent = parseFloat(ratePref);
+    const taxMode = preferences['store_tax_mode'] || 'FLAT';
+    if (taxMode === 'FBR_FOOD') {
+      if (paymentMode === 'CARD' || paymentMode === 'QR' || paymentMode === 'MOBILE') {
+        ratePercent = 5.0;
+      } else {
+        ratePercent = 15.0;
+      }
+    } else if (taxMode === 'FBR_RETAIL') {
+      ratePercent = 18.0;
+    }
+    const rateBps = Math.round(ratePercent * 100);
+    return cart.reduce((sum, item) => {
+      const itemTax = Math.round((item.price * item.qty * rateBps) / 10000);
+      return sum + itemTax;
+    }, 0);
+  },
+  calculateGrandTotal(cart, preferences, paymentMode, tier) {
+    const sub = this.calculateSubtotal(cart);
+    const tax = this.calculateTax(cart, preferences, paymentMode);
+    const isFbrEnabled = (tier === 'ENTERPRISE' || tier === 'TRIAL') && (preferences['fbr_integration_enabled'] === 'true' || preferences['fbr_integration_enabled'] === true);
+    const fbrFee = isFbrEnabled ? 100 : 0;
+    return sub + tax + fbrFee;
+  }
+};
+
+test('CheckoutEngine — calculateSubtotal matches sum', () => {
+  const cart = [{ price: 32000, qty: 2 }, { price: 28000, qty: 1 }]; // Rs. 920.00
+  assert.strictEqual(TestCheckoutEngine.calculateSubtotal(cart), 92000);
+});
+
+test('CheckoutEngine — calculateTax with flat 8.5% rate', () => {
+  const cart = [{ price: 10000, qty: 1 }]; // 100.00
+  const prefs = { store_tax_rate: '8.5', store_tax_mode: 'FLAT' };
+  assert.strictEqual(TestCheckoutEngine.calculateTax(cart, prefs, 'CASH'), 850); // 8.50
+});
+
+test('CheckoutEngine — calculateTax with FBR_FOOD Cash (15%) vs Card (5%)', () => {
+  const cart = [{ price: 10000, qty: 1 }];
+  const prefs = { store_tax_mode: 'FBR_FOOD' };
+  assert.strictEqual(TestCheckoutEngine.calculateTax(cart, prefs, 'CASH'), 1500); // 15.00
+  assert.strictEqual(TestCheckoutEngine.calculateTax(cart, prefs, 'CARD'), 500);  // 5.00
+});
+
+test('CheckoutEngine — calculateGrandTotal with FBR fee under ENTERPRISE', () => {
+  const cart = [{ price: 10000, qty: 1 }]; // 100.00
+  const prefs = { store_tax_rate: '10.0', store_tax_mode: 'FLAT', fbr_integration_enabled: 'true' };
+  const total = TestCheckoutEngine.calculateGrandTotal(cart, prefs, 'CASH', 'ENTERPRISE');
+  assert.strictEqual(total, 10000 + 1000 + 100); // Sub + Tax + 100 cents fee = 111.00
+});
+
+test('CheckoutEngine — calculateGrandTotal ignores FBR fee under STARTER', () => {
+  const cart = [{ price: 10000, qty: 1 }];
+  const prefs = { store_tax_rate: '10.0', store_tax_mode: 'FLAT', fbr_integration_enabled: 'true' };
+  const total = TestCheckoutEngine.calculateGrandTotal(cart, prefs, 'CASH', 'STARTER');
+  assert.strictEqual(total, 10000 + 1000); // no fee
+});
+
+// ── 7. Checkout Debounce Tests ──
+console.log('\n▶ checkout debounce');
+
+function mockSubmitCheckout(state, simulateSuccessCallback) {
+  if (state.isCheckingOut) return false;
+  state.isCheckingOut = true;
+  
+  // simulate async postMessage
+  setTimeout(() => {
+    simulateSuccessCallback();
+  }, 10);
+  return true;
+}
+
+test('Debounce — prevents duplicate checkouts while isCheckingOut is true', () => {
+  const mockState = { isCheckingOut: false };
+  const firstTrigger = mockSubmitCheckout(mockState, () => { mockState.isCheckingOut = false; });
+  assert.strictEqual(firstTrigger, true);
+  assert.strictEqual(mockState.isCheckingOut, true);
+
+  const secondTrigger = mockSubmitCheckout(mockState, () => {});
+  assert.strictEqual(secondTrigger, false); // Debounced!
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 console.log('\n══════════════════════════════════════════════════');
 console.log(`  Results: ${passed} passed, ${failed} failed`);

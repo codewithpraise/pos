@@ -14,7 +14,7 @@ let currentHlc = null;
 let currentDbVersion = 0; // Incremented on each local transaction change
 
 // Schema version: increment when adding columns/tables that clients must have before syncing
-const SERVER_SCHEMA_VERSION = 3;
+const SERVER_SCHEMA_VERSION = 4;
 module.exports && Object.assign(module.exports, { SERVER_SCHEMA_VERSION });
 
 // Secure PBKDF2 password hashing helper (OWASP approved, zero external dependencies)
@@ -78,55 +78,36 @@ const db = {
     }));
   },
   async beginImmediate() {
-    await dbMutex.acquire();
-    try {
-      await this.run('BEGIN IMMEDIATE TRANSACTION;');
-    } catch (err) {
-      dbMutex.release();
-      throw err;
-    }
+    // Serialise the transaction lock through the writeQueue so BEGIN IMMEDIATE
+    // cannot race with other enqueued writes.
+    return writeQueue.enqueue(async () => {
+      await new Promise((resolve, reject) => {
+        sqliteDb.run('BEGIN IMMEDIATE TRANSACTION;', (err) => {
+          if (err) reject(err); else resolve();
+        });
+      });
+    });
   },
   async commit() {
-    try {
-      await this.run('COMMIT;');
-    } finally {
-      dbMutex.release();
-    }
+    await new Promise((resolve, reject) => {
+      sqliteDb.run('COMMIT;', (err) => {
+        if (err) reject(err); else resolve();
+      });
+    });
   },
   async rollback() {
     try {
-      await this.run('ROLLBACK;');
-    } finally {
-      dbMutex.release();
-    }
+      await new Promise((resolve, reject) => {
+        sqliteDb.run('ROLLBACK;', (err) => {
+          if (err) reject(err); else resolve();
+        });
+      });
+    } catch (_) { /* safe to swallow — connection may already be clean */ }
   }
 };
 
-class Mutex {
-  constructor() {
-    this.queue = [];
-    this.locked = false;
-  }
-  async acquire() {
-    return new Promise(resolve => {
-      if (!this.locked) {
-        this.locked = true;
-        resolve();
-      } else {
-        this.queue.push(resolve);
-      }
-    });
-  }
-  release() {
-    if (this.queue.length > 0) {
-      const next = this.queue.shift();
-      next();
-    } else {
-      this.locked = false;
-    }
-  }
-}
-const dbMutex = new Mutex();
+// No separate Mutex needed — transaction serialisation is handled by writeQueue.enqueue
+// in beginImmediate above.
 
 // Initialize Database & WAL mode
 async function initDatabase(terminalId) {
@@ -500,7 +481,17 @@ async function initDatabase(terminalId) {
         "ALTER TABLE fbr_submissions ADD COLUMN fbr_error_details TEXT;"
       ];
       for (const sql of alters) {
-        try { await db.exec(sql); } catch (e) { /* ignore if already exists */ }
+        // Parse table and column name from ALTER TABLE statement to guard with PRAGMA
+        const match = sql.match(/ALTER TABLE (\w+) ADD COLUMN (\w+)/);
+        if (match) {
+          const [, tbl, col] = match;
+          const cols = await db.all(`PRAGMA table_info(${tbl})`);
+          const exists = cols.some(c => c.name === col);
+          if (exists) continue; // Column already present — skip safely
+        }
+        try { await db.exec(sql); } catch (e) {
+          console.warn(`[Database] v2 ALTER skipped (${e.message}): ${sql.trim().substring(0, 60)}`);
+        }
       }
     } else if (v === 3) {
       // Version 3: Add val_type and backfill it
@@ -532,6 +523,53 @@ async function initDatabase(terminalId) {
       } catch (backfillErr) {
         console.error('[Database] Failed to backfill val_type column in v3 migration:', backfillErr.message);
       }
+    } else if (v === 4) {
+      // Version 4: Commission Tracking + Persistent Activation Audit Trail
+      await db.exec(`
+        -- Sales Agent Roster (links to employees table)
+        CREATE TABLE IF NOT EXISTS sales_agents (
+          id TEXT PRIMARY KEY,
+          employee_id TEXT NOT NULL UNIQUE,
+          commission_rate_bps INTEGER NOT NULL DEFAULT 300,
+          is_active INTEGER DEFAULT 1,
+          created_at INTEGER NOT NULL,
+          FOREIGN KEY(employee_id) REFERENCES employees(id) ON DELETE CASCADE
+        );
+
+        -- Per-Activation Commission Ledger
+        CREATE TABLE IF NOT EXISTS commission_earnings (
+          id TEXT PRIMARY KEY,
+          agent_id TEXT NOT NULL,
+          activation_code TEXT NOT NULL,
+          store_id TEXT NOT NULL,
+          tier TEXT NOT NULL,
+          gross_amount_minor INTEGER NOT NULL,
+          commission_minor_units INTEGER NOT NULL,
+          status TEXT NOT NULL DEFAULT 'PENDING',
+          ip_address TEXT,
+          fingerprint_hash TEXT,
+          activated_at INTEGER NOT NULL,
+          paid_at INTEGER,
+          reversed_at INTEGER,
+          reversal_reason TEXT,
+          created_at INTEGER NOT NULL,
+          FOREIGN KEY(agent_id) REFERENCES sales_agents(id),
+          FOREIGN KEY(store_id) REFERENCES stores(id)
+        );
+
+        -- Persistent brute-force lockout tracking (survives server restarts)
+        CREATE TABLE IF NOT EXISTS failed_activation_attempts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          attempt_key TEXT NOT NULL,
+          ip_address TEXT,
+          hwid TEXT,
+          lockout_until INTEGER DEFAULT 0,
+          attempt_count INTEGER DEFAULT 1,
+          created_at INTEGER NOT NULL,
+          last_attempt_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_failed_act_key ON failed_activation_attempts(attempt_key);
+      `);
     }
 
     // Atomically write new schema version
@@ -557,6 +595,8 @@ async function initDatabase(terminalId) {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_fbr_submissions_usin ON fbr_submissions(usin);
     CREATE INDEX IF NOT EXISTS idx_payments_ref ON pending_payments(transaction_reference);
     CREATE INDEX IF NOT EXISTS idx_payments_status ON pending_payments(status, created_at);
+    CREATE INDEX IF NOT EXISTS idx_commission_earnings_status ON commission_earnings(status, activated_at) WHERE status = 'PENDING';
+    CREATE INDEX IF NOT EXISTS idx_sales_agents_employee ON sales_agents(employee_id);
   `);
 
   // Load the current db_version from crsql_changes to resume correctly
@@ -897,34 +937,22 @@ async function applyChangeToSchema(tableName, pk, cid, val, cl, valType = 'strin
     return;
   }
 
-  // Parse values back to correct types based on valType or inference
+  // Parse values back to correct types based on valType
+  // IMPORTANT: trust val_type column — only apply heuristics if type is genuinely unknown ('string')
   let parsedVal = val;
   if (val !== null) {
-    let inferredType = valType;
-    if (!inferredType || inferredType === 'string') {
-      if (val === 'true' || val === 'false') {
-        inferredType = 'boolean';
-      } else if (val !== '' && !isNaN(Number(val)) && !/^\s*$/.test(val)) {
-        inferredType = 'number';
-      } else if ((val.startsWith('{') && val.endsWith('}')) || (val.startsWith('[') && val.endsWith(']'))) {
-        try {
-          JSON.parse(val);
-          inferredType = 'object';
-        } catch (e) {}
-      }
-    }
-
-    if (inferredType === 'number') {
+    if (valType === 'number') {
       parsedVal = Number(val);
-    } else if (inferredType === 'boolean') {
+    } else if (valType === 'boolean') {
       parsedVal = (val === 'true' || val === '1' || val === 1);
-    } else if (inferredType === 'object') {
+    } else if (valType === 'object') {
       try {
         parsedVal = JSON.parse(val);
       } catch (e) {
-        parsedVal = val;
+        parsedVal = val; // fallback: keep as string if corrupt
       }
     }
+    // valType === 'string' (or legacy unset): keep parsedVal = val as-is
   }
 
   // Check if target record exists. If not, insert a skeletal record to populate.
