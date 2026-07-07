@@ -319,10 +319,13 @@ class MainActivity : AppCompatActivity() {
                 callback.invoke(origin, true, false)
             }
             override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
-                val msg = consoleMessage?.message() ?: return super.onConsoleMessage(consoleMessage)
-                val level = consoleMessage.messageLevel()
-                if (level == ConsoleMessage.MessageLevel.ERROR || level == ConsoleMessage.MessageLevel.WARNING) {
-                    Log.w("NexovaWebConsole", "[${consoleMessage.sourceId()}:${consoleMessage.lineNumber()}] $msg")
+                consoleMessage?.let {
+                    val msg = "${it.message()} -- From line ${it.lineNumber()} of ${it.sourceId()}"
+                    when (it.messageLevel()) {
+                        ConsoleMessage.MessageLevel.ERROR -> Log.e("NexovaJS", msg)
+                        ConsoleMessage.MessageLevel.WARNING -> Log.w("NexovaJS", msg)
+                        else -> Log.d("NexovaJS", msg)
+                    }
                 }
                 return true
             }

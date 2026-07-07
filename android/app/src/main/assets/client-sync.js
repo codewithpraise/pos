@@ -98,8 +98,15 @@ class SyncClient {
       this.ws.close();
     }
 
-    const protocol = globalScope.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${globalScope.location.host}`;
+    let wsUrl;
+    if (globalScope.serverUrl) {
+      const url = new URL(globalScope.serverUrl);
+      const wsProtocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+      wsUrl = `${wsProtocol}//${url.host}`;
+    } else {
+      const protocol = globalScope.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      wsUrl = `${protocol}//${globalScope.location.host}`;
+    }
     
     console.log(`[SyncClient:${this.nodeId}] Connecting to ${wsUrl}`);
     this.ws = new WebSocket(wsUrl);
@@ -234,6 +241,11 @@ class SyncClient {
         globalScope.NexovaDB.delete('local_preferences', 'device_token');
       }
       globalScope.postMessage({ type: 'DEVICE_UNAUTHORIZED' });
+    }
+    
+    else if (data.type === 'SYNC_ERROR') {
+      console.error(`[SyncClient:${this.nodeId}] Sync error: ${data.error}`);
+      globalScope.postMessage({ type: 'SYNC_ERROR', error: data.error });
     }
     
     else if (data.type === 'clock_drift_error') {

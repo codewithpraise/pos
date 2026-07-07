@@ -28,3 +28,4 @@ scratch/
 public/*.png
 android/app/src/main/assets/*.png
 scripts/*.ps1
+*.hprof

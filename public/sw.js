@@ -1,9 +1,10 @@
 // ============================================================================
 // NEXOVA COMMERCE ECOSYSTEM - OFFLINE PWA SERVICE WORKER
 // Caches core application assets for local-first operations
+// v7 - Hardened fetch handler: no unhandled rejections, no undefined responses
 // ============================================================================
 
-const CACHE_NAME = 'nexova-pos-cache-v6';
+const CACHE_NAME = 'nexova-pos-cache-v8';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -23,66 +24,111 @@ const ASSETS_TO_CACHE = [
   'https://unpkg.com/@zxing/library@0.21.0/umd/index.min.js'
 ];
 
+// Helper: build a clean offline JSON response
+function offlineJsonResponse(msg, status) {
+  return new Response(JSON.stringify({ error: msg, offline: true }), {
+    status: status || 503,
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
+
+// Helper: build a clean offline HTML response for navigation misses
+function offlineHtmlResponse() {
+  return new Response('<html><body><h2>Nexova POS – Offline</h2><p>Please connect to your local server.</p></body></html>', {
+    status: 503,
+    headers: { 'Content-Type': 'text/html' }
+  });
+}
+
 // Install Service Worker and cache all essential static shell assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[ServiceWorker] Pre-caching offline POS assets');
-      return cache.addAll(ASSETS_TO_CACHE);
-    }).then(() => {
-      return self.skipWaiting();
-    })
+      console.log('[ServiceWorker] Pre-caching offline POS assets (v7)');
+      // Add assets one-by-one so a single 404 doesn't abort the whole install
+      return Promise.allSettled(
+        ASSETS_TO_CACHE.map(url => cache.add(url).catch(() => {
+          console.warn('[ServiceWorker] Failed to pre-cache:', url);
+        }))
+      );
+    }).then(() => self.skipWaiting())
   );
 });
 
-// Activate Service Worker and clean up stale caches
+// Activate: clean up stale caches and claim all clients immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('[ServiceWorker] Removing old cache:', cacheName);
-            return caches.delete(cacheName);
+    caches.keys().then((cacheNames) =>
+      Promise.all(
+        cacheNames.map((name) => {
+          if (name !== CACHE_NAME) {
+            console.log('[ServiceWorker] Removing stale cache:', name);
+            return caches.delete(name);
           }
         })
-      );
-    }).then(() => {
-      return self.clients.claim();
-    })
+      )
+    ).then(() => self.clients.claim())
   );
 });
 
-// Fetch Interceptor: Network-First with Cache Fallback for static assets, network-only for api/sockets
+// Fetch Interceptor
+// - WebSocket upgrade requests: never intercept (let browser handle natively)
+// - API routes + version.json: network-only, offline → 503 JSON (no unhandled rejections)
+// - Static assets: network-first, fall back to cache, then 503
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
+  const { request } = event;
+  const url = new URL(request.url);
 
-  // Allow API routes and web sockets to bypass service worker cache
-  if (url.pathname.startsWith('/api') || event.request.url.includes('ws://') || event.request.url.includes('wss://')) {
-    event.respondWith(fetch(event.request));
+  // 1. WebSocket upgrade requests — these arrive as http(s):// but with
+  //    mode 'websocket'. The browser handles them natively; never call
+  //    event.respondWith() or fetch() on them.
+  if (request.mode === 'websocket') {
+    return; // Let browser handle WebSocket upgrades natively
+  }
+
+  // 2. Dynamic/server-side routes: network-only with clean offline fallback
+  const isDynamic =
+    url.pathname.startsWith('/api/') ||
+    url.pathname === '/version.json' ||
+    url.pathname.startsWith('/version');
+
+  if (isDynamic) {
+    event.respondWith(
+      fetch(request).catch((err) => {
+        console.warn('[ServiceWorker] Offline – dynamic request failed:', url.pathname, err.message);
+        return offlineJsonResponse('Server offline: ' + err.message, 503);
+      })
+    );
     return;
   }
 
+  // 3. Static assets: network-first → cache → offline fallback
   event.respondWith(
-    fetch(event.request).then((networkResponse) => {
-      if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
-      }
-      return networkResponse;
-    }).catch(() => {
-      // Fallback to cache if network fails
-      return caches.match(event.request).then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
+    fetch(request)
+      .then((networkResponse) => {
+        // Only cache successful same-origin responses
+        if (
+          networkResponse &&
+          networkResponse.status === 200 &&
+          (networkResponse.type === 'basic' || networkResponse.type === 'cors')
+        ) {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(request, responseToCache);
+          });
         }
-        // Fallback for navigation requests
-        if (event.request.mode === 'navigate') {
-          return caches.match('/index.html');
-        }
-      });
-    })
+        return networkResponse;
+      })
+      .catch(() =>
+        caches.match(request).then((cached) => {
+          if (cached) return cached;
+          // Navigation fallback → serve shell
+          if (request.mode === 'navigate') {
+            return caches.match('/index.html').then(r => r || offlineHtmlResponse());
+          }
+          // All other misses → 503
+          return offlineJsonResponse('Asset unavailable offline', 503);
+        })
+      )
   );
 });

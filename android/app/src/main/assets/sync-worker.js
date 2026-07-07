@@ -4,6 +4,7 @@
 // ============================================================================
 
 importScripts('client-db.js', 'client-sync.js');
+let dbReadyPromise = NexovaDB.init(); // Capture the init promise
 
 let syncClient = null;
 let nodeId = null;
@@ -165,6 +166,7 @@ async function initializeSyncEngine(serverUrl) {
 
 // Global listener for UI thread events
 self.onmessage = async (event) => {
+  await dbReadyPromise;
   const { type, payload } = event.data;
 
   // Handle reload instruction from SyncClient
@@ -173,8 +175,15 @@ self.onmessage = async (event) => {
     return;
   }
 
-  if (!syncClient && type !== 'INIT') {
-    return postMessage({ type: 'ERROR', error: 'SyncEngine not initialized' });
+  // SAVE_TELEMETRY and CHECK_OVERSELL only need the DB (not the sync connection),
+  // so they can run before the sync engine is fully initialized.
+  const dbOnlyMessages = ['SAVE_TELEMETRY', 'CHECK_OVERSELL'];
+  if (!syncClient && type !== 'INIT' && !dbOnlyMessages.includes(type)) {
+    // Silently drop non-critical messages before init, return error only for meaningful ops
+    if (type !== 'GET_PREFERENCES' && type !== 'GET_CATALOG' && type !== 'GET_EMPLOYEES' && type !== 'GET_CUSTOMERS' && type !== 'GET_TRANSACTIONS') {
+      return postMessage({ type: 'ERROR', error: 'SyncEngine not initialized' });
+    }
+    return; // Silently drop data-fetch requests before init — they will re-fire after INIT_SUCCESS
   }
 
   try {
@@ -208,6 +217,45 @@ self.onmessage = async (event) => {
         if (syncClient) {
           syncClient.passphrase = syncPassphrase;
         }
+        postMessage({ type: 'BOOTSTRAP_SUCCESS' });
+        break;
+      }
+
+      case 'JOIN_NETWORK': {
+        const { serverUrl, syncPassphrase } = payload;
+        
+        if (serverUrl) {
+          self.serverUrl = serverUrl;
+          await NexovaDB.put('local_preferences', {
+            key: 'nexova_server_url',
+            value_type: 'STR',
+            value_payload: serverUrl,
+            is_idempotent_flag: 0,
+            updated_at: Date.now()
+          });
+        }
+        
+        await NexovaDB.put('local_preferences', {
+          key: 'sync_passphrase',
+          value_type: 'STR',
+          value_payload: syncPassphrase,
+          is_idempotent_flag: 0,
+          updated_at: Date.now()
+        });
+        
+        await NexovaDB.put('local_preferences', {
+          key: 'onboarding_complete',
+          value_type: 'BOOL',
+          value_payload: 'true',
+          is_idempotent_flag: 1,
+          updated_at: Date.now()
+        });
+
+        if (syncClient) {
+          syncClient.passphrase = syncPassphrase;
+          syncClient.connect();
+        }
+        
         postMessage({ type: 'BOOTSTRAP_SUCCESS' });
         break;
       }
@@ -597,9 +645,10 @@ self.onmessage = async (event) => {
         const exists = await NexovaDB.get('inventory_catalog', sku);
         const colVersion = exists ? (exists.col_version || 1) + 1 : 1;
 
+        const cleanGtin = (gtin && gtin.trim()) ? gtin.trim() : undefined;
         const prod = {
           sku,
-          gtin,
+          gtin: cleanGtin,
           name,
           base_price_minor_units: price,
           stock_level: exists ? exists.stock_level : stock,
@@ -615,7 +664,7 @@ self.onmessage = async (event) => {
         await NexovaDB.put('inventory_catalog', prod);
 
         await logFieldChange('inventory_catalog', sku, 'name', name, tickHlc, colVersion);
-        await logFieldChange('inventory_catalog', sku, 'gtin', gtin, tickHlc, colVersion);
+        await logFieldChange('inventory_catalog', sku, 'gtin', cleanGtin, tickHlc, colVersion);
         await logFieldChange('inventory_catalog', sku, 'base_price_minor_units', price, tickHlc, colVersion);
         await logFieldChange('inventory_catalog', sku, 'category', category || 'Uncategorized', tickHlc, colVersion);
         await logFieldChange('inventory_catalog', sku, 'emoji', emoji || '📦', tickHlc, colVersion);

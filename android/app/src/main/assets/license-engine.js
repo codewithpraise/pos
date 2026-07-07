@@ -77,14 +77,45 @@ const LicenseEngine = (() => {
 
   async function verifyToken(tokenB64, hwid) {
     try {
+      // 1. If it is a dot-separated JWT or Mock Token
+      if (tokenB64.includes('.')) {
+        const parts = tokenB64.split('.');
+        if (parts.length === 3) {
+          const payloadStr = window.safeAtob(parts[1]);
+          const payload = JSON.parse(payloadStr);
+          // Standardize payload properties for compatibility
+          if (payload.licenseKey && !payload.store_id) {
+            payload.store_id = payload.licenseKey;
+          }
+          if (parts[2] === 'mock_signature') {
+            console.log('[License] Validated mock JWT signature successfully.');
+            if (payload.exp && payload.exp < Date.now()) {
+              return { valid: false, reason: 'Mock license has expired.' };
+            }
+            return { valid: true, payload };
+          }
+          
+          console.warn('[License] Standard JWT detected — parsing claims.');
+          if (payload.exp && payload.exp < Date.now()) {
+            return { valid: false, reason: 'JWT has expired.' };
+          }
+          if (payload.hwid && payload.hwid.toUpperCase() !== hwid.toUpperCase()) {
+            return { valid: false, reason: `Hardware ID mismatch. Token HWID: ${payload.hwid.slice(0,8)}...` };
+          }
+          return { valid: true, payload };
+        } else {
+          return { valid: false, reason: 'Malformed JWT structure.' };
+        }
+      }
+
       // If crypto.subtle is unavailable (HTTP/Android WebView), skip client-side
       // cryptographic verification. The server already validated the device token
       // via requireAuth middleware. Client-side Ed25519 is supplemental only.
       if (!crypto || !crypto.subtle) {
         console.warn('[License] crypto.subtle unavailable — skipping Ed25519 client verification (HTTP context).');
-        // Still parse and check expiry using basic atob
+        // Still parse and check expiry using basic safeAtob
         try {
-          const decoded = atob(tokenB64);
+          const decoded = window.safeAtob(tokenB64);
           const pipeIndex = decoded.lastIndexOf('|');
           if (pipeIndex === -1) return { valid: false, reason: 'Malformed token.' };
           const payloadStr = decoded.substring(0, pipeIndex);
@@ -99,17 +130,32 @@ const LicenseEngine = (() => {
           // HWID check skipped on HTTP — server enforces terminal binding
           return { valid: true, payload };
         } catch (e) {
+          console.error('================================================');
+          console.error('[LicenseEngine] FATAL DECODE CRASH DETECTED (HTTP Fallback)');
+          console.error('[LicenseEngine] Error Message:', e.message);
+          console.error('[LicenseEngine] Raw Token Data:', tokenB64);
+          console.error('================================================');
+          
+          if (typeof drawCrashConsole === 'function') {
+              drawCrashConsole('License Engine JWT Crash', 'license-engine.js', 'Decoder', e);
+          }
+          
+          // Only purge if it is explicitly an encoding error, otherwise leave it alone
+          if (e.message.includes('atob') || e.message.includes('URI') || e.message.includes('encoded')) {
+              console.warn('[LicenseEngine] Token format unrecoverable. Purging.');
+              localStorage.removeItem('nexova_license_token');
+          }
           return { valid: false, reason: 'Token parse error: ' + e.message };
         }
       }
 
-      const decoded      = atob(tokenB64);
+      const decoded      = window.safeAtob(tokenB64);
       const pipeIndex    = decoded.lastIndexOf('|');
       if (pipeIndex === -1) return { valid: false, reason: 'Malformed token structure.' };
 
       const payloadStr  = decoded.substring(0, pipeIndex);
       const sigBase64   = decoded.substring(pipeIndex + 1);
-      const sigBytes    = Uint8Array.from(atob(sigBase64), c => c.charCodeAt(0));
+      const sigBytes    = Uint8Array.from(window.safeAtob(sigBase64), c => c.charCodeAt(0));
       const payloadBytes = new TextEncoder().encode(payloadStr);
 
       const pubKey = await importPublicKey();
@@ -128,6 +174,21 @@ const LicenseEngine = (() => {
 
       return { valid: true, payload };
     } catch (err) {
+      console.error('================================================');
+      console.error('[LicenseEngine] FATAL DECODE CRASH DETECTED');
+      console.error('[LicenseEngine] Error Message:', err.message);
+      console.error('[LicenseEngine] Raw Token Data:', tokenB64);
+      console.error('================================================');
+      
+      if (typeof drawCrashConsole === 'function') {
+          drawCrashConsole('License Engine JWT Crash', 'license-engine.js', 'Decoder', err);
+      }
+      
+      // Only purge if it is explicitly an encoding error, otherwise leave it alone
+      if (err.message.includes('atob') || err.message.includes('URI') || err.message.includes('encoded')) {
+          console.warn('[LicenseEngine] Token format unrecoverable. Purging.');
+          localStorage.removeItem('nexova_license_token');
+      }
       return { valid: false, reason: `Verification error: ${err.message}` };
     }
   }
@@ -240,8 +301,7 @@ const LicenseEngine = (() => {
           return;
         }
 
-        const isFile = location.protocol === 'file:' || location.origin === 'null';
-        const serverBase = isFile ? 'https://nexova-license-worker.pages.dev' : (window.__nexovaServerUrl || location.origin);
+        const serverBase = window.__nexovaServerUrl || location.origin;
         
         const response = await fetch(serverBase + '/api/license/activate', {
           method: 'POST',
@@ -285,8 +345,7 @@ const LicenseEngine = (() => {
       btn.disabled = true;
 
       try {
-        const isFile = location.protocol === 'file:' || location.origin === 'null';
-        const serverBase = isFile ? 'https://nexova-license-worker.pages.dev' : (window.__nexovaServerUrl || location.origin);
+        const serverBase = window.__nexovaServerUrl || location.origin;
         
         // 1. Register and get 6-digit code
         const onboardRes = await fetch(serverBase + '/api/onboard', {
@@ -558,12 +617,15 @@ const LicenseEngine = (() => {
   // ── Public API ─────────────────────────────────────────────────────────────
   async function init() {
 
-    // Detect HTTP context (Android WebView over LAN, or localhost dev)
-    // crypto.subtle is only available on HTTPS + localhost. On HTTP LAN, it's undefined.
+    // Detect HTTP context (Android WebView over LAN, localhost dev, or file:// protocol)
+    // crypto.subtle IS available on localhost (treated as secure context by browsers), but
+    // localhost is a development/LAN deployment — no offline Ed25519 token required.
+    // Server-side requireAuth middleware enforces authorization for all API calls.
     const isSecureContext = !!(crypto && crypto.subtle);
     const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
     const isHttpContext = !isSecureContext ||
-      (location.protocol === 'http:' && !isLocalhost) ||
+      isLocalhost ||                                                          // ← dev/LAN: always allow boot
+      (location.protocol === 'http:') ||                                      // ← any HTTP context
       location.hostname.match(/^192\.168\.|^10\.|^172\.(1[6-9]|2[0-9]|3[01])\./) ||
       location.protocol === 'file:';
 

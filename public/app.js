@@ -30,17 +30,41 @@
     distributorPayments: [],
     customerCredits: [],
     selectedDistributorId: null,
-    selectedPurchaseOrderId: null
+    selectedPurchaseOrderId: null,
+    preferencesLoaded: false
   };
 
   let syncWorker = null;
   let speechCoach = null;
+
+  function isGraceTrialActive() {
+    let firstBoot = localStorage.getItem('nexova_first_boot_time');
+    if (!firstBoot) {
+      firstBoot = Date.now().toString();
+      localStorage.setItem('nexova_first_boot_time', firstBoot);
+    }
+    const gracePeriodMs = 3 * 24 * 60 * 60 * 1000; // 3-day grace
+    const elapsed = Date.now() - parseInt(firstBoot, 10);
+    return elapsed < gracePeriodMs;
+  }
+  // Expose as window global so it's callable from any scope (HTML handlers,
+  // license-engine, stale service worker code paths, etc.)
+  window.isGraceTrialActive = isGraceTrialActive;
 
   // Initialize application
   async function init() {
     try {
       await NexovaDB.init(); // Initialize IndexedDB on main thread for local PIN auth
       
+      // CRITICAL: Enforce License Gate immediately upon DB initialization
+      const licenseOk = await LicenseEngine.init();
+      if (!licenseOk) {
+        document.getElementById('license-lockout-overlay').style.display = 'flex';
+        const wizardOverlay = document.getElementById('first-boot-wizard');
+        if (wizardOverlay) wizardOverlay.style.display = 'none'; // Force hide wizard
+        return; // Hard-stop
+      }
+
       // Support starting fresh: clear DB and preferences if reset param or bridge flag is detected
       var shouldReset = false;
       const urlParams = new URLSearchParams(window.location.search);
@@ -74,17 +98,38 @@
         window.history.replaceState(null, null, window.location.pathname);
       }
 
-      // CRITICAL FIX: Enforce License Gate FIRST. Do not allow wizard access if unlicensed.
-      const licenseOk = await LicenseEngine.init();
-      if (!licenseOk) {
-        const wizardOverlay = document.getElementById('first-boot-wizard');
-        if (wizardOverlay) wizardOverlay.style.display = 'none'; // Force hide wizard
-        return; // Hard-stop
+      // Early Onboarding & View Routing Check
+      const pref = await NexovaDB.get('local_preferences', 'onboarding_complete');
+      const dbComplete = pref && pref.value_payload === 'true';
+      const localComplete = localStorage.getItem('onboarding_complete') === 'true';
+      const onboardingComplete = dbComplete || localComplete;
+
+      // Sync it back to the main database if it was only saved in localStorage (Offline Fallback)
+      if (localComplete && !dbComplete) {
+         try {
+             await NexovaDB.put('local_preferences', {
+                 key: 'onboarding_complete', value_type: 'BOOL', value_payload: 'true',
+                 is_idempotent_flag: 1, updated_at: Date.now()
+             });
+         } catch(e) { console.warn('Failed to sync onboarding state to DB', e); }
+      } else if (dbComplete && !localComplete) {
+         localStorage.setItem('onboarding_complete', 'true');
       }
 
-      // Early Onboarding & View Routing Check to prevent flashing/incorrect states
-      const pref = await NexovaDB.get('local_preferences', 'onboarding_complete');
-      const onboardingComplete = (pref && pref.value_payload === 'true') || localStorage.getItem('onboarding_complete') === 'true';
+      // Sync database_hydrated flag
+      const hydPref = await NexovaDB.get('local_preferences', 'database_hydrated');
+      const dbHydrated = hydPref && hydPref.value_payload === 'true';
+      const localHydrated = localStorage.getItem('database_hydrated') === 'true';
+      if (localHydrated && !dbHydrated) {
+         try {
+             await NexovaDB.put('local_preferences', {
+                 key: 'database_hydrated', value_type: 'BOOL', value_payload: 'true',
+                 is_idempotent_flag: 1, updated_at: Date.now()
+             });
+         } catch(e) { console.warn('Failed to sync database_hydrated to DB', e); }
+      } else if (dbHydrated && !localHydrated) {
+         localStorage.setItem('database_hydrated', 'true');
+      }
       
       const wizardOverlay = document.getElementById('first-boot-wizard');
       const lockScreen = document.getElementById('auth-lock-screen');
@@ -341,6 +386,14 @@
   function setupWebWorker() {
     syncWorker = new Worker('sync-worker.js');
     window.syncWorker = syncWorker;
+
+    syncWorker.addEventListener('error', (err) => {
+        console.error('Fatal Worker Crash:', err.message);
+        if (typeof drawCrashConsole === 'function') {
+            // Draw the red box on the tablet screen if the background thread dies
+            drawCrashConsole('FATAL WORKER CRASH', err.filename, err.lineno, err.message);
+        }
+    });
     
     // Post initial setup signal with serverUrl
     const serverUrl = window.__nexovaServerUrl || location.origin;
@@ -427,6 +480,8 @@
 
         case 'HYDRATE_SUCCESS':
           console.log('[App] Database hydration completed successfully.');
+          // Persist hydrated flag to localStorage so offline reloads don't re-trigger the overlay
+          localStorage.setItem('database_hydrated', 'true');
           const statusEl = document.getElementById('hydration-status');
           if (statusEl) {
             statusEl.style.color = '#10b981';
@@ -452,7 +507,37 @@
 
         case 'INIT_ERROR':
           console.error('[App] Worker failed to initialize:', error);
-          alert('Database initialization failed: ' + error);
+          if (typeof drawCrashConsole === 'function') {
+              drawCrashConsole('Background Worker Initialization Failed', 'sync-worker.js', 'Worker Thread', new Error(error));
+          } else {
+              showNotificationToast('Database initialization failed: ' + error);
+          }
+          break;
+
+        case 'SYNC_ERROR':
+          console.error('[App] Sync engine error:', error);
+          // PASSPHRASE_MISMATCH is now only sent once by the worker (loop stopped).
+          // Show one informative toast and update hydration UI if open.
+          if (error === 'PASSPHRASE_MISMATCH') {
+            if (!window.__passphraseMismatchNotified) {
+              window.__passphraseMismatchNotified = true;
+              showNotificationToast('Sync passphrase mismatch. Update your Network Encryption Key in Settings → Sync to reconnect.', () => switchActiveScreen('settings'));
+            }
+          } else {
+            showNotificationToast(`Sync failed: ${error}. Please check network passphrase in Settings.`);
+          }
+          // If hydration overlay is open, display recovery options
+          const hydOverlay = document.getElementById('hydration-overlay');
+          if (hydOverlay) {
+            const statusEl = document.getElementById('hydration-status');
+            if (statusEl) {
+              statusEl.style.color = '#ef4444';
+              statusEl.innerHTML = `Sync failure: ${error}<br><br>
+                Please verify your Network Encryption Key (Passphrase) matches the server.<br><br>
+                <button onclick="localStorage.removeItem('onboarding_complete'); localStorage.removeItem('database_hydrated'); window.location.reload();" style="padding: 10px 20px; background: #3b82f6; border: none; border-radius: 4px; color: #fff; font-weight: 700; cursor: pointer; margin-right: 10px;">Re-run Setup Wizard</button>
+                <button onclick="window.location.reload()" style="padding: 10px 20px; background: #ef4444; border: none; border-radius: 4px; color: #fff; font-weight: 700; cursor: pointer;">Retry Connection</button>`;
+            }
+          }
           break;
 
         case 'CONNECTION_CHANGE':
@@ -588,73 +673,40 @@
           calculateAnalytics();
           break;
 
-        case 'BOOTSTRAP_SUCCESS': {
-          playAudioSignal('success');
-          showNotificationToast('Core Database Bootstrapped Successfully!', null, 3000);
-
-          // Get device token from server immediately upon bootstrap success (avoiding 401 on settings load)
-          (async () => {
-            try {
-              const serverBase = (window.__nexovaServerUrl || location.origin);
-              const regResp = await fetch(serverBase + '/api/devices/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nodeId: state.nodeId, deviceName: 'Web Register' })
-              });
-              if (regResp.ok) {
-                const regData = await regResp.json();
-                if (regData.status === 'APPROVED' && regData.token) {
-                  console.log('[App] Post-bootstrap registration success. Token acquired.');
-                  await NexovaDB.put('local_preferences', {
-                    key: 'device_token',
-                    value_type: 'STR',
-                    value_payload: regData.token,
-                    is_idempotent_flag: 0,
-                    updated_at: Date.now()
-                  });
-                  state.deviceToken = regData.token;
-                }
-              }
-            } catch (err) {
-              console.warn('Failed post-bootstrap token registration:', err);
+        case 'BOOTSTRAP_SUCCESS':
+        case 'JOIN_SUCCESS':
+            console.log('[Worker] Database initialization safely completed.');
+            
+            if (typeof showNotificationToast === 'function') {
+                showNotificationToast('Terminal Ready. Please enter your PIN.');
             }
-          })();
-          
-          // Request fresh state data from the worker
-          syncWorker.postMessage({ type: 'GET_PREFERENCES' });
-          syncWorker.postMessage({ type: 'GET_CATALOG' });
-          syncWorker.postMessage({ type: 'GET_EMPLOYEES' });
-          syncWorker.postMessage({ type: 'GET_CUSTOMERS' });
+            if (typeof playAudioSignal === 'function') {
+                playAudioSignal('success');
+            }
 
-          // Auto-login as ADMIN
-          state.activeCashier = {
-            id: 'admin',
-            name: 'ADMIN',
-            role: 'ADMIN',
-            clockIn: Date.now()
-          };
-          state.terminalRole = 'REGISTER';
-          
-          // Transition UI immediately
-          const wizardOverlay = document.getElementById('first-boot-wizard');
-          if (wizardOverlay) wizardOverlay.style.display = 'none';
-          
-          const lockScreen = document.getElementById('auth-lock-screen');
-          if (lockScreen) lockScreen.classList.remove('active');
-          
-          const layout = document.getElementById('pos-app-layout');
-          if (layout) layout.style.display = 'grid';
+            // Request fresh state data from the worker so local state is populated for login
+            syncWorker.postMessage({ type: 'GET_PREFERENCES' });
+            syncWorker.postMessage({ type: 'GET_CATALOG' });
+            syncWorker.postMessage({ type: 'GET_EMPLOYEES' });
+            syncWorker.postMessage({ type: 'GET_CUSTOMERS' });
 
-          const nameEl = document.getElementById('cashier-display-name');
-          const roleDispEl = document.getElementById('cashier-display-role');
-          if (roleDispEl) roleDispEl.textContent = 'ADMIN';
-          
-          applyRoleNavigationLimits('ADMIN');
-          setTimeout(() => {
-              window.location.reload();
-          }, 1500);
-          break;
-        }
+            // CRITICAL FIX: Do NOT reload the WebView. Transition the DOM natively.
+            const wizOverlay = document.getElementById('first-boot-wizard');
+            const lScreen = document.getElementById('auth-lock-screen');
+            const posLayout = document.getElementById('pos-app-layout');
+
+            // 1. Hide the Setup Wizard
+            if (wizOverlay) wizOverlay.style.display = 'none';
+            
+            // 2. Bring up the PIN pad to unlock the terminal
+            if (lScreen) lScreen.classList.add('active');
+            
+            // 3. Keep the terminal hidden until the PIN is entered
+            if (posLayout) posLayout.style.display = 'none';
+
+            // Force the layout to reset/re-calculate
+            window.dispatchEvent(new Event('resize'));
+            break;
 
         case 'EPHEMERAL_RECEIVED': {
           const { topic, data } = event.data;
@@ -759,8 +811,16 @@
 
         case 'ERROR':
           setButtonLoading('btn-checkout-complete', false, '', 'Complete Order');
-          console.error('[App] Worker encountered error:', error);
-          alert('Sync error: ' + error);
+          console.warn('[App] Worker encountered error:', error);
+          
+          // Only show the crash console for true fatal errors, not benign race conditions
+          if (error && error !== 'SyncEngine not initialized') {
+            if (typeof drawCrashConsole === 'function') {
+                drawCrashConsole('Background Worker Error', 'sync-worker.js', 'Worker Thread', new Error(error));
+            } else {
+                showNotificationToast('Sync error: ' + error);
+            }
+          }
           break;
       }
     };
@@ -906,6 +966,41 @@
     //   2. Global keydown listener (physical keyboard / numpad — capture phase)
     //   3. Hidden <input type=tel> that captures mobile soft keyboard input events
     initPinPad();
+
+    document.getElementById('btn-in-app-signup')?.addEventListener('click', async () => {
+        const storeName = document.getElementById('signup-store-name').value.trim();
+        const email = document.getElementById('signup-email').value.trim();
+        const phone = document.getElementById('signup-phone').value.trim();
+        if (!storeName || !email || !phone) { alert('All fields required.'); return; }
+
+        const btn = document.getElementById('btn-in-app-signup');
+        btn.textContent = 'Registering...'; btn.disabled = true;
+
+        try {
+            const serverBase = window.__nexovaServerUrl || location.origin;
+            const onboardRes = await fetch(serverBase + '/api/onboard', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: storeName, email, phone, tier: 'TRIAL', mode: 'subscription' })
+            });
+            const onboardData = await onboardRes.json();
+            if (!onboardData.code) throw new Error(onboardData.error || 'Activation failed.');
+
+            const activateRes = await fetch(serverBase + '/api/license/activate', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: onboardData.code, hwid: state.nodeId || 'mobile', phone })
+            });
+            const activateData = await activateRes.json();
+            if (activateData.token) {
+                localStorage.setItem('nexova_license_token', activateData.token);
+                if (typeof showNotificationToast === 'function') showNotificationToast('Trial Activated!');
+                setTimeout(() => window.location.reload(), 1500);
+            } else throw new Error('Token assignment failed.');
+        } catch (e) {
+            alert('Registration Error: ' + e.message);
+        } finally {
+            btn.textContent = 'START 7-DAY FREE TRIAL'; btn.disabled = false;
+        }
+    });
 
     const scanPairingQrBtn = document.getElementById('btn-scan-pairing-qr');
     if (scanPairingQrBtn) {
@@ -1747,8 +1842,15 @@
             return;
           }
 
+          let hashedPin = adminPin;
+          try {
+            hashedPin = await hashPin(adminPin);
+          } catch (err) {
+            console.error('Failed cryptographically hashing PIN, using fallback:', err);
+          }
+
           // Initialize server SQLite with the bootstrap configuration first
-          fetch('/api/bootstrap', {
+          fetch(window.__nexovaServerUrl + '/api/bootstrap', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ storeName, taxRate, adminPin, syncPassphrase, theme })
@@ -1760,26 +1862,28 @@
             }
             // Proceed with local IndexedDB bootstrap
             localStorage.setItem('onboarding_complete', 'true');
+            localStorage.setItem('database_hydrated', 'true'); // Prevent hydration overlay on reload
             syncWorker.postMessage({
               type: 'BOOTSTRAP_STORE',
-              payload: { storeName, taxRate, adminPin, syncPassphrase, theme }
+              payload: { storeName, taxRate, adminPin: hashedPin, syncPassphrase, theme }
             });
           })
           .catch((err) => {
-            console.warn('[Bootstrap] Server unavailable, falling back to standalone local:', err);
+            console.warn('[Bootstrap] Server unavailable, falling back to local mode:', err);
             
-            // 1. Synchronously save onboarding state so it survives the reload
+            // Save local state
             localStorage.setItem('onboarding_complete', 'true');
+            localStorage.setItem('database_hydrated', 'true'); // Prevent hydration overlay on reload
             
-            // 2. Post to worker
+            // Tell the worker to build the database
             syncWorker.postMessage({
               type: 'BOOTSTRAP_STORE',
-              payload: { storeName, taxRate, adminPin, syncPassphrase, theme }
+              payload: { storeName, taxRate, adminPin: hashedPin, syncPassphrase, theme }
             });
             
-            // 3. Use non-blocking toast instead of alert
-            playAudioSignal('success');
-            showNotificationToast('Bootstrapping store in Standalone Offline Mode...');
+            if (typeof showNotificationToast === 'function') {
+                showNotificationToast('Building local database... Please wait.');
+            }
           });
         } else {
           const syncPassphrase = document.getElementById('wizard-join-passphrase').value;
@@ -1790,31 +1894,19 @@
             return;
           }
 
+          localStorage.setItem('onboarding_complete', 'true');
           if (serverUrl) {
             localStorage.setItem('nexova_server_url', serverUrl);
-            syncWorker.postMessage({
-              type: 'SAVE_PREFERENCE',
-              payload: { key: 'nexova_server_url', val: serverUrl }
-            });
             if (window.AndroidPOS && typeof window.AndroidPOS.setServerUrl === 'function') {
               window.AndroidPOS.setServerUrl(serverUrl);
             }
           }
 
-          // Save keys and onboarding state locally
-          syncWorker.postMessage({
-            type: 'SAVE_PREFERENCE',
-            payload: { key: 'sync_passphrase', val: syncPassphrase }
-          });
-          syncWorker.postMessage({
-            type: 'SAVE_PREFERENCE',
-            payload: { key: 'onboarding_complete', val: 'true', value_type: 'BOOL' }
-          });
           playAudioSignal('success');
-          alert('Onboarding complete. Connecting to network...');
-          setTimeout(() => {
-            window.location.reload();
-          }, 1000);
+          syncWorker.postMessage({
+            type: 'JOIN_NETWORK',
+            payload: { serverUrl, syncPassphrase }
+          });
         }
       });
     }
@@ -1878,6 +1970,10 @@
             closeMobileScanner();
           }
         }
+      });
+      scannerManualInput.addEventListener('click', () => {
+        scannerManualInput.removeAttribute('readonly');
+        scannerManualInput.focus();
       });
     }
 
@@ -2165,14 +2261,14 @@
         try {
           // Fetch hardware fingerprint
           let deviceFingerprint = 'web_client_node';
-          const infoResp = await fetch('/api/server-info');
+          const infoResp = await fetch(window.__nexovaServerUrl + '/api/server-info');
           if (infoResp.ok) {
             const info = await infoResp.json();
             if (info.fingerprint) deviceFingerprint = info.fingerprint;
           }
 
           // Request activation from Cloudflare Workers Licensing API (fallback to local mock verification if worker is unavailable)
-          const activateResp = await fetch('https://nexova-license-worker.pages.dev/api/license/activate', {
+          const activateResp = await fetch(window.__nexovaServerUrl + '/api/license/activate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ licenseKey: licenseKeyInput, nodeId: deviceFingerprint })
@@ -2348,7 +2444,7 @@
     const tbody = document.getElementById('device-list-tbody');
     if (!tbody) return;
     try {
-      const res = await fetch('/api/devices', {
+      const res = await fetch(window.__nexovaServerUrl + '/api/devices', {
         headers: {
           'Authorization': `Bearer ${state.deviceToken || ''}`
         }
@@ -2442,7 +2538,7 @@
   async function approveDevice(nodeId) {
     playAudioSignal('click');
     try {
-      const res = await fetch('/api/devices/approve', {
+      const res = await fetch(window.__nexovaServerUrl + '/api/devices/approve', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2461,7 +2557,7 @@
   async function rejectDevice(nodeId) {
     playAudioSignal('click');
     try {
-      const res = await fetch('/api/devices/reject', {
+      const res = await fetch(window.__nexovaServerUrl + '/api/devices/reject', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2699,14 +2795,28 @@
           const token = localStorage.getItem('nexova_license_token');
           if (token) {
             try {
-              const decoded = atob(token);
-              const pipeIndex = decoded.lastIndexOf('|');
-              if (pipeIndex !== -1) {
-                const claims = JSON.parse(decoded.substring(0, pipeIndex));
+              let claims = null;
+              if (token.includes('.')) {
+                const parts = token.split('.');
+                if (parts.length === 3) {
+                  claims = JSON.parse(window.safeAtob(parts[1]));
+                }
+              } else {
+                const decoded = window.safeAtob(token);
+                const pipeIndex = decoded.lastIndexOf('|');
+                if (pipeIndex !== -1) {
+                  claims = JSON.parse(decoded.substring(0, pipeIndex));
+                }
+              }
+
+              if (claims) {
                 expiryVal.textContent = claims.exp ? new Date(claims.exp).toLocaleDateString() : 'Lifetime License';
                 devicesVal.textContent = claims.tier === 'STARTER' ? '1 Terminal' : (claims.tier === 'PRO' ? '3 Terminals' : '100 Terminals (Unlimited)');
               }
             } catch (e) {
+              console.error('[App.js Settings Check] Decode failed:', e.message);
+              console.warn('[License] Corrupted token detected. Purging from local storage.');
+              localStorage.removeItem('nexova_license_token');
               expiryVal.textContent = 'Invalid license token';
               devicesVal.textContent = 'Restricted';
             }
@@ -2847,6 +2957,7 @@
     }
     state.preferences = prefObj;
     state.deviceToken = prefObj['device_token'] || null;
+    state.preferencesLoaded = true;
     applyPreferencesFromState();
   }
 
@@ -2886,21 +2997,32 @@
 
   // Apply whitelabel customizations to browser window
   function applyPreferencesFromState() {
-    // 0. Database Hydration Check (Data Continuity)
     const licenseToken = localStorage.getItem('nexova_license_token');
-    const databaseHydrated = state.preferences['database_hydrated'] === 'true';
-    const onboardingComplete = state.preferences['onboarding_complete'] === 'true';
+    const onboardingComplete =
+      state.preferences['onboarding_complete'] === 'true' ||
+      localStorage.getItem('onboarding_complete') === 'true';
 
-    if (licenseToken && onboardingComplete && !databaseHydrated) {
-      if (!window.__hydrationInProgress) {
-        window.__hydrationInProgress = true;
-        mountHydrationOverlay();
-        syncWorker.postMessage({
-          type: 'HYDRATE_DATABASE',
-          payload: { licenseToken }
-        });
+    // Only trigger hydration if preferences have been retrieved from the worker (preventing race condition boot loops)
+    if (state.preferencesLoaded) {
+      // Check both worker state AND localStorage — localStorage is the persistent fast-path
+      // that survives offline reloads without waiting for worker preferences to load.
+      const databaseHydrated =
+        state.preferences['database_hydrated'] === 'true' ||
+        localStorage.getItem('database_hydrated') === 'true';
+
+      // Only trigger hydration if: license exists, onboarding is done, and
+      // database has NEVER been hydrated on this device (checked in both stores).
+      if (licenseToken && onboardingComplete && !databaseHydrated) {
+        if (!window.__hydrationInProgress) {
+          window.__hydrationInProgress = true;
+          mountHydrationOverlay();
+          syncWorker.postMessage({
+            type: 'HYDRATE_DATABASE',
+            payload: { licenseToken }
+          });
+        }
+        return;
       }
-      return;
     }
 
     // 0.b First Boot Onboarding Check
@@ -3015,7 +3137,10 @@
       let port = window.location.port || '3000';
       
       try {
-        const resp = await fetch('/api/server-info');
+        const serverBase = window.__nexovaServerUrl || location.origin;
+        const resp = await fetch(`${serverBase}/api/server-info`, {
+          signal: AbortSignal.timeout(3000)
+        });
         if (resp.ok) {
           const info = await resp.json();
           if (info.ips && info.ips.length > 0) {
@@ -3024,7 +3149,7 @@
           }
         }
       } catch (err) {
-        console.warn('Failed to load server IP info:', err);
+        // Server offline — silently use window.location.hostname as fallback IP
       }
       
       const pairingUrl = `http://${serverIp}:${port}/#passphrase=${encodeURIComponent(passphrase)}`;
@@ -3158,10 +3283,13 @@
       return;
     }
 
-    // 1. Fetch hardware fingerprint from server
+    // 1. Fetch hardware fingerprint from server (best-effort — silently skipped when offline)
     let deviceFingerprint = 'web_client_node';
     try {
-      const resp = await fetch('/api/server-info');
+      const serverBase = window.__nexovaServerUrl || location.origin;
+      const resp = await fetch(`${serverBase}/api/server-info`, {
+        signal: AbortSignal.timeout(3000)
+      });
       if (resp.ok) {
         const info = await resp.json();
         if (info.fingerprint) {
@@ -3169,7 +3297,7 @@
         }
       }
     } catch (err) {
-      console.warn('[License] Failed to fetch server fingerprint:', err);
+      // Server offline — use client-side fingerprint from LicenseEngine instead
     }
 
     // 2. Fetch license preference fields
@@ -3212,7 +3340,7 @@
     if (licenseToken) {
       // Validate license token locally or with worker
       try {
-        const verifyResp = await fetch('https://nexova-license-worker.pages.dev/api/license/verify', {
+        const verifyResp = await fetch(window.__nexovaServerUrl + '/api/license/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: licenseToken, nodeId: deviceFingerprint })
@@ -3240,27 +3368,40 @@
         console.warn('[License] Offline verification backup fallback - checking claims...');
         // Offline JWT decode/signature check fallback if internet is down
         try {
-          const decoded = atob(licenseToken);
-          const pipeIndex = decoded.lastIndexOf('|');
-          if (pipeIndex !== -1) {
-            const claims = JSON.parse(decoded.substring(0, pipeIndex));
-            if (claims.hwid === deviceFingerprint && claims.exp > Date.now()) {
-              window.__nexovaTier = claims.tier; // CRITICAL FIX
-              applyTierRestrictions(); // Force UI to unlock features
-              console.log(`[License] Offline verify success. Tier: ${claims.tier}`);
-              lockoutOverlay.style.display = 'none';
-              if (claims.tier === 'TRIAL') {
-                const expires = claims.exp ? claims.exp : Date.now();
-                const remainingMs = expires - Date.now();
-                const remainingDays = Math.max(0, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)));
-                showTrialBadge(remainingDays);
-              } else {
-                document.getElementById('trial-countdown-badge')?.remove();
-              }
-              return;
+          let claims = null;
+          if (licenseToken.includes('.')) {
+            const parts = licenseToken.split('.');
+            if (parts.length === 3) {
+              claims = JSON.parse(window.safeAtob(parts[1]));
+            }
+          } else {
+            const decoded = window.safeAtob(licenseToken);
+            const pipeIndex = decoded.lastIndexOf('|');
+            if (pipeIndex !== -1) {
+              claims = JSON.parse(decoded.substring(0, pipeIndex));
             }
           }
-        } catch (e) {}
+
+          if (claims && claims.hwid === deviceFingerprint && claims.exp > Date.now()) {
+            window.__nexovaTier = claims.tier; // CRITICAL FIX
+            applyTierRestrictions(); // Force UI to unlock features
+            console.log(`[License] Offline verify success. Tier: ${claims.tier}`);
+            lockoutOverlay.style.display = 'none';
+            if (claims.tier === 'TRIAL') {
+              const expires = claims.exp ? claims.exp : Date.now();
+              const remainingMs = expires - Date.now();
+              const remainingDays = Math.max(0, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)));
+              showTrialBadge(remainingDays);
+            } else {
+              document.getElementById('trial-countdown-badge')?.remove();
+            }
+            return;
+          }
+        } catch (e) {
+          console.error('[App.js License Check] Offline decode failed:', e.message);
+          console.warn('[License] Corrupted token detected. Purging from local storage.');
+          localStorage.removeItem('nexova_license_token');
+        }
       }
     }
 
@@ -3534,6 +3675,7 @@
     const manualInput = document.getElementById('scanner-manual-input');
     if (manualInput) {
       manualInput.value = '';
+      manualInput.setAttribute('readonly', 'true');
     }
 
     try {
@@ -4190,6 +4332,7 @@
       payload: { sku, name, gtin, price, stock, category, emoji, cost, low_stock_threshold, isAuditReset }
     });
 
+    setTimeout(() => syncWorker.postMessage({ type: 'GET_CATALOG' }), 150);
     document.getElementById('modal-product').classList.remove('active');
   }
 
@@ -4328,6 +4471,7 @@
       payload: { id, name, phone, email, spend, visits }
     });
 
+    setTimeout(() => syncWorker.postMessage({ type: 'GET_CUSTOMERS' }), 150);
     document.getElementById('modal-customer').classList.remove('active');
   }
 
@@ -4399,6 +4543,7 @@
       }
     });
 
+    setTimeout(() => syncWorker.postMessage({ type: 'GET_EMPLOYEES' }), 150);
     document.getElementById('modal-employee').classList.remove('active');
   }
 
@@ -4807,7 +4952,13 @@
 
     async function checkUpdates() {
       try {
-        const res = await fetch(`/version.json?cb=${Date.now()}`);
+        const serverBase = window.__nexovaServerUrl || location.origin;
+        // Skip check if we're running from a file:// URL (embedded WebView)
+        if (location.protocol === 'file:') return;
+        const res = await fetch(`${serverBase}/version.json?cb=${Date.now()}`, {
+          cache: 'no-store',
+          signal: AbortSignal.timeout(5000) // 5s timeout — don't hang if server is offline
+        });
         if (!res.ok) return;
         const data = await res.json();
         if (data.version && data.version !== CURRENT_VERSION) {
@@ -4815,7 +4966,10 @@
           showOtaUpdateToast(data.version, data.changelog);
         }
       } catch (err) {
-        console.warn('[OTA] Check failed:', err);
+        // Silently ignore — server is offline or unreachable (this is expected in standalone mode)
+        if (err.name !== 'AbortError' && err.name !== 'TypeError') {
+          console.warn('[OTA] Check failed:', err.message);
+        }
       }
     }
 
@@ -5530,7 +5684,7 @@
 
   // Global premium currency formatter
   function formatCurrency(minor) {
-    return `Rs. ${(minor / 100.0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `Rs. ${(minor / 100.0).toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
   // Calculate distributor outstanding balance (accounts payable)
@@ -5906,6 +6060,7 @@
       payload: { id, name, phone, email, address, creditLimit, notes }
     });
 
+    setTimeout(() => syncWorker.postMessage({ type: 'GET_DISTRIBUTORS' }), 150);
     document.getElementById('modal-supplier').classList.remove('active');
     playAudioSignal('success');
   }
@@ -6064,6 +6219,7 @@
       payload: { id, distributorId, status, items: activePoItems, notes, expectedDelivery }
     });
 
+    setTimeout(() => syncWorker.postMessage({ type: 'GET_PURCHASE_ORDERS' }), 150);
     document.getElementById('modal-po').classList.remove('active');
     playAudioSignal('success');
   }
@@ -6575,7 +6731,7 @@
         const mgr = state.employees?.find(e => e.role === 'MANAGER' || e.role === 'ADMIN');
         if (!mgr) { alert('No manager found. Configure a manager first.'); return; }
         // Open drawer — audit trail written to aborted_sales_log via server
-        fetch('/api/void-transaction', {
+        fetch(window.__nexovaServerUrl + '/api/void-transaction', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ transactionId: `no_sale_${Date.now()}`, managerPin: pin, voidReason: 'NO_SALE' })
@@ -6604,7 +6760,7 @@
 
   async function checkForUpdates() {
     try {
-      const resp = await fetch('/version.json');
+      const resp = await fetch(window.__nexovaServerUrl + '/version.json');
       if (resp.ok) {
         const data = await resp.json();
         if (data && data.version && data.version !== CLIENT_VERSION) {
@@ -6939,7 +7095,7 @@
         btnDeleteExecute.disabled = true;
         try {
           try {
-            await fetch('/api/system/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: pinInput }) });
+            await fetch(window.__nexovaServerUrl + '/api/system/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: pinInput }) });
           } catch (_) {}
           await NexovaDB.destructReset();
           localStorage.clear();
@@ -6988,8 +7144,10 @@
               closeMobileScanner();
           }
       } else if (document.visibilityState === "visible") {
-          // App came back. Sweep sync.
-          syncWorker.postMessage({ type: 'FORCE_FULL_SYNC' });
+          // App came back. Sweep sync if worker is initialized.
+          if (window.syncWorker) {
+              window.syncWorker.postMessage({ type: 'FORCE_FULL_SYNC' });
+          }
       }
   });
 

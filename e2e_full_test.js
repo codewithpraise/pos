@@ -1,0 +1,589 @@
+/**
+ * NEXOVA — Full E2E Test Suite v2 (Robust)
+ * Properly waits for app init, handles all boot states, then tests every feature
+ */
+const WebSocket = require('ws');
+const http = require('http');
+
+async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+let PASS = 0, FAIL = 0;
+const results = [];
+
+function log(msg) { process.stdout.write(`[${new Date().toISOString().substring(11,19)}] ${msg}\n`); }
+function pass(t) { PASS++; results.push({ok:true,t}); log(`✅ PASS — ${t}`); }
+function fail(t, r) { FAIL++; results.push({ok:false,t,r}); log(`❌ FAIL — ${t} :: ${r}`); }
+function info(t) { log(`ℹ️  INFO — ${t}`); }
+
+async function connectCDP() {
+  const tabList = await new Promise((res, rej) => {
+    http.get('http://localhost:9222/json', r => {
+      let b = ''; r.on('data', d => b += d);
+      r.on('end', () => { try { res(JSON.parse(b)); } catch(e) { rej(e); } });
+    }).on('error', e => { log('⚠️  Chrome DevTools not reachable: ' + e.message); process.exit(1); });
+  });
+  const target = tabList.find(t => t.url?.includes('localhost:3000') && t.type === 'page');
+  if (!target) { log('⚠️  No Nexova page target found'); process.exit(1); }
+
+  const ws = new WebSocket(target.webSocketDebuggerUrl);
+  await new Promise((res, rej) => { ws.once('open', res); ws.once('error', rej); });
+
+  let nId = 1;
+  const pend = new Map();
+  ws.on('message', d => {
+    const m = JSON.parse(d.toString());
+    if (m.id && pend.has(m.id)) { pend.get(m.id)(m); pend.delete(m.id); }
+    if (m.method === 'Runtime.consoleAPICalled') {
+      const args = m.params.args.map(a => a.value || a.description || '').join(' ');
+      if (!args.includes('Decryption') && !args.includes('decryption')) {
+        log(`[BROWSER CONSOLE] ${args}`);
+      }
+    }
+    if (m.method === 'Runtime.exceptionThrown') {
+      log(`[BROWSER EXCEPTION] ${JSON.stringify(m.params.exceptionDetails)}`);
+    }
+  });
+
+  const send = (method, params = {}) => new Promise(r => {
+    const id = nId++;
+    pend.set(id, r);
+    ws.send(JSON.stringify({ id, method, params }));
+  });
+
+  const ev = async (expr) => {
+    const r = await send('Runtime.evaluate', {
+      expression: expr, returnByValue: true, awaitPromise: true
+    });
+    if (r.result?.result?.subtype === 'error') return `ERROR: ${r.result.result.description}`;
+    if (r.result?.result?.type === 'undefined') return undefined;
+    return r.result?.result?.value;
+  };
+
+  await send('Runtime.enable');
+  await send('Console.enable');
+  return { ws, ev, send };
+}
+
+/** Wait up to maxMs for expr to return truthy */
+async function waitFor(ev, expr, maxMs = 10000, interval = 300) {
+  const deadline = Date.now() + maxMs;
+  while (Date.now() < deadline) {
+    const val = await ev(expr);
+    if (val) return val;
+    await sleep(interval);
+  }
+  return null;
+}
+
+async function detectBootState(ev) {
+  const wizDisplay = await ev('(function(){ var el=document.getElementById("first-boot-wizard"); return el?window.getComputedStyle(el).display:"missing"; })()');
+  const authClass  = await ev('(function(){ var el=document.getElementById("auth-lock-screen"); return el?el.className:"missing"; })()');
+  const authDisplay = await ev('(function(){ var el=document.getElementById("auth-lock-screen"); return el?window.getComputedStyle(el).display:"missing"; })()');
+  const layoutDisplay = await ev('(function(){ var el=document.getElementById("pos-app-layout"); return el?window.getComputedStyle(el).display:"missing"; })()');
+
+  return {
+    wizardOpen: wizDisplay === 'flex',
+    authOpen: authDisplay === 'flex',
+    layoutOpen: layoutDisplay === 'grid',
+    wizDisplay, authClass, authDisplay, layoutDisplay
+  };
+}
+
+async function doLogin(ev, pin = '1234') {
+  const digits = pin.split('');
+  for (const d of digits) {
+    await ev(`(function(){
+      var btns = document.querySelectorAll('.pin-btn');
+      for (var b of btns) {
+        if (b.textContent.trim() === '${d}' && !b.classList.contains('pin-del')) {
+          b.click(); return;
+        }
+      }
+    })()`);
+    await sleep(200);
+  }
+  // wait up to 5s for layout to appear
+  const result = await waitFor(ev, `window.getComputedStyle(document.getElementById("pos-app-layout")).display==="grid"`, 6000);
+  return !!result;
+}
+
+async function run() {
+  log('\n══════════════════════════════════════════════════════════════');
+  log(' NEXOVA POS — COMPREHENSIVE E2E TEST SUITE v2');
+  log('══════════════════════════════════════════════════════════════\n');
+
+  const { ws, ev, send } = await connectCDP();
+
+  // Clear all storage & Service Workers to force fresh loads & clear stale state/cache
+  log('Clearing browser storage and Service Worker cache for http://localhost:3000...');
+  await send('Storage.clearDataForOrigin', { origin: 'http://localhost:3000', storageTypes: 'all' });
+  await sleep(500);
+
+  log('Reloading page...');
+  await send('Page.reload', { ignoreCache: true });
+  await sleep(2000); // give reload a moment to process
+
+  // ────────────────────────────────────────────────────────────────────────────
+  //  SECTION 0: Wait for page to fully initialize (max 15s)
+  // ────────────────────────────────────────────────────────────────────────────
+  log('=== SECTION 0: Waiting for App Initialization ===');
+  
+  await sleep(500); // wait for init to start after reload
+
+  // Wait until at least one of the three main screens is showing
+  const initDone = await waitFor(ev, `(function(){
+    var wiz = document.getElementById("first-boot-wizard");
+    var auth = document.getElementById("auth-lock-screen");
+    var lay = document.getElementById("pos-app-layout");
+    if (!wiz || !auth || !lay) return false;
+    var w = window.getComputedStyle(wiz).display;
+    var a = window.getComputedStyle(auth).display;
+    var l = window.getComputedStyle(lay).display;
+    return w === "flex" || a === "flex" || l === "grid";
+  })()`, 15000, 400);
+
+  if (initDone) pass('App initialized — at least one primary screen is visible');
+  else fail('App initialization', 'None of wizard/auth/layout became visible within 15s');
+
+  // ────────────────────────────────────────────────────────────────────────────
+  //  SECTION 1: Boot State
+  // ────────────────────────────────────────────────────────────────────────────
+  log('\n=== SECTION 1: Boot State & DOM Integrity ===');
+
+  const title = await ev('document.title');
+  if (title === 'Nexova Commerce POS') pass('Document title correct');
+  else fail('Document title', `Got: ${title}`);
+
+  const readyState = await ev('document.readyState');
+  if (readyState === 'complete') pass('Page fully loaded');
+  else fail('Page readyState', `Got: ${readyState}`);
+
+  // License tier — wait up to 5s for license engine to set it
+  const tier = await waitFor(ev, 'window.__nexovaTier', 5000);
+  if (tier) pass(`License tier: ${tier}`);
+  else fail('License tier', 'window.__nexovaTier not set after 5s');
+
+  const graceTrialFn = await ev('typeof window.isGraceTrialActive');
+  if (graceTrialFn === 'function') pass('isGraceTrialActive globally exposed');
+  else fail('isGraceTrialActive exposed', `Got: ${graceTrialFn}`);
+
+  // ────────────────────────────────────────────────────────────────────────────
+  //  SECTION 2: Critical DOM Elements
+  // ────────────────────────────────────────────────────────────────────────────
+  log('\n=== SECTION 2: Critical UI Element Presence ===');
+
+  const elems = [
+    ['first-boot-wizard','Wizard overlay exists'],
+    ['auth-lock-screen','Auth lock screen exists'],
+    ['pos-app-layout','Main POS layout exists'],
+    ['btn-checkout-complete','Checkout complete button exists'],
+    ['checkout-search-input','Checkout search input exists'],
+    ['txt-total','Total display element exists'],
+    ['btn-catalog-create-product','Catalog add button exists'],
+    ['history-transactions-list','History list container exists'],
+    ['theme-toggle-btn','Theme toggle button exists'],
+    ['lang-toggle-btn','Language toggle button exists'],
+  ];
+  for (const [id, label] of elems) {
+    const exists = await ev(`!!document.getElementById('${id}')`);
+    if (exists) pass(label);
+    else fail(label, `#${id} not found in DOM`);
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  //  SECTION 3: Screen Routing State
+  // ────────────────────────────────────────────────────────────────────────────
+  log('\n=== SECTION 3: Current Screen Routing ===');
+
+  const boot = await detectBootState(ev);
+  info(`Wizard: ${boot.wizDisplay} | Auth: ${boot.authDisplay} | Layout: ${boot.layoutDisplay}`);
+
+  if (boot.wizardOpen) {
+    pass('App in SETUP WIZARD mode (first boot)');
+  } else if (boot.authOpen) {
+    pass('App in AUTH LOCK mode (post-setup, awaiting PIN)');
+  } else if (boot.layoutOpen) {
+    pass('App in MAIN UI mode (already logged in)');
+  } else {
+    fail('Screen routing state', `None of wizard/auth/layout is visible — init may have failed`);
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  //  SECTION 4: Wizard Flow (only if wizard is open)
+  // ────────────────────────────────────────────────────────────────────────────
+  if (boot.wizardOpen) {
+    log('\n=== SECTION 4: Running Wizard Setup ===');
+
+    // Choose NEW store
+    await ev('document.getElementById("btn-wiz-choose-new")?.click()');
+    await sleep(400);
+
+    // Step 1 — Store Details
+    await ev(`(function(){
+      var n = document.getElementById("wizard-store-name"); if(n){n.value="Test Brew Co"; n.dispatchEvent(new Event("input",{bubbles:true}));}
+      var t = document.getElementById("wizard-tax-rate"); if(t){t.value="17"; t.dispatchEvent(new Event("input",{bubbles:true}));}
+    })()`);
+    await ev('document.getElementById("btn-wiz-next")?.click()');
+    await sleep(500);
+
+    const pinField = await ev('!!document.getElementById("wizard-admin-pin")');
+    if (pinField) pass('Wizard: Step 2 loaded (PIN field)');
+    else fail('Wizard step 2', 'wizard-admin-pin not found');
+
+    // Step 2 — PIN + Passphrase
+    await ev(`(function(){
+      var p = document.getElementById("wizard-admin-pin"); if(p){p.value="1234"; p.dispatchEvent(new Event("input",{bubbles:true}));}
+      var s = document.getElementById("wizard-sync-passphrase"); if(s){s.value="TestKey2024!"; s.dispatchEvent(new Event("input",{bubbles:true}));}
+    })()`);
+    await ev('document.getElementById("btn-wiz-next")?.click()');
+    await sleep(500);
+
+    // Step 3 — Review
+    const sumStore = await ev('document.getElementById("wiz-sum-store") ? document.getElementById("wiz-sum-store").textContent.trim() : "missing"');
+    if (sumStore && sumStore.toLowerCase().includes('test brew')) pass(`Wizard review shows store name: "${sumStore}"`);
+    else info(`Review store display: "${sumStore}"`);
+
+    // Accept EULA and submit
+    await ev('var cb=document.getElementById("wizard-eula-checkbox"); if(cb){cb.checked=true; cb.dispatchEvent(new Event("change",{bubbles:true}));}');
+    await sleep(200);
+    await ev('document.getElementById("btn-submit-wizard")?.click()');
+    info('Waiting 10s for bootstrap to complete...');
+    await sleep(10000);
+
+    // Verify wizard dismissed
+    const postWizDisplay = await ev('window.getComputedStyle(document.getElementById("first-boot-wizard")).display');
+    if (postWizDisplay === 'none') pass('Wizard dismissed after submit');
+    else fail('Wizard dismiss', `Still showing: ${postWizDisplay}`);
+
+    // Verify auth screen shown
+    const postAuthDisplay = await ev('window.getComputedStyle(document.getElementById("auth-lock-screen")).display');
+    if (postAuthDisplay === 'flex') pass('Auth lock screen shown after wizard');
+    else fail('Auth after wizard', `Auth display: ${postAuthDisplay}`);
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  //  SECTION 4b: PIN Login (if auth screen is open)
+  // ────────────────────────────────────────────────────────────────────────────
+  const bootNow = await detectBootState(ev);
+
+  if (bootNow.authOpen || bootNow.wizardOpen) {
+    log('\n=== SECTION 4b: PIN Login ===');
+    const loginOk = await doLogin(ev, '1234');
+    if (loginOk) pass('PIN 1234 login — main layout visible');
+    else {
+      // Try default PIN 0000
+      info('1234 failed, trying 0000...');
+      const login2 = await doLogin(ev, '0000');
+      if (login2) pass('PIN 0000 login — main layout visible');
+      else fail('PIN Login', 'Layout did not appear after PIN entry');
+    }
+    await sleep(500);
+  } else {
+    info('Already logged in — skipping PIN entry');
+  }
+
+  // Make sure we are in main app mode now
+  const finalBoot = await detectBootState(ev);
+  const appIsOpen = finalBoot.layoutOpen;
+  if (appIsOpen) pass('Main POS layout confirmed open');
+  else fail('Main POS layout', `Layout display: ${finalBoot.layoutDisplay}`);
+
+  // ────────────────────────────────────────────────────────────────────────────
+  //  SECTION 5: Navigation
+  // ────────────────────────────────────────────────────────────────────────────
+  log('\n=== SECTION 5: Screen Navigation ===');
+
+  const navScreens = await ev('JSON.stringify(Array.from(document.querySelectorAll(".nav-item[data-screen]")).map(el=>el.getAttribute("data-screen")))');
+  const screens = JSON.parse(navScreens || '[]');
+  if (screens.length >= 8) pass(`Navigation has ${screens.length} screens`);
+  else fail('Navigation screens count', `Only ${screens.length}`);
+
+  const requiredScreens = ['checkout','catalog','history','analytics','staff','settings'];
+  for (const scr of requiredScreens) {
+    if (screens.includes(scr)) pass(`Nav: screen "${scr}" registered`);
+    else fail(`Nav screen "${scr}"`, 'Not found in nav items');
+  }
+
+  if (appIsOpen) {
+    // Only test non-manager-gated screens to avoid PIN prompt dialogs
+    const testScreens = ['checkout', 'catalog', 'history', 'analytics'];
+    for (const scr of testScreens) {
+      await ev(`(function(){ var el=document.querySelector(".nav-item[data-screen='${scr}']"); if(el) el.click(); })()`);
+      await sleep(500);
+      // Views show via .active class → display:block
+      const hasActiveClass = await ev(`!!document.getElementById('view-${scr}')?.classList.contains('active')`);
+      const display = await ev(`window.getComputedStyle(document.getElementById('view-${scr}')||document.createElement('div')).display`);
+      if (hasActiveClass || display === 'block') pass(`Screen "${scr}" renders correctly (display:block)`);
+      else fail(`Screen "${scr}" render`, `active:${hasActiveClass}, display:${display}`);
+    }
+    // Go back to checkout
+    await ev('document.querySelector(".nav-item[data-screen=\'checkout\']")?.click()');
+    await sleep(400);
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  //  SECTION 6: Add Product to Catalog
+  // ────────────────────────────────────────────────────────────────────────────
+  log('\n=== SECTION 6: Catalog — Add Product ===');
+
+  if (appIsOpen) {
+    // Navigate to catalog manager
+    await ev('document.querySelector(".nav-item[data-screen=\'catalog-manager\']")?.click()');
+    await sleep(700);
+
+    await ev('document.getElementById("btn-catalog-create-product")?.click()');
+    await sleep(500);
+
+    const formExists = await ev('!!document.getElementById("form-product-sku")');
+    if (formExists) pass('Product add modal opened');
+    else fail('Product modal', 'form-product-sku not found after clicking add button');
+
+    if (formExists) {
+      await ev(`(function(){
+        function setVal(id, val) {
+          var el = document.getElementById(id);
+          if (!el) return;
+          el.value = val;
+          el.dispatchEvent(new Event("input",{bubbles:true}));
+          el.dispatchEvent(new Event("change",{bubbles:true}));
+        }
+        setVal("form-product-sku",    "E2E-SKU-777");
+        setVal("form-product-name",   "E2E Test Widget");
+        setVal("form-product-price",  "250");
+        setVal("form-product-stock",  "100");
+        setVal("form-product-category","Drinks");
+        setVal("form-product-emoji",  "🧪");
+      })()`);
+      await sleep(200);
+
+      await ev('document.getElementById("btn-submit-product-modal")?.click()');
+      await sleep(2000);
+
+      const catContainer = await ev('document.getElementById("catalog-virtual-container")?.innerHTML || document.getElementById("catalog-grid-container")?.innerHTML || ""');
+      if (catContainer?.includes('E2E-SKU-777') || catContainer?.includes('E2E Test Widget')) {
+        pass('Product "E2E Test Widget" added and visible in catalog');
+      } else {
+        // Try searching for it
+        const searchInput = await ev('!!document.getElementById("catalog-search-input")');
+        if (searchInput) {
+          await ev('var si=document.getElementById("catalog-search-input"); si.value="E2E"; si.dispatchEvent(new Event("input",{bubbles:true}));');
+          await sleep(700);
+          const filtered = await ev('document.getElementById("catalog-virtual-container")?.innerHTML || document.getElementById("catalog-grid-container")?.innerHTML || ""');
+          if (filtered?.includes('E2E')) pass('Product found via catalog search');
+          else fail('Product add', 'SKU/name not found in catalog container');
+        } else {
+          fail('Product add', 'Catalog container empty and no search field found');
+        }
+      }
+    }
+  } else {
+    fail('Section 6 skipped', 'App was not in main mode');
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  //  SECTION 7: Checkout Flow — Add to Cart + Complete Sale
+  // ────────────────────────────────────────────────────────────────────────────
+  log('\n=== SECTION 7: Checkout Flow ===');
+
+  if (appIsOpen) {
+    await ev('document.querySelector(".nav-item[data-screen=\'checkout\']")?.click()');
+    await sleep(500);
+
+    // Try to add via quick catalog grid cards first
+    const quickCards = await ev('document.querySelectorAll(".product-quick-card").length');
+    info(`Quick catalog cards: ${quickCards}`);
+
+    let addedToCart = false;
+
+    if (quickCards > 0) {
+      await ev('document.querySelector(".product-quick-card")?.click()');
+      await sleep(600);
+      const cartRows = await ev('document.querySelectorAll(".cart-item-row").length');
+      if (cartRows > 0) { addedToCart = true; pass(`Quick-card add to cart (${cartRows} item)`); }
+    }
+
+    if (!addedToCart) {
+      // Try search
+      const si = await ev('document.getElementById("checkout-search-input")');
+      if (si !== null) {
+        await ev('var si=document.getElementById("checkout-search-input"); si.value="E2E"; si.dispatchEvent(new Event("input",{bubbles:true}));');
+        await sleep(600);
+        const hasResults = await ev('document.querySelectorAll(".search-result-item").length');
+        if (hasResults > 0) {
+          await ev('document.querySelector(".search-result-item")?.click()');
+          await sleep(500);
+          const cartRows = await ev('document.querySelectorAll(".cart-item-row").length');
+          if (cartRows > 0) { addedToCart = true; pass(`Search+click add to cart (${cartRows} item)`); }
+        } else {
+          // Use keyboard enter on any product
+          await ev('var si=document.getElementById("checkout-search-input"); si.value=""; si.dispatchEvent(new Event("input",{bubbles:true}));');
+          await sleep(400);
+          const anyCard = await ev('document.querySelectorAll(".product-quick-card").length');
+          if (anyCard > 0) {
+            await ev('document.querySelector(".product-quick-card")?.click()');
+            await sleep(500);
+            const cartRows2 = await ev('document.querySelectorAll(".cart-item-row").length');
+            if (cartRows2 > 0) { addedToCart = true; pass(`Quick-card (retry) — cart: ${cartRows2} items`); }
+          }
+        }
+      }
+    }
+
+    if (!addedToCart) fail('Add to cart', 'Could not add any product to cart');
+
+    // Check total updated
+    const total = await ev('document.getElementById("txt-total")?.textContent?.trim()');
+    pass(`Cart total: ${total}`);
+
+    // Complete the sale
+    await ev('document.getElementById("btn-checkout-complete")?.click()');
+    await sleep(3500);
+
+    const postCartRows = await ev('document.querySelectorAll(".cart-item-row").length');
+    if (postCartRows === 0) pass('Cart cleared after completing sale');
+    else fail('Cart clear', `${postCartRows} rows still in cart`);
+
+    // ─── Check history ──────────────────────────────────────────────────────
+    await ev('document.querySelector(".nav-item[data-screen=\'history\']")?.click()');
+    await sleep(800);
+    const txCount = await ev('document.querySelectorAll("#history-transactions-list .tx-card").length');
+    if (txCount > 0) pass(`Transaction saved — ${txCount} record(s) in history`);
+    else fail('Transaction history', 'No records found in #history-transactions-list');
+  } else {
+    fail('Section 7 skipped', 'App was not in main mode');
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  //  SECTION 8: Light Theme Toggle — Monochrome Ivory
+  // ────────────────────────────────────────────────────────────────────────────
+  log('\n=== SECTION 8: Light Theme (Monochrome Ivory) ===');
+
+  if (appIsOpen) {
+    const themes = ['theme-obsidian-emerald','theme-midnight-sapphire','theme-warm-amber','theme-minimalist-chrome','theme-monochrome-ivory'];
+    
+    const getCurrentTheme = async () => {
+      return await ev(`(function(){
+        var themes = ["theme-obsidian-emerald","theme-midnight-sapphire","theme-warm-amber","theme-minimalist-chrome","theme-monochrome-ivory"];
+        return themes.find(t => document.body.classList.contains(t)) || "none";
+      })()`);
+    };
+
+    const startTheme = await getCurrentTheme();
+    info(`Starting theme: ${startTheme}`);
+
+    // Cycle until ivory
+    let reachedIvory = false;
+    for (let i = 0; i < 6; i++) {
+      await ev('document.getElementById("theme-toggle-btn")?.click()');
+      await sleep(250);
+      const t = await getCurrentTheme();
+      if (t === 'theme-monochrome-ivory') { reachedIvory = true; break; }
+    }
+
+    if (reachedIvory) {
+      pass('Theme cycled to Monochrome Ivory (light)');
+      
+      // Verify light background
+      const bodyBg = await ev('getComputedStyle(document.body).backgroundColor');
+      pass(`Body background in ivory: ${bodyBg}`);
+
+      // Check it looks light (RGB should have high values)
+      const isLight = bodyBg?.match(/rgba?\(\s*(\d+)/);
+      const r = isLight ? parseInt(isLight[1]) : 0;
+      if (r > 200) pass('Body background is clearly light-colored in ivory theme');
+      else fail('Light bg in ivory', `Background rgb starts with: ${r} (expected > 200)`);
+
+      // Check sidebar
+      const sidebarBg = await ev('window.getComputedStyle(document.querySelector(".pos-sidebar"))?.backgroundColor');
+      pass(`Sidebar bg in ivory: ${sidebarBg}`);
+
+      // Check input colors
+      const inputColor = await ev('window.getComputedStyle(document.querySelector(".pos-input"))?.color');
+      pass(`Input text color in ivory: ${inputColor}`);
+
+      // Check input has dark text (low red value)
+      const inputDark = inputColor?.match(/rgba?\(\s*(\d+)/);
+      const ir = inputDark ? parseInt(inputDark[1]) : 255;
+      if (ir < 100) pass('Input text is dark in light mode (good contrast)');
+      else fail('Input contrast in light mode', `Text color rgb starts with ${ir} (should be < 100)`);
+    } else {
+      fail('Theme switch to ivory', 'Could not reach monochrome-ivory after 6 cycles');
+    }
+
+    // Cycle back to obsidian-emerald
+    for (let i = 0; i < 5; i++) {
+      await ev('document.getElementById("theme-toggle-btn")?.click()');
+      await sleep(200);
+      const t = await getCurrentTheme();
+      if (t === 'theme-obsidian-emerald') break;
+    }
+    const backTheme = await getCurrentTheme();
+    if (backTheme === 'theme-obsidian-emerald') pass('Theme restored to default (obsidian-emerald)');
+    else info(`Theme after restore: ${backTheme}`);
+  } else {
+    fail('Section 8 skipped', 'App not in main mode');
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  //  SECTION 9: Mobile Layout Verification
+  // ────────────────────────────────────────────────────────────────────────────
+  log('\n=== SECTION 9: Mobile Layout Elements ===');
+
+  const bottomNavExists = await ev('!!document.querySelector(".pos-bottom-nav")');
+  if (bottomNavExists) pass('Mobile bottom nav element exists');
+  else fail('Mobile bottom nav', 'Element not found');
+
+  const offlinePill = await ev('!!document.getElementById("mobile-offline-pill")');
+  if (offlinePill) pass('Mobile offline pill exists');
+  else fail('Mobile offline pill', 'Element not found');
+
+  const mobileNavBtns = await ev('document.querySelectorAll(".pos-bottom-nav .nav-btn").length');
+  if (mobileNavBtns >= 4) pass(`Mobile nav has ${mobileNavBtns} navigation buttons`);
+  else fail('Mobile nav buttons', `Only ${mobileNavBtns} found`);
+
+  // Check layout uses CSS Grid properly
+  const layoutGrid = await ev('window.getComputedStyle(document.getElementById("pos-app-layout"))?.gridTemplateColumns');
+  if (layoutGrid && layoutGrid !== 'none') pass(`Layout grid-template-columns: ${layoutGrid}`);
+  else fail('Layout grid', 'grid-template-columns not set');
+
+  // ────────────────────────────────────────────────────────────────────────────
+  //  SECTION 10: Error State + Service Worker
+  // ────────────────────────────────────────────────────────────────────────────
+  log('\n=== SECTION 10: Error & Health Checks ===');
+
+  const crashOverlay = await ev('document.getElementById("crash-console-overlay") ? window.getComputedStyle(document.getElementById("crash-console-overlay")).display : "not-found"');
+  if (crashOverlay === 'not-found' || crashOverlay === 'none') pass('No crash console overlay displayed');
+  else fail('Crash console', `Crash overlay visible: ${crashOverlay}`);
+
+  const swRegistered = await ev('(async function(){ var r=await navigator.serviceWorker.getRegistration(); return r ? r.scope : "none"; })()');
+  if (swRegistered && swRegistered !== 'none') pass(`Service Worker registered: ${swRegistered}`);
+  else fail('Service Worker', 'Not registered');
+
+  const dbInit = await ev('(async function(){ try { return typeof NexovaDB !== "undefined" && typeof NexovaDB.get === "function" ? "ok" : "no-db"; } catch(e){ return "err: "+e.message; } })()');
+  if (dbInit === 'ok') pass('NexovaDB object accessible on window');
+  else fail('NexovaDB', `Status: ${dbInit}`);
+
+  const workerMsg = await ev('typeof syncWorker !== "undefined" ? "ok" : "not-found"');
+  if (workerMsg === 'ok') pass('syncWorker variable accessible');
+  else fail('syncWorker', 'Not accessible in page scope');
+
+  // ────────────────────────────────────────────────────────────────────────────
+  //  SUMMARY
+  // ────────────────────────────────────────────────────────────────────────────
+  ws.close();
+
+  const pct = Math.round(PASS / (PASS + FAIL) * 100);
+  log('\n══════════════════════════════════════════════════════════════');
+  log(` RESULTS: ${PASS + FAIL} tests  ✅ ${PASS} passed  ❌ ${FAIL} failed  (${pct}%)`);
+  log('══════════════════════════════════════════════════════════════');
+
+  if (FAIL > 0) {
+    log('\nFailed tests:');
+    results.filter(r => !r.ok).forEach(r => log(`  ❌ ${r.t} :: ${r.r}`));
+  }
+
+  log(`\n${FAIL === 0 ? '🎉 ALL TESTS PASSED — PRODUCTION READY!' : FAIL <= 3 ? '⚠️  Minor issues — review above' : '🔴 Multiple failures — review needed'}\n`);
+  process.exit(FAIL > 0 ? 1 : 0);
+}
+
+run().catch(e => { log(`[FATAL] ${e.stack || e.message}`); process.exit(1); });

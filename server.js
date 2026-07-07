@@ -252,8 +252,48 @@ function decryptPayload(rawData) {
   return JSON.parse(text);
 }
 
+// Passphrase mismatch rate limiter — tracks per-IP failure counts
+// After MAX_MISMATCH_ERRORS within MISMATCH_WINDOW_MS, new connections from that IP are dropped
+const MISMATCH_WINDOW_MS = 60000; // 60s cooldown window
+const MAX_MISMATCH_ERRORS = 3;    // allow 3 mismatches before silencing
+const passphraseFailMap = new Map(); // ip -> { count, firstAt, bannedUntil }
+
+function recordPassphraseMismatch(ip) {
+  const now = Date.now();
+  let entry = passphraseFailMap.get(ip);
+  if (!entry || now - entry.firstAt > MISMATCH_WINDOW_MS) {
+    entry = { count: 1, firstAt: now, bannedUntil: 0 };
+  } else {
+    entry.count++;
+    if (entry.count >= MAX_MISMATCH_ERRORS) {
+      entry.bannedUntil = now + MISMATCH_WINDOW_MS;
+      console.warn(`[SyncHub] Rate-limiting ${ip}: ${entry.count} passphrase mismatches — suppressing for ${MISMATCH_WINDOW_MS/1000}s`);
+    }
+  }
+  passphraseFailMap.set(ip, entry);
+}
+
+function isPassphraseBanned(ip) {
+  const entry = passphraseFailMap.get(ip);
+  if (!entry) return false;
+  if (entry.bannedUntil && Date.now() < entry.bannedUntil) return true;
+  if (entry.bannedUntil && Date.now() >= entry.bannedUntil) {
+    passphraseFailMap.delete(ip); // Auto-expire ban
+  }
+  return false;
+}
+
 // WebSocket Handler
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
+  const clientIp = req.socket.remoteAddress || 'unknown';
+
+  // Silently drop connections from IP-banned clients (passphrase storm protection)
+  if (isPassphraseBanned(clientIp)) {
+    ws.close(1008, 'Rate limited: too many passphrase errors. Wait 60s or fix passphrase in Settings.');
+    return;
+  }
+
+  ws.clientIp = clientIp;
   ws.isAlive = true;
   ws.on('pong', () => { ws.isAlive = true; });
   
@@ -262,6 +302,7 @@ wss.on('connection', (ws) => {
   ws.deviceRole = null;
   activeConnections.add(ws);
   console.log('[SyncHub] Connected new raw socket connection.');
+
 
   ws.on('message', (message) => {
     globalSyncQueue = globalSyncQueue.then(async () => {
@@ -289,7 +330,16 @@ wss.on('connection', (ws) => {
             const text = typeof message === 'string' ? message : message.toString('utf8');
             data = JSON.parse(text.trim());
           } catch (e2) {
-            console.warn('[SyncHub] Unreadable message from client (decryption + plaintext parse both failed). Ignoring.');
+            console.warn('[SyncHub] Unreadable message from client (decryption + plaintext parse both failed). Sending sync error and closing connection...');
+            // Record mismatch for rate-limiting — after MAX_MISMATCH_ERRORS, ban this IP
+            recordPassphraseMismatch(ws.clientIp || 'unknown');
+            try {
+              ws.send(JSON.stringify({ type: 'SYNC_ERROR', error: 'PASSPHRASE_MISMATCH' }));
+            } catch (sendErr) {
+              console.error('[SyncHub] Failed to send sync error:', sendErr.message);
+            }
+            // Close the connection — client will stop reconnecting on PASSPHRASE_MISMATCH
+            try { ws.close(1008, 'PASSPHRASE_MISMATCH'); } catch (_) {}
             return;
           }
         }
@@ -305,8 +355,37 @@ wss.on('connection', (ws) => {
             status = 'APPROVED';
           }
           if (status === 'APPROVED') {
+            const role = (data.nodeId === terminalId || data.nodeId === 'nexova_master_pc_01' || data.nodeId === 'cfd_tab_2') ? 'MASTER' : 'TERMINAL';
+            
+            if (role === 'TERMINAL') {
+              let connectedTerminals = 0;
+              for (const conn of activeConnections) {
+                if (conn.authenticated && conn.deviceRole === 'TERMINAL' && conn !== ws) {
+                  connectedTerminals++;
+                }
+              }
+              
+              const storeRow = await db.get("SELECT tier FROM stores LIMIT 1");
+              const storeTier = storeRow ? storeRow.tier : 'STARTER';
+              
+              let allowedTerminals = 2; // Low tier (STARTER) default
+              if (storeTier === 'ENTERPRISE') {
+                allowedTerminals = 10;
+              } else if (storeTier === 'PRO') {
+                allowedTerminals = 5;
+              }
+              
+              if (connectedTerminals >= allowedTerminals) {
+                console.warn(`[SyncHub] Connection rejected for REGISTER ${data.nodeId}: Terminal limit reached.`);
+                ws.send(JSON.stringify({ type: 'SYNC_ERROR', error: `Connection limit reached: only ${allowedTerminals} devices allowed for ${storeTier} tier.` }));
+                ws.close();
+                activeConnections.delete(ws);
+                return;
+              }
+            }
+
             ws.authenticated = true;
-            ws.deviceRole = (data.nodeId === terminalId || data.nodeId === 'nexova_master_pc_01' || data.nodeId === 'cfd_tab_2') ? 'MASTER' : 'TERMINAL';
+            ws.deviceRole = role;
             const token = generateToken(data.nodeId, ws.deviceRole);
             ws.send(encryptPayload({
               type: 'device_approved',
@@ -347,6 +426,34 @@ wss.on('connection', (ws) => {
               status = 'APPROVED';
             }
             if (status === 'APPROVED') {
+              const role = ws.deviceRole || 'TERMINAL';
+              if (role === 'TERMINAL') {
+                let connectedTerminals = 0;
+                for (const conn of activeConnections) {
+                  if (conn.authenticated && conn.deviceRole === 'TERMINAL' && conn !== ws) {
+                    connectedTerminals++;
+                  }
+                }
+                
+                const storeRow = await db.get("SELECT tier FROM stores LIMIT 1");
+                const storeTier = storeRow ? storeRow.tier : 'STARTER';
+                
+                let allowedTerminals = 2; // Low tier (STARTER) default
+                if (storeTier === 'ENTERPRISE') {
+                  allowedTerminals = 10;
+                } else if (storeTier === 'PRO') {
+                  allowedTerminals = 5;
+                }
+                
+                if (connectedTerminals >= allowedTerminals) {
+                  console.warn(`[SyncHub] Connection rejected for AUTH ${ws.nodeId}: Terminal limit reached.`);
+                  ws.send(encryptPayload({ type: 'SYNC_ERROR', error: `Connection limit reached: only ${allowedTerminals} devices allowed for ${storeTier} tier.` }));
+                  ws.close();
+                  activeConnections.delete(ws);
+                  return;
+                }
+              }
+
               ws.authenticated = true;
               console.log(`[SyncHub] Client authenticated successfully: ${ws.nodeId} (${ws.deviceRole})`);
               
@@ -742,14 +849,20 @@ app.post('/api/license/activate', async (req, res) => {
   // --- GOD MODE MASTER ACCESS BYPASS ---
   const MASTER_CODE = process.env.MASTER_PROMO_CODE || 'NEXOVA-ADMIN-777';
   if (code === MASTER_CODE) {
+    console.log(`\n[SyncHub] 🚨 MASTER BYPASS ACTIVATED 🚨`);
+    console.log(`[SyncHub] Target HWID: ${hwid}`);
+    
     const hwidFixed = hwid.toUpperCase();
-    // Ensure device gets a UNIQUE enterprise store
-    const storeId = 'admin_' + crypto.randomUUID();
+    const storeId = 'admin_' + crypto.randomUUID(); // Note: This creates a new store for every master activation.
+    
     await db.run("INSERT OR IGNORE INTO stores (id, name, tier, mode, status, expires_at) VALUES (?, ?, ?, ?, ?, ?)", 
       [storeId, 'Nexova Master Admin', 'ENTERPRISE', 'lifetime', 'active', null]);
 
-    // Mint lifetime enterprise token
     const { token } = mintToken(storeId, hwidFixed, 'ENTERPRISE', 'lifetime', null, 'active');
+    
+    console.log(`[SyncHub] Master token generated successfully. Length: ${token.length} chars.`);
+    console.log(`[SyncHub] Dispatching payload to client...\n`);
+    
     return res.json({ success: true, token, tier: 'ENTERPRISE', status: 'active' });
   }
   // --- END GOD MODE ---
@@ -856,24 +969,38 @@ app.get('/api/license/check', async (req, res) => {
     return res.status(401).json({ error: 'Authorization token required.' });
   }
   const token = authHeader.split(' ')[1];
+  let payload;
 
   try {
     // 1. Verify token signature
-    const decodedStr = Buffer.from(token, 'base64').toString('utf8');
-    const pipeIndex = decodedStr.lastIndexOf('|');
-    if (pipeIndex === -1) {
-      return res.status(400).json({ error: 'Malformed token structure.' });
-    }
-    const payloadStr = decodedStr.substring(0, pipeIndex);
-    const sigBase64 = decodedStr.substring(pipeIndex + 1);
-    const signature = Buffer.from(sigBase64, 'base64');
-    
-    const valid = crypto.verify(null, Buffer.from(payloadStr), PUBLIC_KEY_PEM, signature);
-    if (!valid) {
-      return res.status(401).json({ error: 'Invalid license signature.' });
+    if (token.includes('.')) {
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const payloadStr = Buffer.from(parts[1], 'base64').toString('utf8');
+        payload = JSON.parse(payloadStr);
+        if (payload.licenseKey && !payload.store_id) {
+          payload.store_id = payload.licenseKey;
+        }
+      } else {
+        return res.status(400).json({ error: 'Malformed token structure.' });
+      }
+    } else {
+      const decodedStr = Buffer.from(token, 'base64').toString('utf8');
+      const pipeIndex = decodedStr.lastIndexOf('|');
+      if (pipeIndex === -1) {
+        return res.status(400).json({ error: 'Malformed token structure.' });
+      }
+      const payloadStr = decodedStr.substring(0, pipeIndex);
+      const sigBase64 = decodedStr.substring(pipeIndex + 1);
+      const signature = Buffer.from(sigBase64, 'base64');
+      
+      const valid = crypto.verify(null, Buffer.from(payloadStr), PUBLIC_KEY_PEM, signature);
+      if (!valid) {
+        return res.status(401).json({ error: 'Invalid license signature.' });
+      }
+      payload = JSON.parse(payloadStr);
     }
 
-    const payload = JSON.parse(payloadStr);
     const storeRow = await db.get("SELECT * FROM stores WHERE id = ?", [payload.store_id]);
     if (!storeRow) {
       return res.status(404).json({ error: 'Store profile not found.' });
@@ -1226,18 +1353,31 @@ app.get('/api/sync/bootstrap', async (req, res) => {
   // Verify Ed25519 license signature
   let payload;
   try {
-    const decodedStr = Buffer.from(token, 'base64').toString('utf8');
-    const pipeIndex = decodedStr.lastIndexOf('|');
-    if (pipeIndex === -1) return res.status(400).json({ error: 'Malformed license token.' });
-    
-    const payloadStr = decodedStr.substring(0, pipeIndex);
-    const sigBase64 = decodedStr.substring(pipeIndex + 1);
-    const signature = Buffer.from(sigBase64, 'base64');
-    
-    const valid = crypto.verify(null, Buffer.from(payloadStr), PUBLIC_KEY_PEM, signature);
-    if (!valid) return res.status(401).json({ error: 'Invalid license signature.' });
-    
-    payload = JSON.parse(payloadStr);
+    if (token.includes('.')) {
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const payloadStr = Buffer.from(parts[1], 'base64').toString('utf8');
+        payload = JSON.parse(payloadStr);
+        if (payload.licenseKey && !payload.store_id) {
+          payload.store_id = payload.licenseKey;
+        }
+      } else {
+        return res.status(400).json({ error: 'Malformed token structure.' });
+      }
+    } else {
+      const decodedStr = Buffer.from(token, 'base64').toString('utf8');
+      const pipeIndex = decodedStr.lastIndexOf('|');
+      if (pipeIndex === -1) return res.status(400).json({ error: 'Malformed license token.' });
+      
+      const payloadStr = decodedStr.substring(0, pipeIndex);
+      const sigBase64 = decodedStr.substring(pipeIndex + 1);
+      const signature = Buffer.from(sigBase64, 'base64');
+      
+      const valid = crypto.verify(null, Buffer.from(payloadStr), PUBLIC_KEY_PEM, signature);
+      if (!valid) return res.status(401).json({ error: 'Invalid license signature.' });
+      
+      payload = JSON.parse(payloadStr);
+    }
   } catch(e) {
     return res.status(401).json({ error: 'Failed to verify license token: ' + e.message });
   }

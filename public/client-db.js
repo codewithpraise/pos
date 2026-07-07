@@ -528,10 +528,9 @@
       }
 
       // 2. Create Admin Employee
-      const adminHash = await hashPin(adminPin);
       const empAdmin = {
         id: 'emp_admin',
-        auth_hash: adminHash,
+        auth_hash: adminPin, // Use the pre-hashed PIN directly to avoid double-hashing
         biometric_token: 'secure_biometric_admin_token',
         role: 'ADMIN',
         is_active: 1,
