@@ -496,7 +496,7 @@ self.onmessage = async (event) => {
 
         // Open a single atomic readwrite transaction
         const idbTx = NexovaDB.db.transaction(
-          ['transactions', 'line_items', 'inventory_catalog', 'inventory_catalog_counters', 'crsql_changes', 'stock_movements', 'customer_credit', 'fbr_offline_queue', 'purchase_orders', 'po_line_items', 'distributors', 'local_preferences'],
+          ['transactions', 'line_items', 'inventory_catalog', 'crsql_changes', 'stock_movements', 'customer_credit', 'fbr_offline_queue', 'purchase_orders', 'po_line_items', 'distributors', 'local_preferences'],
           'readwrite'
         );
 

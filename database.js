@@ -147,6 +147,16 @@ async function initDatabase(terminalId) {
     );
   `);
 
+  // Ensure val_type column exists (in case the table was created by an older schema version)
+  try {
+    const columns = await db.all("PRAGMA table_info(local_preferences)");
+    if (!columns.some(col => col.name === 'val_type')) {
+      await db.exec("ALTER TABLE local_preferences ADD COLUMN val_type TEXT DEFAULT 'string'");
+    }
+  } catch (e) {
+    console.warn('[Database] Failed to check/add val_type to local_preferences:', e.message);
+  }
+
   // 2. Read current schema version from local_preferences
   let currentVersion = 0;
   try {
