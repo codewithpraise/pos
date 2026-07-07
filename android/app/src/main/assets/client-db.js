@@ -280,8 +280,8 @@
     return result;
   }
 
-  // Simple async SHA-256 utility for PIN hashing matching the Java/Node backend
-  async function hashPin(pin) {
+  // Simple async SHA-256 legacy utility for PIN hashing matching legacy db values
+  async function hashPinLegacy(pin) {
     try {
       if (!crypto || !crypto.subtle) throw new Error("SubtleCrypto unavailable");
       const msgUint8 = new TextEncoder().encode(pin);
@@ -292,6 +292,19 @@
       console.warn("SubtleCrypto digest unavailable, using JS-native fallback SHA-256");
       const hashBytes = sha256_js(new TextEncoder().encode(pin));
       return Array.from(hashBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+  }
+
+  // Generates a fully salted PBKDF2 hash (matching the Node server/Kotlin DB backend)
+  async function hashPin(pin, saltHex) {
+    const salt = saltHex || Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join('');
+    try {
+      const derived = await pbkdf2(pin, salt, 100000, 64);
+      return `${salt}:${derived}`;
+    } catch (e) {
+      console.warn("PBKDF2 derivation failed, falling back to simple hash:", e);
+      const hash = await hashPinLegacy(pin + salt);
+      return `${salt}:${hash}`;
     }
   }
 
@@ -343,7 +356,6 @@
       return Array.from(derivedBytes).map(b => b.toString(16).padStart(2, '0')).join('');
     }
   }
-
   async function verifyPinClient(pin, storedHash) {
     if (!storedHash) return false;
     if (storedHash.includes(':')) {
@@ -356,11 +368,10 @@
         return false;
       }
     } else {
-      const hash = await hashPin(pin);
+      const hash = await hashPinLegacy(pin);
       return storedHash === hash;
     }
   }
-
   globalScope.verifyPinClient = verifyPinClient;
   globalScope.pbkdf2 = pbkdf2;
 
@@ -795,27 +806,30 @@
         request.onerror = (event) => reject(event.target.error);
       });
     },
-
     verifyEmployeePin(pin) {
       return new Promise(async (resolve, reject) => {
         try {
           const employees = await this.getAll('employees');
-          for (const emp of employees) {
-            if (emp.is_active === 1) {
-              const matched = await verifyPinClient(pin, emp.auth_hash);
-              if (matched) {
-                resolve({ id: emp.id, role: emp.role });
-                return;
-              }
-            }
+          const activeEmps = employees.filter(emp => emp.is_active === 1);
+          
+          // Map each active employee to an async verify pin promise to run in parallel
+          const verifications = activeEmps.map(async (emp) => {
+            const matched = await verifyPinClient(pin, emp.auth_hash);
+            return matched ? emp : null;
+          });
+          
+          const results = await Promise.all(verifications);
+          const matchedEmp = results.find(emp => emp !== null);
+          if (matchedEmp) {
+            resolve({ id: matchedEmp.id, role: matchedEmp.role });
+          } else {
+            resolve(null);
           }
-          resolve(null);
         } catch (e) {
           reject(e);
         }
       });
     },
-
     async getDbVersion(tx = null) {
       const changes = await this.getAll('crsql_changes', tx);
       if (changes.length === 0) return 0;
@@ -854,99 +868,127 @@
       return dbVersion;
     },
 
-    async applyChangeToSchema(tableName, pk, cid, val, cl) {
+    async applyChangeToSchema(tableName, pk, cid, val, cl, valType = 'string', tx = null) {
+      if (cid === '__proto__' || cid === 'constructor' || cid === 'prototype') {
+        throw new Error('Security Exception: Prototype pollution blocked');
+      }
+
       if (cl === 0) {
         // Soft deletion
         if (tableName === 'transactions') {
-          const tx = await this.get('transactions', pk);
-          if (tx) {
-            tx.is_deleted = 1;
-            tx.status = 'VOIDED';
-            tx.updated_at = Date.now();
-            await this.put('transactions', tx);
+          const record = await this.get('transactions', pk, tx);
+          if (record) {
+            record.is_deleted = 1;
+            record.status = 'VOIDED';
+            record.updated_at = Date.now();
+            await this.put('transactions', record, tx);
           }
         } else if (tableName === 'line_items') {
-          const li = await this.get('line_items', pk);
+          const li = await this.get('line_items', pk, tx);
           if (li) {
             li.is_deleted = 1;
-            await this.put('line_items', li);
+            await this.put('line_items', li, tx);
           }
         } else if (tableName === 'inventory_catalog') {
-          const inv = await this.get('inventory_catalog', pk);
+          const inv = await this.get('inventory_catalog', pk, tx);
           if (inv) {
             inv.is_deleted = 1;
-            await this.put('inventory_catalog', inv);
+            await this.put('inventory_catalog', inv, tx);
           }
         } else if (tableName === 'employees') {
-          const emp = await this.get('employees', pk);
+          const emp = await this.get('employees', pk, tx);
           if (emp) {
             emp.is_deleted = 1;
             emp.is_active = 0;
-            await this.put('employees', emp);
+            await this.put('employees', emp, tx);
           }
         } else if (tableName === 'customers') {
-          const cust = await this.get('customers', pk);
+          const cust = await this.get('customers', pk, tx);
           if (cust) {
             cust.is_deleted = 1;
-            await this.put('customers', cust);
+            await this.put('customers', cust, tx);
           }
         } else if (tableName === 'local_preferences') {
-          await this.delete('local_preferences', pk);
+          await this.delete('local_preferences', pk, tx);
         } else if (tableName === 'categories') {
-          await this.delete('categories', pk);
+          await this.delete('categories', pk, tx);
         } else if (tableName === 'distributors') {
-          const dist = await this.get('distributors', pk);
+          const dist = await this.get('distributors', pk, tx);
           if (dist) {
             dist.is_deleted = 1;
-            await this.put('distributors', dist);
+            await this.put('distributors', dist, tx);
           }
         } else if (tableName === 'purchase_orders') {
-          const po = await this.get('purchase_orders', pk);
+          const po = await this.get('purchase_orders', pk, tx);
           if (po) {
             po.is_deleted = 1;
-            await this.put('purchase_orders', po);
+            await this.put('purchase_orders', po, tx);
           }
         } else if (tableName === 'po_line_items') {
-          const poli = await this.get('po_line_items', pk);
+          const poli = await this.get('po_line_items', pk, tx);
           if (poli) {
             poli.is_deleted = 1;
-            await this.put('po_line_items', poli);
+            await this.put('po_line_items', poli, tx);
           }
         } else if (tableName === 'distributor_payments') {
-          const dp = await this.get('distributor_payments', pk);
+          const dp = await this.get('distributor_payments', pk, tx);
           if (dp) {
             dp.is_deleted = 1;
-            await this.put('distributor_payments', dp);
+            await this.put('distributor_payments', dp, tx);
           }
         } else if (tableName === 'customer_credit') {
-          const cc = await this.get('customer_credit', pk);
+          const cc = await this.get('customer_credit', pk, tx);
           if (cc) {
             cc.is_deleted = 1;
-            await this.put('customer_credit', cc);
+            await this.put('customer_credit', cc, tx);
           }
         }
         return;
       }
 
-      // Convert value formats
+      // Convert value formats using type spec or inference
       let parsedVal = val;
-      if (val !== null && !isNaN(val) && val.trim() !== '') {
-        parsedVal = Number(val);
+      if (val !== null) {
+        let inferredType = valType;
+        if (!inferredType || inferredType === 'string') {
+          if (val === 'true' || val === 'false') {
+            inferredType = 'boolean';
+          } else if (val !== '' && !isNaN(Number(val)) && !/^\s*$/.test(val)) {
+            inferredType = 'number';
+          } else if ((val.startsWith('{') && val.endsWith('}')) || (val.startsWith('[') && val.endsWith(']'))) {
+            try {
+              JSON.parse(val);
+              inferredType = 'object';
+            } catch (e) {}
+          }
+        }
+
+        if (inferredType === 'number') {
+          parsedVal = Number(val);
+        } else if (inferredType === 'boolean') {
+          parsedVal = (val === 'true' || val === '1' || val === 1);
+        } else if (inferredType === 'object') {
+          try {
+            parsedVal = JSON.parse(val);
+          } catch (e) {
+            parsedVal = val;
+          }
+        }
       }
 
       // Sync settings schema update
       if (tableName === 'transactions') {
-        let tx = await this.get('transactions', pk);
-        if (!tx) {
-          tx = { id: pk, status: 'DRAFT', is_deleted: 0, created_at: Date.now() };
+        let record = await this.get('transactions', pk, tx);
+        if (!record) {
+          record = { id: pk, status: 'DRAFT', is_deleted: 0, created_at: Date.now() };
         }
-        tx[cid] = parsedVal;
-        tx.updated_at = Date.now();
-        await this.put('transactions', tx);
+        record[cid] = parsedVal;
+        record.updated_at = Date.now();
+        await this.put('transactions', record, tx);
       } 
       
       else if (tableName === 'line_items') {
-        let li = await this.get('line_items', pk);
+        let li = await this.get('line_items', pk, tx);
         if (!li) {
           let txId = pk;
           if (pk.startsWith('li_')) {
@@ -955,117 +997,117 @@
           li = { id: pk, transaction_id: txId, sku: 'COFFEE-ESP', quantity: 1, unit_price_minor_units: 0, applied_discount_minor_units: 0, is_deleted: 0 };
         }
         li[cid] = parsedVal;
-        await this.put('line_items', li);
+        await this.put('line_items', li, tx);
       } 
       
       else if (tableName === 'inventory_catalog') {
-        let inv = await this.get('inventory_catalog', pk);
+        let inv = await this.get('inventory_catalog', pk, tx);
         if (!inv) {
           inv = { sku: pk, stock_level: 0, reserved_stock: 0, name: pk, base_price_minor_units: 0, category: 'Uncategorized', emoji: '📦', cost_price_minor_units: 0 };
         }
         inv[cid] = parsedVal;
-        await this.put('inventory_catalog', inv);
+        await this.put('inventory_catalog', inv, tx);
       } 
       
       else if (tableName === 'employees') {
-        let emp = await this.get('employees', pk);
+        let emp = await this.get('employees', pk, tx);
         if (!emp) {
           emp = { id: pk, is_active: 1 };
         }
         emp[cid] = parsedVal;
-        await this.put('employees', emp);
+        await this.put('employees', emp, tx);
       } 
       
       else if (tableName === 'local_preferences') {
-        let pref = await this.get('local_preferences', pk);
+        let pref = await this.get('local_preferences', pk, tx);
         if (!pref) {
           pref = { key: pk, value_type: 'STR', value_payload: '', is_idempotent_flag: 0, updated_at: Date.now() };
         }
         pref[cid] = val; // Always string/raw payload for preferences
         pref.updated_at = Date.now();
-        await this.put('local_preferences', pref);
+        await this.put('local_preferences', pref, tx);
       }
       
       else if (tableName === 'customers') {
-        let cust = await this.get('customers', pk);
+        let cust = await this.get('customers', pk, tx);
         if (!cust) {
           cust = { id: pk, name: pk, phone: '', email: '', total_spend_cents: 0, visits: 0, created_at: Date.now() };
         }
         cust[cid] = parsedVal;
-        await this.put('customers', cust);
+        await this.put('customers', cust, tx);
       }
 
       else if (tableName === 'categories') {
-        let cat = await this.get('categories', pk);
+        let cat = await this.get('categories', pk, tx);
         if (!cat) {
           cat = { name: pk };
         }
         cat[cid] = parsedVal;
-        await this.put('categories', cat);
+        await this.put('categories', cat, tx);
       }
 
       else if (tableName === 'stock_movements') {
-        let mv = await this.get('stock_movements', pk);
+        let mv = await this.get('stock_movements', pk, tx);
         if (!mv) {
           mv = { id: pk, sku: '', change_qty: 0, reason: '', created_at: Date.now() };
         }
         mv[cid] = parsedVal;
-        await this.put('stock_movements', mv);
+        await this.put('stock_movements', mv, tx);
       }
 
       else if (tableName === 'employee_shifts') {
-        let sh = await this.get('employee_shifts', pk);
+        let sh = await this.get('employee_shifts', pk, tx);
         if (!sh) {
           sh = { id: pk, employee_id: '', clock_in: Date.now(), clock_out: null };
         }
         sh[cid] = parsedVal;
-        await this.put('employee_shifts', sh);
+        await this.put('employee_shifts', sh, tx);
       }
 
       else if (tableName === 'distributors') {
-        let dist = await this.get('distributors', pk);
+        let dist = await this.get('distributors', pk, tx);
         if (!dist) {
           dist = { id: pk, name: pk, created_at: Date.now(), is_deleted: 0 };
         }
         dist[cid] = parsedVal;
-        await this.put('distributors', dist);
+        await this.put('distributors', dist, tx);
       }
 
       else if (tableName === 'purchase_orders') {
-        let po = await this.get('purchase_orders', pk);
+        let po = await this.get('purchase_orders', pk, tx);
         if (!po) {
           po = { id: pk, distributor_id: 'unknown', status: 'DRAFT', created_at: Date.now(), is_deleted: 0 };
         }
         po[cid] = parsedVal;
         po.updated_at = Date.now();
-        await this.put('purchase_orders', po);
+        await this.put('purchase_orders', po, tx);
       }
 
       else if (tableName === 'po_line_items') {
-        let poli = await this.get('po_line_items', pk);
+        let poli = await this.get('po_line_items', pk, tx);
         if (!poli) {
           poli = { id: pk, po_id: 'unknown', quantity_ordered: 0, quantity_received: 0, unit_cost_minor: 0, is_deleted: 0 };
         }
         poli[cid] = parsedVal;
-        await this.put('po_line_items', poli);
+        await this.put('po_line_items', poli, tx);
       }
 
       else if (tableName === 'distributor_payments') {
-        let dp = await this.get('distributor_payments', pk);
+        let dp = await this.get('distributor_payments', pk, tx);
         if (!dp) {
           dp = { id: pk, distributor_id: 'unknown', amount_minor: 0, paid_at: Date.now(), is_deleted: 0 };
         }
         dp[cid] = parsedVal;
-        await this.put('distributor_payments', dp);
+        await this.put('distributor_payments', dp, tx);
       }
 
       else if (tableName === 'customer_credit') {
-        let cc = await this.get('customer_credit', pk);
+        let cc = await this.get('customer_credit', pk, tx);
         if (!cc) {
           cc = { id: pk, customer_id: 'unknown', amount_minor: 0, created_at: Date.now(), is_deleted: 0 };
         }
         cc[cid] = parsedVal;
-        await this.put('customer_credit', cc);
+        await this.put('customer_credit', cc, tx);
       }
     },
 
@@ -1074,15 +1116,35 @@
       const baseStock = baseStockRow ? Number(baseStockRow.val) : 0;
       const baseHlc = baseStockRow ? baseStockRow.sync_hlc : '0000000000000:000000:seed';
 
-      const changes = await this.getAll('crsql_changes', tx);
-      let totalDelta = 0;
-      for (const row of changes) {
-        if (row.table_name === 'inventory_catalog_counters' && row.pk.startsWith(sku + '/') && row.cid === 'delta') {
-          if (row.sync_hlc > baseHlc) {
-            totalDelta += Number(row.val);
-          }
+      // Query IndexedDB using a bounded range on the compound primary key to avoid unbounded getAll()
+      const totalDelta = await new Promise((resolve, reject) => {
+        try {
+          const storeName = 'crsql_changes';
+          const store = tx ? tx.objectStore(storeName) : this.db.transaction([storeName], 'readonly').objectStore(storeName);
+          const range = IDBKeyRange.bound(
+            ['inventory_catalog_counters', sku + '/', ''],
+            ['inventory_catalog_counters', sku + '/\uffff', '\uffff']
+          );
+          
+          let delta = 0;
+          const request = store.openCursor(range);
+          request.onsuccess = (event) => {
+            const cursor = event.target.result;
+            if (cursor) {
+              const row = cursor.value;
+              if (row.cid === 'delta' && row.sync_hlc > baseHlc) {
+                delta += Number(row.val);
+              }
+              cursor.continue();
+            } else {
+              resolve(delta);
+            }
+          };
+          request.onerror = (event) => reject(event.target.error);
+        } catch (e) {
+          reject(e);
         }
-      }
+      });
 
       const finalStock = Math.max(0, baseStock + totalDelta);
       

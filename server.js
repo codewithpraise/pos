@@ -105,10 +105,9 @@ if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
 } else {
   server = http.createServer(app);
 }
-
 const wss = new WebSocket.Server({ 
   server,
-  maxPayload: 1024 * 1024 // 1MB maximum payload size to prevent memory exhaustion
+  maxPayload: 50 * 1024 * 1024 // 50MB maximum payload size for large initial sync cycles
 });
 
 // Set terminal ID for the server (acts as main PC master node)
@@ -236,7 +235,12 @@ function verifyToken(token) {
     const expectedSignature = crypto.createHmac('sha256', jwtSecret)
       .update(`${headerB64}.${payloadB64}`)
       .digest('base64url');
-    if (signature !== expectedSignature) return null;
+    
+    const sigBuf = Buffer.from(signature);
+    const expectedBuf = Buffer.from(expectedSignature);
+    if (sigBuf.length !== expectedBuf.length) return null;
+    if (!crypto.timingSafeEqual(sigBuf, expectedBuf)) return null;
+
     const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
     if (payload.exp && Date.now() > payload.exp) return null; // expired
     return payload;
@@ -651,7 +655,6 @@ const FBR_TOKEN    = process.env.FBR_API_TOKEN || '';
 
 // Attempt to forward a single invoice to FBR
 async function submitToFBR(invoice) {
-  // If no FBR token configured, log as pending and return gracefully
   if (!FBR_TOKEN) {
     return { success: false, reason: 'FBR_TOKEN not configured. Set FBR_API_TOKEN env variable.' };
   }
@@ -662,7 +665,7 @@ async function submitToFBR(invoice) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${FBR_TOKEN}`
       },
-      body: invoice.invoice_payload,
+      body: typeof invoice.invoice_payload === 'string' ? invoice.invoice_payload : JSON.stringify(invoice.invoice_payload),
       signal: AbortSignal.timeout(15000)
     });
     const body = await res.text();
@@ -1251,15 +1254,32 @@ app.post('/api/devices/reject', requireAdmin, async (req, res) => {
 });
 
 function getHardwareFingerprint() {
+  const hwidPath = path.join(__dirname, '.nexova_hwid');
+  if (fs.existsSync(hwidPath)) {
+    try {
+      const stored = fs.readFileSync(hwidPath, 'utf8').trim();
+      if (stored && stored.length === 64) {
+        return stored;
+      }
+    } catch (e) {
+      console.warn('[SyncHub] Failed to read persistent HWID file:', e);
+    }
+  }
+
+  // Generate new stable HWID
   const cpus = os.cpus().map(c => c.model).join(',');
-  const hostname = os.hostname();
   const platform = os.platform();
-  let username = 'system';
+  const randomUUID = crypto.randomUUID();
+  const rawString = `${cpus}:${platform}:${randomUUID}`;
+  const newHwid = crypto.createHash('sha256').update(rawString).digest('hex');
+
   try {
-    username = os.userInfo().username;
-  } catch (e) {}
-  const rawString = `${cpus}:${hostname}:${platform}:${username}`;
-  return crypto.createHash('sha256').update(rawString).digest('hex');
+    fs.writeFileSync(hwidPath, newHwid, 'utf8');
+    console.log('[SyncHub] Initialized new persistent HWID:', newHwid);
+  } catch (e) {
+    console.error('[SyncHub] Failed to write persistent HWID file:', e);
+  }
+  return newHwid;
 }
 
 // 6.a Fetch server network configuration (Public)

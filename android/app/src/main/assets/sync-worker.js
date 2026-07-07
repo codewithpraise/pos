@@ -60,51 +60,69 @@ async function initializeSyncEngine(serverUrl) {
       let applied = 0;
       let conflicts = 0;
 
-      for (const change of changes) {
-        // Tick our HLC with remote clock
-        syncClient.hlc.merge(change.sync_hlc);
+      if (!changes || changes.length === 0) return;
 
-        // Fetch local change version
-        const local = await NexovaDB.get('crsql_changes', [change.table_name, change.pk, change.cid]);
-        
-        // LWW merge comparison
-        let shouldApply = !local;
-        if (local) {
-          if (change.col_version > local.col_version) shouldApply = true;
-          else if (change.col_version < local.col_version) shouldApply = false;
-          else shouldApply = change.sync_hlc > local.sync_hlc;
-        }
+      const stores = [
+        'transactions', 'line_items', 'inventory_catalog', 'crsql_changes', 
+        'local_preferences', 'customers', 'categories', 'distributors', 
+        'purchase_orders', 'po_line_items', 'distributor_payments', 'customer_credit'
+      ];
+      
+      const idbTx = NexovaDB.db.transaction(stores, 'readwrite');
 
-        if (shouldApply) {
-          applied++;
-          // Apply mutation to target store
-          await NexovaDB.applyChangeToSchema(change.table_name, change.pk, change.cid, change.val, change.cl);
-          // Save CRDT metadata locally
-          await NexovaDB.put('crsql_changes', {
-            table_name: change.table_name,
-            pk: change.pk,
-            cid: change.cid,
-            val: change.val,
-            col_version: change.col_version,
-            db_version: (await NexovaDB.getDbVersion()) + 1,
-            site_id: change.site_id,
-            cl: change.cl,
-            sync_hlc: change.sync_hlc
-          });
+      try {
+        for (const change of changes) {
+          syncClient.hlc.merge(change.sync_hlc);
 
-          // Recalculate stock level if PN delta changes or manual stock updates occur
-          if (change.table_name === 'inventory_catalog_counters') {
-            const sku = change.pk.split('/')[0];
-            await NexovaDB.recalculateCachedStock(sku);
-          } else if (change.table_name === 'inventory_catalog' && change.cid === 'stock_level') {
-            await NexovaDB.recalculateCachedStock(change.pk);
+          const local = await NexovaDB.get('crsql_changes', [change.table_name, change.pk, change.cid], idbTx);
+          
+          let shouldApply = !local;
+          if (local) {
+            if (change.col_version > local.col_version) shouldApply = true;
+            else if (change.col_version < local.col_version) shouldApply = false;
+            else shouldApply = change.sync_hlc > local.sync_hlc;
           }
-        } else {
-          conflicts++;
+
+          if (shouldApply) {
+            applied++;
+            await NexovaDB.applyChangeToSchema(change.table_name, change.pk, change.cid, change.val, change.cl, change.val_type || 'string', idbTx);
+            
+            const dbVer = (await NexovaDB.getDbVersion(idbTx)) + 1;
+            await NexovaDB.put('crsql_changes', {
+              table_name: change.table_name,
+              pk: change.pk,
+              cid: change.cid,
+              val: change.val,
+              val_type: change.val_type || 'string',
+              col_version: change.col_version,
+              db_version: dbVer,
+              site_id: change.site_id,
+              cl: change.cl,
+              sync_hlc: change.sync_hlc
+            }, idbTx);
+
+            if (change.table_name === 'inventory_catalog_counters') {
+              const sku = change.pk.split('/')[0];
+              await NexovaDB.recalculateCachedStock(sku, idbTx);
+            } else if (change.table_name === 'inventory_catalog' && change.cid === 'stock_level') {
+              await NexovaDB.recalculateCachedStock(change.pk, idbTx);
+            }
+          } else {
+            conflicts++;
+          }
         }
+
+        await new Promise((resolve, reject) => {
+          idbTx.oncomplete = () => resolve();
+          idbTx.onerror = (e) => reject(e.target.error);
+          idbTx.onabort = () => reject(new Error('Sync transaction aborted'));
+        });
+      } catch (err) {
+        console.error('[SyncWorker] Sync apply failed, rolling back:', err);
+        try { idbTx.abort(); } catch (_) {}
+        return;
       }
 
-      // Notify UI main thread of changes applied, triggering layout refresh
       postMessage({
         type: 'SYNC_RECEIVED',
         nodeId: nodeId,
@@ -114,8 +132,6 @@ async function initializeSyncEngine(serverUrl) {
         changes: changes
       });
     };
-
-    // Callback when WS status toggles — auto-flush FBR offline queue on reconnect
     const onConnectionChange = async (isConnected) => {
       postMessage({
         type: 'CONNECTION_CHANGE',
@@ -321,13 +337,14 @@ self.onmessage = async (event) => {
             if (shouldApply) {
               applied++;
               // Apply mutation to target store
-              await NexovaDB.applyChangeToSchema(change.table_name, change.pk, change.cid, change.val, change.cl);
+              await NexovaDB.applyChangeToSchema(change.table_name, change.pk, change.cid, change.val, change.cl, change.val_type || 'string');
               // Save CRDT metadata locally
               await NexovaDB.put('crsql_changes', {
                 table_name: change.table_name,
                 pk: change.pk,
                 cid: change.cid,
                 val: change.val,
+                val_type: change.val_type || 'string',
                 col_version: change.col_version,
                 db_version: (await NexovaDB.getDbVersion()) + 1,
                 site_id: change.site_id,
@@ -1296,7 +1313,14 @@ async function flushFBRQueue() {
         } else {
           // Hard rejection or processing error from PRAL API
           console.error(`[FBR] Hard rejection for USIN: ${entry.usin}. Code: ${result?.fbrResponseCode}, Error: ${result?.fbrErrorDetails}`);
-          entry.status = 'FAILED';
+          
+          const isClientError = result?.fbrResult?.status >= 400 && result?.fbrResult?.status < 500;
+          if (isClientError) {
+            entry.status = 'REJECTED_PERMANENT';
+          } else {
+            entry.status = 'FAILED';
+          }
+          
           entry.fbr_response_code = result?.fbrResponseCode || null;
           entry.fbr_error_details = result?.fbrErrorDetails || 'Unknown FBR rejection';
           entry.retry_count = (entry.retry_count || 0) + 1;
@@ -1310,6 +1334,12 @@ async function flushFBRQueue() {
             fbrErrorDetails: entry.fbr_error_details 
           });
           
+          if (isClientError) {
+            console.warn('[FBR] Invoice permanently rejected due to client validation error. Removing from active retry loop to prevent queue lock.');
+            flushed++;
+            continue; // Proceed to next queue item
+          }
+
           // Strict FIFO Lock: Halt processing of all subsequent items
           console.warn('[FBR] Queue locked due to validation failure. Retries halted to preserve sequence.');
           return { flushed, failed: 1, locked: true };

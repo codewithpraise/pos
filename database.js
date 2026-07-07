@@ -78,15 +78,55 @@ const db = {
     }));
   },
   async beginImmediate() {
-    await this.run('BEGIN IMMEDIATE TRANSACTION;');
+    await dbMutex.acquire();
+    try {
+      await this.run('BEGIN IMMEDIATE TRANSACTION;');
+    } catch (err) {
+      dbMutex.release();
+      throw err;
+    }
   },
   async commit() {
-    await this.run('COMMIT;');
+    try {
+      await this.run('COMMIT;');
+    } finally {
+      dbMutex.release();
+    }
   },
   async rollback() {
-    await this.run('ROLLBACK;');
+    try {
+      await this.run('ROLLBACK;');
+    } finally {
+      dbMutex.release();
+    }
   }
 };
+
+class Mutex {
+  constructor() {
+    this.queue = [];
+    this.locked = false;
+  }
+  async acquire() {
+    return new Promise(resolve => {
+      if (!this.locked) {
+        this.locked = true;
+        resolve();
+      } else {
+        this.queue.push(resolve);
+      }
+    });
+  }
+  release() {
+    if (this.queue.length > 0) {
+      const next = this.queue.shift();
+      next();
+    } else {
+      this.locked = false;
+    }
+  }
+}
+const dbMutex = new Mutex();
 
 // Initialize Database & WAL mode
 async function initDatabase(terminalId) {
@@ -826,7 +866,10 @@ async function applyRemoteChangesInternal(changes) {
 
 // Dynamically updates a single column value in the main tables based on delta CRDTs
 async function applyChangeToSchema(tableName, pk, cid, val, cl, valType = 'string') {
-  // If cl is 0, it denotes a soft deletion (tombstone)
+  // Strict sanitization of dynamic column name to prevent SQL injection
+  if (cid && !/^[a-zA-Z0-9_]+$/.test(cid)) {
+    throw new Error(`Security Exception: Invalid column identifier '${cid}'`);
+  }
   if (cl === 0) {
     if (tableName === 'transactions') {
       await db.run('UPDATE transactions SET is_deleted = 1, status = ? WHERE id = ?', ['VOIDED', pk]);
@@ -1057,8 +1100,7 @@ async function createVoidContraEntry(originalTransactionId, managerId, voidReaso
   const contraId = `void_${originalTransactionId}_${Date.now()}`;
   const now = Date.now();
   const hlc = currentHlc ? currentHlc.now() : String(now);
-
-  await db.run('BEGIN IMMEDIATE TRANSACTION;');
+  await db.beginImmediate();
   try {
     // Mark original as VOIDED
     await db.run(
@@ -1079,11 +1121,11 @@ async function createVoidContraEntry(originalTransactionId, managerId, voidReaso
         originalTransactionId, voidReason || 'Manager void'
       ]
     );
-    await db.run('COMMIT;');
+    await db.commit();
     console.log(`[Ledger] Void contra-entry created: ${contraId} for ${originalTransactionId}`);
     return contraId;
   } catch (err) {
-    await db.run('ROLLBACK;');
+    await db.rollback();
     throw err;
   }
 }

@@ -107,13 +107,13 @@ class MainActivity : AppCompatActivity() {
     private var uploadMessage: ValueCallback<Array<Uri>>? = null
     private val FILE_CHOOSER_REQUEST_CODE = 1234
     private val REQUEST_INSTALL_PACKAGES_CODE = 9999
-
     // Track file downloaded for installer callback
     private var downloadedApkFile: File? = null
 
     @Volatile
     private var currentLoadedUrl: String = ""
 
+    private var wakeLock: android.os.PowerManager.WakeLock? = null
     private val keyCache = java.util.concurrent.ConcurrentHashMap<String, SecretKeySpec>()
     private var sessionSalt: ByteArray? = null
 
@@ -357,7 +357,6 @@ class MainActivity : AppCompatActivity() {
         if (requiredPermissions.isNotEmpty()) {
             requestPermissions(requiredPermissions.toTypedArray(), 100)
         }
-
         // Install uncaught exception handler — writes crash diagnostics to local file
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
@@ -366,12 +365,16 @@ class MainActivity : AppCompatActivity() {
                 throwable.printStackTrace(PrintWriter(sw))
                 val crashLog = "${System.currentTimeMillis()} [CRASH] Thread=${thread.name}\n$sw\n"
                 val logFile = File(getExternalFilesDir(null), "nexova_crash.log")
+                
+                // Keep file under 2MB limit (Strict rotation)
+                if (logFile.exists() && logFile.length() > 2 * 1024 * 1024) {
+                    logFile.writeText("") // Reset log
+                }
                 logFile.appendText(crashLog)
                 Log.e("NexovaCrash", crashLog)
             } catch (_: Exception) {}
             defaultHandler?.uncaughtException(thread, throwable)
         }
-
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 val wv = webView
@@ -398,15 +401,79 @@ class MainActivity : AppCompatActivity() {
             prefs.getString("server_url", "") ?: ""
         }
 
-        if (serverUrl.isEmpty()) {
-            serverUrl = "file:///android_asset/index.html"
+        // Screen Pinning for Kiosk mode (Bazari POS compliance)
+        try {
+            startLockTask()
+        } catch (e: Exception) {
+            Log.w("MainActivity", "Kiosk startLockTask failed: ${e.message}")
         }
-        showWebView(serverUrl)
+
+        // WebView URL Locking & Split-Brain Decoupling: Always load local sandbox index.html
+        showWebView("file:///android_asset/index.html")
     }
 
     override fun onDestroy() {
+        releaseWakeLock()
         webView?.destroy()
         super.onDestroy()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        acquireWakeLock()
+    }
+
+    override fun onPause() {
+        releaseWakeLock()
+        super.onPause()
+    }
+
+    private fun acquireWakeLock() {
+        try {
+            val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            if (wakeLock == null) {
+                wakeLock = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "NexovaSyncWakeLock")
+            }
+            if (wakeLock?.isHeld == false) {
+                wakeLock?.acquire(10 * 60 * 1000L /*10 minutes*/)
+                Log.d("MainActivity", "WakeLock acquired.")
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to acquire WakeLock: ${e.message}")
+        }
+    }
+
+    private fun releaseWakeLock() {
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+                Log.d("MainActivity", "WakeLock released.")
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to release WakeLock: ${e.message}")
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 100) {
+            var hasDenied = false
+            for (result in grantResults) {
+                if (result != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    hasDenied = true
+                    break
+                }
+            }
+            if (hasDenied) {
+                runOnUiThread {
+                    webView?.evaluateJavascript(
+                        "window.dispatchEvent(new CustomEvent('HARDWARE_ERROR', { detail: { type: 'PERMISSION_DENIED', message: 'Required hardware permissions (camera or bluetooth) were denied.' } }));",
+                        null
+                    )
+                    Toast.makeText(this, "Hardware permissions denied. POS capabilities may be limited.", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")

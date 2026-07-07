@@ -1211,12 +1211,15 @@
     document.getElementById('btn-close-customer-link-modal-footer').addEventListener('click', () => {
       document.getElementById('modal-customer-link').classList.remove('active');
     });
-
     // Complete transaction button
-    document.getElementById('btn-checkout-complete').addEventListener('click', () => {
+    document.getElementById('btn-checkout-complete').addEventListener('click', (e) => {
+      const btn = document.getElementById('btn-checkout-complete');
+      if (btn && btn.disabled) {
+        if (e) e.preventDefault();
+        return;
+      }
       submitCheckoutTransaction();
     });
-
     // --- CATALOG MODAL BINDINGS ---
     document.getElementById('btn-catalog-create-product').addEventListener('click', () => {
       openProductEditModal(null);
@@ -4013,9 +4016,7 @@
   function calculateSubtotal() {
     return state.activeCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
   }
-
   function calculateTax() {
-    const sub = calculateSubtotal();
     const ratePref = state.preferences['store_tax_rate'] || '8.0';
     let rate = parseFloat(ratePref);
 
@@ -4033,9 +4034,10 @@
     }
 
     if (rate > 1) rate = rate / 100.0;
-    return Math.round(sub * rate);
+    
+    // Calculate rounded tax per item first to match invoice line additions & avoid float accumulator error
+    return state.activeCart.reduce((sum, item) => sum + Math.round(item.price * item.qty * rate), 0);
   }
-
   function calculateGrandTotal() {
     const isFbrEnabled = (window.__nexovaTier === 'ENTERPRISE' || window.__nexovaTier === 'TRIAL') && state.preferences['fbr_integration_enabled'] === 'true';
     const fbrFee = isFbrEnabled ? 100 : 0;

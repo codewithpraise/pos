@@ -216,7 +216,16 @@ const EscPosEngine = (() => {
     }
     _drawerState = 'OPEN';
     console.log(`[Drawer] Opening — Reason: ${reason}`);
-    _sendBytes(new Uint8Array(CMD.KICK_DRAWER)).catch(e => console.error('[Drawer] Kick error:', e));
+
+    // Dynamically check Cash Drawer wiring pin setting (Pin 2 vs Pin 5)
+    // Default to Pin 2 (0x00) if not configured
+    let pinByte = 0x00;
+    if (window.state && window.state.preferences && window.state.preferences['cash_drawer_pin'] === 'pin_5') {
+      pinByte = 0x01; // Pin 5
+    }
+    const kickCmd = [ESC, 0x70, pinByte, 0x19, 0xFA];
+
+    _sendBytes(new Uint8Array(kickCmd)).catch(e => console.error('[Drawer] Kick error:', e));
 
     // Auto-mark closed after 15s (for next-sale readiness even if no sensor)
     clearTimeout(_drawerTimer);
@@ -343,31 +352,49 @@ const EscPosEngine = (() => {
       }
       currentY += lineHeights[index];
     });
-
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const pixels = imgData.data;
     const widthBytes = canvas.width / 8;
     const dataBytes = new Uint8Array(widthBytes * canvas.height);
 
-    for (let y = 0; y < canvas.height; y++) {
-      for (let x = 0; x < canvas.width; x++) {
-        const idx = (y * canvas.width + x) * 4;
+    const w = canvas.width;
+    const h = canvas.height;
+    const grayBuf = new Float32Array(w * h);
+
+    // Binarization: Fill grayscale values based on alpha
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const idx = (y * w + x) * 4;
         const r = pixels[idx];
         const g = pixels[idx + 1];
         const b = pixels[idx + 2];
         const a = pixels[idx + 3];
-        
-        const gray = (a < 128) ? 255 : (0.299 * r + 0.587 * g + 0.114 * b);
-        const isBlack = gray < 128;
-        
-        if (isBlack) {
+        grayBuf[y * w + x] = (a < 128) ? 255 : (0.299 * r + 0.587 * g + 0.114 * b);
+      }
+    }
+
+    // Floyd-Steinberg error diffusion to preserve curves of Noto Nastaliq Urdu font
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const oldVal = grayBuf[y * w + x];
+        const newVal = oldVal < 128 ? 0 : 255;
+        const err = oldVal - newVal;
+        grayBuf[y * w + x] = newVal;
+
+        if (x + 1 < w)       grayBuf[y * w + (x + 1)]     += err * 7 / 16;
+        if (y + 1 < h) {
+          if (x - 1 >= 0)    grayBuf[(y + 1) * w + (x - 1)] += err * 3 / 16;
+          grayBuf[(y + 1) * w + x]       += err * 5 / 16;
+          if (x + 1 < w)     grayBuf[(y + 1) * w + (x + 1)] += err * 1 / 16;
+        }
+
+        if (newVal === 0) {
           const byteIdx = y * widthBytes + Math.floor(x / 8);
           const bitIdx = 7 - (x % 8);
           dataBytes[byteIdx] |= (1 << bitIdx);
         }
       }
     }
-
     const header = [
       ...CMD.INIT,
       GS, 0x76, 0x30, 0,
