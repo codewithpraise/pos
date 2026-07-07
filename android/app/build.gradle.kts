@@ -17,10 +17,10 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("release-key.jks")
-            storePassword = "nexovapos"
-            keyAlias = "nexova"
-            keyPassword = "nexovapos"
+            storeFile = file(System.getenv("RELEASE_STORE_FILE") ?: "release-key.jks")
+            storePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: "nexovapos"
+            keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: "nexova"
+            keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: "nexovapos"
         }
     }
 

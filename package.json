@@ -4,7 +4,13 @@
   "description": "Production-ready local-first point of sale system with peer-to-peer CRDT sync",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node tests/unit.test.js && node tests/db.test.js && node tests/backup.test.js",
+    "test:unit": "node tests/unit.test.js",
+    "test:db": "node tests/db.test.js",
+    "test:backup": "node tests/backup.test.js",
+    "test:syntax": "node --check server.js && node --check database.js && node --check supabase-sync.js && node --check lib/logger.js && node --check lib/validator.js && node --check scripts/backup.js && echo Syntax OK",
+    "backup": "node scripts/backup.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",

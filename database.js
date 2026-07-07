@@ -114,369 +114,392 @@ async function initDatabase(terminalId) {
     console.warn('[Database] SQLite optimization pass was bypassed:', err.message);
   }
   
-  // Create schemas for all 6 domains
+  // 1. Ensure local_preferences table exists first so we can track schema version
   await db.exec(`
-    -- Domain 1: Transaction & LineItem Core Ledger
-    CREATE TABLE IF NOT EXISTS transactions (
-      id TEXT PRIMARY KEY,
-      employee_id TEXT,
-      terminal_id TEXT,
-      subtotal_minor_units INTEGER,
-      tax_minor_units INTEGER,
-      total_minor_units INTEGER,
-      status TEXT, -- DRAFT, HELD, COMPLETED, VOIDED
-      payment_mode TEXT DEFAULT 'CASH',
-      payment_details TEXT DEFAULT '',
-      created_at INTEGER,
-      updated_at INTEGER,
-      sync_hlc TEXT,
-      is_dirty INTEGER,
-      is_deleted INTEGER
-    );
-
-    CREATE TABLE IF NOT EXISTS line_items (
-      id TEXT PRIMARY KEY,
-      transaction_id TEXT,
-      sku TEXT,
-      quantity INTEGER,
-      unit_price_minor_units INTEGER,
-      applied_discount_minor_units INTEGER,
-      sync_hlc TEXT,
-      is_deleted INTEGER,
-      FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
-      FOREIGN KEY(sku) REFERENCES inventory_catalog(sku) ON DELETE RESTRICT
-    );
-
-    -- Domain 2: Inventory & Stock Management
-    CREATE TABLE IF NOT EXISTS inventory_catalog (
-      sku TEXT PRIMARY KEY,
-      gtin TEXT UNIQUE,
-      name TEXT,
-      base_price_minor_units INTEGER,
-      stock_level INTEGER,
-      reserved_stock INTEGER,
-      search_vector TEXT,
-      col_version INTEGER,
-      sync_hlc TEXT
-    );
-
-    -- Domain 3: Employee Access & Security
-    CREATE TABLE IF NOT EXISTS employees (
-      id TEXT PRIMARY KEY,
-      auth_hash TEXT,
-      biometric_token TEXT,
-      role TEXT, -- CASHIER, MANAGER, ADMIN
-      is_active INTEGER,
-      sync_hlc TEXT
-    );
-
-    -- Domain 4: Sync Queues & CRDT Delta payloads
-    CREATE TABLE IF NOT EXISTS crsql_changes (
-      table_name TEXT,
-      pk TEXT,
-      cid TEXT,
-      val TEXT,
-      col_version INTEGER,
-      db_version INTEGER,
-      site_id TEXT,
-      cl INTEGER, -- causal length (1 for active, 0 for tombstone/delete)
-      sync_hlc TEXT,
-      PRIMARY KEY (table_name, pk, cid)
-    );
-
-    -- Domain 5: Speech Analytics & Fraud Logs
-    CREATE TABLE IF NOT EXISTS speech_analytics_logs (
-      id TEXT PRIMARY KEY,
-      transaction_id TEXT,
-      utterance_duration_ms INTEGER,
-      speaker_diarization_tag TEXT,
-      filler_word_count INTEGER,
-      sentiment_score REAL,
-      flagged_fraud_risk INTEGER,
-      disfluency_markers TEXT, -- JSON Array
-      sync_hlc TEXT,
-      FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE SET NULL
-    );
-
-    -- Domain 6: Local Preference Data Store
     CREATE TABLE IF NOT EXISTS local_preferences (
       key TEXT PRIMARY KEY,
-      value_type TEXT, -- INT, STR, BOOL, JSON
+      value_type TEXT,
+      val_type TEXT DEFAULT 'string',
       value_payload TEXT,
       is_idempotent_flag INTEGER,
       updated_at INTEGER
     );
-
-    -- Domain 7: Customers
-    CREATE TABLE IF NOT EXISTS customers (
-      id TEXT PRIMARY KEY,
-      name TEXT,
-      phone TEXT,
-      email TEXT,
-      total_spend_cents INTEGER DEFAULT 0,
-      visits INTEGER DEFAULT 0,
-      created_at INTEGER,
-      sync_hlc TEXT
-    );
-
-    -- Domain 8: Categories
-    CREATE TABLE IF NOT EXISTS categories (
-      name TEXT PRIMARY KEY,
-      sync_hlc TEXT
-    );
-
-    -- Domain 9: Stock Movements
-    CREATE TABLE IF NOT EXISTS stock_movements (
-      id TEXT PRIMARY KEY,
-      sku TEXT,
-      change_qty INTEGER,
-      reason TEXT,
-      created_at INTEGER,
-      sync_hlc TEXT
-    );
-
-    -- Domain 10: Employee Shifts
-    CREATE TABLE IF NOT EXISTS employee_shifts (
-      id TEXT PRIMARY KEY,
-      employee_id TEXT,
-      clock_in INTEGER,
-      clock_out INTEGER,
-      sync_hlc TEXT
-    );
-
-    -- Domain 11: Approved Devices Whitelist
-    CREATE TABLE IF NOT EXISTS approved_devices (
-      node_id TEXT PRIMARY KEY,
-      device_name TEXT,
-      user_agent TEXT,
-      approved_at INTEGER,
-      status TEXT
-    );
-
-    -- Domain 12: Distributors (Suppliers)
-    CREATE TABLE IF NOT EXISTS distributors (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      phone TEXT,
-      email TEXT,
-      address TEXT,
-      credit_limit_minor INTEGER DEFAULT 0,
-      notes TEXT,
-      created_at INTEGER,
-      sync_hlc TEXT,
-      is_deleted INTEGER DEFAULT 0
-    );
-
-    -- Domain 13: Purchase Orders
-    CREATE TABLE IF NOT EXISTS purchase_orders (
-      id TEXT PRIMARY KEY,
-      distributor_id TEXT NOT NULL,
-      status TEXT DEFAULT 'DRAFT',  -- DRAFT, SENT, CONFIRMED, PARTIAL, RECEIVED, CANCELLED
-      total_minor INTEGER DEFAULT 0,
-      notes TEXT,
-      expected_delivery INTEGER,
-      created_at INTEGER,
-      updated_at INTEGER,
-      sync_hlc TEXT,
-      is_deleted INTEGER DEFAULT 0
-    );
-
-    -- Domain 14: Purchase Order Line Items
-    CREATE TABLE IF NOT EXISTS po_line_items (
-      id TEXT PRIMARY KEY,
-      po_id TEXT NOT NULL,
-      sku TEXT,
-      product_name TEXT,
-      quantity_ordered INTEGER,
-      quantity_received INTEGER DEFAULT 0,
-      unit_cost_minor INTEGER,
-      sync_hlc TEXT,
-      is_deleted INTEGER DEFAULT 0
-    );
-
-    -- Domain 15: Distributor Payments
-    CREATE TABLE IF NOT EXISTS distributor_payments (
-      id TEXT PRIMARY KEY,
-      distributor_id TEXT NOT NULL,
-      po_id TEXT,
-      amount_minor INTEGER NOT NULL,
-      payment_method TEXT DEFAULT 'CASH',
-      reference_note TEXT,
-      paid_at INTEGER,
-      sync_hlc TEXT,
-      is_deleted INTEGER DEFAULT 0
-    );
-
-    -- Domain 16: Customer Credit Ledger (Udhaar/Khata)
-    CREATE TABLE IF NOT EXISTS customer_credit (
-      id TEXT PRIMARY KEY,
-      customer_id TEXT NOT NULL,
-      transaction_id TEXT,
-      type TEXT,  -- CREDIT, PAYMENT
-      amount_minor INTEGER NOT NULL,
-      payment_method TEXT DEFAULT 'CASH',
-      due_date INTEGER,
-      notes TEXT,
-      created_at INTEGER,
-      sync_hlc TEXT,
-      is_deleted INTEGER DEFAULT 0
-    );
-
-    -- Domain 17: FBR E-Invoice Offline Submission Queue (Rule 150XC)
-    -- Invoices generated offline are queued here and batch-uploaded on reconnection
-    CREATE TABLE IF NOT EXISTS fbr_submissions (
-      id TEXT PRIMARY KEY,                -- matches transaction_id
-      transaction_id TEXT NOT NULL,
-      invoice_number TEXT NOT NULL,       -- FBR-POS-{ts}-{rand}
-      usin TEXT,                          -- Local Offline Unique Sales Invoice Number (FBR compliance)
-      invoice_payload TEXT NOT NULL,      -- JSON blob of full invoice data
-      total_minor INTEGER NOT NULL,
-      tax_minor INTEGER NOT NULL,
-      status TEXT DEFAULT 'PENDING',      -- PENDING | SUBMITTED | FAILED | REJECTED
-      retry_count INTEGER DEFAULT 0,
-      fbr_response TEXT,                  -- raw FBR API response JSON
-      fbr_response_code INTEGER,          -- PRAL return diagnostic code
-      fbr_error_details TEXT,            -- API failure message
-      created_at INTEGER NOT NULL,
-      submitted_at INTEGER,
-      sync_hlc TEXT
-    );
   `);
 
-  // Run migrations (ALTER TABLE try-catches) to align with KMP
+  // 2. Read current schema version from local_preferences
+  let currentVersion = 0;
   try {
-    await db.exec("ALTER TABLE inventory_catalog ADD COLUMN category TEXT DEFAULT 'Uncategorized';");
-  } catch (e) {}
-  try {
-    await db.exec("ALTER TABLE inventory_catalog ADD COLUMN emoji TEXT DEFAULT '';");
-  } catch (e) {}
-  try {
-    await db.exec("ALTER TABLE inventory_catalog ADD COLUMN cost_price_minor_units INTEGER DEFAULT 0;");
-  } catch (e) {}
-  try {
-    await db.exec("ALTER TABLE transactions ADD COLUMN payment_mode TEXT DEFAULT 'CASH';");
-  } catch (e) {}
-  try {
-    await db.exec("ALTER TABLE transactions ADD COLUMN payment_details TEXT DEFAULT '';");
-  } catch (e) {}
-  try {
-    await db.exec("ALTER TABLE employee_shifts ADD COLUMN declared_cash_minor_units INTEGER DEFAULT 0;");
-  } catch (e) {}
-  try {
-    await db.exec("ALTER TABLE employee_shifts ADD COLUMN expected_cash_minor_units INTEGER DEFAULT 0;");
-  } catch (e) {}
-  try {
-    await db.exec("ALTER TABLE employee_shifts ADD COLUMN variance_minor_units INTEGER DEFAULT 0;");
-  } catch (e) {}
-  try {
-    await db.exec("ALTER TABLE inventory_catalog ADD COLUMN is_deleted INTEGER DEFAULT 0;");
-  } catch (e) {}
-  try {
-    await db.exec("ALTER TABLE employees ADD COLUMN is_deleted INTEGER DEFAULT 0;");
-  } catch (e) {}
-  try {
-    await db.exec("ALTER TABLE customers ADD COLUMN is_deleted INTEGER DEFAULT 0;");
-  } catch (e) {}
-  try {
-    await db.exec("ALTER TABLE transactions ADD COLUMN discount_minor_units INTEGER DEFAULT 0;");
-  } catch (e) {}
-  try {
-    await db.exec("ALTER TABLE inventory_catalog ADD COLUMN low_stock_threshold INTEGER DEFAULT 10;");
-  } catch (e) {}
-  // PN-Counter columns for ghost-free offline inventory merging
-  try {
-    await db.exec("ALTER TABLE inventory_catalog ADD COLUMN stock_additions INTEGER DEFAULT 0;");
-  } catch (e) {}
-  try {
-    await db.exec("ALTER TABLE inventory_catalog ADD COLUMN stock_subtractions INTEGER DEFAULT 0;");
-  } catch (e) {}
-  // Immutable ledger void columns
-  try {
-    await db.exec("ALTER TABLE transactions ADD COLUMN voided_transaction_id TEXT;");
-  } catch (e) {}
-  try {
-    await db.exec("ALTER TABLE transactions ADD COLUMN void_reason TEXT;");
-  } catch (e) {}
-  try {
-    await db.exec("ALTER TABLE fbr_submissions ADD COLUMN usin TEXT;");
-  } catch (e) {}
-  try {
-    await db.exec("ALTER TABLE fbr_submissions ADD COLUMN fbr_response_code INTEGER;");
-  } catch (e) {}
-  try {
-    await db.exec("ALTER TABLE fbr_submissions ADD COLUMN fbr_error_details TEXT;");
-  } catch (e) {}
+    const row = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'schema_version'");
+    if (row && row.value_payload) {
+      currentVersion = parseInt(row.value_payload) || 0;
+    }
+  } catch (e) {
+    // If column value_payload didn't exist or table has issue, default to 0
+  }
 
-  // Aborted sales log table (Manager PIN void audit trail)
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS aborted_sales_log (
-      id TEXT PRIMARY KEY,
-      cashier_id TEXT,
-      manager_id TEXT,
-      items_json TEXT,
-      total_minor INTEGER,
-      void_reason TEXT,
-      created_at INTEGER,
-      sync_hlc TEXT
+  console.log(`[Database] Startup schema version check: current = v${currentVersion}, target = v${SERVER_SCHEMA_VERSION}`);
+
+  // 3. Run incremental migrations
+  for (let v = currentVersion + 1; v <= SERVER_SCHEMA_VERSION; v++) {
+    console.log(`[Database] Migrating database schema to version v${v}...`);
+    if (v === 1) {
+      // Create all basic domain tables
+      await db.exec(`
+        -- Domain 1: Transaction & LineItem Core Ledger
+        CREATE TABLE IF NOT EXISTS transactions (
+          id TEXT PRIMARY KEY,
+          employee_id TEXT,
+          terminal_id TEXT,
+          subtotal_minor_units INTEGER,
+          tax_minor_units INTEGER,
+          total_minor_units INTEGER,
+          status TEXT, -- DRAFT, HELD, COMPLETED, VOIDED
+          payment_mode TEXT DEFAULT 'CASH',
+          payment_details TEXT DEFAULT '',
+          created_at INTEGER,
+          updated_at INTEGER,
+          sync_hlc TEXT,
+          is_dirty INTEGER,
+          is_deleted INTEGER
+        );
+
+        CREATE TABLE IF NOT EXISTS line_items (
+          id TEXT PRIMARY KEY,
+          transaction_id TEXT,
+          sku TEXT,
+          quantity INTEGER,
+          unit_price_minor_units INTEGER,
+          applied_discount_minor_units INTEGER,
+          sync_hlc TEXT,
+          is_deleted INTEGER,
+          FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
+          FOREIGN KEY(sku) REFERENCES inventory_catalog(sku) ON DELETE RESTRICT
+        );
+
+        -- Domain 2: Inventory & Stock Management
+        CREATE TABLE IF NOT EXISTS inventory_catalog (
+          sku TEXT PRIMARY KEY,
+          gtin TEXT UNIQUE,
+          name TEXT,
+          base_price_minor_units INTEGER,
+          stock_level INTEGER,
+          reserved_stock INTEGER,
+          search_vector TEXT,
+          col_version INTEGER,
+          sync_hlc TEXT
+        );
+
+        -- Domain 3: Employee Access & Security
+        CREATE TABLE IF NOT EXISTS employees (
+          id TEXT PRIMARY KEY,
+          auth_hash TEXT,
+          biometric_token TEXT,
+          role TEXT, -- CASHIER, MANAGER, ADMIN
+          is_active INTEGER,
+          sync_hlc TEXT
+        );
+
+        -- Domain 4: Sync Queues & CRDT Delta payloads
+        CREATE TABLE IF NOT EXISTS crsql_changes (
+          table_name TEXT,
+          pk TEXT,
+          cid TEXT,
+          val TEXT,
+          col_version INTEGER,
+          db_version INTEGER,
+          site_id TEXT,
+          cl INTEGER, -- causal length (1 for active, 0 for tombstone/delete)
+          sync_hlc TEXT,
+          PRIMARY KEY (table_name, pk, cid)
+        );
+
+        -- Domain 5: Speech Analytics & Fraud Logs
+        CREATE TABLE IF NOT EXISTS speech_analytics_logs (
+          id TEXT PRIMARY KEY,
+          transaction_id TEXT,
+          utterance_duration_ms INTEGER,
+          speaker_diarization_tag TEXT,
+          filler_word_count INTEGER,
+          sentiment_score REAL,
+          flagged_fraud_risk INTEGER,
+          disfluency_markers TEXT, -- JSON Array
+          sync_hlc TEXT,
+          FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE SET NULL
+        );
+
+        -- Domain 7: Customers
+        CREATE TABLE IF NOT EXISTS customers (
+          id TEXT PRIMARY KEY,
+          name TEXT,
+          phone TEXT,
+          email TEXT,
+          total_spend_cents INTEGER DEFAULT 0,
+          visits INTEGER DEFAULT 0,
+          created_at INTEGER,
+          sync_hlc TEXT
+        );
+
+        -- Domain 8: Categories
+        CREATE TABLE IF NOT EXISTS categories (
+          name TEXT PRIMARY KEY,
+          sync_hlc TEXT
+        );
+
+        -- Domain 9: Stock Movements
+        CREATE TABLE IF NOT EXISTS stock_movements (
+          id TEXT PRIMARY KEY,
+          sku TEXT,
+          change_qty INTEGER,
+          reason TEXT,
+          created_at INTEGER,
+          sync_hlc TEXT
+        );
+
+        -- Domain 10: Employee Shifts
+        CREATE TABLE IF NOT EXISTS employee_shifts (
+          id TEXT PRIMARY KEY,
+          employee_id TEXT,
+          clock_in INTEGER,
+          clock_out INTEGER,
+          sync_hlc TEXT
+        );
+
+        -- Domain 11: Approved Devices Whitelist
+        CREATE TABLE IF NOT EXISTS approved_devices (
+          node_id TEXT PRIMARY KEY,
+          device_name TEXT,
+          user_agent TEXT,
+          approved_at INTEGER,
+          status TEXT
+        );
+
+        -- Domain 12: Distributors (Suppliers)
+        CREATE TABLE IF NOT EXISTS distributors (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          phone TEXT,
+          email TEXT,
+          address TEXT,
+          credit_limit_minor INTEGER DEFAULT 0,
+          notes TEXT,
+          created_at INTEGER,
+          sync_hlc TEXT,
+          is_deleted INTEGER DEFAULT 0
+        );
+
+        -- Domain 13: Purchase Orders
+        CREATE TABLE IF NOT EXISTS purchase_orders (
+          id TEXT PRIMARY KEY,
+          distributor_id TEXT NOT NULL,
+          status TEXT DEFAULT 'DRAFT', -- DRAFT, SENT, CONFIRMED, PARTIAL, RECEIVED, CANCELLED
+          total_minor INTEGER DEFAULT 0,
+          notes TEXT,
+          expected_delivery INTEGER,
+          created_at INTEGER,
+          updated_at INTEGER,
+          sync_hlc TEXT,
+          is_deleted INTEGER DEFAULT 0
+        );
+
+        -- Domain 14: Purchase Order Line Items
+        CREATE TABLE IF NOT EXISTS po_line_items (
+          id TEXT PRIMARY KEY,
+          po_id TEXT NOT NULL,
+          sku TEXT,
+          product_name TEXT,
+          quantity_ordered INTEGER,
+          quantity_received INTEGER DEFAULT 0,
+          unit_cost_minor INTEGER,
+          sync_hlc TEXT,
+          is_deleted INTEGER DEFAULT 0
+        );
+
+        -- Domain 15: Distributor Payments
+        CREATE TABLE IF NOT EXISTS distributor_payments (
+          id TEXT PRIMARY KEY,
+          distributor_id TEXT NOT NULL,
+          po_id TEXT,
+          amount_minor INTEGER NOT NULL,
+          payment_method TEXT DEFAULT 'CASH',
+          reference_note TEXT,
+          paid_at INTEGER,
+          sync_hlc TEXT,
+          is_deleted INTEGER DEFAULT 0
+        );
+
+        -- Domain 16: Customer Credit Ledger (Udhaar/Khata)
+        CREATE TABLE IF NOT EXISTS customer_credit (
+          id TEXT PRIMARY KEY,
+          customer_id TEXT NOT NULL,
+          transaction_id TEXT,
+          type TEXT, -- CREDIT, PAYMENT
+          amount_minor INTEGER NOT NULL,
+          payment_method TEXT DEFAULT 'CASH',
+          due_date INTEGER,
+          notes TEXT,
+          created_at INTEGER,
+          sync_hlc TEXT,
+          is_deleted INTEGER DEFAULT 0
+        );
+
+        -- Domain 17: FBR E-Invoice Offline Submission Queue (Rule 150XC)
+        CREATE TABLE IF NOT EXISTS fbr_submissions (
+          id TEXT PRIMARY KEY,
+          transaction_id TEXT NOT NULL,
+          invoice_number TEXT NOT NULL,
+          usin TEXT,
+          invoice_payload TEXT NOT NULL,
+          total_minor INTEGER NOT NULL,
+          tax_minor INTEGER NOT NULL,
+          status TEXT DEFAULT 'PENDING',
+          retry_count INTEGER DEFAULT 0,
+          fbr_response TEXT,
+          fbr_response_code INTEGER,
+          fbr_error_details TEXT,
+          created_at INTEGER NOT NULL,
+          submitted_at INTEGER,
+          sync_hlc TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS aborted_sales_log (
+          id TEXT PRIMARY KEY,
+          cashier_id TEXT,
+          manager_id TEXT,
+          items_json TEXT,
+          total_minor INTEGER,
+          void_reason TEXT,
+          created_at INTEGER,
+          sync_hlc TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS telemetry_logs (
+          id TEXT PRIMARY KEY,
+          node_id TEXT,
+          error_type TEXT,
+          error_message TEXT,
+          stack_trace TEXT,
+          hlc TEXT,
+          last_clicks TEXT,
+          created_at INTEGER
+        );
+
+        CREATE TABLE IF NOT EXISTS license_store (
+          key TEXT PRIMARY KEY,
+          value TEXT,
+          updated_at INTEGER
+        );
+
+        CREATE TABLE IF NOT EXISTS stores (
+          id TEXT PRIMARY KEY,
+          phone TEXT UNIQUE NOT NULL,
+          email TEXT UNIQUE NOT NULL,
+          name TEXT NOT NULL,
+          tier TEXT NOT NULL DEFAULT 'TRIAL',
+          mode TEXT NOT NULL DEFAULT 'subscription',
+          status TEXT NOT NULL DEFAULT 'active',
+          expires_at INTEGER, -- Unix timestamp in ms
+          license_key TEXT,
+          hardware_limit INTEGER
+        );
+
+        CREATE TABLE IF NOT EXISTS devices (
+          id TEXT PRIMARY KEY,
+          store_id TEXT,
+          hardware_id TEXT UNIQUE NOT NULL,
+          device_name TEXT NOT NULL,
+          is_active INTEGER DEFAULT 1,
+          FOREIGN KEY(store_id) REFERENCES stores(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS activation_codes (
+          code TEXT PRIMARY KEY,
+          store_id TEXT,
+          phone TEXT NOT NULL,
+          is_used INTEGER DEFAULT 0,
+          expires_at INTEGER NOT NULL, -- Unix timestamp in ms
+          FOREIGN KEY(store_id) REFERENCES stores(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS pending_payments (
+          id TEXT PRIMARY KEY,
+          store_id TEXT,
+          tier TEXT NOT NULL,
+          mode TEXT NOT NULL,
+          amount_paid_minor_units INTEGER NOT NULL,
+          gateway TEXT NOT NULL,
+          transaction_reference TEXT UNIQUE NOT NULL,
+          status TEXT DEFAULT 'PENDING',
+          verification_notes TEXT,
+          created_at INTEGER,
+          verified_at INTEGER,
+          FOREIGN KEY(store_id) REFERENCES stores(id) ON DELETE CASCADE
+        );
+      `);
+    } else if (v === 2) {
+      // Run ALTER TABLE operations to support incremental column additions
+      const alters = [
+        "ALTER TABLE inventory_catalog ADD COLUMN category TEXT DEFAULT 'Uncategorized';",
+        "ALTER TABLE inventory_catalog ADD COLUMN emoji TEXT DEFAULT '';",
+        "ALTER TABLE inventory_catalog ADD COLUMN cost_price_minor_units INTEGER DEFAULT 0;",
+        "ALTER TABLE transactions ADD COLUMN payment_mode TEXT DEFAULT 'CASH';",
+        "ALTER TABLE transactions ADD COLUMN payment_details TEXT DEFAULT '';",
+        "ALTER TABLE employee_shifts ADD COLUMN declared_cash_minor_units INTEGER DEFAULT 0;",
+        "ALTER TABLE employee_shifts ADD COLUMN expected_cash_minor_units INTEGER DEFAULT 0;",
+        "ALTER TABLE employee_shifts ADD COLUMN variance_minor_units INTEGER DEFAULT 0;",
+        "ALTER TABLE inventory_catalog ADD COLUMN is_deleted INTEGER DEFAULT 0;",
+        "ALTER TABLE employees ADD COLUMN is_deleted INTEGER DEFAULT 0;",
+        "ALTER TABLE customers ADD COLUMN is_deleted INTEGER DEFAULT 0;",
+        "ALTER TABLE transactions ADD COLUMN discount_minor_units INTEGER DEFAULT 0;",
+        "ALTER TABLE inventory_catalog ADD COLUMN low_stock_threshold INTEGER DEFAULT 10;",
+        "ALTER TABLE inventory_catalog ADD COLUMN stock_additions INTEGER DEFAULT 0;",
+        "ALTER TABLE inventory_catalog ADD COLUMN stock_subtractions INTEGER DEFAULT 0;",
+        "ALTER TABLE transactions ADD COLUMN voided_transaction_id TEXT;",
+        "ALTER TABLE transactions ADD COLUMN void_reason TEXT;",
+        "ALTER TABLE fbr_submissions ADD COLUMN usin TEXT;",
+        "ALTER TABLE fbr_submissions ADD COLUMN fbr_response_code INTEGER;",
+        "ALTER TABLE fbr_submissions ADD COLUMN fbr_error_details TEXT;"
+      ];
+      for (const sql of alters) {
+        try { await db.exec(sql); } catch (e) { /* ignore if already exists */ }
+      }
+    } else if (v === 3) {
+      // Version 3: Add val_type and backfill it
+      try {
+        await db.exec("ALTER TABLE crsql_changes ADD COLUMN val_type TEXT DEFAULT 'string';");
+      } catch (e) { /* ignore if already exists */ }
+      
+      // Perform detailed value-type inference backfills
+      try {
+        const rows = await db.all("SELECT rowid, val FROM crsql_changes WHERE val_type IS NULL OR val_type = 'string'");
+        for (const row of rows) {
+          let inferredType = 'string';
+          const val = row.val;
+          if (val === 'true' || val === 'false') {
+            inferredType = 'boolean';
+          } else if (val !== null && val !== '' && !isNaN(Number(val)) && !/^\s*$/.test(val)) {
+            inferredType = 'number';
+          } else if (val !== null && ((val.startsWith('{') && val.endsWith('}')) || (val.startsWith('[') && val.endsWith(']')))) {
+            try {
+              JSON.parse(val);
+              inferredType = 'object';
+            } catch (jsonErr) {}
+          }
+          if (inferredType !== 'string') {
+            await db.run("UPDATE crsql_changes SET val_type = ? WHERE rowid = ?", [inferredType, row.rowid]);
+          }
+        }
+        console.log(`[Database] Backfilled val_type column values dynamically.`);
+      } catch (backfillErr) {
+        console.error('[Database] Failed to backfill val_type column in v3 migration:', backfillErr.message);
+      }
+    }
+
+    // Atomically write new schema version
+    await db.run(
+      "INSERT OR REPLACE INTO local_preferences (key, val_type, value_payload, updated_at) VALUES ('schema_version', 'string', ?, ?)",
+      [v.toString(), Date.now()]
     );
-    CREATE TABLE IF NOT EXISTS telemetry_logs (
-      id TEXT PRIMARY KEY,
-      node_id TEXT,
-      error_type TEXT,
-      error_message TEXT,
-      stack_trace TEXT,
-      hlc TEXT,
-      last_clicks TEXT,
-      created_at INTEGER
-    );
-    CREATE TABLE IF NOT EXISTS license_store (
-      key TEXT PRIMARY KEY,
-      value TEXT,
-      updated_at INTEGER
-    );
-    CREATE TABLE IF NOT EXISTS stores (
-      id TEXT PRIMARY KEY,
-      phone TEXT UNIQUE NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      name TEXT NOT NULL,
-      tier TEXT NOT NULL DEFAULT 'TRIAL',
-      mode TEXT NOT NULL DEFAULT 'subscription',
-      status TEXT NOT NULL DEFAULT 'active',
-      expires_at INTEGER, -- Unix timestamp in ms
-      license_key TEXT,
-      hardware_limit INTEGER
-    );
-    CREATE TABLE IF NOT EXISTS devices (
-      id TEXT PRIMARY KEY,
-      store_id TEXT,
-      hardware_id TEXT UNIQUE NOT NULL,
-      device_name TEXT NOT NULL,
-      is_active INTEGER DEFAULT 1,
-      FOREIGN KEY(store_id) REFERENCES stores(id)
-    );
-    CREATE TABLE IF NOT EXISTS activation_codes (
-      code TEXT PRIMARY KEY,
-      store_id TEXT,
-      phone TEXT NOT NULL,
-      is_used INTEGER DEFAULT 0,
-      expires_at INTEGER NOT NULL, -- Unix timestamp in ms
-      FOREIGN KEY(store_id) REFERENCES stores(id)
-    );
-    CREATE TABLE IF NOT EXISTS pending_payments (
-      id TEXT PRIMARY KEY,
-      store_id TEXT,
-      tier TEXT NOT NULL,
-      mode TEXT NOT NULL,
-      amount_paid_minor_units INTEGER NOT NULL,
-      gateway TEXT NOT NULL,
-      transaction_reference TEXT UNIQUE NOT NULL,
-      status TEXT DEFAULT 'PENDING',
-      verification_notes TEXT,
-      created_at INTEGER,
-      verified_at INTEGER,
-      FOREIGN KEY(store_id) REFERENCES stores(id) ON DELETE CASCADE
-    );
-  `);
+  }
 
   // Create indexing matrices to optimize reads/writes
   await db.exec(`
@@ -509,6 +532,29 @@ async function initDatabase(terminalId) {
     "INSERT OR REPLACE INTO approved_devices (node_id, device_name, user_agent, approved_at, status) VALUES (?, ?, ?, ?, ?)",
     ['nexova_master_pc_01', 'Master Register PC (Web UI)', 'Browser UI', Date.now(), 'APPROVED']
   );
+
+  // Ensure db_generation_id exists in local_preferences
+  const genRow = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'db_generation_id'");
+  if (!genRow) {
+    const newGenId = crypto.randomUUID();
+    await db.run(
+      "INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('db_generation_id', 'STR', ?, 0, ?)",
+      [newGenId, Date.now()]
+    );
+    await logLocalChange('local_preferences', 'db_generation_id', 'value_payload', newGenId, 1, 1, currentHlc.tick());
+    console.log('[Database] Initialized db_generation_id:', newGenId);
+  }
+
+  // Ensure sync_salt exists in local_preferences
+  const saltRow = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'sync_salt'");
+  if (!saltRow) {
+    const randomSalt = crypto.randomBytes(16).toString('hex');
+    await db.run(
+      "INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('sync_salt', 'STR', ?, 0, ?)",
+      [randomSalt, Date.now()]
+    );
+    console.log('[Database] Initialized random sync_salt.');
+  }
 
   // Run seeding if inventory is empty
   const hasInventory = await db.get('SELECT COUNT(*) as count FROM inventory_catalog');
@@ -643,17 +689,27 @@ async function logLocalChange(tableName, pk, cid, val, colVersion, cl, syncHlc) 
   const siteId = currentHlc.nodeId;
   const valStr = val === null ? null : String(val);
   
+  let valType = 'string';
+  if (typeof val === 'number') {
+    valType = 'number';
+  } else if (typeof val === 'boolean') {
+    valType = 'boolean';
+  } else if (val && typeof val === 'object') {
+    valType = 'object';
+  }
+  
   await db.run(`
-    INSERT INTO crsql_changes (table_name, pk, cid, val, col_version, db_version, site_id, cl, sync_hlc)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO crsql_changes (table_name, pk, cid, val, val_type, col_version, db_version, site_id, cl, sync_hlc)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(table_name, pk, cid) DO UPDATE SET
       val = excluded.val,
+      val_type = excluded.val_type,
       col_version = excluded.col_version,
       db_version = excluded.db_version,
       site_id = excluded.site_id,
       cl = excluded.cl,
       sync_hlc = excluded.sync_hlc
-  `, [tableName, pk, cid, valStr, colVersion, currentDbVersion, siteId, cl, syncHlc]);
+  `, [tableName, pk, cid, valStr, valType, colVersion, currentDbVersion, siteId, cl, syncHlc]);
 }
 
 // Fetch all local changes since a given db_version
@@ -728,22 +784,24 @@ async function applyRemoteChangesInternal(changes) {
       
       if (shouldApply) {
         appliedCount++;
+        const valType = change.val_type || 'string';
         // Apply write directly to the target schema table
-        await applyChangeToSchema(change.table_name, change.pk, change.cid, change.val, change.cl);
+        await applyChangeToSchema(change.table_name, change.pk, change.cid, change.val, change.cl, valType);
         
         // Log the change into our crsql_changes virtual catalog (mark db_version higher)
         currentDbVersion++;
         await db.run(`
-          INSERT INTO crsql_changes (table_name, pk, cid, val, col_version, db_version, site_id, cl, sync_hlc)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO crsql_changes (table_name, pk, cid, val, val_type, col_version, db_version, site_id, cl, sync_hlc)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(table_name, pk, cid) DO UPDATE SET
             val = excluded.val,
+            val_type = excluded.val_type,
             col_version = excluded.col_version,
             db_version = excluded.db_version,
             site_id = excluded.site_id,
             cl = excluded.cl,
             sync_hlc = excluded.sync_hlc
-        `, [change.table_name, change.pk, change.cid, change.val, change.col_version, currentDbVersion, change.site_id, change.cl, change.sync_hlc]);
+        `, [change.table_name, change.pk, change.cid, change.val, valType, change.col_version, currentDbVersion, change.site_id, change.cl, change.sync_hlc]);
 
         // Recalculate stock level if PN delta changes or manual stock updates occur
         if (change.table_name === 'inventory_catalog_counters') {
@@ -767,7 +825,7 @@ async function applyRemoteChangesInternal(changes) {
 }
 
 // Dynamically updates a single column value in the main tables based on delta CRDTs
-async function applyChangeToSchema(tableName, pk, cid, val, cl) {
+async function applyChangeToSchema(tableName, pk, cid, val, cl, valType = 'string') {
   // If cl is 0, it denotes a soft deletion (tombstone)
   if (cl === 0) {
     if (tableName === 'transactions') {
@@ -796,10 +854,34 @@ async function applyChangeToSchema(tableName, pk, cid, val, cl) {
     return;
   }
 
-  // Parse numeric values back to integers
+  // Parse values back to correct types based on valType or inference
   let parsedVal = val;
-  if (val !== null && !isNaN(val) && val.trim() !== '') {
-    parsedVal = Number(val);
+  if (val !== null) {
+    let inferredType = valType;
+    if (!inferredType || inferredType === 'string') {
+      if (val === 'true' || val === 'false') {
+        inferredType = 'boolean';
+      } else if (val !== '' && !isNaN(Number(val)) && !/^\s*$/.test(val)) {
+        inferredType = 'number';
+      } else if ((val.startsWith('{') && val.endsWith('}')) || (val.startsWith('[') && val.endsWith(']'))) {
+        try {
+          JSON.parse(val);
+          inferredType = 'object';
+        } catch (e) {}
+      }
+    }
+
+    if (inferredType === 'number') {
+      parsedVal = Number(val);
+    } else if (inferredType === 'boolean') {
+      parsedVal = (val === 'true' || val === '1' || val === 1);
+    } else if (inferredType === 'object') {
+      try {
+        parsedVal = JSON.parse(val);
+      } catch (e) {
+        parsedVal = val;
+      }
+    }
   }
 
   // Check if target record exists. If not, insert a skeletal record to populate.

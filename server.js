@@ -38,6 +38,8 @@ const {
   SERVER_SCHEMA_VERSION
 } = require('./database');
 const { pushOfflineBackupsToCloud } = require('./supabase-sync');
+const logger = require('./lib/logger');
+const { requireBody, sanitizeHtml, validate } = require('./lib/validator');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -53,7 +55,18 @@ const loginLimiter = rateLimit({
 
 // Apply security middleware (Issue 9)
 app.use(helmet({
-  contentSecurityPolicy: false, // Enable inline assets for the POS web application context
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+      imgSrc: ["'self'", "data:", "https://*"],
+      connectSrc: ["'self'", "ws:", "wss:", "http://*", "https://*"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: null
+    }
+  }
 }));
 app.use(cors());
 
@@ -127,23 +140,77 @@ let globalSyncQueue = Promise.resolve();
 
 // Modular helpers for encryption wrapping
 let serverPassphrase = '';
+let syncSalt = 'nexova_salt';
 let jwtSecret = 'default_nexova_secret';
+
+function sendError(res, err, defaultStatus = 500) {
+  let status = defaultStatus;
+  let message = err.message || String(err);
+
+  // Classify common error types
+  if (err.name === 'ValidationError' || message.includes('required') || message.includes('invalid input') || message.includes('invalid JSON')) {
+    status = 400;
+  } else if (message.includes('unauthorized') || message.includes('license required') || message.includes('PIN is required') || message.includes('Invalid security PIN')) {
+    status = 401;
+  } else if (message.includes('forbidden') || message.includes('denied') || message.includes('already completed')) {
+    status = 403;
+  } else if (message.includes('not found')) {
+    status = 404;
+  }
+
+  const isProd = process.env.NODE_ENV === 'production';
+  res.status(status).json({
+    error: isProd ? 'An internal error occurred. Please contact support.' : message
+  });
+}
 
 async function loadServerPassphrase() {
   try {
-    const row = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'sync_passphrase'");
-    if (row && row.value_payload) {
-      serverPassphrase = row.value_payload;
-      jwtSecret = crypto.createHash('sha256').update(serverPassphrase).digest('hex');
-      console.log(`[SyncHub] Server synchronization passphrase loaded successfully. JWT secret initialized.`);
+    // Generate secure default jwtSecret if it doesn't exist
+    const jwtRow = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'jwt_secret'");
+    if (jwtRow && jwtRow.value_payload) {
+      jwtSecret = jwtRow.value_payload;
+    } else {
+      jwtSecret = crypto.randomBytes(32).toString('hex');
+      await db.run(
+        "INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('jwt_secret', 'STR', ?, 1, ?)",
+        [jwtSecret, Date.now()]
+      );
+    }
+
+    // Load store-specific sync salt
+    const saltRow = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'sync_salt'");
+    if (saltRow && saltRow.value_payload) {
+      syncSalt = saltRow.value_payload;
+    }
+
+    if (process.env.SYNC_PASSPHRASE) {
+      serverPassphrase = process.env.SYNC_PASSPHRASE;
+      jwtSecret = crypto.createHash('sha256').update(serverPassphrase + syncSalt).digest('hex');
+      console.log(`[SyncHub] Server synchronization passphrase loaded from process.env successfully. JWT secret initialized.`);
+    } else {
+      const row = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'sync_passphrase'");
+      if (row && row.value_payload) {
+        serverPassphrase = row.value_payload;
+        jwtSecret = crypto.createHash('sha256').update(serverPassphrase + syncSalt).digest('hex');
+        console.log(`[SyncHub] Server synchronization passphrase loaded successfully. JWT secret initialized.`);
+      }
     }
   } catch (err) {
-    console.warn('[SyncHub] Failed to load passphrase from DB:', err.message);
+    console.warn('[SyncHub] Failed to load passphrase:', err.message);
   }
 }
 
-function deriveKey(passphrase, salt = 'nexova_salt') {
-  return crypto.pbkdf2Sync(passphrase, salt, 1000, 32, 'sha256');
+const derivedKeyCache = new Map();
+
+function deriveKey(passphrase, salt = syncSalt) {
+  const cacheKey = `${passphrase}:${salt}`;
+  if (derivedKeyCache.has(cacheKey)) {
+    return derivedKeyCache.get(cacheKey);
+  }
+  const key = crypto.pbkdf2Sync(passphrase, salt, 100000, 32, 'sha256');
+  derivedKeyCache.set(cacheKey, key);
+  return key;
 }
 
 function generateToken(nodeId, role = 'TERMINAL') {
@@ -1028,14 +1095,8 @@ app.get('/api/license/check', async (req, res) => {
   }
 });
 
-// 1. Employee Login verification (Requires approved device token, loopback requests bypass requireAuth)
-app.post('/api/employee/login', loginLimiter, (req, res, next) => {
-  const isLocal = req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1';
-  if (isLocal) {
-    return next();
-  }
-  requireAuth(req, res, next);
-}, async (req, res) => {
+// 1. Employee Login verification (Requires approved device token)
+app.post('/api/employee/login', loginLimiter, requireAuth, async (req, res) => {
   const { pin } = req.body;
   if (!pin) return res.status(400).json({ error: 'PIN is required' });
 
@@ -1052,7 +1113,7 @@ app.post('/api/employee/login', loginLimiter, (req, res, next) => {
       res.status(401).json({ error: 'Invalid security PIN code' });
     }
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -1230,27 +1291,22 @@ app.get('/api/system/status', async (req, res) => {
   }
 });
 
-// 6.d System Factory Reset (Loopback-only or authenticated ADMIN PIN)
+// 6.d System Factory Reset (Authenticated ADMIN PIN)
 app.post('/api/system/reset', async (req, res) => {
-  const ip = req.ip || req.connection.remoteAddress;
-  const isLocal = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip === 'localhost';
-  
-  let authorized = isLocal;
-  if (!authorized) {
-    const { pin } = req.body;
-    if (pin) {
-      try {
-        const employees = await db.all("SELECT * FROM employees WHERE role = 'ADMIN' AND is_active = 1");
-        const matched = employees.find(emp => verifyPin(pin, emp.auth_hash));
-        if (matched) authorized = true;
-      } catch (e) {
-        console.error('[SystemReset] Error verifying admin PIN:', e);
-      }
+  let authorized = false;
+  const { pin } = req.body;
+  if (pin) {
+    try {
+      const employees = await db.all("SELECT * FROM employees WHERE role = 'ADMIN' AND is_active = 1");
+      const matched = employees.find(emp => verifyPin(pin, emp.auth_hash));
+      if (matched) authorized = true;
+    } catch (e) {
+      console.error('[SystemReset] Error verifying admin PIN:', e);
     }
   }
 
   if (!authorized) {
-    return res.status(403).json({ error: 'Access denied: Loopback connection or Admin PIN required.' });
+    return res.status(403).json({ error: 'Access denied: Admin PIN required.' });
   }
 
   try {
@@ -1261,7 +1317,7 @@ app.post('/api/system/reset', async (req, res) => {
     res.json({ success: true, message: 'Server database factory reset completed successfully.' });
   } catch (err) {
     console.error('[SystemReset] Factory reset failed:', err);
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -1305,14 +1361,58 @@ app.post('/api/devices/register', async (req, res) => {
   }
 });
 
+// 6.a.1 Health Check — Database connectivity, sync status, license status
+app.get('/api/health', async (req, res) => {
+  const health = {
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    database: 'unknown',
+    sync: { pendingChanges: 0 },
+    license: 'unknown',
+    schemaVersion: SERVER_SCHEMA_VERSION
+  };
+  try {
+    await db.get('SELECT 1');
+    health.database = 'connected';
+  } catch (dbErr) {
+    health.database = 'error';
+    health.status = 'degraded';
+    logger.error('Health', 'Database connectivity check failed', dbErr);
+  }
+  try {
+    const pending = await db.get('SELECT COUNT(*) as cnt FROM crsql_changes WHERE db_version > 0');
+    health.sync.pendingChanges = pending ? pending.cnt : 0;
+  } catch (_) {}
+  try {
+    const licRow = await db.get("SELECT value FROM license_store WHERE key = 'license_status'");
+    health.license = licRow ? licRow.value : 'not_set';
+  } catch (_) {
+    health.license = 'error';
+  }
+  if (health.database === 'error') health.status = 'degraded';
+  res.status(health.status === 'ok' ? 200 : 503).json(health);
+});
+
 // 6.b Bootstrap Core Onboarding Configuration (Public / Safe)
-app.post('/api/bootstrap', async (req, res) => {
+app.post('/api/bootstrap',
+  requireBody({
+    storeName: 'STORE_NAME',
+    adminPin: 'ADMIN_PIN',
+    syncPassphrase: 'SYNC_PASSPHRASE'
+  }),
+  async (req, res) => {
   const { storeName, taxRate, adminPin, syncPassphrase, theme } = req.body;
   if (!storeName || !adminPin || !syncPassphrase) {
     return res.status(400).json({ error: 'Store Name, Owner PIN, and Sync Passphrase are required.' });
   }
 
   try {
+    // Lock check
+    const onboardingCompleteRow = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'onboarding_complete'");
+    if (onboardingCompleteRow && onboardingCompleteRow.value_payload === 'true') {
+      return res.status(403).json({ error: 'System is already bootstrapped and initialized.' });
+    }
+
     const now = Date.now();
     await db.run("INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('onboarding_complete', 'BOOL', 'true', 1, ?)", [now]);
     await db.run("INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('store_name', 'STR', ?, 0, ?)", [storeName, now]);
@@ -1330,17 +1430,19 @@ app.post('/api/bootstrap', async (req, res) => {
       await db.run("INSERT INTO employees (id, auth_hash, biometric_token, role, is_active, sync_hlc) VALUES (?, ?, 'secure_biometric_admin_token', 'ADMIN', 1, ?)", [empId, hashed, getHlc().tick()]);
     }
 
-    // Set server passphrase in memory and update JWT secret key
+    // Set server passphrase in memory and update JWT secret key with sync salt
     serverPassphrase = syncPassphrase;
-    jwtSecret = crypto.createHash('sha256').update(serverPassphrase).digest('hex');
+    derivedKeyCache.clear();
+    jwtSecret = crypto.createHash('sha256').update(serverPassphrase + syncSalt).digest('hex');
     console.log(`[SyncHub] Server bootstrapped with new passphrase. Sync encryption ACTIVE.`);
 
     res.json({ success: true });
   } catch (err) {
     console.error('[SyncHub] Bootstrap failed:', err);
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
-});
+}); // end bootstrap inner handler
+
 
 // GET /api/sync/bootstrap — Shallow database bootstrap pull for new paired terminals
 app.get('/api/sync/bootstrap', async (req, res) => {

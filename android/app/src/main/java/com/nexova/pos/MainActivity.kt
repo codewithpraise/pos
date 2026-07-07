@@ -23,16 +23,81 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import java.io.File
 import java.io.FileOutputStream
+import java.io.PrintWriter
+import java.io.StringWriter
 import java.net.HttpURLConnection
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.URL
+import java.security.KeyStore
 import java.security.SecureRandom
 import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+
+// ============================================================
+// Android Keystore Helper – hardware-backed AES-GCM key management
+// Generates and stores a 256-bit AES key in the hardware-backed
+// Android Keystore under the alias "nexova_prefs_key".
+// ============================================================
+object KeyStoreHelper {
+    private const val KEY_ALIAS = "nexova_prefs_key"
+    private const val ANDROID_KEYSTORE = "AndroidKeyStore"
+    private const val TRANSFORMATION = "AES/GCM/NoPadding"
+
+    fun getOrCreateSecretKey(): SecretKey {
+        val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).also { it.load(null) }
+        keyStore.getKey(KEY_ALIAS, null)?.let { return it as SecretKey }
+        val keyGen = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE)
+        val spec = KeyGenParameterSpec.Builder(
+            KEY_ALIAS,
+            KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+        )
+            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+            .setKeySize(256)
+            .setRandomizedEncryptionRequired(true)
+            .build()
+        keyGen.init(spec)
+        return keyGen.generateKey()
+    }
+
+    /** Encrypt a plaintext string using the Keystore key. Returns Base64-encoded "iv:ciphertext". */
+    fun encrypt(plaintext: String): String {
+        val key = getOrCreateSecretKey()
+        val cipher = Cipher.getInstance(TRANSFORMATION)
+        cipher.init(Cipher.ENCRYPT_MODE, key)
+        val iv = cipher.iv
+        val encrypted = cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8))
+        val combined = ByteArray(iv.size + encrypted.size)
+        System.arraycopy(iv, 0, combined, 0, iv.size)
+        System.arraycopy(encrypted, 0, combined, iv.size, encrypted.size)
+        return Base64.encodeToString(combined, Base64.NO_WRAP)
+    }
+
+    /** Decrypt a Base64-encoded "iv+ciphertext" blob produced by encrypt(). Returns empty string on failure. */
+    fun decrypt(encoded: String): String {
+        return try {
+            val combined = Base64.decode(encoded, Base64.NO_WRAP)
+            if (combined.size < 13) return ""
+            val iv = combined.copyOfRange(0, 12)
+            val ciphertext = combined.copyOfRange(12, combined.size)
+            val key = getOrCreateSecretKey()
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, iv))
+            String(cipher.doFinal(ciphertext), Charsets.UTF_8)
+        } catch (e: Exception) {
+            Log.e("KeyStoreHelper", "Decryption failed: ${e.message}")
+            ""
+        }
+    }
+}
 
 class MainActivity : AppCompatActivity() {
 
@@ -41,31 +106,101 @@ class MainActivity : AppCompatActivity() {
     private var serverUrl: String = ""
     private var uploadMessage: ValueCallback<Array<Uri>>? = null
     private val FILE_CHOOSER_REQUEST_CODE = 1234
-    
+    private val REQUEST_INSTALL_PACKAGES_CODE = 9999
+
     // Track file downloaded for installer callback
     private var downloadedApkFile: File? = null
+
+    @Volatile
+    private var currentLoadedUrl: String = ""
+
+    private val keyCache = java.util.concurrent.ConcurrentHashMap<String, SecretKeySpec>()
+    private var sessionSalt: ByteArray? = null
+
+    private fun getSessionSalt(): ByteArray {
+        var salt = sessionSalt
+        if (salt == null) {
+            salt = ByteArray(16)
+            SecureRandom().nextBytes(salt)
+            sessionSalt = salt
+        }
+        return salt
+    }
+
+    private fun getDerivedKey(passphrase: String, salt: ByteArray): SecretKeySpec {
+        val saltHex = salt.joinToString("") { "%02x".format(it) }
+        val cacheKey = "$passphrase:$saltHex"
+        keyCache[cacheKey]?.let { return it }
+        
+        val spec = PBEKeySpec(passphrase.toCharArray(), salt, 600000, 256)
+        val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+        val secretKey = SecretKeySpec(factory.generateSecret(spec).encoded, "AES")
+        keyCache[cacheKey] = secretKey
+        return secretKey
+    }
+
+    private fun isUrlAllowed(url: String): Boolean {
+        val uri = Uri.parse(url)
+        val scheme = uri.scheme ?: return false
+        if (scheme == "https" || scheme == "file") return true
+        if (scheme == "http") {
+            val host = uri.host ?: return false
+            if (host == "localhost" || host == "127.0.0.1" || host == "::1") return true
+            if (host.startsWith("192.168.") || host.startsWith("10.")) return true
+            if (host.startsWith("172.")) {
+                val parts = host.split(".")
+                if (parts.size >= 2) {
+                    val secondOctet = parts[1].toIntOrNull()
+                    if (secondOctet != null && secondOctet in 16..31) return true
+                }
+            }
+            return false
+        }
+        return false
+    }
+
+    private fun isCurrentOriginTrusted(): Boolean {
+        val url = currentLoadedUrl
+        if (url.startsWith("file:///android_asset/")) return true
+        if (serverUrl.isNotEmpty() && url.startsWith(serverUrl)) {
+            return isUrlAllowed(url)
+        }
+        return false
+    }
 
     // ============================================================
     // CRITICAL FIX: JavascriptInterface MUST be a named inner class.
     // Anonymous `object { }` in Kotlin does NOT expose @JavascriptInterface
     // methods to JavaScript -- they are silently stripped by the compiler.
-    // This was the ROOT CAUSE of ALL crypto/PIN failures on mobile.
     // ============================================================
     inner class AndroidPOSBridge {
 
         @JavascriptInterface
         fun setServerUrl(url: String) {
+            if (!isCurrentOriginTrusted()) {
+                Log.w("AndroidPOSBridge", "setServerUrl call rejected: untrusted origin.")
+                return
+            }
             runOnUiThread {
-                prefs.edit().putString("server_url", url).apply()
+                try {
+                    val encrypted = KeyStoreHelper.encrypt(url)
+                    prefs.edit().putString("server_url_enc", encrypted).apply()
+                } catch (e: Exception) {
+                    Log.w("AndroidPOSBridge", "Keystore unavailable, falling back to plaintext: ${e.message}")
+                    prefs.edit().putString("server_url", url).apply()
+                }
                 serverUrl = url
                 Toast.makeText(this@MainActivity, "Server updated: $url", Toast.LENGTH_SHORT).show()
             }
         }
 
         // PBKDF2-SHA256: mirrors Node.js crypto.pbkdf2 and client-db.js verifyPinClient.
-        // Called when window.crypto.subtle is unavailable on HTTP (Android WebView on LAN).
         @JavascriptInterface
         fun pbkdf2(password: String, saltHex: String, iterations: Int, keyLen: Int): String {
+            if (!isCurrentOriginTrusted()) {
+                Log.w("AndroidPOSBridge", "pbkdf2 call rejected: untrusted origin.")
+                return ""
+            }
             return try {
                 val saltBytes = ByteArray(saltHex.length / 2)
                 for (i in saltBytes.indices) {
@@ -83,51 +218,103 @@ class MainActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun encryptAES(text: String, passphrase: String): String {
+            if (!isCurrentOriginTrusted()) {
+                Log.w("AndroidPOSBridge", "encryptAES call rejected: untrusted origin.")
+                return ""
+            }
+            if (text.isEmpty() || passphrase.isEmpty()) return ""
             return try {
-                val salt = "nexova_salt".toByteArray()
-                val spec = PBEKeySpec(passphrase.toCharArray(), salt, 600000, 256)
-                val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
-                val secretKey = SecretKeySpec(factory.generateSecret(spec).encoded, "AES")
+                val salt = getSessionSalt()
+                val secretKey = getDerivedKey(passphrase, salt)
                 val cipher = Cipher.getInstance("AES/GCM/NoPadding")
                 val iv = ByteArray(12)
                 SecureRandom().nextBytes(iv)
                 cipher.init(Cipher.ENCRYPT_MODE, secretKey, GCMParameterSpec(128, iv))
                 val encrypted = cipher.doFinal(text.toByteArray(Charsets.UTF_8))
-                val combined = ByteArray(iv.size + encrypted.size)
-                System.arraycopy(iv, 0, combined, 0, iv.size)
-                System.arraycopy(encrypted, 0, combined, iv.size, encrypted.size)
+                
+                val combined = ByteArray(salt.size + iv.size + encrypted.size)
+                System.arraycopy(salt, 0, combined, 0, salt.size)
+                System.arraycopy(iv, 0, combined, salt.size, iv.size)
+                System.arraycopy(encrypted, 0, combined, salt.size + iv.size, encrypted.size)
+                
                 Base64.encodeToString(combined, Base64.NO_WRAP)
             } catch (e: Exception) {
                 Log.e("AndroidPOSBridge", "encryptAES error: ${e.message}")
-                text
+                ""
             }
         }
 
         @JavascriptInterface
         fun decryptAES(base64Ciphertext: String, passphrase: String): String {
+            if (!isCurrentOriginTrusted()) {
+                Log.w("AndroidPOSBridge", "decryptAES call rejected: untrusted origin.")
+                return ""
+            }
+            if (base64Ciphertext.isEmpty() || passphrase.isEmpty()) return ""
             return try {
                 val combined = Base64.decode(base64Ciphertext, Base64.NO_WRAP)
-                val iv = combined.copyOfRange(0, 12)
-                val encrypted = combined.copyOfRange(12, combined.size)
-                val salt = "nexova_salt".toByteArray()
-                val spec = PBEKeySpec(passphrase.toCharArray(), salt, 600000, 256)
-                val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
-                val secretKey = SecretKeySpec(factory.generateSecret(spec).encoded, "AES")
+                if (combined.size < 28) return ""
+                
+                val salt = combined.copyOfRange(0, 16)
+                val iv = combined.copyOfRange(16, 28)
+                val encrypted = combined.copyOfRange(28, combined.size)
+                
+                val secretKey = getDerivedKey(passphrase, salt)
                 val cipher = Cipher.getInstance("AES/GCM/NoPadding")
                 val ivSpec = GCMParameterSpec(128, iv)
                 cipher.init(Cipher.DECRYPT_MODE, secretKey, ivSpec)
                 String(cipher.doFinal(encrypted), Charsets.UTF_8)
             } catch (e: Exception) {
                 Log.e("AndroidPOSBridge", "decryptAES error: ${e.message}")
-                base64Ciphertext
+                ""
             }
         }
 
         @JavascriptInterface
-        fun getServerUrl(): String = serverUrl
+        fun getServerUrl(): String {
+            if (!isCurrentOriginTrusted()) {
+                Log.w("AndroidPOSBridge", "getServerUrl call rejected: untrusted origin.")
+                return ""
+            }
+            return serverUrl
+        }
+
+        @JavascriptInterface
+        fun setAutoStartOnBoot(enabled: Boolean) {
+            if (!isCurrentOriginTrusted()) {
+                Log.w("AndroidPOSBridge", "setAutoStartOnBoot call rejected: untrusted origin.")
+                return
+            }
+            runOnUiThread {
+                prefs.edit().putBoolean("auto_start_on_boot", enabled).apply()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    try {
+                        val directContext = createDeviceProtectedStorageContext()
+                        val directPrefs = directContext.getSharedPreferences("nexova_prefs", Context.MODE_PRIVATE)
+                        directPrefs.edit().putBoolean("auto_start_on_boot", enabled).apply()
+                    } catch (e: Exception) {
+                        Log.e("AndroidPOSBridge", "Device protected storage write error: ${e.message}")
+                    }
+                }
+                Toast.makeText(this@MainActivity, "Auto-start on boot: " + (if (enabled) "ENABLED" else "DISABLED"), Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        @JavascriptInterface
+        fun getAutoStartOnBoot(): Boolean {
+            if (!isCurrentOriginTrusted()) {
+                Log.w("AndroidPOSBridge", "getAutoStartOnBoot call rejected: untrusted origin.")
+                return false
+            }
+            return prefs.getBoolean("auto_start_on_boot", false)
+        }
 
         @JavascriptInterface
         fun consumeFreshStartFlag(): Boolean {
+            if (!isCurrentOriginTrusted()) {
+                Log.w("AndroidPOSBridge", "consumeFreshStartFlag call rejected: untrusted origin.")
+                return false
+            }
             val fresh = prefs.getBoolean("fresh_start", false)
             if (fresh) {
                 prefs.edit().putBoolean("fresh_start", false).apply()
@@ -139,7 +326,10 @@ class MainActivity : AppCompatActivity() {
     inner class POSHardwareInterface {
         @JavascriptInterface
         fun printReceipt(base64Payload: String) {
-            // Decode payload and route directly to Android BluetoothAdapter or UsbManager
+            if (!isCurrentOriginTrusted()) {
+                Log.w("POSHardwareInterface", "printReceipt call rejected: untrusted origin.")
+                return
+            }
             Log.d("POSHardwareInterface", "printReceipt called with base64 payload size: ${base64Payload.length}")
         }
     }
@@ -147,13 +337,11 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // 1. Immersive screen mode & absolute secure screen (kiosk data theft prevention)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
         
         prefs = getSharedPreferences("nexova_prefs", Context.MODE_PRIVATE)
 
-        // 4. Request Bluetooth dynamic runtime permission (Android 12+) and Camera permission
         val requiredPermissions = mutableListOf<String>()
         if (checkSelfPermission(android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             requiredPermissions.add(android.Manifest.permission.CAMERA)
@@ -170,7 +358,20 @@ class MainActivity : AppCompatActivity() {
             requestPermissions(requiredPermissions.toTypedArray(), 100)
         }
 
-        // 5. Intercept physical back button / gesture and route to WebView checking for active modal state
+        // Install uncaught exception handler — writes crash diagnostics to local file
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            try {
+                val sw = StringWriter()
+                throwable.printStackTrace(PrintWriter(sw))
+                val crashLog = "${System.currentTimeMillis()} [CRASH] Thread=${thread.name}\n$sw\n"
+                val logFile = File(getExternalFilesDir(null), "nexova_crash.log")
+                logFile.appendText(crashLog)
+                Log.e("NexovaCrash", crashLog)
+            } catch (_: Exception) {}
+            defaultHandler?.uncaughtException(thread, throwable)
+        }
+
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 val wv = webView
@@ -180,7 +381,6 @@ class MainActivity : AppCompatActivity() {
                             if (wv.canGoBack()) {
                                 wv.goBack()
                             } else {
-                                // Hard kiosk trap: never exit the app via physical back button
                                 Toast.makeText(this@MainActivity, "Use the logout button to exit", Toast.LENGTH_SHORT).show()
                             }
                         }
@@ -189,9 +389,15 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        serverUrl = prefs.getString("server_url", "") ?: ""
+        serverUrl = try {
+            val enc = prefs.getString("server_url_enc", null)
+            if (!enc.isNullOrEmpty()) KeyStoreHelper.decrypt(enc).ifEmpty { prefs.getString("server_url", "") ?: "" }
+            else prefs.getString("server_url", "") ?: ""
+        } catch (e: Exception) {
+            Log.w("MainActivity", "Keystore read failed, using plaintext fallback: ${e.message}")
+            prefs.getString("server_url", "") ?: ""
+        }
 
-        // If no server URL is set, load the local Web UI setup wizard directly
         if (serverUrl.isEmpty()) {
             serverUrl = "file:///android_asset/index.html"
         }
@@ -205,10 +411,14 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
     private fun showWebView(url: String) {
+        if (!isUrlAllowed(url)) {
+            Log.e("MainActivity", "Blocked attempt to load unsafe URL: $url")
+            runOnUiThread { showReconnectScreen() }
+            return
+        }
         webView?.destroy()
         val wv = WebView(this)
         
-        // Lock overscroll and disable scrollbars
         wv.overScrollMode = View.OVER_SCROLL_NEVER
         wv.isVerticalScrollBarEnabled = false
         wv.isHorizontalScrollBarEnabled = false
@@ -217,13 +427,12 @@ class MainActivity : AppCompatActivity() {
             javaScriptEnabled = true
             domStorageEnabled = true
             databaseEnabled = true
-            allowFileAccess = true
-            allowContentAccess = true
-            allowFileAccessFromFileURLs = true
-            allowUniversalAccessFromFileURLs = true
-            // FIX: Allow AudioContext without user gesture (fixes audio crash on PIN tap & scanner beep)
+            allowFileAccess = false
+            allowContentAccess = false
+            allowFileAccessFromFileURLs = false
+            allowUniversalAccessFromFileURLs = false
             mediaPlaybackRequiresUserGesture = false
-            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
             cacheMode = WebSettings.LOAD_DEFAULT
             setSupportZoom(false)
             builtInZoomControls = false
@@ -233,15 +442,29 @@ class MainActivity : AppCompatActivity() {
             setRenderPriority(WebSettings.RenderPriority.HIGH)
         }
 
-        // Register the named-class bridges
+        // Enable Google Safe Browsing on Android 8.0+ (API 26+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            wv.settings.safeBrowsingEnabled = true
+        }
+
         wv.addJavascriptInterface(AndroidPOSBridge(), "AndroidPOS")
         wv.addJavascriptInterface(POSHardwareInterface(), "AndroidHardware")
 
-        // Intercept downloads (silent background download for OTA APK packages)
         wv.setDownloadListener { downloadUrl, _, _, _, _ ->
             if (downloadUrl.endsWith(".apk") || downloadUrl.contains("/downloads/")) {
-                Toast.makeText(this, "Starting silent download of Nexova POS update...", Toast.LENGTH_SHORT).show()
-                startApkDownload(downloadUrl)
+                if (!isCurrentOriginTrusted()) {
+                    Log.w("MainActivity", "Blocked update download request from untrusted origin: $currentLoadedUrl")
+                    return@setDownloadListener
+                }
+                androidx.appcompat.app.AlertDialog.Builder(this@MainActivity, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
+                    .setTitle("Software Update")
+                    .setMessage("An update is available for Nexova POS. Do you want to download and install this update?")
+                    .setPositiveButton("Download") { _, _ ->
+                        Toast.makeText(this@MainActivity, "Downloading Nexova POS update...", Toast.LENGTH_SHORT).show()
+                        startApkDownload(downloadUrl)
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
             }
         }
 
@@ -307,7 +530,6 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPermissionRequest(request: PermissionRequest) {
                 runOnUiThread { 
-                    // Explicitly capture and grant WebRTC/Camera permissions for barcode scanners
                     if (request.resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)) {
                         request.grant(arrayOf(PermissionRequest.RESOURCE_VIDEO_CAPTURE))
                     } else {
@@ -339,7 +561,7 @@ class MainActivity : AppCompatActivity() {
                 
                 val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
                     addCategory(Intent.CATEGORY_OPENABLE)
-                    type = "text/csv" // CSV picker for importing catalog
+                    type = "text/csv"
                 }
                 try {
                     startActivityForResult(
@@ -356,6 +578,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         wv.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                currentLoadedUrl = url ?: ""
+            }
             override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                 if (request?.isForMainFrame == true) {
                     Log.e("NexovaPOS", "Page load error: ${error?.description}")
@@ -364,6 +589,11 @@ class MainActivity : AppCompatActivity() {
             }
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val reqUrl = request?.url?.toString() ?: return false
+                if (!isUrlAllowed(reqUrl)) {
+                    Log.w("MainActivity", "Blocked unsafe non-LAN cleartext URL: $reqUrl")
+                    Toast.makeText(this@MainActivity, "Access to insecure link blocked", Toast.LENGTH_SHORT).show()
+                    return true
+                }
                 if (reqUrl.startsWith("file:///android_asset/")) return false
                 return !reqUrl.startsWith("http://${getServerHost()}")
             }
@@ -440,6 +670,16 @@ class MainActivity : AppCompatActivity() {
             val result = WebChromeClient.FileChooserParams.parseResult(resultCode, data)
             uploadMessage?.onReceiveValue(result)
             uploadMessage = null
+        } else if (requestCode == REQUEST_INSTALL_PACKAGES_CODE) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (packageManager.canRequestPackageInstalls()) {
+                    downloadedApkFile?.let { file ->
+                        executeApkInstall(file)
+                    }
+                } else {
+                    Toast.makeText(this, "Update cancelled: installation permission denied.", Toast.LENGTH_LONG).show()
+                }
+            }
         }
     }
 
@@ -490,8 +730,8 @@ class MainActivity : AppCompatActivity() {
                     val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
                         data = Uri.parse("package:$packageName")
                     }
-                    startActivity(intent)
-                    Toast.makeText(this, "Please allow Nexova POS to install updates, then trigger the update again.", Toast.LENGTH_LONG).show()
+                    startActivityForResult(intent, REQUEST_INSTALL_PACKAGES_CODE)
+                    Toast.makeText(this, "Please authorize Nexova POS to install updates.", Toast.LENGTH_LONG).show()
                     return
                 } catch (e: Exception) {
                     Log.e("MainActivity", "Failed to start Unknown Apps setting: ${e.message}")

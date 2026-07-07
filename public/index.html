@@ -818,6 +818,20 @@
                 </select>
               </div>
               <div class="settings-row">
+                <label>Language:</label>
+                <select id="setting-ui-lang" class="pos-input" aria-label="Language">
+                  <option value="en">English / Roman English</option>
+                  <option value="ur">Urdu (اردو رسم الخط)</option>
+                </select>
+              </div>
+              <div class="settings-row">
+                <label>Terminology Style:</label>
+                <select id="setting-ui-jargon" class="pos-input" aria-label="Terminology Style">
+                  <option value="informal">Bazaar Style (Maal, Khata, Gullak)</option>
+                  <option value="formal">Corporate Style (Inventory, Ledger, Cash Drawer)</option>
+                </select>
+              </div>
+              <div class="settings-row">
                 <label>Receipt Column Width (Chars):</label>
                 <select id="setting-receipt-width" class="pos-input" aria-label="Setting Receipt Width">
                   <option value="42">42 Columns (Wide standard)</option>
@@ -843,6 +857,10 @@
               <div class="settings-row flex-row">
                 <label for="setting-fbr-enabled" style="cursor: pointer;">Enable FBR Tax Integration</label>
                 <input type="checkbox" id="setting-fbr-enabled" class="pos-checkbox">
+              </div>
+              <div class="settings-row flex-row" id="row-setting-auto-start" style="display: none;">
+                <label for="setting-auto-start" style="cursor: pointer;">Launch automatically on device boot</label>
+                <input type="checkbox" id="setting-auto-start" class="pos-checkbox">
               </div>
               <div class="settings-row">
                 <label>HID Scanner Timing Threshold (ms):</label>

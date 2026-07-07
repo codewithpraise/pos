@@ -6,9 +6,50 @@
 (function() {
   const globalScope = typeof self !== 'undefined' ? self : window;
 
+  const keyCache = new Map();
+  let sessionSalt = null;
+
+  function getSessionSalt() {
+    if (!sessionSalt) {
+      sessionSalt = crypto.getRandomValues(new Uint8Array(16));
+    }
+    return sessionSalt;
+  }
+
+  function uint8ArrayToHex(arr) {
+    return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function arrayBufferToBase64(uint8Array) {
+    let binary = '';
+    const len = uint8Array.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
+    }
+    return btoa(binary);
+  }
+
+  function base64ToUint8Array(base64String) {
+    const binary = atob(base64String);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  }
+
   const CryptoEngine = {
-    async deriveKey(passphrase, salt = 'nexova_salt') {
+    async deriveKey(passphrase, salt) {
+      const saltString = typeof salt === 'string' ? salt : uint8ArrayToHex(salt);
+      const cacheKey = passphrase + ':' + saltString;
+      if (keyCache.has(cacheKey)) {
+        return keyCache.get(cacheKey);
+      }
+
       const enc = new TextEncoder();
+      const saltBytes = typeof salt === 'string' ? enc.encode(salt) : salt;
+
       const keyMaterial = await crypto.subtle.importKey(
         'raw',
         enc.encode(passphrase),
@@ -16,10 +57,10 @@
         false,
         ['deriveBits', 'deriveKey']
       );
-      return crypto.subtle.deriveKey(
+      const derivedKey = await crypto.subtle.deriveKey(
         {
           name: 'PBKDF2',
-          salt: enc.encode(salt),
+          salt: saltBytes,
           iterations: 600000, // OWASP recommendation
           hash: 'SHA-256'
         },
@@ -28,6 +69,9 @@
         true,
         ['encrypt', 'decrypt']
       );
+
+      keyCache.set(cacheKey, derivedKey);
+      return derivedKey;
     },
 
     async encrypt(text, passphrase) {
@@ -37,7 +81,8 @@
         return globalScope.AndroidPOS.encryptAES(text, passphrase);
       }
       const enc = new TextEncoder();
-      const key = await this.deriveKey(passphrase);
+      const salt = getSessionSalt();
+      const key = await this.deriveKey(passphrase, salt);
       const iv = crypto.getRandomValues(new Uint8Array(12));
       const encrypted = await crypto.subtle.encrypt(
         { name: 'AES-GCM', iv: iv },
@@ -45,11 +90,12 @@
         enc.encode(text)
       );
       
-      const combined = new Uint8Array(iv.length + encrypted.byteLength);
-      combined.set(iv);
-      combined.set(new Uint8Array(encrypted), iv.length);
+      const combined = new Uint8Array(salt.length + iv.length + encrypted.byteLength);
+      combined.set(salt, 0);
+      combined.set(iv, salt.length);
+      combined.set(new Uint8Array(encrypted), salt.length + iv.length);
       
-      return btoa(String.fromCharCode.apply(null, combined));
+      return arrayBufferToBase64(combined);
     },
 
     async decrypt(ciphertextB64, passphrase) {
@@ -59,15 +105,17 @@
         return globalScope.AndroidPOS.decryptAES(ciphertextB64, passphrase);
       }
       try {
-        const raw = atob(ciphertextB64);
-        const combined = new Uint8Array(raw.length);
-        for (let i = 0; i < raw.length; i++) {
-          combined[i] = raw.charCodeAt(i);
+        const combined = base64ToUint8Array(ciphertextB64);
+        if (combined.length < 28) {
+          // Payload is too short to contain salt and IV; might be plaintext
+          return ciphertextB64;
         }
         
-        const iv = combined.slice(0, 12);
-        const ciphertext = combined.slice(12);
-        const key = await this.deriveKey(passphrase);
+        const salt = combined.slice(0, 16);
+        const iv = combined.slice(16, 28);
+        const ciphertext = combined.slice(28);
+        
+        const key = await this.deriveKey(passphrase, salt);
         
         const decrypted = await crypto.subtle.decrypt(
           { name: 'AES-GCM', iv: iv },
@@ -806,7 +854,7 @@
       return dbVersion;
     },
 
-    async applyChangeToSchema(tableName, pk, cid, val, cl) {
+    async applyChangeToSchema(tableName, pk, cid, val, cl, valType = 'string') {
       if (cl === 0) {
         // Soft deletion
         if (tableName === 'transactions') {
@@ -880,10 +928,34 @@
         return;
       }
 
-      // Convert value formats
+      // Convert value formats using type spec or inference
       let parsedVal = val;
-      if (val !== null && !isNaN(val) && val.trim() !== '') {
-        parsedVal = Number(val);
+      if (val !== null) {
+        let inferredType = valType;
+        if (!inferredType || inferredType === 'string') {
+          if (val === 'true' || val === 'false') {
+            inferredType = 'boolean';
+          } else if (val !== '' && !isNaN(Number(val)) && !/^\s*$/.test(val)) {
+            inferredType = 'number';
+          } else if ((val.startsWith('{') && val.endsWith('}')) || (val.startsWith('[') && val.endsWith(']'))) {
+            try {
+              JSON.parse(val);
+              inferredType = 'object';
+            } catch (e) {}
+          }
+        }
+
+        if (inferredType === 'number') {
+          parsedVal = Number(val);
+        } else if (inferredType === 'boolean') {
+          parsedVal = (val === 'true' || val === '1' || val === 1);
+        } else if (inferredType === 'object') {
+          try {
+            parsedVal = JSON.parse(val);
+          } catch (e) {
+            parsedVal = val;
+          }
+        }
       }
 
       // Sync settings schema update

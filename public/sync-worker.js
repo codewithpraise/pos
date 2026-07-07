@@ -78,13 +78,14 @@ async function initializeSyncEngine(serverUrl) {
         if (shouldApply) {
           applied++;
           // Apply mutation to target store
-          await NexovaDB.applyChangeToSchema(change.table_name, change.pk, change.cid, change.val, change.cl);
+          await NexovaDB.applyChangeToSchema(change.table_name, change.pk, change.cid, change.val, change.cl, change.val_type || 'string');
           // Save CRDT metadata locally
           await NexovaDB.put('crsql_changes', {
             table_name: change.table_name,
             pk: change.pk,
             cid: change.cid,
             val: change.val,
+            val_type: change.val_type || 'string',
             col_version: change.col_version,
             db_version: (await NexovaDB.getDbVersion()) + 1,
             site_id: change.site_id,
@@ -321,13 +322,14 @@ self.onmessage = async (event) => {
             if (shouldApply) {
               applied++;
               // Apply mutation to target store
-              await NexovaDB.applyChangeToSchema(change.table_name, change.pk, change.cid, change.val, change.cl);
+              await NexovaDB.applyChangeToSchema(change.table_name, change.pk, change.cid, change.val, change.cl, change.val_type || 'string');
               // Save CRDT metadata locally
               await NexovaDB.put('crsql_changes', {
                 table_name: change.table_name,
                 pk: change.pk,
                 cid: change.cid,
                 val: change.val,
+                val_type: change.val_type || 'string',
                 col_version: change.col_version,
                 db_version: (await NexovaDB.getDbVersion()) + 1,
                 site_id: change.site_id,

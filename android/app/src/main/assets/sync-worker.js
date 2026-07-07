@@ -179,11 +179,18 @@ self.onmessage = async (event) => {
   // so they can run before the sync engine is fully initialized.
   const dbOnlyMessages = ['SAVE_TELEMETRY', 'CHECK_OVERSELL'];
   if (!syncClient && type !== 'INIT' && !dbOnlyMessages.includes(type)) {
-    // Silently drop non-critical messages before init, return error only for meaningful ops
-    if (type !== 'GET_PREFERENCES' && type !== 'GET_CATALOG' && type !== 'GET_EMPLOYEES' && type !== 'GET_CUSTOMERS' && type !== 'GET_TRANSACTIONS') {
-      return postMessage({ type: 'ERROR', error: 'SyncEngine not initialized' });
+    // Silently drop ALL non-mutation messages before init — they re-fire after INIT_SUCCESS
+    const silentDropTypes = [
+      'GET_PREFERENCES', 'GET_CATALOG', 'GET_EMPLOYEES', 'GET_CUSTOMERS',
+      'GET_TRANSACTIONS', 'GET_ANALYTICS', 'GET_SHIFTS', 'HYDRATE_DB',
+      'GET_INVENTORY', 'GET_ALERTS', 'GET_STAFF'
+    ];
+    if (silentDropTypes.includes(type)) {
+      return; // Silently drop — will re-fire after sync engine initializes
     }
-    return; // Silently drop data-fetch requests before init — they will re-fire after INIT_SUCCESS
+    // For mutation-type messages before init, return a soft warning (not a loud error)
+    console.warn(`[SyncWorker] Message "${type}" received before sync engine initialized — queuing skipped.`);
+    return; // Do not postMessage ERROR — avoids the "[App] Worker encountered error" console spam
   }
 
   try {
@@ -821,6 +828,8 @@ self.onmessage = async (event) => {
         // If the passphrase is saved, immediately update sync client credentials.
         if (key === 'sync_passphrase' && syncClient) {
           syncClient.passphrase = String(val);
+          syncClient.passphraseInvalid = false; // Reset mismatch flag — user has provided a new key
+          syncClient.backoffTime = 1000; // Reset backoff too
           syncClient.connect(); // Force reconnect using new key
         }
 

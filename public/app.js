@@ -1338,6 +1338,28 @@
       state.preferences['store_receipt_width'] = e.target.value;
     });
 
+    document.getElementById('setting-ui-lang')?.addEventListener('change', (e) => {
+      const lang = e.target.value;
+      setLanguage(lang);
+    });
+
+    document.getElementById('setting-ui-jargon')?.addEventListener('change', (e) => {
+      const jargon = e.target.value;
+      syncWorker.postMessage({
+        type: 'SAVE_PREFERENCE',
+        payload: { key: 'system_jargon_mode', val: jargon }
+      });
+      state.preferences['system_jargon_mode'] = jargon;
+      setLanguage(state.preferences['system_language'] || 'en');
+    });
+
+    document.getElementById('setting-auto-start')?.addEventListener('change', (e) => {
+      const enabled = e.target.checked;
+      if (window.AndroidPOS && typeof window.AndroidPOS.setAutoStartOnBoot === 'function') {
+        window.AndroidPOS.setAutoStartOnBoot(enabled);
+      }
+    });
+
     document.getElementById('setting-glass-fx').addEventListener('change', (e) => {
       const enabled = e.target.checked;
       syncWorker.postMessage({
@@ -3071,6 +3093,12 @@
     if (taxModeEl) taxModeEl.value = taxMode;
 
     const lang = state.preferences['system_language'] || 'en';
+    const jargon = state.preferences['system_jargon_mode'] || 'informal';
+    const langEl = document.getElementById('setting-ui-lang');
+    if (langEl) langEl.value = lang;
+    const jargonEl = document.getElementById('setting-ui-jargon');
+    if (jargonEl) jargonEl.value = jargon;
+
     setTimeout(() => {
       setLanguage(lang);
     }, 100);
@@ -3111,6 +3139,13 @@
 
     const fbrToggle = document.getElementById('setting-fbr-enabled');
     if (fbrToggle) fbrToggle.checked = state.preferences['fbr_integration_enabled'] === 'true';
+
+    if (window.AndroidPOS && typeof window.AndroidPOS.getAutoStartOnBoot === 'function') {
+      const autoStartEl = document.getElementById('setting-auto-start');
+      const autoStartRow = document.getElementById('row-setting-auto-start');
+      if (autoStartRow) autoStartRow.style.display = 'flex';
+      if (autoStartEl) autoStartEl.checked = window.AndroidPOS.getAutoStartOnBoot();
+    }
 
     const scanThreshold = state.preferences['hid_scan_threshold_ms'] || '80';
     const scanThresholdEl = document.getElementById('setting-scan-threshold');
@@ -3175,7 +3210,71 @@
     performLicenseCheck();
   }
 
-  // Dynamic UI Language Localization (English / Urdu)
+  // Production-grade bilingual matrix for Pakistani retail environments
+  window.__nexovaI18n = {
+    en: {
+      formal: {
+        dashboard: "Dashboard & Analytics",
+        inventory: "Product Catalog",
+        suppliers: "Suppliers & Distributors",
+        customers: "Customer Profiles",
+        credit: "Customer Credit Ledger",
+        purchase_orders: "Purchase Orders",
+        sales_log: "Transaction History",
+        receipt: "Invoice Receipt",
+        void_sale: "Void Transaction",
+        drawer_cash: "Cash Drawer Balance",
+        expense: "Petty Cash Out",
+        tax: "FBR Regulatory Tax"
+      },
+      informal: {
+        dashboard: "Kamai & Summary",
+        inventory: "Dukaan ka Maal (Stock)",
+        suppliers: "Wholesaler / Party",
+        customers: "Grahak List",
+        credit: "Udhaar Khata",
+        purchase_orders: "Naye Maal ka Order",
+        sales_log: "Bikri ka Record",
+        receipt: "Bill Parchi",
+        void_sale: "Parchi Kaatna",
+        drawer_cash: "Gullak Cash",
+        expense: "Rozana Kharcha",
+        tax: "Sarkari Tax (FBR)"
+      }
+    },
+    ur: {
+      formal: {
+        dashboard: "اہم معلومات و ڈیش بورڈ",
+        inventory: "فہرستِ اشیاء",
+        suppliers: "فراہم کنندگان (ڈسٹریبیوٹرز)",
+        customers: "صارفین کے پروفائلز",
+        credit: "واجبات کا کھاتہ",
+        purchase_orders: "خریداری کے احکامات",
+        sales_log: "ریکارڈ فروخت ہسٹری",
+        receipt: "رسیدِ فروخت",
+        void_sale: "منسوخیِ لین دین",
+        drawer_cash: "نقد دراز کا بیلنس",
+        expense: "اخراجاتِ نقد",
+        tax: "سرکاری ٹیکس (ایف بی آر)"
+      },
+      informal: {
+        dashboard: "کمائی اور سمری",
+        inventory: "دکان کا مال (اسٹاک)",
+        suppliers: "ہول سیلر / پارٹی",
+        customers: "گاہک لسٹ",
+        credit: "ادھار کھاتا",
+        purchase_orders: "نئے مال کا آرڈر",
+        sales_log: "بکری کا ریکارڈ",
+        receipt: "بل پرچی",
+        void_sale: "پرچی کاٹنا",
+        drawer_cash: "گلک کیش",
+        expense: "روزانہ کا خرچہ",
+        tax: "سرکاری ٹیکس (ایف بی آر)"
+      }
+    }
+  };
+
+  // Dynamic UI Language & Jargon Mode Localization
   function setLanguage(lang) {
     state.preferences['system_language'] = lang;
     syncWorker.postMessage({
@@ -3189,6 +3288,9 @@
       langBtn.textContent = isUrdu ? 'English' : 'اردو';
     }
 
+    const jargonMode = state.preferences['system_jargon_mode'] || 'informal';
+    const i18n = window.__nexovaI18n[lang] ? window.__nexovaI18n[lang][jargonMode] : window.__nexovaI18n['en']['informal'];
+
     // Toggle RTL document flow and fonts
     if (isUrdu) {
       document.body.classList.add('rtl');
@@ -3201,18 +3303,18 @@
     // Map of CSS selectors to translated texts
     const textMapping = {
       '[data-screen="checkout"] .nav-label': isUrdu ? 'بلنگ (بِکاو)' : 'Checkout',
-      '[data-screen="catalog"] .nav-label': isUrdu ? 'مصنوعات' : 'Catalog',
-      '[data-screen="catalog-manager"] .nav-label': isUrdu ? 'انوینٹری' : 'Inventory',
-      '[data-screen="history"] .nav-label': isUrdu ? 'ریکارڈ تاریخ' : 'History',
-      '[data-screen="analytics"] .nav-label': isUrdu ? 'رپورٹس' : 'Analytics',
-      '[data-screen="customers"] .nav-label': isUrdu ? 'گاہکوں کا کھاتہ' : 'Customers',
-      '[data-screen="suppliers"] .nav-label': isUrdu ? 'سپلائرز' : 'Suppliers',
-      '[data-screen="credit-book"] .nav-label': isUrdu ? 'ادھار بک' : 'Credit Book',
+      '[data-screen="catalog"] .nav-label': i18n.inventory,
+      '[data-screen="catalog-manager"] .nav-label': i18n.inventory,
+      '[data-screen="history"] .nav-label': i18n.sales_log,
+      '[data-screen="analytics"] .nav-label': i18n.dashboard,
+      '[data-screen="customers"] .nav-label': i18n.customers,
+      '[data-screen="suppliers"] .nav-label': i18n.suppliers,
+      '[data-screen="credit-book"] .nav-label': i18n.credit,
       '[data-screen="staff"] .nav-label': isUrdu ? 'سٹاف ممبرز' : 'Staff',
       '[data-screen="logs"] .nav-label': isUrdu ? 'لاگز' : 'Sync Logs',
       '[data-screen="settings"] .nav-label': isUrdu ? 'سیٹنگز' : 'Settings',
       '.ledger-header .title': isUrdu ? 'موجودہ آرڈر' : 'Active Order',
-      '#btn-void-order': isUrdu ? 'آرڈر کینسل کریں' : 'Void Order',
+      '#btn-void-order': i18n.void_sale,
       '.cart-table th:nth-child(1)': isUrdu ? 'آئٹم' : 'Product',
       '.cart-table th:nth-child(2)': isUrdu ? 'قیمت' : 'Price',
       '.cart-table th:nth-child(3)': isUrdu ? 'تعداد' : 'Qty',

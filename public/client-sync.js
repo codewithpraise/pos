@@ -1,5 +1,6 @@
 (function() {
   const globalScope = typeof self !== 'undefined' ? self : window;
+  const DB_SCHEMA_VERSION = 3;
 
   class BrowserHLC {
   constructor(nodeId) {

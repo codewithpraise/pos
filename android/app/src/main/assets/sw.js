@@ -4,7 +4,7 @@
 // v7 - Hardened fetch handler: no unhandled rejections, no undefined responses
 // ============================================================================
 
-const CACHE_NAME = 'nexova-pos-cache-v7';
+const CACHE_NAME = 'nexova-pos-cache-v8';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

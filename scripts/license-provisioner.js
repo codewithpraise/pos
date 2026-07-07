@@ -24,8 +24,7 @@ function loadPrivateKey() {
       // Base64 decoded key
       return Buffer.from(PRIVATE_KEY_ENV, 'base64').toString('utf8');
     } catch (e) {
-      console.error('[ERROR] Failed to decode LICENSE_PRIVATE_KEY from environment variable:', e.message);
-      process.exit(1);
+      throw new Error(`Failed to decode LICENSE_PRIVATE_KEY from environment variable: ${e.message}`);
     }
   }
 
@@ -35,27 +34,22 @@ function loadPrivateKey() {
     return fs.readFileSync(PRIVATE_KEY_FILE, 'utf8');
   }
 
-  console.error('[ERROR] Ed25519 Private Key was not found.');
-  console.error('        Set the LICENSE_PRIVATE_KEY environment variable or create .license-private.pem');
-  process.exit(1);
+  throw new Error('Ed25519 Private Key was not found. Set the LICENSE_PRIVATE_KEY environment variable or create .license-private.pem');
 }
 
 function mintToken(storeId, hwid, tier, mode, days, status = 'active') {
   if (!storeId || !hwid || !tier || !mode) {
-    console.error('[ERROR] Missing arguments. Required: storeId, hwid, tier, mode');
-    process.exit(1);
+    throw new Error('Missing arguments for license minting. Required: storeId, hwid, tier, mode');
   }
 
   const allowedTiers = ['TRIAL', 'STARTER', 'PRO', 'ENTERPRISE'];
   if (!allowedTiers.includes(tier)) {
-    console.error(`[ERROR] Invalid tier: ${tier}. Allowed: ${allowedTiers.join(', ')}`);
-    process.exit(1);
+    throw new Error(`Invalid tier: ${tier}. Allowed: ${allowedTiers.join(', ')}`);
   }
 
   const allowedModes = ['subscription', 'lifetime'];
   if (!allowedModes.includes(mode)) {
-    console.error(`[ERROR] Invalid mode: ${mode}. Allowed: ${allowedModes.join(', ')}`);
-    process.exit(1);
+    throw new Error(`Invalid mode: ${mode}. Allowed: ${allowedModes.join(', ')}`);
   }
 
   const privateKey = loadPrivateKey();
@@ -65,8 +59,7 @@ function mintToken(storeId, hwid, tier, mode, days, status = 'active') {
   if (mode === 'subscription') {
     const numDays = parseInt(days || 3); // Default to 3 days trial
     if (isNaN(numDays) || numDays <= 0) {
-      console.error('[ERROR] Invalid subscription days value.');
-      process.exit(1);
+      throw new Error('Invalid subscription days value.');
     }
     exp = iat + (numDays * 24 * 60 * 60 * 1000);
   }
@@ -118,12 +111,17 @@ if (require.main === module) {
     process.exit(0);
   }
 
-  const result = mintToken(store, hwid, tier, mode, days);
-  console.log('\n=== MINTED LICENSE METADATA ===');
-  console.log(JSON.stringify(result.payload, null, 2));
-  console.log('\n=== ENCODED LICENSE KEY ===');
-  console.log(result.token);
-  console.log('\n[OK] Provisioning complete.');
+  try {
+    const result = mintToken(store, hwid, tier, mode, days);
+    console.log('\n=== MINTED LICENSE METADATA ===');
+    console.log(JSON.stringify(result.payload, null, 2));
+    console.log('\n=== ENCODED LICENSE KEY ===');
+    console.log(result.token);
+    console.log('\n[OK] Provisioning complete.');
+  } catch (err) {
+    console.error('[ERROR]', err.message);
+    process.exit(1);
+  }
 }
 
 module.exports = { mintToken };

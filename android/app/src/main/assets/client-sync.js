@@ -70,6 +70,7 @@ class SyncClient {
     this.offlineQueue = []; // Queue to store changes while offline
     this.reconnectTimer = null;
     this.backoffTime = 1000;
+    this.passphraseInvalid = false; // Set true on PASSPHRASE_MISMATCH — halts reconnect loop
   }
 
   // Helper to serialize and optionally encrypt outgoing payload
@@ -92,9 +93,15 @@ class SyncClient {
 
   connect() {
     if (!this.isOnline) return;
-    
-    // Close existing connection if any
-    if (this.ws) {
+
+    // Guard: do not reconnect while passphrase is known bad — user must fix it first
+    if (this.passphraseInvalid) {
+      console.warn(`[SyncClient:${this.nodeId}] connect() blocked: passphraseInvalid=true. Update passphrase in Settings first.`);
+      return;
+    }
+
+    // Safely close existing connection only if it is still open/connecting
+    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
       this.ws.close();
     }
 
@@ -116,24 +123,31 @@ class SyncClient {
       this.backoffTime = 1000;
       this.onConnectionChange(true);
       console.log(`[SyncClient:${this.nodeId}] WebSocket connected. Handshaking...`);
-      
-      if (this.deviceToken) {
-        // Send AUTH payload (encrypted if passphrase is set)
-        const enc = await this.encryptMessage({
-          type: 'AUTH',
-          token: this.deviceToken,
-          nodeId: this.nodeId
-        });
-        this.ws.send(enc);
-      } else {
-        // Send REGISTER payload (encrypted if passphrase is set)
-        const enc = await this.encryptMessage({
-          type: 'REGISTER',
-          nodeId: this.nodeId,
-          deviceName: this.deviceName || 'Web Register',
-          userAgent: navigator.userAgent
-        });
-        this.ws.send(enc);
+
+      try {
+        let enc;
+        if (this.deviceToken) {
+          // Send AUTH payload (encrypted if passphrase is set)
+          enc = await this.encryptMessage({
+            type: 'AUTH',
+            token: this.deviceToken,
+            nodeId: this.nodeId
+          });
+        } else {
+          // Send REGISTER payload (encrypted if passphrase is set)
+          enc = await this.encryptMessage({
+            type: 'REGISTER',
+            nodeId: this.nodeId,
+            deviceName: this.deviceName || 'Web Register',
+            userAgent: navigator.userAgent
+          });
+        }
+        // Guard: socket may have closed while we awaited encryption
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          this.ws.send(enc);
+        }
+      } catch (encErr) {
+        console.error(`[SyncClient:${this.nodeId}] Handshake send failed:`, encErr);
       }
     };
 
@@ -157,6 +171,12 @@ class SyncClient {
       this.onConnectionChange(false);
       console.log(`[SyncClient:${this.nodeId}] WebSocket closed.`);
       
+      // Do NOT reconnect if passphrase was rejected — require user to fix passphrase first
+      if (this.passphraseInvalid) {
+        console.warn(`[SyncClient:${this.nodeId}] Reconnect halted: passphrase mismatch. Fix passphrase in Settings to reconnect.`);
+        return;
+      }
+
       // Attempt reconnection with exponential backoff
       if (this.isOnline) {
         clearTimeout(this.reconnectTimer);
@@ -176,9 +196,11 @@ class SyncClient {
   setOnlineState(state) {
     this.isOnline = state;
     if (state) {
+      // Also clear passphraseInvalid so a manual online-toggle retries after user fixes passphrase
+      // (passphrase reset from Settings already clears this, but belt-and-suspenders)
       this.connect();
     } else {
-      if (this.ws) {
+      if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
         this.ws.close();
       }
       this.isConnected = false;
@@ -245,6 +267,18 @@ class SyncClient {
     
     else if (data.type === 'SYNC_ERROR') {
       console.error(`[SyncClient:${this.nodeId}] Sync error: ${data.error}`);
+      if (data.error === 'PASSPHRASE_MISMATCH') {
+        // Halt reconnection loop — passphrase must be corrected by user in Settings
+        if (!this.passphraseInvalid) {
+          this.passphraseInvalid = true;
+          console.warn(`[SyncClient:${this.nodeId}] PASSPHRASE_MISMATCH — halting auto-reconnect. User must update sync passphrase in Settings.`);
+          globalScope.postMessage({ type: 'SYNC_ERROR', error: data.error });
+          // Close cleanly — onclose will check passphraseInvalid and not reconnect
+          if (this.ws) this.ws.close();
+        }
+        // Suppress further PASSPHRASE_MISMATCH messages once already handled
+        return;
+      }
       globalScope.postMessage({ type: 'SYNC_ERROR', error: data.error });
     }
     

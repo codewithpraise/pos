@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS cloud_crdt_backups (
     pk TEXT NOT NULL,
     cid TEXT NOT NULL,
     val TEXT,
+    val_type TEXT DEFAULT 'string',
     col_version BIGINT NOT NULL,
     db_version BIGINT NOT NULL,
     site_id TEXT NOT NULL,
@@ -30,4 +31,33 @@ CREATE POLICY "Store Isolation Policy" ON cloud_crdt_backups
     FOR ALL
     USING (COALESCE(current_setting('request.headers', true)::json->>'x-store-id', '') = store_id)
     WITH CHECK (COALESCE(current_setting('request.headers', true)::json->>'x-store-id', '') = store_id);
+
+-- Backward compatibility: Alter table if it already exists in the target DB
+ALTER TABLE cloud_crdt_backups ADD COLUMN IF NOT EXISTS val_type TEXT DEFAULT 'string';
+
+-- 5. Create Cloud Schema Info Table
+CREATE TABLE IF NOT EXISTS cloud_schema_info (
+    key TEXT PRIMARY KEY,
+    version INTEGER NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+INSERT INTO cloud_schema_info (key, version) VALUES ('schema_version', 3) ON CONFLICT (key) DO UPDATE SET version = 3, updated_at = NOW();
+
+-- 6. Backfill existing cloud_crdt_backups records with inferred types
+UPDATE cloud_crdt_backups 
+SET val_type = 'number' 
+WHERE val_type IS NULL 
+  AND val IS NOT NULL 
+  AND val != '' 
+  AND val ~ '^-?[0-9]+(\.[0-9]+)?$';
+
+UPDATE cloud_crdt_backups 
+SET val_type = 'boolean' 
+WHERE val_type IS NULL 
+  AND val IN ('true', 'false', '1', '0');
+
+UPDATE cloud_crdt_backups 
+SET val_type = 'string' 
+WHERE val_type IS NULL;
+
 

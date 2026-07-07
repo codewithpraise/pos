@@ -108,3 +108,120 @@ Nexova is a zero-trust, masterless, offline-first Point of Sale (POS) system and
 - `F2`: Park/Void active cart (Requires Manager PIN authentication if items exist).
 - `F5`: Focus search input bar.
 - `F8`: Toggle Speech Coach audio analysis.
+
+---
+
+## ⚙️ Environment Variables
+
+Create a `.env` file in the project root. **Never commit this file.**
+
+```env
+PORT=3000
+NODE_ENV=production
+
+# Preferred over DB-stored passphrase — set this in production
+SYNC_PASSPHRASE=your-strong-passphrase-here
+
+# Supabase Cloud Backup (optional)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+STORE_TERMINAL_ID=my_store_01
+
+LOG_LEVEL=info      # debug | info | warn | error
+MAX_BACKUPS=7       # how many rotated backup files to keep
+```
+
+---
+
+## 🔐 Security Hardening
+
+- **PBKDF2**: 100,000 iterations, SHA-256, 256-bit key. Keys cached in-memory per session.
+- **Android Keystore**: `server_url` stored encrypted via hardware-backed AES-GCM 256-bit keys (`nexova_prefs_key`).
+- **Input Validation**: All sensitive endpoints validated via `lib/validator.js` (store name, PIN, passphrase, UUIDs).
+- **Circuit Breaker**: Supabase sync halts after 5 consecutive failures, resumes after 60 seconds.
+- **val_type Whitelist**: Sync payloads with invalid `val_type` are rejected before upsert.
+- **Google Safe Browsing**: Enabled for Android 8.0+ WebView.
+- **CSP Headers**: Enforced via Helmet with restrictive `defaultSrc: 'self'`.
+- **Crash Logger**: Uncaught exceptions written to `nexova_crash.log` on Android external storage.
+
+---
+
+## 💾 Schema Migrations
+
+Migrations run **automatically** on server startup. Tracked in `local_preferences.schema_version`.
+
+| Version | Changes |
+|---|---|
+| v1 | Full initial schema (all 17 domain tables) |
+| v2 | ALTER TABLE additions: categories, cost price, shift variance, PN-counters, void columns |
+| v3 | `val_type` column on `crsql_changes` + dynamic type backfill |
+
+---
+
+## 🔒 Backup & Restore
+
+### Create a Backup
+```bash
+node scripts/backup.js
+```
+Saves a live SQLite copy to `backups/nexova_YYYY-MM-DD-HHmmSS.db` (last `MAX_BACKUPS` retained).
+
+### Restore a Backup
+```bash
+# Stop the server, restore, restart
+cp backups/nexova_2026-07-07-120000.db nexova.db
+npm start
+```
+Verify restore via `GET /api/health`.
+
+---
+
+## 🩺 Health Check
+
+```
+GET /api/health
+```
+```json
+{
+  "status": "ok",
+  "database": "connected",
+  "sync": { "pendingChanges": 0 },
+  "license": "ACTIVE",
+  "schemaVersion": 3
+}
+```
+
+---
+
+## 🧪 Testing
+
+```bash
+# Syntax checks
+node --check server.js
+node --check lib/logger.js
+node --check lib/validator.js
+node --check scripts/backup.js
+node --check supabase-sync.js
+
+# Android compile check
+cd android && .\gradlew compileDebugKotlin
+
+# E2E flow tests
+node e2e_full_test.js
+```
+
+---
+
+## 📁 Key Files
+
+| File | Purpose |
+|---|---|
+| `server.js` | HTTP + WebSocket core server |
+| `database.js` | SQLite wrapper + incremental migrations |
+| `supabase-sync.js` | Cloud CRDT backup with circuit-breaker |
+| `lib/logger.js` | Zero-dependency structured JSON logger |
+| `lib/validator.js` | Zero-dependency input validator + middleware |
+| `scripts/backup.js` | SQLite VACUUM INTO backup with rotation |
+| `public/client-db.js` | IndexedDB wrapper with type inference |
+| `public/client-sync.js` | WebSocket sync client |
+| `public/sync-worker.js` | Service worker delta merge |
