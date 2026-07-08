@@ -71,6 +71,15 @@ const releaseUpdateLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Rate limiter for admin panel actions (max 20 per minute — prevents brute-force on admin UI)
+const adminActionLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  message: { error: 'Too many admin requests. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Apply security middleware
 app.use(helmet({
   contentSecurityPolicy: {
@@ -2655,6 +2664,120 @@ app.get('/api/version', async (req, res) => {
       schemaVersion: SERVER_SCHEMA_VERSION,
       status: "healthy"
     });
+  }
+});
+
+// Serve Admin Panel
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+// GET /api/admin/payments/all — Full payment proofs list with store info for admin panel
+app.get('/api/admin/payments/all', adminActionLimiter, async (req, res) => {
+  // PIN-based auth: accept adminPin query param or Authorization header
+  const adminPin = req.headers['x-admin-pin'] || req.query.adminPin;
+  if (!adminPin) {
+    return res.status(401).json({ error: 'Admin PIN required.' });
+  }
+  try {
+    const employees = await db.all("SELECT * FROM employees WHERE is_active = 1");
+    const matched = employees.find(emp => verifyPin(adminPin, emp.auth_hash));
+    if (!matched || (matched.role !== 'ADMIN' && matched.role !== 'MANAGER')) {
+      return res.status(403).json({ error: 'Access denied: Admin or Manager PIN required.' });
+    }
+
+    const proofs = await db.all(`
+      SELECT pp.*, s.name as store_name, s.email as store_email, s.tier as store_tier
+      FROM payment_proofs pp
+      LEFT JOIN stores s ON s.id = pp.user_id
+      ORDER BY CASE pp.status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END, pp.created_at DESC
+    `);
+    res.json({ proofs, adminRole: matched.role });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/payments/decision with PIN auth (mirrors requireAdmin but PIN-based for admin.html)
+app.post('/api/admin/payments/decision-pin', adminActionLimiter, async (req, res) => {
+  const { proof_id, action, rejection_reason, adminPin } = req.body;
+  if (!proof_id || !action || !adminPin) {
+    return res.status(400).json({ error: 'Missing required fields: proof_id, action, adminPin.' });
+  }
+  try {
+    const employees = await db.all("SELECT * FROM employees WHERE is_active = 1");
+    const matched = employees.find(emp => verifyPin(adminPin, emp.auth_hash));
+    if (!matched || (matched.role !== 'ADMIN' && matched.role !== 'MANAGER')) {
+      return res.status(403).json({ error: 'Access denied: Admin or Manager PIN required.' });
+    }
+
+    const proof = await db.get("SELECT * FROM payment_proofs WHERE id = ?", [proof_id]);
+    if (!proof) return res.status(404).json({ error: 'Payment proof not found.' });
+
+    const now = Date.now();
+    let responseData = { success: true };
+
+    if (action === 'rejected') {
+      await db.run(
+        "UPDATE payment_proofs SET status = 'rejected', rejection_reason = ?, updated_at = ? WHERE id = ?",
+        [rejection_reason || 'Rejected by administrator.', now, proof_id]
+      );
+      responseData.message = 'Payment rejected.';
+    } else if (action === 'approved') {
+      await db.run(
+        "UPDATE payment_proofs SET status = 'approved', updated_at = ? WHERE id = ?",
+        [now, proof_id]
+      );
+
+      // Mint license token
+      const storeRow = await db.get("SELECT * FROM stores WHERE id = ?", [proof.user_id]);
+      if (storeRow) {
+        const devices = await db.all("SELECT * FROM devices WHERE store_id = ? AND is_active = 1", [proof.user_id]);
+        const hwid = devices.length > 0 ? devices[0].hardware_id : 'ADMIN_HWID';
+        const days = storeRow.mode === 'subscription' ? 30 : null;
+        const { token } = mintToken(proof.user_id, hwid, proof.plan_id, storeRow.mode, days, 'active');
+        await db.run(
+          "UPDATE stores SET status = 'active', tier = ?, license_key = ? WHERE id = ?",
+          [proof.plan_id, token, proof.user_id]
+        );
+        responseData.license_key = token;
+      }
+      responseData.message = 'Payment approved and license minted.';
+    } else {
+      return res.status(400).json({ error: 'Invalid action.' });
+    }
+
+    // Audit log
+    const auditId = 'audit_' + crypto.randomUUID().substring(0, 8);
+    await db.run(
+      "INSERT INTO admin_audit_log (id, user_id, action, details, created_at) VALUES (?, ?, ?, ?, ?)",
+      [auditId, matched.id, `payment_${action}`, `Proof ID: ${proof_id}. Reason: ${rejection_reason || 'N/A'}`, now]
+    );
+
+    res.json(responseData);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/release-notes — Returns structured changelog for in-app display
+app.get('/api/release-notes', async (req, res) => {
+  try {
+    const versionPath = path.join(__dirname, 'public', 'version.json');
+    const content = await fs.promises.readFile(versionPath, 'utf8');
+    const versionData = JSON.parse(content);
+    // Support both legacy string changelog and new array-based changes
+    const changes = Array.isArray(versionData.changes)
+      ? versionData.changes
+      : (versionData.changelog ? versionData.changelog.split('.').filter(Boolean).map(s => s.trim()) : ['Bug fixes and stability improvements.']);
+    res.json({
+      version: versionData.version,
+      date: versionData.updated_at || new Date().toISOString().split('T')[0],
+      changelog: versionData.changelog || '',
+      changes
+    });
+  } catch (e) {
+    res.json({ version: '1.0.0', changes: ['Initial release.'], changelog: 'Initial release.' });
   }
 });
 

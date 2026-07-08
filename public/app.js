@@ -4023,7 +4023,12 @@
     } else if (screenName === 'settings') {
       syncWorker.postMessage({ type: 'GET_PREFERENCES' });
       measureStorageUtilization();
+      // Populate cryptographic license verification card
+      if (typeof renderLicenseInfoCard === 'function') {
+        renderLicenseInfoCard();
+      }
       if (state.activeCashier && state.activeCashier.role === 'ADMIN') {
+
         const adminSection = document.getElementById('settings-device-whitelisting');
         if (adminSection) {
           adminSection.style.display = 'block';
@@ -9248,6 +9253,107 @@
 
   const CLIENT_VERSION = '1.0.0';
 
+  // ── Release Notes Modal (shown once per version after update detected) ──────
+  function showReleaseNotesModal(version, changes) {
+    const seenKey = 'nexova_last_seen_version';
+    if (localStorage.getItem(seenKey) === version) return; // Already seen
+
+    if (document.getElementById('release-notes-modal')) return;
+
+    const changesList = Array.isArray(changes) ? changes : [String(changes)];
+    const bulletsHtml = changesList.map(c =>
+      `<li style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; color: var(--text-white); display: flex; gap: 10px; align-items: flex-start;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--accent-emerald)" stroke-width="2.5" style="flex-shrink:0; margin-top:2px;"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>${c}</span>
+      </li>`
+    ).join('');
+
+    const modal = document.createElement('div');
+    modal.id = 'release-notes-modal';
+    modal.style.cssText = `
+      position: fixed; inset: 0; z-index: 999999;
+      background: rgba(0,0,0,0.85); backdrop-filter: blur(12px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px; animation: rnFadeIn 0.3s ease;
+    `;
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+    modal.innerHTML = `
+      <style>
+        @keyframes rnFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes rnSlideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+      </style>
+      <div style="
+        width: 100%; max-width: 520px;
+        background: linear-gradient(160deg, #0d1320 0%, #0a0f1a 100%);
+        border: 1px solid rgba(16,185,129,0.2);
+        border-radius: 16px; padding: 36px;
+        box-shadow: 0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(16,185,129,0.05);
+        animation: rnSlideUp 0.35s cubic-bezier(0.34,1.56,0.64,1);
+        position: relative;
+      ">
+        <!-- Version badge -->
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 40px; height: 40px; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--accent-emerald, #10b981)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <div>
+              <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;">Nexova POS</div>
+              <div style="font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 800; color: #f1f5f9; letter-spacing: -0.03em;">What's New in v${version}</div>
+            </div>
+          </div>
+          <span style="font-size: 10px; color: #475569;">${dateStr}</span>
+        </div>
+
+        <!-- Divider -->
+        <div style="height: 1px; background: rgba(255,255,255,0.05); margin-bottom: 20px;"></div>
+
+        <!-- Changelog list -->
+        <ul style="list-style: none; padding: 0; margin: 0 0 24px 0; max-height: 320px; overflow-y: auto;">
+          ${bulletsHtml}
+        </ul>
+
+        <!-- Download links -->
+        <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
+          <a href="/downloads/nexova-pos-latest.apk" target="_blank" style="flex: 1; min-width: 120px; text-align: center; text-decoration: none; padding: 10px 12px; background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.2); border-radius: 6px; font-size: 11px; font-weight: 700;">
+            GET APK (Android)
+          </a>
+          <a href="/downloads/nexova-pos-setup.msi" target="_blank" style="flex: 1; min-width: 120px; text-align: center; text-decoration: none; padding: 10px 12px; background: rgba(255,255,255,0.04); color: #94a3b8; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; font-size: 11px; font-weight: 700;">
+            GET WINDOWS
+          </a>
+        </div>
+
+        <!-- Dismiss -->
+        <button id="btn-dismiss-release-notes" style="
+          width: 100%; padding: 14px;
+          background: #10b981; color: #060608;
+          font-family: 'Manrope', sans-serif; font-size: 13px; font-weight: 800;
+          border: none; border-radius: 8px; cursor: pointer;
+          text-transform: uppercase; letter-spacing: 0.05em;
+          transition: opacity 0.15s;
+        ">Got it, let's go!</button>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    document.getElementById('btn-dismiss-release-notes').addEventListener('click', () => {
+      localStorage.setItem(seenKey, version);
+      modal.style.opacity = '0';
+      modal.style.transition = 'opacity 0.2s ease';
+      setTimeout(() => modal.remove(), 200);
+    });
+
+    // Also close on backdrop click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) document.getElementById('btn-dismiss-release-notes').click();
+    });
+  }
+
   async function checkForUpdates() {
     try {
       const resp = await fetch((window.__nexovaServerUrl || '') + '/api/version');
@@ -9255,7 +9361,16 @@
         const data = await resp.json();
         if (data && data.serverVersion && data.serverVersion !== CLIENT_VERSION) {
           console.log(`[Update] New version detected: ${data.serverVersion} (Current: ${CLIENT_VERSION})`);
-          showUpdateNotification(data.serverVersion, data.changelog || 'Stability improvements.');
+          // Fetch structured release notes
+          try {
+            const notesResp = await fetch((window.__nexovaServerUrl || '') + '/api/release-notes');
+            if (notesResp.ok) {
+              const notes = await notesResp.json();
+              showReleaseNotesModal(notes.version, notes.changes);
+            }
+          } catch (_) {
+            showUpdateNotification(data.serverVersion, data.changelog || 'Stability improvements.');
+          }
         }
       }
     } catch (err) {
@@ -9280,22 +9395,96 @@
         <button id="btn-close-update-banner" style="background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer; padding: 0; font-size: 16px;">&times;</button>
       </div>
       <p style="font-size: 12px; margin: 0 0 4px 0; color: rgba(255,255,255,0.9); line-height: 1.5;">
-        A new version (v${newVersion}) is available. Update to get the latest features and stability fixes.
+        Version v${newVersion} is available. Update for the latest features and security fixes.
       </p>
-      <div style="font-size: 10px; color: rgba(255,255,255,0.7); font-style: italic; margin-bottom: 12px; word-break: break-word;">
-        Notes: ${changelog}
-      </div>
+      <div style="font-size: 10px; color: rgba(255,255,255,0.7); font-style: italic; margin-bottom: 12px;">${changelog}</div>
       <div style="display: flex; gap: 8px;">
-        <a href="/downloads/nexova-pos-latest.apk" target="_blank" style="flex: 1; text-align: center; text-decoration: none; padding: 8px 12px; background: #fff; color: #0d9488; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">GET APK</a>
-        <a href="/downloads/nexova-pos-setup.msi" target="_blank" style="flex: 1; text-align: center; text-decoration: none; padding: 8px 12px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">GET WINDOWS</a>
+        <button onclick="showReleaseNotesModal('${newVersion}', ['${changelog}'])" style="flex:1; padding:8px; background:#fff; color:#0d9488; border:none; border-radius:4px; font-size:11px; font-weight:700; cursor:pointer;">View Notes</button>
+        <a href="/downloads/nexova-pos-latest.apk" target="_blank" style="flex:1; text-align:center; text-decoration:none; padding:8px; background:rgba(255,255,255,0.1); color:#fff; border:1px solid rgba(255,255,255,0.2); border-radius:4px; font-size:11px; font-weight:700;">GET APK</a>
       </div>
-      <style>
-        @keyframes slideUp { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-      </style>
+      <style>@keyframes slideUp { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }</style>
     `;
     document.body.appendChild(banner);
     document.getElementById('btn-close-update-banner').addEventListener('click', () => banner.remove());
   }
+
+  // ── License Info Card (Settings screen) ─────────────────────────────────────
+  async function renderLicenseInfoCard() {
+    const container = document.getElementById('license-info-content');
+    if (!container) return;
+
+    try {
+      if (typeof LicenseEngine === 'undefined') {
+        container.innerHTML = `<p style="color: var(--text-gray); font-size:12px;">License engine not loaded.</p>`;
+        return;
+      }
+
+      const [verifyResult, expiryMs, graceMs] = await Promise.all([
+        LicenseEngine.verifyStored(),
+        LicenseEngine.getExpiryMs(),
+        LicenseEngine.getGraceRemainingMs()
+      ]);
+
+      const tier = window.__nexovaTier || 'UNKNOWN';
+      const hwid = window.__nexovaHWID || '—';
+      const hwidDisplay = hwid.length > 8 ? hwid.slice(0, 8) + '...' : hwid;
+
+      let expiryText = '';
+      let expiryColor = 'var(--text-gray)';
+
+      if (expiryMs === null) {
+        expiryText = 'Lifetime — never expires';
+        expiryColor = 'var(--accent-emerald)';
+      } else if (expiryMs > 0) {
+        const daysLeft = Math.floor(expiryMs / (1000 * 60 * 60 * 24));
+        const hoursLeft = Math.floor((expiryMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        if (daysLeft > 0) {
+          expiryText = `Expires in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`;
+          expiryColor = daysLeft <= 7 ? 'var(--alert-amber)' : 'var(--accent-emerald)';
+        } else {
+          expiryText = `Expires in ${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''}`;
+          expiryColor = 'var(--alert-amber)';
+        }
+      } else if (graceMs > 0) {
+        const graceDaysLeft = Math.floor(graceMs / (1000 * 60 * 60 * 24));
+        const graceHoursLeft = Math.floor((graceMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        expiryText = `Expired — Grace period: ${graceDaysLeft > 0 ? graceDaysLeft + 'd ' : ''}${graceHoursLeft}h remaining`;
+        expiryColor = 'var(--alert-amber)';
+      } else {
+        expiryText = 'License expired — Renewal required';
+        expiryColor = 'var(--alert-coral)';
+      }
+
+      const validBadge = verifyResult.valid
+        ? `<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;background:rgba(16,185,129,0.1);color:var(--accent-emerald);border:1px solid rgba(16,185,129,0.2);">SIGNATURE VALID</span>`
+        : `<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;background:rgba(239,68,68,0.1);color:var(--alert-coral);border:1px solid rgba(239,68,68,0.2);">SIGNATURE INVALID</span>`;
+
+      container.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 16px;">
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 6px; padding: 14px;">
+            <div style="font-size:10px;color:var(--text-gray);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Active Tier</div>
+            <div style="font-family:var(--font-display);font-size:20px;font-weight:800;color:var(--accent-emerald);">${tier}</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 6px; padding: 14px;">
+            <div style="font-size:10px;color:var(--text-gray);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">License Expiry</div>
+            <div style="font-size:13px;font-weight:700;color:${expiryColor};">${expiryText}</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 6px; padding: 14px;">
+            <div style="font-size:10px;color:var(--text-gray);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Terminal HWID</div>
+            <div style="font-family:monospace;font-size:13px;font-weight:700;color:var(--text-white);">${hwidDisplay}</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 6px; padding: 14px;">
+            <div style="font-size:10px;color:var(--text-gray);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Cryptographic Sig</div>
+            ${validBadge}
+          </div>
+        </div>
+        ${!verifyResult.valid && verifyResult.reason ? `<div style="font-size:11px;color:var(--alert-coral);padding:10px;background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.1);border-radius:6px;">Reason: ${verifyResult.reason}</div>` : ''}
+      `;
+    } catch (e) {
+      container.innerHTML = `<p style="color: var(--alert-coral); font-size:12px;">Failed to load license info: ${e.message}</p>`;
+    }
+  }
+
 
   // Start app execution
   document.addEventListener('DOMContentLoaded', () => {

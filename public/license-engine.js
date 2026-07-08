@@ -17,6 +17,7 @@ const LicenseEngine = (() => {
   const STORAGE_KEY_ANCHOR     = 'last_known_secure_time';
   const STORAGE_KEY_EULA       = 'eula_accepted';
   const CLOCK_SKEW_TOLERANCE_MS = 60 * 1000; // 1 minute grace
+  const GRACE_PERIOD_MS         = 48 * 60 * 60 * 1000; // 48h offline grace
 
   // ── Hardware Fingerprint (browser-native, no OS calls) ────────────────────
   async function generateHWID() {
@@ -888,5 +889,41 @@ const LicenseEngine = (() => {
     document.body.appendChild(banner);
   }
 
-  return { init, updateTimeAnchor, generateHWID, pollLicenseUpdate };
+  // ── Public: Re-verify the stored token on demand (called by Settings card) ─
+  async function verifyStored() {
+    try {
+      const stored = await NexovaDB.getSecurePref(STORAGE_KEY_LICENSE);
+      if (!stored) return { valid: false, reason: 'No license token stored.', payload: null };
+      const hwid = await generateHWID();
+      const result = await verifyToken(stored, hwid);
+      return result;
+    } catch (e) {
+      return { valid: false, reason: e.message, payload: null };
+    }
+  }
+
+  // ── Public: Returns milliseconds until license expiry, null for lifetime ──
+  async function getExpiryMs() {
+    try {
+      const stored = await NexovaDB.getSecurePref(STORAGE_KEY_LICENSE);
+      if (!stored) return 0;
+      const hwid = await generateHWID();
+      const result = await verifyToken(stored, hwid);
+      if (!result.valid || !result.payload) return 0;
+      if (!result.payload.exp || result.payload.mode === 'lifetime') return null; // null = lifetime
+      return result.payload.exp - Date.now();
+    } catch (e) { return 0; }
+  }
+
+  // ── Public: Returns ms remaining in the grace period after expiry ─────────
+  async function getGraceRemainingMs() {
+    const expiryMs = await getExpiryMs();
+    if (expiryMs === null) return null; // lifetime — no grace needed
+    if (expiryMs > 0) return 0; // Not yet expired
+    const overdue = -expiryMs;
+    const graceRemaining = GRACE_PERIOD_MS - overdue;
+    return graceRemaining > 0 ? graceRemaining : 0;
+  }
+
+  return { init, updateTimeAnchor, generateHWID, pollLicenseUpdate, verifyStored, getExpiryMs, getGraceRemainingMs };
 })();

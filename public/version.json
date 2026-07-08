@@ -1,4 +1,17 @@
 {
   "version": "1.0.0",
-  "changelog": "Nexova initial release."
+  "updated_at": "2026-07-08",
+  "changelog": "Nexova POS initial production release with full local-first architecture, Ed25519 license verification, CRDT multi-device sync, and SaaS billing portal.",
+  "changes": [
+    "Local-first SQLite architecture with full offline capability",
+    "Ed25519 asymmetric license verification with 48-hour grace period",
+    "CRDT-based multi-device synchronization with Hybrid Logical Clocks",
+    "Admin payment approval panel with audit logging",
+    "SaaS billing portal with NayaPay proof submission",
+    "Multi-theme UI: Obsidian Emerald, Midnight Sapphire, Warm Amber, and more",
+    "FBR Tier-1 Tax compliance modes for retail and food domains",
+    "ESC/POS thermal receipt printing support",
+    "PWA installable — works on mobile and desktop",
+    "Emergency override bypass for offline Manager/Admin access"
+  ]
 }
