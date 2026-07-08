@@ -14,7 +14,7 @@ let currentHlc = null;
 let currentDbVersion = 0; // Incremented on each local transaction change
 
 // Schema version: increment when adding columns/tables that clients must have before syncing
-const SERVER_SCHEMA_VERSION = 7;
+const SERVER_SCHEMA_VERSION = 8;
 module.exports && Object.assign(module.exports, { SERVER_SCHEMA_VERSION });
 
 // Secure PBKDF2 password hashing helper (OWASP approved, zero external dependencies)
@@ -650,6 +650,28 @@ async function initDatabase(terminalId) {
         console.log('[Database] Migrated database schema to v7 (inventory_catalog mode_fields & image_url).');
       } catch (err) {
         console.error('[Database] Failed to migrate database schema in v7:', err.message);
+      }
+    } else if (v === 8) {
+      try {
+        await db.exec(`
+          CREATE TABLE IF NOT EXISTS payment_proofs (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            plan_id TEXT NOT NULL,
+            rrn_reference TEXT UNIQUE NOT NULL,
+            amount REAL NOT NULL,
+            proof_image_url TEXT,
+            status TEXT DEFAULT 'pending',
+            rejection_reason TEXT,
+            created_at INTEGER,
+            updated_at INTEGER
+          );
+          CREATE INDEX IF NOT EXISTS idx_payment_proofs_user ON payment_proofs(user_id);
+          CREATE INDEX IF NOT EXISTS idx_payment_proofs_rrn ON payment_proofs(rrn_reference);
+        `);
+        console.log('[Database] Migrated database schema to v8 (payment_proofs table).');
+      } catch (err) {
+        console.error('[Database] Failed to migrate database schema in v8:', err.message);
       }
     }
 

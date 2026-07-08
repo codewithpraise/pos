@@ -50,6 +50,7 @@ function validateModeFields(mode, data) {
   if (mode === 'clothing-fashion') {
     if (parsed.variants && !Array.isArray(parsed.variants)) return false;
     if (parsed.variants) {
+      if (parsed.variants.length === 0) return false;
       for (const v of parsed.variants) {
         if (typeof v.size !== 'string' || typeof v.color !== 'string') return false;
       }
@@ -58,15 +59,15 @@ function validateModeFields(mode, data) {
     if (parsed.modifiers && !Array.isArray(parsed.modifiers)) return false;
     if (parsed.modifiers) {
       for (const m of parsed.modifiers) {
-        if (typeof m.name !== 'string' || typeof m.price !== 'number') return false;
+        if (typeof m.name !== 'string' || typeof m.price !== 'number' || m.price < 0) return false;
       }
     }
   } else if (mode === 'services-appointments') {
-    if (parsed.duration !== undefined && typeof parsed.duration !== 'number') return false;
-    if (parsed.buffer !== undefined && typeof parsed.buffer !== 'number') return false;
+    if (parsed.duration !== undefined && (typeof parsed.duration !== 'number' || parsed.duration <= 0)) return false;
+    if (parsed.buffer !== undefined && (typeof parsed.buffer !== 'number' || parsed.buffer < 0)) return false;
     if (parsed.staff && !Array.isArray(parsed.staff)) return false;
   } else if (mode === 'electronics-highvalue') {
-    if (parsed.warranty_months !== undefined && typeof parsed.warranty_months !== 'number') return false;
+    if (parsed.warranty_months !== undefined && (typeof parsed.warranty_months !== 'number' || parsed.warranty_months < 0)) return false;
     if (parsed.serial_required !== undefined && typeof parsed.serial_required !== 'boolean') return false;
   }
   return true;
@@ -175,6 +176,29 @@ console.log('══════════════════════�
       warranty_months: 24,
       serial_required: 'yes' // serial_required must be a boolean
     });
+    assert.strictEqual(validateModeFields('electronics-highvalue', invalidData), false);
+  });
+
+  // ── Mode Edge-Case Tests ──
+  test('clothing-fashion: edge case - rejects empty variants list', () => {
+    const invalidData = JSON.stringify({ variants: [] });
+    assert.strictEqual(validateModeFields('clothing-fashion', invalidData), false);
+  });
+
+  test('food-restaurant: edge case - rejects negative modifier price adjustments', () => {
+    const invalidData = JSON.stringify({
+      modifiers: [{ id: 'm1', name: 'Extra Cheese', price: -50 }]
+    });
+    assert.strictEqual(validateModeFields('food-restaurant', invalidData), false);
+  });
+
+  test('services-appointments: edge case - rejects duration less than or equal to zero', () => {
+    const invalidData = JSON.stringify({ duration: 0 });
+    assert.strictEqual(validateModeFields('services-appointments', invalidData), false);
+  });
+
+  test('electronics-highvalue: edge case - rejects negative warranty months', () => {
+    const invalidData = JSON.stringify({ warranty_months: -12 });
     assert.strictEqual(validateModeFields('electronics-highvalue', invalidData), false);
   });
 

@@ -53,6 +53,15 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Rate limiter for subscription and manual upgrade proof submissions (max 5 attempts per 10 minutes)
+const billingLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  max: 5,
+  message: { error: 'Too many upgrade claim submissions. Please try again after 10 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Apply security middleware
 app.use(helmet({
   contentSecurityPolicy: {
@@ -284,6 +293,8 @@ async function requireAuth(req, res, next) {
         }
       }
       req.store = storeRow;
+      // Map user to store row for integration/billing compatibility
+      req.user = { id: storeRow.id, email: storeRow.email };
     }
   } catch (err) {
     return res.status(500).json({ error: 'License validation error: ' + err.message });
@@ -1322,6 +1333,186 @@ app.get('/api/auth/verify', requireAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ── MANUAL NAYAPAY BILLING HYBRID PIPELINE ───────────────────────────────────
+
+// POST /api/payments/upload-proof — local-first base64 screenshot helper
+app.post('/api/payments/upload-proof', requireAuth, async (req, res) => {
+  const { base64Data, filename } = req.body;
+  if (!base64Data) {
+    return res.status(400).json({ error: 'No image data provided.' });
+  }
+  try {
+    const cleanFilename = String(filename || 'proof_' + Date.now() + '.png').replace(/[^a-zA-Z0-9_.-]/g, '');
+    const dir = path.join(__dirname, 'public', 'proofs');
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    const filePath = path.join(dir, cleanFilename);
+    const dataBuffer = Buffer.from(base64Data.replace(/^data:image\/\w+;base64,/, ""), 'base64');
+    fs.writeFileSync(filePath, dataBuffer);
+    
+    const localUrl = `/proofs/${cleanFilename}`;
+    res.json({ success: true, url: localUrl });
+  } catch (err) {
+    res.status(500).json({ error: 'Upload failed: ' + err.message });
+  }
+});
+
+// POST /api/payments/submit-proof
+// Receive payment reference and plan ID, verify context, and record proof
+app.post('/api/payments/submit-proof', billingLimiter, requireAuth, async (req, res) => {
+  const { plan_id, rrn_reference, amount, proof_image_url } = req.body;
+  
+  if (!plan_id || !rrn_reference || !amount) {
+    return res.status(400).json({ error: 'Missing required parameters: plan_id, rrn_reference, amount.' });
+  }
+
+  const rrnRegex = /^[a-zA-Z0-9-]{6,30}$/;
+  if (!rrnRegex.test(rrn_reference)) {
+    return res.status(400).json({ error: 'Invalid transaction reference format. Alphanumeric 6-30 characters.' });
+  }
+
+  try {
+    // 1. Idempotency check: Ensure the RRN reference hasn't been submitted previously
+    const existing = await db.get("SELECT * FROM payment_proofs WHERE rrn_reference = ?", [rrn_reference]);
+    if (existing) {
+      return res.status(409).json({ error: 'This Transaction Reference has already been submitted.' });
+    }
+
+    const proofId = crypto.randomUUID();
+    const now = Date.now();
+
+    // 2. Insert locally
+    await db.run(
+      `INSERT INTO payment_proofs (id, user_id, plan_id, rrn_reference, amount, proof_image_url, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+      [proofId, req.user.id, plan_id, rrn_reference, parseFloat(amount), proof_image_url || '', now, now]
+    );
+
+    // 3. Try syncing to Supabase if client is configured
+    const { supabase } = require('./supabase-sync');
+    if (supabase) {
+      try {
+        await supabase.from('payment_proofs').insert({
+          id: proofId,
+          user_id: req.user.id,
+          plan_id: plan_id,
+          rrn_reference: rrn_reference,
+          amount: parseFloat(amount),
+          proof_image_url: proof_image_url || '',
+          status: 'pending'
+        });
+      } catch (sbErr) {
+        console.warn('[Supabase] Failed to sync payment proof to cloud (will retry on next sync pass):', sbErr.message);
+      }
+    }
+
+    res.status(201).json({ success: true, message: 'Proof submitted successfully', proof_id: proofId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/payments/my-proofs — Fetch historical proofs for current store
+app.get('/api/payments/my-proofs', requireAuth, async (req, res) => {
+  try {
+    const proofs = await db.all("SELECT * FROM payment_proofs WHERE user_id = ? ORDER BY created_at DESC", [req.user.id]);
+    res.json(proofs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/payments/decision
+// Admin workflow to approve/reject manual submissions and mint Ed25519 tokens
+app.post('/api/admin/payments/decision', requireAdmin, async (req, res) => {
+  const { proof_id, action, rejection_reason } = req.body; // action: 'approved' or 'rejected'
+
+  if (!proof_id || !action) {
+    return res.status(400).json({ error: 'Missing required parameters: proof_id, action.' });
+  }
+
+  try {
+    const proof = await db.get("SELECT * FROM payment_proofs WHERE id = ?", [proof_id]);
+    if (!proof) {
+      return res.status(404).json({ error: 'Payment proof not found.' });
+    }
+
+    const now = Date.now();
+
+    if (action === 'rejected') {
+      await db.run(
+        "UPDATE payment_proofs SET status = 'rejected', rejection_reason = ?, updated_at = ? WHERE id = ?",
+        [rejection_reason || 'Rejected by administrator.', now, proof_id]
+      );
+
+      // Sync rejection to Supabase
+      const { supabase } = require('./supabase-sync');
+      if (supabase) {
+        try {
+          await supabase.from('payment_proofs').update({
+            status: 'rejected',
+            rejection_reason: rejection_reason || 'Rejected by administrator.'
+          }).eq('id', proof_id);
+        } catch (_) {}
+      }
+
+      return res.status(200).json({ success: true, message: 'Payment rejected successfully' });
+    }
+
+    if (action === 'approved') {
+      // 1. Update payment status in local db
+      await db.run(
+        "UPDATE payment_proofs SET status = 'approved', updated_at = ? WHERE id = ?",
+        [now, proof_id]
+      );
+
+      // 2. Fetch store details and paired devices
+      const storeRow = await db.get("SELECT * FROM stores WHERE id = ?", [proof.user_id]);
+      if (!storeRow) {
+        return res.status(404).json({ error: 'Associated store profile not found.' });
+      }
+
+      const devices = await db.all("SELECT * FROM devices WHERE store_id = ? AND is_active = 1", [proof.user_id]);
+      const hwid = devices.length > 0 ? devices[0].hardware_id : 'MOCK_ADMIN_HWID';
+
+      // 3. Mint Ed25519 license key
+      const days = storeRow.mode === 'subscription' ? 30 : null;
+      const expiresAt = days ? now + days * 24 * 60 * 60 * 1000 : null;
+
+      const { token } = mintToken(proof.user_id, hwid, proof.plan_id, storeRow.mode, days, 'active');
+
+      // 4. Update stores locally
+      await db.run(
+        "UPDATE stores SET status = 'active', tier = ?, expires_at = ?, license_key = ? WHERE id = ?",
+        [proof.plan_id, expiresAt, token, proof.user_id]
+      );
+
+      // 5. Update Supabase if active
+      const { supabase } = require('./supabase-sync');
+      if (supabase) {
+        try {
+          await supabase.from('payment_proofs').update({ status: 'approved' }).eq('id', proof_id);
+          
+          await supabase.from('stores').update({
+            tier: proof.plan_id,
+            status: 'active',
+            expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+            license_key: token
+          }).eq('id', proof.user_id);
+        } catch (_) {}
+      }
+
+      return res.status(200).json({ success: true, message: 'Payment approved and license minted securely.', license_key: token });
+    }
+
+    res.status(400).json({ error: 'Invalid decision action.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // POST /api/auth/emergency-override — Triggers local emergency override bypass using Manager/Admin PIN
 app.post('/api/auth/emergency-override', async (req, res) => {

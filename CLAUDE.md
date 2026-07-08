@@ -67,3 +67,48 @@ To maintain an premium native mobile experience, the mobile application must adh
 - **Lazy Lists:** Ensure the product grid uses `LazyVerticalGrid` and the cart uses `LazyColumn`. Use `key = { it.id }` inside the lazy lists to prevent Compose from recomposing the entire cart every time the total changes.
 - **Immutable State:** Mark data classes with `@Immutable` or `@Stable` in Kotlin. This tells the Compose compiler to skip rendering checks, drastically improving scrolling performance on lower-end Android tablets.
 - **The Offline Pill:** Do not use blocking pop-ups if the Wi-Fi drops. Use an animated `AnimatedVisibility` pill at the top of the screen that smoothly drops down, glows amber, and says *"Offline (Syncing paused - safe to keep selling)"*.
+
+---
+
+## Developer Code Templates and ADRs (Phase 8)
+
+### Code Templates
+
+#### Template A: How to Add a New Shop Business Mode
+To introduce a new shop business mode (e.g., automotive-repair):
+1. Register the mode name in `server.js` within the `validateModeFields` helper.
+2. Define the schema requirements (e.g., vehicle_make, mileage, estimated_hours).
+3. Add a check block in the client-side validation logic inside `public/app.js`.
+4. Create test cases in `tests/modes.test.js` and `tests/e2e-modes.test.js` to assert constraints.
+
+#### Template B: How to Add a New Product Modifier Type
+To add a new modifier option:
+1. Update `validateModeFields` in `tests/modes.test.js` and sync scripts to handle structural validation.
+2. Update the frontend menu layout to render options input (e.g., checkboxes, weight scales).
+3. Ensure the Checkout Engine aggregates adjustments (e.g., itemBasePrice + modifierPrice).
+
+#### Template C: How to Add a New Analytics Chart
+To append an analytics dashboard component:
+1. Add an empty state placeholder and container in `public/index.html`.
+2. Retrieve raw transaction objects from SQLite in the server-side API handler.
+3. Apply date range filters, then compute aggregations (e.g., group by categories, split payment modes).
+4. Render the chart visually in `public/app.js` using responsive SVG layers or bar charts.
+
+---
+
+### Architectural Decision Records (ADRs)
+
+#### ADR-001: Accessibility Live Regions Over Blocking Alerts
+* **Context**: POS operators require immediate, non-intrusive feedback during high-volume scans without blocking checkout velocity.
+* **Decision**: We use screen reader live regions (aria-live="polite", role="status") to announce cart additions, tier changes, and sync errors. JavaScript alert() dialogs are strictly restricted to fatal operations.
+* **Consequence**: Improves application accessibility (WCAG 2.1 AA compliant) and prevents UI thread blocks.
+
+#### ADR-002: Storage Limitations Guardrails
+* **Context**: Local registers operate on resource-constrained hardware. Storing high-resolution transaction images can cause SQLite/browser quota overflow.
+* **Decision**: Implement a 4MB quota limit warning on startup. Standardize image compression using canvas resizing before upload, and automate image purge routines for logs older than 90 days.
+* **Consequence**: Protects registers against database WAL locking and localized data corruption.
+
+#### ADR-003: Mode-Specific Analytics
+* **Context**: Different retail verticals have distinct KPIs (e.g., modifiers for food, warranties for electronics).
+* **Decision**: Analytics views are dynamically reconfigured based on active shop_mode. We segregate category breakdowns, variants, and booking details into targeted charts.
+* **Consequence**: Clean, decoupled layouts with minimal visual noise for POS operators.

@@ -384,6 +384,9 @@ class SyncClient {
       console.log(`[SyncClient:${this.nodeId}] Offline. Queueing delta:`, change);
       this.offlineQueue.push(change);
       
+      // Notify main thread of the updated queue size
+      globalScope.postMessage({ type: 'OFFLINE_QUEUE_UPDATE', count: this.offlineQueue.length });
+      
       // Notify parent app of locally applied offline change
       this.onSyncReceived([change]);
     }
@@ -405,6 +408,9 @@ class SyncClient {
       this.ws.send(enc);
       
       this.offlineQueue = [];
+      
+      // Notify main thread that the queue has been cleared
+      globalScope.postMessage({ type: 'OFFLINE_QUEUE_UPDATE', count: 0 });
     }
   }
 

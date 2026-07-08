@@ -5766,6 +5766,97 @@ fun SettingsScreen(
                 }
             }
         }
+
+        // ── Subscription & Billing manual payment section ──
+        var billingSelectedTier by remember { mutableStateOf("PRO") }
+        var billingRrn by remember { mutableStateOf("") }
+        var billingAmount by remember { mutableStateOf("50000") }
+        var billingFilePath by remember { mutableStateOf("") }
+        var billingStatusMsg by remember { mutableStateOf("") }
+
+        Column(
+            Modifier.fillMaxWidth()
+                .background(colors.surface1, RoundedCornerShape(10.dp))
+                .border(1.dp, colors.borderDefault, RoundedCornerShape(10.dp))
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("SUBSCRIPTION AND MANUAL BILLING", color = colors.textSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Divider(color = colors.borderSubtle)
+
+            Text("Bank: NayaPay", color = colors.textPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text("Account Title: MUHAMMAD SOBAN ALI", color = colors.textPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text("Account Number: 03315133226", color = colors.textPrimary, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+            Text("IBAN: PK47NAYA1234503315133226", color = colors.textPrimary, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+
+            Spacer(Modifier.height(4.dp))
+            Text("Select Upgrade Plan", color = colors.textSecondary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("STARTER" to "15000", "PRO" to "50000", "ENTERPRISE" to "150000").forEach { (tier, price) ->
+                    val active = billingSelectedTier == tier
+                    Box(
+                        Modifier.clip(RoundedCornerShape(6.dp))
+                            .background(if (active) colors.accentDim else colors.surface3)
+                            .border(1.dp, if (active) colors.accent else colors.borderDefault, RoundedCornerShape(6.dp))
+                            .clickable { 
+                                billingSelectedTier = tier 
+                                billingAmount = price
+                            }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) { Text(tier, color = if (active) colors.accent else colors.textSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold) }
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+            FormField("NayaPay Unique Reference (RRN)", billingRrn, "e.g. 123456789012") { billingRrn = it }
+            FormField("Screenshot Proof File Path", billingFilePath, "e.g. C:/proof.png") { billingFilePath = it }
+
+            Button(
+                onClick = {
+                    if (billingRrn.length < 6 || billingFilePath.isEmpty()) {
+                        billingStatusMsg = "Please enter a valid RRN and screenshot path."
+                        return@Button
+                    }
+                    scope.launch(Dispatchers.IO) {
+                        try {
+                            val id = java.util.UUID.randomUUID().toString()
+                            val success = Database.submitPaymentProof(
+                                id,
+                                employee.id,
+                                billingSelectedTier,
+                                billingRrn,
+                                billingAmount.toDouble(),
+                                billingFilePath
+                            )
+                            withContext(Dispatchers.Main) {
+                                if (success) {
+                                    billingStatusMsg = "Proof submitted successfully. Verification pending."
+                                    billingRrn = ""
+                                    billingFilePath = ""
+                                } else {
+                                    billingStatusMsg = "Submission failed."
+                                }
+                            }
+                        } catch (e: Exception) {
+                            withContext(Dispatchers.Main) {
+                                billingStatusMsg = "Submission error: " + e.message
+                            }
+                        }
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(backgroundColor = colors.successDim, contentColor = colors.success),
+                shape = RoundedCornerShape(8.dp),
+                elevation = ButtonDefaults.elevation(0.dp),
+                modifier = Modifier.fillMaxWidth().height(38.dp),
+                border = BorderStroke(1.dp, colors.success.copy(alpha = 0.3f))
+            ) {
+                Text("SUBMIT UPGRADE CLAIM", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+            }
+
+            if (billingStatusMsg.isNotEmpty()) {
+                Text(billingStatusMsg, color = colors.success, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 

@@ -32,16 +32,59 @@
     selectedDistributorId: null,
     selectedPurchaseOrderId: null,
     preferencesLoaded: false,
-    isCheckingOut: false
+    isCheckingOut: false,
+    analyticsRange: 'all'  // 'all' | 'today' | 'week' | 'month'
   };
 
   // Global User-Friendly Error Boundary Modal
-  window.addEventListener('error', (event) => {
-    console.error('[Global Error Interceptor]', event.error || event.message);
+  const recentErrorsMax = 10;
+  window.__recentErrors = [];
+
+  function recordSystemError(code, message) {
+    const timestamp = new Date().toLocaleTimeString();
+    window.__recentErrors.unshift({ code, message, timestamp });
+    if (window.__recentErrors.length > recentErrorsMax) {
+      window.__recentErrors.pop();
+    }
+    updateRecentErrorsUI();
+  }
+
+  function updateRecentErrorsUI() {
+    const container = document.getElementById('settings-errors-container');
+    if (!container) return;
+    if (window.__recentErrors.length === 0) {
+      container.innerHTML = '<p class="text-muted" style="text-align: center; margin-top: 10px;">No system errors recorded during this session.</p>';
+      return;
+    }
+    container.innerHTML = window.__recentErrors.map(e => `
+      <div style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.15); border-radius: 4px; padding: 8px; display: flex; flex-direction: column; gap: 2px;">
+        <div style="display: flex; justify-content: space-between; font-weight: 700; color: var(--alert-coral);">
+          <span>${e.code}</span>
+          <span style="color: var(--text-gray); font-size: 9px;">${e.timestamp}</span>
+        </div>
+        <div style="color: var(--text-white); font-size: 9px; line-height: 1.3;">${e.message}</div>
+      </div>
+    `).join('');
+  }
+
+  function renderCrashModal(code, message, stack) {
+    recordSystemError(code, message);
     if (document.getElementById('pos-crash-overlay')) return;
+
+    // Error code legend for user-friendly messages
+    const ERROR_MESSAGES = {
+      'E-103': 'A fatal JavaScript exception occurred. Your sales data is safe — this is a display error.',
+      'E-104': 'An async operation failed unexpectedly. Your local database is unaffected.',
+    };
+    const codePrefix = code.split(' ')[0];
+    const friendlyMsg = ERROR_MESSAGES[codePrefix] || 'An unexpected error occurred. Your local data remains safe.';
 
     const overlay = document.createElement('div');
     overlay.id = 'pos-crash-overlay';
+    overlay.setAttribute('role', 'alertdialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'crash-title');
+    overlay.setAttribute('aria-describedby', 'crash-desc');
     overlay.style.cssText = `
       position: fixed; inset: 0; z-index: 99999999;
       background: rgba(15,23,42,0.98); display: flex; align-items: center; justify-content: center;
@@ -49,22 +92,85 @@
     `;
 
     overlay.innerHTML = `
-      <div style="max-width: 480px; width: 100%; text-align: center; background: var(--panel-graphite); border: 1px solid var(--border-bright); padding: 32px; border-radius: 12px; box-shadow: var(--shadow-lg);">
+      <div style="max-width: 520px; width: 100%; text-align: center; background: var(--panel-graphite); border: 1px solid var(--border-bright); padding: 32px; border-radius: 12px; box-shadow: var(--shadow-lg);">
         <div style="font-size: 56px; margin-bottom: 16px;">⚡</div>
-        <h2 style="font-family: var(--font-display); font-size: 20px; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; color: var(--alert-coral);">Unexpected Application Crash</h2>
-        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.6;">
+        <h2 id="crash-title" style="font-family: var(--font-display); font-size: 20px; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; color: var(--alert-coral);">Unexpected Application Crash</h2>
+        <h4 style="font-size: 10px; text-transform: uppercase; color: var(--text-gray); margin-bottom: 8px; letter-spacing: 1px;">Error Code: ${code}</h4>
+        <p id="crash-desc" style="font-size: 12px; color: var(--accent-emerald); margin-bottom: 8px; line-height: 1.6; font-weight: 600;">${friendlyMsg}</p>
+        <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.6;">
           Nexova POS has encountered a fatal runtime exception. The local database state remains fully safe.
         </p>
         <div style="background: #000; border: 1px solid var(--border-titanium); padding: 12px; border-radius: 6px; font-family: var(--font-mono); font-size: 10px; color: var(--text-gray); text-align: left; max-height: 120px; overflow-y: auto; margin-bottom: 24px; word-break: break-all;">
-          ${event.message || 'Unknown error details'}
+          ${message}<br><br>${stack || ''}
         </div>
-        <button onclick="window.location.reload()" style="background: var(--accent-emerald-gradient); border: none; color: var(--text-dark); height: 40px; padding: 0 24px; font-family: var(--font-display); font-weight: 800; font-size: 11px; text-transform: uppercase; border-radius: 6px; cursor: pointer; transition: var(--transition-tactile);">
-          Restart Register App
-        </button>
+        <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+          <button id="btn-crash-copy" style="background: rgba(255,255,255,0.06); border: 1px solid var(--border-titanium); color: var(--text-white); height: 40px; padding: 0 16px; font-family: var(--font-display); font-weight: 800; font-size: 11px; text-transform: uppercase; border-radius: 6px; cursor: pointer; transition: var(--transition-tactile); display:flex; align-items:center; gap:6px;">
+            📋 Copy Logs
+          </button>
+          <button id="btn-crash-restore" style="background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.3); color: #60a5fa; height: 40px; padding: 0 16px; font-family: var(--font-display); font-weight: 800; font-size: 11px; text-transform: uppercase; border-radius: 6px; cursor: pointer; transition: var(--transition-tactile); display:flex; align-items:center; gap:6px;">
+            💾 Restore Backup
+          </button>
+          <button onclick="window.location.reload()" style="background: var(--accent-emerald-gradient); border: none; color: var(--text-dark); height: 40px; padding: 0 24px; font-family: var(--font-display); font-weight: 800; font-size: 11px; text-transform: uppercase; border-radius: 6px; cursor: pointer; display:flex; align-items:center; gap:6px;">
+            🔄 Restart App
+          </button>
+        </div>
+        <p style="font-size: 9px; color: var(--text-dim); margin-top: 20px; text-align: center; border-top: 1px solid var(--border-titanium); padding-top: 12px;">
+          E-103 = Fatal JS Exception &nbsp;|&nbsp; E-104 = Async Rejection &nbsp;|&nbsp; Your sales data is always safe
+        </p>
       </div>
     `;
+
     document.body.appendChild(overlay);
+
+    const btnCopy = overlay.querySelector('#btn-crash-copy');
+    if (btnCopy) {
+      btnCopy.addEventListener('click', () => {
+        navigator.clipboard.writeText(`Nexova POS Crash Log\nCode: ${code}\nMessage: ${message}\nStack: ${stack || 'N/A'}`);
+        btnCopy.textContent = '✅ Copied!';
+        setTimeout(() => { btnCopy.innerHTML = '📋 Copy Logs'; }, 2000);
+      });
+    }
+
+    const btnRestore = overlay.querySelector('#btn-crash-restore');
+    if (btnRestore) {
+      btnRestore.addEventListener('click', () => {
+        overlay.remove();
+        // Navigate to settings backup section
+        try {
+          if (typeof switchActiveScreen === 'function') switchActiveScreen('settings');
+          setTimeout(() => {
+            const backupSection = document.getElementById('settings-backup-section') || document.getElementById('backup-section');
+            if (backupSection) backupSection.scrollIntoView({ behavior: 'smooth' });
+          }, 300);
+        } catch (e) {
+          window.location.hash = '#settings';
+        }
+      });
+    }
+  }
+
+  window.addEventListener('error', (event) => {
+    console.error('[Global Error Interceptor]', event.error || event.message);
+    const err = event.error || {};
+    renderCrashModal('E-103 - FATAL EXCEPTION', event.message || err.message || 'Unknown exception', err.stack || '');
   });
+
+  window.addEventListener('unhandledrejection', (event) => {
+    console.error('[Global Promise Rejection Interceptor]', event.reason);
+    const reason = event.reason || {};
+    renderCrashModal('E-104 - UNHANDLED REJECTION', reason.message || String(reason), reason.stack || '');
+  });
+
+  // Screen Reader Accessibility Live Region Announcer
+  function announceToScreenReader(message) {
+    const announcer = document.getElementById('pos-aria-live-announcer');
+    if (announcer) {
+      announcer.textContent = '';
+      requestAnimationFrame(() => {
+        announcer.textContent = message;
+      });
+    }
+  }
 
   // Guided Onboarding Tutorial Tour
   function startOnboardingTour() {
@@ -722,6 +828,7 @@
 
         case 'INIT_ERROR':
           console.error('[App] Worker failed to initialize:', error);
+          recordSystemError('INIT_ERROR', error);
           if (typeof drawCrashConsole === 'function') {
               drawCrashConsole('Background Worker Initialization Failed', 'sync-worker.js', 'Worker Thread', new Error(error));
           } else {
@@ -731,8 +838,16 @@
 
         case 'SYNC_ERROR':
           console.error('[App] Sync engine error:', error);
-          // PASSPHRASE_MISMATCH is now only sent once by the worker (loop stopped).
-          // Show one informative toast and update hydration UI if open.
+          recordSystemError('SYNC_ERROR', error);
+          
+          // Show topbar Retry Sync button
+          const topRetryBtn = document.getElementById('btn-net-sync-retry');
+          if (topRetryBtn) {
+            topRetryBtn.style.display = 'inline-flex';
+            topRetryBtn.textContent = 'Retry Sync';
+            topRetryBtn.style.background = 'var(--alert-coral)';
+          }
+
           if (error === 'PASSPHRASE_MISMATCH') {
             if (!window.__passphraseMismatchNotified) {
               window.__passphraseMismatchNotified = true;
@@ -760,6 +875,25 @@
         case 'CONNECTION_CHANGE':
           updateNetworkBadge(event.data.isConnected);
           break;
+
+        case 'OFFLINE_QUEUE_UPDATE':
+          updateSyncQueueTooltip(event.data.count);
+          break;
+
+        case 'PURGE_IMAGES_COMPLETE': {
+          const fill = document.getElementById('storage-purge-progress-fill');
+          const status = document.getElementById('storage-purge-status');
+          const bar = document.getElementById('storage-purge-progress-bar');
+          if (fill) fill.style.width = '100%';
+          if (status) status.textContent = 'Completed!';
+          setTimeout(() => {
+            if (status) status.style.display = 'none';
+            if (bar) bar.style.display = 'none';
+            showNotificationToast(`Image database purge complete. Cleaned up ${event.data.count} legacy images.`, 'success', 3000);
+            updateStorageTelemetry();
+          }, 400);
+          break;
+        }
 
         case 'DEVICE_REQUEST_RECEIVED':
           playAudioSignal('click');
@@ -942,6 +1076,7 @@
           // Premium: flash payment success ring + haptic triple-tap + screen reader
           if (typeof flashPaymentSuccess === 'function') flashPaymentSuccess();
           showNotificationToast(`✅ Transaction #${transactionId.slice(-8).toUpperCase()} completed!`, null, 4000);
+          announceToScreenReader(`Transaction completed successfully for amount Rs. ${(event.data.total / 100.0).toFixed(2)}.`);
 
           // ── Component F: Update monotonic time anchor ─────────────────────
           LicenseEngine.updateTimeAnchor().catch(() => {});
@@ -1258,7 +1393,7 @@
     }
 
 
-    // Theme toggler
+    // Theme toggler — cycles through all available palettes
     document.getElementById('theme-toggle-btn').addEventListener('click', () => {
       playAudioSignal('click');
       const body = document.body;
@@ -1272,14 +1407,18 @@
       ];
       
       let curIndex = themes.findIndex(t => body.classList.contains(t));
+      if (curIndex === -1) curIndex = 0;
       body.classList.remove(themes[curIndex]);
       let nextIndex = (curIndex + 1) % themes.length;
       body.classList.add(themes[nextIndex]);
 
+      // Persist so bootstrap-init applies the right theme before next paint
+      localStorage.setItem('nexova_theme_override', themes[nextIndex]);
+
       // Save to worker preferences
       syncWorker.postMessage({
         type: 'SAVE_PREFERENCE',
-        payload: { key: 'store_theme_palette', val: themes[nextIndex].replace('theme-', '').replace('-', ' ') }
+        payload: { key: 'store_theme_palette', val: themes[nextIndex].replace('theme-', '').replace(/-/g, ' ') }
       });
     });
 
@@ -1572,6 +1711,8 @@
       const themes = ['theme-obsidian-emerald', 'theme-midnight-sapphire', 'theme-warm-amber', 'theme-minimalist-chrome', 'theme-monochrome-ivory', 'theme-premium-navy'];
       themes.forEach(t => body.classList.remove(t));
       body.classList.add(themeClass);
+      // Persist so next cold boot applies immediately without flash
+      localStorage.setItem('nexova_theme_override', themeClass);
     });
 
     document.getElementById('setting-receipt-width').addEventListener('change', (e) => {
@@ -1591,6 +1732,7 @@
         });
         state.preferences['shop_mode'] = mode;
         showNotificationToast('Shop business domain changed to ' + mode, 'success', 3000);
+        announceToScreenReader(`POS shop business domain changed to ${mode}.`);
       } else {
         e.target.value = state.preferences['shop_mode'] || 'simple-retail';
       }
@@ -1664,9 +1806,100 @@
       document.body.classList.toggle('reduced-motion', !enabled);
     });
 
+    document.getElementById('setting-high-contrast').addEventListener('change', (e) => {
+      const enabled = e.target.checked;
+      syncWorker.postMessage({
+        type: 'SAVE_PREFERENCE',
+        payload: { key: 'high_contrast_enabled', val: String(enabled) }
+      });
+      state.preferences['high_contrast_enabled'] = String(enabled);
+      document.body.classList.toggle('theme-high-contrast', enabled);
+      announceToScreenReader(enabled ? 'High Contrast theme enabled.' : 'High Contrast theme disabled.');
+    });
+
     document.getElementById('btn-replay-tutorial').addEventListener('click', () => {
       if (typeof playAudioSignal === 'function') playAudioSignal('click');
       startOnboardingTour();
+    });
+
+    document.getElementById('btn-storage-compress-images').addEventListener('click', () => {
+      if (typeof playAudioSignal === 'function') playAudioSignal('click');
+      if (confirm("Are you sure you want to run deep compression on all catalog images? This will downscale them to maximum 300x300px at 0.6 quality to recover storage space.")) {
+        let count = 0;
+        let processed = 0;
+        const base64Images = state.catalog.filter(item => item.image_url && item.image_url.startsWith('data:image/'));
+        if (base64Images.length === 0) {
+          showNotificationToast('No Base64 images found to compress.', 'info', 3000);
+          return;
+        }
+        showNotificationToast('Starting image re-compression...', 'info', 2000);
+        base64Images.forEach(item => {
+          recompressBase64Image(item.image_url, (newBase64) => {
+            processed++;
+            if (newBase64 && newBase64.length < item.image_url.length) {
+              item.image_url = newBase64;
+              syncWorker.postMessage({
+                type: 'SAVE_PRODUCT',
+                payload: item
+              });
+              count++;
+            }
+            if (processed === base64Images.length) {
+              showNotificationToast(`Successfully compressed ${count} catalog images.`, 'success', 3000);
+              measureStorageUtilization();
+            }
+          });
+        });
+      }
+    });
+
+    document.getElementById('btn-storage-purge-old-images').addEventListener('click', () => {
+      if (typeof playAudioSignal === 'function') playAudioSignal('click');
+      if (confirm("Are you sure you want to purge product images for items that haven't been updated in the last 30 days?")) {
+        let count = 0;
+        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        state.catalog.forEach(item => {
+          if (item.image_url && item.image_url.startsWith('data:image/')) {
+            let timestamp = Date.now();
+            if (item.sync_hlc) {
+              const parts = item.sync_hlc.split(':');
+              if (parts[0]) {
+                const t = parseInt(parts[0]);
+                if (!isNaN(t)) timestamp = t;
+              }
+            }
+            if (timestamp < thirtyDaysAgo) {
+              item.image_url = '';
+              syncWorker.postMessage({
+                type: 'SAVE_PRODUCT',
+                payload: item
+              });
+              count++;
+            }
+          }
+        });
+        showNotificationToast(`Purged images for ${count} older products.`, 'success', 3000);
+        measureStorageUtilization();
+      }
+    });
+
+    document.getElementById('btn-storage-purge-all-images').addEventListener('click', () => {
+      if (typeof playAudioSignal === 'function') playAudioSignal('click');
+      if (confirm("Are you sure you want to delete all Base64 images in your catalog? This will free up storage immediately.")) {
+        let count = 0;
+        state.catalog.forEach(item => {
+          if (item.image_url && item.image_url.startsWith('data:image/')) {
+            item.image_url = '';
+            syncWorker.postMessage({
+              type: 'SAVE_PRODUCT',
+              payload: item
+            });
+            count++;
+          }
+        });
+        showNotificationToast(`Cleared ${count} product images successfully.`, 'success', 3000);
+        measureStorageUtilization();
+      }
     });
 
     document.getElementById('setting-fbr-enabled')?.addEventListener('change', (e) => {
@@ -1958,11 +2191,20 @@
       const MAX_STEPS = 5;
       const subtitles = {
         1:   "Let's get your point-of-sale ready in just a few steps.",
-        '2a': 'Tell us about your store — this will appear on receipts and the POS header.',
+        '2a': 'Tell us about your store — this will appear on receipts and the header.',
         '2b':"Enter the network details to connect to an existing store.",
-        3:   "Choose your shop business domain for optimal workflow configurations.",
+        3:   "Choose your shop business domain for optimal configurations.",
         4:   "Set your security credentials to protect this register.",
         5:   "Review your configuration before we initialize the database.",
+      };
+
+      const BUSINESS_TEMPLATES = {
+        retail: { name: 'Monochrome Grocers', tax: 8.5, mode: 'simple-retail' },
+        fashion: { name: 'Aura Boutique', tax: 12.0, mode: 'clothing-fashion' },
+        restaurant: { name: 'Elysium Bistro', tax: 15.0, mode: 'food-restaurant' },
+        services: { name: 'Sleek Spa & Salon', tax: 6.0, mode: 'services-appointments' },
+        electronics: { name: 'Nexus Hub Devices', tax: 10.0, mode: 'electronics-highvalue' },
+        convenience: { name: 'Apex Petrol Mart', tax: 4.0, mode: 'gas-station' }
       };
 
       const btnNext    = document.getElementById('btn-wiz-next');
@@ -1983,6 +2225,135 @@
         });
       }
 
+      // Business Preset Template Library & Confetti (Phase 6)
+      const btnOpenTemplates = document.getElementById('btn-wizard-open-templates');
+      const modalTemplates = document.getElementById('modal-wizard-templates');
+      const btnCloseTemplates = document.getElementById('btn-close-wizard-templates');
+
+      if (btnOpenTemplates && modalTemplates && btnCloseTemplates) {
+        btnOpenTemplates.addEventListener('click', () => {
+          modalTemplates.style.display = 'flex';
+          if (typeof playAudioSignal === 'function') playAudioSignal('click');
+        });
+        btnCloseTemplates.addEventListener('click', () => {
+          modalTemplates.style.display = 'none';
+        });
+
+        modalTemplates.querySelectorAll('.wizard-template-card').forEach(card => {
+          card.addEventListener('click', () => {
+            const key = card.getAttribute('data-template');
+            const tmpl = BUSINESS_TEMPLATES[key];
+            if (tmpl) {
+              const nameInput = document.getElementById('wizard-store-name');
+              const taxInput = document.getElementById('wizard-tax-rate');
+              const modeInput = document.getElementById('wizard-shop-mode');
+
+              if (nameInput) nameInput.value = tmpl.name;
+              if (taxInput) taxInput.value = tmpl.tax;
+              if (modeInput) {
+                modeInput.value = tmpl.mode;
+                
+                // Select the mode card visually in Step 3
+                const modeCards = document.querySelectorAll('.shop-mode-card');
+                modeCards.forEach(mc => {
+                  if (mc.getAttribute('data-mode') === tmpl.mode) {
+                    mc.classList.add('active');
+                    mc.style.border = '2px solid var(--accent-emerald)';
+                    mc.style.background = 'rgba(0, 214, 143, 0.05)';
+                  } else {
+                    mc.classList.remove('active');
+                    mc.style.border = '1px solid rgba(255,255,255,0.08)';
+                    mc.style.background = 'rgba(255,255,255,0.03)';
+                  }
+                });
+
+                // Update preview text box in Step 3
+                const pTitle = document.getElementById('mode-preview-title');
+                const pDetails = document.getElementById('mode-preview-details');
+                const pInfo = previews[tmpl.mode];
+                if (pInfo) {
+                  if (pTitle) pTitle.textContent = pInfo.title;
+                  if (pDetails) pDetails.innerHTML = pInfo.details;
+                }
+              }
+
+              // Trigger onboarding tour tips update
+              updateModeSpecificTourTip(tmpl.mode);
+
+              // Close modal and play audio / animations
+              modalTemplates.style.display = 'none';
+              if (typeof playAudioSignal === 'function') playAudioSignal('success');
+              triggerConfetti();
+
+              announceToScreenReader(`Applied preset configuration for ${tmpl.name}. Custom tax rate set to ${tmpl.tax}%`);
+            }
+          });
+        });
+      }
+
+      function updateModeSpecificTourTip(mode) {
+        const tips = {
+          'simple-retail': 'Tip: Scan products to add to cart instantly.',
+          'clothing-fashion': 'Tip: Select size and color swatches during item checkout.',
+          'food-restaurant': 'Tip: Tap modifier choices to customize food orders.',
+          'services-appointments': 'Tip: Assign staff members and pick booking calendars.',
+          'electronics-highvalue': 'Tip: Verify serial numbers to register warranties.',
+          'gas-station': 'Tip: Select nozzle pre-sets or manual quantities.'
+        };
+        const hintEl = document.getElementById('wizard-mode-tour-tip');
+        if (hintEl) {
+          hintEl.textContent = tips[mode] || 'Tip: Configure your catalog items in Settings.';
+        }
+      }
+
+      function triggerConfetti() {
+        const canvas = document.getElementById('confetti-canvas');
+        if (!canvas) return;
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        canvas.style.display = 'block';
+        const ctx = canvas.getContext('2d');
+        const colors = ['#00d68f', '#4f9eff', '#ffaa00', '#ff4d4d'];
+        const particles = [];
+        for (let i = 0; i < 80; i++) {
+          particles.push({
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            vx: (Math.random() - 0.5) * 15,
+            vy: (Math.random() - 0.5) * 15 - 5,
+            size: Math.random() * 6 + 4,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            alpha: 1,
+            decay: Math.random() * 0.02 + 0.015
+          });
+        }
+
+        function frame() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          let alive = false;
+          particles.forEach(p => {
+            if (p.alpha > 0) {
+              p.x += p.vx;
+              p.y += p.vy;
+              p.vy += 0.2;
+              p.alpha -= p.decay;
+              ctx.globalAlpha = p.alpha;
+              ctx.fillStyle = p.color;
+              ctx.beginPath();
+              ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+              ctx.fill();
+              alive = true;
+            }
+          });
+          if (alive) {
+            requestAnimationFrame(frame);
+          } else {
+            canvas.style.display = 'none';
+          }
+        }
+        frame();
+      }
+
       if (!btnNext) return;
 
       // Shop Mode card click selection and preview rendering
@@ -1993,27 +2364,27 @@
 
       const previews = {
         'simple-retail': {
-          title: '🛒 Simple Retail Active',
+          title: 'Simple Retail Active',
           details: '• Checkout flow: Instant add-to-cart on barcode scan.<br>• Product features: Simple quantity edits, supplier names, reorder levels.'
         },
         'clothing-fashion': {
-          title: '👕 Clothing & Fashion Active',
+          title: 'Clothing & Fashion Active',
           details: '• Checkout flow: Intercept adds → select size grid & color swatches.<br>• Product features: Extended size/color variant matrix, brand/season tracking.'
         },
         'food-restaurant': {
-          title: '🍽️ Food & Restaurant Active',
+          title: 'Food & Restaurant Active',
           details: '• Checkout flow: Intercept adds → select modifiers (toppings/sides), combo builders.<br>• Product features: Allergens lists, kitchen tickets output, table numbers.'
         },
         'services-appointments': {
-          title: '✂️ Services & Booking Active',
+          title: 'Services & Booking Active',
           details: '• Checkout flow: Intercept adds → select staff assignment, time slots calendar.<br>• Product features: Service durations, booking buffers, calendar rescheduling.'
         },
         'electronics-highvalue': {
-          title: '📱 Electronics & High-Value Active',
+          title: 'Electronics & High-Value Active',
           details: '• Checkout flow: Scan serial number, record buyer ID verification.<br>• Product features: Serial number inventory validation, warranty terms lookup.'
         },
         'custom-mixed': {
-          title: '⚙️ Custom / Mixed Active',
+          title: 'Custom / Mixed Active',
           details: '• Checkout flow: Multi-option selection picker.<br>• Product features: Advanced toggles in Settings allowing modular option blends.'
         }
       };
@@ -3651,6 +4022,7 @@
       syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
     } else if (screenName === 'settings') {
       syncWorker.postMessage({ type: 'GET_PREFERENCES' });
+      measureStorageUtilization();
       if (state.activeCashier && state.activeCashier.role === 'ADMIN') {
         const adminSection = document.getElementById('settings-device-whitelisting');
         if (adminSection) {
@@ -3730,6 +4102,8 @@
       syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
       syncWorker.postMessage({ type: 'GET_DISTRIBUTORS' });
       syncWorker.postMessage({ type: 'GET_PURCHASE_ORDERS' });
+      // Wire date-range pills + CSV export (idempotent — runs once)
+      setTimeout(initAnalyticsControls, 0);
     } else if (screenName === 'logs') {
       syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
     }
@@ -3834,11 +4208,23 @@
     if (isConnected) {
       badge.className = 'network-badge online';
       txt.textContent = 'ONLINE';
+      badge.title = 'Sync Status: Online (All changes fully synced)';
       if (pill) pill.classList.remove('active');
     } else {
       badge.className = 'network-badge offline';
       txt.textContent = 'OFFLINE';
+      badge.title = 'Sync Status: Offline';
       if (pill) pill.classList.add('active');
+    }
+  }
+
+  function updateSyncQueueTooltip(count) {
+    const badge = document.getElementById('net-badge');
+    if (!badge) return;
+    if (count > 0) {
+      badge.title = `Sync Status: Offline (Local state has ${count} unsynced changes queued)`;
+    } else {
+      badge.title = 'Sync Status: Online (All changes fully synced)';
     }
   }
 
@@ -3980,13 +4366,18 @@
     const width = state.preferences['store_receipt_width'] || '42';
     document.getElementById('setting-receipt-width').value = width;
 
-    const palette = state.preferences['store_theme_palette'] || 'Obsidian Emerald';
-    document.getElementById('setting-theme-palette').value = palette;
-    const themeClass = 'theme-' + palette.toLowerCase().replace(/\s+/g, '-');
+    const palette = state.preferences['store_theme_palette'] || '';
+    const themeClass = palette
+      ? 'theme-' + palette.toLowerCase().replace(/\s+/g, '-')
+      : (window.__nexovaSystemTheme || 'theme-obsidian-emerald');
     const body = document.body;
     const themes = ['theme-obsidian-emerald', 'theme-midnight-sapphire', 'theme-warm-amber', 'theme-minimalist-chrome', 'theme-monochrome-ivory', 'theme-premium-navy'];
     themes.forEach(t => body.classList.remove(t));
     body.classList.add(themeClass);
+    // Sync back to localStorage for next cold-boot
+    if (palette) localStorage.setItem('nexova_theme_override', themeClass);
+    const themeSelect = document.getElementById('setting-theme-palette');
+    if (themeSelect) themeSelect.value = palette || 'Obsidian Emerald';
 
     const mode = state.preferences['shop_mode'] || 'simple-retail';
     const modeEl = document.getElementById('setting-shop-mode');
@@ -4016,6 +4407,11 @@
     const motionEl = document.getElementById('setting-motion-enabled');
     if (motionEl) motionEl.checked = motionEnabled;
     document.body.classList.toggle('reduced-motion', !motionEnabled);
+
+    const highContrast = state.preferences['high_contrast_enabled'] === 'true';
+    const contrastEl = document.getElementById('setting-high-contrast');
+    if (contrastEl) contrastEl.checked = highContrast;
+    document.body.classList.toggle('theme-high-contrast', highContrast);
 
     const fbrToggle = document.getElementById('setting-fbr-enabled');
     if (fbrToggle) fbrToggle.checked = state.preferences['fbr_integration_enabled'] === 'true';
@@ -4730,6 +5126,7 @@
 
     playAudioSignal('click');
     renderCart();
+    announceToScreenReader(`${displayName} added to checkout cart.`);
   }
 
   // Modify quantity in cart
@@ -4750,6 +5147,7 @@
       }
     }
 
+    const prevQty = item.qty;
     item.qty += delta;
     if (item.qty <= 0) {
       state.activeCart = state.activeCart.filter(i => !(i.sku === sku && (!displayName || i.displayName === displayName)));
@@ -4757,6 +5155,12 @@
     
     playAudioSignal('click');
     renderCart();
+
+    if (item.qty <= 0) {
+      announceToScreenReader(`${displayName || item.name} removed from cart.`);
+    } else {
+      announceToScreenReader(`${item.displayName || item.name} quantity updated to ${item.qty}.`);
+    }
 
     // Pulse quantity animation
     if (item.qty > 0) {
@@ -4784,11 +5188,13 @@
         state.activeCart = state.activeCart.filter(i => !(i.sku === sku && (!displayName || i.displayName === displayName)));
         playAudioSignal('click');
         renderCart();
+        announceToScreenReader(`${displayName || sku} removed from cart.`);
       });
     } else {
       state.activeCart = state.activeCart.filter(i => !(i.sku === sku && (!displayName || i.displayName === displayName)));
       playAudioSignal('click');
       renderCart();
+      announceToScreenReader(`${displayName || sku} removed from cart.`);
     }
   }
 
@@ -5392,6 +5798,10 @@
     });
 
     state.catalogVirtualList.setItems(items);
+    // Keep storage telemetry fresh whenever catalog renders
+    if (typeof measureStorageUtilization === 'function') {
+      measureStorageUtilization();
+    }
   }
 
   // Render a responsive Quick-Access Product Grid for desktop/tablet middle-column and mobile tab
@@ -5544,6 +5954,120 @@
     reader.readAsDataURL(file);
   }
 
+  // Database & Local Storage Telemetry
+  async function measureStorageUtilization() {
+    let imageBytes = 0;
+    let metaBytes = 0;
+
+    // 1. Calculate image size from catalog
+    if (state.catalog && Array.isArray(state.catalog)) {
+      state.catalog.forEach(item => {
+        if (item.image_url && item.image_url.startsWith('data:image/')) {
+          imageBytes += item.image_url.length;
+        }
+        metaBytes += JSON.stringify({ ...item, image_url: '' }).length;
+      });
+    }
+
+    // 2. Add size of other system segments
+    if (state.transactions) metaBytes += JSON.stringify(state.transactions).length;
+    if (state.customers) metaBytes += JSON.stringify(state.customers).length;
+    if (state.preferences) metaBytes += JSON.stringify(state.preferences).length;
+
+    // Fallback if empty
+    if (metaBytes === 0) metaBytes = 10 * 1024;
+
+    const totalBytes = imageBytes + metaBytes;
+
+    const imgKB = (imageBytes / 1024).toFixed(2);
+    const metaKB = (metaBytes / 1024).toFixed(2);
+    const totalKB = (totalBytes / 1024).toFixed(2);
+    const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
+
+    const barImg = document.getElementById('storage-bar-images');
+    const barMeta = document.getElementById('storage-bar-metadata');
+    const txtImg = document.getElementById('storage-size-images');
+    const txtMeta = document.getElementById('storage-size-metadata');
+    const txtTotal = document.getElementById('storage-size-total');
+
+    if (txtImg) txtImg.textContent = `${imgKB} KB`;
+    if (txtMeta) txtMeta.textContent = `${metaKB} KB`;
+    if (txtTotal) {
+      txtTotal.textContent = `${totalKB} KB (${totalMB} MB)`;
+      if (totalBytes > 4 * 1024 * 1024) {
+        txtTotal.style.color = 'var(--alert-coral)';
+      } else {
+        txtTotal.style.color = 'var(--accent-emerald)';
+      }
+    }
+
+    if (barImg && barMeta) {
+      const imgPct = Math.min((imageBytes / (5 * 1024 * 1024)) * 100, 100);
+      const metaPct = Math.min((metaBytes / (5 * 1024 * 1024)) * 100, 100);
+      barImg.style.width = `${imgPct}%`;
+      barMeta.style.width = `${metaPct}%`;
+    }
+
+    // 3. Browser Storage Estimate & Pie Chart (Phase 4)
+    if (navigator.storage && navigator.storage.estimate) {
+      try {
+        const estimate = await navigator.storage.estimate();
+        const usedMb = (estimate.usage / (1024 * 1024)).toFixed(1);
+        const totalMb = (estimate.quota / (1024 * 1024)).toFixed(0);
+        const pct = estimate.quota > 0 ? Math.round((estimate.usage / estimate.quota) * 100) : 0;
+
+        const chart = document.getElementById('storage-pie-chart');
+        const text = document.getElementById('storage-percentage-text');
+        const usedEl = document.getElementById('storage-used-txt');
+        const totalEl = document.getElementById('storage-total-txt');
+
+        if (chart) {
+          chart.style.background = `conic-gradient(var(--accent-emerald) ${pct}%, rgba(255,255,255,0.06) ${pct}%)`;
+        }
+        if (text) text.textContent = pct + '%';
+        if (usedEl) usedEl.textContent = usedMb + ' MB';
+        if (totalEl) totalEl.textContent = totalMb + ' MB';
+
+        // Alert user on startup if used space is above 80%
+        if (pct > 80 && !window.__storageWarned) {
+          window.__storageWarned = true;
+          showNotificationToast('Storage Warning: Local register cache is using over 80% of allocation. Run image purge now.', 'warning', 5000);
+        }
+      } catch (e) {
+        console.error('[Storage] Estimate failed:', e);
+      }
+    }
+  }
+  window.updateStorageTelemetry = measureStorageUtilization;
+
+  function recompressBase64Image(base64Str, callback) {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const maxDim = 300;
+      let width = img.width;
+      let height = img.height;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      callback(canvas.toDataURL('image/jpeg', 0.6));
+    };
+    img.onerror = () => {
+      callback(null);
+    };
+    img.src = base64Str;
+  }
+
   // Dynamic Mode-Specific Product Fields Renderer
   function renderFormModeFields(container, mode, currentFieldsJSON) {
     container.innerHTML = '';
@@ -5689,6 +6213,125 @@
   }
 
   // --- CATALOG FORM SUBMISSIONS ---
+
+  // ── One-Click Product Creation Presets ─────────────────────────────────────
+  const PRODUCT_PRESETS = [
+    {
+      id: 'clothing',
+      icon: '👕',
+      label: 'Clothing',
+      color: 'var(--accent-blue)',
+      fields: {
+        emoji: '👕',
+        category: 'Clothing',
+        price: 2500,
+        cost: 1500,
+        stock: 50,
+        threshold: 10,
+      }
+    },
+    {
+      id: 'food',
+      icon: '🍔',
+      label: 'Food',
+      color: 'var(--accent-amber)',
+      fields: {
+        emoji: '🍔',
+        category: 'Food',
+        price: 800,
+        cost: 400,
+        stock: 100,
+        threshold: 20,
+      }
+    },
+    {
+      id: 'service',
+      icon: '🛠️',
+      label: 'Service',
+      color: 'var(--accent-emerald)',
+      fields: {
+        emoji: '🛠️',
+        category: 'Services',
+        price: 5000,
+        cost: 1000,
+        stock: 999,
+        threshold: 0,
+      }
+    },
+    {
+      id: 'electronics',
+      icon: '📱',
+      label: 'Electronics',
+      color: '#a78bfa',
+      fields: {
+        emoji: '📱',
+        category: 'Electronics',
+        price: 15000,
+        cost: 10000,
+        stock: 20,
+        threshold: 5,
+      }
+    }
+  ];
+
+  /**
+   * Render a quick-preset bar inside a target container.
+   * Clicking a preset auto-fills the product form fields.
+   */
+  function renderProductPresets(targetContainer) {
+    if (!targetContainer) return;
+    targetContainer.innerHTML = '';
+    targetContainer.style.display = 'block';  // make visible for new products
+
+    const label = document.createElement('p');
+    label.style.cssText = 'font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-gray); margin:0 0 8px;';
+    label.textContent = '⚡ Quick Presets';
+    targetContainer.appendChild(label);
+
+    const bar = document.createElement('div');
+    bar.style.cssText = 'display:flex; gap:8px; flex-wrap:wrap;';
+
+    PRODUCT_PRESETS.forEach(preset => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.setAttribute('aria-label', `Apply ${preset.label} preset`);
+      btn.style.cssText = `
+        display:inline-flex; align-items:center; gap:6px;
+        padding:6px 12px; border-radius:8px;
+        border:1px solid ${preset.color}40;
+        background:${preset.color}18;
+        color:${preset.color}; font-size:11px; font-weight:700;
+        cursor:pointer; transition:background 0.15s, transform 0.1s;
+        text-transform:uppercase; letter-spacing:0.04em;
+      `;
+      btn.innerHTML = `${preset.icon} ${preset.label}`;
+
+      btn.addEventListener('mouseenter', () => { btn.style.background = `${preset.color}30`; });
+      btn.addEventListener('mouseleave', () => { btn.style.background = `${preset.color}18`; });
+      btn.addEventListener('click', () => {
+        const f = preset.fields;
+        const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+        setVal('form-product-emoji',     f.emoji);
+        setVal('form-product-category',  f.category);
+        setVal('form-product-price',     f.price);
+        setVal('form-product-cost',      f.cost);
+        setVal('form-product-stock',     f.stock);
+        setVal('form-product-threshold', f.threshold);
+        // Animate the button briefly
+        btn.style.transform = 'scale(0.94)';
+        setTimeout(() => { btn.style.transform = 'scale(1)'; }, 120);
+        if (typeof showNotificationToast === 'function') {
+          showNotificationToast(`${preset.icon} ${preset.label} preset applied — add SKU, name & save!`, 'info', 3000);
+        }
+        announceToScreenReader(`${preset.label} preset applied.`);
+      });
+
+      bar.appendChild(btn);
+    });
+
+    targetContainer.appendChild(bar);
+  }
+
   function openProductEditModal(sku) {
     playAudioSignal('click');
     const modal = document.getElementById('modal-product');
@@ -5735,6 +6378,9 @@
       // SKU cannot be changed on edit
       document.getElementById('form-product-sku').disabled = true;
       if (auditRow) auditRow.style.display = 'flex';
+      // Hide presets bar — only shown for new products
+      const presetContainerEdit = document.getElementById('form-product-presets-container');
+      if (presetContainerEdit) presetContainerEdit.style.display = 'none';
     } else {
       document.getElementById('modal-product-title').textContent = 'Add New Product';
       document.getElementById('form-product-sku').disabled = false;
@@ -5748,6 +6394,13 @@
       document.getElementById('form-product-stock').value = '';
       document.getElementById('form-product-threshold').value = 10;
       if (auditRow) auditRow.style.display = 'none';
+
+      // Show quick-preset bar for new products
+      const presetContainer = document.getElementById('form-product-presets-container');
+      renderProductPresets(presetContainer);
+
+      // Render empty mode fields for the current shop mode
+      renderFormModeFields(dynamicContainer, shopMode, '{}');
     }
 
     modal.classList.add('active');
@@ -6276,19 +6929,216 @@
   }
 
   // --- ANALYTICS DASHBOARD PLOTTING ---
+
+  /**
+   * Filter transactions by the currently selected analytics date range.
+   * Returns the subset of state.transactions within the window.
+   */
+  function getFilteredTransactions() {
+    const all = state.transactions;
+    const range = state.analyticsRange || 'all';
+    if (range === 'all') return all;
+
+    const now = Date.now();
+    const cutoffs = {
+      today: 86400000,       // 1 day in ms
+      week:  7 * 86400000,   // 7 days
+      month: 30 * 86400000   // 30 days
+    };
+
+    if (range === 'custom') {
+      const fromVal = document.getElementById('analytics-date-from').value;
+      const toVal = document.getElementById('analytics-date-to').value;
+      if (!fromVal || !toVal) return all;
+      const fromTs = new Date(fromVal + 'T00:00:00').getTime();
+      const toTs = new Date(toVal + 'T23:59:59').getTime();
+      return all.filter(t => {
+        const ts = typeof t.created_at === 'number' ? t.created_at : new Date(t.created_at).getTime();
+        return ts >= fromTs && ts <= toTs;
+      });
+    }
+
+    const cutoff = now - (cutoffs[range] || 0);
+    return all.filter(t => {
+      // Support both Unix-ms timestamps and ISO strings
+      const ts = typeof t.created_at === 'number'
+        ? t.created_at
+        : new Date(t.created_at).getTime();
+      return ts >= cutoff;
+    });
+  }
+
+  function getPriorPeriodTransactions() {
+    const all = state.transactions;
+    const range = state.analyticsRange || 'all';
+    if (range === 'all') return []; // no prior period for 'all'
+
+    const now = Date.now();
+    const cutoffs = {
+      today: 86400000,       // 1 day in ms
+      week:  7 * 86400000,   // 7 days
+      month: 30 * 86400000   // 30 days
+    };
+
+    if (range === 'custom') {
+      const fromVal = document.getElementById('analytics-date-from').value;
+      const toVal = document.getElementById('analytics-date-to').value;
+      if (!fromVal || !toVal) return [];
+      const fromTs = new Date(fromVal + 'T00:00:00').getTime();
+      const toTs = new Date(toVal + 'T23:59:59').getTime();
+      const diff = toTs - fromTs;
+      const priorFromTs = fromTs - diff - 1000;
+      const priorToTs = fromTs - 1000;
+      return all.filter(t => {
+        const ts = typeof t.created_at === 'number' ? t.created_at : new Date(t.created_at).getTime();
+        return ts >= priorFromTs && ts <= priorToTs;
+      });
+    }
+
+    const duration = cutoffs[range] || 0;
+    const currentCutoff = now - duration;
+    const priorCutoff = currentCutoff - duration;
+    return all.filter(t => {
+      const ts = typeof t.created_at === 'number' ? t.created_at : new Date(t.created_at).getTime();
+      return ts >= priorCutoff && ts < currentCutoff;
+    });
+  }
+
+  /**
+   * Wire up date-range pills and CSV export button for the analytics view.
+   * Called once when the analytics screen first becomes active.
+   */
+  function initAnalyticsControls() {
+    if (document.getElementById('analytics-range-group')?._posWired) return;
+    const group = document.getElementById('analytics-range-group');
+    if (!group) return;
+    group._posWired = true;
+
+    group.querySelectorAll('.analytics-range-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        // Update active visual state
+        group.querySelectorAll('.analytics-range-btn').forEach(b => {
+          b.style.background = 'transparent';
+          b.style.color = 'var(--text-gray)';
+          b.setAttribute('aria-pressed', 'false');
+        });
+        btn.style.background = 'var(--accent-blue)';
+        btn.style.color = '#fff';
+        btn.setAttribute('aria-pressed', 'true');
+
+        state.analyticsRange = btn.dataset.range;
+        
+        const customContainer = document.getElementById('analytics-custom-date-container');
+        if (state.analyticsRange === 'custom') {
+          customContainer.style.display = 'flex';
+        } else {
+          customContainer.style.display = 'none';
+          
+          // Trigger loading skeleton simulation on range switch
+          const loader = document.getElementById('analytics-loading-overlay');
+          if (loader) {
+            loader.style.display = 'flex';
+            setTimeout(() => {
+              loader.style.display = 'none';
+              calculateAnalytics();
+            }, 400);
+          } else {
+            calculateAnalytics();
+          }
+        }
+        announceToScreenReader(`Analytics filtered to ${btn.textContent.trim()}`);
+      });
+    });
+
+    const applyBtn = document.getElementById('btn-analytics-custom-apply');
+    if (applyBtn) {
+      applyBtn.addEventListener('click', () => {
+        const loader = document.getElementById('analytics-loading-overlay');
+        if (loader) {
+          loader.style.display = 'flex';
+          setTimeout(() => {
+            loader.style.display = 'none';
+            calculateAnalytics();
+          }, 400);
+        } else {
+          calculateAnalytics();
+        }
+      });
+    }
+
+    // CSV export
+    const exportBtn = document.getElementById('btn-analytics-export-csv');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', exportAnalyticsCsv);
+    }
+  }
+
+  /** Export currently-visible transactions as a CSV download. */
+  function exportAnalyticsCsv() {
+    const txs = getFilteredTransactions();
+    if (txs.length === 0) {
+      if (typeof showNotificationToast === 'function') {
+        showNotificationToast('No transactions in selected range to export.', 'info', 3000);
+      }
+      return;
+    }
+
+    const header = ['Date', 'Transaction ID', 'Cashier', 'Items', 'Total (Rs.)'].join(',');
+    const rows = txs.map(t => {
+      const date = t.created_at
+        ? new Date(typeof t.created_at === 'number' ? t.created_at : t.created_at).toLocaleString()
+        : 'N/A';
+      const items = (t.items || []).reduce((sum, i) => sum + i.quantity, 0);
+      const total = (t.total_minor_units / 100).toFixed(2);
+      const cashier = (t.cashier_name || t.cashier_id || '').toString().replace(/,/g, ' ');
+      const txId = (t.id || t.transaction_id || '').toString();
+      return [date, txId, cashier, items, total].join(',');
+    });
+
+    const csv = [header, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `nexova-analytics-${state.analyticsRange}-${Date.now()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    if (typeof showNotificationToast === 'function') {
+      showNotificationToast(`Exported ${txs.length} transactions as CSV.`, 'success', 3000);
+    }
+  }
+
   function calculateAnalytics() {
     const revVal = document.getElementById('analytics-revenue-value');
     const orderVal = document.getElementById('analytics-orders-count');
     const avgVal = document.getElementById('analytics-average-value');
     const itemsVal = document.getElementById('analytics-items-value');
 
-    const txs = state.transactions;
+    // Use date-range-filtered subset
+    const txs = getFilteredTransactions();
     if (txs.length === 0) {
-      revVal.textContent = 'Rs. 0.00';
-      orderVal.textContent = '0';
-      avgVal.textContent = 'Rs. 0.00';
-      itemsVal.textContent = '0';
-      document.getElementById('analytics-histogram-bars').innerHTML = '<p class="text-center text-muted" style="width:100%;">No sales history to plot chart.</p>';
+      if (revVal) revVal.textContent = 'Rs. 0.00';
+      if (orderVal) orderVal.textContent = '0';
+      if (avgVal) avgVal.textContent = 'Rs. 0.00';
+      if (itemsVal) itemsVal.textContent = '0';
+      
+      // Hide all delta badges
+      ['revenue', 'orders', 'average', 'items'].forEach(k => {
+        const el = document.getElementById(`analytics-${k}-delta`);
+        if (el) el.style.display = 'none';
+      });
+
+      const histEl = document.getElementById('analytics-histogram-bars');
+      if (histEl) histEl.innerHTML = '<p class="text-center text-muted" style="width:100%;">No sales history to plot chart.</p>';
+      
+      const catChart = document.getElementById('analytics-category-chart');
+      if (catChart) catChart.innerHTML = '<p class="text-muted" style="text-align: center; margin-top: 20px;">No category sales data to display for this timeframe.</p>';
+
+      const paySplit = document.getElementById('analytics-payment-split');
+      if (paySplit) paySplit.innerHTML = '<p class="text-muted" style="text-align: center; margin-top: 20px;">No transactions recorded for this range.</p>';
+
       return;
     }
 
@@ -6298,24 +7148,129 @@
 
     let totalItems = 0;
     txs.forEach(tx => {
-      tx.items.forEach(item => {
+      (tx.items || []).forEach(item => {
         totalItems += item.quantity;
       });
     });
 
-    revVal.textContent = `Rs. ${(totalRevenue / 100.0).toFixed(2)}`;
-    orderVal.textContent = orderCount;
-    avgVal.textContent = `Rs. ${(avgTicket / 100.0).toFixed(2)}`;
-    itemsVal.textContent = totalItems;
+    if (revVal) revVal.textContent = `Rs. ${(totalRevenue / 100.0).toFixed(2)}`;
+    if (orderVal) orderVal.textContent = orderCount;
+    if (avgVal) avgVal.textContent = `Rs. ${(avgTicket / 100.0).toFixed(2)}`;
+    if (itemsVal) itemsVal.textContent = totalItems;
+
+    // Prior period calculations and delta rendering
+    const priorTxs = getPriorPeriodTransactions();
+    const priorRevenue = priorTxs.reduce((sum, t) => sum + t.total_minor_units, 0);
+    const priorOrders = priorTxs.length;
+    const priorAvgTicket = priorOrders > 0 ? Math.round(priorRevenue / priorOrders) : 0;
+    let priorItems = 0;
+    priorTxs.forEach(tx => {
+      (tx.items || []).forEach(item => {
+        priorItems += item.quantity;
+      });
+    });
+
+    renderDeltaBadge('analytics-revenue-delta', totalRevenue, priorRevenue);
+    renderDeltaBadge('analytics-orders-delta', orderCount, priorOrders);
+    renderDeltaBadge('analytics-average-delta', avgTicket, priorAvgTicket);
+    renderDeltaBadge('analytics-items-delta', totalItems, priorItems);
 
     // Render sales histogram by hour
     plotHourlySalesChart(txs);
+
+    // Render category breakdown and payment split charts
+    renderCategoryBreakdownChart(txs);
+    renderPaymentMethodSplit(txs);
 
     // Business Intelligence dashboard calculations
     calculateBiDashboardMetrics();
 
     // Check stock thresholds and generate draft POs if needed
     runSmartReorderCheck();
+  }
+
+  function renderDeltaBadge(elementId, current, prior) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    if (state.analyticsRange === 'all' || prior === 0 || !prior) {
+      el.style.display = 'none';
+      return;
+    }
+    el.style.display = 'inline-block';
+    const diff = current - prior;
+    const pct = (diff / prior) * 100;
+    const sign = pct > 0 ? '+' : '';
+    const color = pct >= 0 ? 'var(--accent-emerald)' : 'var(--alert-coral)';
+    const bg = pct >= 0 ? 'rgba(0, 214, 143, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+    el.style.color = color;
+    el.style.background = bg;
+    el.textContent = `${sign}${pct.toFixed(1)}% vs prior`;
+  }
+
+  function renderCategoryBreakdownChart(txs) {
+    const container = document.getElementById('analytics-category-chart');
+    if (!container) return;
+
+    const breakdown = {};
+    txs.forEach(t => {
+      (t.items || []).forEach(item => {
+        const cat = item.category || 'Uncategorized';
+        breakdown[cat] = (breakdown[cat] || 0) + (item.price * item.quantity);
+      });
+    });
+
+    const categories = Object.keys(breakdown);
+    if (categories.length === 0) {
+      container.innerHTML = '<p class="text-muted" style="text-align: center; margin-top: 20px;">No category sales data to display for this timeframe.</p>';
+      return;
+    }
+
+    const totalRev = Object.values(breakdown).reduce((sum, v) => sum + v, 0);
+    container.innerHTML = categories.map(cat => {
+      const val = breakdown[cat];
+      const pct = totalRev > 0 ? ((val / totalRev) * 100).toFixed(1) : 0;
+      return `
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="display: justify-content: space-between; display: flex; font-size: 11px;">
+            <span style="font-weight: 700; color: var(--text-white);">${cat.toUpperCase()}</span>
+            <span style="color: var(--text-gray);">Rs. ${(val/100).toFixed(2)} (${pct}%)</span>
+          </div>
+          <div style="height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden;">
+            <div style="height: 100%; width: ${pct}%; background: var(--accent-emerald-gradient); border-radius: 3px;"></div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderPaymentMethodSplit(txs) {
+    const container = document.getElementById('analytics-payment-split');
+    if (!container) return;
+
+    const splits = { CASH: 0, CARD: 0, QR: 0, MOBILE: 0 };
+    txs.forEach(t => {
+      const mode = t.payment_mode || 'CASH';
+      splits[mode] = (splits[mode] || 0) + t.total_minor_units;
+    });
+
+    const totalRev = Object.values(splits).reduce((sum, v) => sum + v, 0);
+    container.innerHTML = Object.keys(splits).map(mode => {
+      const val = splits[mode];
+      const pct = totalRev > 0 ? ((val / totalRev) * 100).toFixed(1) : 0;
+      let barColor = 'var(--accent-blue)';
+      if (mode === 'CASH') barColor = 'var(--accent-emerald)';
+      else if (mode === 'CARD') barColor = 'var(--warning)';
+      else if (mode === 'QR') barColor = 'var(--alert-coral)';
+      return `
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-titanium); padding-bottom: 8px; font-size: 11px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <div style="width: 8px; height: 8px; border-radius: 50%; background: ${barColor};"></div>
+            <span style="font-weight: 700; color: var(--text-white);">${mode}</span>
+          </div>
+          <span style="color: var(--text-gray);">Rs. ${(val/100).toFixed(2)} (${pct}%)</span>
+        </div>
+      `;
+    }).join('');
   }
 
   // Calculate Net Cash Position and Margin analysis
@@ -6557,6 +7512,9 @@
       col.style.height = `${pct}%`;
 
       const ampm = hr >= 12 ? (hr === 12 ? '12PM' : (hr-12)+'PM') : hr+'AM';
+      
+      // Hover tooltip with exact values
+      col.title = `Sales: Rs. ${(amt/100).toFixed(2)} at ${ampm}`;
       
       col.innerHTML = `
         <span class="chart-bar-val">Rs. ${(amt/100).toFixed(0)}</span>
@@ -8254,6 +9212,38 @@
         e.target.value = ''; // reset so same file can be re-imported
       });
     }
+
+    const btnPurge = document.getElementById('btn-run-storage-purge');
+    if (btnPurge) {
+      btnPurge.addEventListener('click', () => {
+        if (typeof playAudioSignal === 'function') playAudioSignal('click');
+        
+        const status = document.getElementById('storage-purge-status');
+        const bar = document.getElementById('storage-purge-progress-bar');
+        const fill = document.getElementById('storage-purge-progress-fill');
+        
+        if (status) {
+          status.style.display = 'inline';
+          status.textContent = 'Scanning cache...';
+        }
+        if (bar) bar.style.display = 'inline-flex';
+        if (fill) fill.style.width = '0%';
+        
+        // Simulate loading progress bar increment
+        let progress = 0;
+        const timer = setInterval(() => {
+          progress += 10;
+          if (fill) fill.style.width = progress + '%';
+          if (progress >= 90) {
+            clearInterval(timer);
+          }
+        }, 80);
+
+        if (window.syncWorker) {
+          window.syncWorker.postMessage({ type: 'PURGE_OLD_IMAGES' });
+        }
+      });
+    }
   }
 
   const CLIENT_VERSION = '1.0.0';
@@ -8638,6 +9628,34 @@
       updateNetworkBadge(false);
   });
 
+  const netBadge = document.getElementById('net-badge');
+  if (netBadge) {
+      netBadge.style.cursor = 'pointer';
+      netBadge.addEventListener('click', () => {
+          if (typeof playAudioSignal === 'function') playAudioSignal('click');
+          if (typeof showNotificationToast === 'function') {
+              showNotificationToast('Reconnection sync triggered manually.', 'info', 2000);
+          }
+          syncWorker.postMessage({ type: 'FORCE_SYNC_RECONNECT' });
+      });
+  }
+
+  const netRetryBtn = document.getElementById('btn-net-sync-retry');
+  if (netRetryBtn) {
+      netRetryBtn.addEventListener('click', () => {
+          if (typeof playAudioSignal === 'function') playAudioSignal('click');
+          netRetryBtn.textContent = 'Syncing...';
+          netRetryBtn.style.background = 'var(--accent-blue)';
+          
+          if (window.syncWorker) {
+              window.syncWorker.postMessage({ type: 'FORCE_SYNC_RECONNECT' });
+          }
+          setTimeout(() => {
+              netRetryBtn.style.display = 'none';
+          }, 1500);
+      });
+  }
+
   // Background Sync Doze Mode focus recovery & camera scanner battery saver
   document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") {
@@ -8699,4 +9717,216 @@
       document.body.appendChild(modal);
     }
   });
+
+  // ── Manual Billing Upgrade UI Wiring ──────────────────────────────────────
+  function initBillingSettings() {
+    const tierGrid = document.getElementById('billing-tier-grid');
+    const formContainer = document.getElementById('billing-upgrade-form-container');
+    const hiddenTierInput = document.getElementById('form-billing-selected-tier');
+    const amountInput = document.getElementById('form-billing-amount');
+    const rrnInput = document.getElementById('form-billing-rrn');
+    const fileInput = document.getElementById('form-billing-file');
+    const fileNameSpan = document.getElementById('form-billing-file-name');
+    const previewContainer = document.getElementById('billing-file-preview-container');
+    const previewImg = document.getElementById('billing-file-preview');
+    const cancelBtn = document.getElementById('btn-billing-upgrade-cancel');
+    const proofForm = document.getElementById('billing-upgrade-proof-form');
+    
+    if (!tierGrid) return; // not on settings view
+
+    const PRICES = {
+      'STARTER': 15000,
+      'PRO': 50000,
+      'ENTERPRISE': 150000
+    };
+
+    // 1. Tier selection click
+    tierGrid.querySelectorAll('.billing-tier-card').forEach(card => {
+      card.addEventListener('click', () => {
+        if (typeof playAudioSignal === 'function') playAudioSignal('click');
+        tierGrid.querySelectorAll('.billing-tier-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        
+        const selectedTier = card.getAttribute('data-tier');
+        hiddenTierInput.value = selectedTier;
+        amountInput.value = PRICES[selectedTier];
+        formContainer.style.display = 'block';
+        formContainer.scrollIntoView({ behavior: 'smooth' });
+      });
+    });
+
+    // 2. Cancel click
+    cancelBtn.addEventListener('click', () => {
+      if (typeof playAudioSignal === 'function') playAudioSignal('click');
+      tierGrid.querySelectorAll('.billing-tier-card').forEach(c => c.classList.remove('active'));
+      formContainer.style.display = 'none';
+      hiddenTierInput.value = '';
+      amountInput.value = '';
+      rrnInput.value = '';
+      fileInput.value = '';
+      fileNameSpan.textContent = 'No file chosen (maximum 5MB)';
+      previewContainer.style.display = 'none';
+      previewImg.src = '#';
+      uploadedBase64 = null;
+    });
+
+    // 3. File upload preview and compression
+    let uploadedBase64 = null;
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size exceeds 5MB limit.');
+        fileInput.value = '';
+        return;
+      }
+
+      fileNameSpan.textContent = file.name;
+      
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        uploadedBase64 = event.target.result;
+        previewImg.src = uploadedBase64;
+        previewContainer.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // 4. Form Submit
+    proofForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const tier = hiddenTierInput.value;
+      const rrn = rrnInput.value.trim();
+      const amount = parseFloat(amountInput.value);
+
+      if (!tier || !rrn || isNaN(amount)) {
+        alert('Please complete all form fields.');
+        return;
+      }
+
+      const rrnRegex = /^[a-zA-Z0-9-]{6,30}$/;
+      if (!rrnRegex.test(rrn)) {
+        alert('Invalid transaction reference (RRN) format. Alphanumeric 6-30 characters.');
+        return;
+      }
+
+      const submitBtn = document.getElementById('btn-billing-upgrade-submit');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting Claim...';
+
+      try {
+        let imageUrl = '';
+        // If image uploaded, save it to server first
+        if (uploadedBase64) {
+          const uploadResp = await fetch('/api/payments/upload-proof', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + (localStorage.getItem('device_token') || '')
+            },
+            body: JSON.stringify({
+              base64Data: uploadedBase64,
+              filename: 'proof_' + rrn + '.png'
+            })
+          });
+          if (!uploadResp.ok) {
+            const err = await uploadResp.json();
+            throw new Error(err.error || 'Failed to upload screenshot proof.');
+          }
+          const uploadResult = await uploadResp.json();
+          imageUrl = uploadResult.url;
+        }
+
+        // Submit proof details
+        const submitResp = await fetch('/api/payments/submit-proof', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + (localStorage.getItem('device_token') || '')
+          },
+          body: JSON.stringify({
+            plan_id: tier,
+            rrn_reference: rrn,
+            amount: amount,
+            proof_image_url: imageUrl
+          })
+        });
+
+        if (!submitResp.ok) {
+          const err = await submitResp.json();
+          throw new Error(err.error || 'Failed to submit upgrade proof.');
+        }
+
+        if (typeof showNotificationToast === 'function') {
+          showNotificationToast('Claim submitted successfully. Admin review pending.', 'success', 4000);
+        }
+        
+        // Reset form
+        cancelBtn.click();
+        loadBillingHistory();
+      } catch (err) {
+        alert('Submission failed: ' + err.message);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Upgrade Claim';
+      }
+    });
+
+    loadBillingHistory();
+  }
+
+  async function loadBillingHistory() {
+    const tbody = document.getElementById('billing-history-tbody');
+    if (!tbody) return;
+
+    try {
+      const resp = await fetch('/api/payments/my-proofs', {
+        headers: {
+          'Authorization': 'Bearer ' + (localStorage.getItem('device_token') || '')
+        }
+      });
+      if (!resp.ok) return;
+      const history = await resp.json();
+
+      if (history.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-gray); padding: 12px;">No subscription upgrade claims submitted yet.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = history.map(row => {
+        const dateStr = new Date(row.created_at).toLocaleString();
+        let badgeColor = 'rgba(245,158,11,0.1)';
+        let textColor = '#f59e0b';
+        if (row.status === 'approved') {
+          badgeColor = 'rgba(0,214,143,0.1)';
+          textColor = 'var(--accent-emerald)';
+        } else if (row.status === 'rejected') {
+          badgeColor = 'rgba(239,68,68,0.1)';
+          textColor = 'var(--alert-coral)';
+        }
+        const note = row.rejection_reason || (row.status === 'pending' ? 'Verification in progress' : 'Active Subscription');
+        return `
+          <tr>
+            <td style="padding:8px; border-bottom:1px solid var(--border-titanium); font-size:11px;">${dateStr}</td>
+            <td style="padding:8px; border-bottom:1px solid var(--border-titanium); font-size:11px; font-weight:700;">${row.plan_id}</td>
+            <td style="padding:8px; border-bottom:1px solid var(--border-titanium); font-size:11px;">Rs. ${parseFloat(row.amount).toLocaleString()}</td>
+            <td style="padding:8px; border-bottom:1px solid var(--border-titanium); font-size:11px; font-family:var(--font-mono);">${row.rrn_reference}</td>
+            <td style="padding:8px; border-bottom:1px solid var(--border-titanium); font-size:11px;">
+              <span style="background:${badgeColor}; color:${textColor}; padding:2px 6px; border-radius:4px; font-weight:700;">${row.status.toUpperCase()}</span>
+            </td>
+            <td style="padding:8px; border-bottom:1px solid var(--border-titanium); font-size:10px; color:var(--text-gray);">${note}</td>
+          </tr>
+        `;
+      }).join('');
+    } catch (e) {
+      console.error('[Billing] Failed to load history:', e);
+    }
+  }
+
+  // Hook to call billing settings initialization on startup
+  setTimeout(() => {
+    try { initBillingSettings(); } catch (e) {}
+  }, 1000);
 })();

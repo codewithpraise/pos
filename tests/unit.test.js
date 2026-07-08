@@ -370,6 +370,132 @@ test('Debounce — prevents duplicate checkouts while isCheckingOut is true', ()
   assert.strictEqual(secondTrigger, false); // Debounced!
 });
 
+// ── 8. Analytics Dashboard Calculation Engine Tests ──
+console.log('\n▶ Analytics Calculation Engine');
+
+const AnalyticsEngine = {
+  calculateDeltaPercentage(current, prior) {
+    if (prior === 0 || !prior) {
+      return current > 0 ? '+100%' : '0%';
+    }
+    const diff = current - prior;
+    const pct = (diff / prior) * 100;
+    const sign = pct > 0 ? '+' : '';
+    return `${sign}${pct.toFixed(1)}%`;
+  },
+  aggregateCategoryBreakdown(transactions) {
+    const categories = {};
+    transactions.forEach(tx => {
+      if (tx.status !== 'completed') return;
+      if (tx.lines) {
+        tx.lines.forEach(line => {
+          const cat = line.category || 'Uncategorized';
+          categories[cat] = (categories[cat] || 0) + (line.price * line.qty);
+        });
+      }
+    });
+    return categories;
+  },
+  aggregatePaymentMethods(transactions) {
+    const splits = { CASH: 0, CARD: 0, QR: 0, MOBILE: 0 };
+    transactions.forEach(tx => {
+      if (tx.status !== 'completed') return;
+      const mode = tx.paymentMode || 'CASH';
+      splits[mode] = (splits[mode] || 0) + tx.total;
+    });
+    return splits;
+  },
+  filterTransactionsByDateRange(transactions, fromTime, toTime) {
+    return transactions.filter(tx => tx.createdAt >= fromTime && tx.createdAt <= toTime);
+  }
+};
+
+test('Delta percentage — calculates positive increase correctly', () => {
+  assert.strictEqual(AnalyticsEngine.calculateDeltaPercentage(15000, 10000), '+50.0%');
+});
+
+test('Delta percentage — calculates negative decrease correctly', () => {
+  assert.strictEqual(AnalyticsEngine.calculateDeltaPercentage(8000, 10000), '-20.0%');
+});
+
+test('Delta percentage — handles division by zero or missing prior data', () => {
+  assert.strictEqual(AnalyticsEngine.calculateDeltaPercentage(5000, 0), '+100%');
+  assert.strictEqual(AnalyticsEngine.calculateDeltaPercentage(0, 0), '0%');
+});
+
+test('Delta percentage — handles matching prior/current data with no change', () => {
+  assert.strictEqual(AnalyticsEngine.calculateDeltaPercentage(10000, 10000), '0.0%');
+});
+
+test('Category breakdown — empty transactions returns empty categories object', () => {
+  const result = AnalyticsEngine.aggregateCategoryBreakdown([]);
+  assert.deepStrictEqual(result, {});
+});
+
+test('Category breakdown — aggregates categories from transaction lines correctly', () => {
+  const transactions = [
+    {
+      status: 'completed',
+      lines: [
+        { category: 'Beverage', price: 200, qty: 3 },
+        { category: 'Bakery', price: 400, qty: 1 }
+      ]
+    },
+    {
+      status: 'completed',
+      lines: [
+        { category: 'Beverage', price: 200, qty: 1 }
+      ]
+    }
+  ];
+  const result = AnalyticsEngine.aggregateCategoryBreakdown(transactions);
+  assert.strictEqual(result.Beverage, 800); // (200*3) + (200*1) = 800
+  assert.strictEqual(result.Bakery, 400);   // 400*1 = 400
+});
+
+test('Category breakdown — filters out non-completed transactions', () => {
+  const transactions = [
+    {
+      status: 'aborted',
+      lines: [{ category: 'Beverage', price: 200, qty: 3 }]
+    }
+  ];
+  const result = AnalyticsEngine.aggregateCategoryBreakdown(transactions);
+  assert.deepStrictEqual(result, {});
+});
+
+test('Payment methods — aggregates payment method counts correctly', () => {
+  const transactions = [
+    { status: 'completed', paymentMode: 'CASH', total: 5000 },
+    { status: 'completed', paymentMode: 'CARD', total: 3000 },
+    { status: 'completed', paymentMode: 'CARD', total: 2000 }
+  ];
+  const result = AnalyticsEngine.aggregatePaymentMethods(transactions);
+  assert.strictEqual(result.CASH, 5000);
+  assert.strictEqual(result.CARD, 5000);
+  assert.strictEqual(result.QR, 0);
+});
+
+test('Filter range — filters out transactions before target range limit', () => {
+  const transactions = [
+    { id: '1', createdAt: 1000 },
+    { id: '2', createdAt: 2000 }
+  ];
+  const result = AnalyticsEngine.filterTransactionsByDateRange(transactions, 1500, 3000);
+  assert.strictEqual(result.length, 1);
+  assert.strictEqual(result[0].id, '2');
+});
+
+test('Filter range — filters out transactions after target range limit', () => {
+  const transactions = [
+    { id: '1', createdAt: 2000 },
+    { id: '2', createdAt: 4000 }
+  ];
+  const result = AnalyticsEngine.filterTransactionsByDateRange(transactions, 1000, 3000);
+  assert.strictEqual(result.length, 1);
+  assert.strictEqual(result[0].id, '1');
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 console.log('\n══════════════════════════════════════════════════');
 console.log(`  Results: ${passed} passed, ${failed} failed`);

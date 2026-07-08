@@ -83,3 +83,43 @@ window.addEventListener('unhandledrejection', function(event) {
   window.__nexovaServerUrl = resolveServerUrl();
   console.log('[Bootstrap] Resolved backend server URL:', window.__nexovaServerUrl);
 })();
+
+// ── System Theme Detection (runs before first paint to prevent FOUC) ────────
+(function() {
+  const ALL_THEMES = [
+    'theme-obsidian-emerald',
+    'theme-midnight-sapphire',
+    'theme-warm-amber',
+    'theme-minimalist-chrome',
+    'theme-monochrome-ivory',
+    'theme-premium-navy'
+  ];
+
+  // 1. Try saved preference (fastest path for returning users)
+  const saved = localStorage.getItem('nexova_theme_override');
+  if (saved && ALL_THEMES.includes(saved)) {
+    document.documentElement.classList.add(saved);
+    document.documentElement.dataset.themeResolved = saved;
+    return;
+  }
+
+  // 2. Fall back to OS preference
+  //    Light OS  → Monochrome Ivory (clean light mode)
+  //    Dark OS   → Obsidian Emerald (default dark — jewel-tone precision)
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const systemTheme = prefersDark ? 'theme-obsidian-emerald' : 'theme-monochrome-ivory';
+  document.documentElement.classList.add(systemTheme);
+  document.documentElement.dataset.themeResolved = systemTheme;
+  window.__nexovaSystemTheme = systemTheme;
+
+  // 3. Watch for OS theme changes at runtime (e.g., macOS auto dark/light)
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    // Only react if the user has never manually set a theme preference
+    if (localStorage.getItem('nexova_theme_override')) return;
+    const next = e.matches ? 'theme-obsidian-emerald' : 'theme-monochrome-ivory';
+    ALL_THEMES.forEach(t => document.body.classList.remove(t));
+    document.body.classList.add(next);
+    window.__nexovaSystemTheme = next;
+    console.log('[Theme] OS theme changed, switching to:', next);
+  });
+})();

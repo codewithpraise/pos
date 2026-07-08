@@ -221,7 +221,7 @@ self.onmessage = async (event) => {
 
   // SAVE_TELEMETRY and CHECK_OVERSELL only need the DB (not the sync connection),
   // so they can run before the sync engine is fully initialized.
-  const dbOnlyMessages = ['SAVE_TELEMETRY', 'CHECK_OVERSELL'];
+  const dbOnlyMessages = ['SAVE_TELEMETRY', 'CHECK_OVERSELL', 'PURGE_OLD_IMAGES'];
   // GET_ messages only read from IndexedDB — they work before the WS sync engine initialises
   const dbReadMessages = [
     'GET_PREFERENCES', 'GET_CATALOG', 'GET_EMPLOYEES', 'GET_CUSTOMERS',
@@ -310,6 +310,14 @@ self.onmessage = async (event) => {
 
       case 'SET_ONLINE_STATE':
         syncClient.setOnlineState(payload.isOnline);
+        break;
+
+      case 'FORCE_SYNC_RECONNECT':
+        if (syncClient) {
+          syncClient.backoffTime = 1000; // Reset exponential backoff timer
+          syncClient.passphraseInvalid = false;
+          syncClient.connect();
+        }
         break;
 
       case 'STOP_SYNC':
@@ -1239,6 +1247,32 @@ self.onmessage = async (event) => {
             computedStock: prod.stock_level
           });
         }
+        break;
+      }
+
+      case 'PURGE_OLD_IMAGES': {
+        const threshold = Date.now() - (90 * 24 * 60 * 60 * 1000); // 90 days
+        const tx = NexovaDB.db.transaction(['payment_proofs'], 'readwrite');
+        const store = tx.objectStore('payment_proofs');
+        const cursorRequest = store.openCursor();
+        let purgedCount = 0;
+        cursorRequest.onsuccess = (e) => {
+          const cursor = e.target.result;
+          if (cursor) {
+            const proof = cursor.value;
+            if (proof.created_at < threshold && proof.screenshot_proof) {
+              proof.screenshot_proof = null; // purge heavy base64 screenshot
+              cursor.update(proof);
+              purgedCount++;
+            }
+            cursor.continue();
+          } else {
+            postMessage({ type: 'PURGE_IMAGES_COMPLETE', count: purgedCount });
+          }
+        };
+        cursorRequest.onerror = (err) => {
+          postMessage({ type: 'ERROR', error: 'Purge failed: ' + err.target.error.message });
+        };
         break;
       }
     }

@@ -2190,5 +2190,36 @@ object Database {
         }
         return list
     }
+
+    @Synchronized
+    fun submitPaymentProof(
+        id: String,
+        userId: String,
+        planId: String,
+        rrnReference: String,
+        amount: Double,
+        proofImageUrl: String
+    ): Boolean {
+        return try {
+            conn?.prepareStatement("""
+                INSERT INTO payment_proofs (id, user_id, plan_id, rrn_reference, amount, proof_image_url, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+            """)?.use { pstmt ->
+                pstmt.setString(1, id)
+                pstmt.setString(2, userId)
+                pstmt.setString(3, planId)
+                pstmt.setString(4, rrnReference)
+                pstmt.setDouble(5, amount)
+                pstmt.setString(6, proofImageUrl)
+                pstmt.setLong(7, System.currentTimeMillis())
+                pstmt.setLong(8, System.currentTimeMillis())
+                pstmt.executeUpdate()
+            }
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
 }
 
