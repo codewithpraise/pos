@@ -521,9 +521,16 @@
               <div class="search-bar-row">
                 <input type="text" id="history-search-input" class="pos-input" placeholder="Search receipt transaction IDs..." aria-label="Search receipt transaction IDs...">
               </div>
+              <div class="history-filter-row" id="history-filter-row" aria-label="Filter transactions by date range">
+                <button class="history-filter-pill active" data-filter="all">All</button>
+                <button class="history-filter-pill" data-filter="today">Today</button>
+                <button class="history-filter-pill" data-filter="week">This Week</button>
+                <button class="history-filter-pill" data-filter="month">This Month</button>
+              </div>
               <div class="transactions-list-container" id="history-transactions-list">
                 <!-- Inserted dynamically -->
               </div>
+
             </div>
 
             <!-- Right Column: receipt HTML print renderer -->

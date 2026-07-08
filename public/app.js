@@ -802,6 +802,8 @@
           state.isCheckingOut = false;
           setButtonLoading('btn-checkout-complete', false, '', 'Complete Order');
           playAudioSignal('success');
+          // Premium: flash payment success ring + haptic triple-tap + screen reader
+          if (typeof flashPaymentSuccess === 'function') flashPaymentSuccess();
           showNotificationToast(`✅ Transaction #${transactionId.slice(-8).toUpperCase()} completed!`, null, 4000);
 
           // ── Component F: Update monotonic time anchor ─────────────────────
@@ -3279,6 +3281,9 @@
       } else {
         if (errorMsg) errorMsg.textContent = 'Invalid PIN. Try again.';
         try { playAudioSignal('error'); } catch(e) {}
+        // Premium: shake PIN input + haptic + screen reader
+        if (typeof shakeElement === 'function') shakeElement('pin-input');
+        if (typeof announceToScreenReader === 'function') announceToScreenReader('Invalid PIN. Please try again.');
         state.currentPin = '';
         updatePinDisplayDots();
         if (pinInput) pinInput.focus();
@@ -3369,12 +3374,22 @@
 
     // Trigger data query refresh based on view
     if (screenName === 'catalog' || screenName === 'catalog-manager') {
+      if (state.catalogVirtualList) {
+        state.catalogVirtualList.destroy();
+        state.catalogVirtualList = null;
+      }
+      if (typeof renderSkeletonLoader === 'function') {
+        renderSkeletonLoader('catalog-virtual-container', 12, 'row');
+      }
       syncWorker.postMessage({ type: 'GET_CATALOG' });
     } else if (screenName === 'customers') {
       syncWorker.postMessage({ type: 'GET_CUSTOMERS' });
     } else if (screenName === 'staff') {
       syncWorker.postMessage({ type: 'GET_EMPLOYEES' });
     } else if (screenName === 'history') {
+      if (typeof renderSkeletonLoader === 'function') {
+        renderSkeletonLoader('history-transactions-list', 8, 'row');
+      }
       syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
     } else if (screenName === 'settings') {
       syncWorker.postMessage({ type: 'GET_PREFERENCES' });
@@ -3451,6 +3466,9 @@
       syncWorker.postMessage({ type: 'GET_CUSTOMER_CREDIT' });
       syncWorker.postMessage({ type: 'GET_CUSTOMERS' });
     } else if (screenName === 'analytics') {
+      if (typeof renderSkeletonLoader === 'function') {
+        renderSkeletonLoader('analytics-histogram-bars', 4, 'card');
+      }
       syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
       syncWorker.postMessage({ type: 'GET_DISTRIBUTORS' });
       syncWorker.postMessage({ type: 'GET_PURCHASE_ORDERS' });
@@ -4220,13 +4238,34 @@
     
     playAudioSignal('click');
     renderCart();
+
+    // Pulse the quantity display of the modified row
+    if (item.qty > 0) {
+      requestAnimationFrame(() => {
+        const row = document.querySelector(`.cart-item-row[data-sku="${CSS.escape(sku)}"]`);
+        if (row) {
+          const qtyEl = row.querySelector('.qty-val');
+          if (qtyEl && typeof pulseQtyDisplay === 'function') pulseQtyDisplay(qtyEl);
+        }
+      });
+    }
   }
 
   // Remove item completely
   function removeCartItem(sku) {
-    state.activeCart = state.activeCart.filter(i => i.sku !== sku);
-    playAudioSignal('click');
-    renderCart();
+    // Animate removal if the row is currently in the DOM
+    const existingRow = document.querySelector(`.cart-item-row[data-sku="${CSS.escape(sku)}"]`);
+    if (existingRow && typeof animateCartItemRemove === 'function') {
+      animateCartItemRemove(existingRow, () => {
+        state.activeCart = state.activeCart.filter(i => i.sku !== sku);
+        playAudioSignal('click');
+        renderCart();
+      });
+    } else {
+      state.activeCart = state.activeCart.filter(i => i.sku !== sku);
+      playAudioSignal('click');
+      renderCart();
+    }
   }
 
   // Mobile swipe gestures with directional lock and haptics
@@ -4569,6 +4608,12 @@
       });
 
       tbody.appendChild(fragment);
+
+      // Animate each new row (slide-in). Use staggered delay for visual depth.
+      Array.from(tbody.querySelectorAll('.cart-item-row')).forEach((row, i) => {
+        row.style.animationDelay = `${i * 0.04}s`;
+        if (typeof animateCartItemAdd === 'function') animateCartItemAdd(row);
+      });
     }
 
     updateTotalsBoard();
@@ -5263,28 +5308,63 @@
   }
 
   // --- SALES HISTORY LEDGER & RECEIPTS ---
-  function renderHistoryScreen() {
+  // History date filter state (persisted across re-renders)
+  let _historyDateFilter = 'all';
+
+  function renderHistoryScreen(filterOverride) {
+    // If a filter override is passed (from pill click), persist it
+    if (filterOverride !== undefined) _historyDateFilter = filterOverride;
+    const activeFilter = _historyDateFilter;
+
+    // Wire filter pills on first load (safe to call multiple times — event delegation)
+    wireHistoryFilterPills('history-filter-row', (f) => renderHistoryScreen(f));
+
     const container = document.getElementById('history-transactions-list');
+    if (!container) return;
     container.innerHTML = '';
 
     const query = document.getElementById('history-search-input').value.toLowerCase().trim();
 
+    // Date boundary calculation for filter
+    const now = Date.now();
+    const todayStart  = new Date(); todayStart.setHours(0,0,0,0); const todayMs  = todayStart.getTime();
+    const weekMs   = now - 7  * 24 * 60 * 60 * 1000;
+    const monthMs  = now - 30 * 24 * 60 * 60 * 1000;
+
     const matches = state.transactions.filter(tx => {
+      // Date range filter
+      const txTime = new Date(tx.created_at || tx.ts || 0).getTime();
+      if (activeFilter === 'today' && txTime < todayMs)  return false;
+      if (activeFilter === 'week'  && txTime < weekMs)   return false;
+      if (activeFilter === 'month' && txTime < monthMs)  return false;
+
+      // Text search
       if (!query) return true;
-      const dateStr = new Date(tx.ts || tx.created_at || 0).toLocaleDateString().toLowerCase();
-      const amountStr = ((tx.total || 0) / 100).toFixed(2);
+      const dateStr    = new Date(tx.ts || tx.created_at || 0).toLocaleDateString().toLowerCase();
+      const amountStr  = ((tx.total || 0) / 100).toFixed(2);
       const cashierStr = (tx.cashier_id || '').toLowerCase();
-      const modeStr = (tx.payment_mode || '').toLowerCase();
+      const modeStr    = (tx.payment_mode || '').toLowerCase();
       return tx.id.toLowerCase().includes(query) ||
              dateStr.includes(query) ||
              amountStr.includes(query) ||
              cashierStr.includes(query) ||
              modeStr.includes(query);
-    }
-    );
+    });
 
     if (matches.length === 0) {
-      container.innerHTML = `<p class="text-center text-muted" style="padding: 24px 0;">No completed sales found.</p>`;
+      // Premium empty state
+      if (typeof renderPremiumEmptyState === 'function') {
+        renderPremiumEmptyState(
+          'history-transactions-list',
+          '🧾',
+          activeFilter === 'all' ? 'No transactions yet' : `No ${activeFilter === 'today' ? "today's" : activeFilter === 'week' ? "this week's" : "this month's"} sales`,
+          activeFilter === 'all'
+            ? 'Complete your first sale to see it here.'
+            : 'Try a different date range or search query.'
+        );
+      } else {
+        container.innerHTML = `<p class="text-center text-muted" style="padding: 24px 0;">No completed sales found.</p>`;
+      }
       return;
     }
 
@@ -5334,6 +5414,7 @@
       renderThermalReceiptPreview(matches[0]);
     }
   }
+
 
   // Format thermal receipt page strings based on column width
   function renderThermalReceiptPreview(tx) {
@@ -8153,7 +8234,8 @@
    */
   window.wireHistoryFilterPills = function wireHistoryFilterPills(pillContainerId, filterCallback) {
     const container = document.getElementById(pillContainerId);
-    if (!container) return;
+    if (!container || container.__wired) return;
+    container.__wired = true;
 
     container.addEventListener('click', (e) => {
       const pill = e.target.closest('.history-filter-pill');
