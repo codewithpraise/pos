@@ -14,7 +14,7 @@ let currentHlc = null;
 let currentDbVersion = 0; // Incremented on each local transaction change
 
 // Schema version: increment when adding columns/tables that clients must have before syncing
-const SERVER_SCHEMA_VERSION = 4;
+const SERVER_SCHEMA_VERSION = 5;
 module.exports && Object.assign(module.exports, { SERVER_SCHEMA_VERSION });
 
 // Secure PBKDF2 password hashing helper (OWASP approved, zero external dependencies)
@@ -580,6 +580,22 @@ async function initDatabase(terminalId) {
         );
         CREATE INDEX IF NOT EXISTS idx_failed_act_key ON failed_activation_attempts(attempt_key);
       `);
+    } else if (v === 5) {
+      // Version 5: Commission Fraud Tracking and Refined Refund Logic
+      try {
+        await db.exec(`
+          ALTER TABLE commission_earnings ADD COLUMN device_id TEXT;
+          ALTER TABLE commission_earnings ADD COLUMN user_agent TEXT;
+          ALTER TABLE commission_earnings ADD COLUMN requires_review INTEGER DEFAULT 0;
+          ALTER TABLE commission_earnings ADD COLUMN review_notes TEXT;
+          ALTER TABLE commission_earnings ADD COLUMN reviewed_by TEXT;
+          ALTER TABLE commission_earnings ADD COLUMN reviewed_at INTEGER;
+          ALTER TABLE commission_earnings ADD COLUMN refund_amount_paisa INTEGER DEFAULT 0;
+        `);
+        console.log('[Database] Migrated commission_earnings to v5.');
+      } catch (err) {
+        console.error('[Database] Failed to alter commission_earnings in v5:', err.message);
+      }
     }
 
     // Atomically write new schema version

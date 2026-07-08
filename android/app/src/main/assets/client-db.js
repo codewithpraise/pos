@@ -615,6 +615,43 @@
       return Promise.resolve();
     },
 
+    async getSecurePref(key) {
+      try {
+        const pref = await this.get('local_preferences', key);
+        if (!pref || !pref.value_payload) return null;
+        if (pref.value_payload.startsWith('SEC1:')) {
+          const encrypted = pref.value_payload.substring(5);
+          const hwid = await deriveSecurePrefHWID();
+          const decrypted = await CryptoEngine.decrypt(encrypted, hwid);
+          return decrypted;
+        }
+        return pref.value_payload;
+      } catch (e) {
+        console.warn(`[ClientDB] Failed to get secure pref for ${key}:`, e.message);
+        return null;
+      }
+    },
+
+    async setSecurePref(key, val) {
+      try {
+        if (!val) {
+          await this.delete('local_preferences', key);
+          return;
+        }
+        const hwid = await deriveSecurePrefHWID();
+        const encrypted = await CryptoEngine.encrypt(val, hwid);
+        await this.put('local_preferences', {
+          key: key,
+          value_type: 'SECURE_STR',
+          value_payload: 'SEC1:' + encrypted,
+          is_idempotent_flag: 0,
+          updated_at: Date.now()
+        });
+      } catch (e) {
+        console.error(`[ClientDB] Failed to set secure pref for ${key}:`, e.message);
+      }
+    },
+
     // CRUD Helper methods
     // CRUD Helper methods
     async get(storeName, key, tx = null) {
@@ -1183,6 +1220,56 @@
       await this.seedIfNeeded();
     }
   };
+
+  async function deriveSecurePrefHWID() {
+    if (globalScope.hwid) return globalScope.hwid;
+    if (globalScope.__nexovaHWID) return globalScope.__nexovaHWID;
+
+    const canvas = globalScope.document ? globalScope.document.createElement('canvas') : null;
+    let canvasData = '';
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.textBaseline = 'top';
+        ctx.font = '14px Arial';
+        ctx.fillText('NexovaPOS-HWID-Seed', 2, 2);
+        canvasData = canvas.toDataURL();
+      }
+    }
+
+    const components = [
+      globalScope.navigator ? globalScope.navigator.userAgent : 'node_or_worker',
+      globalScope.navigator ? globalScope.navigator.language : 'en',
+      globalScope.screen ? String(globalScope.screen.width * globalScope.screen.height) : '1920x1080',
+      globalScope.screen ? String(globalScope.screen.colorDepth) : '24',
+      globalScope.navigator ? String(globalScope.navigator.hardwareConcurrency || 0) : '4',
+      globalScope.navigator ? String(globalScope.navigator.deviceMemory || 0) : '4',
+      typeof Intl !== 'undefined' ? new Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC',
+      canvasData ? canvasData.slice(-128) : 'fallback_canvas_data'
+    ].join('|');
+
+    try {
+      if (globalScope.crypto && globalScope.crypto.subtle) {
+        const encoded = new TextEncoder().encode(components);
+        const hashBuf = await globalScope.crypto.subtle.digest('SHA-256', encoded);
+        const hashArr = Array.from(new Uint8Array(hashBuf));
+        return hashArr.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase().slice(0, 32);
+      }
+    } catch (e) {}
+
+    let h = 5381;
+    for (let i = 0; i < components.length; i++) {
+      h = ((h << 5) + h) ^ components.charCodeAt(i);
+      h = h >>> 0;
+    }
+    let result = '';
+    let seed = h;
+    while (result.length < 32) {
+      seed = ((seed << 5) + seed + result.length * 31) >>> 0;
+      result += seed.toString(16).padStart(8, '0');
+    }
+    return result.toUpperCase().slice(0, 32);
+  }
 
   globalScope.hashPin = hashPin;
   globalScope.NexovaDB = NexovaDB;

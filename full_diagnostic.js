@@ -136,6 +136,23 @@ async function run() {
   // Enable domains
   await cdpReq(ws, 'Runtime.enable', {}, 1);
   await cdpReq(ws, 'Log.enable', {}, 2);
+
+  // Inject native mocks to support offline-first/CI headless tests safely
+  await cdpReq(ws, 'Runtime.evaluate', {
+    expression: `
+      window.AndroidPOS = {
+        getServerUrl: () => 'http://localhost:3000',
+        setAutoStartOnBoot: () => {},
+        getAutoStartOnBoot: () => false,
+        consumeFreshStartFlag: () => false,
+        setServerUrl: () => {}
+      };
+      window.AndroidHardware = {
+        printReceipt: () => {}
+      };
+    `,
+    returnByValue: true
+  }, 9999);
   
   // Collect errors
   ws.on('message', (d) => {

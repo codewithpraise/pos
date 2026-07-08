@@ -284,6 +284,15 @@ self.onmessage = async (event) => {
         syncClient.setOnlineState(payload.isOnline);
         break;
 
+      case 'STOP_SYNC':
+        if (syncClient) {
+          syncClient.passphraseInvalid = true;
+          if (syncClient.ws) {
+            try { syncClient.ws.close(); } catch (_) {}
+          }
+        }
+        break;
+
       case 'HYDRATE_DATABASE': {
         const { licenseToken } = payload;
         try {

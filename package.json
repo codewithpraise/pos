@@ -7,6 +7,7 @@
     "start": "node server.js",
     "lint": "npm run test:syntax",
     "test": "node tests/unit.test.js && node tests/db.test.js && node tests/backup.test.js",
+    "test:e2e": "node e2e_full_test.js && node full_diagnostic.js && node cdp_mobile_e2e_full5.js",
     "test:unit": "node tests/unit.test.js",
     "test:db": "node tests/db.test.js",
     "test:backup": "node tests/backup.test.js",

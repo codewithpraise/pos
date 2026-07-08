@@ -61,6 +61,21 @@ async function connectCDP() {
 
   await send('Runtime.enable');
   await send('Console.enable');
+
+  // Inject native mocks to support offline-first/CI headless tests safely
+  await ev(`
+    window.AndroidPOS = {
+      getServerUrl: () => 'http://localhost:3000',
+      setAutoStartOnBoot: () => {},
+      getAutoStartOnBoot: () => false,
+      consumeFreshStartFlag: () => false,
+      setServerUrl: () => {}
+    };
+    window.AndroidHardware = {
+      printReceipt: () => {}
+    };
+  `);
+
   return { ws, ev, send };
 }
 

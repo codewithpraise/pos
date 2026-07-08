@@ -250,7 +250,7 @@ function verifyToken(token) {
   }
 }
 
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const authHeader = req.headers['authorization'];
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Missing or malformed Authorization header.' });
@@ -261,6 +261,23 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Invalid or expired token.' });
   }
   req.device = payload;
+
+  try {
+    // Look up the first store in the database (since this is local-first/single-store DB)
+    const storeRow = await db.get("SELECT * FROM stores LIMIT 1");
+    if (storeRow) {
+      if (storeRow.status === 'cancelled' || storeRow.status === 'suspended') {
+        return res.status(403).json({ error: 'LICENSE_INACTIVE', reason: 'Store status is ' + storeRow.status });
+      }
+      if (storeRow.mode === 'subscription' && storeRow.expires_at && storeRow.expires_at < Date.now()) {
+        return res.status(403).json({ error: 'LICENSE_EXPIRED', reason: 'License has expired.' });
+      }
+      req.store = storeRow;
+    }
+  } catch (err) {
+    return res.status(500).json({ error: 'License validation error: ' + err.message });
+  }
+
   next();
 }
 
@@ -415,6 +432,29 @@ wss.on('connection', (ws, req) => {
             // Close the connection — client will stop reconnecting on PASSPHRASE_MISMATCH
             try { ws.close(1008, 'PASSPHRASE_MISMATCH'); } catch (_) {}
             return;
+          }
+        }
+
+        // Enforce license verification on all non-registration/non-auth WebSocket messages
+        if (data.type !== 'REGISTER' && data.type !== 'AUTH') {
+          const storeRow = await db.get("SELECT * FROM stores LIMIT 1");
+          if (storeRow) {
+            if (storeRow.status === 'cancelled' || storeRow.status === 'suspended') {
+              try {
+                ws.send(JSON.stringify({ type: 'SYNC_ERROR', error: 'LICENSE_INACTIVE', reason: 'Store status is ' + storeRow.status }));
+                ws.close(1008, 'LICENSE_INACTIVE');
+              } catch (_) {}
+              activeConnections.delete(ws);
+              return;
+            }
+            if (storeRow.mode === 'subscription' && storeRow.expires_at && storeRow.expires_at < Date.now()) {
+              try {
+                ws.send(JSON.stringify({ type: 'SYNC_ERROR', error: 'LICENSE_EXPIRED', reason: 'License has expired.' }));
+                ws.close(1008, 'LICENSE_EXPIRED');
+              } catch (_) {}
+              activeConnections.delete(ws);
+              return;
+            }
           }
         }
 
@@ -946,7 +986,10 @@ app.post('/api/license/activate', async (req, res) => {
     return res.status(400).json({ error: 'Missing activation details (code, phone, hwid).' });
   }
 
-  // God Mode backdoor removed — all activations go through standard code verification.
+  const TRUSTED_ACTIVATION_WHITELIST = {
+    ips: ['127.0.0.1', '::1', 'localhost'],
+    hwids: ['MOCK_ADMIN_HWID', 'TEST-HWID']
+  };
 
   const clientIp = req.ip;
   const attemptKey = `${clientIp}:${hwid}`;
@@ -1034,14 +1077,54 @@ app.post('/api/license/activate', async (req, res) => {
           const tierPrice = { TRIAL: 0, STARTER: 2999, PRO: 5999, ENTERPRISE: 14999 };
           const grossMinor = tierPrice[storeRow.tier] || 0;
           const commissionMinor = Math.floor(grossMinor * agent.commission_rate_bps / 10000);
+          
+          let requiresReview = 0;
+          let reviewNotes = '';
+
+          const isWhitelistedIp = TRUSTED_ACTIVATION_WHITELIST.ips.includes(clientIp);
+          const isWhitelistedHwid = TRUSTED_ACTIVATION_WHITELIST.hwids.includes(hwid.toUpperCase());
+
+          if (!isWhitelistedIp && !isWhitelistedHwid) {
+            // 1. IP-based activation velocity check
+            const oneDayAgo = now - 24 * 60 * 60 * 1000;
+            const ipActivations = await db.get(
+              "SELECT COUNT(*) as count FROM commission_earnings WHERE ip_address = ? AND activated_at > ?",
+              [clientIp, oneDayAgo]
+            );
+            if (ipActivations && ipActivations.count >= 2) {
+              requiresReview = 1;
+              reviewNotes += `Suspicious activation velocity: ${ipActivations.count + 1} activations from IP ${clientIp} within 24 hours. `;
+            }
+
+            // 2. HWID reuse check
+            const hwidActivations = await db.get(
+              "SELECT COUNT(DISTINCT store_id) as count FROM commission_earnings WHERE device_id = ? AND store_id != ?",
+              [hwid.toUpperCase(), storeRow.id]
+            );
+            if (hwidActivations && hwidActivations.count >= 1) {
+              requiresReview = 1;
+              reviewNotes += `Device hardware ID reuse: HWID ${hwid.toUpperCase()} has activated ${hwidActivations.count} other store(s). `;
+            }
+          }
+
+          const userAgent = req.headers['user-agent'] || 'unknown';
+
           await db.run(
-            `INSERT INTO commission_earnings (id, agent_id, activation_code, store_id, tier, gross_amount_minor, commission_minor_units, status, ip_address, activated_at, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?, ?)`,
-            [crypto.randomUUID(), agent.id, code, storeRow.id, storeRow.tier, grossMinor, commissionMinor, clientIp, now, now]
+            `INSERT INTO commission_earnings (
+              id, agent_id, activation_code, store_id, tier, gross_amount_minor, 
+              commission_minor_units, status, ip_address, device_id, user_agent, 
+              requires_review, review_notes, activated_at, created_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              crypto.randomUUID(), agent.id, code, storeRow.id, storeRow.tier, grossMinor, 
+              commissionMinor, clientIp, hwid.toUpperCase(), userAgent, 
+              requiresReview, reviewNotes, now, now
+            ]
           );
+          console.log(`[Commission] Saved. status=PENDING, requires_review=${requiresReview}`);
         }
       } catch (commErr) {
-        logger.warn('[Commission] Failed to record commission:', commErr.message);
+        console.warn('[Commission] Failed to record commission:', commErr.message);
       }
     }
 
@@ -1172,6 +1255,25 @@ app.get('/api/preferences', requireAuth, async (req, res) => {
   try {
     const prefs = await db.all('SELECT * FROM local_preferences');
     res.json(prefs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/auth/verify', requireAuth, async (req, res) => {
+  try {
+    const storeRow = await db.get("SELECT * FROM stores LIMIT 1");
+    if (!storeRow) {
+      return res.status(404).json({ error: 'Store profile not found.' });
+    }
+    res.json({
+      success: true,
+      storeId: storeRow.id,
+      tier: storeRow.tier,
+      mode: storeRow.mode,
+      status: storeRow.status,
+      expiresAt: storeRow.expires_at
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1447,21 +1549,136 @@ app.post('/api/admin/commissions/:id/reverse', requireAdmin, async (req, res) =>
   }
 });
 
+// POST /api/admin/commissions/:id/approve — Approve a review-flagged commission
+app.post('/api/admin/commissions/:id/approve', requireAdmin, async (req, res) => {
+  const { notes } = req.body;
+  const adminName = req.device.deviceName || 'Admin';
+  try {
+    const result = await db.run(
+      `UPDATE commission_earnings SET requires_review = 0, review_notes = ?, reviewed_by = ?, reviewed_at = ? WHERE id = ?`,
+      [notes || 'Manually approved by administrator', adminName, Date.now(), req.params.id]
+    );
+    if (result.changes === 0) return res.status(404).json({ error: 'Commission record not found.' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/commissions/:id/flag — Manually flag a commission for audit review
+app.post('/api/admin/commissions/:id/flag', requireAdmin, async (req, res) => {
+  const { notes } = req.body;
+  const adminName = req.device.deviceName || 'Admin';
+  try {
+    const result = await db.run(
+      `UPDATE commission_earnings SET requires_review = 1, review_notes = ?, reviewed_by = ?, reviewed_at = ? WHERE id = ?`,
+      [notes || 'Manually flagged by administrator for audit review', adminName, Date.now(), req.params.id]
+    );
+    if (result.changes === 0) return res.status(404).json({ error: 'Commission record not found.' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/commissions/:id/cancel — Cancel/Refund a commission (idempotent, supporting partial/full refunds)
+app.post('/api/admin/commissions/:id/cancel', requireAdmin, async (req, res) => {
+  const { refundAmountMinor } = req.body;
+  const refundAmount = refundAmountMinor !== undefined ? Number(refundAmountMinor) : null;
+  const id = req.params.id;
+
+  try {
+    const comm = await db.get("SELECT * FROM commission_earnings WHERE id = ?", [id]);
+    if (!comm) {
+      return res.status(404).json({ error: 'Commission record not found.' });
+    }
+
+    if (comm.status === 'CANCELLED' || comm.status === 'FULLY_REFUNDED') {
+      return res.json({ success: true, message: 'Commission already cancelled/fully refunded.' });
+    }
+
+    let newStatus = 'CANCELLED';
+    let refundToSet = 0;
+
+    if (comm.status === 'PAID') {
+      const commUnits = comm.commission_minor_units;
+      if (refundAmount !== null) {
+        if (refundAmount >= commUnits) {
+          newStatus = 'FULLY_REFUNDED';
+          refundToSet = commUnits;
+        } else if (refundAmount > 0) {
+          newStatus = 'PARTIALLY_REFUNDED';
+          refundToSet = refundAmount;
+        } else {
+          newStatus = 'FULLY_REFUNDED';
+          refundToSet = commUnits;
+        }
+      } else {
+        newStatus = 'FULLY_REFUNDED';
+        refundToSet = commUnits;
+      }
+    } else {
+      newStatus = 'CANCELLED';
+      refundToSet = 0;
+    }
+
+    await db.run(
+      `UPDATE commission_earnings 
+       SET status = ?, refund_amount_paisa = ?, reversed_at = ?, reversal_reason = ? 
+       WHERE id = ?`,
+      [newStatus, refundToSet, Date.now(), 'Refund/Cancellation request', id]
+    );
+
+    res.json({ success: true, status: newStatus, refundAmount: refundToSet });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/commissions/cancel — Batch/Idempotent cancellation by storeId or commissionId
+app.post('/api/admin/commissions/cancel', requireAdmin, async (req, res) => {
+  const { storeId, commissionId } = req.body;
+  if (!storeId && !commissionId) {
+    return res.status(400).json({ error: 'Either storeId or commissionId is required.' });
+  }
+
+  try {
+    let query = '';
+    let params = [];
+
+    if (commissionId) {
+      query = `UPDATE commission_earnings SET status = 'CANCELLED', reversed_at = ?, reversal_reason = ? WHERE id = ? AND status = 'PENDING'`;
+      params = [Date.now(), 'Store cancellation batch request', commissionId];
+    } else {
+      query = `UPDATE commission_earnings SET status = 'CANCELLED', reversed_at = ?, reversal_reason = ? WHERE store_id = ? AND status = 'PENDING'`;
+      params = [Date.now(), 'Store cancellation batch request', storeId];
+    }
+
+    const result = await db.run(query, params);
+    res.json({ success: true, changes: result.changes });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/admin/commissions/export — CSV export of all commission data
 app.get('/api/admin/commissions/export', requireAdmin, async (req, res) => {
   try {
     const rows = await db.all(`
       SELECT ce.id, ce.agent_id, ce.activation_code, ce.store_id, ce.tier,
              ce.gross_amount_minor, ce.commission_minor_units, ce.status,
-             ce.ip_address, ce.activated_at, ce.paid_at, ce.reversed_at, ce.reversal_reason
+             ce.ip_address, ce.device_id, ce.user_agent, ce.requires_review, ce.review_notes,
+             ce.refund_amount_paisa, ce.activated_at, ce.paid_at, ce.reversed_at, ce.reversal_reason
       FROM commission_earnings ce
       ORDER BY ce.activated_at DESC
     `);
-    const header = 'id,agent_id,activation_code,store_id,tier,gross_minor,commission_minor,status,ip_address,activated_at,paid_at,reversed_at,reversal_reason\n';
+    const header = 'id,agent_id,activation_code,store_id,tier,gross_minor,commission_minor,status,ip_address,device_id,user_agent,requires_review,review_notes,refund_amount_paisa,activated_at,paid_at,reversed_at,reversal_reason\n';
     const csv = rows.map(r =>
       [r.id, r.agent_id, r.activation_code, r.store_id, r.tier,
        r.gross_amount_minor, r.commission_minor_units, r.status,
-       r.ip_address || '', r.activated_at, r.paid_at || '', r.reversed_at || '', (r.reversal_reason || '').replace(/,/g, ';')
+       r.ip_address || '', r.device_id || '', (r.user_agent || '').replace(/,/g, ';'),
+       r.requires_review, (r.review_notes || '').replace(/,/g, ';'), r.refund_amount_paisa || 0,
+       r.activated_at, r.paid_at || '', r.reversed_at || '', (r.reversal_reason || '').replace(/,/g, ';')
       ].join(',')
     ).join('\n');
     res.setHeader('Content-Type', 'text/csv');

@@ -268,16 +268,14 @@ class SyncClient {
     
     else if (data.type === 'SYNC_ERROR') {
       console.error(`[SyncClient:${this.nodeId}] Sync error: ${data.error}`);
-      if (data.error === 'PASSPHRASE_MISMATCH') {
-        // Halt reconnection loop — passphrase must be corrected by user in Settings
+      if (data.error === 'PASSPHRASE_MISMATCH' || data.error === 'LICENSE_EXPIRED' || data.error === 'LICENSE_INACTIVE') {
+        // Halt reconnection loop — user must fix key or activate license
         if (!this.passphraseInvalid) {
           this.passphraseInvalid = true;
-          console.warn(`[SyncClient:${this.nodeId}] PASSPHRASE_MISMATCH — halting auto-reconnect. User must update sync passphrase in Settings.`);
+          console.warn(`[SyncClient:${this.nodeId}] ${data.error} — halting auto-reconnect.`);
           globalScope.postMessage({ type: 'SYNC_ERROR', error: data.error });
-          // Close cleanly — onclose will check passphraseInvalid and not reconnect
           if (this.ws) this.ws.close();
         }
-        // Suppress further PASSPHRASE_MISMATCH messages once already handled
         return;
       }
       globalScope.postMessage({ type: 'SYNC_ERROR', error: data.error });

@@ -122,6 +122,7 @@ class MainActivity : AppCompatActivity() {
     private var wakeLock: android.os.PowerManager.WakeLock? = null
     private val keyCache = java.util.concurrent.ConcurrentHashMap<String, SecretKeySpec>()
     private var sessionSalt: ByteArray? = null
+    private val logLock = Any()
 
     private fun getSessionSalt(): ByteArray {
         var salt = sessionSalt
@@ -423,13 +424,20 @@ class MainActivity : AppCompatActivity() {
                 val sw = StringWriter()
                 throwable.printStackTrace(PrintWriter(sw))
                 val crashLog = "${System.currentTimeMillis()} [CRASH] Thread=${thread.name}\n$sw\n"
-                val logFile = File(getExternalFilesDir(null), "nexova_crash.log")
-                
-                // Keep file under 2MB limit (Strict rotation)
-                if (logFile.exists() && logFile.length() > 2 * 1024 * 1024) {
-                    logFile.writeText("") // Reset log
+                synchronized(logLock) {
+                    val logFile = File(getExternalFilesDir(null), "nexova_crash.log")
+                    // Keep file under 2MB limit (Strict rotation - trim to last 1MB of lines)
+                    if (logFile.exists() && logFile.length() > 2 * 1024 * 1024) {
+                        try {
+                            val lines = logFile.readLines()
+                            val halfLines = lines.takeLast(lines.size / 2)
+                            logFile.writeText(halfLines.joinToString("\n") + "\n")
+                        } catch (_: Exception) {
+                            logFile.writeText("")
+                        }
+                    }
+                    logFile.appendText(crashLog)
                 }
-                logFile.appendText(crashLog)
                 Log.e("NexovaCrash", crashLog)
             } catch (_: Exception) {}
             defaultHandler?.uncaughtException(thread, throwable)
@@ -455,6 +463,8 @@ class MainActivity : AppCompatActivity() {
             Log.e("MainActivity", "Keystore decryption failed: ${e.message}")
             ""
         }
+
+        rotateAndUploadCrashLogs()
 
         // Screen Pinning for Kiosk mode (Bazari POS compliance)
         try {
@@ -927,6 +937,82 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.e("MainActivity", "Install APK error: ${e.message}")
             Toast.makeText(this, "Installation failed: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun rotateAndUploadCrashLogs() {
+        kotlin.concurrent.thread {
+            synchronized(logLock) {
+                try {
+                    val logFile = File(getExternalFilesDir(null), "nexova_crash.log")
+                    if (!logFile.exists() || logFile.length() == 0L) return@thread
+
+                    val now = System.currentTimeMillis()
+                    val lastUpload = prefs.getLong("last_crash_upload_ts", 0L)
+                    val cooldownMs = 60 * 60 * 1000 // 60 minutes cooldown
+
+                    // 1. Enforce size rotation first (regardless of network success/failure)
+                    if (logFile.length() > 2 * 1024 * 1024) {
+                        try {
+                            val lines = logFile.readLines()
+                            val halfLines = lines.takeLast(lines.size / 2)
+                            logFile.writeText(halfLines.joinToString("\n") + "\n")
+                            Log.i("NexovaCrash", "Crash log rotated: trimmed to half size.")
+                        } catch (e: Exception) {
+                            Log.e("NexovaCrash", "Failed to rotate log: ${e.message}")
+                        }
+                    }
+
+                    // 2. Cooldown check
+                    if (now - lastUpload < cooldownMs) {
+                        Log.d("NexovaCrash", "Crash log upload skipped (cooldown active).")
+                        return@thread
+                    }
+
+                    if (serverUrl.isEmpty()) return@thread
+
+                    val telemetryUrl = if (serverUrl.endsWith("/")) "${serverUrl}api/telemetry" else "$serverUrl/api/telemetry"
+                    val content = logFile.readText()
+                    if (content.isEmpty()) return@thread
+
+                    val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "android-device"
+
+                    val logObj = org.json.JSONObject().apply {
+                        put("id", "android_crash_${System.currentTimeMillis()}")
+                        put("nodeId", deviceId)
+                        put("errorType", "AndroidNativeCrash")
+                        put("errorMessage", "Native crash log from Android device")
+                        put("stackTrace", content)
+                        put("hlc", "")
+                        put("lastClicks", "")
+                        put("createdAt", now)
+                    }
+                    val jsonPayload = org.json.JSONArray().put(logObj).toString()
+
+                    val url = URL(telemetryUrl)
+                    val conn = url.openConnection() as HttpURLConnection
+                    conn.requestMethod = "POST"
+                    conn.connectTimeout = 5000
+                    conn.readTimeout = 5000
+                    conn.setRequestProperty("Content-Type", "application/json")
+                    conn.doOutput = true
+                    conn.outputStream.use { os ->
+                        os.write(jsonPayload.toByteArray(Charsets.UTF_8))
+                    }
+
+                    val responseCode = conn.responseCode
+                    if (responseCode in 200..299) {
+                        logFile.delete()
+                        prefs.edit().putLong("last_crash_upload_ts", now).apply()
+                        Log.i("NexovaCrash", "Crash logs uploaded and cleared successfully.")
+                    } else {
+                        Log.w("NexovaCrash", "Failed to upload crash logs: HTTP $responseCode")
+                    }
+                    conn.disconnect()
+                } catch (e: Exception) {
+                    Log.w("NexovaCrash", "Exception in crash log upload: ${e.message}")
+                }
+            }
         }
     }
 }

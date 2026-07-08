@@ -66,6 +66,31 @@
         return; // Hard-stop
       }
 
+      // Retrieve secure preferences and perform one-time migrations if needed
+      let licToken = await NexovaDB.getSecurePref('nexova_license_token');
+      if (!licToken) {
+        const legacyToken = localStorage.getItem('nexova_license_token');
+        if (legacyToken) {
+          console.log('[App] Migrating legacy license token to secure IndexedDB...');
+          await NexovaDB.setSecurePref('nexova_license_token', legacyToken);
+          localStorage.removeItem('nexova_license_token');
+          licToken = legacyToken;
+        }
+      }
+      state.licenseToken = licToken;
+
+      let gdriveToken = await NexovaDB.getSecurePref('google_drive_oauth_token');
+      if (!gdriveToken) {
+        const legacyToken = localStorage.getItem('google_drive_oauth_token');
+        if (legacyToken) {
+          console.log('[App] Migrating google_drive_oauth_token to secure IndexedDB...');
+          await NexovaDB.setSecurePref('google_drive_oauth_token', legacyToken);
+          localStorage.removeItem('google_drive_oauth_token');
+          gdriveToken = legacyToken;
+        }
+      }
+      state.googleDriveOauthToken = gdriveToken;
+
       // Support starting fresh: clear DB and preferences if reset param or bridge flag is detected
       var shouldReset = false;
       const urlParams = new URLSearchParams(window.location.search);
@@ -210,6 +235,23 @@
     applyPreferencesFromState();
     await checkAndRequestStoragePersist();
     initOtaUpdater();
+
+    // Start background license heartbeat (every 5 minutes)
+    setInterval(async () => {
+      if (location.protocol === 'file:') return; // Skip in file:// asset context
+      try {
+        const serverBase = (window.__nexovaServerUrl || location.origin);
+        const resp = await fetch(serverBase + '/api/auth/verify', {
+          headers: { 'Authorization': `Bearer ${state.deviceToken || ''}` }
+        });
+        if (resp.status === 403) {
+          const data = await resp.json();
+          triggerLicenseLockout(data.error);
+        }
+      } catch (err) {
+        console.warn('[Heartbeat] Failed to verify license status with server:', err.message);
+      }
+    }, 5 * 60 * 1000);
   }
 
   async function checkAndRequestStoragePersist() {
@@ -383,6 +425,41 @@
     }
   }
 
+  // Handle Server-Side License Expiry/Lockout (Component N Lockout UI)
+  function triggerLicenseLockout(reason) {
+    const message = reason === 'LICENSE_EXPIRED' 
+      ? 'Your Nexova POS subscription has expired. Please renew your plan or enter a new activation key.' 
+      : 'Your terminal license has been deactivated or suspended. Please contact administrator support.';
+    
+    // Force show overlay
+    let overlay = document.getElementById('license-lockout-overlay');
+    if (!overlay) {
+      if (typeof LicenseEngine !== 'undefined' && typeof LicenseEngine.init === 'function') {
+        LicenseEngine.init().then(ok => {
+          if (!ok) {
+            const msgEl = document.getElementById('license-message');
+            if (msgEl) msgEl.innerHTML = message;
+          }
+        });
+      }
+    } else {
+      overlay.style.display = 'flex';
+      const msgEl = document.getElementById('license-message');
+      if (msgEl) msgEl.innerHTML = message;
+    }
+    
+    const layout = document.getElementById('pos-app-layout');
+    if (layout) layout.style.display = 'none';
+    const lockScreen = document.getElementById('auth-lock-screen');
+    if (lockScreen) lockScreen.classList.remove('active');
+    const wizardOverlay = document.getElementById('first-boot-wizard');
+    if (wizardOverlay) wizardOverlay.style.display = 'none';
+
+    if (syncWorker) {
+      syncWorker.postMessage({ type: 'STOP_SYNC' });
+    }
+  }
+
   // Setup communication channel with off-thread Web Worker
   function setupWebWorker() {
     syncWorker = new Worker('sync-worker.js');
@@ -524,6 +601,8 @@
               window.__passphraseMismatchNotified = true;
               showNotificationToast('Sync passphrase mismatch. Update your Network Encryption Key in Settings → Sync to reconnect.', () => switchActiveScreen('settings'));
             }
+          } else if (error === 'LICENSE_EXPIRED' || error === 'LICENSE_INACTIVE') {
+            triggerLicenseLockout(error);
           } else {
             showNotificationToast(`Sync failed: ${error}. Please check network passphrase in Settings.`);
           }
@@ -994,7 +1073,8 @@
             });
             const activateData = await activateRes.json();
             if (activateData.token) {
-                localStorage.setItem('nexova_license_token', activateData.token);
+                await NexovaDB.setSecurePref('nexova_license_token', activateData.token);
+                state.licenseToken = activateData.token;
                 if (typeof showNotificationToast === 'function') showNotificationToast('Trial Activated!');
                 setTimeout(() => window.location.reload(), 1500);
             } else throw new Error('Token assignment failed.');
@@ -1450,17 +1530,19 @@
 
     const settingGDriveToken = document.getElementById('setting-google-drive-token');
     if (settingGDriveToken) {
-      settingGDriveToken.addEventListener('change', (e) => {
+      settingGDriveToken.addEventListener('change', async (e) => {
         const val = e.target.value.trim();
         if (val) {
-          localStorage.setItem('google_drive_oauth_token', val);
+          await NexovaDB.setSecurePref('google_drive_oauth_token', val);
+          state.googleDriveOauthToken = val;
           syncWorker.postMessage({
             type: 'SAVE_PREFERENCE',
             payload: { key: 'google_drive_oauth_token', val: val }
           });
           state.preferences['google_drive_oauth_token'] = val;
         } else {
-          localStorage.removeItem('google_drive_oauth_token');
+          await NexovaDB.setSecurePref('google_drive_oauth_token', null);
+          state.googleDriveOauthToken = '';
           syncWorker.postMessage({
             type: 'SAVE_PREFERENCE',
             payload: { key: 'google_drive_oauth_token', val: '' }
@@ -2634,30 +2716,53 @@
             
             let statusStyle = 'color: var(--accent-amber);';
             if (c.status === 'PAID') statusStyle = 'color: var(--accent-emerald);';
-            if (c.status === 'REVERSED') statusStyle = 'color: var(--alert-coral);';
+            if (c.status === 'REVERSED' || c.status === 'CANCELLED' || c.status === 'FULLY_REFUNDED') statusStyle = 'color: var(--alert-coral);';
+            if (c.status === 'PARTIALLY_REFUNDED') statusStyle = 'color: var(--accent-amber);';
+
+            let statusHtml = c.status;
+            if (c.status === 'PARTIALLY_REFUNDED') {
+              statusHtml = `PARTIAL_REFUNDED<br><span style="font-size:9px; color:var(--alert-coral);">Refunded: Rs. ${(c.refund_amount_paisa/100).toFixed(2)}</span>`;
+            } else if (c.status === 'FULLY_REFUNDED') {
+              statusHtml = `FULLY_REFUNDED<br><span style="font-size:9px; color:var(--alert-coral);">Refunded: Rs. ${(c.refund_amount_paisa/100).toFixed(2)}</span>`;
+            }
+
+            let reviewBadge = '';
+            if (c.requires_review === 1) {
+              reviewBadge = `<span style="color: var(--alert-coral); font-weight: bold; font-size: 10px;" title="${c.review_notes || ''}">[FLAGGED ⚠️] </span>`;
+            }
 
             let actionsHtml = '';
-            if (c.status === 'PENDING') {
-              actionsHtml = `
-                <button class="action-btn action-success btn-pay-comm" data-id="${c.id}" style="padding:2px 6px; font-size:10px; margin-right:4px;">Pay</button>
-                <button class="action-btn action-danger btn-reverse-comm" data-id="${c.id}" style="padding:2px 6px; font-size:10px;">Reverse</button>
-              `;
-            } else if (c.status === 'PAID') {
-              actionsHtml = `
-                <button class="action-btn action-danger btn-reverse-comm" data-id="${c.id}" style="padding:2px 6px; font-size:10px;">Reverse</button>
+            if (c.requires_review === 1) {
+              actionsHtml += `
+                <button class="action-btn action-success btn-approve-comm" data-id="${c.id}" style="padding:2px 6px; font-size:10px; margin-right:4px;">Approve</button>
               `;
             } else {
-              actionsHtml = `<span style="font-size:9px; color:var(--text-gray); font-style:italic;" title="${c.reversal_reason || ''}">Reversed</span>`;
+              actionsHtml += `
+                <button class="action-btn action-warning btn-flag-comm" data-id="${c.id}" style="padding:2px 6px; font-size:10px; margin-right:4px;">Flag</button>
+              `;
+            }
+
+            if (c.status === 'PENDING') {
+              actionsHtml += `
+                <button class="action-btn action-success btn-pay-comm" data-id="${c.id}" style="padding:2px 6px; font-size:10px; margin-right:4px;">Pay</button>
+                <button class="action-btn action-danger btn-cancel-comm" data-id="${c.id}" style="padding:2px 6px; font-size:10px;">Cancel</button>
+              `;
+            } else if (c.status === 'PAID') {
+              actionsHtml += `
+                <button class="action-btn action-danger btn-cancel-comm" data-id="${c.id}" style="padding:2px 6px; font-size:10px;">Refund</button>
+              `;
+            } else {
+              actionsHtml += `<span style="font-size:9px; color:var(--text-gray); font-style:italic;" title="${c.reversal_reason || ''}">${c.status}</span>`;
             }
 
             row.innerHTML = `
-              <td style="padding: 8px; font-weight:600;">${c.agent_id.substring(0,8)}...</td>
+              <td style="padding: 8px; font-weight:600;" title="IP: ${c.ip_address || 'N/A'}\nDevice: ${c.device_id || 'N/A'}\nUA: ${c.user_agent || 'N/A'}\nReview Notes: ${c.review_notes || 'None'}">${reviewBadge}${c.agent_id.substring(0,8)}...</td>
               <td style="padding: 8px; font-family:monospace;">${c.activation_code}</td>
               <td style="padding: 8px; font-size:10px; max-width:100px; overflow:hidden; text-overflow:ellipsis;">${c.store_id}</td>
               <td style="padding: 8px; font-size:10px;">${c.tier}</td>
               <td style="padding: 8px;">Rs. ${(c.gross_amount_minor/100).toFixed(2)}</td>
               <td style="padding: 8px; font-weight:700;">Rs. ${(c.commission_minor_units/100).toFixed(2)}</td>
-              <td style="padding: 8px; font-weight:700; ${statusStyle}">${c.status}</td>
+              <td style="padding: 8px; font-weight:700; ${statusStyle}">${statusHtml}</td>
               <td style="padding: 8px; text-align:right;">${actionsHtml}</td>
             `;
             ledgerTbody.appendChild(row);
@@ -2688,30 +2793,92 @@
             });
           });
 
-          ledgerTbody.querySelectorAll('.btn-reverse-comm').forEach(btn => {
+          ledgerTbody.querySelectorAll('.btn-approve-comm').forEach(btn => {
             btn.addEventListener('click', async (e) => {
               const id = e.currentTarget.getAttribute('data-id');
               playAudioSignal('click');
-              const reason = prompt('Enter audit trail reason for this commission reversal:');
-              if (reason && reason.trim()) {
+              const notes = prompt('Enter approval audit notes:', 'Approved after validation');
+              if (notes !== null) {
                 try {
-                  const revRes = await fetch(`${window.__nexovaServerUrl}/api/admin/commissions/${id}/reverse`, {
+                  const resp = await fetch(`${window.__nexovaServerUrl}/api/admin/commissions/${id}/approve`, {
                     method: 'POST',
                     headers: { 
                       'Content-Type': 'application/json',
                       'Authorization': `Bearer ${state.deviceToken || ''}` 
                     },
-                    body: JSON.stringify({ reason })
+                    body: JSON.stringify({ notes })
                   });
-                  if (revRes.ok) {
-                    showNotificationToast('Commission reversed successfully.');
+                  if (resp.ok) {
+                    showNotificationToast('Commission approved successfully.');
                     loadSalesCommissionsAdmin();
                   } else {
-                    const errObj = await revRes.json();
+                    const errObj = await resp.json();
                     alert('Error: ' + errObj.error);
                   }
                 } catch (err) {
-                  alert('Reversal request failed: ' + err.message);
+                  alert('Approve request failed: ' + err.message);
+                }
+              }
+            });
+          });
+
+          ledgerTbody.querySelectorAll('.btn-flag-comm').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+              const id = e.currentTarget.getAttribute('data-id');
+              playAudioSignal('click');
+              const notes = prompt('Enter reason notes for auditing:');
+              if (notes && notes.trim()) {
+                try {
+                  const resp = await fetch(`${window.__nexovaServerUrl}/api/admin/commissions/${id}/flag`, {
+                    method: 'POST',
+                    headers: { 
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${state.deviceToken || ''}` 
+                    },
+                    body: JSON.stringify({ notes })
+                  });
+                  if (resp.ok) {
+                    showNotificationToast('Commission flagged for audit review.');
+                    loadSalesCommissionsAdmin();
+                  } else {
+                    const errObj = await resp.json();
+                    alert('Error: ' + errObj.error);
+                  }
+                } catch (err) {
+                  alert('Flag request failed: ' + err.message);
+                }
+              }
+            });
+          });
+
+          ledgerTbody.querySelectorAll('.btn-cancel-comm').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+              const id = e.currentTarget.getAttribute('data-id');
+              playAudioSignal('click');
+              const refundAmt = prompt('Enter refund amount in minor units/paisa (optional, leave empty for full refund):');
+              if (refundAmt !== null && confirm('Are you sure you want to cancel/refund this commission?')) {
+                try {
+                  const payload = {};
+                  if (refundAmt.trim() !== '') {
+                    payload.refundAmountMinor = parseInt(refundAmt.trim());
+                  }
+                  const resp = await fetch(`${window.__nexovaServerUrl}/api/admin/commissions/${id}/cancel`, {
+                    method: 'POST',
+                    headers: { 
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${state.deviceToken || ''}` 
+                    },
+                    body: JSON.stringify(payload)
+                  });
+                  if (resp.ok) {
+                    showNotificationToast('Commission cancellation/refund processed.');
+                    loadSalesCommissionsAdmin();
+                  } else {
+                    const errObj = await resp.json();
+                    alert('Error: ' + errObj.error);
+                  }
+                } catch (err) {
+                  alert('Cancel/refund request failed: ' + err.message);
                 }
               }
             });
@@ -3030,6 +3197,7 @@
         const commSection = document.getElementById('settings-commissions');
         if (commSection) {
           commSection.style.display = 'block';
+          const token = state.licenseToken;
           loadSalesCommissionsAdmin();
         }
       } else {
@@ -3040,7 +3208,7 @@
       }
       
       // Update SaaS License Status Card in UI
-      (() => {
+      (async () => {
         const tierVal = document.getElementById('license-active-tier-val');
         const expiryVal = document.getElementById('license-active-expiry-val');
         const devicesVal = document.getElementById('license-active-devices-val');
@@ -3050,7 +3218,7 @@
           const isTrial = isGraceTrialActive() || tier === 'TRIAL';
           tierVal.textContent = isTrial ? 'FREE TRIAL (ENTERPRISE FEATURES)' : tier;
           
-          const token = localStorage.getItem('nexova_license_token');
+          const token = state.licenseToken;
           if (token) {
             try {
               let claims = null;
@@ -3074,7 +3242,8 @@
             } catch (e) {
               console.error('[App.js Settings Check] Decode failed:', e.message);
               console.warn('[License] Corrupted token detected. Purging from local storage.');
-              localStorage.removeItem('nexova_license_token');
+              await NexovaDB.setSecurePref('nexova_license_token', null);
+              state.licenseToken = null;
               expiryVal.textContent = 'Invalid license token';
               devicesVal.textContent = 'Restricted';
             }
@@ -3255,7 +3424,7 @@
 
   // Apply whitelabel customizations to browser window
   function applyPreferencesFromState() {
-    const licenseToken = localStorage.getItem('nexova_license_token');
+    const licenseToken = state.licenseToken;
     const onboardingComplete =
       state.preferences['onboarding_complete'] === 'true' ||
       localStorage.getItem('onboarding_complete') === 'true';
@@ -3314,7 +3483,7 @@
     document.getElementById('sidebar-store-name').textContent = name.substring(0, 15).toUpperCase();
     document.getElementById('setting-store-name').value = name;
 
-    const gdriveToken = localStorage.getItem('google_drive_oauth_token') || state.preferences['google_drive_oauth_token'] || '';
+    const gdriveToken = state.googleDriveOauthToken || state.preferences['google_drive_oauth_token'] || '';
     const settingGDriveToken = document.getElementById('setting-google-drive-token');
     if (settingGDriveToken) {
       settingGDriveToken.value = gdriveToken;
@@ -3639,7 +3808,7 @@
     }
 
     // 2. Fetch license preference fields
-    const licenseToken = localStorage.getItem('nexova_license_token') || null;
+    const licenseToken = state.licenseToken || null;
     const phoneBound = state.preferences['license_phone_bound'] || null;
 
     const lockoutOverlay = document.getElementById('license-lockout-overlay');
@@ -3738,7 +3907,8 @@
         } catch (e) {
           console.error('[App.js License Check] Offline decode failed:', e.message);
           console.warn('[License] Corrupted token detected. Purging from local storage.');
-          localStorage.removeItem('nexova_license_token');
+          await NexovaDB.setSecurePref('nexova_license_token', null);
+          state.licenseToken = null;
         }
       }
     }
@@ -5732,7 +5902,7 @@
     setButtonLoading('btn-cloud-sync', true, 'SYNCING...', 'BACKUP TO GOOGLE DRIVE');
     statusTxt.textContent = 'Syncing: Connecting to Google Identity...';
 
-    let token = localStorage.getItem('google_drive_oauth_token') || state.preferences['google_drive_oauth_token'];
+    let token = state.googleDriveOauthToken || state.preferences['google_drive_oauth_token'];
     
     if (!token) {
       const userToken = prompt("Please enter a valid Google OAuth 2.0 Access Token to authenticate this backup sync:");
@@ -5741,7 +5911,8 @@
         setButtonLoading('btn-cloud-sync', false, '', 'BACKUP TO GOOGLE DRIVE');
         return;
       }
-      localStorage.setItem('google_drive_oauth_token', userToken);
+      await NexovaDB.setSecurePref('google_drive_oauth_token', userToken);
+      state.googleDriveOauthToken = userToken;
       syncWorker.postMessage({
         type: 'SAVE_PREFERENCE',
         payload: { key: 'google_drive_oauth_token', val: userToken }
@@ -5785,7 +5956,8 @@
 
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
-          localStorage.removeItem('google_drive_oauth_token');
+          await NexovaDB.setSecurePref('google_drive_oauth_token', null);
+          state.googleDriveOauthToken = '';
           throw new Error('OAuth Access Token has expired or is invalid. Please try again.');
         }
         const errText = await response.text();
@@ -7175,7 +7347,7 @@
         try {
           btnSyncLicense.disabled = true;
           btnSyncLicense.textContent = 'Syncing...';
-          const token = localStorage.getItem('nexova_license_token');
+          const token = state.licenseToken;
           const hwid = window.__nexovaHWID;
           if (token && hwid) {
             const serverBase = window.__nexovaServerUrl || location.origin;
@@ -7185,7 +7357,8 @@
             if (res.ok) {
               const data = await res.json();
               if (data.updated && data.token) {
-                localStorage.setItem('nexova_license_token', data.token);
+                await NexovaDB.setSecurePref('nexova_license_token', data.token);
+                state.licenseToken = data.token;
                 alert('License successfully updated! App will reload now.');
                 location.reload();
               } else {
@@ -7193,7 +7366,8 @@
               }
             } else if (res.status === 401 || res.status === 404) {
               alert('License has been revoked or expired on the server.');
-              localStorage.removeItem('nexova_license_token');
+              await NexovaDB.setSecurePref('nexova_license_token', null);
+              state.licenseToken = null;
               location.reload();
             } else {
               alert('Failed to connect to license server.');

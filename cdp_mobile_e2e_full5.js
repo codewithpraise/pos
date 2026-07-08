@@ -1,4 +1,4 @@
-﻿const WebSocket = require('ws');
+const WebSocket = require('ws');
 const http = require('http');
 
 function cdpEval(ws, script, id) {
@@ -41,6 +41,25 @@ http.get('http://localhost:9222/json', async (res) => {
     
     ws.on('open', async () => {
       ws.send(JSON.stringify({ id: id++, method: 'Runtime.enable', params: {} }));
+      ws.send(JSON.stringify({ id: id++, method: 'Page.enable', params: {} }));
+      ws.send(JSON.stringify({
+        id: id++,
+        method: 'Page.addScriptToEvaluateOnNewDocument',
+        params: {
+          source: `
+            window.AndroidPOS = {
+              getServerUrl: () => 'http://localhost:3000',
+              setAutoStartOnBoot: () => {},
+              getAutoStartOnBoot: () => false,
+              consumeFreshStartFlag: () => false,
+              setServerUrl: () => {}
+            };
+            window.AndroidHardware = {
+              printReceipt: () => {}
+            };
+          `
+        }
+      }));
       await sleep(200);
 
       // 1. Force mobile view emulation

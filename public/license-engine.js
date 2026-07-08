@@ -143,7 +143,7 @@ const LicenseEngine = (() => {
           // Only purge if it is explicitly an encoding error, otherwise leave it alone
           if (e.message.includes('atob') || e.message.includes('URI') || e.message.includes('encoded')) {
               console.warn('[LicenseEngine] Token format unrecoverable. Purging.');
-              localStorage.removeItem('nexova_license_token');
+              await NexovaDB.setSecurePref('nexova_license_token', null);
           }
           return { valid: false, reason: 'Token parse error: ' + e.message };
         }
@@ -187,7 +187,7 @@ const LicenseEngine = (() => {
       // Only purge if it is explicitly an encoding error, otherwise leave it alone
       if (err.message.includes('atob') || err.message.includes('URI') || err.message.includes('encoded')) {
           console.warn('[LicenseEngine] Token format unrecoverable. Purging.');
-          localStorage.removeItem('nexova_license_token');
+          await NexovaDB.setSecurePref('nexova_license_token', null);
       }
       return { valid: false, reason: `Verification error: ${err.message}` };
     }
@@ -292,7 +292,7 @@ const LicenseEngine = (() => {
           const mockToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' + 
                             btoa(JSON.stringify({ licenseKey: code, hwid: hwid, tier: 'ENTERPRISE', exp: Date.now() + 100 * 365 * 24 * 60 * 60 * 1000 })) + 
                             '.mock_signature';
-          localStorage.setItem(STORAGE_KEY_LICENSE, mockToken);
+          await NexovaDB.setSecurePref(STORAGE_KEY_LICENSE, mockToken);
           window.__nexovaTier = 'ENTERPRISE';
           window.__nexovaHWID = hwid;
           document.getElementById('license-lockout-overlay')?.remove();
@@ -317,7 +317,7 @@ const LicenseEngine = (() => {
           return;
         }
         
-        localStorage.setItem(STORAGE_KEY_LICENSE, result.token);
+        await NexovaDB.setSecurePref(STORAGE_KEY_LICENSE, result.token);
         window.__nexovaTier = result.tier;
         window.__nexovaHWID = hwid;
         document.getElementById('license-lockout-overlay')?.remove();
@@ -367,7 +367,7 @@ const LicenseEngine = (() => {
         const activateData = await activateRes.json();
 
         if (activateData.token) {
-          localStorage.setItem(STORAGE_KEY_LICENSE, activateData.token);
+          await NexovaDB.setSecurePref(STORAGE_KEY_LICENSE, activateData.token);
           window.__nexovaTier = activateData.tier;
           window.__nexovaHWID = hwid;
           alert('Trial Activated! Welcome to Nexova POS.');
@@ -424,7 +424,7 @@ const LicenseEngine = (() => {
         });
         if (response.status === 401 || response.status === 404) {
           clearInterval(pollInterval);
-          localStorage.removeItem(STORAGE_KEY_LICENSE);
+          await NexovaDB.setSecurePref(STORAGE_KEY_LICENSE, null);
           location.reload();
           return;
         }
@@ -434,7 +434,7 @@ const LicenseEngine = (() => {
         if (result.updated && result.token) {
           clearInterval(pollInterval);
           console.log('[License] License approved! Saving new token and booting app...');
-          localStorage.setItem(STORAGE_KEY_LICENSE, result.token);
+          await NexovaDB.setSecurePref(STORAGE_KEY_LICENSE, result.token);
           location.reload();
         }
       } catch (err) {
@@ -520,7 +520,7 @@ const LicenseEngine = (() => {
           const hwid = await generateHWID();
           const result = await verifyToken(token, hwid);
           if (result.valid) {
-            localStorage.setItem(STORAGE_KEY_LICENSE, token);
+            await NexovaDB.setSecurePref(STORAGE_KEY_LICENSE, token);
             window.__nexovaTier = result.payload.tier;
             window.__nexovaHWID = hwid;
             location.reload();
@@ -678,7 +678,17 @@ const LicenseEngine = (() => {
 
 
     // 3. Check stored license
-    const stored = localStorage.getItem(STORAGE_KEY_LICENSE);
+    // Perform one-time migration from localStorage to secure IndexedDB if needed
+    let stored = await NexovaDB.getSecurePref(STORAGE_KEY_LICENSE);
+    if (!stored) {
+      const legacyToken = localStorage.getItem(STORAGE_KEY_LICENSE);
+      if (legacyToken) {
+        console.log('[License] Migrating legacy token from localStorage to secure IndexedDB...');
+        await NexovaDB.setSecurePref(STORAGE_KEY_LICENSE, legacyToken);
+        localStorage.removeItem(STORAGE_KEY_LICENSE);
+        stored = legacyToken;
+      }
+    }
     if (stored) {
       const result = await verifyToken(stored, hwid);
       if (result.valid) {
@@ -756,7 +766,7 @@ const LicenseEngine = (() => {
       if (response.status === 401 || response.status === 404) {
         // Token revoked, suspended, or deleted
         console.warn('[License] Active token was revoked or deleted on server. Locking.');
-        localStorage.removeItem(STORAGE_KEY_LICENSE);
+        await NexovaDB.setSecurePref(STORAGE_KEY_LICENSE, null);
         location.reload();
         return;
       }
@@ -765,7 +775,7 @@ const LicenseEngine = (() => {
       const result = await response.json();
       if (result.updated && result.token) {
         console.log('[License] Detected license configuration update on server. Syncing...');
-        localStorage.setItem(STORAGE_KEY_LICENSE, result.token);
+        await NexovaDB.setSecurePref(STORAGE_KEY_LICENSE, result.token);
         location.reload();
       }
     } catch (err) {

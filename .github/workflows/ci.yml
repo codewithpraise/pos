@@ -33,6 +33,28 @@ jobs:
       - name: Run Test Suite (Unit, DB, Backups)
         run: npm test
 
+      - name: Start Nexova POS Server
+        run: node server.js &
+        env:
+          PORT: 3000
+
+      - name: Start Headless Chrome for CDP
+        run: google-chrome --headless --remote-debugging-port=9222 --disable-gpu --no-sandbox http://localhost:3000 &
+
+      - name: Wait for Services to be Ready
+        run: |
+          for i in {1..20}; do
+            if curl -s http://localhost:3000 > /dev/null && curl -s http://localhost:9222/json > /dev/null; then
+              echo "Services are ready!"
+              break
+            fi
+            echo "Waiting for local server and chrome..."
+            sleep 1
+          done
+
+      - name: Run Full E2E & Diagnostic Suites
+        run: npm run test:e2e
+
   android-build:
     name: Android Kotlin Compilation
     runs-on: ubuntu-latest
