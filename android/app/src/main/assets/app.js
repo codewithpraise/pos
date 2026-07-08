@@ -1128,7 +1128,8 @@
         'theme-midnight-sapphire',
         'theme-warm-amber',
         'theme-minimalist-chrome',
-        'theme-monochrome-ivory'
+        'theme-monochrome-ivory',
+        'theme-premium-navy'
       ];
       
       let curIndex = themes.findIndex(t => body.classList.contains(t));
@@ -1411,7 +1412,7 @@
       
       const themeClass = 'theme-' + palette.toLowerCase().replace(/\s+/g, '-');
       const body = document.body;
-      const themes = ['theme-obsidian-emerald', 'theme-midnight-sapphire', 'theme-warm-amber', 'theme-minimalist-chrome', 'theme-monochrome-ivory'];
+      const themes = ['theme-obsidian-emerald', 'theme-midnight-sapphire', 'theme-warm-amber', 'theme-minimalist-chrome', 'theme-monochrome-ivory', 'theme-premium-navy'];
       themes.forEach(t => body.classList.remove(t));
       body.classList.add(themeClass);
     });
@@ -1789,7 +1790,7 @@
           const val = e.target.value;
           const themeClass = 'theme-' + val.toLowerCase().replace(/\s+/g, '-');
           const body = document.body;
-          const themes = ['theme-obsidian-emerald', 'theme-midnight-sapphire', 'theme-warm-amber', 'theme-minimalist-chrome', 'theme-monochrome-ivory'];
+          const themes = ['theme-obsidian-emerald', 'theme-midnight-sapphire', 'theme-warm-amber', 'theme-minimalist-chrome', 'theme-monochrome-ivory', 'theme-premium-navy'];
           themes.forEach(t => body.classList.remove(t));
           body.classList.add(themeClass);
         });
@@ -3386,6 +3387,7 @@
         const commSection = document.getElementById('settings-commissions');
         if (commSection) {
           commSection.style.display = 'block';
+          const token = state.licenseToken;
           loadSalesCommissionsAdmin();
         }
       } else {
@@ -3706,7 +3708,7 @@
     document.getElementById('setting-theme-palette').value = palette;
     const themeClass = 'theme-' + palette.toLowerCase().replace(/\s+/g, '-');
     const body = document.body;
-    const themes = ['theme-obsidian-emerald', 'theme-midnight-sapphire', 'theme-warm-amber', 'theme-minimalist-chrome', 'theme-monochrome-ivory'];
+    const themes = ['theme-obsidian-emerald', 'theme-midnight-sapphire', 'theme-warm-amber', 'theme-minimalist-chrome', 'theme-monochrome-ivory', 'theme-premium-navy'];
     themes.forEach(t => body.classList.remove(t));
     body.classList.add(themeClass);
 
@@ -7891,3 +7893,304 @@
     }
   });
 })();
+
+/* ============================================================================
+   PREMIUM UI/UX MODULE — v3.0
+   Keyboard shortcuts, haptic feedback, offline banner, cart animations,
+   empty states, ARIA announcements — all self-contained, non-breaking.
+   ============================================================================ */
+(function initPremiumUIModule() {
+  'use strict';
+
+  /* ── 1. Haptic Feedback ─────────────────────────────────────────────────── */
+  /**
+   * Trigger device vibration for haptic feedback.
+   * Pattern examples: 50 (single), [50,50,50] (triple tap)
+   * @param {number|number[]} pattern
+   */
+  window.haptic = function haptic(pattern = 50) {
+    try {
+      if ('vibrate' in navigator) navigator.vibrate(pattern);
+    } catch (_) { /* Silently fail in restricted contexts */ }
+  };
+
+  /* ── 2. ARIA Live Region Announcements ───────────────────────────────────── */
+  /**
+   * Announce a message to screen readers via the ARIA live region.
+   * @param {string} message
+   */
+  window.announceToScreenReader = function announceToScreenReader(message) {
+    const live = document.getElementById('aria-live');
+    if (!live) return;
+    live.textContent = '';
+    // Force DOM mutation so screen readers re-read it
+    requestAnimationFrame(() => { live.textContent = message; });
+  };
+
+  /* ── 3. Offline Banner ───────────────────────────────────────────────────── */
+  function updateOfflineBanner(isOnline) {
+    const banner = document.getElementById('offline-banner');
+    const pill   = document.getElementById('mobile-offline-pill');
+    const body   = document.body;
+
+    if (!isOnline) {
+      if (banner) banner.style.display = 'flex';
+      if (pill)   pill.style.display   = 'flex';
+      body.classList.add('is-offline');
+      announceToScreenReader('You are offline. Sales are being saved locally.');
+    } else {
+      if (banner) banner.style.display = 'none';
+      if (pill)   pill.style.display   = 'none';
+      body.classList.remove('is-offline');
+      announceToScreenReader('Connection restored. Syncing your data.');
+    }
+  }
+
+  // Initial state
+  updateOfflineBanner(!navigator.onLine);
+
+  // Listen for changes
+  window.addEventListener('online',  () => updateOfflineBanner(true));
+  window.addEventListener('offline', () => updateOfflineBanner(false));
+
+  /* ── 4. Cart Item Animations ────────────────────────────────────────────── */
+  /**
+   * Animate a cart row when it's added.
+   * @param {HTMLElement} row - the <tr> or row element
+   */
+  window.animateCartItemAdd = function animateCartItemAdd(row) {
+    if (!row) return;
+    row.classList.remove('adding');
+    // Force reflow
+    void row.offsetWidth;
+    row.classList.add('adding');
+    row.addEventListener('animationend', () => row.classList.remove('adding'), { once: true });
+    haptic(30);
+  };
+
+  /**
+   * Animate a cart row when it's removed, then call callback.
+   * @param {HTMLElement} row
+   * @param {Function} onComplete
+   */
+  window.animateCartItemRemove = function animateCartItemRemove(row, onComplete) {
+    if (!row) { if (onComplete) onComplete(); return; }
+    row.classList.add('removing');
+    row.addEventListener('animationend', () => {
+      if (onComplete) onComplete();
+    }, { once: true });
+    haptic([30, 20]);
+  };
+
+  /**
+   * Pulse the quantity display on quantity change.
+   * @param {HTMLElement} qtyEl
+   */
+  window.pulseQtyDisplay = function pulseQtyDisplay(qtyEl) {
+    if (!qtyEl) return;
+    qtyEl.classList.remove('bump');
+    void qtyEl.offsetWidth;
+    qtyEl.classList.add('bump');
+    qtyEl.addEventListener('animationend', () => qtyEl.classList.remove('bump'), { once: true });
+  };
+
+  /* ── 5. Payment Success Flash ───────────────────────────────────────────── */
+  /**
+   * Flash the charge button with a success ring animation.
+   */
+  window.flashPaymentSuccess = function flashPaymentSuccess() {
+    const btn = document.getElementById('btn-charge');
+    if (!btn) return;
+    btn.classList.add('success-pulse');
+    btn.addEventListener('animationend', () => btn.classList.remove('success-pulse'), { once: true });
+    haptic([50, 30, 100]);
+    announceToScreenReader('Payment successful!');
+  };
+
+  /* ── 6. Field Shake (Error Feedback) ────────────────────────────────────── */
+  /**
+   * Shake an element to indicate an error.
+   * @param {HTMLElement|string} elOrId
+   */
+  window.shakeElement = function shakeElement(elOrId) {
+    const el = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
+    if (!el) return;
+    el.classList.remove('shake');
+    void el.offsetWidth;
+    el.classList.add('shake');
+    el.addEventListener('animationend', () => el.classList.remove('shake'), { once: true });
+    haptic([50, 30, 50]);
+  };
+
+  /* ── 7. Empty State Renderer ────────────────────────────────────────────── */
+  /**
+   * Inject a premium animated empty state into a container.
+   * @param {string} containerId
+   * @param {string} icon       - Emoji or SVG string
+   * @param {string} title
+   * @param {string} subtitle
+   * @param {string} [ctaLabel] - Optional CTA button label
+   * @param {Function} [ctaFn]  - Optional CTA click handler
+   */
+  window.renderPremiumEmptyState = function renderPremiumEmptyState(containerId, icon, title, subtitle, ctaLabel, ctaFn) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const ctaHtml = ctaLabel ? `<button class="btn-empty-cta" id="empty-cta-${containerId}">${ctaLabel}</button>` : '';
+
+    container.innerHTML = `
+      <div class="pos-empty-state" role="status" aria-label="${title}">
+        <span class="pos-empty-state-icon" aria-hidden="true">${icon}</span>
+        <h3>${title}</h3>
+        <p>${subtitle}</p>
+        ${ctaHtml}
+      </div>
+    `;
+
+    if (ctaLabel && ctaFn) {
+      const ctaEl = document.getElementById(`empty-cta-${containerId}`);
+      if (ctaEl) ctaEl.addEventListener('click', ctaFn);
+    }
+  };
+
+  /**
+   * Inject a skeleton loader grid into a container.
+   * @param {string} containerId
+   * @param {number} count    - Number of skeleton cards
+   * @param {'card'|'row'} type
+   */
+  window.renderSkeletonLoader = function renderSkeletonLoader(containerId, count = 8, type = 'row') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    if (type === 'card') {
+      container.innerHTML = Array.from({ length: count }, () => `
+        <div class="skeleton-card" style="border-radius:10px;" aria-hidden="true"></div>
+      `).join('');
+    } else {
+      container.innerHTML = Array.from({ length: count }, () => `
+        <div style="display:flex; flex-direction:column; gap:6px; padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.03);" aria-hidden="true">
+          <div class="skeleton-line" style="width:60%;"></div>
+          <div class="skeleton-line short" style="width:40%;"></div>
+        </div>
+      `).join('');
+    }
+
+    container.setAttribute('aria-busy', 'true');
+    container.setAttribute('aria-label', 'Loading…');
+  };
+
+  /* ── 8. Keyboard Shortcuts ───────────────────────────────────────────────── */
+  /**
+   * Find the topmost visible modal overlay and close it.
+   */
+  function closeTopmostModal() {
+    // Find all active modal overlays
+    const activeModals = Array.from(document.querySelectorAll('.modal-overlay.active'));
+    if (activeModals.length === 0) return;
+    // Close the last one (topmost in DOM order)
+    const topmost = activeModals[activeModals.length - 1];
+    // Find a close button inside it
+    const closeBtn = topmost.querySelector('.btn-close-modal, [data-action="close"], .btn-cancel');
+    if (closeBtn) {
+      closeBtn.click();
+    } else {
+      // Fallback: remove active class directly
+      topmost.classList.remove('active');
+    }
+  }
+
+  document.addEventListener('keydown', (e) => {
+    // Skip when typing in an input/textarea/select
+    const tag = document.activeElement?.tagName;
+    const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+                  || document.activeElement?.isContentEditable;
+
+    // Ctrl/Cmd + K → focus product search
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      const searchInput = document.getElementById('product-search-input');
+      if (searchInput) {
+        // Switch to checkout view if not already there
+        const checkoutNav = document.querySelector('[data-screen="checkout"]');
+        if (checkoutNav && !checkoutNav.classList.contains('active')) checkoutNav.click();
+        // Small delay to let view switch complete
+        setTimeout(() => {
+          searchInput.focus();
+          searchInput.select();
+        }, 80);
+      }
+      announceToScreenReader('Product search focused');
+      return;
+    }
+
+    // Ctrl/Cmd + Shift + P → trigger charge / payment modal
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'P') {
+      e.preventDefault();
+      const chargeBtn = document.getElementById('btn-charge');
+      if (chargeBtn && !chargeBtn.disabled) {
+        chargeBtn.click();
+        announceToScreenReader('Payment modal opened');
+      }
+      return;
+    }
+
+    // Esc → close topmost modal
+    if (e.key === 'Escape' && !isTyping) {
+      closeTopmostModal();
+      return;
+    }
+
+    // Ctrl/Cmd + / → show keyboard shortcuts hint (future)
+    // (reserved for help panel)
+  });
+
+  /* ── 9. History Filter Pills ─────────────────────────────────────────────── */
+  /**
+   * Wire up history filter pills. Call after history view renders.
+   * @param {string} pillContainerId
+   * @param {Function} filterCallback - receives 'today'|'week'|'month'|'all'
+   */
+  window.wireHistoryFilterPills = function wireHistoryFilterPills(pillContainerId, filterCallback) {
+    const container = document.getElementById(pillContainerId);
+    if (!container) return;
+
+    container.addEventListener('click', (e) => {
+      const pill = e.target.closest('.history-filter-pill');
+      if (!pill) return;
+
+      container.querySelectorAll('.history-filter-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+
+      const filter = pill.dataset.filter || 'all';
+      if (filterCallback) filterCallback(filter);
+      haptic(20);
+    });
+  };
+
+  /* ── 10. Sync Status Badge ────────────────────────────────────────────────── */
+  /**
+   * Update the sync status badge in the topbar (if it exists).
+   * @param {'syncing'|'synced'|'offline'} status
+   */
+  window.updateSyncStatusBadge = function updateSyncStatusBadge(status) {
+    const badge = document.querySelector('.sync-status-badge');
+    if (!badge) return;
+
+    badge.className = 'sync-status-badge';
+    badge.classList.add(status);
+
+    const icon = badge.querySelector('.sync-icon');
+    if (status === 'syncing') {
+      badge.innerHTML = '<span class="spin-icon" aria-hidden="true">↻</span> Syncing…';
+    } else if (status === 'synced') {
+      badge.innerHTML = '✓ Synced';
+    } else {
+      badge.innerHTML = '⚡ Offline';
+    }
+  };
+
+  /* ── Module initialized ──────────────────────────────────────────────────── */
+  console.info('[PremiumUI] Module v3.0 initialized. Keyboard shortcuts: Ctrl+K (search), Ctrl+Shift+P (pay), Esc (close modal).');
+
+})();

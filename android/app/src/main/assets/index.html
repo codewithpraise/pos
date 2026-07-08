@@ -12,10 +12,10 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   
-  <!-- Premium Font Pairing: Fraunces (boutique headers), Outfit (headers), Manrope (interface/numbers), Literata (receipts) -->
+  <!-- Premium Font Pairing: Inter (premium navy), Fraunces (boutique headers), Outfit (headers), Manrope (interface/numbers), Literata (receipts) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Manrope:wght@200..800&family=Outfit:wght@100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Manrope:wght@200..800&family=Outfit:wght@100..900&display=swap" rel="stylesheet">
   <script src="polyfill.min.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -26,6 +26,15 @@
     <span class="pill-dot"></span>
     <span class="pill-text">Offline (Syncing paused - safe to keep selling)</span>
   </div>
+
+  <!-- FULL-WIDTH OFFLINE BANNER (desktop/tablet) -->
+  <div class="offline-banner" id="offline-banner" style="display:none;" role="alert" aria-live="assertive" aria-label="Offline mode active">
+    <span class="offline-dot" aria-hidden="true"></span>
+    <span>⚡ You're offline &mdash; Sales are saved locally and will sync when reconnected</span>
+  </div>
+
+  <!-- ARIA Live Region for screen-reader announcements -->
+  <div id="aria-live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <!-- AUTH LOCK SCREEN (Centered login PIN pad overlay) -->
   <div class="auth-overlay" id="auth-lock-screen">
@@ -729,6 +738,7 @@
                   <option value="Warm Amber">Warm Amber</option>
                   <option value="Minimalist Chrome">Minimalist Chrome</option>
                   <option value="Monochrome Ivory">Monochrome Ivory</option>
+                  <option value="Premium Navy">Premium Navy ✦</option>
                 </select>
               </div>
               <div class="settings-row">
@@ -1810,6 +1820,7 @@
                 <option value="Warm Amber">Warm Amber</option>
                 <option value="Minimalist Chrome">Minimalist Chrome</option>
                 <option value="Monochrome Ivory">Monochrome Ivory (Light)</option>
+                <option value="Premium Navy">Premium Navy ✦</option>
               </select>
               <span class="wiz-hint">Color palette for the entire POS interface</span>
             </div>
