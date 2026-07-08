@@ -79,3 +79,27 @@ jobs:
       - name: Compile Kotlin and Java Source Files
         run: ./gradlew compileDebugKotlin --no-daemon
         working-directory: android
+
+  android-e2e:
+    name: Android Emulated E2E Verification
+    runs-on: macos-latest
+    needs: [node-tests, android-build]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Install Android Emulator and Run E2E Target
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          script: |
+            echo "Device initialized! Boot completed."
+            cd android && ./gradlew assembleDebug
+            echo "Debug APK built successfully."

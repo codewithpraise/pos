@@ -287,6 +287,15 @@ class MainActivity : AppCompatActivity() {
         }
 
         @JavascriptInterface
+        fun getDeviceID(): String {
+            if (!isCurrentOriginTrusted()) {
+                Log.w("AndroidPOSBridge", "getDeviceID call rejected: untrusted origin.")
+                return ""
+            }
+            return Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "android-device"
+        }
+
+        @JavascriptInterface
         fun setAutoStartOnBoot(enabled: Boolean) {
             if (!isCurrentOriginTrusted()) {
                 Log.w("AndroidPOSBridge", "setAutoStartOnBoot call rejected: untrusted origin.")
@@ -940,6 +949,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun isOnline(): Boolean {
+        try {
+            val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+            @Suppress("DEPRECATION")
+            val activeNetwork = cm?.activeNetworkInfo
+            @Suppress("DEPRECATION")
+            return activeNetwork != null && activeNetwork.isConnected
+        } catch (e: Exception) {
+            return true
+        }
+    }
+
     private fun rotateAndUploadCrashLogs() {
         kotlin.concurrent.thread {
             synchronized(logLock) {
@@ -948,24 +969,42 @@ class MainActivity : AppCompatActivity() {
                     if (!logFile.exists() || logFile.length() == 0L) return@thread
 
                     val now = System.currentTimeMillis()
-                    val lastUpload = prefs.getLong("last_crash_upload_ts", 0L)
-                    val cooldownMs = 60 * 60 * 1000 // 60 minutes cooldown
 
-                    // 1. Enforce size rotation first (regardless of network success/failure)
+                    // 1. Enforce size rotation first (regardless of network success/failure/state)
                     if (logFile.length() > 2 * 1024 * 1024) {
                         try {
+                            val tempFile = File(logFile.parent, "nexova_crash.log.tmp")
                             val lines = logFile.readLines()
                             val halfLines = lines.takeLast(lines.size / 2)
-                            logFile.writeText(halfLines.joinToString("\n") + "\n")
-                            Log.i("NexovaCrash", "Crash log rotated: trimmed to half size.")
+                            tempFile.writeText(halfLines.joinToString("\n") + "\n")
+                            if (tempFile.renameTo(logFile)) {
+                                Log.i("NexovaCrash", "Crash log rotated atomically: trimmed to half size.")
+                            } else {
+                                logFile.writeText(halfLines.joinToString("\n") + "\n")
+                            }
                         } catch (e: Exception) {
                             Log.e("NexovaCrash", "Failed to rotate log: ${e.message}")
                         }
                     }
 
-                    // 2. Cooldown check
-                    if (now - lastUpload < cooldownMs) {
-                        Log.d("NexovaCrash", "Crash log upload skipped (cooldown active).")
+                    // 2. Offline check
+                    if (!isOnline()) {
+                        Log.d("NexovaCrash", "Offline. Skip upload, logs rotated locally.")
+                        return@thread
+                    }
+
+                    val lastUpload = prefs.getLong("last_crash_upload_ts", 0L)
+                    val retryCount = prefs.getInt("crash_upload_retry_count", 0)
+
+                    // Calculate backoff: Base is 60 minutes. Double it on every retry up to 24 hours.
+                    val baseCooldownMs = 60 * 60 * 1000L
+                    var dynamicCooldownMs = baseCooldownMs * (1L shl Math.min(retryCount, 6)) // max 2^6 = 64x base
+                    if (dynamicCooldownMs > 24 * 60 * 60 * 1000L) {
+                        dynamicCooldownMs = 24 * 60 * 60 * 1000L
+                    }
+
+                    if (now - lastUpload < dynamicCooldownMs) {
+                        Log.d("NexovaCrash", "Upload cooldown active. Dynamic cooldown is $dynamicCooldownMs ms. Skipped.")
                         return@thread
                     }
 
@@ -1003,14 +1042,28 @@ class MainActivity : AppCompatActivity() {
                     val responseCode = conn.responseCode
                     if (responseCode in 200..299) {
                         logFile.delete()
-                        prefs.edit().putLong("last_crash_upload_ts", now).apply()
-                        Log.i("NexovaCrash", "Crash logs uploaded and cleared successfully.")
+                        prefs.edit()
+                            .putLong("last_crash_upload_ts", now)
+                            .putInt("crash_upload_retry_count", 0)
+                            .apply()
+                        Log.i("NexovaCrash", "Crash logs uploaded and cleared successfully. Retry count reset.")
                     } else {
-                        Log.w("NexovaCrash", "Failed to upload crash logs: HTTP $responseCode")
+                        val newRetryCount = retryCount + 1
+                        prefs.edit()
+                            .putLong("last_crash_upload_ts", now)
+                            .putInt("crash_upload_retry_count", newRetryCount)
+                            .apply()
+                        Log.w("NexovaCrash", "Failed to upload crash logs: HTTP $responseCode. Retry count: $newRetryCount")
                     }
                     conn.disconnect()
                 } catch (e: Exception) {
-                    Log.w("NexovaCrash", "Exception in crash log upload: ${e.message}")
+                    val retryCount = prefs.getInt("crash_upload_retry_count", 0)
+                    val newRetryCount = retryCount + 1
+                    prefs.edit()
+                        .putLong("last_crash_upload_ts", System.currentTimeMillis())
+                        .putInt("crash_upload_retry_count", newRetryCount)
+                        .apply()
+                    Log.w("NexovaCrash", "Exception in crash log upload: ${e.message}. Retry count: $newRetryCount")
                 }
             }
         }

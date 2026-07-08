@@ -1009,6 +1009,7 @@
                 <table class="pos-table" style="width: 100%;">
                   <thead>
                     <tr>
+                      <th style="text-align: left; padding: 8px; width: 30px;"><input type="checkbox" id="comm-ledger-select-all" aria-label="Select All Ledgers"></th>
                       <th style="text-align: left; padding: 8px;">Agent ID</th>
                       <th style="text-align: left; padding: 8px;">Code</th>
                       <th style="text-align: left; padding: 8px;">Store</th>
@@ -1020,9 +1021,53 @@
                     </tr>
                   </thead>
                   <tbody id="comm-ledger-tbody">
-                    <tr><td colspan="8" style="text-align: center; color: var(--text-gray); padding: 12px;">No commission records found.</td></tr>
+                    <tr><td colspan="9" style="text-align: center; color: var(--text-gray); padding: 12px;">No commission records found.</td></tr>
                   </tbody>
                 </table>
+
+                <!-- Bulk Actions Panel -->
+                <div id="comm-bulk-actions-panel" style="display: flex; gap: 8px; margin-top: 12px; align-items: center;">
+                  <span style="font-size: 11px; color: var(--text-gray);"><span id="comm-selected-count">0</span> items selected</span>
+                  <button type="button" class="action-btn action-success" id="btn-comm-bulk-approve" style="padding: 4px 10px; font-size: 11px;">Bulk Approve</button>
+                  <button type="button" class="action-btn action-warning" id="btn-comm-bulk-flag" style="padding: 4px 10px; font-size: 11px;">Bulk Flag</button>
+                  <button type="button" class="action-btn action-danger" id="btn-comm-bulk-cancel" style="padding: 4px 10px; font-size: 11px;">Bulk Cancel</button>
+                </div>
+
+                <!-- Whitelist Management Panel -->
+                <div style="margin-top: 24px; padding: 16px; border: 1px solid var(--border-titanium); border-radius: 6px; background: rgba(255,255,255,0.01);">
+                  <h4 style="margin:0 0 4px; font-size:12px; color:var(--text-white); font-weight:700;">Trusted Activation Whitelist</h4>
+                  <p style="margin:0 0 12px; font-size:10px; color:var(--text-gray);">Bypass licensing limitations for trusted IPs and HWIDs (Full Audit Logging).</p>
+                  
+                  <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px;">
+                    <div>
+                      <label style="font-size:10px; color:var(--text-gray); display:block; margin-bottom:4px;">Type:</label>
+                      <select id="whitelist-type-select" class="pos-input" style="width: 100px;">
+                        <option value="IP">IP Address</option>
+                        <option value="HWID">Hardware ID</option>
+                      </select>
+                    </div>
+                    <div style="flex: 1; min-width: 180px;">
+                      <label style="font-size:10px; color:var(--text-gray); display:block; margin-bottom:4px;">Value:</label>
+                      <input type="text" id="whitelist-value-input" class="pos-input" placeholder="e.g. 192.168.1.50 or DEV-HWID-KEY" autocomplete="off">
+                    </div>
+                    <button type="button" class="action-btn action-success" id="btn-whitelist-add" style="height: 38px;">Add Whitelist</button>
+                  </div>
+
+                  <table class="pos-table" style="width: 100%;">
+                    <thead>
+                      <tr>
+                        <th style="text-align: left; padding: 6px;">Type</th>
+                        <th style="text-align: left; padding: 6px;">Value</th>
+                        <th style="text-align: left; padding: 6px;">Added By</th>
+                        <th style="text-align: left; padding: 6px;">Added At</th>
+                        <th style="text-align: right; padding: 6px;">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="whitelist-tbody">
+                      <tr><td colspan="5" style="text-align: center; color: var(--text-gray); padding: 10px;">Loading whitelist...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
 

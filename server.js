@@ -266,11 +266,22 @@ async function requireAuth(req, res, next) {
     // Look up the first store in the database (since this is local-first/single-store DB)
     const storeRow = await db.get("SELECT * FROM stores LIMIT 1");
     if (storeRow) {
-      if (storeRow.status === 'cancelled' || storeRow.status === 'suspended') {
-        return res.status(403).json({ error: 'LICENSE_INACTIVE', reason: 'Store status is ' + storeRow.status });
+      let isEmergencyOverride = false;
+      const overrideVal = await db.get("SELECT val FROM local_preferences WHERE key = 'emergency_override_until'");
+      if (overrideVal) {
+        const until = Number(overrideVal.val);
+        if (!isNaN(until) && until > Date.now()) {
+          isEmergencyOverride = true;
+        }
       }
-      if (storeRow.mode === 'subscription' && storeRow.expires_at && storeRow.expires_at < Date.now()) {
-        return res.status(403).json({ error: 'LICENSE_EXPIRED', reason: 'License has expired.' });
+
+      if (!isEmergencyOverride) {
+        if (storeRow.status === 'cancelled' || storeRow.status === 'suspended') {
+          return res.status(403).json({ error: 'LICENSE_INACTIVE', reason: 'Store status is ' + storeRow.status });
+        }
+        if (storeRow.mode === 'subscription' && storeRow.expires_at && storeRow.expires_at < Date.now()) {
+          return res.status(403).json({ error: 'LICENSE_EXPIRED', reason: 'License has expired.' });
+        }
       }
       req.store = storeRow;
     }
@@ -439,21 +450,32 @@ wss.on('connection', (ws, req) => {
         if (data.type !== 'REGISTER' && data.type !== 'AUTH') {
           const storeRow = await db.get("SELECT * FROM stores LIMIT 1");
           if (storeRow) {
-            if (storeRow.status === 'cancelled' || storeRow.status === 'suspended') {
-              try {
-                ws.send(JSON.stringify({ type: 'SYNC_ERROR', error: 'LICENSE_INACTIVE', reason: 'Store status is ' + storeRow.status }));
-                ws.close(1008, 'LICENSE_INACTIVE');
-              } catch (_) {}
-              activeConnections.delete(ws);
-              return;
+            let isEmergencyOverride = false;
+            const overrideVal = await db.get("SELECT val FROM local_preferences WHERE key = 'emergency_override_until'");
+            if (overrideVal) {
+              const until = Number(overrideVal.val);
+              if (!isNaN(until) && until > Date.now()) {
+                isEmergencyOverride = true;
+              }
             }
-            if (storeRow.mode === 'subscription' && storeRow.expires_at && storeRow.expires_at < Date.now()) {
-              try {
-                ws.send(JSON.stringify({ type: 'SYNC_ERROR', error: 'LICENSE_EXPIRED', reason: 'License has expired.' }));
-                ws.close(1008, 'LICENSE_EXPIRED');
-              } catch (_) {}
-              activeConnections.delete(ws);
-              return;
+
+            if (!isEmergencyOverride) {
+              if (storeRow.status === 'cancelled' || storeRow.status === 'suspended') {
+                try {
+                  ws.send(JSON.stringify({ type: 'SYNC_ERROR', error: 'LICENSE_INACTIVE', reason: 'Store status is ' + storeRow.status }));
+                  ws.close(1008, 'LICENSE_INACTIVE');
+                } catch (_) {}
+                activeConnections.delete(ws);
+                return;
+              }
+              if (storeRow.mode === 'subscription' && storeRow.expires_at && storeRow.expires_at < Date.now()) {
+                try {
+                  ws.send(JSON.stringify({ type: 'SYNC_ERROR', error: 'LICENSE_EXPIRED', reason: 'License has expired.' }));
+                  ws.close(1008, 'LICENSE_EXPIRED');
+                } catch (_) {}
+                activeConnections.delete(ws);
+                return;
+              }
             }
           }
         }
@@ -1081,8 +1103,15 @@ app.post('/api/license/activate', async (req, res) => {
           let requiresReview = 0;
           let reviewNotes = '';
 
-          const isWhitelistedIp = TRUSTED_ACTIVATION_WHITELIST.ips.includes(clientIp);
-          const isWhitelistedHwid = TRUSTED_ACTIVATION_WHITELIST.hwids.includes(hwid.toUpperCase());
+          // Query database to see if IP or HWID is whitelisted and ACTIVE
+          const whitelistRows = await db.all(
+            "SELECT type, value FROM trusted_whitelist WHERE status = 'ACTIVE'"
+          );
+          const activeIps = whitelistRows.filter(r => r.type === 'IP').map(r => r.value.toLowerCase());
+          const activeHwids = whitelistRows.filter(r => r.type === 'HWID').map(r => r.value.toUpperCase());
+
+          const isWhitelistedIp = activeIps.includes(clientIp.toLowerCase()) || activeIps.includes('localhost') || activeIps.includes('127.0.0.1') || activeIps.includes('::1');
+          const isWhitelistedHwid = activeHwids.includes(hwid.toUpperCase());
 
           if (!isWhitelistedIp && !isWhitelistedHwid) {
             // 1. IP-based activation velocity check
@@ -1266,14 +1295,152 @@ app.get('/api/auth/verify', requireAuth, async (req, res) => {
     if (!storeRow) {
       return res.status(404).json({ error: 'Store profile not found.' });
     }
+
+    let isEmergencyOverride = false;
+    let emergencyOverrideUntil = null;
+    const overrideVal = await db.get("SELECT val FROM local_preferences WHERE key = 'emergency_override_until'");
+    if (overrideVal) {
+      const until = Number(overrideVal.val);
+      if (!isNaN(until) && until > Date.now()) {
+        isEmergencyOverride = true;
+        emergencyOverrideUntil = until;
+      }
+    }
+
     res.json({
       success: true,
       storeId: storeRow.id,
       tier: storeRow.tier,
       mode: storeRow.mode,
       status: storeRow.status,
-      expiresAt: storeRow.expires_at
+      expiresAt: storeRow.expires_at,
+      serverTime: Date.now(),
+      isEmergencyOverride,
+      emergencyOverrideUntil
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/auth/emergency-override — Triggers local emergency override bypass using Manager/Admin PIN
+app.post('/api/auth/emergency-override', async (req, res) => {
+  const { pin } = req.body;
+  if (!pin) return res.status(400).json({ error: 'PIN is required.' });
+  try {
+    const employees = await db.all("SELECT id, role, auth_hash AS pin_hash FROM employees WHERE is_active = 1");
+    let matchedEmp = null;
+
+    for (const emp of employees) {
+      if (emp.role === 'MANAGER' || emp.role === 'ADMIN') {
+        const parts = emp.pin_hash.split(':');
+        if (parts.length === 2) {
+          const saltHex = parts[0];
+          const hashHex = parts[1];
+          
+          const saltBytes = Buffer.from(saltHex, 'hex');
+          const iterations = 600000;
+          const keyLen = 32;
+          const hashBytes = crypto.pbkdf2Sync(pin, saltBytes, iterations, keyLen * 8, 'sha256');
+          const computedHex = hashBytes.toString('hex');
+          
+          if (computedHex === hashHex) {
+            matchedEmp = emp;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!matchedEmp) {
+      return res.status(401).json({ error: 'Invalid Manager or Administrator PIN.' });
+    }
+
+    const until = Date.now() + 15 * 60 * 1000; // 15 minutes limit
+    await db.run(
+      `INSERT INTO local_preferences (key, val, val_type) VALUES ('emergency_override_until', ?, 'number')
+       ON CONFLICT(key) DO UPDATE SET val = ?`,
+      [until, until]
+    );
+
+    res.json({
+      success: true,
+      emergency_override_until: until,
+      override_duration_minutes: 15,
+      serverTime: Date.now()
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/auth/revoke-override — Revoke active emergency override (requires Admin role)
+app.post('/api/auth/revoke-override', requireAdmin, async (req, res) => {
+  try {
+    await db.run("DELETE FROM local_preferences WHERE key = 'emergency_override_until'");
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+function isValidIP(ip) {
+  return /^(\d{1,3}\.){3}\d{1,3}$/.test(ip) || ip === '::1' || ip.toLowerCase() === 'localhost';
+}
+
+function isValidHWID(hwid) {
+  return hwid && hwid.length <= 64 && /^[a-zA-Z0-9_-]+$/.test(hwid);
+}
+
+// GET /api/admin/whitelist — List active whitelist entries
+app.get('/api/admin/whitelist', requireAdmin, async (req, res) => {
+  try {
+    const rows = await db.all("SELECT * FROM trusted_whitelist WHERE status = 'ACTIVE' ORDER BY created_at DESC");
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/whitelist — Add IP or HWID to whitelist
+app.post('/api/admin/whitelist', requireAdmin, async (req, res) => {
+  const { type, value } = req.body;
+  if (!type || !value) return res.status(400).json({ error: 'type and value are required.' });
+  if (type !== 'IP' && type !== 'HWID') return res.status(400).json({ error: 'Invalid whitelist type. Must be IP or HWID.' });
+
+  if (type === 'IP' && !isValidIP(value)) {
+    return res.status(400).json({ error: 'Invalid IP address format.' });
+  }
+  if (type === 'HWID' && !isValidHWID(value)) {
+    return res.status(400).json({ error: 'Invalid HWID structure (letters, numbers, underscores, hyphens only; max 64 chars).' });
+  }
+
+  const adminName = req.device.deviceName || 'Admin';
+  try {
+    await db.run(
+      `INSERT INTO trusted_whitelist (id, type, value, status, created_by, created_at)
+       VALUES (?, ?, ?, 'ACTIVE', ?, ?)
+       ON CONFLICT(value) DO UPDATE SET status = 'ACTIVE', created_by = ?, created_at = ?, deleted_by = NULL, deleted_at = NULL`,
+      [crypto.randomUUID(), type, value, adminName, Date.now(), adminName, Date.now()]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/admin/whitelist/:id — Soft-delete entry setting status = 'DELETED'
+app.delete('/api/admin/whitelist/:id', requireAdmin, async (req, res) => {
+  const adminName = req.device.deviceName || 'Admin';
+  try {
+    const result = await db.run(
+      `UPDATE trusted_whitelist 
+       SET status = 'DELETED', deleted_by = ?, deleted_at = ? 
+       WHERE id = ? AND status = 'ACTIVE'`,
+      [adminName, Date.now(), req.params.id]
+    );
+    if (result.changes === 0) return res.status(404).json({ error: 'Entry not found or already deleted.' });
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1602,16 +1769,21 @@ app.post('/api/admin/commissions/:id/cancel', requireAdmin, async (req, res) => 
 
     if (comm.status === 'PAID') {
       const commUnits = comm.commission_minor_units;
+      const alreadyRefunded = comm.refund_amount_paisa || 0;
+      const remainingToRefund = commUnits - alreadyRefunded;
+
       if (refundAmount !== null) {
-        if (refundAmount >= commUnits) {
+        if (refundAmount > remainingToRefund) {
+          return res.status(400).json({ error: `Refund amount Rs. ${(refundAmount/100).toFixed(2)} exceeds remaining refundable commission Rs. ${(remainingToRefund/100).toFixed(2)}.` });
+        }
+        
+        const newTotalRefunded = alreadyRefunded + refundAmount;
+        if (newTotalRefunded >= commUnits) {
           newStatus = 'FULLY_REFUNDED';
           refundToSet = commUnits;
-        } else if (refundAmount > 0) {
+        } else if (newTotalRefunded > 0) {
           newStatus = 'PARTIALLY_REFUNDED';
-          refundToSet = refundAmount;
-        } else {
-          newStatus = 'FULLY_REFUNDED';
-          refundToSet = commUnits;
+          refundToSet = newTotalRefunded;
         }
       } else {
         newStatus = 'FULLY_REFUNDED';
@@ -1656,6 +1828,87 @@ app.post('/api/admin/commissions/cancel', requireAdmin, async (req, res) => {
 
     const result = await db.run(query, params);
     res.json({ success: true, changes: result.changes });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/commissions/batch-action — Batch action with idempotency
+app.post('/api/admin/commissions/batch-action', requireAdmin, async (req, res) => {
+  const { action, commissionIds, idempotencyKey, notes } = req.body;
+  if (!action || !commissionIds || !Array.isArray(commissionIds) || !idempotencyKey) {
+    return res.status(400).json({ error: 'action, commissionIds (array), and idempotencyKey are required.' });
+  }
+  if (action !== 'approve' && action !== 'flag' && action !== 'cancel') {
+    return res.status(400).json({ error: 'action must be approve, flag, or cancel.' });
+  }
+
+  try {
+    // 1. Check idempotency
+    const existing = await db.get("SELECT response_payload FROM idempotent_actions WHERE action_key = ?", [idempotencyKey]);
+    if (existing) {
+      return res.json(JSON.parse(existing.response_payload));
+    }
+
+    const adminName = req.device.deviceName || 'Admin';
+    const now = Date.now();
+    const success = [];
+    const failed = [];
+
+    for (const id of commissionIds) {
+      try {
+        const comm = await db.get("SELECT * FROM commission_earnings WHERE id = ?", [id]);
+        if (!comm) {
+          failed.push({ id, error: 'Commission not found.' });
+          continue;
+        }
+
+        if (action === 'approve') {
+          await db.run(
+            `UPDATE commission_earnings SET requires_review = 0, review_notes = ?, reviewed_by = ?, reviewed_at = ? WHERE id = ?`,
+            [notes || 'Manually approved via bulk action', adminName, now, id]
+          );
+          success.push(id);
+        } else if (action === 'flag') {
+          await db.run(
+            `UPDATE commission_earnings SET requires_review = 1, review_notes = ?, reviewed_by = ?, reviewed_at = ? WHERE id = ?`,
+            [notes || 'Manually flagged via bulk action', adminName, now, id]
+          );
+          success.push(id);
+        } else if (action === 'cancel') {
+          if (comm.status === 'CANCELLED' || comm.status === 'FULLY_REFUNDED') {
+            failed.push({ id, error: 'Already cancelled or fully refunded.' });
+            continue;
+          }
+
+          let newStatus = 'CANCELLED';
+          let refundToSet = 0;
+
+          if (comm.status === 'PAID') {
+            newStatus = 'FULLY_REFUNDED';
+            refundToSet = comm.commission_minor_units;
+          }
+
+          await db.run(
+            `UPDATE commission_earnings 
+             SET status = ?, refund_amount_paisa = ?, reversed_at = ?, reversal_reason = ? 
+             WHERE id = ?`,
+            [newStatus, refundToSet, now, notes || 'Cancelled via bulk action', id]
+          );
+          success.push(id);
+        }
+      } catch (err) {
+        failed.push({ id, error: err.message });
+      }
+    }
+
+    const responsePayload = { success, failed };
+    await db.run(
+      "INSERT INTO idempotent_actions (action_key, processed_at, response_payload) VALUES (?, ?, ?)",
+      [idempotencyKey, now, JSON.stringify(responsePayload)]
+    );
+
+    res.json(responsePayload);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

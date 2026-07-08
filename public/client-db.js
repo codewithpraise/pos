@@ -1225,6 +1225,11 @@
     if (globalScope.hwid) return globalScope.hwid;
     if (globalScope.__nexovaHWID) return globalScope.__nexovaHWID;
 
+    if (globalScope.AndroidPOS && typeof globalScope.AndroidPOS.getDeviceID === 'function') {
+      const nativeHwid = globalScope.AndroidPOS.getDeviceID();
+      if (nativeHwid) return nativeHwid;
+    }
+
     const canvas = globalScope.document ? globalScope.document.createElement('canvas') : null;
     let canvasData = '';
     if (canvas) {

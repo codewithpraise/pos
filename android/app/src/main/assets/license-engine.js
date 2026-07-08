@@ -250,6 +250,10 @@ const LicenseEngine = (() => {
           style="width: 100%; padding: 14px; background: #10b981; color: #060608; font-weight: 800; font-size: 13px; border: none; border-radius: 6px; cursor: pointer; letter-spacing: 0.05em; text-transform: uppercase; transition: opacity 0.15s;"
         >ACTIVATE TERMINAL</button>
 
+        <button id="license-emergency-btn"
+          style="width: 100%; padding: 12px; background: #ef4444; color: #060608; font-weight: 800; font-size: 12px; border: none; border-radius: 6px; cursor: pointer; margin-top: 8px; text-transform: uppercase;"
+        >EMERGENCY BYPASS (15 MIN)</button>
+
         <div id="in-app-signup-container" style="margin-top: 24px; padding-top: 24px; border-top: 1px dashed #222; text-align: left;">
             <h4 style="color: #fff; margin-bottom: 12px; font-size:13px; font-weight:700;">New to Nexova? Start Free Trial</h4>
             <input type="text" id="signup-store-name" placeholder="Business Name"
@@ -270,6 +274,44 @@ const LicenseEngine = (() => {
       </div>
     `;
     document.body.appendChild(overlay);
+
+    document.getElementById('license-emergency-btn')?.addEventListener('click', async () => {
+      const pin = prompt('Enter Manager or Administrator PIN for emergency override:');
+      if (!pin) return;
+      
+      const serverBase = window.__nexovaServerUrl || location.origin;
+      try {
+        const resp = await fetch(serverBase + '/api/auth/emergency-override', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin })
+        });
+        
+        if (resp.ok) {
+          const data = await resp.json();
+          await NexovaDB.setSecurePref('emergency_override_until', String(data.emergency_override_until));
+          alert('Emergency override approved by server! App will reload now.');
+          location.reload();
+          return;
+        }
+      } catch (err) {
+        console.warn('[LicenseEngine] Server emergency bypass failed. Trying local DB fallback...', err.message);
+      }
+
+      try {
+        const emp = await NexovaDB.verifyEmployeePin(pin);
+        if (emp && (emp.role === 'MANAGER' || emp.role === 'ADMIN')) {
+          const localUntil = Date.now() + 15 * 60 * 1000;
+          await NexovaDB.setSecurePref('emergency_override_until', String(localUntil));
+          alert('Emergency override verified locally offline! App will reload now.');
+          location.reload();
+        } else {
+          alert('Access denied: Invalid Manager/Admin PIN.');
+        }
+      } catch (dbErr) {
+        alert('Offline verification failed: ' + dbErr.message);
+      }
+    });
 
     document.getElementById('license-activate-btn').addEventListener('click', async () => {
       const phone = document.getElementById('license-phone-input').value.trim();
@@ -538,7 +580,7 @@ const LicenseEngine = (() => {
     }
 
     // Render stages 1-3
-    if (hoursRemaining <= 72) {
+    if (hoursRemaining <= 168) {
       const banner = document.createElement('div');
       banner.id = 'trial-hud-banner';
       banner.style.cssText = `
@@ -565,7 +607,6 @@ const LicenseEngine = (() => {
         color = '#060608';
         text = `CRITICAL: Trial expires in <span style="font-family:monospace; font-weight:800; border: 1px solid rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,0.05);">${formatTime(timeRemaining)}</span>. Click here to activate your license.`;
         
-        // Blink animation
         banner.style.animation = 'trial-blink 1s infinite alternate';
         if (!document.getElementById('trial-blink-style')) {
           const style = document.createElement('style');
@@ -583,7 +624,7 @@ const LicenseEngine = (() => {
         bg = '#f59e0b';
         color = '#060608';
         text = `Trial expires in ${Math.round(hoursRemaining)} hours. Click here to activate your license.`;
-      } else {
+      } else if (hoursRemaining <= 72) {
         // Stage 1: Monochromatic status pill (very small, floating top-right or centered)
         bg = '#1e293b';
         color = '#f8fafc';
@@ -593,6 +634,16 @@ const LicenseEngine = (() => {
         banner.style.fontSize = '11px';
         banner.style.border = '1px solid rgba(255,255,255,0.1)';
         text = `Trial Status: ${hoursRemaining.toFixed(1)} hours left`;
+      } else {
+        // Stage 0: Subtle monochromatic banner (between 3 days and 7 days)
+        bg = '#0f172a';
+        color = '#94a3b8';
+        banner.style.width = 'fit-content';
+        banner.style.margin = '12px auto';
+        banner.style.borderRadius = '30px';
+        banner.style.fontSize = '11px';
+        banner.style.border = '1px solid rgba(255,255,255,0.05)';
+        text = `License renewal is due in ${Math.round(hoursRemaining/24)} days`;
       }
 
       banner.style.backgroundColor = bg;
@@ -678,7 +729,6 @@ const LicenseEngine = (() => {
 
 
     // 3. Check stored license
-    // Perform one-time migration from localStorage to secure IndexedDB if needed
     let stored = await NexovaDB.getSecurePref(STORAGE_KEY_LICENSE);
     if (!stored) {
       const legacyToken = localStorage.getItem(STORAGE_KEY_LICENSE);
@@ -689,6 +739,25 @@ const LicenseEngine = (() => {
         stored = legacyToken;
       }
     }
+
+    // Check local emergency override status
+    let isEmergencyOverride = false;
+    let overrideUntilVal = await NexovaDB.getSecurePref('emergency_override_until');
+    if (overrideUntilVal) {
+      const until = Number(overrideUntilVal);
+      if (!isNaN(until) && until > Date.now()) {
+        isEmergencyOverride = true;
+        console.warn(`[License] Emergency override active until: ${new Date(until).toLocaleTimeString()}`);
+        mountEmergencyHUD(until);
+      }
+    }
+
+    if (isEmergencyOverride) {
+      window.__nexovaTier = 'ENTERPRISE';
+      window.__nexovaHWID = hwid;
+      return true; // Allow local boot
+    }
+
     if (stored) {
       const result = await verifyToken(stored, hwid);
       if (result.valid) {
@@ -788,6 +857,35 @@ const LicenseEngine = (() => {
     try {
       await NexovaDB.setPreference(STORAGE_KEY_ANCHOR, String(Date.now()));
     } catch (e) { /* non-fatal */ }
+  }
+
+  function mountEmergencyHUD(until) {
+    document.getElementById('emergency-hud-banner')?.remove();
+    const banner = document.createElement('div');
+    banner.id = 'emergency-hud-banner';
+    banner.style.cssText = `
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 99999;
+      text-align: center; font-family: 'Manrope', sans-serif; font-size: 11px;
+      font-weight: 800; padding: 6px 12px; background-color: #ef4444; color: #060608;
+      box-shadow: 0 -4px 12px rgba(0,0,0,0.3); letter-spacing: 0.05em;
+    `;
+    
+    const updateTime = () => {
+      const remaining = until - Date.now();
+      if (remaining <= 0) {
+        banner.remove();
+        location.reload();
+      } else {
+        const secs = Math.ceil(remaining / 1000);
+        const mins = Math.floor(secs / 60);
+        const secStr = (secs % 60).toString().padStart(2, '0');
+        banner.innerText = `⚠️ EMERGENCY OVERRIDE ACTIVE — EXPIRES IN ${mins}:${secStr} — PLEASE ACTIVATE LICENSE`;
+      }
+    };
+    
+    updateTime();
+    const emergencyInterval = setInterval(updateTime, 1000);
+    document.body.appendChild(banner);
   }
 
   return { init, updateTimeAnchor, generateHWID, pollLicenseUpdate };

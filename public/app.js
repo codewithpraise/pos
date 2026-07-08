@@ -2708,7 +2708,7 @@
         const ledger = await commRes.json();
         ledgerTbody.innerHTML = '';
         if (ledger.length === 0) {
-          ledgerTbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-gray); padding: 12px;">No commission records found.</td></tr>`;
+          ledgerTbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-gray); padding: 12px;">No commission records found.</td></tr>`;
         } else {
           ledger.forEach(c => {
             const row = document.createElement('tr');
@@ -2756,6 +2756,7 @@
             }
 
             row.innerHTML = `
+              <td style="padding: 8px; text-align:center;"><input type="checkbox" class="comm-select-row-checkbox" data-id="${c.id}" aria-label="Select Ledger Item"></td>
               <td style="padding: 8px; font-weight:600;" title="IP: ${c.ip_address || 'N/A'}\nDevice: ${c.device_id || 'N/A'}\nUA: ${c.user_agent || 'N/A'}\nReview Notes: ${c.review_notes || 'None'}">${reviewBadge}${c.agent_id.substring(0,8)}...</td>
               <td style="padding: 8px; font-family:monospace;">${c.activation_code}</td>
               <td style="padding: 8px; font-size:10px; max-width:100px; overflow:hidden; text-overflow:ellipsis;">${c.store_id}</td>
@@ -2767,6 +2768,34 @@
             `;
             ledgerTbody.appendChild(row);
           });
+
+          const selectAllCheckbox = document.getElementById('comm-ledger-select-all');
+          if (selectAllCheckbox) {
+            selectAllCheckbox.checked = false;
+            const newSelectAll = selectAllCheckbox.cloneNode(true);
+            selectAllCheckbox.parentNode.replaceChild(newSelectAll, selectAllCheckbox);
+            
+            newSelectAll.addEventListener('change', () => {
+              const checked = newSelectAll.checked;
+              ledgerTbody.querySelectorAll('.comm-select-row-checkbox').forEach(cb => {
+                cb.checked = checked;
+              });
+              updateSelectedCount();
+            });
+          }
+
+          ledgerTbody.querySelectorAll('.comm-select-row-checkbox').forEach(cb => {
+            cb.addEventListener('change', () => {
+              updateSelectedCount();
+            });
+          });
+
+          function updateSelectedCount() {
+            const count = ledgerTbody.querySelectorAll('.comm-select-row-checkbox:checked').length;
+            const countEl = document.getElementById('comm-selected-count');
+            if (countEl) countEl.innerText = count;
+          }
+          updateSelectedCount();
 
           // Bind Actions
           ledgerTbody.querySelectorAll('.btn-pay-comm').forEach(btn => {
@@ -2885,8 +2914,136 @@
           });
         }
       }
+      await loadWhitelistAdmin();
     } catch (err) {
       console.error('[App] Failed to load sales commissions view:', err);
+    }
+  }
+
+  async function loadWhitelistAdmin() {
+    const tbody = document.getElementById('whitelist-tbody');
+    if (!tbody) return;
+
+    try {
+      const resp = await fetch(window.__nexovaServerUrl + '/api/admin/whitelist', {
+        headers: { 'Authorization': `Bearer ${state.deviceToken || ''}` }
+      });
+      if (resp.ok) {
+        const list = await resp.json();
+        tbody.innerHTML = '';
+        if (list.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-gray); padding: 10px;">No whitelisted entries.</td></tr>`;
+        } else {
+          list.forEach(w => {
+            const row = document.createElement('tr');
+            row.style.borderBottom = '1px solid var(--border-titanium)';
+            const dateStr = new Date(w.created_at).toLocaleString();
+            row.innerHTML = `
+              <td style="padding: 6px; font-weight:600;">${w.type}</td>
+              <td style="padding: 6px; font-family:monospace;">${w.value}</td>
+              <td style="padding: 6px; font-size:10px;">${w.created_by || 'SYSTEM'}</td>
+              <td style="padding: 6px; font-size:10px;">${dateStr}</td>
+              <td style="padding: 6px; text-align:right;">
+                <button class="action-btn action-danger btn-delete-whitelist" data-id="${w.id}" style="padding:2px 6px; font-size:10px;">Delete</button>
+              </td>
+            `;
+            tbody.appendChild(row);
+          });
+
+          tbody.querySelectorAll('.btn-delete-whitelist').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+              const id = e.currentTarget.getAttribute('data-id');
+              playAudioSignal('click');
+              if (confirm('Are you sure you want to remove this entry from the whitelist?')) {
+                try {
+                  const delRes = await fetch(`${window.__nexovaServerUrl}/api/admin/whitelist/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${state.deviceToken || ''}` }
+                  });
+                  if (delRes.ok) {
+                    showNotificationToast('Whitelist entry deleted.');
+                    loadWhitelistAdmin();
+                  } else {
+                    const errObj = await delRes.json();
+                    alert('Error: ' + errObj.error);
+                  }
+                } catch (err) {
+                  alert('Delete failed: ' + err.message);
+                }
+              }
+            });
+          });
+        }
+      }
+    } catch (err) {
+      console.error('[App] Failed to load whitelist:', err);
+    }
+  }
+
+  async function addWhitelistAdmin() {
+    const type = document.getElementById('whitelist-type-select').value;
+    const value = document.getElementById('whitelist-value-input').value.trim();
+
+    if (!value) {
+      alert('Please enter a value (IP address or HWID key).');
+      return;
+    }
+
+    try {
+      const resp = await fetch(window.__nexovaServerUrl + '/api/admin/whitelist', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${state.deviceToken || ''}` 
+        },
+        body: JSON.stringify({ type, value })
+      });
+      if (resp.ok) {
+        showNotificationToast('Whitelist entry added successfully.');
+        document.getElementById('whitelist-value-input').value = '';
+        loadWhitelistAdmin();
+      } else {
+        const errObj = await resp.json();
+        alert('Error: ' + errObj.error);
+      }
+    } catch (err) {
+      alert('Request failed: ' + err.message);
+    }
+  }
+
+  async function handleBulkCommissionsAction(action) {
+    const checkedBoxes = document.querySelectorAll('.comm-select-row-checkbox:checked');
+    if (checkedBoxes.length === 0) {
+      alert('Please select at least one commission record.');
+      return;
+    }
+
+    const commissionIds = Array.from(checkedBoxes).map(cb => cb.getAttribute('data-id'));
+    const notes = prompt(`Enter notes for bulk ${action} action:`, `Bulk processed via Admin panel`);
+    if (notes === null) return;
+
+    const idempotencyKey = crypto.randomUUID();
+
+    try {
+      const resp = await fetch(window.__nexovaServerUrl + '/api/admin/commissions/batch-action', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${state.deviceToken || ''}`
+        },
+        body: JSON.stringify({ action, commissionIds, idempotencyKey, notes })
+      });
+
+      if (resp.ok) {
+        const result = await resp.json();
+        showNotificationToast(`Bulk ${action} completed! Success: ${result.success.length}, Failed: ${result.failed.length}`);
+        loadSalesCommissionsAdmin();
+      } else {
+        const errObj = await resp.json();
+        alert('Error: ' + errObj.error);
+      }
+    } catch (err) {
+      alert('Batch request failed: ' + err.message);
     }
   }
 
@@ -2947,6 +3104,38 @@
         } catch (err) {
           alert('Export request failed: ' + err.message);
         }
+      });
+    }
+
+    const btnWhitelistAdd = document.getElementById('btn-whitelist-add');
+    if (btnWhitelistAdd) {
+      btnWhitelistAdd.addEventListener('click', () => {
+        playAudioSignal('click');
+        addWhitelistAdmin();
+      });
+    }
+
+    const btnBulkApprove = document.getElementById('btn-comm-bulk-approve');
+    if (btnBulkApprove) {
+      btnBulkApprove.addEventListener('click', () => {
+        playAudioSignal('click');
+        handleBulkCommissionsAction('approve');
+      });
+    }
+
+    const btnBulkFlag = document.getElementById('btn-comm-bulk-flag');
+    if (btnBulkFlag) {
+      btnBulkFlag.addEventListener('click', () => {
+        playAudioSignal('click');
+        handleBulkCommissionsAction('flag');
+      });
+    }
+
+    const btnBulkCancel = document.getElementById('btn-comm-bulk-cancel');
+    if (btnBulkCancel) {
+      btnBulkCancel.addEventListener('click', () => {
+        playAudioSignal('click');
+        handleBulkCommissionsAction('cancel');
       });
     }
   });

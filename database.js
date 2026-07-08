@@ -14,7 +14,7 @@ let currentHlc = null;
 let currentDbVersion = 0; // Incremented on each local transaction change
 
 // Schema version: increment when adding columns/tables that clients must have before syncing
-const SERVER_SCHEMA_VERSION = 5;
+const SERVER_SCHEMA_VERSION = 6;
 module.exports && Object.assign(module.exports, { SERVER_SCHEMA_VERSION });
 
 // Secure PBKDF2 password hashing helper (OWASP approved, zero external dependencies)
@@ -595,6 +595,51 @@ async function initDatabase(terminalId) {
         console.log('[Database] Migrated commission_earnings to v5.');
       } catch (err) {
         console.error('[Database] Failed to alter commission_earnings in v5:', err.message);
+      }
+    } else if (v === 6) {
+      // Version 6: Whitelist Audit Trails & Batch Action Idempotency
+      try {
+        await db.exec(`
+          CREATE TABLE IF NOT EXISTS trusted_whitelist (
+            id TEXT PRIMARY KEY,
+            type TEXT NOT NULL,
+            value TEXT UNIQUE NOT NULL,
+            status TEXT DEFAULT 'ACTIVE',
+            created_by TEXT,
+            created_at INTEGER,
+            deleted_by TEXT,
+            deleted_at INTEGER
+          );
+
+          CREATE TABLE IF NOT EXISTS idempotent_actions (
+            action_key TEXT PRIMARY KEY,
+            processed_at INTEGER NOT NULL,
+            response_payload TEXT
+          );
+        `);
+
+        // Seed default trusted IP and HWIDs if they don't exist
+        const now = Date.now();
+        const defaultSeeds = [
+          { type: 'IP', value: '127.0.0.1' },
+          { type: 'IP', value: '::1' },
+          { type: 'IP', value: 'localhost' },
+          { type: 'HWID', value: 'MOCK_ADMIN_HWID' },
+          { type: 'HWID', value: 'TEST-HWID' }
+        ];
+
+        for (const seed of defaultSeeds) {
+          await db.run(
+            `INSERT INTO trusted_whitelist (id, type, value, status, created_by, created_at)
+             VALUES (?, ?, ?, 'ACTIVE', 'SYSTEM', ?)
+             ON CONFLICT(value) DO NOTHING`,
+            [require('crypto').randomUUID(), seed.type, seed.value, now]
+          );
+        }
+
+        console.log('[Database] Migrated database schema to v6 (trusted_whitelist and idempotent_actions).');
+      } catch (err) {
+        console.error('[Database] Failed to migrate database schema in v6:', err.message);
       }
     }
 
