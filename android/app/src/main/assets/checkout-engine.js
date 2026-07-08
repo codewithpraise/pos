@@ -1,4 +1,4 @@
-// NEXOVA COMMERCE ECOSYSTEM - CHECKOUT & TAX CALCULATION ENGINE
+// VALENIXIA COMMERCE ECOSYSTEM - CHECKOUT & TAX CALCULATION ENGINE
 // Decoupled integer-basis tax math to prevent floating point accumulator errors
 
 (function() {

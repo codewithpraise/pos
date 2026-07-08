@@ -1,4 +1,4 @@
-package com.nexova.commerce
+package com.valenixia.commerce
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -14,8 +14,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.singleWindowApplication
 import androidx.compose.ui.awt.SwingPanel
-import com.nexova.commerce.db.Database
-import com.nexova.commerce.sync.SyncServer
+import com.valenixia.commerce.db.Database
+import com.valenixia.commerce.sync.SyncServer
 import java.awt.BorderLayout
 import javax.swing.JPanel
 import javafx.application.Platform
@@ -48,7 +48,7 @@ fun POSWebView(url: String, modifier: Modifier = Modifier) {
 
 fun main() {
     println("================================================================")
-    println("  NEXOVA COMMERCE ECOSYSTEM - BOOTING SHIFT NODE")
+    println("  VALENIXIA COMMERCE ECOSYSTEM - BOOTING SHIFT NODE")
     println("================================================================")
 
     // 1. Initialize SQLite Database with Write-Ahead Logging (WAL)
@@ -61,7 +61,7 @@ fun main() {
 
     // 3. Launch Native Jetpack Compose UI Desktop Frame
     singleWindowApplication(
-        title = "Nexova Commerce - Kinetic Flight Deck POS",
+        title = "Valenixia Commerce - Kinetic Flight Deck POS",
         state = WindowState(size = DpSize(1200.dp, 800.dp))
     ) {
         var isServerReady by remember { mutableStateOf(false) }
@@ -82,7 +82,7 @@ fun main() {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(color = Color(0xFF10B981))
                     Spacer(Modifier.height(16.dp))
-                    Text("Initializing Nexova Flight Deck...", color = Color(0xFF94A3B8), fontSize = 14.sp)
+                    Text("Initializing Valenixia Flight Deck...", color = Color(0xFF94A3B8), fontSize = 14.sp)
                 }
             }
         }

@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.nexova.pos"
+    namespace = "com.valenixia.pos"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.nexova.pos"
+        applicationId = "com.valenixia.pos"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
@@ -18,9 +18,9 @@ android {
     signingConfigs {
         create("release") {
             storeFile = file(System.getenv("RELEASE_STORE_FILE") ?: "release-key.jks")
-            storePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: "nexovapos"
-            keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: "nexova"
-            keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: "nexovapos"
+            storePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: "valenixiapos"
+            keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: "valenixia"
+            keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: "valenixiapos"
         }
     }
 

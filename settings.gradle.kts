@@ -6,4 +6,4 @@ pluginManagement {
     }
 }
 
-rootProject.name = "nexova-commerce-ecosystem"
+rootProject.name = "valenixia-commerce-ecosystem"

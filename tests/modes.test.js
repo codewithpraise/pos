@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================================
-// NEXOVA POS - Shop Modes Schema & Validation Integration Tests
+// VALENIXIA POS - Shop Modes Schema & Validation Integration Tests
 // Tests database migrations (version 7), mode-specific validations, and fields
 // Run: node tests/modes.test.js
 // ============================================================================
@@ -74,7 +74,7 @@ function validateModeFields(mode, data) {
 }
 
 console.log('\n══════════════════════════════════════════════════');
-console.log('  NEXOVA POS — Shop Modes Schema & Validation Tests');
+console.log('  VALENIXIA POS — Shop Modes Schema & Validation Tests');
 console.log('══════════════════════════════════════════════════\n');
 
 (async () => {

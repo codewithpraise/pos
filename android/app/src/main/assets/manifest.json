@@ -1,6 +1,6 @@
 {
-  "name": "Nexova Commerce Point of Sale",
-  "short_name": "Nexova POS",
+  "name": "Valenixia Commerce Point of Sale",
+  "short_name": "Valenixia POS",
   "description": "Enterprise-grade local-first Point of Sale client with real-time CRDT synchronization.",
   "start_url": "/index.html",
   "display": "standalone",

@@ -1,4 +1,4 @@
-# Nexova POS - Known Bugs & Fixes
+# Valenixia POS - Known Bugs & Fixes
 
 ## Fixed Bugs
 ### Chrome-only APIs (WebUSB, Web Speech)

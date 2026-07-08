@@ -1,5 +1,5 @@
 /* ============================================================================
-   NEXOVA POS — OFFLINE CONNECTIVITY & STATUS BADGE MODULE
+   VALENIXIA POS — OFFLINE CONNECTIVITY & STATUS BADGE MODULE
    Choreographs sync indicators and fixed top alert bars.
    ============================================================================ */
 

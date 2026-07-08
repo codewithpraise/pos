@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================================
-// NEXOVA POS - Shop Mode End-to-End Lifecycles Test Suite
+// VALENIXIA POS - Shop Mode End-to-End Lifecycles Test Suite
 // Verifies checkout rules, pricing calculations, modifiers and serial checks
 // for all 8 shop modes (retail, clothing, food, services, electronics,
 // grocery, gas station, pharmacy)
@@ -27,7 +27,7 @@ function test(name, fn) {
 }
 
 console.log('\n══════════════════════════════════════════════════');
-console.log('  NEXOVA POS — Shop Mode End-to-End Lifecycles Tests');
+console.log('  VALENIXIA POS — Shop Mode End-to-End Lifecycles Tests');
 console.log('══════════════════════════════════════════════════\n');
 
 // ── 1. Simple Retail Mode ──────────────────────────────────────────────────

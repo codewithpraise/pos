@@ -1,4 +1,4 @@
-# Nexova POS - Premium UI Overhaul v3
+# Valenixia POS - Premium UI Overhaul v3
 
 **Commit**: `ba3b3c8`  
 **Goal**: Make UI feel premium/expensive (GitHub/Linear/Stripe vibe).

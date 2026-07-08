@@ -1,5 +1,5 @@
 /**
- * NEXOVA — Full E2E Test Suite v2 (Robust)
+ * VALENIXIA — Full E2E Test Suite v2 (Robust)
  * Properly waits for app init, handles all boot states, then tests every feature
  */
 const WebSocket = require('ws');
@@ -23,7 +23,7 @@ async function connectCDP() {
     }).on('error', e => { log('⚠️  Chrome DevTools not reachable: ' + e.message); process.exit(1); });
   });
   const target = tabList.find(t => t.url?.includes('localhost:3000') && t.type === 'page');
-  if (!target) { log('⚠️  No Nexova page target found'); process.exit(1); }
+  if (!target) { log('⚠️  No Valenixia page target found'); process.exit(1); }
 
   const ws = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((res, rej) => { ws.once('open', res); ws.once('error', rej); });
@@ -124,7 +124,7 @@ async function doLogin(ev, pin = '1234') {
 
 async function run() {
   log('\n══════════════════════════════════════════════════════════════');
-  log(' NEXOVA POS — COMPREHENSIVE E2E TEST SUITE v2');
+  log(' VALENIXIA POS — COMPREHENSIVE E2E TEST SUITE v2');
   log('══════════════════════════════════════════════════════════════\n');
 
   const { ws, ev, send } = await connectCDP();
@@ -146,19 +146,10 @@ async function run() {
   await sleep(500); // wait for init to start after reload
 
   // Wait until at least one of the three main screens is showing
-  const initDone = await waitFor(ev, `(function(){
-    var wiz = document.getElementById("first-boot-wizard");
-    var auth = document.getElementById("auth-lock-screen");
-    var lay = document.getElementById("pos-app-layout");
-    if (!wiz || !auth || !lay) return false;
-    var w = window.getComputedStyle(wiz).display;
-    var a = window.getComputedStyle(auth).display;
-    var l = window.getComputedStyle(lay).display;
-    return w === "flex" || a === "flex" || l === "grid";
-  })()`, 15000, 400);
+  const initDone = await waitFor(ev, 'window.appInitialized === true', 25000, 400);
 
-  if (initDone) pass('App initialized — at least one primary screen is visible');
-  else fail('App initialization', 'None of wizard/auth/layout became visible within 15s');
+  if (initDone) pass('App initialized — application boot sequence fully finished');
+  else fail('App initialization', 'window.appInitialized did not become true within 25s');
 
   // ────────────────────────────────────────────────────────────────────────────
   //  SECTION 1: Boot State
@@ -166,7 +157,7 @@ async function run() {
   log('\n=== SECTION 1: Boot State & DOM Integrity ===');
 
   const title = await ev('document.title');
-  if (title === 'Nexova Commerce POS') pass('Document title correct');
+  if (title === 'Valenixia Commerce POS') pass('Document title correct');
   else fail('Document title', `Got: ${title}`);
 
   const readyState = await ev('document.readyState');
@@ -174,9 +165,9 @@ async function run() {
   else fail('Page readyState', `Got: ${readyState}`);
 
   // License tier — wait up to 5s for license engine to set it
-  const tier = await waitFor(ev, 'window.__nexovaTier', 5000);
+  const tier = await waitFor(ev, 'window.__valenixiaTier', 5000);
   if (tier) pass(`License tier: ${tier}`);
-  else fail('License tier', 'window.__nexovaTier not set after 5s');
+  else fail('License tier', 'window.__valenixiaTier not set after 5s');
 
   const graceTrialFn = await ev('typeof window.isGraceTrialActive');
   if (graceTrialFn === 'function') pass('isGraceTrialActive globally exposed');
@@ -574,13 +565,60 @@ async function run() {
   if (swRegistered && swRegistered !== 'none') pass(`Service Worker registered: ${swRegistered}`);
   else fail('Service Worker', 'Not registered');
 
-  const dbInit = await ev('(async function(){ try { return typeof NexovaDB !== "undefined" && typeof NexovaDB.get === "function" ? "ok" : "no-db"; } catch(e){ return "err: "+e.message; } })()');
-  if (dbInit === 'ok') pass('NexovaDB object accessible on window');
-  else fail('NexovaDB', `Status: ${dbInit}`);
+  const dbInit = await ev('(async function(){ try { return typeof ValenixiaDB !== "undefined" && typeof ValenixiaDB.get === "function" ? "ok" : "no-db"; } catch(e){ return "err: "+e.message; } })()');
+  if (dbInit === 'ok') pass('ValenixiaDB object accessible on window');
+  else fail('ValenixiaDB', `Status: ${dbInit}`);
 
   const workerMsg = await ev('typeof syncWorker !== "undefined" ? "ok" : "not-found"');
   if (workerMsg === 'ok') pass('syncWorker variable accessible');
   else fail('syncWorker', 'Not accessible in page scope');
+
+  // ────────────────────────────────────────────────────────────────────────────
+  //  SECTION 11: Pricing Cycle, FBR, and AMC Verification
+  // ────────────────────────────────────────────────────────────────────────────
+  log('\n=== SECTION 11: Pricing Cycle, FBR & AMC Verification ===');
+
+  const configExists = await ev('typeof window.LICENSE_CONFIG !== "undefined"');
+  if (configExists) {
+    pass('LICENSE_CONFIG is loaded globally');
+    
+    // Verify pricing tiers
+    const starterPrice = await ev('window.LICENSE_CONFIG.STARTER.trialDays');
+    if (starterPrice === 7) pass('Starter trialDays is 7 days');
+    else fail('Starter trialDays', `Expected 7, got: ${starterPrice}`);
+
+    const proTerminals = await ev('window.LICENSE_CONFIG.PRO.allowedTerminals');
+    if (proTerminals === 1) pass('Pro allowed registers is 1 (3 terminals total)');
+    else fail('Pro registers', `Expected 1, got: ${proTerminals}`);
+  } else {
+    fail('LICENSE_CONFIG', 'window.LICENSE_CONFIG is undefined');
+  }
+
+  // Test AMC expiry blocks checkout
+  await ev('window.__amcExpired = true');
+  const cartRendered = await ev('(async function() { try { state.activeCart = [{ id: "test", name: "Tea", price_cents: 10000, quantity: 1 }]; renderCart(); return true; } catch(e) { return false; } })()');
+  if (cartRendered) {
+    // Attempt checkout
+    const alertTriggered = await ev(`(async function() {
+      let alertMsg = null;
+      const originalAlert = window.alert;
+      window.alert = function(msg) { alertMsg = msg; };
+      const btn = document.getElementById("btn-checkout-complete");
+      if (btn) btn.click();
+      window.alert = originalAlert;
+      return alertMsg;
+    })()`);
+    if (alertTriggered && alertTriggered.includes('AMC EXPIRED')) {
+      pass('AMC Expired state blocks checkout and triggers alert warning');
+    } else {
+      fail('AMC Block check', `Expected AMC EXPIRED alert, got: ${alertTriggered}`);
+    }
+  } else {
+    fail('Cart initialization', 'Could not populate cart');
+  }
+  // Restore AMC state
+  await ev('window.__amcExpired = false');
+  await ev('state.activeCart = []; renderCart();');
 
   // ────────────────────────────────────────────────────────────────────────────
   //  SUMMARY

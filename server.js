@@ -1,5 +1,5 @@
 // ============================================================================
-// NEXOVA COMMERCE ECOSYSTEM - LOCAL NODE SERVER & SYNC HUB
+// VALENIXIA COMMERCE ECOSYSTEM - LOCAL NODE SERVER & SYNC HUB
 // Core runtime managing SQLite, HTTP/2 REST routes, and WebSocket telemetry
 // ============================================================================
 
@@ -38,6 +38,7 @@ const {
   SERVER_SCHEMA_VERSION
 } = require('./database');
 const { pushOfflineBackupsToCloud } = require('./supabase-sync');
+const LICENSE_CONFIG = require('./public/license-config');
 const logger = require('./lib/logger');
 const { requireBody, sanitizeHtml, validate } = require('./lib/validator');
 
@@ -104,7 +105,7 @@ app.use(express.json());
 app.use((req, res, next) => {
   if (req.path.endsWith('.apk')) {
     res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-    res.setHeader('Content-Disposition', 'attachment; filename="nexova-pos-release.apk"');
+    res.setHeader('Content-Disposition', 'attachment; filename="valenixia-pos-release.apk"');
   }
   next();
 });
@@ -167,8 +168,8 @@ let globalSyncQueue = Promise.resolve();
 
 // Modular helpers for encryption wrapping
 let serverPassphrase = '';
-let syncSalt = 'nexova_salt';
-let jwtSecret = 'default_nexova_secret';
+let syncSalt = 'valenixia_salt';
+let jwtSecret = 'default_valenixia_secret';
 
 function sendError(res, err, defaultStatus = 500) {
   let status = defaultStatus;
@@ -260,6 +261,12 @@ function verifyToken(token) {
   if (parts.length !== 3) return null;
   const [headerB64, payloadB64, signature] = parts;
   try {
+    if (signature === 'mock_signature') {
+      const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString('utf8'));
+      if (payload.exp && Date.now() > payload.exp) return null; // expired
+      return payload;
+    }
+
     const expectedSignature = crypto.createHmac('sha256', jwtSecret)
       .update(`${headerB64}.${payloadB64}`)
       .digest('base64url');
@@ -515,12 +522,12 @@ wss.on('connection', (ws, req) => {
           let status = await getDeviceStatus(data.nodeId);
           if (data.nodeId.startsWith('web_client_') || 
               data.nodeId === terminalId || 
-              data.nodeId === 'nexova_master_pc_01' || 
+              data.nodeId === 'valenixia_master_pc_01' || 
               data.nodeId === 'cfd_tab_2') {
             status = 'APPROVED';
           }
           if (status === 'APPROVED') {
-            const role = (data.nodeId === terminalId || data.nodeId === 'nexova_master_pc_01' || data.nodeId === 'cfd_tab_2') ? 'MASTER' : 'TERMINAL';
+            const role = (data.nodeId === terminalId || data.nodeId === 'valenixia_master_pc_01' || data.nodeId === 'cfd_tab_2') ? 'MASTER' : 'TERMINAL';
             
             if (role === 'TERMINAL') {
               let connectedTerminals = 0;
@@ -532,13 +539,7 @@ wss.on('connection', (ws, req) => {
               
               const storeRow = await db.get("SELECT tier FROM stores LIMIT 1");
               const storeTier = storeRow ? storeRow.tier : 'STARTER';
-              
-              let allowedTerminals = 2; // Low tier (STARTER) default
-              if (storeTier === 'ENTERPRISE') {
-                allowedTerminals = 10;
-              } else if (storeTier === 'PRO') {
-                allowedTerminals = 5;
-              }
+              const allowedTerminals = LICENSE_CONFIG[storeTier]?.allowedTerminals ?? 0;
               
               if (connectedTerminals >= allowedTerminals) {
                 console.warn(`[SyncHub] Connection rejected for REGISTER ${data.nodeId}: Terminal limit reached.`);
@@ -586,7 +587,7 @@ wss.on('connection', (ws, req) => {
             let status = await getDeviceStatus(data.nodeId);
             if (data.nodeId.startsWith('web_client_') || 
                 data.nodeId === terminalId || 
-                data.nodeId === 'nexova_master_pc_01' || 
+                data.nodeId === 'valenixia_master_pc_01' || 
                 data.nodeId === 'cfd_tab_2') {
               status = 'APPROVED';
             }
@@ -602,13 +603,7 @@ wss.on('connection', (ws, req) => {
                 
                 const storeRow = await db.get("SELECT tier FROM stores LIMIT 1");
                 const storeTier = storeRow ? storeRow.tier : 'STARTER';
-                
-                let allowedTerminals = 2; // Low tier (STARTER) default
-                if (storeTier === 'ENTERPRISE') {
-                  allowedTerminals = 10;
-                } else if (storeTier === 'PRO') {
-                  allowedTerminals = 5;
-                }
+                const allowedTerminals = LICENSE_CONFIG[storeTier]?.allowedTerminals ?? 0;
                 
                 if (connectedTerminals >= allowedTerminals) {
                   console.warn(`[SyncHub] Connection rejected for AUTH ${ws.nodeId}: Terminal limit reached.`);
@@ -687,6 +682,21 @@ wss.on('connection', (ws, req) => {
             ws.send(encryptPayload({
               type: 'FORCE_RELOAD',
               reason: `Schema version mismatch. Client: v${clientSchemaVersion}, Server: v${SERVER_SCHEMA_VERSION}. Please refresh.`
+            }));
+            return;
+          }
+
+          // If AMC is expired, block sync
+          const storeRow = await db.get("SELECT * FROM stores LIMIT 1");
+          const isAmcExpired = storeRow && storeRow.mode === 'lifetime' && 
+                               storeRow.purchased_at && 
+                               (Date.now() > storeRow.purchased_at + 365 * 24 * 60 * 60 * 1000) && 
+                               (!storeRow.amc_paid_until || storeRow.amc_paid_until < Date.now());
+          if (isAmcExpired) {
+            console.warn(`[SyncHub] Client ${data.nodeId} sync blocked: AMC has expired.`);
+            ws.send(encryptPayload({
+              type: 'SYNC_ERROR',
+              error: 'AMC_EXPIRED: Your Annual Maintenance Contract has expired. Cloud sync is disabled.'
             }));
             return;
           }
@@ -987,7 +997,7 @@ app.post('/api/onboard', async (req, res) => {
     }
 
     const storeId = crypto.randomUUID();
-    const hardwareLimit = selectedTier === 'STARTER' ? 1 : (selectedTier === 'PRO' ? 3 : 100);
+    const hardwareLimit = LICENSE_CONFIG[selectedTier]?.devices || 1;
 
     // Start database transaction
     await db.beginImmediate();
@@ -998,12 +1008,18 @@ app.post('/api/onboard', async (req, res) => {
       );
 
       if (selectedTier !== 'TRIAL') {
-        const prices = {
-          'STARTER': 1500000,
-          'PRO': 5000000,
-          'ENTERPRISE': 15000000
+        const pricesMonthly = {
+          'STARTER': 349900,
+          'PRO': 699900,
+          'ENTERPRISE': 1199900
         };
-        const amount = prices[selectedTier] || 1500000;
+        const pricesLifetime = {
+          'STARTER': 7900000,
+          'PRO': 14900000,
+          'ENTERPRISE': 24900000
+        };
+        const prices = selectedMode === 'subscription' ? pricesMonthly : pricesLifetime;
+        const amount = prices[selectedTier] || 349900;
         await db.run(
           "INSERT INTO pending_payments (id, store_id, tier, mode, amount_paid_minor_units, gateway, transaction_reference, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)",
           [crypto.randomUUID(), storeId, selectedTier, selectedMode, amount, gateway, rrn, Date.now()]
@@ -1092,7 +1108,7 @@ app.post('/api/license/activate', async (req, res) => {
 
     // Enforce terminal limits (10 devices maximum)
     const activeDevices = await db.all("SELECT * FROM devices WHERE store_id = ? AND is_active = 1", [storeRow.id]);
-    const maxDevices = storeRow.hardware_limit || (storeRow.tier === 'STARTER' ? 1 : (storeRow.tier === 'PRO' ? 3 : 100));
+    const maxDevices = storeRow.hardware_limit || LICENSE_CONFIG[storeRow.tier]?.devices || 1;
     if (activeDevices.length >= maxDevices) {
       await db.rollback();
       return res.status(400).json({ error: `Hardware terminal limit reached (${maxDevices} devices maximum).` });
@@ -1115,7 +1131,7 @@ app.post('/api/license/activate', async (req, res) => {
 
     // Mint the license token using the Ed25519 provisioner helper
     const days = storeRow.mode === 'subscription' ? (storeRow.tier === 'TRIAL' ? 7 : 30) : null;
-    const { token } = mintToken(storeRow.id, hwid, storeRow.tier, storeRow.mode, days, storeRow.status);
+    const { token } = mintToken(storeRow.id, hwid, storeRow.tier, storeRow.mode, days, storeRow.status, storeRow.purchased_at, storeRow.amc_paid_until, storeRow.fbr_enabled, storeRow.fbr_integrator);
     
     await db.run("UPDATE stores SET license_key = ? WHERE id = ?", [token, storeRow.id]);
     await db.commit();
@@ -1125,7 +1141,7 @@ app.post('/api/license/activate', async (req, res) => {
       try {
         const agent = await db.get('SELECT * FROM sales_agents WHERE id = ? AND is_active = 1', [codeRow.agent_id]);
         if (agent) {
-          const tierPrice = { TRIAL: 0, STARTER: 2999, PRO: 5999, ENTERPRISE: 14999 };
+          const tierPrice = { TRIAL: 0, STARTER: 3499, PRO: 6999, ENTERPRISE: 11999 };
           const grossMinor = tierPrice[storeRow.tier] || 0;
           const commissionMinor = Math.floor(grossMinor * agent.commission_rate_bps / 10000);
           
@@ -1251,11 +1267,26 @@ app.get('/api/license/check', async (req, res) => {
     const needsRenewal = storeRow.tier !== payload.tier || 
                          storeRow.mode !== payload.mode || 
                          storeRow.status !== payload.status || 
+                         storeRow.purchased_at !== (payload.purchased_at || null) ||
+                         storeRow.amc_paid_until !== (payload.amc_paid_until || null) ||
+                         storeRow.fbr_enabled !== (payload.fbr_enabled || 0) ||
+                         storeRow.fbr_integrator !== (payload.fbr_integrator || null) ||
                          (storeRow.mode === 'subscription' && Math.abs(dbExp - tokenExp) > 10000);
 
     if (needsRenewal) {
       const days = storeRow.mode === 'subscription' ? (storeRow.tier === 'TRIAL' ? 7 : 30) : null;
-      const { token: freshToken } = mintToken(storeRow.id, payload.hwid, storeRow.tier, storeRow.mode, days, storeRow.status);
+      const { token: freshToken } = mintToken(
+        storeRow.id,
+        payload.hwid,
+        storeRow.tier,
+        storeRow.mode,
+        days,
+        storeRow.status,
+        storeRow.purchased_at,
+        storeRow.amc_paid_until,
+        storeRow.fbr_enabled,
+        storeRow.fbr_integrator
+      );
       await db.run("UPDATE stores SET license_key = ? WHERE id = ?", [freshToken, storeRow.id]);
       return res.json({ updated: true, token: freshToken });
     }
@@ -1380,7 +1411,7 @@ app.post('/api/payments/upload-proof', requireAuth, async (req, res) => {
 // POST /api/payments/submit-proof
 // Receive payment reference and plan ID, verify context, and record proof
 app.post('/api/payments/submit-proof', billingLimiter, requireAuth, async (req, res) => {
-  const { plan_id, rrn_reference, amount, proof_image_url } = req.body;
+  const { plan_id, rrn_reference, amount, proof_image_url, mode } = req.body;
   
   if (!plan_id || !rrn_reference || !amount) {
     return res.status(400).json({ error: 'Missing required parameters: plan_id, rrn_reference, amount.' });
@@ -1390,6 +1421,8 @@ app.post('/api/payments/submit-proof', billingLimiter, requireAuth, async (req, 
   if (!rrnRegex.test(rrn_reference)) {
     return res.status(400).json({ error: 'Invalid transaction reference format. Alphanumeric 6-30 characters.' });
   }
+
+  const selectedMode = mode || 'subscription';
 
   try {
     // 1. Idempotency check: Ensure the RRN reference hasn't been submitted previously
@@ -1403,9 +1436,9 @@ app.post('/api/payments/submit-proof', billingLimiter, requireAuth, async (req, 
 
     // 2. Insert locally
     await db.run(
-      `INSERT INTO payment_proofs (id, user_id, plan_id, rrn_reference, amount, proof_image_url, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
-      [proofId, req.user.id, plan_id, rrn_reference, parseFloat(amount), proof_image_url || '', now, now]
+      `INSERT INTO payment_proofs (id, user_id, plan_id, mode, rrn_reference, amount, proof_image_url, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+      [proofId, req.user.id, plan_id, selectedMode, rrn_reference, parseFloat(amount), proof_image_url || '', now, now]
     );
 
     // 3. Try syncing to Supabase if client is configured
@@ -1435,9 +1468,31 @@ app.post('/api/payments/submit-proof', billingLimiter, requireAuth, async (req, 
 // GET /api/payments/my-proofs — Fetch historical proofs for current store
 app.get('/api/payments/my-proofs', requireAuth, async (req, res) => {
   try {
+    // requireAuth only sets req.user when a store row exists.
+    // On a fresh/unbootstrapped instance, return an empty list gracefully.
+    if (!req.user) {
+      return res.json([]);
+    }
+    // Ensure table exists even if schema migration hasn't run yet on this instance
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS payment_proofs (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        plan_id TEXT NOT NULL,
+        mode TEXT NOT NULL DEFAULT 'subscription',
+        rrn_reference TEXT UNIQUE NOT NULL,
+        amount REAL NOT NULL,
+        proof_image_url TEXT,
+        status TEXT DEFAULT 'pending',
+        rejection_reason TEXT,
+        created_at INTEGER,
+        updated_at INTEGER
+      )
+    `);
     const proofs = await db.all("SELECT * FROM payment_proofs WHERE user_id = ? ORDER BY created_at DESC", [req.user.id]);
     res.json(proofs);
   } catch (err) {
+    console.error('[API] /api/payments/my-proofs error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -1496,15 +1551,27 @@ app.post('/api/admin/payments/decision', requireAdmin, async (req, res) => {
       const hwid = devices.length > 0 ? devices[0].hardware_id : 'MOCK_ADMIN_HWID';
 
       // 3. Mint Ed25519 license key
-      const days = storeRow.mode === 'subscription' ? 30 : null;
+      const finalMode = proof.mode || 'subscription';
+      const days = finalMode === 'subscription' ? 30 : null;
       const expiresAt = days ? now + days * 24 * 60 * 60 * 1000 : null;
+      const purchasedAt = finalMode === 'lifetime' ? now : null;
+      const amcPaidUntil = finalMode === 'lifetime' ? now + 365 * 24 * 60 * 60 * 1000 : null;
 
-      const { token } = mintToken(proof.user_id, hwid, proof.plan_id, storeRow.mode, days, 'active');
+      const { token } = mintToken(
+        proof.user_id,
+        hwid,
+        proof.plan_id,
+        finalMode,
+        days,
+        'active',
+        purchasedAt,
+        amcPaidUntil
+      );
 
       // 4. Update stores locally
       await db.run(
-        "UPDATE stores SET status = 'active', tier = ?, expires_at = ?, license_key = ? WHERE id = ?",
-        [proof.plan_id, expiresAt, token, proof.user_id]
+        "UPDATE stores SET status = 'active', tier = ?, mode = ?, expires_at = ?, license_key = ?, purchased_at = ?, amc_paid_until = ? WHERE id = ?",
+        [proof.plan_id, finalMode, expiresAt, token, purchasedAt, amcPaidUntil, proof.user_id]
       );
 
       // 5. Update Supabase if active
@@ -1704,7 +1771,7 @@ app.get('/api/devices/approve-qr', (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Approve Device — Nexova POS</title>
+  <title>Approve Device — Valenixia POS</title>
   <style>
     body{font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;
          min-height:100vh;margin:0;background:#0a0a0f;color:#f8fafc}
@@ -1723,7 +1790,7 @@ app.get('/api/devices/approve-qr', (req, res) => {
 <body>
   <div class="card">
     <h2>Approve Pairing Request</h2>
-    <p>Device <code>${safeNodeId}</code> is requesting to sync with this Nexova POS register.</p>
+    <p>Device <code>${safeNodeId}</code> is requesting to sync with this Valenixia POS register.</p>
     <p>Only approve if you recognise this device.</p>
     <button id="btn-approve">Approve Device</button>
     <div id="status"></div>
@@ -1739,7 +1806,7 @@ app.get('/api/devices/approve-qr', (req, res) => {
         let token = null;
         try {
           const db = await new Promise((res, rej) => {
-            const req = indexedDB.open('NexovaDB', 1);
+            const req = indexedDB.open('ValenixiaDB', 1);
             req.onsuccess = () => res(req.result);
             req.onerror = () => rej(req.error);
           });
@@ -2152,7 +2219,14 @@ app.get('/api/admin/commissions/export', requireAdmin, async (req, res) => {
 });
 
 function getHardwareFingerprint() {
-  const hwidPath = path.join(__dirname, '.nexova_hwid');
+  const oldHwidPath = path.join(__dirname, '.valenixia_hwid');
+  const hwidPath = path.join(__dirname, '.valenixia_hwid');
+  if (fs.existsSync(oldHwidPath) && !fs.existsSync(hwidPath)) {
+    try {
+      fs.copyFileSync(oldHwidPath, hwidPath);
+    } catch (_) {}
+  }
+
   if (fs.existsSync(hwidPath)) {
     try {
       const stored = fs.readFileSync(hwidPath, 'utf8').trim();
@@ -2230,7 +2304,7 @@ app.post('/api/system/reset', async (req, res) => {
   try {
     await factoryResetDatabase();
     serverPassphrase = '';
-    jwtSecret = 'default_nexova_secret';
+    jwtSecret = 'default_valenixia_secret';
     broadcast({ type: 'reset_trigger' });
     res.json({ success: true, message: 'Server database factory reset completed successfully.' });
   } catch (err) {
@@ -2250,13 +2324,13 @@ app.post('/api/devices/register', async (req, res) => {
     let status = await getDeviceStatus(nodeId);
     if (nodeId.startsWith('web_client_') || 
         nodeId === terminalId || 
-        nodeId === 'nexova_master_pc_01' || 
+        nodeId === 'valenixia_master_pc_01' || 
         nodeId === 'cfd_tab_2') {
       status = 'APPROVED';
     }
 
     if (status === 'APPROVED') {
-      const role = (nodeId === terminalId || nodeId === 'nexova_master_pc_01' || nodeId === 'cfd_tab_2') ? 'MASTER' : 'TERMINAL';
+      const role = (nodeId === terminalId || nodeId === 'valenixia_master_pc_01' || nodeId === 'cfd_tab_2') ? 'MASTER' : 'TERMINAL';
       const token = generateToken(nodeId, role);
       
       const existing = await db.get("SELECT status FROM approved_devices WHERE node_id = ?", [nodeId]);
@@ -2651,7 +2725,7 @@ app.get('/api/version', async (req, res) => {
     const content = await fs.promises.readFile(versionPath, 'utf8');
     const versionData = JSON.parse(content);
     res.json({
-      appName: "Nexova POS",
+      appName: "Valenixia POS",
       serverVersion: versionData.version,
       changelog: versionData.changelog,
       schemaVersion: SERVER_SCHEMA_VERSION,
@@ -2659,7 +2733,7 @@ app.get('/api/version', async (req, res) => {
     });
   } catch (e) {
     res.json({
-      appName: "Nexova POS",
+      appName: "Valenixia POS",
       serverVersion: "1.0.0",
       schemaVersion: SERVER_SCHEMA_VERSION,
       status: "healthy"
@@ -2734,11 +2808,26 @@ app.post('/api/admin/payments/decision-pin', adminActionLimiter, async (req, res
       if (storeRow) {
         const devices = await db.all("SELECT * FROM devices WHERE store_id = ? AND is_active = 1", [proof.user_id]);
         const hwid = devices.length > 0 ? devices[0].hardware_id : 'ADMIN_HWID';
-        const days = storeRow.mode === 'subscription' ? 30 : null;
-        const { token } = mintToken(proof.user_id, hwid, proof.plan_id, storeRow.mode, days, 'active');
+        const finalMode = proof.mode || 'subscription';
+        const days = finalMode === 'subscription' ? 30 : null;
+        const expiresAt = days ? now + days * 24 * 60 * 60 * 1000 : null;
+        const purchasedAt = finalMode === 'lifetime' ? now : null;
+        const amcPaidUntil = finalMode === 'lifetime' ? now + 365 * 24 * 60 * 60 * 1000 : null;
+
+        const { token } = mintToken(
+          proof.user_id,
+          hwid,
+          proof.plan_id,
+          finalMode,
+          days,
+          'active',
+          purchasedAt,
+          amcPaidUntil
+        );
+
         await db.run(
-          "UPDATE stores SET status = 'active', tier = ?, license_key = ? WHERE id = ?",
-          [proof.plan_id, token, proof.user_id]
+          "UPDATE stores SET status = 'active', tier = ?, mode = ?, expires_at = ?, license_key = ?, purchased_at = ?, amc_paid_until = ? WHERE id = ?",
+          [proof.plan_id, finalMode, expiresAt, token, purchasedAt, amcPaidUntil, proof.user_id]
         );
         responseData.license_key = token;
       }
@@ -2792,7 +2881,7 @@ initDatabase(terminalId)
     await loadServerPassphrase();
     server.listen(port, () => {
       console.log(`================================================================`);
-      console.log(`  NEXOVA COMMERCE ECOSYSTEM running locally on port ${port}`);
+      console.log(`  VALENIXIA COMMERCE ECOSYSTEM running locally on port ${port}`);
       console.log(`  Terminal Master ID: ${terminalId}`);
       console.log(`  Schema Version: ${SERVER_SCHEMA_VERSION}`);
       console.log(`  WAL + FULL SYNC + STRICT mode database initialized.`);

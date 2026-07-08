@@ -1,5 +1,5 @@
 // ============================================================================
-// NEXOVA COMMERCE ECOSYSTEM - AI SPEECH COACH & CONVERSATIONAL NLP
+// VALENIXIA COMMERCE ECOSYSTEM - AI SPEECH COACH & CONVERSATIONAL NLP
 // Web Speech API client-side analytics with voice POS commands
 // ============================================================================
 

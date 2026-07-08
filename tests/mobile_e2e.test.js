@@ -1,5 +1,5 @@
 /**
- * NEXOVA POS — Comprehensive Mobile E2E Test Suite v2
+ * VALENIXIA POS ï¿½ Comprehensive Mobile E2E Test Suite v2
  * Tests: Onboarding, License, Billing, Admin Panel, Release Notes, Mobile Bootstrap
  * Run: node tests/mobile_e2e.test.js
  */
@@ -67,7 +67,7 @@ async function test(name, fn) {
   } catch (e) {
     failed++;
     failures.push({ name, error: e.message });
-    log(name + ' — ' + e.message, 'FAIL');
+    log(name + ' ï¿½ ' + e.message, 'FAIL');
   }
 }
 
@@ -119,9 +119,9 @@ async function suiteHealthVersion() {
     expect(r.status).toBe(200);
   });
 
-  await test('GET /api/version returns appName=Nexova POS', async () => {
+  await test('GET /api/version returns appName=Valenixia POS', async () => {
     const r = await request('GET', '/api/version');
-    expect(r.body.appName).toBe('Nexova POS');
+    expect(r.body.appName).toBe('Valenixia POS');
   });
 
   await test('GET /api/version returns status=healthy', async () => {
@@ -171,13 +171,13 @@ async function suiteStaticAssets() {
 
   await test('GET /manifest.json returns JSON with name', async () => {
     const r = await request('GET', '/manifest.json');
-    // Many servers return 200 with HTML for missing files — check type
+    // Many servers return 200 with HTML for missing files ï¿½ check type
     if (r.status === 200 && r.body && typeof r.body === 'object') {
       expect(r.body).toHaveProperty('name');
     } else {
-      // manifest optional — skip gracefully
+      // manifest optional ï¿½ skip gracefully
       skipped++;
-      log('manifest.json not found — skipped', 'SKIP');
+      log('manifest.json not found ï¿½ skipped', 'SKIP');
     }
   });
 
@@ -198,7 +198,7 @@ async function suiteStaticAssets() {
       expect(r.body).toHaveProperty('changes');
     } else {
       skipped++;
-      log('version.json not directly served — skipped', 'SKIP');
+      log('version.json not directly served ï¿½ skipped', 'SKIP');
     }
   });
 }
@@ -208,7 +208,7 @@ async function suiteOnboarding() {
   log('Onboarding & Store Registration', 'SECTION');
 
   const uniqueId   = Date.now().toString(36);
-  const testEmail  = 'e2e_' + uniqueId + '@nexova-test.invalid';
+  const testEmail  = 'e2e_' + uniqueId + '@valenixia-test.invalid';
   const testPhone  = '0300' + Math.floor(1000000 + Math.random() * 9000000);
 
   await test('POST /api/store/register rejects empty body', async () => {
@@ -267,7 +267,7 @@ async function suiteOnboarding() {
 
   await test('POST /api/activation/activate rejects invalid code', async () => {
     const r = await request('POST', '/api/activation/activate', { code: '000000', phone: testPhone });
-    // Should return 400 or 401 — not 500
+    // Should return 400 or 401 ï¿½ not 500
     expect(r.status).toBeLessThan(500);
   });
 }
@@ -335,7 +335,7 @@ async function suiteAdminPayments() {
   });
 
   await test('POST /api/admin/payments/decision-pin returns proper error on non-existent proof', async () => {
-    // This verifies the route doesn't crash — status > 400 expected
+    // This verifies the route doesn't crash ï¿½ status > 400 expected
     const r = await request('POST', '/api/admin/payments/decision-pin', {
       proof_id: 'nonexistent_proof_id_xyz', action: 'approved', adminPin: '0000'
     });
@@ -371,7 +371,7 @@ async function suitePaymentProofs() {
     const r = await request('POST', '/api/billing/submit-proof', {
       plan_id: 'STANDARD', rrn_reference: 'E2E_TEST', amount: 2500
     });
-    // Either requires auth (401) or store context (400) — not 500
+    // Either requires auth (401) or store context (400) ï¿½ not 500
     expect(r.status).toBeLessThan(500);
   });
 }
@@ -463,10 +463,10 @@ async function suiteReleaseNotes(available) {
     expect(allStrings).toBeTruthy();
   });
 
-  await test('nexova_last_seen_version key concept in app.js', () => {
+  await test('valenixia_last_seen_version key concept in app.js', () => {
     const aPath = path.join(__dirname, '..', 'public', 'app.js');
     const src = fs.readFileSync(aPath, 'utf8');
-    expect(src).toContain('nexova_last_seen_version');
+    expect(src).toContain('valenixia_last_seen_version');
   });
 
   await test('Release modal dismisses on "Got it" click (button exists in HTML)', () => {
@@ -605,10 +605,10 @@ async function suiteCatalogCheckout() {
 //  RUNNER
 // -------------------------------------------------------------------------------
 async function main() {
-  console.log('\n' + '¦'.repeat(62));
-  console.log('¦  NEXOVA POS — MOBILE E2E TEST SUITE v2                    ¦');
-  console.log('¦  Target: ' + BASE_URL.padEnd(49) + '¦');
-  console.log('¦'.repeat(62) + '\n');
+  console.log('\n' + 'ï¿½'.repeat(62));
+  console.log('ï¿½  VALENIXIA POS ï¿½ MOBILE E2E TEST SUITE v2                    ï¿½');
+  console.log('ï¿½  Target: ' + BASE_URL.padEnd(49) + 'ï¿½');
+  console.log('ï¿½'.repeat(62) + '\n');
 
   const available = await checkServerAvailable();
   if (!available) {
@@ -632,14 +632,14 @@ async function main() {
     await suitePaymentProofs();
     await suiteCatalogCheckout();
   } else {
-    console.warn('  [Network suites skipped — server offline]\n');
+    console.warn('  [Network suites skipped ï¿½ server offline]\n');
     skipped += 18; // Approximate count of network tests
   }
 
   // Summary
   const total = passed + failed + skipped;
   console.log('\n' + '-'.repeat(62));
-  console.log('  RESULTS: ' + passed + ' passed, ' + failed + ' failed, ' + skipped + ' skipped — ' + total + ' total');
+  console.log('  RESULTS: ' + passed + ' passed, ' + failed + ' failed, ' + skipped + ' skipped ï¿½ ' + total + ' total');
   console.log('-'.repeat(62));
 
   if (failures.length > 0) {

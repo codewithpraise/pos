@@ -1,10 +1,38 @@
 // ============================================================================
-// NEXOVA COMMERCE ECOSYSTEM - BACKGROUND SYNC WEB WORKER
+// VALENIXIA COMMERCE ECOSYSTEM - BACKGROUND SYNC WEB WORKER
 // Offloads database I/O, CRDT delta merging, and WebSocket sync off main thread
 // ============================================================================
 
 importScripts('client-db.js', 'client-sync.js');
-let dbReadyPromise = NexovaDB.init(); // Capture the init promise
+let dbReadyPromise = ValenixiaDB.init(); // Capture the init promise
+
+function validateModeFields(mode, modeFieldsRaw) {
+  let fields = {};
+  try {
+    fields = typeof modeFieldsRaw === 'string' ? JSON.parse(modeFieldsRaw || '{}') : (modeFieldsRaw || {});
+  } catch (e) {
+    throw new Error('Invalid JSON structure for mode fields.');
+  }
+
+  if (mode === 'clothing-fashion') {
+    if (fields.variants && !Array.isArray(fields.variants)) {
+      throw new Error('Variants must be a valid array list.');
+    }
+  } else if (mode === 'food-restaurant') {
+    if (fields.modifiers && !Array.isArray(fields.modifiers)) {
+      throw new Error('Modifiers must be a valid array list.');
+    }
+  } else if (mode === 'services-appointments') {
+    if (fields.duration && typeof fields.duration !== 'number') {
+      throw new Error('Duration must be a valid number representation.');
+    }
+  } else if (mode === 'electronics-highvalue') {
+    if (fields.warranty && typeof fields.warranty !== 'object') {
+      throw new Error('Warranty details must be a valid configuration object.');
+    }
+  }
+  return JSON.stringify(fields);
+}
 
 let syncClient = null;
 let nodeId = null;
@@ -36,13 +64,13 @@ async function initializeSyncEngine(serverUrl) {
     self.serverUrl = serverUrl;
   }
   try {
-    await NexovaDB.init();
+    await ValenixiaDB.init();
 
     // Fetch persistent terminal/node ID from local preferences or create one
-    let terminalNamePref = await NexovaDB.get('local_preferences', 'terminal_name');
+    let terminalNamePref = await ValenixiaDB.get('local_preferences', 'terminal_name');
     if (!terminalNamePref || !terminalNamePref.value_payload) {
       nodeId = 'web_client_' + (crypto.randomUUID ? crypto.randomUUID().replace(/-/g,'').slice(0,9) : Math.random().toString(36).substring(2, 9));
-      await NexovaDB.put('local_preferences', {
+      await ValenixiaDB.put('local_preferences', {
         key: 'terminal_name',
         value_type: 'STR',
         value_payload: nodeId,
@@ -68,13 +96,13 @@ async function initializeSyncEngine(serverUrl) {
         'purchase_orders', 'po_line_items', 'distributor_payments', 'customer_credit'
       ];
       
-      const idbTx = NexovaDB.db.transaction(stores, 'readwrite');
+      const idbTx = ValenixiaDB.db.transaction(stores, 'readwrite');
 
       try {
         for (const change of changes) {
           syncClient.hlc.merge(change.sync_hlc);
 
-          const local = await NexovaDB.get('crsql_changes', [change.table_name, change.pk, change.cid], idbTx);
+          const local = await ValenixiaDB.get('crsql_changes', [change.table_name, change.pk, change.cid], idbTx);
           
           let shouldApply = !local;
           if (local) {
@@ -85,10 +113,10 @@ async function initializeSyncEngine(serverUrl) {
 
           if (shouldApply) {
             applied++;
-            await NexovaDB.applyChangeToSchema(change.table_name, change.pk, change.cid, change.val, change.cl, change.val_type || 'string', idbTx);
+            await ValenixiaDB.applyChangeToSchema(change.table_name, change.pk, change.cid, change.val, change.cl, change.val_type || 'string', idbTx);
             
-            const dbVer = (await NexovaDB.getDbVersion(idbTx)) + 1;
-            await NexovaDB.put('crsql_changes', {
+            const dbVer = (await ValenixiaDB.getDbVersion(idbTx)) + 1;
+            await ValenixiaDB.put('crsql_changes', {
               table_name: change.table_name,
               pk: change.pk,
               cid: change.cid,
@@ -103,9 +131,9 @@ async function initializeSyncEngine(serverUrl) {
 
             if (change.table_name === 'inventory_catalog_counters') {
               const sku = change.pk.split('/')[0];
-              await NexovaDB.recalculateCachedStock(sku, idbTx);
+              await ValenixiaDB.recalculateCachedStock(sku, idbTx);
             } else if (change.table_name === 'inventory_catalog' && change.cid === 'stock_level') {
-              await NexovaDB.recalculateCachedStock(change.pk, idbTx);
+              await ValenixiaDB.recalculateCachedStock(change.pk, idbTx);
             }
           } else {
             conflicts++;
@@ -147,18 +175,18 @@ async function initializeSyncEngine(serverUrl) {
     syncClient = new SyncClient(nodeId, onSyncReceived, onConnectionChange);
     
     // Load synchronization passphrase for in-transit encryption
-    const syncPassphrasePref = await NexovaDB.get('local_preferences', 'sync_passphrase');
+    const syncPassphrasePref = await ValenixiaDB.get('local_preferences', 'sync_passphrase');
     if (syncPassphrasePref && syncPassphrasePref.value_payload) {
       syncClient.passphrase = syncPassphrasePref.value_payload;
     }
 
     // Load device token and friendly name for whitelisting
-    const deviceTokenPref = await NexovaDB.get('local_preferences', 'device_token');
+    const deviceTokenPref = await ValenixiaDB.get('local_preferences', 'device_token');
     if (deviceTokenPref && deviceTokenPref.value_payload) {
       syncClient.deviceToken = deviceTokenPref.value_payload;
     }
 
-    const deviceNamePref = await NexovaDB.get('local_preferences', 'device_name');
+    const deviceNamePref = await ValenixiaDB.get('local_preferences', 'device_name');
     if (deviceNamePref && deviceNamePref.value_payload) {
       syncClient.deviceName = deviceNamePref.value_payload;
     }
@@ -193,7 +221,7 @@ self.onmessage = async (event) => {
 
   // SAVE_TELEMETRY and CHECK_OVERSELL only need the DB (not the sync connection),
   // so they can run before the sync engine is fully initialized.
-  const dbOnlyMessages = ['SAVE_TELEMETRY', 'CHECK_OVERSELL'];
+  const dbOnlyMessages = ['SAVE_TELEMETRY', 'CHECK_OVERSELL', 'PURGE_OLD_IMAGES'];
   // GET_ messages only read from IndexedDB — they work before the WS sync engine initialises
   const dbReadMessages = [
     'GET_PREFERENCES', 'GET_CATALOG', 'GET_EMPLOYEES', 'GET_CUSTOMERS',
@@ -213,11 +241,11 @@ self.onmessage = async (event) => {
         break;
 
       case 'BOOTSTRAP_STORE': {
-        const { storeName, taxRate, adminPin, syncPassphrase, theme } = payload;
-        await NexovaDB.bootstrapStore(storeName, taxRate, adminPin, syncPassphrase, theme);
+        const { storeName, taxRate, adminPin, syncPassphrase, theme, shopMode } = payload;
+        await ValenixiaDB.bootstrapStore(storeName, taxRate, adminPin, syncPassphrase, theme, shopMode);
         
         // Mark database as hydrated locally since it was just bootstrapped fresh
-        await NexovaDB.put('local_preferences', {
+        await ValenixiaDB.put('local_preferences', {
           key: 'database_hydrated',
           value_type: 'BOOL',
           value_payload: 'true',
@@ -226,7 +254,7 @@ self.onmessage = async (event) => {
         });
 
         // Mark onboarding complete locally since the store is now bootstrapped
-        await NexovaDB.put('local_preferences', {
+        await ValenixiaDB.put('local_preferences', {
           key: 'onboarding_complete',
           value_type: 'BOOL',
           value_payload: 'true',
@@ -246,8 +274,8 @@ self.onmessage = async (event) => {
         
         if (serverUrl) {
           self.serverUrl = serverUrl;
-          await NexovaDB.put('local_preferences', {
-            key: 'nexova_server_url',
+          await ValenixiaDB.put('local_preferences', {
+            key: 'valenixia_server_url',
             value_type: 'STR',
             value_payload: serverUrl,
             is_idempotent_flag: 0,
@@ -255,7 +283,7 @@ self.onmessage = async (event) => {
           });
         }
         
-        await NexovaDB.put('local_preferences', {
+        await ValenixiaDB.put('local_preferences', {
           key: 'sync_passphrase',
           value_type: 'STR',
           value_payload: syncPassphrase,
@@ -263,7 +291,7 @@ self.onmessage = async (event) => {
           updated_at: Date.now()
         });
         
-        await NexovaDB.put('local_preferences', {
+        await ValenixiaDB.put('local_preferences', {
           key: 'onboarding_complete',
           value_type: 'BOOL',
           value_payload: 'true',
@@ -284,6 +312,14 @@ self.onmessage = async (event) => {
         syncClient.setOnlineState(payload.isOnline);
         break;
 
+      case 'FORCE_SYNC_RECONNECT':
+        if (syncClient) {
+          syncClient.backoffTime = 1000; // Reset exponential backoff timer
+          syncClient.passphraseInvalid = false;
+          syncClient.connect();
+        }
+        break;
+
       case 'STOP_SYNC':
         if (syncClient) {
           syncClient.passphraseInvalid = true;
@@ -298,7 +334,7 @@ self.onmessage = async (event) => {
         try {
           console.log('[SyncWorker] Starting database hydration pull...');
           const isFile = location.protocol === 'file:' || location.origin === 'null';
-          const base = self.serverUrl || (isFile ? 'https://nexova-license-worker.pages.dev' : location.origin);
+          const base = self.serverUrl || (isFile ? 'https://valenixia-license-worker.pages.dev' : location.origin);
           
           // Ensure we don't try to fetch relative to file:// origin
           const bootstrapUrl = base.startsWith('http') ? (base + '/api/sync/bootstrap') : '/api/sync/bootstrap';
@@ -330,7 +366,7 @@ self.onmessage = async (event) => {
             }
 
             // Fetch local change version
-            const local = await NexovaDB.get('crsql_changes', [change.table_name, change.pk, change.cid]);
+            const local = await ValenixiaDB.get('crsql_changes', [change.table_name, change.pk, change.cid]);
             
             // LWW merge comparison
             let shouldApply = !local;
@@ -343,16 +379,16 @@ self.onmessage = async (event) => {
             if (shouldApply) {
               applied++;
               // Apply mutation to target store
-              await NexovaDB.applyChangeToSchema(change.table_name, change.pk, change.cid, change.val, change.cl, change.val_type || 'string');
+              await ValenixiaDB.applyChangeToSchema(change.table_name, change.pk, change.cid, change.val, change.cl, change.val_type || 'string');
               // Save CRDT metadata locally
-              await NexovaDB.put('crsql_changes', {
+              await ValenixiaDB.put('crsql_changes', {
                 table_name: change.table_name,
                 pk: change.pk,
                 cid: change.cid,
                 val: change.val,
                 val_type: change.val_type || 'string',
                 col_version: change.col_version,
-                db_version: (await NexovaDB.getDbVersion()) + 1,
+                db_version: (await ValenixiaDB.getDbVersion()) + 1,
                 site_id: change.site_id,
                 cl: change.cl,
                 sync_hlc: change.sync_hlc
@@ -361,9 +397,9 @@ self.onmessage = async (event) => {
               // Recalculate stock level if PN delta changes or manual stock updates occur
               if (change.table_name === 'inventory_catalog_counters') {
                 const sku = change.pk.split('/')[0];
-                await NexovaDB.recalculateCachedStock(sku);
+                await ValenixiaDB.recalculateCachedStock(sku);
               } else if (change.table_name === 'inventory_catalog' && change.cid === 'stock_level') {
-                await NexovaDB.recalculateCachedStock(change.pk);
+                await ValenixiaDB.recalculateCachedStock(change.pk);
               }
             } else {
               conflicts++;
@@ -371,7 +407,7 @@ self.onmessage = async (event) => {
           }
 
           // Mark database as hydrated in preferences
-          await NexovaDB.put('local_preferences', {
+          await ValenixiaDB.put('local_preferences', {
             key: 'database_hydrated',
             value_type: 'BOOL',
             value_payload: 'true',
@@ -390,7 +426,7 @@ self.onmessage = async (event) => {
 
       case 'REGISTER_DEVICE': {
         const { deviceName } = payload;
-        await NexovaDB.put('local_preferences', {
+        await ValenixiaDB.put('local_preferences', {
           key: 'device_name',
           value_type: 'STR',
           value_payload: deviceName,
@@ -405,35 +441,35 @@ self.onmessage = async (event) => {
       }
 
       case 'GET_CATALOG': {
-        const catalog = await NexovaDB.getAll('inventory_catalog');
+        const catalog = await ValenixiaDB.getAll('inventory_catalog');
         postMessage({ type: 'CATALOG_DATA', catalog });
         break;
       }
 
       case 'GET_CUSTOMERS': {
-        const customers = await NexovaDB.getAll('customers');
+        const customers = await ValenixiaDB.getAll('customers');
         postMessage({ type: 'CUSTOMERS_DATA', customers });
         break;
       }
 
       case 'GET_EMPLOYEES': {
-        const employees = await NexovaDB.getAll('employees');
+        const employees = await ValenixiaDB.getAll('employees');
         postMessage({ type: 'EMPLOYEES_DATA', employees });
         break;
       }
 
       case 'GET_PREFERENCES': {
-        const prefs = await NexovaDB.getAll('local_preferences');
+        const prefs = await ValenixiaDB.getAll('local_preferences');
         postMessage({ type: 'PREFERENCES_DATA', prefs });
         break;
       }
 
       case 'GET_TRANSACTIONS': {
-        const transactions = await NexovaDB.getAll('transactions');
+        const transactions = await ValenixiaDB.getAll('transactions');
         // Map line items to transactions
         const enriched = [];
         for (const tx of transactions) {
-          const items = await NexovaDB.getAllLineItemsByTx(tx.id);
+          const items = await ValenixiaDB.getAllLineItemsByTx(tx.id);
           enriched.push({ ...tx, items });
         }
         postMessage({ type: 'TRANSACTIONS_DATA', transactions: enriched });
@@ -443,12 +479,12 @@ self.onmessage = async (event) => {
       case 'COMPLETE_TRANSACTION': {
         const { transactionId } = payload;
         const tickHlc = syncClient.hlc.tick();
-        const tx = await NexovaDB.get('transactions', transactionId);
+        const tx = await ValenixiaDB.get('transactions', transactionId);
         if (tx) {
           tx.status = 'COMPLETED';
           tx.updated_at = Date.now();
           tx.sync_hlc = tickHlc;
-          await NexovaDB.put('transactions', tx);
+          await ValenixiaDB.put('transactions', tx);
           await logFieldChange('transactions', transactionId, 'status', 'COMPLETED', tickHlc);
         }
         postMessage({ type: 'MUTATION_SUCCESS' });
@@ -504,7 +540,7 @@ self.onmessage = async (event) => {
         }
 
         // Open a single atomic readwrite transaction
-        const idbTx = NexovaDB.db.transaction(
+        const idbTx = ValenixiaDB.db.transaction(
           ['transactions', 'line_items', 'inventory_catalog', 'crsql_changes', 'stock_movements', 'customer_credit', 'fbr_offline_queue', 'purchase_orders', 'po_line_items', 'distributors', 'local_preferences'],
           'readwrite'
         );
@@ -527,7 +563,7 @@ self.onmessage = async (event) => {
             is_dirty: 1,
             is_deleted: 0
           };
-          await NexovaDB.put('transactions', txRecord, idbTx);
+          await ValenixiaDB.put('transactions', txRecord, idbTx);
 
           // 2. Log transaction fields to CRDT Changes catalog
           await logFieldChange('transactions', transactionId, 'employee_id', employeeId, txHlc, 1, 1, idbTx);
@@ -552,7 +588,7 @@ self.onmessage = async (event) => {
               sync_hlc: txHlc,
               is_deleted: 0
             };
-            await NexovaDB.put('line_items', liRecord, idbTx);
+            await ValenixiaDB.put('line_items', liRecord, idbTx);
 
             // Log line item fields to CRDT
             await logFieldChange('line_items', liId, 'transaction_id', transactionId, txHlc, 1, 1, idbTx);
@@ -562,12 +598,12 @@ self.onmessage = async (event) => {
             await logFieldChange('line_items', liId, 'applied_discount_minor_units', item.discount || 0, txHlc, 1, 1, idbTx);
 
             // 4. Update Stock Level via PN-Counters
-            const prod = await NexovaDB.get('inventory_catalog', item.sku, idbTx);
+            const prod = await ValenixiaDB.get('inventory_catalog', item.sku, idbTx);
             if (prod) {
-              const baseStockRow = await NexovaDB.get('crsql_changes', ['inventory_catalog', item.sku, 'stock_level'], idbTx);
+              const baseStockRow = await ValenixiaDB.get('crsql_changes', ['inventory_catalog', item.sku, 'stock_level'], idbTx);
               const baseHlc = baseStockRow ? baseStockRow.sync_hlc : '0000000000000:000000:seed';
 
-              const localDeltaRow = await NexovaDB.get('crsql_changes', ['inventory_catalog_counters', `${item.sku}/${nodeId}`, 'delta'], idbTx);
+              const localDeltaRow = await ValenixiaDB.get('crsql_changes', ['inventory_catalog_counters', `${item.sku}/${nodeId}`, 'delta'], idbTx);
               let currentOffset = 0;
               if (localDeltaRow && localDeltaRow.sync_hlc > baseHlc) {
                 currentOffset = Number(localDeltaRow.val);
@@ -576,7 +612,7 @@ self.onmessage = async (event) => {
               const newOffset = currentOffset - item.qty;
 
               await logFieldChange('inventory_catalog_counters', `${item.sku}/${nodeId}`, 'delta', newOffset, txHlc, 1, 1, idbTx);
-              await NexovaDB.recalculateCachedStock(item.sku, idbTx);
+              await ValenixiaDB.recalculateCachedStock(item.sku, idbTx);
               await checkStockAlert(item.sku, txHlc, idbTx);
 
               // Log stock movement audit records
@@ -589,7 +625,7 @@ self.onmessage = async (event) => {
                 created_at: Date.now(),
                 sync_hlc: txHlc
               };
-              await NexovaDB.put('stock_movements', movement, idbTx);
+              await ValenixiaDB.put('stock_movements', movement, idbTx);
               await logFieldChange('stock_movements', mvId, 'sku', item.sku, txHlc, 1, 1, idbTx);
               await logFieldChange('stock_movements', mvId, 'change_qty', -item.qty, txHlc, 1, 1, idbTx);
               await logFieldChange('stock_movements', mvId, 'reason', 'SALE', txHlc, 1, 1, idbTx);
@@ -612,7 +648,7 @@ self.onmessage = async (event) => {
               sync_hlc: txHlc,
               is_deleted: 0
             };
-            await NexovaDB.put('customer_credit', ccRecord, idbTx);
+            await ValenixiaDB.put('customer_credit', ccRecord, idbTx);
             await logFieldChange('customer_credit', ccId, 'customer_id', payload.customerId, txHlc, 1, 1, idbTx);
             await logFieldChange('customer_credit', ccId, 'transaction_id', transactionId, txHlc, 1, 1, idbTx);
             await logFieldChange('customer_credit', ccId, 'type', 'CREDIT', txHlc, 1, 1, idbTx);
@@ -638,7 +674,7 @@ self.onmessage = async (event) => {
               status: 'PENDING',
               createdAt: now
             };
-            await NexovaDB.put('fbr_offline_queue', fbrQueueEntry, idbTx);
+            await ValenixiaDB.put('fbr_offline_queue', fbrQueueEntry, idbTx);
 
             const isOnline = syncClient && syncClient.isConnected;
             if (isOnline) {
@@ -669,11 +705,22 @@ self.onmessage = async (event) => {
       }
 
       case 'SAVE_PRODUCT': {
-        const { sku, name, gtin, price, stock, category, emoji, cost, low_stock_threshold, isAuditReset } = payload;
+        const { sku, name, gtin, price, stock, category, emoji, cost, low_stock_threshold, isAuditReset, mode_fields, image_url } = payload;
         const tickHlc = syncClient.hlc.tick();
 
-        const exists = await NexovaDB.get('inventory_catalog', sku);
+        const exists = await ValenixiaDB.get('inventory_catalog', sku);
         const colVersion = exists ? (exists.col_version || 1) + 1 : 1;
+
+        const shopModePref = await ValenixiaDB.get('local_preferences', 'shop_mode');
+        const shopMode = shopModePref ? shopModePref.value_payload : 'simple-retail';
+
+        let validatedFields = '{}';
+        try {
+          validatedFields = validateModeFields(shopMode, mode_fields);
+        } catch (valErr) {
+          postMessage({ type: 'ERROR', error: `Validation Error: ${valErr.message}` });
+          return;
+        }
 
         const cleanGtin = (gtin && gtin.trim()) ? gtin.trim() : undefined;
         const prod = {
@@ -687,11 +734,13 @@ self.onmessage = async (event) => {
           emoji: emoji || '📦',
           cost_price_minor_units: cost || 0,
           low_stock_threshold: low_stock_threshold !== undefined ? low_stock_threshold : 10,
+          mode_fields: validatedFields,
+          image_url: image_url || '',
           col_version: colVersion,
           sync_hlc: tickHlc
         };
 
-        await NexovaDB.put('inventory_catalog', prod);
+        await ValenixiaDB.put('inventory_catalog', prod);
 
         await logFieldChange('inventory_catalog', sku, 'name', name, tickHlc, colVersion);
         await logFieldChange('inventory_catalog', sku, 'gtin', cleanGtin, tickHlc, colVersion);
@@ -700,23 +749,25 @@ self.onmessage = async (event) => {
         await logFieldChange('inventory_catalog', sku, 'emoji', emoji || '📦', tickHlc, colVersion);
         await logFieldChange('inventory_catalog', sku, 'cost_price_minor_units', cost || 0, tickHlc, colVersion);
         await logFieldChange('inventory_catalog', sku, 'low_stock_threshold', prod.low_stock_threshold, tickHlc, colVersion);
+        await logFieldChange('inventory_catalog', sku, 'mode_fields', prod.mode_fields, tickHlc, colVersion);
+        await logFieldChange('inventory_catalog', sku, 'image_url', prod.image_url, tickHlc, colVersion);
 
         if (exists) {
           if (isAuditReset) {
             // Hard Audit Reset: override base stock and clear older deltas HLC-wise
             prod.stock_level = stock;
-            await NexovaDB.put('inventory_catalog', prod);
+            await ValenixiaDB.put('inventory_catalog', prod);
             await logFieldChange('inventory_catalog', sku, 'stock_level', stock, tickHlc, colVersion);
-            await NexovaDB.recalculateCachedStock(sku);
+            await ValenixiaDB.recalculateCachedStock(sku);
             await checkStockAlert(sku, tickHlc);
           } else {
             // Stock Adjustment: relative delta addition preserving offline concurrent changes
             const diff = stock - exists.stock_level;
             if (diff !== 0) {
-              const baseStockRow = await NexovaDB.get('crsql_changes', ['inventory_catalog', sku, 'stock_level']);
+              const baseStockRow = await ValenixiaDB.get('crsql_changes', ['inventory_catalog', sku, 'stock_level']);
               const baseHlc = baseStockRow ? baseStockRow.sync_hlc : '0000000000000:000000:seed';
 
-              const localDeltaRow = await NexovaDB.get('crsql_changes', ['inventory_catalog_counters', `${sku}/${nodeId}`, 'delta']);
+              const localDeltaRow = await ValenixiaDB.get('crsql_changes', ['inventory_catalog_counters', `${sku}/${nodeId}`, 'delta']);
               let currentOffset = 0;
               if (localDeltaRow && localDeltaRow.sync_hlc > baseHlc) {
                 currentOffset = Number(localDeltaRow.val);
@@ -724,14 +775,14 @@ self.onmessage = async (event) => {
 
               const newOffset = currentOffset + diff;
               await logFieldChange('inventory_catalog_counters', `${sku}/${nodeId}`, 'delta', newOffset, tickHlc);
-              await NexovaDB.recalculateCachedStock(sku);
+              await ValenixiaDB.recalculateCachedStock(sku);
               await checkStockAlert(sku, tickHlc);
             }
           }
         } else {
           // New product creation: seed as base stock
           prod.stock_level = stock;
-          await NexovaDB.put('inventory_catalog', prod);
+          await ValenixiaDB.put('inventory_catalog', prod);
           await logFieldChange('inventory_catalog', sku, 'stock_level', stock, tickHlc, colVersion);
           await checkStockAlert(sku, tickHlc);
         }
@@ -747,7 +798,7 @@ self.onmessage = async (event) => {
             created_at: Date.now(),
             sync_hlc: tickHlc
           };
-          await NexovaDB.put('stock_movements', movement);
+          await ValenixiaDB.put('stock_movements', movement);
           await logFieldChange('stock_movements', mvId, 'sku', sku, tickHlc);
           await logFieldChange('stock_movements', mvId, 'change_qty', stock - exists.stock_level, tickHlc);
           await logFieldChange('stock_movements', mvId, 'reason', isAuditReset ? 'AUDIT_RESET' : 'MANUAL_EDIT', tickHlc);
@@ -760,14 +811,14 @@ self.onmessage = async (event) => {
       case 'DELETE_PRODUCT': {
         const { sku } = payload;
         const tickHlc = syncClient.hlc.tick();
-        const exists = await NexovaDB.get('inventory_catalog', sku);
+        const exists = await ValenixiaDB.get('inventory_catalog', sku);
         if (exists) {
           const colVersion = (exists.col_version || 1) + 1;
           // Soft delete in catalog
           exists.stock_level = 0;
           exists.col_version = colVersion;
           exists.sync_hlc = tickHlc;
-          await NexovaDB.put('inventory_catalog', exists);
+          await ValenixiaDB.put('inventory_catalog', exists);
 
           // Log soft delete metadata (causal length cl = 0)
           await logFieldChange('inventory_catalog', sku, 'stock_level', 0, tickHlc, colVersion, 0);
@@ -791,7 +842,7 @@ self.onmessage = async (event) => {
           sync_hlc: tickHlc
         };
 
-        await NexovaDB.put('customers', cust);
+        await ValenixiaDB.put('customers', cust);
 
         await logFieldChange('customers', id, 'name', name, tickHlc);
         await logFieldChange('customers', id, 'phone', phone || '', tickHlc);
@@ -806,7 +857,7 @@ self.onmessage = async (event) => {
       case 'DELETE_CUSTOMER': {
         const { id } = payload;
         const tickHlc = syncClient.hlc.tick();
-        await NexovaDB.delete('customers', id);
+        await ValenixiaDB.delete('customers', id);
         // Soft delete metadata
         await logFieldChange('customers', id, 'name', null, tickHlc, 1, 0);
         postMessage({ type: 'MUTATION_SUCCESS' });
@@ -826,7 +877,7 @@ self.onmessage = async (event) => {
           sync_hlc: tickHlc
         };
 
-        await NexovaDB.put('employees', emp);
+        await ValenixiaDB.put('employees', emp);
 
         await logFieldChange('employees', id, 'auth_hash', auth_hash, tickHlc);
         await logFieldChange('employees', id, 'role', role || 'CASHIER', tickHlc);
@@ -839,7 +890,7 @@ self.onmessage = async (event) => {
       case 'SAVE_PREFERENCE': {
         const { key, val, value_type } = payload;
         
-        await NexovaDB.put('local_preferences', {
+        await ValenixiaDB.put('local_preferences', {
           key: key,
           value_type: value_type || 'STR',
           value_payload: String(val),
@@ -876,7 +927,7 @@ self.onmessage = async (event) => {
           sync_hlc: tickHlc
         };
         
-        await NexovaDB.put('employee_shifts', shiftRecord);
+        await ValenixiaDB.put('employee_shifts', shiftRecord);
         
         await logFieldChange('employee_shifts', shiftId, 'employee_id', employeeId, tickHlc);
         await logFieldChange('employee_shifts', shiftId, 'clock_in', clockIn, tickHlc);
@@ -890,15 +941,15 @@ self.onmessage = async (event) => {
       }
 
       case 'GET_DISTRIBUTORS': {
-        const distributors = await NexovaDB.getAll('distributors');
+        const distributors = await ValenixiaDB.getAll('distributors');
         postMessage({ type: 'DISTRIBUTORS_DATA', distributors });
         break;
       }
 
       case 'GET_PURCHASE_ORDERS': {
-        const orders = await NexovaDB.getAll('purchase_orders');
+        const orders = await ValenixiaDB.getAll('purchase_orders');
         const enriched = [];
-        const items = await NexovaDB.getAll('po_line_items');
+        const items = await ValenixiaDB.getAll('po_line_items');
         for (const po of orders) {
           const poItems = items.filter(item => item.po_id === po.id && item.is_deleted !== 1);
           enriched.push({ ...po, items: poItems });
@@ -908,13 +959,13 @@ self.onmessage = async (event) => {
       }
 
       case 'GET_DISTRIBUTOR_PAYMENTS': {
-        const payments = await NexovaDB.getAll('distributor_payments');
+        const payments = await ValenixiaDB.getAll('distributor_payments');
         postMessage({ type: 'DISTRIBUTOR_PAYMENTS_DATA', payments });
         break;
       }
 
       case 'GET_CUSTOMER_CREDIT': {
-        const credits = await NexovaDB.getAll('customer_credit');
+        const credits = await ValenixiaDB.getAll('customer_credit');
         postMessage({ type: 'CUSTOMER_CREDIT_DATA', credits });
         break;
       }
@@ -922,7 +973,7 @@ self.onmessage = async (event) => {
       case 'SAVE_DISTRIBUTOR': {
         const { id, name, phone, email, address, creditLimit, notes } = payload;
         const tickHlc = syncClient.hlc.tick();
-        const exists = await NexovaDB.get('distributors', id);
+        const exists = await ValenixiaDB.get('distributors', id);
         
         const dist = {
           id,
@@ -936,7 +987,7 @@ self.onmessage = async (event) => {
           sync_hlc: tickHlc,
           is_deleted: 0
         };
-        await NexovaDB.put('distributors', dist);
+        await ValenixiaDB.put('distributors', dist);
         await logFieldChange('distributors', id, 'name', name, tickHlc);
         await logFieldChange('distributors', id, 'phone', phone || '', tickHlc);
         await logFieldChange('distributors', id, 'email', email || '', tickHlc);
@@ -969,7 +1020,7 @@ self.onmessage = async (event) => {
           sync_hlc: tickHlc,
           is_deleted: 0
         };
-        await NexovaDB.put('purchase_orders', po);
+        await ValenixiaDB.put('purchase_orders', po);
         await logFieldChange('purchase_orders', id, 'distributor_id', distributorId, tickHlc);
         await logFieldChange('purchase_orders', id, 'status', status || 'DRAFT', tickHlc);
         await logFieldChange('purchase_orders', id, 'total_minor', total, tickHlc);
@@ -990,7 +1041,7 @@ self.onmessage = async (event) => {
             sync_hlc: tickHlc,
             is_deleted: 0
           };
-          await NexovaDB.put('po_line_items', poli);
+          await ValenixiaDB.put('po_line_items', poli);
           await logFieldChange('po_line_items', itemId, 'po_id', id, tickHlc);
           await logFieldChange('po_line_items', itemId, 'sku', item.sku || '', tickHlc);
           await logFieldChange('po_line_items', itemId, 'product_name', item.name || '', tickHlc);
@@ -1009,12 +1060,12 @@ self.onmessage = async (event) => {
         
         let allReceived = true;
         for (const entry of itemsReceived) {
-          const poli = await NexovaDB.get('po_line_items', entry.id);
+          const poli = await ValenixiaDB.get('po_line_items', entry.id);
           if (poli) {
             const finalQtyReceived = (poli.quantity_received || 0) + entry.qtyReceived;
             poli.quantity_received = finalQtyReceived;
             poli.sync_hlc = tickHlc;
-            await NexovaDB.put('po_line_items', poli);
+            await ValenixiaDB.put('po_line_items', poli);
             await logFieldChange('po_line_items', entry.id, 'quantity_received', finalQtyReceived, tickHlc);
             
             if (finalQtyReceived < poli.quantity_ordered) {
@@ -1022,12 +1073,12 @@ self.onmessage = async (event) => {
             }
 
             if (entry.sku) {
-              const prod = await NexovaDB.get('inventory_catalog', entry.sku);
+              const prod = await ValenixiaDB.get('inventory_catalog', entry.sku);
               if (prod) {
-                const baseStockRow = await NexovaDB.get('crsql_changes', ['inventory_catalog', entry.sku, 'stock_level']);
+                const baseStockRow = await ValenixiaDB.get('crsql_changes', ['inventory_catalog', entry.sku, 'stock_level']);
                 const baseHlc = baseStockRow ? baseStockRow.sync_hlc : '0000000000000:000000:seed';
 
-                const localDeltaRow = await NexovaDB.get('crsql_changes', ['inventory_catalog_counters', `${entry.sku}/${nodeId}`, 'delta']);
+                const localDeltaRow = await ValenixiaDB.get('crsql_changes', ['inventory_catalog_counters', `${entry.sku}/${nodeId}`, 'delta']);
                 let currentOffset = 0;
                 if (localDeltaRow && localDeltaRow.sync_hlc > baseHlc) {
                   currentOffset = Number(localDeltaRow.val);
@@ -1035,13 +1086,13 @@ self.onmessage = async (event) => {
 
                 const newOffset = currentOffset + entry.qtyReceived;
                 await logFieldChange('inventory_catalog_counters', `${entry.sku}/${nodeId}`, 'delta', newOffset, tickHlc);
-                await NexovaDB.recalculateCachedStock(entry.sku);
+                await ValenixiaDB.recalculateCachedStock(entry.sku);
 
                 if (poli.unit_cost_minor) {
-                  const exists = await NexovaDB.get('inventory_catalog', entry.sku);
+                  const exists = await ValenixiaDB.get('inventory_catalog', entry.sku);
                   if (exists) {
                     exists.cost_price_minor_units = poli.unit_cost_minor;
-                    await NexovaDB.put('inventory_catalog', exists);
+                    await ValenixiaDB.put('inventory_catalog', exists);
                     await logFieldChange('inventory_catalog', entry.sku, 'cost_price_minor_units', poli.unit_cost_minor, tickHlc);
                   }
                 }
@@ -1055,7 +1106,7 @@ self.onmessage = async (event) => {
                   created_at: now,
                   sync_hlc: tickHlc
                 };
-                await NexovaDB.put('stock_movements', movement);
+                await ValenixiaDB.put('stock_movements', movement);
                 await logFieldChange('stock_movements', mvId, 'sku', entry.sku, tickHlc);
                 await logFieldChange('stock_movements', mvId, 'change_qty', entry.qtyReceived, tickHlc);
                 await logFieldChange('stock_movements', mvId, 'reason', 'RECV_ORDER', tickHlc);
@@ -1064,13 +1115,13 @@ self.onmessage = async (event) => {
           }
         }
 
-        const po = await NexovaDB.get('purchase_orders', id);
+        const po = await ValenixiaDB.get('purchase_orders', id);
         if (po) {
           const finalStatus = allReceived ? 'RECEIVED' : 'PARTIAL';
           po.status = finalStatus;
           po.updated_at = now;
           po.sync_hlc = tickHlc;
-          await NexovaDB.put('purchase_orders', po);
+          await ValenixiaDB.put('purchase_orders', po);
           await logFieldChange('purchase_orders', id, 'status', finalStatus, tickHlc);
         }
         
@@ -1094,7 +1145,7 @@ self.onmessage = async (event) => {
           sync_hlc: tickHlc,
           is_deleted: 0
         };
-        await NexovaDB.put('distributor_payments', dp);
+        await ValenixiaDB.put('distributor_payments', dp);
         await logFieldChange('distributor_payments', id, 'distributor_id', distributorId, tickHlc);
         await logFieldChange('distributor_payments', id, 'po_id', poId || null, tickHlc);
         await logFieldChange('distributor_payments', id, 'amount_minor', amount, tickHlc);
@@ -1123,7 +1174,7 @@ self.onmessage = async (event) => {
           sync_hlc: tickHlc,
           is_deleted: 0
         };
-        await NexovaDB.put('customer_credit', cc);
+        await ValenixiaDB.put('customer_credit', cc);
         await logFieldChange('customer_credit', id, 'customer_id', customerId, tickHlc);
         await logFieldChange('customer_credit', id, 'transaction_id', transactionId || null, tickHlc);
         await logFieldChange('customer_credit', id, 'type', type, tickHlc);
@@ -1137,7 +1188,7 @@ self.onmessage = async (event) => {
       }
 
       case 'DESTRUCTIVE_RESET': {
-        await NexovaDB.destructReset();
+        await ValenixiaDB.destructReset();
         // Send reset notice to backend if connected
         if (syncClient.ws && syncClient.ws.readyState === WebSocket.OPEN) {
           syncClient.ws.send(JSON.stringify({ type: 'reset_trigger', nodeId }));
@@ -1153,7 +1204,7 @@ self.onmessage = async (event) => {
       }
 
       case 'GET_FBR_QUEUE': {
-        const pending = await NexovaDB.getAll('fbr_offline_queue');
+        const pending = await ValenixiaDB.getAll('fbr_offline_queue');
         postMessage({ type: 'FBR_QUEUE_DATA', items: pending });
         break;
       }
@@ -1162,7 +1213,7 @@ self.onmessage = async (event) => {
       case 'SAVE_TELEMETRY': {
         try {
           const log = payload;
-          await NexovaDB.put('telemetry_logs', {
+          await ValenixiaDB.put('telemetry_logs', {
             id: log.id || `tl_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
             node_id: log.nodeId || nodeId,
             error_type: log.errorType || 'UNKNOWN',
@@ -1187,7 +1238,7 @@ self.onmessage = async (event) => {
       // ── Component B: Oversell Guard — check after PN-Counter recalculation ─
       case 'CHECK_OVERSELL': {
         const { sku: oversellSku } = payload;
-        const prod = await NexovaDB.get('inventory_catalog', oversellSku);
+        const prod = await ValenixiaDB.get('inventory_catalog', oversellSku);
         if (prod && prod.stock_level < 0) {
           postMessage({
             type: 'STOCK_RECONCILIATION_REQUIRED',
@@ -1196,6 +1247,32 @@ self.onmessage = async (event) => {
             computedStock: prod.stock_level
           });
         }
+        break;
+      }
+
+      case 'PURGE_OLD_IMAGES': {
+        const threshold = Date.now() - (90 * 24 * 60 * 60 * 1000); // 90 days
+        const tx = ValenixiaDB.db.transaction(['payment_proofs'], 'readwrite');
+        const store = tx.objectStore('payment_proofs');
+        const cursorRequest = store.openCursor();
+        let purgedCount = 0;
+        cursorRequest.onsuccess = (e) => {
+          const cursor = e.target.result;
+          if (cursor) {
+            const proof = cursor.value;
+            if (proof.created_at < threshold && proof.screenshot_proof) {
+              proof.screenshot_proof = null; // purge heavy base64 screenshot
+              cursor.update(proof);
+              purgedCount++;
+            }
+            cursor.continue();
+          } else {
+            postMessage({ type: 'PURGE_IMAGES_COMPLETE', count: purgedCount });
+          }
+        };
+        cursorRequest.onerror = (err) => {
+          postMessage({ type: 'ERROR', error: 'Purge failed: ' + err.target.error.message });
+        };
         break;
       }
     }
@@ -1207,7 +1284,7 @@ self.onmessage = async (event) => {
 
 // Helper: logs change to local IndexedDB crsql_changes and pushes it immediately
 async function logFieldChange(tableName, pk, cid, val, syncHlc, colVersion = 1, cl = 1, tx = null) {
-  const dbVer = await NexovaDB.logLocalChange(tableName, pk, cid, val, colVersion, cl, syncHlc, tx);
+  const dbVer = await ValenixiaDB.logLocalChange(tableName, pk, cid, val, colVersion, cl, syncHlc, tx);
   
   const performDispatch = () => {
     // Push changes live via syncClient
@@ -1253,7 +1330,7 @@ async function logFieldChange(tableName, pk, cid, val, syncHlc, colVersion = 1, 
 // Batch-uploads all pending invoices to the local server which forwards to FBR
 async function flushFBRQueue() {
   try {
-    const allQueued = await NexovaDB.getAll('fbr_offline_queue');
+    const allQueued = await ValenixiaDB.getAll('fbr_offline_queue');
     // Filter for non-submitted items
     const pending = allQueued.filter(q => q.status === 'PENDING' || q.status === 'FAILED');
     
@@ -1288,10 +1365,10 @@ async function flushFBRQueue() {
           entry.status = 'SUBMITTED';
           entry.fbr_response_code = result.fbrResponseCode || null;
           entry.fbr_error_details = null;
-          await NexovaDB.put('fbr_offline_queue', entry);
+          await ValenixiaDB.put('fbr_offline_queue', entry);
 
           // Write official FBR_Invoice_Number back to the transaction receipt details (Compliance)
-          const tx = await NexovaDB.get('transactions', entry.transactionId);
+          const tx = await ValenixiaDB.get('transactions', entry.transactionId);
           if (tx) {
             let details = {};
             try {
@@ -1306,7 +1383,7 @@ async function flushFBRQueue() {
             details.fbr_status = 'INTEGRATED_OFFICIAL';
             tx.payment_details = JSON.stringify(details);
             tx.updated_at = Date.now();
-            await NexovaDB.put('transactions', tx);
+            await ValenixiaDB.put('transactions', tx);
             
             // Log the change to CRDT so it syncs across the fleet
             if (syncClient) {
@@ -1330,7 +1407,7 @@ async function flushFBRQueue() {
           entry.fbr_response_code = result?.fbrResponseCode || null;
           entry.fbr_error_details = result?.fbrErrorDetails || 'Unknown FBR rejection';
           entry.retry_count = (entry.retry_count || 0) + 1;
-          await NexovaDB.put('fbr_offline_queue', entry);
+          await ValenixiaDB.put('fbr_offline_queue', entry);
           
           postMessage({ 
             type: 'FBR_QUEUE_FAILED', 
@@ -1369,7 +1446,7 @@ async function flushFBRQueue() {
 // Smart Inventory: Automatic low-stock checking and Purchase Order generation
 async function checkStockAlert(sku, tickHlc, tx = null) {
   try {
-    const prod = await NexovaDB.get('inventory_catalog', sku, tx);
+    const prod = await ValenixiaDB.get('inventory_catalog', sku, tx);
     if (!prod) return;
 
     const currentStock = prod.stock_level;
@@ -1379,12 +1456,12 @@ async function checkStockAlert(sku, tickHlc, tx = null) {
       console.warn(`[InventoryAlert] SKU ${sku} (${prod.name}) dropped below threshold (${currentStock}/${threshold}).`);
 
       // Check if there is already a PENDING or DRAFT purchase order for this SKU to prevent duplicate ordering
-      const pos = await NexovaDB.getAll('purchase_orders', tx);
+      const pos = await ValenixiaDB.getAll('purchase_orders', tx);
       let hasExistingOrder = false;
       for (const po of pos) {
         if (po.is_deleted === 1) continue;
         if (po.status === 'DRAFT' || po.status === 'PENDING') {
-          const lineItems = await NexovaDB.getAll('po_line_items', tx);
+          const lineItems = await ValenixiaDB.getAll('po_line_items', tx);
           const matches = lineItems.filter(item => item.po_id === po.id && item.sku === sku && item.is_deleted !== 1);
           if (matches.length > 0) {
             hasExistingOrder = true;
@@ -1395,7 +1472,7 @@ async function checkStockAlert(sku, tickHlc, tx = null) {
 
       if (!hasExistingOrder) {
         // Query distributors
-        const dists = await NexovaDB.getAll('distributors', tx);
+        const dists = await ValenixiaDB.getAll('distributors', tx);
         let distributorId = 'dist_default_primary';
         const activeDists = dists.filter(d => d.is_deleted !== 1);
         
@@ -1415,7 +1492,7 @@ async function checkStockAlert(sku, tickHlc, tx = null) {
             sync_hlc: tickHlc,
             is_deleted: 0
           };
-          await NexovaDB.put('distributors', seedDist, tx);
+          await ValenixiaDB.put('distributors', seedDist, tx);
           await logFieldChange('distributors', 'dist_default_primary', 'name', seedDist.name, tickHlc, 1, 1, tx);
           await logFieldChange('distributors', 'dist_default_primary', 'phone', seedDist.phone, tickHlc, 1, 1, tx);
           await logFieldChange('distributors', 'dist_default_primary', 'email', seedDist.email, tickHlc, 1, 1, tx);
@@ -1443,7 +1520,7 @@ async function checkStockAlert(sku, tickHlc, tx = null) {
           is_deleted: 0
         };
 
-        await NexovaDB.put('purchase_orders', po, tx);
+        await ValenixiaDB.put('purchase_orders', po, tx);
         await logFieldChange('purchase_orders', poId, 'distributor_id', distributorId, tickHlc, 1, 1, tx);
         await logFieldChange('purchase_orders', poId, 'status', 'DRAFT', tickHlc, 1, 1, tx);
         await logFieldChange('purchase_orders', poId, 'total_minor', totalCost, tickHlc, 1, 1, tx);
@@ -1463,7 +1540,7 @@ async function checkStockAlert(sku, tickHlc, tx = null) {
           is_deleted: 0
         };
 
-        await NexovaDB.put('po_line_items', poli, tx);
+        await ValenixiaDB.put('po_line_items', poli, tx);
         await logFieldChange('po_line_items', itemId, 'po_id', poId, tickHlc, 1, 1, tx);
         await logFieldChange('po_line_items', itemId, 'sku', sku, tickHlc, 1, 1, tx);
         await logFieldChange('po_line_items', itemId, 'product_name', prod.name, tickHlc, 1, 1, tx);
@@ -1482,7 +1559,7 @@ async function checkStockAlert(sku, tickHlc, tx = null) {
 // Start background periodic FBR sweep (every 60 seconds) (Rule 150XC Proxy compliance)
 setInterval(async () => {
   try {
-    const allQueued = await NexovaDB.getAll('fbr_offline_queue');
+    const allQueued = await ValenixiaDB.getAll('fbr_offline_queue');
     const pending = allQueued.filter(q => q.status === 'PENDING' || q.status === 'FAILED');
     if (pending.length > 0) {
       console.log(`[FBR Cron] Found ${pending.length} pending FBR submissions. Triggering sweep...`);

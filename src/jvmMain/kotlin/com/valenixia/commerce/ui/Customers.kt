@@ -1,4 +1,4 @@
-package com.nexova.commerce.ui
+package com.valenixia.commerce.ui
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
@@ -21,8 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.nexova.commerce.db.Customer
-import com.nexova.commerce.db.Database
+import com.valenixia.commerce.db.Customer
+import com.valenixia.commerce.db.Database
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -33,7 +33,7 @@ fun CustomersScreen(@Suppress("UNUSED_PARAMETER") isOnline: Boolean, syncLogs: M
     var showAddDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf<Customer?>(null) }
 
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
 
     // Load customers
     LaunchedEffect(query) {
@@ -273,7 +273,7 @@ fun CustomerDialog(
     var email by remember { mutableStateOf(initialEmail) }
     var error by remember { mutableStateOf("") }
 
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
 
     Box(
         modifier = Modifier

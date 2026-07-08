@@ -1,4 +1,4 @@
-# Nexova POS - Dev Workflow
+# Valenixia POS - Dev Workflow
 
 ## Local Development
 1. `npm start` – Start dev server

@@ -29,7 +29,7 @@
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:theme="@style/Theme.NexovaPOS"
+        android:theme="@style/Theme.ValenixiaPOS"
         android:usesCleartextTraffic="true"
         android:hardwareAccelerated="true">
 
@@ -59,7 +59,7 @@
         <!-- Kiosk Secure FileProvider for APK Silent updates -->
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="com.nexova.pos.fileprovider"
+            android:authorities="com.valenixia.pos.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data

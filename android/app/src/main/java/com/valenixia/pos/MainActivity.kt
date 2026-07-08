@@ -1,4 +1,4 @@
-package com.nexova.pos
+package com.valenixia.pos
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -19,6 +19,8 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.ProgressBar
+import android.view.Gravity
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import java.io.File
@@ -50,10 +52,10 @@ import android.content.IntentFilter
 // ============================================================
 // Android Keystore Helper – hardware-backed AES-GCM key management
 // Generates and stores a 256-bit AES key in the hardware-backed
-// Android Keystore under the alias "nexova_prefs_key".
+// Android Keystore under the alias "valenixia_prefs_key".
 // ============================================================
 object KeyStoreHelper {
-    private const val KEY_ALIAS = "nexova_prefs_key"
+    private const val KEY_ALIAS = "valenixia_prefs_key"
     private const val ANDROID_KEYSTORE = "AndroidKeyStore"
     private const val TRANSFORMATION = "AES/GCM/NoPadding"
 
@@ -306,7 +308,7 @@ class MainActivity : AppCompatActivity() {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                     try {
                         val directContext = createDeviceProtectedStorageContext()
-                        val directPrefs = directContext.getSharedPreferences("nexova_prefs", Context.MODE_PRIVATE)
+                        val directPrefs = directContext.getSharedPreferences("valenixia_prefs", Context.MODE_PRIVATE)
                         directPrefs.edit().putBoolean("auto_start_on_boot", enabled).apply()
                     } catch (e: Exception) {
                         Log.e("AndroidPOSBridge", "Device protected storage write error: ${e.message}")
@@ -409,7 +411,7 @@ class MainActivity : AppCompatActivity() {
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
         
-        prefs = getSharedPreferences("nexova_prefs", Context.MODE_PRIVATE)
+        prefs = getSharedPreferences("valenixia_prefs", Context.MODE_PRIVATE)
 
         val requiredPermissions = mutableListOf<String>()
         if (checkSelfPermission(android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -434,7 +436,7 @@ class MainActivity : AppCompatActivity() {
                 throwable.printStackTrace(PrintWriter(sw))
                 val crashLog = "${System.currentTimeMillis()} [CRASH] Thread=${thread.name}\n$sw\n"
                 synchronized(logLock) {
-                    val logFile = File(getExternalFilesDir(null), "nexova_crash.log")
+                    val logFile = File(getExternalFilesDir(null), "valenixia_crash.log")
                     // Keep file under 2MB limit (Strict rotation - trim to last 1MB of lines)
                     if (logFile.exists() && logFile.length() > 2 * 1024 * 1024) {
                         try {
@@ -447,7 +449,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     logFile.appendText(crashLog)
                 }
-                Log.e("NexovaCrash", crashLog)
+                Log.e("ValenixiaCrash", crashLog)
             } catch (_: Exception) {}
             defaultHandler?.uncaughtException(thread, throwable)
         }
@@ -455,11 +457,17 @@ class MainActivity : AppCompatActivity() {
             override fun handleOnBackPressed() {
                 val wv = webView
                 if (wv != null) {
-                    wv.evaluateJavascript("window.onNativeBackPressed()") { result ->
-                        if (result != "true") {
-                            Toast.makeText(this@MainActivity, "Use the logout button to exit", Toast.LENGTH_SHORT).show()
+                    if (wv.canGoBack()) {
+                        wv.goBack()
+                    } else {
+                        wv.evaluateJavascript("window.onNativeBackPressed()") { result ->
+                            if (result != "true") {
+                                showExitConfirmationDialog()
+                            }
                         }
                     }
+                } else {
+                    showExitConfirmationDialog()
                 }
             }
         })
@@ -506,7 +514,7 @@ class MainActivity : AppCompatActivity() {
         try {
             val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
             if (wakeLock == null) {
-                wakeLock = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "NexovaSyncWakeLock")
+                wakeLock = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "ValenixiaSyncWakeLock")
             }
             if (wakeLock?.isHeld == false) {
                 wakeLock?.acquire(10 * 60 * 1000L /*10 minutes*/)
@@ -599,9 +607,9 @@ class MainActivity : AppCompatActivity() {
                 }
                 androidx.appcompat.app.AlertDialog.Builder(this@MainActivity, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
                     .setTitle("Software Update")
-                    .setMessage("An update is available for Nexova POS. Do you want to download and install this update?")
+                    .setMessage("An update is available for Valenixia POS. Do you want to download and install this update?")
                     .setPositiveButton("Download") { _, _ ->
-                        Toast.makeText(this@MainActivity, "Downloading Nexova POS update...", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, "Downloading Valenixia POS update...", Toast.LENGTH_SHORT).show()
                         startApkDownload(downloadUrl)
                     }
                     .setNegativeButton("Cancel", null)
@@ -617,7 +625,7 @@ class MainActivity : AppCompatActivity() {
                 result: JsResult?
             ): Boolean {
                 androidx.appcompat.app.AlertDialog.Builder(this@MainActivity, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
-                    .setTitle("Nexova POS")
+                    .setTitle("Valenixia POS")
                     .setMessage(message)
                     .setPositiveButton(android.R.string.ok) { _, _ -> result?.confirm() }
                     .setOnCancelListener { result?.cancel() }
@@ -633,7 +641,7 @@ class MainActivity : AppCompatActivity() {
                 result: JsResult?
             ): Boolean {
                 androidx.appcompat.app.AlertDialog.Builder(this@MainActivity, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
-                    .setTitle("Nexova POS")
+                    .setTitle("Valenixia POS")
                     .setMessage(message)
                     .setPositiveButton(android.R.string.ok) { _, _ -> result?.confirm() }
                     .setNegativeButton(android.R.string.cancel) { _, _ -> result?.cancel() }
@@ -654,7 +662,7 @@ class MainActivity : AppCompatActivity() {
                     setText(defaultValue)
                 }
                 androidx.appcompat.app.AlertDialog.Builder(this@MainActivity, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
-                    .setTitle("Nexova POS")
+                    .setTitle("Valenixia POS")
                     .setMessage(message)
                     .setView(input)
                     .setPositiveButton(android.R.string.ok) { _, _ ->
@@ -685,9 +693,9 @@ class MainActivity : AppCompatActivity() {
                 consoleMessage?.let {
                     val msg = "${it.message()} -- From line ${it.lineNumber()} of ${it.sourceId()}"
                     when (it.messageLevel()) {
-                        ConsoleMessage.MessageLevel.ERROR -> Log.e("NexovaJS", msg)
-                        ConsoleMessage.MessageLevel.WARNING -> Log.w("NexovaJS", msg)
-                        else -> Log.d("NexovaJS", msg)
+                        ConsoleMessage.MessageLevel.ERROR -> Log.e("ValenixiaJS", msg)
+                        ConsoleMessage.MessageLevel.WARNING -> Log.w("ValenixiaJS", msg)
+                        else -> Log.d("ValenixiaJS", msg)
                     }
                 }
                 return true
@@ -697,6 +705,10 @@ class MainActivity : AppCompatActivity() {
                 filePathCallback: ValueCallback<Array<Uri>>?,
                 fileChooserParams: FileChooserParams?
             ): Boolean {
+                if (!isCurrentOriginTrusted()) {
+                    Log.w("MainActivity", "Blocked file chooser request from untrusted origin: $currentLoadedUrl")
+                    return false
+                }
                 uploadMessage?.onReceiveValue(null)
                 uploadMessage = filePathCallback
                 
@@ -722,9 +734,15 @@ class MainActivity : AppCompatActivity() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 currentLoadedUrl = url ?: ""
             }
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                runOnUiThread {
+                    setContentView(wv)
+                }
+            }
             override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                 if (request?.isForMainFrame == true) {
-                    Log.e("NexovaPOS", "Page load error: ${error?.description}")
+                    Log.e("ValenixiaPOS", "Page load error: ${error?.description}")
                     runOnUiThread { showReconnectScreen() }
                 }
             }
@@ -748,8 +766,71 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView = wv
-        setContentView(wv)
         wv.loadUrl(url)
+    }
+
+    private fun showSplash() {
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(0xFF0A0A0F.toInt())
+            gravity = Gravity.CENTER
+            setPadding(64, 64, 64, 64)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        
+        val title = TextView(this).apply {
+            text = "N E X O V A"
+            textSize = 28f
+            setTextColor(0xFF00D68F.toInt())
+            typeface = android.graphics.Typeface.create("sans-serif-condensed", android.graphics.Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, 8)
+        }
+        
+        val subtitle = TextView(this).apply {
+            text = "S E C U R E  L O C A L  R U N T I M E"
+            textSize = 10f
+            setTextColor(0xFF6B7280.toInt())
+            typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
+            gravity = Gravity.CENTER
+            letterSpacing = 0.2f
+        }
+
+        val progressBar = ProgressBar(this).apply {
+            isIndeterminate = true
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = 32
+            }
+            layoutParams = lp
+        }
+
+        root.addView(title)
+        root.addView(subtitle)
+        root.addView(progressBar)
+        
+        setContentView(root)
+    }
+
+    private fun showExitConfirmationDialog() {
+        runOnUiThread {
+            androidx.appcompat.app.AlertDialog.Builder(this, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
+                .setTitle("Exit Valenixia POS?")
+                .setMessage("Are you sure you want to exit the application?")
+                .setPositiveButton("Exit") { _, _ ->
+                    try {
+                        stopLockTask()
+                    } catch (_: Exception) {}
+                    finishAndRemoveTask()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
     }
 
     private fun showReconnectScreen() {
@@ -878,7 +959,7 @@ class MainActivity : AppCompatActivity() {
         if (destinationFile.exists()) destinationFile.delete()
 
         val request = DownloadManager.Request(Uri.parse(urlStr)).apply {
-            setTitle("Nexova POS Update")
+            setTitle("Valenixia POS Update")
             setDescription("Downloading software updates")
             setDestinationUri(Uri.fromFile(destinationFile))
             setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
@@ -923,7 +1004,7 @@ class MainActivity : AppCompatActivity() {
                         data = Uri.parse("package:$packageName")
                     }
                     startActivityForResult(intent, REQUEST_INSTALL_PACKAGES_CODE)
-                    Toast.makeText(this, "Please authorize Nexova POS to install updates.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Please authorize Valenixia POS to install updates.", Toast.LENGTH_LONG).show()
                     return
                 } catch (e: Exception) {
                     Log.e("MainActivity", "Failed to start Unknown Apps setting: ${e.message}")
@@ -965,7 +1046,7 @@ class MainActivity : AppCompatActivity() {
         kotlin.concurrent.thread {
             synchronized(logLock) {
                 try {
-                    val logFile = File(getExternalFilesDir(null), "nexova_crash.log")
+                    val logFile = File(getExternalFilesDir(null), "valenixia_crash.log")
                     if (!logFile.exists() || logFile.length() == 0L) return@thread
 
                     val now = System.currentTimeMillis()
@@ -973,23 +1054,23 @@ class MainActivity : AppCompatActivity() {
                     // 1. Enforce size rotation first (regardless of network success/failure/state)
                     if (logFile.length() > 2 * 1024 * 1024) {
                         try {
-                            val tempFile = File(logFile.parent, "nexova_crash.log.tmp")
+                            val tempFile = File(logFile.parent, "valenixia_crash.log.tmp")
                             val lines = logFile.readLines()
                             val halfLines = lines.takeLast(lines.size / 2)
                             tempFile.writeText(halfLines.joinToString("\n") + "\n")
                             if (tempFile.renameTo(logFile)) {
-                                Log.i("NexovaCrash", "Crash log rotated atomically: trimmed to half size.")
+                                Log.i("ValenixiaCrash", "Crash log rotated atomically: trimmed to half size.")
                             } else {
                                 logFile.writeText(halfLines.joinToString("\n") + "\n")
                             }
                         } catch (e: Exception) {
-                            Log.e("NexovaCrash", "Failed to rotate log: ${e.message}")
+                            Log.e("ValenixiaCrash", "Failed to rotate log: ${e.message}")
                         }
                     }
 
                     // 2. Offline check
                     if (!isOnline()) {
-                        Log.d("NexovaCrash", "Offline. Skip upload, logs rotated locally.")
+                        Log.d("ValenixiaCrash", "Offline. Skip upload, logs rotated locally.")
                         return@thread
                     }
 
@@ -1004,7 +1085,7 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     if (now - lastUpload < dynamicCooldownMs) {
-                        Log.d("NexovaCrash", "Upload cooldown active. Dynamic cooldown is $dynamicCooldownMs ms. Skipped.")
+                        Log.d("ValenixiaCrash", "Upload cooldown active. Dynamic cooldown is $dynamicCooldownMs ms. Skipped.")
                         return@thread
                     }
 
@@ -1046,14 +1127,14 @@ class MainActivity : AppCompatActivity() {
                             .putLong("last_crash_upload_ts", now)
                             .putInt("crash_upload_retry_count", 0)
                             .apply()
-                        Log.i("NexovaCrash", "Crash logs uploaded and cleared successfully. Retry count reset.")
+                        Log.i("ValenixiaCrash", "Crash logs uploaded and cleared successfully. Retry count reset.")
                     } else {
                         val newRetryCount = retryCount + 1
                         prefs.edit()
                             .putLong("last_crash_upload_ts", now)
                             .putInt("crash_upload_retry_count", newRetryCount)
                             .apply()
-                        Log.w("NexovaCrash", "Failed to upload crash logs: HTTP $responseCode. Retry count: $newRetryCount")
+                        Log.w("ValenixiaCrash", "Failed to upload crash logs: HTTP $responseCode. Retry count: $newRetryCount")
                     }
                     conn.disconnect()
                 } catch (e: Exception) {
@@ -1063,7 +1144,7 @@ class MainActivity : AppCompatActivity() {
                         .putLong("last_crash_upload_ts", System.currentTimeMillis())
                         .putInt("crash_upload_retry_count", newRetryCount)
                         .apply()
-                    Log.w("NexovaCrash", "Exception in crash log upload: ${e.message}. Retry count: $newRetryCount")
+                    Log.w("ValenixiaCrash", "Exception in crash log upload: ${e.message}. Retry count: $newRetryCount")
                 }
             }
         }

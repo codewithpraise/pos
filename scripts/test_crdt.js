@@ -1,5 +1,5 @@
 // scripts/test_crdt.js
-// Automated test suite for Nexova CRDT and Hybrid Logical Clock engine
+// Automated test suite for Valenixia CRDT and Hybrid Logical Clock engine
 const assert = require('assert');
 const { HLC, shouldApplyDelta } = require('../crdt-engine');
 

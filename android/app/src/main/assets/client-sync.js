@@ -1,6 +1,6 @@
 (function() {
   const globalScope = typeof self !== 'undefined' ? self : window;
-  const DB_SCHEMA_VERSION = 3;
+  const DB_SCHEMA_VERSION = 10;
 
   class BrowserHLC {
   constructor(nodeId) {
@@ -78,7 +78,7 @@ class SyncClient {
   async encryptMessage(payload) {
     const json = JSON.stringify(payload);
     if (this.passphrase) {
-      return await globalScope.CryptoEngine.encrypt(json, this.passphrase);
+      return await globalScope.CryptoEngine.encryptSync(json, this.passphrase);
     }
     return json;
   }
@@ -86,9 +86,33 @@ class SyncClient {
   // Helper to parse and optionally decrypt incoming raw data
   async decryptMessage(rawData) {
     let text = rawData;
-    if (this.passphrase && !rawData.trim().startsWith('{')) {
-      text = await globalScope.CryptoEngine.decrypt(rawData, this.passphrase);
+    const looksEncrypted = typeof rawData === 'string' && !rawData.trim().startsWith('{');
+
+    if (this.passphrase && looksEncrypted) {
+      text = await globalScope.CryptoEngine.decryptSync(rawData, this.passphrase);
+
+      // If decryptSync returned the original string, decryption failed (wrong key)
+      if (text === rawData) {
+        if (!this.passphraseInvalid) {
+          this.passphraseInvalid = true;
+          console.warn(`[SyncClient:${this.nodeId}] Decryption failed (passphrase mismatch). Halting auto-reconnect.`);
+          globalScope.postMessage({ type: 'SYNC_ERROR', error: 'PASSPHRASE_MISMATCH' });
+          if (this.ws) this.ws.close();
+        }
+        throw new Error('PASSPHRASE_MISMATCH');
+      }
+    } else if (!this.passphrase && looksEncrypted) {
+      // No passphrase on client — server may be using encryption.
+      // This is expected on a fresh/unpaired device. Suppress noisy error output;
+      // the outer onmessage catch will try a plain JSON parse which will also fail
+      // silently. User must pair (Settings → Sync Passphrase) to establish the channel.
+      if (!this._warnedNoPassphrase) {
+        this._warnedNoPassphrase = true;
+        console.warn(`[SyncClient:${this.nodeId}] Server sent encrypted payload but no sync passphrase is configured on this client. Pair this device via Settings → Sync → Passphrase.`);
+      }
+      throw new Error('NO_PASSPHRASE');
     }
+
     return JSON.parse(text);
   }
 
@@ -157,12 +181,18 @@ class SyncClient {
         const data = await this.decryptMessage(event.data);
         this.handleMessage(data);
       } catch (err) {
-        // If decryption fails, try parsing as plaintext (e.g. handshake, device_pending, device_approved, unauthorized)
+        // Attempt plain-text JSON fallback (unencrypted handshake, control messages)
         try {
           const parsed = JSON.parse(event.data);
           this.handleMessage(parsed);
         } catch (e2) {
-          console.error('Error handling WebSocket message:', err);
+          // Known benign errors from decryptMessage — suppress to warn level, not error
+          const benign = err.message === 'NO_PASSPHRASE' || err.message === 'PASSPHRASE_MISMATCH';
+          if (benign) {
+            // Already logged once by decryptMessage — no further noise needed
+          } else {
+            console.error(`[SyncClient:${this.nodeId}] Unhandled WebSocket message:`, err.message);
+          }
         }
       }
     };
@@ -227,8 +257,8 @@ class SyncClient {
       this.deviceToken = data.token;
       
       // Save directly to local IndexedDB preferences
-      if (globalScope.NexovaDB) {
-        globalScope.NexovaDB.put('local_preferences', {
+      if (globalScope.ValenixiaDB) {
+        globalScope.ValenixiaDB.put('local_preferences', {
           key: 'device_token',
           value_type: 'STR',
           value_payload: data.token,
@@ -251,8 +281,8 @@ class SyncClient {
     else if (data.type === 'device_rejected') {
       console.warn(`[SyncClient:${this.nodeId}] Device was rejected.`);
       this.deviceToken = null;
-      if (globalScope.NexovaDB) {
-        globalScope.NexovaDB.delete('local_preferences', 'device_token');
+      if (globalScope.ValenixiaDB) {
+        globalScope.ValenixiaDB.delete('local_preferences', 'device_token');
       }
       globalScope.postMessage({ type: 'DEVICE_REJECTED' });
     }
@@ -260,8 +290,8 @@ class SyncClient {
     else if (data.type === 'unauthorized') {
       console.warn(`[SyncClient:${this.nodeId}] Unauthorized token. Clearing credentials.`);
       this.deviceToken = null;
-      if (globalScope.NexovaDB) {
-        globalScope.NexovaDB.delete('local_preferences', 'device_token');
+      if (globalScope.ValenixiaDB) {
+        globalScope.ValenixiaDB.delete('local_preferences', 'device_token');
       }
       globalScope.postMessage({ type: 'DEVICE_UNAUTHORIZED' });
     }
@@ -384,6 +414,9 @@ class SyncClient {
       console.log(`[SyncClient:${this.nodeId}] Offline. Queueing delta:`, change);
       this.offlineQueue.push(change);
       
+      // Notify main thread of the updated queue size
+      globalScope.postMessage({ type: 'OFFLINE_QUEUE_UPDATE', count: this.offlineQueue.length });
+      
       // Notify parent app of locally applied offline change
       this.onSyncReceived([change]);
     }
@@ -405,6 +438,9 @@ class SyncClient {
       this.ws.send(enc);
       
       this.offlineQueue = [];
+      
+      // Notify main thread that the queue has been cleared
+      globalScope.postMessage({ type: 'OFFLINE_QUEUE_UPDATE', count: 0 });
     }
   }
 

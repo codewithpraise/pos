@@ -418,17 +418,17 @@
         paymentFields.style.display = 'flex';
         document.getElementById('onboard-rrn').setAttribute('required', 'required');
         
-        let amount = '50,000';
+        let amount = '0';
         if (tier === 'STARTER') {
-          amount = mode === 'lifetime' ? '120,000' : '20,000';
+          amount = mode === 'lifetime' ? '79,000' : '3,499';
         } else if (tier === 'PRO') {
-          amount = mode === 'lifetime' ? '300,000' : '50,000';
+          amount = mode === 'lifetime' ? '149,000' : '6,999';
         } else if (tier === 'ENTERPRISE') {
-          amount = mode === 'lifetime' ? '900,000' : '150,000';
+          amount = mode === 'lifetime' ? '249,000' : '11,999';
         }
         
         const periodText = mode === 'lifetime' ? 'one-time Lifetime license' : 'monthly subscription';
-        paymentInstructions.innerHTML = `Please transfer <strong style="color: var(--text-white);">Rs. ${amount}</strong> for the ${tier} ${periodText} to NayaPay Account <strong>0300-1234567</strong> or via Raast ID <strong>nexova@nayapay</strong>. Submit the Reference Number (RRN) below.`;
+        paymentInstructions.innerHTML = `Please transfer <strong style="color: var(--text-white);">Rs. ${amount}</strong> for the ${tier} ${periodText} to NayaPay Account <strong>0331-5133226</strong> (Muhammad Soban Ali) or IBAN <strong>PK47NAYA1234503315133226</strong>. Submit the Reference Number (RRN) below.`;
       }
     }
 

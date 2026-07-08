@@ -1,6 +1,6 @@
-# Nexova POS — Enterprise Local-First Commerce Engine 🌌
+# Valenixia POS — Enterprise Local-First Commerce Engine 🌌
 
-Nexova is a zero-trust, masterless, offline-first Point of Sale (POS) system and peer-to-peer sync engine designed for high-volume retail. By combining a **local-first database architecture** with **cryptographic offline licensing** and **asynchronous cloud disaster recovery**, Nexova operates 100% functional under total network partitions while retaining absolute data integrity.
+Valenixia is a zero-trust, masterless, offline-first Point of Sale (POS) system and peer-to-peer sync engine designed for high-volume retail. By combining a **local-first database architecture** with **cryptographic offline licensing** and **asynchronous cloud disaster recovery**, Valenixia operates 100% functional under total network partitions while retaining absolute data integrity.
 
 ---
 
@@ -94,7 +94,7 @@ Nexova is a zero-trust, masterless, offline-first Point of Sale (POS) system and
 
 ### Cloud Setup (Disaster Recovery Provisioning)
 1. Go to your **Supabase Dashboard** -> **SQL Editor**.
-2. Run the DDL migration queries written in [init_disaster_recovery.sql](file:///c:/Users/DELL/Desktop/nexova/supabase/migrations/20260630000000_init_disaster_recovery.sql) to set up remote tables and secure Row Level Security (RLS) rules checking `x-store-id` headers.
+2. Run the DDL migration queries written in [init_disaster_recovery.sql](file:///c:/Users/DELL/Desktop/valenixia/supabase/migrations/20260630000000_init_disaster_recovery.sql) to set up remote tables and secure Row Level Security (RLS) rules checking `x-store-id` headers.
 3. Test your connection:
   ```bash
   node scripts/test_supabase.js
@@ -136,13 +136,13 @@ MAX_BACKUPS=7       # how many rotated backup files to keep
 ## 🔐 Security Hardening
 
 - **PBKDF2**: 100,000 iterations, SHA-256, 256-bit key. Keys cached in-memory per session.
-- **Android Keystore**: `server_url` stored encrypted via hardware-backed AES-GCM 256-bit keys (`nexova_prefs_key`).
+- **Android Keystore**: `server_url` stored encrypted via hardware-backed AES-GCM 256-bit keys (`valenixia_prefs_key`).
 - **Input Validation**: All sensitive endpoints validated via `lib/validator.js` (store name, PIN, passphrase, UUIDs).
 - **Circuit Breaker**: Supabase sync halts after 5 consecutive failures, resumes after 60 seconds.
 - **val_type Whitelist**: Sync payloads with invalid `val_type` are rejected before upsert.
 - **Google Safe Browsing**: Enabled for Android 8.0+ WebView.
 - **CSP Headers**: Enforced via Helmet with restrictive `defaultSrc: 'self'`.
-- **Crash Logger**: Uncaught exceptions written to `nexova_crash.log` on Android external storage.
+- **Crash Logger**: Uncaught exceptions written to `valenixia_crash.log` on Android external storage.
 
 ---
 
@@ -164,12 +164,12 @@ Migrations run **automatically** on server startup. Tracked in `local_preference
 ```bash
 node scripts/backup.js
 ```
-Saves a live SQLite copy to `backups/nexova_YYYY-MM-DD-HHmmSS.db` (last `MAX_BACKUPS` retained).
+Saves a live SQLite copy to `backups/valenixia_YYYY-MM-DD-HHmmSS.db` (last `MAX_BACKUPS` retained).
 
 ### Restore a Backup
 ```bash
 # Stop the server, restore, restart
-cp backups/nexova_2026-07-07-120000.db nexova.db
+cp backups/valenixia_2026-07-07-120000.db valenixia.db
 npm start
 ```
 Verify restore via `GET /api/health`.

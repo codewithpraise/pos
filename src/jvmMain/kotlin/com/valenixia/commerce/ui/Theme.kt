@@ -1,4 +1,4 @@
-package com.nexova.commerce.ui
+package com.valenixia.commerce.ui
 
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Typography
@@ -13,7 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.spring
 
-data class NexovaColors(
+data class ValenixiaColors(
     val surface0: Color,
     val surface1: Color,
     val surface2: Color,
@@ -44,7 +44,7 @@ data class NexovaColors(
     val rowOdd: Color
 )
 
-val ObsidianEmerald = NexovaColors(
+val ObsidianEmerald = ValenixiaColors(
     surface0 = Color(0xFF000000),
     surface1 = Color(0xFF050505),
     surface2 = Color(0xFF0D0D0D),
@@ -75,7 +75,7 @@ val ObsidianEmerald = NexovaColors(
     rowOdd = Color(0xFF0D0D0D)
 )
 
-val MidnightSapphire = NexovaColors(
+val MidnightSapphire = ValenixiaColors(
     surface0 = Color(0xFF020617),
     surface1 = Color(0xFF0F172A),
     surface2 = Color(0xFF1E293B),
@@ -106,7 +106,7 @@ val MidnightSapphire = NexovaColors(
     rowOdd = Color(0xFF17233E)
 )
 
-val WarmAmber = NexovaColors(
+val WarmAmber = ValenixiaColors(
     surface0 = Color(0xFF1C1917),
     surface1 = Color(0xFF292524),
     surface2 = Color(0xFF44403C),
@@ -137,7 +137,7 @@ val WarmAmber = NexovaColors(
     rowOdd = Color(0xFF35302D)
 )
 
-val MinimalistChrome = NexovaColors(
+val MinimalistChrome = ValenixiaColors(
     surface0 = Color(0xFF000000),
     surface1 = Color(0xFF121212),
     surface2 = Color(0xFF222222),
@@ -168,7 +168,7 @@ val MinimalistChrome = NexovaColors(
     rowOdd = Color(0xFF1E1E1E)
 )
 
-val MonochromeIvory = NexovaColors(
+val MonochromeIvory = ValenixiaColors(
     surface0 = Color(0xFFF5F5F4),
     surface1 = Color(0xFFE7E5E4),
     surface2 = Color(0xFFD6D3D1),
@@ -199,44 +199,44 @@ val MonochromeIvory = NexovaColors(
     rowOdd = Color(0xFFECEAEA)
 )
 
-val LocalNexovaColors = staticCompositionLocalOf { ObsidianEmerald }
+val LocalValenixiaColors = staticCompositionLocalOf { ObsidianEmerald }
 val LocalIsDarkMode = staticCompositionLocalOf { true }
 
 // Legacy color properties using @get:Composable for seamless integration
-val Obsidian: Color @Composable get() = LocalNexovaColors.current.surface0
-val InkBlack: Color @Composable get() = LocalNexovaColors.current.surface1
-val Graphite: Color @Composable get() = LocalNexovaColors.current.surface2
-val GraphiteLight: Color @Composable get() = LocalNexovaColors.current.surface3
-val GraphiteHover: Color @Composable get() = LocalNexovaColors.current.surfaceHover
-val SidebarBg: Color @Composable get() = LocalNexovaColors.current.sidebarBg
-val BorderSubtle: Color @Composable get() = LocalNexovaColors.current.borderSubtle
-val BorderDefault: Color @Composable get() = LocalNexovaColors.current.borderDefault
-val BorderFocus: Color @Composable get() = LocalNexovaColors.current.borderFocus
-val TextPrimary: Color @Composable get() = LocalNexovaColors.current.textPrimary
-val TextSecondary: Color @Composable get() = LocalNexovaColors.current.textSecondary
-val TextMuted: Color @Composable get() = LocalNexovaColors.current.textMuted
-val Titanium: Color @Composable get() = LocalNexovaColors.current.textSecondary
-val NeonCyan: Color @Composable get() = LocalNexovaColors.current.accent
-val NeonCyanDim: Color @Composable get() = LocalNexovaColors.current.accentDim
-val NeonCyanGlow: Color @Composable get() = LocalNexovaColors.current.accentGlow
-val EmeraldGreen: Color @Composable get() = LocalNexovaColors.current.success
-val EmeraldDim: Color @Composable get() = LocalNexovaColors.current.successDim
-val NeonEmerald: Color @Composable get() = LocalNexovaColors.current.success
-val AmberOrange: Color @Composable get() = LocalNexovaColors.current.warning
-val AmberDim: Color @Composable get() = LocalNexovaColors.current.warningDim
-val CoralRed: Color @Composable get() = LocalNexovaColors.current.error
-val CoralDim: Color @Composable get() = LocalNexovaColors.current.errorDim
-val AlertCoral: Color @Composable get() = LocalNexovaColors.current.error
-val IndigoBlue: Color @Composable get() = LocalNexovaColors.current.info
-val IndigoDim: Color @Composable get() = LocalNexovaColors.current.infoDim
-val SidebarAccent: Color @Composable get() = LocalNexovaColors.current.sidebarAccent
-val NavItemActive: Color @Composable get() = LocalNexovaColors.current.navItemActive
-val NavItemHover: Color @Composable get() = LocalNexovaColors.current.navItemHover
-val RowEven: Color @Composable get() = LocalNexovaColors.current.rowEven
-val RowOdd: Color @Composable get() = LocalNexovaColors.current.rowOdd
+val Obsidian: Color @Composable get() = LocalValenixiaColors.current.surface0
+val InkBlack: Color @Composable get() = LocalValenixiaColors.current.surface1
+val Graphite: Color @Composable get() = LocalValenixiaColors.current.surface2
+val GraphiteLight: Color @Composable get() = LocalValenixiaColors.current.surface3
+val GraphiteHover: Color @Composable get() = LocalValenixiaColors.current.surfaceHover
+val SidebarBg: Color @Composable get() = LocalValenixiaColors.current.sidebarBg
+val BorderSubtle: Color @Composable get() = LocalValenixiaColors.current.borderSubtle
+val BorderDefault: Color @Composable get() = LocalValenixiaColors.current.borderDefault
+val BorderFocus: Color @Composable get() = LocalValenixiaColors.current.borderFocus
+val TextPrimary: Color @Composable get() = LocalValenixiaColors.current.textPrimary
+val TextSecondary: Color @Composable get() = LocalValenixiaColors.current.textSecondary
+val TextMuted: Color @Composable get() = LocalValenixiaColors.current.textMuted
+val Titanium: Color @Composable get() = LocalValenixiaColors.current.textSecondary
+val NeonCyan: Color @Composable get() = LocalValenixiaColors.current.accent
+val NeonCyanDim: Color @Composable get() = LocalValenixiaColors.current.accentDim
+val NeonCyanGlow: Color @Composable get() = LocalValenixiaColors.current.accentGlow
+val EmeraldGreen: Color @Composable get() = LocalValenixiaColors.current.success
+val EmeraldDim: Color @Composable get() = LocalValenixiaColors.current.successDim
+val NeonEmerald: Color @Composable get() = LocalValenixiaColors.current.success
+val AmberOrange: Color @Composable get() = LocalValenixiaColors.current.warning
+val AmberDim: Color @Composable get() = LocalValenixiaColors.current.warningDim
+val CoralRed: Color @Composable get() = LocalValenixiaColors.current.error
+val CoralDim: Color @Composable get() = LocalValenixiaColors.current.errorDim
+val AlertCoral: Color @Composable get() = LocalValenixiaColors.current.error
+val IndigoBlue: Color @Composable get() = LocalValenixiaColors.current.info
+val IndigoDim: Color @Composable get() = LocalValenixiaColors.current.infoDim
+val SidebarAccent: Color @Composable get() = LocalValenixiaColors.current.sidebarAccent
+val NavItemActive: Color @Composable get() = LocalValenixiaColors.current.navItemActive
+val NavItemHover: Color @Composable get() = LocalValenixiaColors.current.navItemHover
+val RowEven: Color @Composable get() = LocalValenixiaColors.current.rowEven
+val RowOdd: Color @Composable get() = LocalValenixiaColors.current.rowOdd
 
 @Composable
-fun NexovaTheme(themeName: String = "Obsidian Emerald", content: @Composable () -> Unit) {
+fun ValenixiaTheme(themeName: String = "Obsidian Emerald", content: @Composable () -> Unit) {
     val targetColors = when (themeName) {
         "Midnight Sapphire" -> MidnightSapphire
         "Warm Amber"        -> WarmAmber
@@ -249,7 +249,7 @@ fun NexovaTheme(themeName: String = "Obsidian Emerald", content: @Composable () 
     // Animate all color shifts via a spring spec (under 200ms feel)
     val colorSpec = spring<Color>(stiffness = 350f, dampingRatio = 0.85f)
     
-    val animatedColors = NexovaColors(
+    val animatedColors = ValenixiaColors(
         surface0 = animateColorAsState(targetColors.surface0, colorSpec).value,
         surface1 = animateColorAsState(targetColors.surface1, colorSpec).value,
         surface2 = animateColorAsState(targetColors.surface2, colorSpec).value,
@@ -309,7 +309,7 @@ fun NexovaTheme(themeName: String = "Obsidian Emerald", content: @Composable () 
     }
 
     CompositionLocalProvider(
-        LocalNexovaColors provides animatedColors,
+        LocalValenixiaColors provides animatedColors,
         LocalIsDarkMode provides !isLight
     ) {
         MaterialTheme(

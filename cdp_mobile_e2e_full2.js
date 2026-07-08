@@ -50,7 +50,7 @@ http.get('http://localhost:9222/json', async (res) => {
         for (const k of keys) { await caches.delete(k); }
         // Delete IndexedDB
         return new Promise((resolve) => {
-          const req = indexedDB.deleteDatabase('nexova_db');
+          const req = indexedDB.deleteDatabase('valenixia_db');
           req.onsuccess = () => resolve('CLEARED_ALL');
           req.onerror = (e) => resolve('DB_DELETE_ERR: ' + e.target.error.message);
           req.onblocked = () => resolve('DB_DELETE_BLOCKED');
@@ -68,7 +68,7 @@ http.get('http://localhost:9222/json', async (res) => {
         const phoneField = document.getElementById('license-phone-input');
         const btn = document.getElementById('license-activate-btn');
         if (!keyField) return 'ERROR: no key field';
-        keyField.value = 'NEXOVA-ADMIN-777';
+        keyField.value = 'VALENIXIA-ADMIN-777';
         if (phoneField) phoneField.value = '03001234567';
         if (!btn) return 'ERROR: no activate btn';
         
@@ -213,7 +213,7 @@ http.get('http://localhost:9222/json', async (res) => {
         };
         
         // 5. Check console log stack
-        audits.logs = window.__nexovaLogs || [];
+        audits.logs = window.__valenixiaLogs || [];
         
         return JSON.stringify(audits);
       })()`, id++);

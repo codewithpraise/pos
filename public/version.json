@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "updated_at": "2026-07-08",
-  "changelog": "Nexova POS initial production release with full local-first architecture, Ed25519 license verification, CRDT multi-device sync, and SaaS billing portal.",
+  "changelog": "Valenixia POS initial production release with full local-first architecture, Ed25519 license verification, CRDT multi-device sync, and SaaS billing portal.",
   "changes": [
     "Local-first SQLite architecture with full offline capability",
     "Ed25519 asymmetric license verification with 48-hour grace period",

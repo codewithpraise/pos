@@ -1,5 +1,5 @@
 // ============================================================================
-// NEXOVA ESC/POS ENGINE — DIRECT THERMAL PRINTER CONTROL VIA WebUSB
+// VALENIXIA ESC/POS ENGINE — DIRECT THERMAL PRINTER CONTROL VIA WebUSB
 // Bypasses OS print spooler entirely. Compiles receipts to raw byte codes.
 // Drawer firing is decoupled from printing behind a strict state lock.
 // Fallback: local network socket relay for iOS / unsupported browsers.
@@ -70,7 +70,7 @@ const EscPosEngine = (() => {
     push(CMD.ALIGN_CENTER);
     push(CMD.BOLD_ON);
     push(CMD.DOUBLE_HEIGHT);
-    text(data.storeName || 'NEXOVA POS');
+    text(data.storeName || 'VALENIXIA POS');
     push(CMD.NORMAL_SIZE);
     push(CMD.BOLD_OFF);
     text(data.storeAddress || '');
@@ -82,9 +82,14 @@ const EscPosEngine = (() => {
     text(divider());
 
     for (const item of (data.items || [])) {
-      const name  = (item.name || '').slice(0, 20);
+      const name  = item.name || '';
       const price = `Rs.${(item.unitPrice / 100).toFixed(2)}`;
-      text(formatLine(name, price));
+      if (name.length > 20) {
+        text(formatLine(name.slice(0, 20), price));
+        text(`  ${name.slice(20)}`);
+      } else {
+        text(formatLine(name, price));
+      }
       if (item.qty > 1) {
         const sub = `  x${item.qty}`;
         const total = `Rs.${(item.unitPrice * item.qty / 100).toFixed(2)}`;
@@ -110,7 +115,7 @@ const EscPosEngine = (() => {
     text(divider());
     push(CMD.ALIGN_CENTER);
     text('Thank you for your purchase!');
-    text(data.footerText || 'Powered by Nexova POS');
+    text(data.footerText || 'Powered by Valenixia POS');
     push(CMD.FEED_3);
     push(CMD.CUT_PARTIAL);
 
@@ -273,7 +278,7 @@ const EscPosEngine = (() => {
     const width = PAPER_WIDTH_CHARS;
     const dividerStr = '-'.repeat(width);
 
-    lines.push({ text: data.storeName || 'NEXOVA POS', bold: true, size: 'double', align: 'center' });
+    lines.push({ text: data.storeName || 'VALENIXIA POS', bold: true, size: 'double', align: 'center' });
     if (data.storeAddress) lines.push({ text: data.storeAddress, align: 'center' });
     lines.push({ text: dividerStr, align: 'center' });
     lines.push({ text: `تاریخ : ${new Date(data.timestamp || Date.now()).toLocaleString('ur-PK')}`, align: 'left' });
@@ -282,9 +287,14 @@ const EscPosEngine = (() => {
     lines.push({ text: dividerStr, align: 'center' });
 
     for (const item of (data.items || [])) {
-      const name = (item.name || '').slice(0, 20);
+      const name = item.name || '';
       const price = `Rs.${(item.unitPrice / 100).toFixed(2)}`;
-      lines.push({ left: name, right: price, align: 'split' });
+      if (name.length > 20) {
+        lines.push({ left: name.slice(0, 20), right: price, align: 'split' });
+        lines.push({ text: `  ${name.slice(20)}`, align: 'left' });
+      } else {
+        lines.push({ left: name, right: price, align: 'split' });
+      }
       if (item.qty > 1) {
         const sub = `  x${item.qty}`;
         const total = `Rs.${(item.unitPrice * item.qty / 100).toFixed(2)}`;
@@ -306,7 +316,7 @@ const EscPosEngine = (() => {
     if (data.change > 0) lines.push({ left: 'واپسی', right: `Rs.${(data.change / 100).toFixed(2)}`, align: 'split' });
     lines.push({ text: dividerStr, align: 'center' });
     lines.push({ text: 'خریداری کا شکریہ!', align: 'center' });
-    lines.push({ text: data.footerText || 'Powered by Nexova POS', align: 'center' });
+    lines.push({ text: data.footerText || 'Powered by Valenixia POS', align: 'center' });
 
     const canvas = document.createElement('canvas');
     canvas.width = 384;

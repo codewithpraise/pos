@@ -1,5 +1,5 @@
 // ============================================================================
-// NEXOVA COMMERCE ECOSYSTEM - SUPABASE DISASTER RECOVERY ENGINE
+// VALENIXIA COMMERCE ECOSYSTEM - SUPABASE DISASTER RECOVERY ENGINE
 // Asynchronously mirrors local SQLite CRDT delta logs to cloud control plane
 // ============================================================================
 

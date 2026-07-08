@@ -1,4 +1,4 @@
-package com.nexova.commerce.crdt
+package com.valenixia.commerce.crdt
 
 import java.util.UUID
 import kotlinx.serialization.SerialName

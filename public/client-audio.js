@@ -1,5 +1,5 @@
 // ============================================================================
-// NEXOVA COMMERCE ECOSYSTEM - PREMIUM SYNTHESIZED SOUND DESIGN
+// VALENIXIA COMMERCE ECOSYSTEM - PREMIUM SYNTHESIZED SOUND DESIGN
 // Powered by HTML5 Web Audio API (Zero external assets required)
 // ============================================================================
 

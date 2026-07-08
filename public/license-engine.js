@@ -1,5 +1,5 @@
 // ============================================================================
-// NEXOVA LICENSE ENGINE — CLIENT-SIDE ASYMMETRIC VERIFICATION
+// VALENIXIA LICENSE ENGINE — CLIENT-SIDE ASYMMETRIC VERIFICATION
 // Runs before any app logic. Blocks execution if unlicensed/expired/tampered.
 // Uses Ed25519 via SubtleCrypto. No network calls — fully offline.
 // ============================================================================
@@ -13,7 +13,7 @@ const LicenseEngine = (() => {
   // produce tokens that pass verification here.
   const PUBLIC_KEY_B64 = 'MCowBQYDK2VwAyEAAmPdCoDENbcrE6zLVqX0WUtnV9VRsL05HwFD9ypEARo=';
 
-  const STORAGE_KEY_LICENSE    = 'nexova_license_token';
+  const STORAGE_KEY_LICENSE    = 'valenixia_license_token';
   const STORAGE_KEY_ANCHOR     = 'last_known_secure_time';
   const STORAGE_KEY_EULA       = 'eula_accepted';
   const CLOCK_SKEW_TOLERANCE_MS = 60 * 1000; // 1 minute grace
@@ -25,7 +25,7 @@ const LicenseEngine = (() => {
     const ctx = canvas.getContext('2d');
     ctx.textBaseline = 'top';
     ctx.font = '14px Arial';
-    ctx.fillText('NexovaPOS-HWID-Seed', 2, 2);
+    ctx.fillText('ValenixiaPOS-HWID-Seed', 2, 2);
     const canvasData = canvas.toDataURL();
 
     const components = [
@@ -144,7 +144,7 @@ const LicenseEngine = (() => {
           // Only purge if it is explicitly an encoding error, otherwise leave it alone
           if (e.message.includes('atob') || e.message.includes('URI') || e.message.includes('encoded')) {
               console.warn('[LicenseEngine] Token format unrecoverable. Purging.');
-              await NexovaDB.setSecurePref('nexova_license_token', null);
+              await ValenixiaDB.setSecurePref('valenixia_license_token', null);
           }
           return { valid: false, reason: 'Token parse error: ' + e.message };
         }
@@ -188,7 +188,7 @@ const LicenseEngine = (() => {
       // Only purge if it is explicitly an encoding error, otherwise leave it alone
       if (err.message.includes('atob') || err.message.includes('URI') || err.message.includes('encoded')) {
           console.warn('[LicenseEngine] Token format unrecoverable. Purging.');
-          await NexovaDB.setSecurePref('nexova_license_token', null);
+          await ValenixiaDB.setSecurePref('valenixia_license_token', null);
       }
       return { valid: false, reason: `Verification error: ${err.message}` };
     }
@@ -197,7 +197,7 @@ const LicenseEngine = (() => {
   // ── Monotonic Time Anchor check ───────────────────────────────────────────
   async function checkTimeAnchor() {
     try {
-      const db = await NexovaDB.getPreference(STORAGE_KEY_ANCHOR);
+      const db = await ValenixiaDB.getPreference(STORAGE_KEY_ANCHOR);
       if (!db) return { tampered: false };
       const lastKnown = parseInt(db);
       if (isNaN(lastKnown)) return { tampered: false };
@@ -227,7 +227,7 @@ const LicenseEngine = (() => {
           <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
         </svg>
         <div style="font-size: clamp(18px,3vw,24px); font-weight: 800; color: #f8fafc; letter-spacing: -0.02em; margin-bottom: 12px;">
-          NEXOVA POS — ACCESS RESTRICTED
+          VALENIXIA POS — ACCESS RESTRICTED
         </div>
         <div id="license-message" style="font-size: 13px; color: #94a3b8; line-height: 1.6; margin-bottom: 24px; border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 16px; background: rgba(239,68,68,0.05);">
           ${message}
@@ -256,7 +256,7 @@ const LicenseEngine = (() => {
         >EMERGENCY BYPASS (15 MIN)</button>
 
         <div id="in-app-signup-container" style="margin-top: 24px; padding-top: 24px; border-top: 1px dashed #222; text-align: left;">
-            <h4 style="color: #fff; margin-bottom: 12px; font-size:13px; font-weight:700;">New to Nexova? Start Free Trial</h4>
+            <h4 style="color: #fff; margin-bottom: 12px; font-size:13px; font-weight:700;">New to Valenixia? Start Free Trial</h4>
             <input type="text" id="signup-store-name" placeholder="Business Name"
               style="width: 100%; box-sizing: border-box; padding: 12px; background: #121217; border: 1px solid #333; border-radius: 6px; color: #f8fafc; font-size: 13px; margin-bottom: 10px; outline: none;"
             />
@@ -280,7 +280,7 @@ const LicenseEngine = (() => {
       const pin = prompt('Enter Manager or Administrator PIN for emergency override:');
       if (!pin) return;
       
-      const serverBase = window.__nexovaServerUrl || location.origin;
+      const serverBase = window.__valenixiaServerUrl || location.origin;
       try {
         const resp = await fetch(serverBase + '/api/auth/emergency-override', {
           method: 'POST',
@@ -290,7 +290,7 @@ const LicenseEngine = (() => {
         
         if (resp.ok) {
           const data = await resp.json();
-          await NexovaDB.setSecurePref('emergency_override_until', String(data.emergency_override_until));
+          await ValenixiaDB.setSecurePref('emergency_override_until', String(data.emergency_override_until));
           alert('Emergency override approved by server! App will reload now.');
           location.reload();
           return;
@@ -300,10 +300,10 @@ const LicenseEngine = (() => {
       }
 
       try {
-        const emp = await NexovaDB.verifyEmployeePin(pin);
+        const emp = await ValenixiaDB.verifyEmployeePin(pin);
         if (emp && (emp.role === 'MANAGER' || emp.role === 'ADMIN')) {
           const localUntil = Date.now() + 15 * 60 * 1000;
-          await NexovaDB.setSecurePref('emergency_override_until', String(localUntil));
+          await ValenixiaDB.setSecurePref('emergency_override_until', String(localUntil));
           alert('Emergency override verified locally offline! App will reload now.');
           location.reload();
         } else {
@@ -331,20 +331,20 @@ const LicenseEngine = (() => {
         const hwid = await generateHWID();
 
         // God Mode Local Bypass: If master key is entered, validate locally immediately
-        if (code === 'NEXOVA-ADMIN-777') {
+        if (code === 'VALENIXIA-ADMIN-777') {
           const mockToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' + 
                             btoa(JSON.stringify({ licenseKey: code, hwid: hwid, tier: 'ENTERPRISE', exp: Date.now() + 100 * 365 * 24 * 60 * 60 * 1000 })) + 
                             '.mock_signature';
-          await NexovaDB.setSecurePref(STORAGE_KEY_LICENSE, mockToken);
-          window.__nexovaTier = 'ENTERPRISE';
-          window.__nexovaHWID = hwid;
+          await ValenixiaDB.setSecurePref(STORAGE_KEY_LICENSE, mockToken);
+          window.__valenixiaTier = 'ENTERPRISE';
+          window.__valenixiaHWID = hwid;
           document.getElementById('license-lockout-overlay')?.remove();
           alert('Master Admin Access Activated!');
           location.reload();
           return;
         }
 
-        const serverBase = window.__nexovaServerUrl || location.origin;
+        const serverBase = window.__valenixiaServerUrl || location.origin;
         
         const response = await fetch(serverBase + '/api/license/activate', {
           method: 'POST',
@@ -360,9 +360,9 @@ const LicenseEngine = (() => {
           return;
         }
         
-        await NexovaDB.setSecurePref(STORAGE_KEY_LICENSE, result.token);
-        window.__nexovaTier = result.tier;
-        window.__nexovaHWID = hwid;
+        await ValenixiaDB.setSecurePref(STORAGE_KEY_LICENSE, result.token);
+        window.__valenixiaTier = result.tier;
+        window.__valenixiaHWID = hwid;
         document.getElementById('license-lockout-overlay')?.remove();
         location.reload();
       } catch (err) {
@@ -388,7 +388,7 @@ const LicenseEngine = (() => {
       btn.disabled = true;
 
       try {
-        const serverBase = window.__nexovaServerUrl || location.origin;
+        const serverBase = window.__valenixiaServerUrl || location.origin;
         
         // 1. Register and get 6-digit code
         const onboardRes = await fetch(serverBase + '/api/onboard', {
@@ -410,10 +410,10 @@ const LicenseEngine = (() => {
         const activateData = await activateRes.json();
 
         if (activateData.token) {
-          await NexovaDB.setSecurePref(STORAGE_KEY_LICENSE, activateData.token);
-          window.__nexovaTier = activateData.tier;
-          window.__nexovaHWID = hwid;
-          alert('Trial Activated! Welcome to Nexova POS.');
+          await ValenixiaDB.setSecurePref(STORAGE_KEY_LICENSE, activateData.token);
+          window.__valenixiaTier = activateData.tier;
+          window.__valenixiaHWID = hwid;
+          alert('Trial Activated! Welcome to Valenixia POS.');
           window.location.reload();
         } else {
           throw new Error(activateData.error || 'Token activation failed.');
@@ -461,13 +461,13 @@ const LicenseEngine = (() => {
     // Poll server every 5 seconds for approval
     const pollInterval = setInterval(async () => {
       try {
-        const serverBase = (window.__nexovaServerUrl || location.origin);
+        const serverBase = (window.__valenixiaServerUrl || location.origin);
         const response = await fetch(serverBase + '/api/license/check', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (response.status === 401 || response.status === 404) {
           clearInterval(pollInterval);
-          await NexovaDB.setSecurePref(STORAGE_KEY_LICENSE, null);
+          await ValenixiaDB.setSecurePref(STORAGE_KEY_LICENSE, null);
           location.reload();
           return;
         }
@@ -477,7 +477,7 @@ const LicenseEngine = (() => {
         if (result.updated && result.token) {
           clearInterval(pollInterval);
           console.log('[License] License approved! Saving new token and booting app...');
-          await NexovaDB.setSecurePref(STORAGE_KEY_LICENSE, result.token);
+          await ValenixiaDB.setSecurePref(STORAGE_KEY_LICENSE, result.token);
           location.reload();
         }
       } catch (err) {
@@ -537,13 +537,47 @@ const LicenseEngine = (() => {
   // ── EULA check ─────────────────────────────────────────────────────────────
   async function isEulaAccepted() {
     try {
-      const val = await NexovaDB.getPreference(STORAGE_KEY_EULA);
+      const val = await ValenixiaDB.getPreference(STORAGE_KEY_EULA);
       return val === 'true';
     } catch { return false; }
   }
 
   // ── Staged Neo-Minimalist Trial HUD Banner ────────────────────────────────
   function updateTrialHUD(payload) {
+    // Check if AMC is expired for Lifetime licenses
+    const isAmcExpired = payload && payload.mode === 'lifetime' && 
+                         payload.purchased_at && 
+                         (Date.now() > payload.purchased_at + 365 * 24 * 60 * 60 * 1000) && 
+                         (!payload.amc_paid_until || payload.amc_paid_until < Date.now());
+    
+    if (isAmcExpired) {
+      document.getElementById('trial-hud-banner')?.remove();
+      
+      const banner = document.createElement('div');
+      banner.id = 'trial-hud-banner';
+      banner.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0; z-index: 99999;
+        text-align: center; font-family: 'Manrope', sans-serif; font-size: 12px;
+        font-weight: 700; padding: 10px 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+        background-color: #ef4444; color: #060608; cursor: pointer;
+      `;
+      banner.innerHTML = `⚠️ AMC EXPIRED: Your Annual Maintenance Contract has expired. Cloud sync and support are disabled. Click here to renew.`;
+      document.body.appendChild(banner);
+      document.body.style.paddingTop = '38px';
+      
+      banner.addEventListener('click', () => {
+        if (typeof window.switchActiveScreen === 'function') {
+          window.switchActiveScreen('settings');
+        }
+      });
+      
+      window.__amcExpired = true;
+      return;
+    } else {
+      window.__amcExpired = false;
+    }
+
     if (!payload || payload.mode === 'lifetime' || !payload.exp) {
       document.getElementById('trial-hud-banner')?.remove();
       return;
@@ -563,9 +597,9 @@ const LicenseEngine = (() => {
           const hwid = await generateHWID();
           const result = await verifyToken(token, hwid);
           if (result.valid) {
-            await NexovaDB.setSecurePref(STORAGE_KEY_LICENSE, token);
-            window.__nexovaTier = result.payload.tier;
-            window.__nexovaHWID = hwid;
+            await ValenixiaDB.setSecurePref(STORAGE_KEY_LICENSE, token);
+            window.__valenixiaTier = result.payload.tier;
+            window.__valenixiaHWID = hwid;
             location.reload();
           } else {
             const input = document.getElementById('license-input');
@@ -654,7 +688,7 @@ const LicenseEngine = (() => {
       // Make clicking the banner open the license key entry overlay
       banner.style.cursor = 'pointer';
       banner.addEventListener('click', () => {
-        mountLockoutOverlay(`Enter your 6-digit activation code and registered phone number below to activate your Nexova POS license.`);
+        mountLockoutOverlay(`Enter your 6-digit activation code and registered phone number below to activate your Valenixia POS license.`);
       });
 
       document.body.appendChild(banner);
@@ -688,7 +722,7 @@ const LicenseEngine = (() => {
         let matched = false;
         // Check local DB first
         try {
-          const emp = await NexovaDB.verifyEmployeePin(pin);
+          const emp = await ValenixiaDB.verifyEmployeePin(pin);
           if (emp && (emp.role === 'MANAGER' || emp.role === 'ADMIN')) {
             matched = true;
           }
@@ -697,7 +731,7 @@ const LicenseEngine = (() => {
         // Check server fallback
         if (!matched) {
           try {
-            const serverBase = (window.__nexovaServerUrl || location.origin);
+            const serverBase = (window.__valenixiaServerUrl || location.origin);
             const resp = await fetch(serverBase + '/api/employee/login', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -730,12 +764,12 @@ const LicenseEngine = (() => {
 
 
     // 3. Check stored license
-    let stored = await NexovaDB.getSecurePref(STORAGE_KEY_LICENSE);
+    let stored = await ValenixiaDB.getSecurePref(STORAGE_KEY_LICENSE);
     if (!stored) {
       const legacyToken = localStorage.getItem(STORAGE_KEY_LICENSE);
       if (legacyToken) {
         console.log('[License] Migrating legacy token from localStorage to secure IndexedDB...');
-        await NexovaDB.setSecurePref(STORAGE_KEY_LICENSE, legacyToken);
+        await ValenixiaDB.setSecurePref(STORAGE_KEY_LICENSE, legacyToken);
         localStorage.removeItem(STORAGE_KEY_LICENSE);
         stored = legacyToken;
       }
@@ -743,7 +777,7 @@ const LicenseEngine = (() => {
 
     // Check local emergency override status
     let isEmergencyOverride = false;
-    let overrideUntilVal = await NexovaDB.getSecurePref('emergency_override_until');
+    let overrideUntilVal = await ValenixiaDB.getSecurePref('emergency_override_until');
     if (overrideUntilVal) {
       const until = Number(overrideUntilVal);
       if (!isNaN(until) && until > Date.now()) {
@@ -754,8 +788,8 @@ const LicenseEngine = (() => {
     }
 
     if (isEmergencyOverride) {
-      window.__nexovaTier = 'ENTERPRISE';
-      window.__nexovaHWID = hwid;
+      window.__valenixiaTier = 'ENTERPRISE';
+      window.__valenixiaHWID = hwid;
       return true; // Allow local boot
     }
 
@@ -773,8 +807,8 @@ const LicenseEngine = (() => {
         }
 
         console.log(`[License] Valid — Tier: ${result.payload.tier}, Expires: ${new Date(result.payload.exp).toLocaleDateString()}`);
-        window.__nexovaTier = result.payload.tier;
-        window.__nexovaHWID = hwid;
+        window.__valenixiaTier = result.payload.tier;
+        window.__valenixiaHWID = hwid;
 
         // Render trial indicators
         updateTrialHUD(result.payload);
@@ -802,8 +836,8 @@ const LicenseEngine = (() => {
         // still allow boot — server middleware already enforces authorization.
         if (isHttpContext && result.reason && result.reason.includes('Verification error')) {
           console.warn('[License] HTTP context: crypto verification failed but token present — allowing boot.');
-          window.__nexovaTier = 'STANDARD';
-          window.__nexovaHWID = hwid;
+          window.__valenixiaTier = 'STANDARD';
+          window.__valenixiaHWID = hwid;
           return true;
         }
       }
@@ -812,8 +846,20 @@ const LicenseEngine = (() => {
       // every API endpoint via requireAuth middleware. Allow the app to boot so the
       // user can reach the login screen. The server will reject unauthorized calls.
       console.warn('[License] HTTP context without local token — server-side auth is enforcing access. Allowing boot.');
-      window.__nexovaTier = 'STANDARD';
-      window.__nexovaHWID = hwid;
+      window.__valenixiaTier = 'STANDARD';
+      window.__valenixiaHWID = hwid;
+      return true;
+    }
+
+    // Check if onboarding is complete
+    const onboardingCompletePref = await ValenixiaDB.get('local_preferences', 'onboarding_complete');
+    const isOnboardingComplete = onboardingCompletePref && onboardingCompletePref.value_payload === 'true';
+
+    // If onboarding is not complete and we have no stored token, allow boot to run wizard
+    if (!stored && !isOnboardingComplete) {
+      console.log('[License] Fresh install detected: Onboarding not complete. Allowing boot to run wizard.');
+      window.__valenixiaTier = 'TRIAL';
+      window.__valenixiaHWID = hwid;
       return true;
     }
 
@@ -821,7 +867,7 @@ const LicenseEngine = (() => {
     mountLockoutOverlay(
       stored
         ? `Your license is invalid or expired.<br><br>Please enter your 6-digit activation code and registered phone number below to reactivate your terminal.`
-        : `No license found for this device.<br><br>Please enter your 6-digit activation code and registered phone number below to activate Nexova POS.`
+        : `No license found for this device.<br><br>Please enter your 6-digit activation code and registered phone number below to activate Valenixia POS.`
     );
     return false; // Block app
   }
@@ -829,14 +875,14 @@ const LicenseEngine = (() => {
   // Silent background checking API logic
   async function pollLicenseUpdate(currentToken, hwid) {
     try {
-      const serverBase = (window.__nexovaServerUrl || location.origin);
+      const serverBase = (window.__valenixiaServerUrl || location.origin);
       const response = await fetch(serverBase + '/api/license/check', {
         headers: { 'Authorization': `Bearer ${currentToken}` }
       });
       if (response.status === 401 || response.status === 404) {
         // Token revoked, suspended, or deleted
         console.warn('[License] Active token was revoked or deleted on server. Locking.');
-        await NexovaDB.setSecurePref(STORAGE_KEY_LICENSE, null);
+        await ValenixiaDB.setSecurePref(STORAGE_KEY_LICENSE, null);
         location.reload();
         return;
       }
@@ -845,7 +891,7 @@ const LicenseEngine = (() => {
       const result = await response.json();
       if (result.updated && result.token) {
         console.log('[License] Detected license configuration update on server. Syncing...');
-        await NexovaDB.setSecurePref(STORAGE_KEY_LICENSE, result.token);
+        await ValenixiaDB.setSecurePref(STORAGE_KEY_LICENSE, result.token);
         location.reload();
       }
     } catch (err) {
@@ -856,7 +902,7 @@ const LicenseEngine = (() => {
   // Called on every successful checkout to update the time anchor
   async function updateTimeAnchor() {
     try {
-      await NexovaDB.setPreference(STORAGE_KEY_ANCHOR, String(Date.now()));
+      await ValenixiaDB.setPreference(STORAGE_KEY_ANCHOR, String(Date.now()));
     } catch (e) { /* non-fatal */ }
   }
 
@@ -892,7 +938,7 @@ const LicenseEngine = (() => {
   // ── Public: Re-verify the stored token on demand (called by Settings card) ─
   async function verifyStored() {
     try {
-      const stored = await NexovaDB.getSecurePref(STORAGE_KEY_LICENSE);
+      const stored = await ValenixiaDB.getSecurePref(STORAGE_KEY_LICENSE);
       if (!stored) return { valid: false, reason: 'No license token stored.', payload: null };
       const hwid = await generateHWID();
       const result = await verifyToken(stored, hwid);
@@ -905,7 +951,7 @@ const LicenseEngine = (() => {
   // ── Public: Returns milliseconds until license expiry, null for lifetime ──
   async function getExpiryMs() {
     try {
-      const stored = await NexovaDB.getSecurePref(STORAGE_KEY_LICENSE);
+      const stored = await ValenixiaDB.getSecurePref(STORAGE_KEY_LICENSE);
       if (!stored) return 0;
       const hwid = await generateHWID();
       const result = await verifyToken(stored, hwid);

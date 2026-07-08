@@ -1,8 +1,8 @@
-package com.nexova.commerce.sync
+package com.valenixia.commerce.sync
 
-import com.nexova.commerce.db.CartItem
-import com.nexova.commerce.db.Database
-import com.nexova.commerce.crdt.SyncChange
+import com.valenixia.commerce.db.CartItem
+import com.valenixia.commerce.db.Database
+import com.valenixia.commerce.crdt.SyncChange
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.application.*
@@ -72,7 +72,7 @@ object SyncServer {
     var serverPort: Int = 3000
 
     fun deriveKey(passphrase: String): ByteArray {
-        val salt = "nexova_salt"
+        val salt = "valenixia_salt"
         val spec = PBEKeySpec(passphrase.toCharArray(), salt.toByteArray(), 1000, 256)
         val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
         return factory.generateSecret(spec).encoded
@@ -122,7 +122,7 @@ object SyncServer {
     fun getJwtSecret(): String {
         val passphrase = Database.getPreference("sync_passphrase")
         if (passphrase == null || passphrase.isEmpty()) {
-            return "default_nexova_secret"
+            return "default_valenixia_secret"
         }
         val digest = java.security.MessageDigest.getInstance("SHA-256")
         val hash = digest.digest(passphrase.toByteArray())
@@ -177,7 +177,7 @@ object SyncServer {
             install(WebSockets)
             install(Authentication) {
                 jwt("auth-jwt") {
-                    realm = "Access to Nexova POS"
+                    realm = "Access to Valenixia POS"
                     verifier(
                         com.auth0.jwt.JWT
                             .require(com.auth0.jwt.algorithms.Algorithm.HMAC256(getJwtSecret()))
@@ -270,7 +270,7 @@ object SyncServer {
                                             var status = Database.getDeviceStatus(wsNodeId!!)
                                             if (wsNodeId!!.startsWith("web_client_") || 
                                                 wsNodeId == Database.hlc.nodeId || 
-                                                wsNodeId == "nexova_master_pc_01" || 
+                                                wsNodeId == "valenixia_master_pc_01" || 
                                                 wsNodeId == "cfd_tab_2") {
                                                 status = "APPROVED"
                                             }
@@ -299,13 +299,13 @@ object SyncServer {
                                         var status = Database.getDeviceStatus(wsNodeId!!)
                                         if (wsNodeId!!.startsWith("web_client_") || 
                                             wsNodeId == Database.hlc.nodeId || 
-                                            wsNodeId == "nexova_master_pc_01" || 
+                                            wsNodeId == "valenixia_master_pc_01" || 
                                             wsNodeId == "cfd_tab_2") {
                                             status = "APPROVED"
                                         }
                                         if (status == "APPROVED") {
                                             authenticated = true
-                                            deviceRole = if (wsNodeId == Database.hlc.nodeId || wsNodeId == "nexova_master_pc_01" || wsNodeId == "cfd_tab_2") "MASTER" else "TERMINAL"
+                                            deviceRole = if (wsNodeId == Database.hlc.nodeId || wsNodeId == "valenixia_master_pc_01" || wsNodeId == "cfd_tab_2") "MASTER" else "TERMINAL"
                                             val token = generateToken(wsNodeId!!, deviceRole)
                                             sendPayload(this, """{"type":"device_approved","token":"$token"}""")
                                             println("[SyncServer] Registered auto-approved node: $wsNodeId")
@@ -426,13 +426,13 @@ object SyncServer {
                         var status = Database.getDeviceStatus(nodeId)
                         if (nodeId.startsWith("web_client_") || 
                             nodeId == Database.hlc.nodeId || 
-                            nodeId == "nexova_master_pc_01" || 
+                            nodeId == "valenixia_master_pc_01" || 
                             nodeId == "cfd_tab_2") {
                             status = "APPROVED"
                         }
 
                         if (status == "APPROVED") {
-                            val role = if (nodeId == Database.hlc.nodeId || nodeId == "nexova_master_pc_01" || nodeId == "cfd_tab_2") "MASTER" else "TERMINAL"
+                            val role = if (nodeId == Database.hlc.nodeId || nodeId == "valenixia_master_pc_01" || nodeId == "cfd_tab_2") "MASTER" else "TERMINAL"
                             val token = generateToken(nodeId, role)
                             
                             if (Database.getDeviceStatus(nodeId) == null) {
@@ -713,14 +713,14 @@ object NetworkDiscoveryHub {
         isBroadcasting = true
         println("[Discovery] Starting local network multicast discovery hub on $serverIpAddress:$activePort...")
 
-        kotlin.concurrent.thread(start = true, isDaemon = true, name = "NexovaDiscoveryBroadcast") {
+        kotlin.concurrent.thread(start = true, isDaemon = true, name = "ValenixiaDiscoveryBroadcast") {
             try {
                 val groupTarget = java.net.InetAddress.getByName(MULTICAST_GROUP)
                 val mSocket = java.net.MulticastSocket(DISCOVERY_PORT)
                 socket = mSocket
                 mSocket.joinGroup(groupTarget)
 
-                val packetPayload = "NEXOVA-POS-DISCOVERY:$serverIpAddress:$activePort"
+                val packetPayload = "VALENIXIA-POS-DISCOVERY:$serverIpAddress:$activePort"
                 val bufferData = packetPayload.toByteArray()
 
                 while (isBroadcasting) {

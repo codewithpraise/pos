@@ -273,12 +273,12 @@
       <div class="card">
         <h2>Android Native Client</h2>
         <p>Install the dedicated Android App for optimized scanner performance, system auto-start, and persistent local caching bounds.</p>
-        <a href="/downloads/nexova-pos-release.apk" class="btn" download>
+        <a href="/downloads/nexova-pos-latest.apk" class="btn" download>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Download APK Installer
         </a>
         <ol style="margin-top: 20px;">
-          <li>Once the file downloads, tap <strong>nexova-pos-release.apk</strong> to launch the package manager.</li>
+          <li>Once the file downloads, tap <strong>nexova-pos-latest.apk</strong> to launch the package manager.</li>
           <li>If prompted, enable <strong>"Install from Unknown Sources"</strong> in your device security settings.</li>
           <li>Complete installation, launch Nexova POS, and enter a friendly name to pair the device.</li>
         </ol>
@@ -288,13 +288,13 @@
       <div class="card">
         <h2>Windows Desktop Client</h2>
         <p>Install the native Windows client for multiple display support (KDS, CFD), scale integrations, and high-performance offline access.</p>
-        <a href="/downloads/NexovaPOS-1.0.0.msi" class="btn btn-secondary" download>
+        <a href="/downloads/nexova-pos-setup.msi" class="btn btn-secondary" download>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
           Download MSI Installer
         </a>
         <ol style="margin-top: 20px;">
           <li>Download the installer package.</li>
-          <li>Run the <strong>NexovaPOS-1.0.0.msi</strong> and follow setup steps.</li>
+          <li>Run the <strong>nexova-pos-setup.msi</strong> and follow setup steps.</li>
           <li>Start Nexova POS from the desktop shortcut to pair your register.</li>
         </ol>
       </div>
@@ -312,14 +312,97 @@
           <li>Launch the app from your homescreen to enable secure, standalone full-screen cashier grids.</li>
         </ol>
       </div>
+
+      <!-- Release Management Portal (Phase 11: Admin Control) -->
+      <div class="card" id="release-card" style="display: none; border-color: var(--accent-teal); box-shadow: 0 0 20px var(--accent-teal-glow);">
+        <h2>Release Manager Panel</h2>
+        <p>Deploy system updates, rewrite the global version, and check release health logs.</p>
+        
+        <form id="release-form" style="display: flex; flex-direction: column; gap: 16px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label for="release-version" style="font-size: 11px; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Deploy Version</label>
+            <input type="text" id="release-version" required placeholder="e.g. 1.0.1" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); padding: 12px; color: var(--text-white); font-family: var(--font-body); font-size: 13px; width: 100%; border-radius: 4px; outline: none; transition: border-color 0.2s;">
+          </div>
+          
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label for="release-changelog" style="font-size: 11px; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Changelog</label>
+            <textarea id="release-changelog" required placeholder="Describe new features & security patches..." style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); padding: 12px; color: var(--text-white); font-family: var(--font-body); font-size: 13px; width: 100%; border-radius: 4px; outline: none; min-height: 80px; resize: vertical; transition: border-color 0.2s;"></textarea>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label for="release-pin" style="font-size: 11px; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Admin / Manager PIN</label>
+            <input type="password" id="release-pin" required maxlength="4" placeholder="••••" inputmode="numeric" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); padding: 12px; color: var(--text-white); font-family: var(--font-body); font-size: 13px; width: 100%; border-radius: 4px; outline: none; transition: border-color 0.2s;">
+          </div>
+
+          <div style="display: flex; gap: 12px;">
+            <button type="submit" class="btn" style="flex: 2;">
+              Publish Upgrade
+            </button>
+            <button type="button" id="btn-release-rollback" class="btn btn-secondary" style="flex: 1; font-size: 11px;">
+              Rollback
+            </button>
+          </div>
+        </form>
+
+        <!-- Simulated terminal log panel for pro updates feeling -->
+        <div id="release-terminal" style="display: none; margin-top: 16px; background: #000000; border: 1px solid var(--border-titanium); border-radius: 4px; padding: 12px; font-family: monospace; font-size: 11px; color: #10b981; line-height: 1.4; text-align: left; max-height: 150px; overflow-y: auto; box-shadow: inset 0 0 10px rgba(0,0,0,0.8);">
+          <div style="color: var(--text-gray); border-bottom: 1px solid var(--border-titanium); padding-bottom: 4px; margin-bottom: 6px; display: flex; justify-content: space-between;">
+            <span>Deployment Logs</span>
+            <span style="cursor: pointer; text-decoration: underline;" id="btn-clear-terminal">clear</span>
+          </div>
+          <div id="terminal-lines"></div>
+        </div>
+      </div>
     </div>
 
-    <div class="footer">
-      NEXOVA ENTERPRISE POS v1.0.0 // ZERO-TRUST SYSTEM
+    <div class="footer" id="footer-version" style="cursor: pointer;" title="Admin Update Controls">
+      NEXOVA ENTERPRISE POS v<span id="txt-app-version">1.0.0</span> // ZERO-TRUST SYSTEM
     </div>
   </div>
 
   <script>
+    // Fetch and sync active server version details on init
+    async function fetchActiveVersion() {
+      try {
+        const res = await fetch('/api/version');
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById('txt-app-version').innerText = data.serverVersion;
+          document.getElementById('release-version').value = data.serverVersion;
+        }
+      } catch (e) {}
+    }
+    window.addEventListener('load', fetchActiveVersion);
+
+    // Footer secret click listener (5 clicks to show Admin Panel)
+    let versionClickCount = 0;
+    document.getElementById('footer-version').addEventListener('click', () => {
+      versionClickCount++;
+      if (versionClickCount >= 5) {
+        const releaseCard = document.getElementById('release-card');
+        releaseCard.style.display = 'block';
+        releaseCard.scrollIntoView({ behavior: 'smooth' });
+        // Terminal feedback
+        writeTerminalLog('SYSTEM', 'Admin Control Mode active. Awaiting release configuration parameters.');
+        versionClickCount = 0;
+      }
+    });
+
+    function writeTerminalLog(sender, text) {
+      const term = document.getElementById('release-terminal');
+      const container = document.getElementById('terminal-lines');
+      term.style.display = 'block';
+      const timestamp = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      div.innerHTML = `<span style="color: #6b7280;">[${timestamp}]</span> <span style="color: var(--accent-teal); font-weight:700;">[${sender}]</span> ${text}`;
+      container.appendChild(div);
+      term.scrollTop = term.scrollHeight;
+    }
+
+    document.getElementById('btn-clear-terminal').addEventListener('click', () => {
+      document.getElementById('terminal-lines').innerHTML = '';
+    });
+
     const tierSelect = document.getElementById('onboard-tier');
     const modeSelect = document.getElementById('onboard-mode');
     const paymentFields = document.getElementById('payment-fields');
@@ -335,17 +418,17 @@
         paymentFields.style.display = 'flex';
         document.getElementById('onboard-rrn').setAttribute('required', 'required');
         
-        let amount = '50,000';
+        let amount = '0';
         if (tier === 'STARTER') {
-          amount = mode === 'lifetime' ? '120,000' : '20,000';
+          amount = mode === 'lifetime' ? '79,000' : '3,499';
         } else if (tier === 'PRO') {
-          amount = mode === 'lifetime' ? '300,000' : '50,000';
+          amount = mode === 'lifetime' ? '149,000' : '6,999';
         } else if (tier === 'ENTERPRISE') {
-          amount = mode === 'lifetime' ? '900,000' : '150,000';
+          amount = mode === 'lifetime' ? '249,000' : '11,999';
         }
         
         const periodText = mode === 'lifetime' ? 'one-time Lifetime license' : 'monthly subscription';
-        paymentInstructions.innerHTML = `Please transfer <strong style="color: var(--text-white);">Rs. ${amount}</strong> for the ${tier} ${periodText} to NayaPay Account <strong>0300-1234567</strong> or via Raast ID <strong>nexova@nayapay</strong>. Submit the Reference Number (RRN) below.`;
+        paymentInstructions.innerHTML = `Please transfer <strong style="color: var(--text-white);">Rs. ${amount}</strong> for the ${tier} ${periodText} to NayaPay Account <strong>0331-5133226</strong> (Muhammad Soban Ali) or IBAN <strong>PK47NAYA1234503315133226</strong>. Submit the Reference Number (RRN) below.`;
       }
     }
 
@@ -431,6 +514,92 @@
         btn.disabled = false;
         btn.innerText = 'Generate Activation Code';
         clearInterval(window.countdownTimer);
+      });
+
+      // Release form submission handler (Phase 11)
+      document.getElementById('release-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const version = document.getElementById('release-version').value.trim();
+        const changelog = document.getElementById('release-changelog').value.trim();
+        const adminPin = document.getElementById('release-pin').value.trim();
+
+        if (!confirm(`Are you sure you want to deploy release version ${version}? This will become the default upgrade for all client terminals.`)) {
+          return;
+        }
+
+        const btn = e.target.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.innerText = 'Deploying...';
+
+        writeTerminalLog('DEPLOY', `Initiating deployment package configuration for version v${version}...`);
+        writeTerminalLog('DEPLOY', `Creating version.json.bak backup on server...`);
+
+        try {
+          const res = await fetch('/api/admin/release-update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ version, changelog, adminPin })
+          });
+          const data = await res.json();
+
+          if (res.ok) {
+            writeTerminalLog('DEPLOY', `✓ Release v${version} successfully compiled and published.`);
+            writeTerminalLog('SYSTEM', `Global register version updated dynamically.`);
+            document.getElementById('txt-app-version').innerText = version;
+            document.getElementById('release-pin').value = '';
+            document.getElementById('release-changelog').value = '';
+            alert(`Release v${version} deployed successfully!`);
+          } else {
+            writeTerminalLog('ERROR', `Deployment failed: ${data.error || 'Server error'}`);
+            alert(data.error || 'Failed to publish release update.');
+          }
+        } catch (err) {
+          writeTerminalLog('ERROR', `Network failure during version upload: ${err.message}`);
+          alert('Network connection error occurred during deployment.');
+        } finally {
+          btn.disabled = false;
+          btn.innerText = 'Publish Upgrade';
+        }
+      });
+
+      // Rollback click handler (Phase 11)
+      document.getElementById('btn-release-rollback').addEventListener('click', async () => {
+        const adminPin = document.getElementById('release-pin').value.trim();
+        if (!adminPin) {
+          alert('Please enter your Admin PIN first to authenticate the rollback.');
+          document.getElementById('release-pin').focus();
+          return;
+        }
+
+        if (!confirm('Are you sure you want to rollback to the previous backup release version?')) {
+          return;
+        }
+
+        writeTerminalLog('ROLLBACK', 'Attempting server-side release recovery sweep...');
+
+        try {
+          const res = await fetch('/api/admin/release-rollback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adminPin })
+          });
+          const data = await res.json();
+
+          if (res.ok) {
+            writeTerminalLog('ROLLBACK', `✓ Rollback complete. Restored version v${data.version}.`);
+            writeTerminalLog('SYSTEM', `Changelog: "${data.changelog}"`);
+            document.getElementById('txt-app-version').innerText = data.version;
+            document.getElementById('release-version').value = data.version;
+            document.getElementById('release-pin').value = '';
+            alert(`Rollback to v${data.version} completed successfully!`);
+          } else {
+            writeTerminalLog('ERROR', `Rollback rejected: ${data.error}`);
+            alert(data.error || 'Failed to rollback release version.');
+          }
+        } catch (err) {
+          writeTerminalLog('ERROR', `Network failure during rollback process: ${err.message}`);
+          alert('Network connection error occurred during rollback.');
+        }
       });
     </script>
   </body>

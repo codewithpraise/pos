@@ -28,12 +28,27 @@ async function waitForStableContext(ws, idStart) {
   return false;
 }
 
+async function waitForAppInitialized(ws, idStart) {
+  console.log('Waiting for window.appInitialized to be true...');
+  for (let i = 0; i < 100; i++) { // wait up to 50s
+    const r = await cdpEval(ws, '!!window.appInitialized', idStart + i);
+    if (r && r.result && r.result.value === true) {
+      console.log('App initialization is complete.');
+      await sleep(400); // short grace period
+      return true;
+    }
+    await sleep(500);
+  }
+  console.log('Timeout waiting for window.appInitialized.');
+  return false;
+}
+
 http.get('http://localhost:9222/json', async (res) => {
   let data = '';
   res.on('data', d => data += d);
   res.on('end', async () => {
     const pages = JSON.parse(data);
-    const page = pages.find(p => p.url && p.url.includes('localhost:3000') && p.type === 'page');
+    const page = pages.find(p => p.type === 'page' && (p.title === 'Valenixia Commerce POS' || (p.url && p.url.includes('localhost:3000'))));
     if (!page) { console.log('NO_PAGE'); process.exit(1); }
     
     const ws = new WebSocket(page.webSocketDebuggerUrl);
@@ -84,8 +99,8 @@ http.get('http://localhost:9222/json', async (res) => {
           for (const k of keys) { await caches.delete(k); }
         } catch(e) {}
         try {
-          if (window.NexovaDB && window.NexovaDB.db) {
-            window.NexovaDB.db.close();
+          if (window.ValenixiaDB && window.ValenixiaDB.db) {
+            window.ValenixiaDB.db.close();
           }
         } catch(e) {}
         try {
@@ -95,7 +110,7 @@ http.get('http://localhost:9222/json', async (res) => {
         } catch(e) {}
         return new Promise((resolve) => {
           setTimeout(() => {
-            const req = indexedDB.deleteDatabase('nexova_db');
+            const req = indexedDB.deleteDatabase('valenixia_db');
             req.onsuccess = () => resolve('CLEARED_ALL');
             req.onerror = (e) => resolve('DB_DELETE_ERR: ' + e.target.error.message);
             req.onblocked = () => resolve('DB_DELETE_BLOCKED');
@@ -104,11 +119,11 @@ http.get('http://localhost:9222/json', async (res) => {
       })()`, id++);
       console.log('CLEARED_STATUS:', clearRes?.result?.value);
       
-      ws.send(JSON.stringify({ id: id++, method: 'Page.reload', params: { ignoreCache: true } }));
+      ws.send(JSON.stringify({ id: id++, method: 'Page.navigate', params: { url: 'http://localhost:3000' } }));
       
       // Wait for reload
-      await waitForStableContext(ws, id);
-      id += 40;
+      await waitForAppInitialized(ws, id);
+      id += 100;
 
       // PHASE 1: License Activation  
       console.log('\n--- PHASE 1: License Activation ---');
@@ -119,7 +134,7 @@ http.get('http://localhost:9222/json', async (res) => {
             const phoneField = document.getElementById('license-phone-input');
             const btn = document.getElementById('license-activate-btn');
             if (phoneField && btn) {
-              keyField.value = 'NEXOVA-ADMIN-777';
+              keyField.value = 'VALENIXIA-ADMIN-777';
               phoneField.value = '03001234567';
               window.alert = function(msg) { console.log('MOCKED ALERT:', msg); };
               btn.click();
@@ -134,7 +149,7 @@ http.get('http://localhost:9222/json', async (res) => {
       
       // Wait for reload post-activation
       await sleep(1000);
-      await waitForStableContext(ws, id + 50);
+      await waitForAppInitialized(ws, id);
       id += 100;
 
       // PHASE 2: Wizard
@@ -236,62 +251,74 @@ http.get('http://localhost:9222/json', async (res) => {
       // Wait for login processing animation
       await sleep(4000);
 
-      // PHASE 4: Layout and UI Sizing Inspections on Mobile Viewport
-      console.log('\n--- PHASE 4: Responsive Layout Audit ---');
-      r = await cdpEval(ws, `(function() {
-        const audits = {};
-        const bottomNav = document.querySelector('.pos-bottom-nav');
-        if (bottomNav) {
-          const style = window.getComputedStyle(bottomNav);
-          const rect = bottomNav.getBoundingClientRect();
-          audits.bottomNav = {
-            display: style.display,
-            visibility: style.visibility,
-            height: rect.height,
-            width: rect.width,
-            top: rect.top,
-            bottom: rect.bottom,
-            zIndex: style.zIndex
-          };
-        } else {
-          audits.bottomNav = 'MISSING';
-        }
-        
-        const sidebar = document.querySelector('.pos-sidebar');
-        if (sidebar) {
-          audits.sidebar = {
-            display: window.getComputedStyle(sidebar).display
-          };
-        } else {
-          audits.sidebar = 'MISSING';
-        }
-        
-        const activeView = document.querySelector('.content-view.active');
-        if (activeView) {
-          const rect = activeView.getBoundingClientRect();
-          audits.activeView = {
-            id: activeView.id,
-            display: window.getComputedStyle(activeView).display,
-            height: rect.height,
-            width: rect.width
-          };
-        } else {
-          audits.activeView = 'NONE_ACTIVE';
-        }
-        
-        audits.overlays = {
-          lockout: document.getElementById('license-lockout-overlay') ? 'present' : 'absent',
-          wizard: document.getElementById('first-boot-wizard')?.style.display,
-          lockscreenActive: document.getElementById('auth-lock-screen')?.classList.contains('active'),
-          authErrorText: document.getElementById('auth-error')?.textContent
-        };
-        
-        audits.logs = window.__nexovaLogs || [];
-        
-        return JSON.stringify(audits);
-      })()`, id++);
+      // PHASE 4: Layout and UI Sizing Inspections across multiple viewports
+      console.log('\n--- PHASE 4: Responsive Layout Audit (Multi-Viewport Matrix) ---');
+      const viewports = [
+        { width: 320, height: 480, name: 'very-small' },
+        { width: 360, height: 640, name: 'budget-android' },
+        { width: 390, height: 844, name: 'modern-ios' },
+        { width: 768, height: 1024, name: 'tablet-portrait' }
+      ];
       
-      console.log('\n=== MOBILE LAYOUT AUDIT RESULTS ===\n', r?.result?.value);
+      const auditResults = {};
+      for (const vp of viewports) {
+        console.log(`Auditing viewport: ${vp.width}x${vp.height} (${vp.name})...`);
+        ws.send(JSON.stringify({ id: id++, method: 'Emulation.setDeviceMetricsOverride', params: {
+          width: vp.width,
+          height: vp.height,
+          deviceScaleFactor: 3,
+          mobile: true
+        }}));
+        await sleep(500);
+        
+        let audit = await cdpEval(ws, `(function() {
+          const res = {};
+          // Check that no horizontal scroll exists on body/root
+          res.horizontalScroll = document.documentElement.scrollWidth > document.documentElement.clientWidth;
+          
+          // Check that first-boot-wizard is scrollable when it exceeds client bounds
+          const wizard = document.getElementById('wizard-card');
+          if (wizard) {
+            res.wizardScrollable = wizard.scrollHeight >= wizard.clientHeight;
+            res.wizardHeight = wizard.getBoundingClientRect().height;
+          }
+          
+          // Check screen visibility
+          const bottomNav = document.querySelector('.pos-bottom-nav');
+          if (bottomNav) {
+            res.bottomNavVisible = window.getComputedStyle(bottomNav).display !== 'none';
+          }
+          
+          const sidebar = document.querySelector('.pos-sidebar');
+          if (sidebar) {
+            res.sidebarVisible = window.getComputedStyle(sidebar).display !== 'none';
+          }
+          
+          return JSON.stringify(res);
+        })()`, id++);
+        
+        auditResults[vp.name] = JSON.parse(audit?.result?.value || '{}');
+      }
+      
+      console.log('\n=== MULTI-VIEWPORT AUDIT RESULTS ===\n', JSON.stringify(auditResults, null, 2));
+
+      // Theme-switching verification mid-test
+      console.log('\n--- PHASE 5: Theme Switching mid-test validation ---');
+      let themeCheck = await cdpEval(ws, `(function() {
+        // Toggle theme to Monochrome Ivory
+        document.body.classList.remove('theme-obsidian-emerald');
+        document.body.classList.add('theme-monochrome-ivory');
+        
+        // Assert danger zone text contrast readability
+        const dangerZone = document.getElementById('dm-danger-zone');
+        if (dangerZone) {
+          const style = window.getComputedStyle(dangerZone);
+          const color = style.color;
+          return 'Theme switched successfully. Danger zone color: ' + color;
+        }
+        return 'Danger zone not found on this view (login/onboarding active)';
+      })()`, id++);
+      console.log('THEME_SWITCH_CHECK:', themeCheck?.result?.value);
       
       ws.close();
       process.exit(0);

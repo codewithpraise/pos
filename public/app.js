@@ -1,9 +1,84 @@
 // ============================================================================
-// NEXOVA COMMERCE ECOSYSTEM - MAIN REGISTER CONTROLLER
-// UI thread bindings and Web Worker event choreography
+// VALENIXIA COMMERCE ECOSYSTEM - MAIN REGISTER CONTROLLER
+// Handles transaction flows, catalog views, shift logic, and background sync. UI thread bindings and Web Worker event choreography
 // ============================================================================
 
 (function() {
+  // --- SCROLL LOCK & MOBILE KEYBOARD RESIZE UTILITIES ---
+  function lockScroll() {
+    document.body.classList.add('scroll-lock');
+  }
+  function unlockScroll() {
+    document.body.classList.remove('scroll-lock');
+  }
+
+  // Keyboard show/hide resize listener to re-center focused input
+  let resizeTimeout;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+        document.activeElement.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+    }, 100);
+  });
+
+  // Modal active back-button history navigation routing
+  let modalHistoryState = false;
+  document.addEventListener('click', () => {
+    setTimeout(() => {
+      const activeOverlays = document.querySelectorAll('.modal-overlay.active, .pos-modal-backdrop.active');
+      if (activeOverlays.length > 0 && !modalHistoryState) {
+        history.pushState({ modal: true }, '', window.location.href);
+        modalHistoryState = true;
+      } else if (activeOverlays.length === 0 && modalHistoryState) {
+        modalHistoryState = false;
+      }
+    }, 0);
+  });
+
+  window.addEventListener('popstate', (event) => {
+    const activeOverlays = document.querySelectorAll('.modal-overlay.active, .pos-modal-backdrop.active');
+    if (activeOverlays.length > 0) {
+      activeOverlays.forEach(m => m.classList.remove('active'));
+      unlockScroll();
+      modalHistoryState = false;
+    }
+  });
+
+  // MutationObserver to automatically manage body scroll locking for any open modal/wizard overlay
+  function initScrollObserver() {
+    const observer = new MutationObserver(() => {
+      let activeOverlayCount = 0;
+      document.querySelectorAll('.modal-overlay.active, .pos-modal-backdrop.active, .auth-overlay.active').forEach(() => {
+        activeOverlayCount++;
+      });
+      
+      const wizard = document.getElementById('first-boot-wizard');
+      if (wizard && (wizard.style.display === 'flex' || wizard.style.display === 'block')) {
+        activeOverlayCount++;
+      }
+      
+      if (activeOverlayCount > 0) {
+        lockScroll();
+      } else {
+        unlockScroll();
+      }
+    });
+
+    observer.observe(document.body, {
+      attributes: true,
+      subtree: true,
+      attributeFilter: ['class', 'style']
+    });
+  }
+
+  if (document.readyState === 'interactive' || document.readyState === 'complete') {
+    initScrollObserver();
+  } else {
+    document.addEventListener('DOMContentLoaded', initScrollObserver);
+  }
+
   // App state
   const state = {
     isOnline: true,
@@ -12,10 +87,12 @@
     activeCart: [], // { sku, name, price, qty, emoji }
     attachedCustomer: null, // customer object
     catalog: [],
+    catalogLoaded: false,
     customers: [],
     employees: [],
     preferences: {},
     transactions: [],
+    transactionsLoaded: false,
     logs: [],
     currentPin: '',
     sidebarCollapsed: false,
@@ -98,7 +175,7 @@
         <h4 style="font-size: 10px; text-transform: uppercase; color: var(--text-gray); margin-bottom: 8px; letter-spacing: 1px;">Error Code: ${code}</h4>
         <p id="crash-desc" style="font-size: 12px; color: var(--accent-emerald); margin-bottom: 8px; line-height: 1.6; font-weight: 600;">${friendlyMsg}</p>
         <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.6;">
-          Nexova POS has encountered a fatal runtime exception. The local database state remains fully safe.
+          Valenixia POS has encountered a fatal runtime exception. The local database state remains fully safe.
         </p>
         <div style="background: #000; border: 1px solid var(--border-titanium); padding: 12px; border-radius: 6px; font-family: var(--font-mono); font-size: 10px; color: var(--text-gray); text-align: left; max-height: 120px; overflow-y: auto; margin-bottom: 24px; word-break: break-all;">
           ${message}<br><br>${stack || ''}
@@ -125,7 +202,7 @@
     const btnCopy = overlay.querySelector('#btn-crash-copy');
     if (btnCopy) {
       btnCopy.addEventListener('click', () => {
-        navigator.clipboard.writeText(`Nexova POS Crash Log\nCode: ${code}\nMessage: ${message}\nStack: ${stack || 'N/A'}`);
+        navigator.clipboard.writeText(`Valenixia POS Crash Log\nCode: ${code}\nMessage: ${message}\nStack: ${stack || 'N/A'}`);
         btnCopy.textContent = '✅ Copied!';
         setTimeout(() => { btnCopy.innerHTML = '📋 Copy Logs'; }, 2000);
       });
@@ -163,7 +240,7 @@
 
   // Screen Reader Accessibility Live Region Announcer
   function announceToScreenReader(message) {
-    const announcer = document.getElementById('pos-aria-live-announcer');
+    const announcer = document.getElementById('a11y-live') || document.getElementById('pos-aria-live-announcer');
     if (announcer) {
       announcer.textContent = '';
       requestAnimationFrame(() => {
@@ -282,57 +359,82 @@
   let speechCoach = null;
 
   function isGraceTrialActive() {
-    let firstBoot = localStorage.getItem('nexova_first_boot_time');
+    let firstBoot = localStorage.getItem('valenixia_first_boot_time');
     if (!firstBoot) {
       firstBoot = Date.now().toString();
-      localStorage.setItem('nexova_first_boot_time', firstBoot);
+      localStorage.setItem('valenixia_first_boot_time', firstBoot);
     }
-    const gracePeriodMs = 3 * 24 * 60 * 60 * 1000; // 3-day grace
+    const gracePeriodMs = 7 * 24 * 60 * 60 * 1000; // 7-day grace
     const elapsed = Date.now() - parseInt(firstBoot, 10);
     return elapsed < gracePeriodMs;
+  }
+
+  function updateBootProgress(percent, text) {
+    console.log(`[BootProgress] ${percent}% - ${text}`);
+    const loader = document.getElementById('app-boot-loader');
+    if (!loader) return;
+    const progressEl = document.getElementById('app-boot-loader-progress');
+    const statusEl = document.getElementById('app-boot-loader-status');
+    if (progressEl) progressEl.style.width = percent + '%';
+    if (statusEl) statusEl.textContent = text;
+    if (percent >= 100) {
+      setTimeout(() => {
+        loader.style.transition = 'opacity 0.4s ease';
+        loader.style.opacity = '0';
+        setTimeout(() => loader.remove(), 400);
+      }, 300);
+    }
   }
   // Expose as window global so it's callable from any scope (HTML handlers,
   // license-engine, stale service worker code paths, etc.)
   window.isGraceTrialActive = isGraceTrialActive;
+  window.state = state;
+  window.switchActiveScreen = switchActiveScreen;
+  window.renderCart = renderCart;
 
   // Initialize application
   async function init() {
     try {
-      await NexovaDB.init(); // Initialize IndexedDB on main thread for local PIN auth
+      updateBootProgress(20, 'Initializing database...');
+      await ValenixiaDB.init(); // Initialize IndexedDB on main thread for local PIN auth
       
       // CRITICAL: Enforce License Gate immediately upon DB initialization
+      updateBootProgress(50, 'Verifying system license...');
       const licenseOk = await LicenseEngine.init();
       if (!licenseOk) {
         document.getElementById('license-lockout-overlay').style.display = 'flex';
         const wizardOverlay = document.getElementById('first-boot-wizard');
         if (wizardOverlay) wizardOverlay.style.display = 'none'; // Force hide wizard
+        updateBootProgress(100, 'Locked');
+        window.appInitialized = true;
         return; // Hard-stop
       }
 
       // Retrieve secure preferences and perform one-time migrations if needed
-      let licToken = await NexovaDB.getSecurePref('nexova_license_token');
+      let licToken = await ValenixiaDB.getSecurePref('valenixia_license_token');
       if (!licToken) {
-        const legacyToken = localStorage.getItem('nexova_license_token');
+        const legacyToken = localStorage.getItem('valenixia_license_token');
         if (legacyToken) {
           console.log('[App] Migrating legacy license token to secure IndexedDB...');
-          await NexovaDB.setSecurePref('nexova_license_token', legacyToken);
-          localStorage.removeItem('nexova_license_token');
+          await ValenixiaDB.setSecurePref('valenixia_license_token', legacyToken);
+          localStorage.removeItem('valenixia_license_token');
           licToken = legacyToken;
         }
       }
       state.licenseToken = licToken;
 
-      let gdriveToken = await NexovaDB.getSecurePref('google_drive_oauth_token');
+      let gdriveToken = await ValenixiaDB.getSecurePref('google_drive_oauth_token');
       if (!gdriveToken) {
         const legacyToken = localStorage.getItem('google_drive_oauth_token');
         if (legacyToken) {
           console.log('[App] Migrating google_drive_oauth_token to secure IndexedDB...');
-          await NexovaDB.setSecurePref('google_drive_oauth_token', legacyToken);
+          await ValenixiaDB.setSecurePref('google_drive_oauth_token', legacyToken);
           localStorage.removeItem('google_drive_oauth_token');
           gdriveToken = legacyToken;
         }
       }
       state.googleDriveOauthToken = gdriveToken;
+      updateBootProgress(75, 'Loading product catalog...');
 
       // Support starting fresh: clear DB and preferences if reset param or bridge flag is detected
       var shouldReset = false;
@@ -350,7 +452,7 @@
         
         // Factory reset local server if present and accessible
         try {
-          const serverBase = (window.__nexovaServerUrl || location.origin);
+          const serverBase = (window.__valenixiaServerUrl || location.origin);
           if (location.protocol !== 'file:') {
             await fetch(serverBase + '/api/system/reset', {
               method: 'POST',
@@ -361,14 +463,14 @@
           console.warn('[App] Failed to contact server for factory reset:', serverErr.message);
         }
 
-        await NexovaDB.destructReset();
+        await ValenixiaDB.destructReset();
         localStorage.clear();
         // Clean URL to prevent infinite reset loops
         window.history.replaceState(null, null, window.location.pathname);
       }
 
       // Early Onboarding & View Routing Check
-      const pref = await NexovaDB.get('local_preferences', 'onboarding_complete');
+      const pref = await ValenixiaDB.get('local_preferences', 'onboarding_complete');
       const dbComplete = pref && pref.value_payload === 'true';
       const localComplete = localStorage.getItem('onboarding_complete') === 'true';
       const onboardingComplete = dbComplete || localComplete;
@@ -376,7 +478,7 @@
       // Sync it back to the main database if it was only saved in localStorage (Offline Fallback)
       if (localComplete && !dbComplete) {
          try {
-             await NexovaDB.put('local_preferences', {
+             await ValenixiaDB.put('local_preferences', {
                  key: 'onboarding_complete', value_type: 'BOOL', value_payload: 'true',
                  is_idempotent_flag: 1, updated_at: Date.now()
              });
@@ -386,12 +488,12 @@
       }
 
       // Sync database_hydrated flag
-      const hydPref = await NexovaDB.get('local_preferences', 'database_hydrated');
+      const hydPref = await ValenixiaDB.get('local_preferences', 'database_hydrated');
       const dbHydrated = hydPref && hydPref.value_payload === 'true';
       const localHydrated = localStorage.getItem('database_hydrated') === 'true';
       if (localHydrated && !dbHydrated) {
          try {
-             await NexovaDB.put('local_preferences', {
+             await ValenixiaDB.put('local_preferences', {
                  key: 'database_hydrated', value_type: 'BOOL', value_payload: 'true',
                  is_idempotent_flag: 1, updated_at: Date.now()
              });
@@ -420,12 +522,12 @@
 
     // Determine/register device friendly name and token early via HTTP to prevent connection race conditions
     try {
-      let terminalNamePref = await NexovaDB.get('local_preferences', 'terminal_name');
+      let terminalNamePref = await ValenixiaDB.get('local_preferences', 'terminal_name');
       let terminalName = terminalNamePref ? terminalNamePref.value_payload : null;
       let nodeId = '';
       if (!terminalName) {
         nodeId = 'web_client_' + Math.random().toString(36).substring(2, 9);
-        await NexovaDB.put('local_preferences', {
+        await ValenixiaDB.put('local_preferences', {
           key: 'terminal_name',
           value_type: 'STR',
           value_payload: nodeId,
@@ -437,12 +539,12 @@
       }
       state.nodeId = nodeId;
 
-      let deviceTokenPref = await NexovaDB.get('local_preferences', 'device_token');
+      let deviceTokenPref = await ValenixiaDB.get('local_preferences', 'device_token');
       let deviceToken = deviceTokenPref ? deviceTokenPref.value_payload : null;
 
       if (!deviceToken && location.protocol !== 'file:') {
         console.log(`[App] No device token stored, registering node: ${nodeId} via HTTP...`);
-        const serverBase = (window.__nexovaServerUrl || location.origin);
+        const serverBase = (window.__valenixiaServerUrl || location.origin);
         const regResp = await fetch(serverBase + '/api/devices/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -452,7 +554,7 @@
           const regData = await regResp.json();
           if (regData.status === 'APPROVED' && regData.token) {
             console.log('[App] Auto-approved via HTTP. Token stored.');
-            await NexovaDB.put('local_preferences', {
+            await ValenixiaDB.put('local_preferences', {
               key: 'device_token',
               value_type: 'STR',
               value_payload: regData.token,
@@ -483,7 +585,7 @@
     setInterval(async () => {
       if (location.protocol === 'file:') return; // Skip in file:// asset context
       try {
-        const serverBase = (window.__nexovaServerUrl || location.origin);
+        const serverBase = (window.__valenixiaServerUrl || location.origin);
         const resp = await fetch(serverBase + '/api/auth/verify', {
           headers: { 'Authorization': `Bearer ${state.deviceToken || ''}` }
         });
@@ -495,6 +597,8 @@
         console.warn('[Heartbeat] Failed to verify license status with server:', err.message);
       }
     }, 5 * 60 * 1000);
+    updateBootProgress(100, 'Ready');
+    window.appInitialized = true;
   }
 
   async function checkAndRequestStoragePersist() {
@@ -671,7 +775,7 @@
   // Handle Server-Side License Expiry/Lockout (Component N Lockout UI)
   function triggerLicenseLockout(reason) {
     const message = reason === 'LICENSE_EXPIRED' 
-      ? 'Your Nexova POS subscription has expired. Please renew your plan or enter a new activation key.' 
+      ? 'Your Valenixia POS subscription has expired. Please renew your plan or enter a new activation key.' 
       : 'Your terminal license has been deactivated or suspended. Please contact administrator support.';
     
     // Force show overlay
@@ -717,7 +821,7 @@
     });
     
     // Post initial setup signal with serverUrl
-    const serverUrl = window.__nexovaServerUrl || location.origin;
+    const serverUrl = window.__valenixiaServerUrl || location.origin;
     syncWorker.postMessage({ type: 'INIT', payload: { serverUrl } });
 
     // Handle incoming messages from worker thread
@@ -947,6 +1051,7 @@
 
         case 'CATALOG_DATA':
           state.catalog = catalog;
+          state.catalogLoaded = true;
           renderCatalogScreen();
           renderCheckoutCategories();
           
@@ -995,6 +1100,7 @@
 
         case 'TRANSACTIONS_DATA':
           state.transactions = event.data.transactions;
+          state.transactionsLoaded = true;
           renderHistoryScreen();
           calculateAnalytics();
           renderKdsScreen();
@@ -1087,7 +1193,7 @@
             const printReceipt = prefs.auto_print_receipt !== 'false';
             if (printReceipt && EscPosEngine.isConnected()) {
               const receiptData = {
-                storeName: prefs.store_name || 'NEXOVA POS',
+                storeName: prefs.store_name || 'VALENIXIA POS',
                 storeAddress: prefs.store_address || '',
                 transactionId,
                 cashierName: state.activeCashier?.name || 'N/A',
@@ -1315,25 +1421,53 @@
 
   // Bind UI control nodes
   function bindDOMEvents() {
+    document.getElementById('btn-close-offline-banner')?.addEventListener('click', () => {
+      const banner = document.getElementById('offline-banner');
+      if (banner) banner.style.display = 'none';
+      document.body.classList.remove('is-offline');
+    });
+
     // ── PIN PAD SYSTEM ────────────────────────────────────────────────────────
     // Bulletproof PIN entry: works on physical keyboard, USB numpad, on-screen
     // buttons, AND mobile soft keyboard. Three cooperating layers:
     //   1. On-screen buttons (data-digit / data-action attributes)
     //   2. Global keydown listener (physical keyboard / numpad — capture phase)
     //   3. Hidden <input type=tel> that captures mobile soft keyboard input events
+    //   initPinPad();
     initPinPad();
 
     document.getElementById('btn-in-app-signup')?.addEventListener('click', async () => {
         const storeName = document.getElementById('signup-store-name').value.trim();
         const email = document.getElementById('signup-email').value.trim();
-        const phone = document.getElementById('signup-phone').value.trim();
-        if (!storeName || !email || !phone) { alert('All fields required.'); return; }
+        const phoneInput = document.getElementById('signup-phone');
+        const phone = phoneInput ? phoneInput.value.trim() : '03001234567';
+        if (!storeName || !email) { alert('Store Name and Email Address are required.'); return; }
 
         const btn = document.getElementById('btn-in-app-signup');
-        btn.textContent = 'Registering...'; btn.disabled = true;
+        const nameField = document.getElementById('signup-store-name');
+        const emailField = document.getElementById('signup-email');
+
+        // Hide inputs to prevent modification during provision
+        if (nameField) nameField.style.display = 'none';
+        if (emailField) emailField.style.display = 'none';
+        if (btn) btn.style.display = 'none';
+
+        const progContainer = document.getElementById('trial-setup-progress-container');
+        const progText = document.getElementById('trial-setup-step-text');
+        const progBar = document.getElementById('trial-setup-progress-bar');
+        const progPct = document.getElementById('trial-setup-pct');
+
+        if (progContainer) progContainer.style.display = 'block';
+
+        const setProgress = (pct, text) => {
+          if (progBar) progBar.style.width = pct + '%';
+          if (progPct) progPct.textContent = pct + '%';
+          if (progText) progText.textContent = text;
+        };
 
         try {
-            const serverBase = window.__nexovaServerUrl || location.origin;
+            setProgress(15, 'Registering business details...');
+            const serverBase = window.__valenixiaServerUrl || location.origin;
             const onboardRes = await fetch(serverBase + '/api/onboard', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: storeName, email, phone, tier: 'TRIAL', mode: 'subscription' })
@@ -1341,21 +1475,29 @@
             const onboardData = await onboardRes.json();
             if (!onboardData.code) throw new Error(onboardData.error || 'Activation failed.');
 
+            setProgress(50, 'Provisioning local database schemas...');
             const activateRes = await fetch(serverBase + '/api/license/activate', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code: onboardData.code, hwid: state.nodeId || 'mobile', phone })
             });
             const activateData = await activateRes.json();
+
+            setProgress(80, 'Generating cryptographic trial keys...');
             if (activateData.token) {
-                await NexovaDB.setSecurePref('nexova_license_token', activateData.token);
+                await ValenixiaDB.setSecurePref('valenixia_license_token', activateData.token);
                 state.licenseToken = activateData.token;
+                
+                setProgress(100, 'Trial Active – 7 days left! Starting...');
                 if (typeof showNotificationToast === 'function') showNotificationToast('Trial Activated!');
-                setTimeout(() => window.location.reload(), 1500);
+                setTimeout(() => window.location.reload(), 1200);
             } else throw new Error('Token assignment failed.');
         } catch (e) {
             alert('Registration Error: ' + e.message);
-        } finally {
-            btn.textContent = 'START 7-DAY FREE TRIAL'; btn.disabled = false;
+            // Restore form fields
+            if (nameField) nameField.style.display = 'block';
+            if (emailField) emailField.style.display = 'block';
+            if (btn) btn.style.display = 'block';
+            if (progContainer) progContainer.style.display = 'none';
         }
     });
 
@@ -1413,7 +1555,7 @@
       body.classList.add(themes[nextIndex]);
 
       // Persist so bootstrap-init applies the right theme before next paint
-      localStorage.setItem('nexova_theme_override', themes[nextIndex]);
+      localStorage.setItem('valenixia_theme_override', themes[nextIndex]);
 
       // Save to worker preferences
       syncWorker.postMessage({
@@ -1712,7 +1854,7 @@
       themes.forEach(t => body.classList.remove(t));
       body.classList.add(themeClass);
       // Persist so next cold boot applies immediately without flash
-      localStorage.setItem('nexova_theme_override', themeClass);
+      localStorage.setItem('valenixia_theme_override', themeClass);
     });
 
     document.getElementById('setting-receipt-width').addEventListener('change', (e) => {
@@ -1953,7 +2095,7 @@
       settingGDriveToken.addEventListener('change', async (e) => {
         const val = e.target.value.trim();
         if (val) {
-          await NexovaDB.setSecurePref('google_drive_oauth_token', val);
+          await ValenixiaDB.setSecurePref('google_drive_oauth_token', val);
           state.googleDriveOauthToken = val;
           syncWorker.postMessage({
             type: 'SAVE_PREFERENCE',
@@ -1961,7 +2103,7 @@
           });
           state.preferences['google_drive_oauth_token'] = val;
         } else {
-          await NexovaDB.setSecurePref('google_drive_oauth_token', null);
+          await ValenixiaDB.setSecurePref('google_drive_oauth_token', null);
           state.googleDriveOauthToken = '';
           syncWorker.postMessage({
             type: 'SAVE_PREFERENCE',
@@ -2170,7 +2312,7 @@
             total: payload.total,
             paymentMode: payload.paymentMode,
             paymentDetails: finalDetails,
-            tier: window.__nexovaTier || 'STARTER',
+            tier: window.__valenixiaTier || 'STARTER',
             fbr_integration_enabled: state.preferences['fbr_integration_enabled']
           }
         });
@@ -2598,7 +2740,7 @@
           }
 
           // Initialize server SQLite with the bootstrap configuration first
-          fetch(window.__nexovaServerUrl + '/api/bootstrap', {
+          fetch(window.__valenixiaServerUrl + '/api/bootstrap', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ storeName, taxRate, adminPin, syncPassphrase, theme, shopMode })
@@ -2644,7 +2786,7 @@
 
           localStorage.setItem('onboarding_complete', 'true');
           if (serverUrl) {
-            localStorage.setItem('nexova_server_url', serverUrl);
+            localStorage.setItem('valenixia_server_url', serverUrl);
             if (window.AndroidPOS && typeof window.AndroidPOS.setServerUrl === 'function') {
               window.AndroidPOS.setServerUrl(serverUrl);
             }
@@ -2783,14 +2925,14 @@
         playAudioSignal('click');
         if (confirm('Are you sure you want to perform a factory reset? This will clear all local configuration and transaction data.')) {
           try {
-            const serverBase = (window.__nexovaServerUrl || location.origin);
+            const serverBase = (window.__valenixiaServerUrl || location.origin);
             if (location.protocol !== 'file:') {
               await fetch(serverBase + '/api/system/reset', { method: 'POST' });
             }
           } catch (err) {
             console.warn('Failed to contact server for reset:', err);
           }
-          await NexovaDB.destructReset();
+          await ValenixiaDB.destructReset();
           localStorage.clear();
           window.location.reload();
         }
@@ -2802,14 +2944,14 @@
         playAudioSignal('click');
         if (confirm('Are you sure you want to cancel setup and return to onboarding? This will clear pairing configurations.')) {
           try {
-            const serverBase = (window.__nexovaServerUrl || location.origin);
+            const serverBase = (window.__valenixiaServerUrl || location.origin);
             if (location.protocol !== 'file:') {
               await fetch(serverBase + '/api/system/reset', { method: 'POST' });
             }
           } catch (err) {
             console.warn('Failed to contact server for reset:', err);
           }
-          await NexovaDB.destructReset();
+          await ValenixiaDB.destructReset();
           localStorage.clear();
           window.location.reload();
         }
@@ -2860,7 +3002,7 @@
     const btnToggleQuickCatalog = document.getElementById('btn-toggle-quick-catalog');
     if (btnToggleQuickCatalog) {
       const split = document.querySelector('.checkout-split');
-      const isCatalogCollapsed = localStorage.getItem('nexova_quick_catalog_collapsed') === 'true';
+      const isCatalogCollapsed = localStorage.getItem('valenixia_quick_catalog_collapsed') === 'true';
       if (isCatalogCollapsed && split) {
         split.classList.add('catalog-collapsed');
         btnToggleQuickCatalog.textContent = 'Show Grid';
@@ -2870,7 +3012,7 @@
         playAudioSignal('click');
         if (split) {
           const collapsed = split.classList.toggle('catalog-collapsed');
-          localStorage.setItem('nexova_quick_catalog_collapsed', String(collapsed));
+          localStorage.setItem('valenixia_quick_catalog_collapsed', String(collapsed));
           btnToggleQuickCatalog.textContent = collapsed ? 'Show Grid' : 'Hide Grid';
         }
       });
@@ -2880,7 +3022,7 @@
     const btnToggleHistoryPreview = document.getElementById('btn-toggle-history-preview');
     if (btnToggleHistoryPreview) {
       const historyLayout = document.querySelector('.history-layout');
-      const isPreviewCollapsed = localStorage.getItem('nexova_history_preview_collapsed') === 'true';
+      const isPreviewCollapsed = localStorage.getItem('valenixia_history_preview_collapsed') === 'true';
       if (isPreviewCollapsed && historyLayout) {
         historyLayout.classList.add('preview-collapsed');
         btnToggleHistoryPreview.textContent = 'Show Preview';
@@ -2890,7 +3032,7 @@
         playAudioSignal('click');
         if (historyLayout) {
           const collapsed = historyLayout.classList.toggle('preview-collapsed');
-          localStorage.setItem('nexova_history_preview_collapsed', String(collapsed));
+          localStorage.setItem('valenixia_history_preview_collapsed', String(collapsed));
           btnToggleHistoryPreview.textContent = collapsed ? 'Show Preview' : 'Hide Preview';
         }
       });
@@ -2986,7 +3128,7 @@
               payload: { key: 'license_phone_bound', val: phoneInput }
             });
             playAudioSignal('success');
-            alert('Phone number bound successfully! Nexova Register Unlocked.');
+            alert('Phone number bound successfully! Valenixia Register Unlocked.');
             window.location.reload();
           } else {
             errorMsg.textContent = 'Invalid OTP code. Please try again.';
@@ -3009,23 +3151,23 @@
         try {
           // Fetch hardware fingerprint
           let deviceFingerprint = 'web_client_node';
-          const infoResp = await fetch(window.__nexovaServerUrl + '/api/server-info');
+          const infoResp = await fetch(window.__valenixiaServerUrl + '/api/server-info');
           if (infoResp.ok) {
             const info = await infoResp.json();
             if (info.fingerprint) deviceFingerprint = info.fingerprint;
           }
 
           // Request activation from Cloudflare Workers Licensing API (fallback to local mock verification if worker is unavailable)
-          const activateResp = await fetch(window.__nexovaServerUrl + '/api/license/activate', {
+          const activateResp = await fetch(window.__valenixiaServerUrl + '/api/license/activate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ licenseKey: licenseKeyInput, nodeId: deviceFingerprint })
           }).catch(() => {
             // Local fallback simulation if offline / no internet connection
-            const keyPattern = /^NEXOVA-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+            const keyPattern = /^VALENIXIA-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
             if (keyPattern.test(licenseKeyInput)) {
               let mockToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' + 
-                              btoa(JSON.stringify({ licenseKey: licenseKeyInput, nodeId: deviceFingerprint, tier: licenseKeyInput.includes('PRO') ? 'PRO' : 'TRIAL', expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000 })) + 
+                              btoa(JSON.stringify({ licenseKey: licenseKeyInput, nodeId: deviceFingerprint, tier: licenseKeyInput.includes('PRO') ? 'PRO' : 'TRIAL', exp: Date.now() + 7 * 24 * 60 * 60 * 1000, expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000 })) + 
                               '.mock_signature';
               return {
                 ok: true,
@@ -3034,7 +3176,7 @@
             }
             return {
               ok: false,
-              json: async () => ({ error: 'Invalid license key pattern. Format: NEXOVA-XXXX-XXXX-XXXX' })
+              json: async () => ({ error: 'Invalid license key pattern. Format: VALENIXIA-XXXX-XXXX-XXXX' })
             };
           });
 
@@ -3103,7 +3245,7 @@
 
   // Definitive POS Tier Architecture & Feature Mapping
   function applyTierRestrictions() {
-    let tier = window.__nexovaTier || 'STARTER';
+    let tier = window.__valenixiaTier || 'STARTER';
     
     // Grace trial or explicit TRIAL tier gets full ENTERPRISE capabilities
     if (tier === 'TRIAL' || isGraceTrialActive()) {
@@ -3192,7 +3334,7 @@
     const tbody = document.getElementById('device-list-tbody');
     if (!tbody) return;
     try {
-      const res = await fetch(window.__nexovaServerUrl + '/api/devices', {
+      const res = await fetch(window.__valenixiaServerUrl + '/api/devices', {
         headers: {
           'Authorization': `Bearer ${state.deviceToken || ''}`
         }
@@ -3200,10 +3342,10 @@
       if (res.status === 401) {
         console.warn('[App] Device token was rejected by server (401). Attempting auto-registration recovery...');
         state.deviceToken = null;
-        await NexovaDB.delete('local_preferences', 'device_token');
+        await ValenixiaDB.delete('local_preferences', 'device_token');
 
         try {
-          const serverBase = (window.__nexovaServerUrl || location.origin);
+          const serverBase = (window.__valenixiaServerUrl || location.origin);
           const regResp = await fetch(serverBase + '/api/devices/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3213,7 +3355,7 @@
             const regData = await regResp.json();
             if (regData.status === 'APPROVED' && regData.token) {
               console.log('[App] Auto-registration recovery success. Token stored.');
-              await NexovaDB.put('local_preferences', {
+              await ValenixiaDB.put('local_preferences', {
                 key: 'device_token',
                 value_type: 'STR',
                 value_payload: regData.token,
@@ -3293,7 +3435,7 @@
 
     try {
       // 1. Populate Employee Dropdown
-      const employees = await NexovaDB.getAll('employees');
+      const employees = await ValenixiaDB.getAll('employees');
       if (agentSelect) {
         // Keep only first choose option
         agentSelect.innerHTML = '<option value="">-- Choose Employee --</option>';
@@ -3308,7 +3450,7 @@
       }
 
       // 2. Fetch and render Active Sales Agents roster
-      const agentsRes = await fetch(window.__nexovaServerUrl + '/api/admin/sales-agents', {
+      const agentsRes = await fetch(window.__valenixiaServerUrl + '/api/admin/sales-agents', {
         headers: { 'Authorization': `Bearer ${state.deviceToken || ''}` }
       });
       if (agentsRes.ok) {
@@ -3333,7 +3475,7 @@
       }
 
       // 3. Fetch and render Commission Earnings Ledger
-      const commRes = await fetch(window.__nexovaServerUrl + '/api/admin/commissions', {
+      const commRes = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions', {
         headers: { 'Authorization': `Bearer ${state.deviceToken || ''}` }
       });
       if (commRes.ok) {
@@ -3436,7 +3578,7 @@
               playAudioSignal('click');
               if (confirm('Mark this commission as PAID?')) {
                 try {
-                  const payRes = await fetch(`${window.__nexovaServerUrl}/api/admin/commissions/${id}/pay`, {
+                  const payRes = await fetch(`${window.__valenixiaServerUrl}/api/admin/commissions/${id}/pay`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${state.deviceToken || ''}` }
                   });
@@ -3461,7 +3603,7 @@
               const notes = prompt('Enter approval audit notes:', 'Approved after validation');
               if (notes !== null) {
                 try {
-                  const resp = await fetch(`${window.__nexovaServerUrl}/api/admin/commissions/${id}/approve`, {
+                  const resp = await fetch(`${window.__valenixiaServerUrl}/api/admin/commissions/${id}/approve`, {
                     method: 'POST',
                     headers: { 
                       'Content-Type': 'application/json',
@@ -3490,7 +3632,7 @@
               const notes = prompt('Enter reason notes for auditing:');
               if (notes && notes.trim()) {
                 try {
-                  const resp = await fetch(`${window.__nexovaServerUrl}/api/admin/commissions/${id}/flag`, {
+                  const resp = await fetch(`${window.__valenixiaServerUrl}/api/admin/commissions/${id}/flag`, {
                     method: 'POST',
                     headers: { 
                       'Content-Type': 'application/json',
@@ -3523,7 +3665,7 @@
                   if (refundAmt.trim() !== '') {
                     payload.refundAmountMinor = parseInt(refundAmt.trim());
                   }
-                  const resp = await fetch(`${window.__nexovaServerUrl}/api/admin/commissions/${id}/cancel`, {
+                  const resp = await fetch(`${window.__valenixiaServerUrl}/api/admin/commissions/${id}/cancel`, {
                     method: 'POST',
                     headers: { 
                       'Content-Type': 'application/json',
@@ -3557,7 +3699,7 @@
     if (!tbody) return;
 
     try {
-      const resp = await fetch(window.__nexovaServerUrl + '/api/admin/whitelist', {
+      const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/whitelist', {
         headers: { 'Authorization': `Bearer ${state.deviceToken || ''}` }
       });
       if (resp.ok) {
@@ -3588,7 +3730,7 @@
               playAudioSignal('click');
               if (confirm('Are you sure you want to remove this entry from the whitelist?')) {
                 try {
-                  const delRes = await fetch(`${window.__nexovaServerUrl}/api/admin/whitelist/${id}`, {
+                  const delRes = await fetch(`${window.__valenixiaServerUrl}/api/admin/whitelist/${id}`, {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${state.deviceToken || ''}` }
                   });
@@ -3622,7 +3764,7 @@
     }
 
     try {
-      const resp = await fetch(window.__nexovaServerUrl + '/api/admin/whitelist', {
+      const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/whitelist', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -3657,7 +3799,7 @@
     const idempotencyKey = crypto.randomUUID();
 
     try {
-      const resp = await fetch(window.__nexovaServerUrl + '/api/admin/commissions/batch-action', {
+      const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/batch-action', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -3692,7 +3834,7 @@
           return;
         }
         try {
-          const res = await fetch(window.__nexovaServerUrl + '/api/admin/sales-agents', {
+          const res = await fetch(window.__valenixiaServerUrl + '/api/admin/sales-agents', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -3718,7 +3860,7 @@
       btnExport.addEventListener('click', async () => {
         playAudioSignal('click');
         try {
-          const resp = await fetch(window.__nexovaServerUrl + '/api/admin/commissions/export', {
+          const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/export', {
             headers: { 'Authorization': `Bearer ${state.deviceToken || ''}` }
           });
           if (resp.ok) {
@@ -3775,7 +3917,7 @@
   async function approveDevice(nodeId) {
     playAudioSignal('click');
     try {
-      const res = await fetch(window.__nexovaServerUrl + '/api/devices/approve', {
+      const res = await fetch(window.__valenixiaServerUrl + '/api/devices/approve', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -3794,7 +3936,7 @@
   async function rejectDevice(nodeId) {
     playAudioSignal('click');
     try {
-      const res = await fetch(window.__nexovaServerUrl + '/api/devices/reject', {
+      const res = await fetch(window.__valenixiaServerUrl + '/api/devices/reject', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -3853,7 +3995,7 @@
       // STEP 1: Try local IndexedDB offline PBKDF2 verification
       let matched = null;
       try {
-        matched = await NexovaDB.verifyEmployeePin(state.currentPin);
+        matched = await ValenixiaDB.verifyEmployeePin(state.currentPin);
       } catch (localErr) {
         console.warn('[Auth] Local PIN verify threw:', localErr.message);
       }
@@ -3862,7 +4004,7 @@
       if (!matched) {
         console.log('[Auth] No local match — trying server /api/employee/login');
         try {
-          const serverBase = (window.__nexovaServerUrl || location.origin);
+          const serverBase = (window.__valenixiaServerUrl || location.origin);
           const resp = await fetch(serverBase + '/api/employee/login', {
             method: 'POST',
             headers: { 
@@ -3956,7 +4098,7 @@
       
       let matched = null;
       try {
-        matched = await NexovaDB.verifyEmployeePin(pin);
+        matched = await ValenixiaDB.verifyEmployeePin(pin);
       } catch (err) {
         console.warn('[Auth] Manager PIN verify failed:', err);
       }
@@ -4007,7 +4149,7 @@
         state.catalogVirtualList.destroy();
         state.catalogVirtualList = null;
       }
-      if (typeof renderSkeletonLoader === 'function') {
+      if (!state.catalogLoaded && typeof renderSkeletonLoader === 'function') {
         renderSkeletonLoader('catalog-virtual-container', 12, 'row');
       }
       syncWorker.postMessage({ type: 'GET_CATALOG' });
@@ -4016,7 +4158,7 @@
     } else if (screenName === 'staff') {
       syncWorker.postMessage({ type: 'GET_EMPLOYEES' });
     } else if (screenName === 'history') {
-      if (typeof renderSkeletonLoader === 'function') {
+      if (!state.transactionsLoaded && typeof renderSkeletonLoader === 'function') {
         renderSkeletonLoader('history-transactions-list', 8, 'row');
       }
       syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
@@ -4054,7 +4196,7 @@
         const devicesVal = document.getElementById('license-active-devices-val');
         
         if (tierVal && expiryVal && devicesVal) {
-          const tier = window.__nexovaTier || 'STARTER';
+          const tier = window.__valenixiaTier || 'STARTER';
           const isTrial = isGraceTrialActive() || tier === 'TRIAL';
           tierVal.textContent = isTrial ? 'FREE TRIAL (ENTERPRISE FEATURES)' : tier;
           
@@ -4077,19 +4219,21 @@
 
               if (claims) {
                 expiryVal.textContent = claims.exp ? new Date(claims.exp).toLocaleDateString() : 'Lifetime License';
-                devicesVal.textContent = claims.tier === 'STARTER' ? '1 Terminal' : (claims.tier === 'PRO' ? '3 Terminals' : '100 Terminals (Unlimited)');
+                const config = window.LICENSE_CONFIG || {};
+                const limitVal = config[claims.tier]?.devices || 1;
+                devicesVal.textContent = limitVal === 1 ? '1 Register' : (limitVal > 5 ? 'Unlimited Registers' : `${limitVal} Registers`);
               }
             } catch (e) {
               console.error('[App.js Settings Check] Decode failed:', e.message);
               console.warn('[License] Corrupted token detected. Purging from local storage.');
-              await NexovaDB.setSecurePref('nexova_license_token', null);
+              await ValenixiaDB.setSecurePref('valenixia_license_token', null);
               state.licenseToken = null;
               expiryVal.textContent = 'Invalid license token';
               devicesVal.textContent = 'Restricted';
             }
           } else {
-            expiryVal.textContent = '3-Day Grace Period';
-            devicesVal.textContent = '100 Terminals';
+            expiryVal.textContent = '7-Day Free Trial';
+            devicesVal.textContent = 'Unlimited Registers';
           }
         }
       })();
@@ -4101,7 +4245,7 @@
       syncWorker.postMessage({ type: 'GET_CUSTOMER_CREDIT' });
       syncWorker.postMessage({ type: 'GET_CUSTOMERS' });
     } else if (screenName === 'analytics') {
-      if (typeof renderSkeletonLoader === 'function') {
+      if (!state.transactionsLoaded && typeof renderSkeletonLoader === 'function') {
         renderSkeletonLoader('analytics-histogram-bars', 4, 'card');
       }
       syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
@@ -4206,20 +4350,93 @@
 
   // Network badge UI update
   function updateNetworkBadge(isConnected) {
+    state.isOnline = isConnected;
     const badge = document.getElementById('net-badge');
     const txt = document.getElementById('net-status-text');
     const pill = document.getElementById('mobile-offline-pill');
+    const banner = document.getElementById('offline-banner');
 
     if (isConnected) {
-      badge.className = 'network-badge online';
-      txt.textContent = 'ONLINE';
-      badge.title = 'Sync Status: Online (All changes fully synced)';
+      if (badge) {
+        badge.className = 'network-badge online';
+        badge.title = 'Sync Status: Online (All changes fully synced)';
+      }
+      if (txt) txt.textContent = 'ONLINE';
       if (pill) pill.classList.remove('active');
+      if (banner) banner.style.display = 'none';
+
+      // Re-enable server-dependent features
+      const btnSwitchStore = document.getElementById('btn-switch-store-context');
+      const selectStore = document.getElementById('multi-store-select');
+      const inputPassphrase = document.getElementById('setting-sync-passphrase');
+      const btnSyncLicense = document.getElementById('btn-sync-license-now');
+
+      if (btnSwitchStore) {
+        btnSwitchStore.disabled = false;
+        btnSwitchStore.style.opacity = '1';
+        btnSwitchStore.style.cursor = 'pointer';
+      }
+      if (selectStore) selectStore.disabled = false;
+      if (inputPassphrase) inputPassphrase.disabled = false;
+      if (btnSyncLicense) {
+        btnSyncLicense.disabled = false;
+        btnSyncLicense.style.opacity = '1';
+        btnSyncLicense.style.cursor = 'pointer';
+      }
+
+      const storeWarn = document.getElementById('offline-multi-store-warning');
+      if (storeWarn) storeWarn.remove();
+      const pairWarn = document.getElementById('offline-pairing-warning');
+      if (pairWarn) pairWarn.remove();
     } else {
-      badge.className = 'network-badge offline';
-      txt.textContent = 'OFFLINE';
-      badge.title = 'Sync Status: Offline';
+      if (badge) {
+        badge.className = 'network-badge offline';
+        badge.title = 'Sync Status: Offline';
+      }
+      if (txt) txt.textContent = 'OFFLINE';
       if (pill) pill.classList.add('active');
+      if (banner) banner.style.display = 'flex';
+
+      // Disable server-dependent features
+      const btnSwitchStore = document.getElementById('btn-switch-store-context');
+      const selectStore = document.getElementById('multi-store-select');
+      const inputPassphrase = document.getElementById('setting-sync-passphrase');
+      const btnSyncLicense = document.getElementById('btn-sync-license-now');
+
+      if (btnSwitchStore) {
+        btnSwitchStore.disabled = true;
+        btnSwitchStore.style.opacity = '0.5';
+        btnSwitchStore.style.cursor = 'not-allowed';
+      }
+      if (selectStore) selectStore.disabled = true;
+      if (inputPassphrase) inputPassphrase.disabled = true;
+      if (btnSyncLicense) {
+        btnSyncLicense.disabled = true;
+        btnSyncLicense.style.opacity = '0.5';
+        btnSyncLicense.style.cursor = 'not-allowed';
+      }
+
+      // Inject warnings if they do not exist
+      if (selectStore && !document.getElementById('offline-multi-store-warning')) {
+        const warn = document.createElement('div');
+        warn.id = 'offline-multi-store-warning';
+        warn.style.color = 'var(--accent-orange)';
+        warn.style.fontSize = '11px';
+        warn.style.marginTop = '8px';
+        warn.textContent = '⚠️ Offline: Branch switching is disabled while offline.';
+        selectStore.parentNode.appendChild(warn);
+      }
+
+      const pairContainer = inputPassphrase ? inputPassphrase.closest('.settings-section') : null;
+      if (pairContainer && !document.getElementById('offline-pairing-warning')) {
+        const warn = document.createElement('div');
+        warn.id = 'offline-pairing-warning';
+        warn.style.color = 'var(--accent-orange)';
+        warn.style.fontSize = '11px';
+        warn.style.marginTop = '12px';
+        warn.textContent = '⚠️ Offline: Device pairing and sync settings are disabled.';
+        pairContainer.appendChild(warn);
+      }
     }
   }
 
@@ -4336,7 +4553,7 @@
       }
     }
 
-    const name = state.preferences['store_name'] || 'NEXOVA COFFEE & RETAIL';
+    const name = state.preferences['store_name'] || 'VALENIXIA COFFEE & RETAIL';
     document.getElementById('sidebar-store-name').textContent = name.substring(0, 15).toUpperCase();
     document.getElementById('setting-store-name').value = name;
 
@@ -4374,13 +4591,13 @@
     const palette = state.preferences['store_theme_palette'] || '';
     const themeClass = palette
       ? 'theme-' + palette.toLowerCase().replace(/\s+/g, '-')
-      : (window.__nexovaSystemTheme || 'theme-obsidian-emerald');
+      : (window.__valenixiaSystemTheme || 'theme-obsidian-emerald');
     const body = document.body;
     const themes = ['theme-obsidian-emerald', 'theme-midnight-sapphire', 'theme-warm-amber', 'theme-minimalist-chrome', 'theme-monochrome-ivory', 'theme-premium-navy'];
     themes.forEach(t => body.classList.remove(t));
     body.classList.add(themeClass);
     // Sync back to localStorage for next cold-boot
-    if (palette) localStorage.setItem('nexova_theme_override', themeClass);
+    if (palette) localStorage.setItem('valenixia_theme_override', themeClass);
     const themeSelect = document.getElementById('setting-theme-palette');
     if (themeSelect) themeSelect.value = palette || 'Obsidian Emerald';
 
@@ -4453,7 +4670,7 @@
       let port = window.location.port || '3000';
       
       try {
-        const serverBase = window.__nexovaServerUrl || location.origin;
+        const serverBase = window.__valenixiaServerUrl || location.origin;
         const resp = await fetch(`${serverBase}/api/server-info`, {
           signal: AbortSignal.timeout(3000)
         });
@@ -4492,7 +4709,7 @@
   }
 
   // Production-grade bilingual matrix for Pakistani retail environments
-  window.__nexovaI18n = {
+  window.__valenixiaI18n = {
     en: {
       formal: {
         dashboard: "Dashboard & Analytics",
@@ -4570,7 +4787,7 @@
     }
 
     const jargonMode = state.preferences['system_jargon_mode'] || 'informal';
-    const i18n = window.__nexovaI18n[lang] ? window.__nexovaI18n[lang][jargonMode] : window.__nexovaI18n['en']['informal'];
+    const i18n = window.__valenixiaI18n[lang] ? window.__valenixiaI18n[lang][jargonMode] : window.__valenixiaI18n['en']['informal'];
 
     // Toggle RTL document flow and fonts
     if (isUrdu) {
@@ -4615,7 +4832,7 @@
       '#btn-checkout-complete span': isUrdu ? 'آرڈر مکمل کریں (F1)' : 'COMPLETE ORDER (F1)',
       '#btn-wiz-choose-new': isUrdu ? 'نیا سٹور بنائیں' : 'Set Up New Standalone Store',
       '#btn-wiz-choose-join': isUrdu ? 'نیٹ ورک میں شامل ہوں' : 'Join Existing Store Network',
-      '#wizard-step-title': isUrdu ? 'نیکسوا سیٹ اپ' : 'Nexova Setup',
+      '#wizard-step-title': isUrdu ? 'نیکسوا سیٹ اپ' : 'Valenixia Setup',
       '#btn-wiz-back': isUrdu ? 'پیچھے جائیں' : 'Back',
       '#btn-wiz-next': isUrdu ? 'آگے بڑھیں' : 'Continue'
     };
@@ -4669,7 +4886,7 @@
     // 1. Fetch hardware fingerprint from server (best-effort — silently skipped when offline)
     let deviceFingerprint = 'web_client_node';
     try {
-      const serverBase = window.__nexovaServerUrl || location.origin;
+      const serverBase = window.__valenixiaServerUrl || location.origin;
       const resp = await fetch(`${serverBase}/api/server-info`, {
         signal: AbortSignal.timeout(3000)
       });
@@ -4706,8 +4923,8 @@
     }
 
     // 2.b If LicenseEngine already validated a paid tier, return early
-    if (window.__nexovaTier && window.__nexovaTier !== 'TRIAL') {
-      console.log(`[License] Valid ${window.__nexovaTier} license verified by LicenseEngine.`);
+    if (window.__valenixiaTier && window.__valenixiaTier !== 'TRIAL') {
+      console.log(`[License] Valid ${window.__valenixiaTier} license verified by LicenseEngine.`);
       lockoutOverlay.style.display = 'none';
       document.getElementById('trial-countdown-badge')?.remove();
       return;
@@ -4723,7 +4940,7 @@
     if (licenseToken) {
       // Validate license token locally or with worker
       try {
-        const verifyResp = await fetch(window.__nexovaServerUrl + '/api/license/verify', {
+        const verifyResp = await fetch(window.__valenixiaServerUrl + '/api/license/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: licenseToken, nodeId: deviceFingerprint })
@@ -4732,7 +4949,7 @@
         if (verifyResp.ok) {
           const res = await verifyResp.json();
           if (res.success) {
-            window.__nexovaTier = res.payload.tier; // CRITICAL FIX
+            window.__valenixiaTier = res.payload.tier; // CRITICAL FIX
             applyTierRestrictions(); // Force UI to unlock features
             console.log(`[License] Valid ${res.payload.tier} license verified. Expires: ${new Date(res.payload.expiresAt).toLocaleDateString()}`);
             lockoutOverlay.style.display = 'none';
@@ -4766,7 +4983,7 @@
           }
 
           if (claims && claims.hwid === deviceFingerprint && claims.exp > Date.now()) {
-            window.__nexovaTier = claims.tier; // CRITICAL FIX
+            window.__valenixiaTier = claims.tier; // CRITICAL FIX
             applyTierRestrictions(); // Force UI to unlock features
             console.log(`[License] Offline verify success. Tier: ${claims.tier}`);
             lockoutOverlay.style.display = 'none';
@@ -4783,7 +5000,7 @@
         } catch (e) {
           console.error('[App.js License Check] Offline decode failed:', e.message);
           console.warn('[License] Corrupted token detected. Purging from local storage.');
-          await NexovaDB.setSecurePref('nexova_license_token', null);
+          await ValenixiaDB.setSecurePref('valenixia_license_token', null);
           state.licenseToken = null;
         }
       }
@@ -5281,7 +5498,7 @@
   }
 
   // --- ZERO-CONFIGURATION NETWORK PAIRING ENGINE ---
-  const NexovaPairingEngine = {
+  const ValenixiaPairingEngine = {
     processPairingURI(uriString) {
       try {
         console.log('[Pairing] Received pairing token:', uriString);
@@ -5299,12 +5516,12 @@
         const serverUrl = `${url.protocol}//${url.host}`;
         
         // Persist parameters to local registers
-        localStorage.setItem('nexova_server_url', serverUrl);
+        localStorage.setItem('valenixia_server_url', serverUrl);
         localStorage.setItem('sync_passphrase', passphrase);
         
         syncWorker.postMessage({
           type: 'SAVE_PREFERENCE',
-          payload: { key: 'nexova_server_url', val: serverUrl }
+          payload: { key: 'valenixia_server_url', val: serverUrl }
         });
         syncWorker.postMessage({
           type: 'SAVE_PREFERENCE',
@@ -5326,7 +5543,7 @@
       }
     }
   };
-  window.NexovaPairingEngine = NexovaPairingEngine;
+  window.ValenixiaPairingEngine = ValenixiaPairingEngine;
 
   let scannerStream = null;
   let zxingCodeReader = null;
@@ -5429,7 +5646,7 @@
     if (code.startsWith('http://') || code.startsWith('https://')) {
       if (code.includes('#passphrase=')) {
         playAudioSignal('success');
-        NexovaPairingEngine.processPairingURI(code);
+        ValenixiaPairingEngine.processPairingURI(code);
         return;
       }
     }
@@ -5598,7 +5815,7 @@
   function calculateGrandTotal() {
     const payModeBtn = document.querySelector('.payment-btn.active');
     const paymentMode = payModeBtn ? payModeBtn.getAttribute('data-mode') : 'CASH';
-    return CheckoutEngine.calculateGrandTotal(state.activeCart, state.preferences, paymentMode, window.__nexovaTier || 'STARTER');
+    return CheckoutEngine.calculateGrandTotal(state.activeCart, state.preferences, paymentMode, window.__valenixiaTier || 'STARTER');
   }
 
   function updateTotalsBoard() {
@@ -5631,7 +5848,7 @@
     const taxLabelEl = document.getElementById('txt-tax-rate-label');
     if (taxLabelEl) taxLabelEl.textContent = label;
 
-    const isFbrEnabled = (window.__nexovaTier === 'ENTERPRISE' || window.__nexovaTier === 'TRIAL') && state.preferences['fbr_integration_enabled'] === 'true';
+    const isFbrEnabled = (window.__valenixiaTier === 'ENTERPRISE' || window.__valenixiaTier === 'TRIAL') && state.preferences['fbr_integration_enabled'] === 'true';
     const fbrFeeEl = document.getElementById('row-fbr-fee');
     if (fbrFeeEl) {
       fbrFeeEl.style.display = isFbrEnabled ? 'flex' : 'none';
@@ -5647,6 +5864,12 @@
 
   // Complete checkout process
   function submitCheckoutTransaction() {
+    if (window.__amcExpired) {
+      playAudioSignal('error');
+      alert('⚠️ AMC EXPIRED: Your Annual Maintenance Contract has expired. Please renew in Settings to resume billing capabilities.');
+      return;
+    }
+
     if (state.isCheckingOut) {
       console.warn('[App] Checkout already in progress, ignoring double click.');
       return;
@@ -5737,7 +5960,7 @@
         total,
         paymentMode,
         paymentDetails,
-        tier: window.__nexovaTier || 'STARTER',
+        tier: window.__valenixiaTier || 'STARTER',
         fbr_integration_enabled: state.preferences['fbr_integration_enabled']
       }
     });
@@ -6435,7 +6658,7 @@
     }
 
     // Enforce Starter Tier maximum limit of 1,000 SKUs
-    const tier = window.__nexovaTier || 'STARTER';
+    const tier = window.__valenixiaTier || 'STARTER';
     const isNew = !document.getElementById('form-product-sku').disabled;
     if (tier === 'STARTER' && isNew && state.catalog && state.catalog.length >= 1000) {
       alert('Product SKU limit reached (Starter Tier is capped at 1,000 SKUs). Please upgrade to the PRO Tier.');
@@ -6692,6 +6915,19 @@
   }
 
   // --- SALES HISTORY LEDGER & RECEIPTS ---
+  function wireHistoryFilterPills(rowId, onChange) {
+    const row = document.getElementById(rowId);
+    if (!row || row.dataset.wired) return;
+    row.dataset.wired = 'true';
+    row.querySelectorAll('.history-filter-pill').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        row.querySelectorAll('.history-filter-pill').forEach(p => p.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+        onChange(e.currentTarget.getAttribute('data-filter') || 'all');
+      });
+    });
+  }
+
   // History date filter state (persisted across re-renders)
   let _historyDateFilter = 'all';
 
@@ -6804,7 +7040,7 @@
   function renderThermalReceiptPreview(tx) {
     const renderDiv = document.getElementById('receipt-printout-render');
     
-    const store = state.preferences['store_name'] || 'NEXOVA COFFEE & RETAIL';
+    const store = state.preferences['store_name'] || 'VALENIXIA COFFEE & RETAIL';
     const tagline = state.preferences['store_receipt_tagline'] || 'Stability meets Speed. Thank you!';
     const widthPref = state.preferences['store_receipt_width'] || '42';
     const cols = parseInt(widthPref);
@@ -7027,7 +7263,7 @@
           b.style.color = 'var(--text-gray)';
           b.setAttribute('aria-pressed', 'false');
         });
-        btn.style.background = 'var(--accent-blue)';
+        btn.style.background = 'var(--accent-emerald)';
         btn.style.color = '#fff';
         btn.setAttribute('aria-pressed', 'true');
 
@@ -7105,7 +7341,7 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `nexova-analytics-${state.analyticsRange}-${Date.now()}.csv`;
+    a.download = `valenixia-analytics-${state.analyticsRange}-${Date.now()}.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -7405,11 +7641,11 @@
   // Over-The-Air silent update checker
   function initOtaUpdater() {
     const CURRENT_VERSION = '1.0.0';
-    localStorage.setItem('nexova_client_version', CURRENT_VERSION);
+    localStorage.setItem('valenixia_client_version', CURRENT_VERSION);
 
     async function checkUpdates() {
       try {
-        const serverBase = window.__nexovaServerUrl || location.origin;
+        const serverBase = window.__valenixiaServerUrl || location.origin;
         // Skip check if we're running from a file:// URL (embedded WebView)
         if (location.protocol === 'file:') return;
         const res = await fetch(`${serverBase}/version.json?cb=${Date.now()}`, {
@@ -7459,13 +7695,13 @@
         </div>
         <p style="font-size:10px; color:var(--text-gray); margin:0;">${changelog || 'Performance fixes and enhancements.'}</p>
         <div style="display:flex; flex-direction:column; gap:6px; margin:8px 0;">
-          <a href="/downloads/nexova-pos-latest.apk" download style="text-align:center; padding:8px; background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.2); border-radius:4px; color:var(--accent-emerald); font-size:10px; font-weight:700; text-decoration:none; display:block; transition: background 0.2s;">
+          <a href="/downloads/valenixia-pos-latest.apk" download style="text-align:center; padding:8px; background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.2); border-radius:4px; color:var(--accent-emerald); font-size:10px; font-weight:700; text-decoration:none; display:block; transition: background 0.2s;">
             📥 DOWNLOAD ANDROID APK (TABLET)
           </a>
-          <a href="/downloads/nexova-pos-setup.exe" download style="text-align:center; padding:8px; background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.2); border-radius:4px; color:var(--accent-emerald); font-size:10px; font-weight:700; text-decoration:none; display:block; transition: background 0.2s;">
+          <a href="/downloads/valenixia-pos-setup.exe" download style="text-align:center; padding:8px; background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.2); border-radius:4px; color:var(--accent-emerald); font-size:10px; font-weight:700; text-decoration:none; display:block; transition: background 0.2s;">
             📥 DOWNLOAD WINDOWS SETUP (EXE)
           </a>
-          <a href="/downloads/nexova-pos-setup.msi" download style="text-align:center; padding:8px; background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.2); border-radius:4px; color:var(--accent-emerald); font-size:10px; font-weight:700; text-decoration:none; display:block; transition: background 0.2s;">
+          <a href="/downloads/valenixia-pos-setup.msi" download style="text-align:center; padding:8px; background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.2); border-radius:4px; color:var(--accent-emerald); font-size:10px; font-weight:700; text-decoration:none; display:block; transition: background 0.2s;">
             📥 DOWNLOAD WINDOWS SETUP (MSI)
           </a>
         </div>
@@ -7484,7 +7720,7 @@
                 for (let name of cacheNames) { await caches.delete(name); }
             } catch(e) { console.error('Cache wipe failed', e); }
         }
-        localStorage.setItem('nexova_client_version', newVer);
+        localStorage.setItem('valenixia_client_version', newVer);
         // Force the WebView to ignore network cache on next load
         window.location.href = window.location.pathname + '?v=' + new Date().getTime();
       });
@@ -7537,7 +7773,7 @@
     errorMsg.textContent = '';
 
     try {
-      const matched = await NexovaDB.verifyEmployeePin(pin);
+      const matched = await ValenixiaDB.verifyEmployeePin(pin);
 
       if (matched && matched.role === 'ADMIN') {
         document.getElementById('modal-reset').classList.remove('active');
@@ -7602,7 +7838,7 @@
     const qrContainer = document.getElementById('qr-pay-canvas-container');
     if (qrContainer) {
       qrContainer.innerHTML = '';
-      const payloadString = `nexova://payment/pay?amount=${(total / 100).toFixed(2)}&txid=${randomTxId}&terminal=${state.nodeId || 'master_pc'}`;
+      const payloadString = `valenixia://payment/pay?amount=${(total / 100).toFixed(2)}&txid=${randomTxId}&terminal=${state.nodeId || 'master_pc'}`;
       new QRCode(qrContainer, {
         text: payloadString,
         width: 176,
@@ -7760,7 +7996,7 @@
     
     // Store name (Double size)
     bytes.push(0x1D, 0x21, 0x11);
-    const storeName = (state.preferences['store_name'] || 'NEXOVA COFFEE & RETAIL') + '\n';
+    const storeName = (state.preferences['store_name'] || 'VALENIXIA COFFEE & RETAIL') + '\n';
     bytes.push(...encoder.encode(storeName));
     
     // Normal size
@@ -7849,7 +8085,7 @@
       'distributors', 'purchase_orders', 'po_line_items', 'distributor_payments', 'customer_credit'
     ];
     for (const store of stores) {
-      backupObj[store] = await NexovaDB.getAll(store);
+      backupObj[store] = await ValenixiaDB.getAll(store);
     }
     return JSON.stringify(backupObj, null, 2);
   }
@@ -7871,7 +8107,7 @@
         setButtonLoading('btn-cloud-sync', false, '', 'BACKUP TO GOOGLE DRIVE');
         return;
       }
-      await NexovaDB.setSecurePref('google_drive_oauth_token', userToken);
+      await ValenixiaDB.setSecurePref('google_drive_oauth_token', userToken);
       state.googleDriveOauthToken = userToken;
       syncWorker.postMessage({
         type: 'SAVE_PREFERENCE',
@@ -7887,12 +8123,12 @@
 
       statusTxt.textContent = 'Syncing: Executing multi-part upload pipeline to Google Drive REST API...';
 
-      const boundary = 'nexova_backup_boundary_' + Date.now();
+      const boundary = 'valenixia_backup_boundary_' + Date.now();
       const delimiter = `\r\n--${boundary}\r\n`;
       const close_delim = `\r\n--${boundary}--`;
       
       const metadata = {
-        name: `nexova_backup_${Date.now()}.json`,
+        name: `valenixia_backup_${Date.now()}.json`,
         mimeType: 'application/json'
       };
 
@@ -7916,7 +8152,7 @@
 
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
-          await NexovaDB.setSecurePref('google_drive_oauth_token', null);
+          await ValenixiaDB.setSecurePref('google_drive_oauth_token', null);
           state.googleDriveOauthToken = '';
           throw new Error('OAuth Access Token has expired or is invalid. Please try again.');
         }
@@ -9034,7 +9270,7 @@
       return;
     }
 
-    const storeName = state.preferences['store_name'] || 'NEXOVA STORE';
+    const storeName = state.preferences['store_name'] || 'VALENIXIA STORE';
     const amountRs = (amountMinor / 100.0).toFixed(2);
     
     // Compose reminder message
@@ -9194,7 +9430,7 @@
         const mgr = state.employees?.find(e => e.role === 'MANAGER' || e.role === 'ADMIN');
         if (!mgr) { alert('No manager found. Configure a manager first.'); return; }
         // Open drawer — audit trail written to aborted_sales_log via server
-        fetch(window.__nexovaServerUrl + '/api/void-transaction', {
+        fetch(window.__valenixiaServerUrl + '/api/void-transaction', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ transactionId: `no_sale_${Date.now()}`, managerPin: pin, voidReason: 'NO_SALE' })
@@ -9255,7 +9491,7 @@
 
   // ── Release Notes Modal (shown once per version after update detected) ──────
   function showReleaseNotesModal(version, changes) {
-    const seenKey = 'nexova_last_seen_version';
+    const seenKey = 'valenixia_last_seen_version';
     if (localStorage.getItem(seenKey) === version) return; // Already seen
 
     if (document.getElementById('release-notes-modal')) return;
@@ -9302,7 +9538,7 @@
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--accent-emerald, #10b981)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             </div>
             <div>
-              <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;">Nexova POS</div>
+              <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;">Valenixia POS</div>
               <div style="font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 800; color: #f1f5f9; letter-spacing: -0.03em;">What's New in v${version}</div>
             </div>
           </div>
@@ -9319,10 +9555,10 @@
 
         <!-- Download links -->
         <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
-          <a href="/downloads/nexova-pos-latest.apk" target="_blank" style="flex: 1; min-width: 120px; text-align: center; text-decoration: none; padding: 10px 12px; background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.2); border-radius: 6px; font-size: 11px; font-weight: 700;">
+          <a href="/downloads/valenixia-pos-latest.apk" target="_blank" style="flex: 1; min-width: 120px; text-align: center; text-decoration: none; padding: 10px 12px; background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.2); border-radius: 6px; font-size: 11px; font-weight: 700;">
             GET APK (Android)
           </a>
-          <a href="/downloads/nexova-pos-setup.msi" target="_blank" style="flex: 1; min-width: 120px; text-align: center; text-decoration: none; padding: 10px 12px; background: rgba(255,255,255,0.04); color: #94a3b8; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; font-size: 11px; font-weight: 700;">
+          <a href="/downloads/valenixia-pos-setup.msi" target="_blank" style="flex: 1; min-width: 120px; text-align: center; text-decoration: none; padding: 10px 12px; background: rgba(255,255,255,0.04); color: #94a3b8; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; font-size: 11px; font-weight: 700;">
             GET WINDOWS
           </a>
         </div>
@@ -9356,14 +9592,14 @@
 
   async function checkForUpdates() {
     try {
-      const resp = await fetch((window.__nexovaServerUrl || '') + '/api/version');
+      const resp = await fetch((window.__valenixiaServerUrl || '') + '/api/version');
       if (resp.ok) {
         const data = await resp.json();
         if (data && data.serverVersion && data.serverVersion !== CLIENT_VERSION) {
           console.log(`[Update] New version detected: ${data.serverVersion} (Current: ${CLIENT_VERSION})`);
           // Fetch structured release notes
           try {
-            const notesResp = await fetch((window.__nexovaServerUrl || '') + '/api/release-notes');
+            const notesResp = await fetch((window.__valenixiaServerUrl || '') + '/api/release-notes');
             if (notesResp.ok) {
               const notes = await notesResp.json();
               showReleaseNotesModal(notes.version, notes.changes);
@@ -9400,7 +9636,7 @@
       <div style="font-size: 10px; color: rgba(255,255,255,0.7); font-style: italic; margin-bottom: 12px;">${changelog}</div>
       <div style="display: flex; gap: 8px;">
         <button onclick="showReleaseNotesModal('${newVersion}', ['${changelog}'])" style="flex:1; padding:8px; background:#fff; color:#0d9488; border:none; border-radius:4px; font-size:11px; font-weight:700; cursor:pointer;">View Notes</button>
-        <a href="/downloads/nexova-pos-latest.apk" target="_blank" style="flex:1; text-align:center; text-decoration:none; padding:8px; background:rgba(255,255,255,0.1); color:#fff; border:1px solid rgba(255,255,255,0.2); border-radius:4px; font-size:11px; font-weight:700;">GET APK</a>
+        <a href="/downloads/valenixia-pos-latest.apk" target="_blank" style="flex:1; text-align:center; text-decoration:none; padding:8px; background:rgba(255,255,255,0.1); color:#fff; border:1px solid rgba(255,255,255,0.2); border-radius:4px; font-size:11px; font-weight:700;">GET APK</a>
       </div>
       <style>@keyframes slideUp { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }</style>
     `;
@@ -9425,8 +9661,8 @@
         LicenseEngine.getGraceRemainingMs()
       ]);
 
-      const tier = window.__nexovaTier || 'UNKNOWN';
-      const hwid = window.__nexovaHWID || '—';
+      const tier = window.__valenixiaTier || 'UNKNOWN';
+      const hwid = window.__valenixiaHWID || '—';
       const hwidDisplay = hwid.length > 8 ? hwid.slice(0, 8) + '...' : hwid;
 
       let expiryText = '';
@@ -9459,6 +9695,47 @@
         ? `<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;background:rgba(16,185,129,0.1);color:var(--accent-emerald);border:1px solid rgba(16,185,129,0.2);">SIGNATURE VALID</span>`
         : `<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;background:rgba(239,68,68,0.1);color:var(--alert-coral);border:1px solid rgba(239,68,68,0.2);">SIGNATURE INVALID</span>`;
 
+      const payload = verifyResult.payload || {};
+      const mode = payload.mode || 'subscription';
+      const purchasedAt = payload.purchased_at || null;
+      const amcPaidUntil = payload.amc_paid_until || null;
+      const fbrEnabled = payload.fbr_enabled === 1 || payload.fbr_enabled === '1' || payload.fbr_enabled === true || payload.fbr_enabled === 'true';
+      const fbrIntegrator = payload.fbr_integrator || '';
+
+      let amcHtml = '';
+      if (mode === 'lifetime') {
+        let amcStatusText = 'Year 1 (Covered)';
+        let amcStatusColor = 'var(--accent-emerald)';
+        const isExpired = purchasedAt && 
+                          (Date.now() > purchasedAt + 365 * 24 * 60 * 60 * 1000) && 
+                          (!amcPaidUntil || amcPaidUntil < Date.now());
+        if (isExpired) {
+          amcStatusText = 'AMC Expired';
+          amcStatusColor = 'var(--alert-coral)';
+        } else if (amcPaidUntil) {
+          amcStatusText = `Paid until ${new Date(amcPaidUntil).toLocaleDateString()}`;
+          amcStatusColor = 'var(--accent-emerald)';
+        }
+        amcHtml = `
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 6px; padding: 14px;">
+            <div style="font-size:10px;color:var(--text-gray);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">AMC Status</div>
+            <div style="font-size:13px;font-weight:700;color:${amcStatusColor};">${amcStatusText}</div>
+          </div>
+        `;
+      }
+
+      let fbrHtml = '';
+      if (tier === 'ENTERPRISE') {
+        const fbrStatusText = fbrEnabled ? `Active (${fbrIntegrator || 'PRAL'})` : 'Not Integrated';
+        const fbrStatusColor = fbrEnabled ? 'var(--accent-emerald)' : 'var(--text-gray)';
+        fbrHtml = `
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 6px; padding: 14px;">
+            <div style="font-size:10px;color:var(--text-gray);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">FBR Status</div>
+            <div style="font-size:13px;font-weight:700;color:${fbrStatusColor};">${fbrStatusText}</div>
+          </div>
+        `;
+      }
+
       container.innerHTML = `
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 16px;">
           <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 6px; padding: 14px;">
@@ -9477,6 +9754,8 @@
             <div style="font-size:10px;color:var(--text-gray);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Cryptographic Sig</div>
             ${validBadge}
           </div>
+          ${amcHtml}
+          ${fbrHtml}
         </div>
         ${!verifyResult.valid && verifyResult.reason ? `<div style="font-size:11px;color:var(--alert-coral);padding:10px;background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.1);border-radius:6px;">Reason: ${verifyResult.reason}</div>` : ''}
       `;
@@ -9527,16 +9806,16 @@
           btnSyncLicense.disabled = true;
           btnSyncLicense.textContent = 'Syncing...';
           const token = state.licenseToken;
-          const hwid = window.__nexovaHWID;
+          const hwid = window.__valenixiaHWID;
           if (token && hwid) {
-            const serverBase = window.__nexovaServerUrl || location.origin;
+            const serverBase = window.__valenixiaServerUrl || location.origin;
             const res = await fetch(`${serverBase}/api/license/check?hwid=${encodeURIComponent(hwid)}`, {
               headers: { 'Authorization': 'Bearer ' + token }
             });
             if (res.ok) {
               const data = await res.json();
               if (data.updated && data.token) {
-                await NexovaDB.setSecurePref('nexova_license_token', data.token);
+                await ValenixiaDB.setSecurePref('valenixia_license_token', data.token);
                 state.licenseToken = data.token;
                 alert('License successfully updated! App will reload now.');
                 location.reload();
@@ -9545,7 +9824,7 @@
               }
             } else if (res.status === 401 || res.status === 404) {
               alert('License has been revoked or expired on the server.');
-              await NexovaDB.setSecurePref('nexova_license_token', null);
+              await ValenixiaDB.setSecurePref('valenixia_license_token', null);
               state.licenseToken = null;
               location.reload();
             } else {
@@ -9563,6 +9842,23 @@
       });
     }
 
+    const btnSwitchStore = document.getElementById('btn-switch-store-context');
+    if (btnSwitchStore) {
+      btnSwitchStore.addEventListener('click', () => {
+        if (!state.isOnline) {
+          if (typeof playAudioSignal === 'function') playAudioSignal('error');
+          alert('⚠️ Offline: Branch switching requires an active network connection.');
+          return;
+        }
+        if (typeof playAudioSignal === 'function') playAudioSignal('click');
+        const selectStore = document.getElementById('multi-store-select');
+        const storeName = selectStore ? selectStore.options[selectStore.selectedIndex].text : 'Selected Store';
+        if (typeof showNotificationToast === 'function') {
+          showNotificationToast(`Context switched to: ${storeName}`, 'success', 3000);
+        }
+      });
+    }
+
     const btnExportJson = document.getElementById('btn-export-json');
     if (btnExportJson) {
       btnExportJson.addEventListener('click', async () => {
@@ -9573,7 +9869,7 @@
           const ts   = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
           const name = ((state.preferences && state.preferences['store_name'])
             ? state.preferences['store_name'].replace(/\s+/g, '_').toLowerCase()
-            : 'nexova') + '_backup_' + ts + '.json';
+            : 'valenixia') + '_backup_' + ts + '.json';
           triggerFileDownload(json, name, 'application/json');
           showExportMsg('Full database exported successfully.', true);
           showNotificationToast('Database exported as JSON', null, 3000);
@@ -9593,8 +9889,8 @@
         try {
           btnExportCsv.disabled = true;
           btnExportCsv.textContent = 'Generating CSV...';
-          const txns = await NexovaDB.getAll('transactions');
-          const items = await NexovaDB.getAll('line_items');
+          const txns = await ValenixiaDB.getAll('transactions');
+          const items = await ValenixiaDB.getAll('line_items');
           const itemMap = {};
           items.forEach(i => { (itemMap[i.tx_id] = itemMap[i.tx_id] || []).push(i); });
           const rows = [['Date','Order ID','Cashier','Payment Method','Items','Subtotal','Tax','Total','Notes']];
@@ -9612,7 +9908,7 @@
           });
           const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\r\n');
           const ts  = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-          triggerFileDownload(csv, 'nexova_transactions_' + ts + '.csv', 'text/csv');
+          triggerFileDownload(csv, 'valenixia_transactions_' + ts + '.csv', 'text/csv');
           showExportMsg(txns.length + ' transactions exported as CSV.', true);
           showNotificationToast('Transactions exported as CSV', null, 3000);
         } catch (e) {
@@ -9643,7 +9939,7 @@
             if (restoreWarning) restoreWarning.style.display = 'block';
             if (btnRestoreFile) { btnRestoreFile.disabled = false; btnRestoreFile.style.opacity = '1'; btnRestoreFile.style.cursor = 'pointer'; }
           } catch (_) {
-            showNotificationToast('Invalid backup file â€” must be a valid Nexova JSON export.', 'error', 4000);
+            showNotificationToast('Invalid backup file â€” must be a valid Valenixia JSON export.', 'error', 4000);
             restoreFileData = null;
           }
         };
@@ -9663,7 +9959,7 @@
             const records = restoreFileData[storeName];
             if (!Array.isArray(records) || records.length === 0) continue;
             for (const record of records) {
-              try { await NexovaDB.put(storeName, record); } catch (_) { }
+              try { await ValenixiaDB.put(storeName, record); } catch (_) { }
             }
           }
           showNotificationToast('Backup restored successfully. Reloading...', null, 3000);
@@ -9711,7 +10007,7 @@
         try {
           const json = await serializeDatabaseToJSON();
           const ts   = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-          triggerFileDownload(json, 'nexova_pre_delete_backup_' + ts + '.json', 'application/json');
+          triggerFileDownload(json, 'valenixia_pre_delete_backup_' + ts + '.json', 'application/json');
           showNotificationToast('Backup downloaded. You can now safely delete the store.', null, 4000);
         } catch (e) {
           showNotificationToast('Export error: ' + e.message, 'error', 4000);
@@ -9779,9 +10075,9 @@
         btnDeleteExecute.disabled = true;
         try {
           try {
-            await fetch(window.__nexovaServerUrl + '/api/system/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: pinInput }) });
+            await fetch(window.__valenixiaServerUrl + '/api/system/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: pinInput }) });
           } catch (_) {}
-          await NexovaDB.destructReset();
+          await ValenixiaDB.destructReset();
           localStorage.clear();
           showNotificationToast('Store deleted. Redirecting to setup...', null, 2500);
           setTimeout(() => window.location.reload(), 2500);
@@ -9926,11 +10222,67 @@
     
     if (!tierGrid) return; // not on settings view
 
-    const PRICES = {
-      'STARTER': 15000,
-      'PRO': 50000,
-      'ENTERPRISE': 150000
+    let currentBillingCycle = 'subscription'; // 'subscription' or 'lifetime'
+
+    const PRICES_MONTHLY = {
+      'STARTER': 3499,
+      'PRO': 6999,
+      'ENTERPRISE': 11999
     };
+
+    const PRICES_LIFETIME = {
+      'STARTER': 79000,
+      'PRO': 149000,
+      'ENTERPRISE': 249000
+    };
+
+    const btnMonthly = document.getElementById('btn-billing-cycle-monthly');
+    const btnLifetime = document.getElementById('btn-billing-cycle-lifetime');
+
+    function updatePriceDisplays() {
+      const cyclePrices = currentBillingCycle === 'subscription' ? PRICES_MONTHLY : PRICES_LIFETIME;
+      const suffix = currentBillingCycle === 'subscription' ? ' / mo' : '';
+      
+      const st = document.getElementById('price-val-STARTER');
+      const pr = document.getElementById('price-val-PRO');
+      const ent = document.getElementById('price-val-ENTERPRISE');
+
+      if (st) st.textContent = 'PKR ' + cyclePrices['STARTER'].toLocaleString() + suffix;
+      if (pr) pr.textContent = 'PKR ' + cyclePrices['PRO'].toLocaleString() + suffix;
+      if (ent) ent.textContent = 'PKR ' + cyclePrices['ENTERPRISE'].toLocaleString() + suffix;
+
+      const activeCard = tierGrid.querySelector('.billing-tier-card.active');
+      if (activeCard) {
+        const selectedTier = activeCard.getAttribute('data-tier');
+        amountInput.value = cyclePrices[selectedTier];
+      }
+    }
+
+    if (btnMonthly && btnLifetime) {
+      btnMonthly.addEventListener('click', () => {
+        if (typeof playAudioSignal === 'function') playAudioSignal('click');
+        btnMonthly.classList.add('active');
+        btnLifetime.classList.remove('active');
+        btnMonthly.style.background = 'var(--accent-emerald)';
+        btnMonthly.style.color = '#fff';
+        btnLifetime.style.background = 'transparent';
+        btnLifetime.style.color = 'var(--text-gray)';
+        currentBillingCycle = 'subscription';
+        updatePriceDisplays();
+      });
+
+      btnLifetime.addEventListener('click', () => {
+        if (typeof playAudioSignal === 'function') playAudioSignal('click');
+        btnLifetime.classList.add('active');
+        btnMonthly.classList.remove('active');
+        btnLifetime.style.background = 'var(--accent-emerald)';
+        btnLifetime.style.color = '#fff';
+        btnMonthly.style.background = 'transparent';
+        btnMonthly.style.color = 'var(--text-gray)';
+        currentBillingCycle = 'lifetime';
+        updatePriceDisplays();
+      });
+    }
 
     // 1. Tier selection click
     tierGrid.querySelectorAll('.billing-tier-card').forEach(card => {
@@ -9941,7 +10293,7 @@
         
         const selectedTier = card.getAttribute('data-tier');
         hiddenTierInput.value = selectedTier;
-        amountInput.value = PRICES[selectedTier];
+        amountInput.value = (currentBillingCycle === 'subscription' ? PRICES_MONTHLY : PRICES_LIFETIME)[selectedTier];
         formContainer.style.display = 'block';
         formContainer.scrollIntoView({ behavior: 'smooth' });
       });
@@ -10016,7 +10368,7 @@
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': 'Bearer ' + (localStorage.getItem('device_token') || '')
+              'Authorization': 'Bearer ' + (state.deviceToken || '')
             },
             body: JSON.stringify({
               base64Data: uploadedBase64,
@@ -10036,13 +10388,14 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + (localStorage.getItem('device_token') || '')
+            'Authorization': 'Bearer ' + (state.deviceToken || '')
           },
           body: JSON.stringify({
             plan_id: tier,
             rrn_reference: rrn,
             amount: amount,
-            proof_image_url: imageUrl
+            proof_image_url: imageUrl,
+            mode: currentBillingCycle
           })
         });
 
@@ -10076,7 +10429,7 @@
     try {
       const resp = await fetch('/api/payments/my-proofs', {
         headers: {
-          'Authorization': 'Bearer ' + (localStorage.getItem('device_token') || '')
+          'Authorization': 'Bearer ' + (state.deviceToken || '')
         }
       });
       if (!resp.ok) return;

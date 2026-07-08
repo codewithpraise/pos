@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================================
-// NEXOVA POS - Backup Utility Test
+// VALENIXIA POS - Backup Utility Test
 // Tests the scripts/backup.js rotate and file creation logic using tmp dir
 // Run: node tests/backup.test.js
 // ============================================================================
@@ -28,23 +28,23 @@ function test(name, fn) {
 }
 
 console.log('\n══════════════════════════════════════════════════');
-console.log('  NEXOVA POS — Backup Utility Tests');
+console.log('  VALENIXIA POS — Backup Utility Tests');
 console.log('══════════════════════════════════════════════════\n');
 
 // ── Test the backup rotation logic (isolated, no real DB needed) ─────────────
 console.log('▶ Backup rotation logic');
 
 const MAX_BACKUPS = 3;
-const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexova_backup_test_'));
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'valenixia_backup_test_'));
 
 function makeBackupFileName(offsetMs = 0) {
   const d = new Date(Date.now() + offsetMs);
-  return `nexova_${d.toISOString().replace(/[:.]/g, '-').slice(0, 19)}.db`;
+  return `valenixia_${d.toISOString().replace(/[:.]/g, '-').slice(0, 19)}.db`;
 }
 
 function rotate(backupDir, maxBackups) {
   const files = fs.readdirSync(backupDir)
-    .filter(f => f.startsWith('nexova_') && f.endsWith('.db'))
+    .filter(f => f.startsWith('valenixia_') && f.endsWith('.db'))
     .map(f => ({ name: f, time: fs.statSync(path.join(backupDir, f)).mtimeMs }))
     .sort((a, b) => b.time - a.time);
 
@@ -69,7 +69,7 @@ test('rotation — keeps up to MAX_BACKUPS files', () => {
 
   // Create 5 backup files
   for (let i = 0; i < 5; i++) {
-    const name = `nexova_2026-01-0${i+1}-120000.db`;
+    const name = `valenixia_2026-01-0${i+1}-120000.db`;
     fs.writeFileSync(path.join(backupDir, name), `backup_${i}`);
   }
 
@@ -87,7 +87,7 @@ test('rotation — does nothing if under MAX_BACKUPS', () => {
   fs.mkdirSync(backupDir, { recursive: true });
 
   for (let i = 0; i < 2; i++) {
-    fs.writeFileSync(path.join(backupDir, `nexova_2026-01-0${i+1}-120000.db`), `b${i}`);
+    fs.writeFileSync(path.join(backupDir, `valenixia_2026-01-0${i+1}-120000.db`), `b${i}`);
   }
 
   rotate(backupDir, MAX_BACKUPS);
@@ -99,9 +99,9 @@ test('rotation — ignores non-backup files', () => {
   const backupDir = path.join(tmpDir, 'rot_test3');
   fs.mkdirSync(backupDir, { recursive: true });
 
-  fs.writeFileSync(path.join(backupDir, 'nexova_2026-01-01-120000.db'), 'real');
+  fs.writeFileSync(path.join(backupDir, 'valenixia_2026-01-01-120000.db'), 'real');
   fs.writeFileSync(path.join(backupDir, 'notes.txt'), 'not a backup');
-  fs.writeFileSync(path.join(backupDir, 'other.db'), 'also not nexova');
+  fs.writeFileSync(path.join(backupDir, 'other.db'), 'also not valenixia');
 
   rotate(backupDir, MAX_BACKUPS);
 

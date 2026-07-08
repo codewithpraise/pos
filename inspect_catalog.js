@@ -31,7 +31,7 @@ async function main() {
   console.log('Quick catalog containers:', quickCatalog);
 
   // Check how many products are in local catalog state
-  const catalogCount = await get('(async function(){try{var all=await NexovaDB.getAll("catalog"); return all?all.length:0;}catch(e){return "ERR:"+e.message;}}())');
+  const catalogCount = await get('(async function(){try{var all=await ValenixiaDB.getAll("catalog"); return all?all.length:0;}catch(e){return "ERR:"+e.message;}}())');
   console.log('Catalog count in IndexedDB:', catalogCount);
 
   // Check worker state

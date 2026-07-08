@@ -51,8 +51,8 @@ http.get('http://localhost:9222/json', async (res) => {
           for (const k of keys) { await caches.delete(k); }
         } catch(e) {}
         try {
-          if (window.NexovaDB && window.NexovaDB.db) {
-            window.NexovaDB.db.close();
+          if (window.ValenixiaDB && window.ValenixiaDB.db) {
+            window.ValenixiaDB.db.close();
           }
         } catch(e) {}
         try {
@@ -62,7 +62,7 @@ http.get('http://localhost:9222/json', async (res) => {
         } catch(e) {}
         return new Promise((resolve) => {
           setTimeout(() => {
-            const req = indexedDB.deleteDatabase('nexova_db');
+            const req = indexedDB.deleteDatabase('valenixia_db');
             req.onsuccess = () => resolve('CLEARED_ALL');
             req.onerror = (e) => resolve('DB_DELETE_ERR: ' + e.target.error.message);
             req.onblocked = () => resolve('DB_DELETE_BLOCKED');
@@ -84,7 +84,7 @@ http.get('http://localhost:9222/json', async (res) => {
             const phoneField = document.getElementById('license-phone-input');
             const btn = document.getElementById('license-activate-btn');
             if (phoneField && btn) {
-              keyField.value = 'NEXOVA-ADMIN-777';
+              keyField.value = 'VALENIXIA-ADMIN-777';
               phoneField.value = '03001234567';
               window.alert = function(msg) { console.log('MOCKED ALERT:', msg); };
               btn.click();
@@ -251,7 +251,7 @@ http.get('http://localhost:9222/json', async (res) => {
           authErrorText: document.getElementById('auth-error')?.textContent
         };
         
-        audits.logs = window.__nexovaLogs || [];
+        audits.logs = window.__valenixiaLogs || [];
         
         return JSON.stringify(audits);
       })()`, id++);

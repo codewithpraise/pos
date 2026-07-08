@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================================
-// NEXOVA POS - Manual Billing & Licensing Integration Test Suite
+// VALENIXIA POS - Manual Billing & Licensing Integration Test Suite
 // Zero-dependency — uses Node.js built-in `assert` module
 // ============================================================================
 'use strict';
@@ -40,7 +40,7 @@ async function testAsync(name, fn) {
 
 async function runAll() {
   console.log('\n══════════════════════════════════════════════════');
-  console.log('  NEXOVA POS — Manual Billing & Licensing Tests');
+  console.log('  VALENIXIA POS — Manual Billing & Licensing Tests');
   console.log('══════════════════════════════════════════════════\n');
 
   // Initialize DB before tests
@@ -50,7 +50,7 @@ async function runAll() {
   const testStoreId = crypto.randomUUID();
   await db.run(
     "INSERT OR IGNORE INTO stores (id, phone, email, name, tier, mode, status, expires_at, hardware_limit) VALUES (?, ?, ?, ?, 'TRIAL', 'subscription', 'active', ?, 5)",
-    [testStoreId, '03001234567', 'test@nexova.com', 'Test Billing Store', Date.now() + 86400000]
+    [testStoreId, '03001234567', 'test@valenixia.com', 'Test Billing Store', Date.now() + 86400000]
   );
 
   await testAsync('Payment proof insertion — records correctly to SQLite', async () => {

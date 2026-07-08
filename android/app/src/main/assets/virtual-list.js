@@ -1,5 +1,5 @@
 // ============================================================================
-// NEXOVA VIRTUAL LIST — WINDOWED DOM RENDERER
+// VALENIXIA VIRTUAL LIST — WINDOWED DOM RENDERER
 // Guarantees 60fps scrolling for arbitrarily large datasets by keeping only
 // ~15 DOM nodes live at any time, regardless of total item count.
 // ============================================================================
@@ -16,6 +16,7 @@ class VirtualList {
    */
   constructor({ container, itemHeight, renderItem, bufferCount = 5 }) {
     this.container   = container;
+    this.container.innerHTML = ''; // Clear skeleton loaders or old static markup!
     this.itemHeight  = itemHeight;
     this.renderItem  = renderItem;
     this.bufferCount = bufferCount;

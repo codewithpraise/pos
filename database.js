@@ -1,20 +1,21 @@
 // ============================================================================
-// NEXOVA COMMERCE ECOSYSTEM - SECURE LOCAL DATABASE LAYER (WAL MODE)
+// VALENIXIA COMMERCE ECOSYSTEM - SECURE LOCAL DATABASE LAYER (WAL MODE)
 // Powered by SQLite with asynchronous Promise wrappers & change logging
 // ============================================================================
 
 const path = require('path');
+const fs = require('fs');
 const sqlite3 = require('sqlite3').verbose();
 const crypto = require('crypto');
 const { HLC, shouldApplyDelta } = require('./crdt-engine');
 
-const dbPath = path.join(__dirname, 'nexova.db');
+const dbPath = path.join(__dirname, 'valenixia.db');
 let sqliteDb = null;
 let currentHlc = null;
 let currentDbVersion = 0; // Incremented on each local transaction change
 
 // Schema version: increment when adding columns/tables that clients must have before syncing
-const SERVER_SCHEMA_VERSION = 9;
+const SERVER_SCHEMA_VERSION = 10;
 module.exports && Object.assign(module.exports, { SERVER_SCHEMA_VERSION });
 
 // Secure PBKDF2 password hashing helper (OWASP approved, zero external dependencies)
@@ -113,6 +114,17 @@ const db = {
 async function initDatabase(terminalId) {
   currentHlc = new HLC(terminalId || 'terminal_pc_01');
   
+  // Migration check: Copy old valenixia.db if it exists and valenixia.db doesn't
+  const oldDbPath = path.join(__dirname, 'valenixia.db');
+  if (fs.existsSync(oldDbPath) && !fs.existsSync(dbPath)) {
+    try {
+      fs.copyFileSync(oldDbPath, dbPath);
+      console.log('[Database] Migrated valenixia.db to valenixia.db successfully.');
+    } catch (err) {
+      console.error('[Database] Failed to migrate valenixia.db to valenixia.db:', err.message);
+    }
+  }
+
   sqliteDb = new sqlite3.Database(dbPath);
   
   // Enable WAL + maximum durability under power failure
@@ -658,6 +670,7 @@ async function initDatabase(terminalId) {
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
             plan_id TEXT NOT NULL,
+            mode TEXT NOT NULL DEFAULT 'subscription',
             rrn_reference TEXT UNIQUE NOT NULL,
             amount REAL NOT NULL,
             proof_image_url TEXT,
@@ -688,6 +701,18 @@ async function initDatabase(terminalId) {
         console.log('[Database] Migrated database schema to v9 (admin_audit_log table).');
       } catch (err) {
         console.error('[Database] Failed to migrate database schema in v9:', err.message);
+      }
+    } else if (v === 10) {
+      try {
+        await db.exec(`
+          ALTER TABLE stores ADD COLUMN purchased_at INTEGER;
+          ALTER TABLE stores ADD COLUMN amc_paid_until INTEGER;
+          ALTER TABLE stores ADD COLUMN fbr_enabled INTEGER DEFAULT 0;
+          ALTER TABLE stores ADD COLUMN fbr_integrator TEXT;
+        `);
+        console.log('[Database] Migrated database schema to v10 (stores purchased_at, amc_paid_until, fbr_enabled & fbr_integrator).');
+      } catch (err) {
+        console.error('[Database] Failed to migrate database schema in v10:', err.message);
       }
     }
 
@@ -729,7 +754,7 @@ async function initDatabase(terminalId) {
   );
   await db.run(
     "INSERT OR REPLACE INTO approved_devices (node_id, device_name, user_agent, approved_at, status) VALUES (?, ?, ?, ?, ?)",
-    ['nexova_master_pc_01', 'Master Register PC (Web UI)', 'Browser UI', Date.now(), 'APPROVED']
+    ['valenixia_master_pc_01', 'Master Register PC (Web UI)', 'Browser UI', Date.now(), 'APPROVED']
   );
 
   // Ensure db_generation_id exists in local_preferences
@@ -821,7 +846,7 @@ async function seedDatabase() {
       { sku: 'PASTRY-COK', gtin: '0000000000006', name: 'Choco Chip Cookie', price: 250, qty: 50 },
       { sku: 'TECH-CHG',  gtin: '0000000000007', name: 'Rapid USB-C Charger', price: 1999, qty: 25 },
       { sku: 'TECH-CBL',  gtin: '0000000000008', name: 'Braid Type-C Cable 1m', price: 999, qty: 45 },
-      { sku: 'RETAIL-MUG', gtin: '0000000000009', name: 'Nexova Ceramic Mug', price: 1450, qty: 20 },
+      { sku: 'RETAIL-MUG', gtin: '0000000000009', name: 'Valenixia Ceramic Mug', price: 1450, qty: 20 },
       { sku: 'RETAIL-TSH', gtin: '0000000000010', name: 'Nova Cotton Tee (L)', price: 2499, qty: 15 },
       { sku: 'RETAIL-BAG', gtin: '0000000000011', name: 'Canvas Tote Bag', price: 1200, qty: 35 },
       { sku: 'WATER-SPK', gtin: '0000000000012', name: 'Sparkling Mineral Water', price: 200, qty: 120 }
@@ -850,13 +875,13 @@ async function seedDatabase() {
       ['store_tax_rate', 'STR', '0.08', 0, now]
     );
     await db.run('INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
-      ['store_name', 'STR', 'NEXOVA COFFEE & RETAIL', 0, now]
+      ['store_name', 'STR', 'VALENIXIA COFFEE & RETAIL', 0, now]
     );
     await db.run('INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
       ['store_theme_palette', 'STR', 'Obsidian Emerald', 0, now]
     );
     await db.run('INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
-      ['store_logo_emoji', 'STR', 'N', 0, now]
+      ['store_logo_emoji', 'STR', 'V', 0, now]
     );
     await db.run('INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
       ['store_receipt_tagline', 'STR', 'Stability meets Speed. Thank you!', 0, now]
@@ -868,7 +893,7 @@ async function seedDatabase() {
       ['glassmorphism_enabled', 'STR', 'true', 0, now]
     );
     await db.run('INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
-      ['terminal_name', 'STR', 'Nexova Master PC 01', 0, now]
+      ['terminal_name', 'STR', 'Valenixia Master PC 01', 0, now]
     );
     await db.run('INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
       ['store_receipt_width', 'STR', '42', 0, now]

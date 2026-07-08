@@ -1,5 +1,5 @@
 const sqlite3 = require('sqlite3');
-const db = new sqlite3.Database('nexova.db');
+const db = new sqlite3.Database('valenixia.db');
 
 db.all("SELECT * FROM crsql_changes LIMIT 10", (err, rows) => {
   if (err) {

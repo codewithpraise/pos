@@ -1,4 +1,4 @@
-# Nexova POS - Architecture
+# Valenixia POS - Architecture
 
 ## Core Concepts
 - **Local-first**: SQLite (WAL), CRDT sync, Supabase backup.

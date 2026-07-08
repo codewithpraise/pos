@@ -1,4 +1,4 @@
-package com.nexova.commerce.ui
+package com.valenixia.commerce.ui
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -41,8 +41,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import com.nexova.commerce.audio.AudioSynth
-import com.nexova.commerce.db.*
+import com.valenixia.commerce.audio.AudioSynth
+import com.valenixia.commerce.db.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -95,8 +95,8 @@ fun DashboardView() {
         }
     }
 
-    NexovaTheme(themeName = currentTheme) {
-        val currentColors = LocalNexovaColors.current
+    ValenixiaTheme(themeName = currentTheme) {
+        val currentColors = LocalValenixiaColors.current
         Box(Modifier.fillMaxSize().background(currentColors.surface0)) {
             if (authenticatedEmployee == null) {
                 AuthScreen { emp -> authenticatedEmployee = emp }
@@ -126,7 +126,7 @@ fun AuthScreen(onAuthSuccess: (Employee) -> Unit) {
     var pinVisible by remember { mutableStateOf(false) }
     val shakeOffset = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
 
     Box(
         Modifier.fillMaxSize()
@@ -150,7 +150,7 @@ fun AuthScreen(onAuthSuccess: (Employee) -> Unit) {
                 Text("N", fontSize = 28.sp, fontWeight = FontWeight.Black, color = Obsidian)
             }
             Spacer(Modifier.height(16.dp))
-            Text("NEXOVA COMMERCE",
+            Text("VALENIXIA COMMERCE",
                 color = TextPrimary,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
@@ -366,7 +366,7 @@ fun MainWorkspace(
     var activeScreen  by remember { mutableStateOf(NavScreen.CHECKOUT) }
     var isSidebarCollapsed by remember { mutableStateOf(false) }
     var isOnline      by remember { mutableStateOf(true) }
-    val syncLogs      = remember { mutableStateListOf("[BOOT] Nexova Commerce v3.0 initialized.", "[DB] SQLite WAL mode active.", "[NET] WebSocket sync server bound on :3000.") }
+    val syncLogs      = remember { mutableStateListOf("[BOOT] Valenixia Commerce v3.0 initialized.", "[DB] SQLite WAL mode active.", "[NET] WebSocket sync server bound on :3000.") }
 
     var showCalculator by remember { mutableStateOf(false) }
     var showShortcutsHelp by remember { mutableStateOf(false) }
@@ -378,7 +378,7 @@ fun MainWorkspace(
     var attachedCustomer by remember { mutableStateOf<Customer?>(null) }
 
     // Whitelabel States
-    var storeName by remember { mutableStateOf(Database.getPreference("store_name") ?: "NEXOVA COFFEE & RETAIL") }
+    var storeName by remember { mutableStateOf(Database.getPreference("store_name") ?: "VALENIXIA COFFEE & RETAIL") }
     var storeLogoEmoji by remember { mutableStateOf(Database.getPreference("store_logo_emoji") ?: "☕") }
     var showBranding by remember { mutableStateOf((Database.getPreference("whitelabel_show_branding") ?: "true") == "true") }
     var glassmorphismEnabled by remember { mutableStateOf((Database.getPreference("glassmorphism_enabled") ?: "true") == "true") }
@@ -396,7 +396,7 @@ fun MainWorkspace(
     LaunchedEffect(Unit) {
         while (true) {
             kotlinx.coroutines.delay(1000)
-            val dbStoreName = Database.getPreference("store_name") ?: "NEXOVA COFFEE & RETAIL"
+            val dbStoreName = Database.getPreference("store_name") ?: "VALENIXIA COFFEE & RETAIL"
             val dbLogoEmoji = Database.getPreference("store_logo_emoji") ?: "☕"
             val dbShowBranding = (Database.getPreference("whitelabel_show_branding") ?: "true") == "true"
             val dbGlassmorphism = (Database.getPreference("glassmorphism_enabled") ?: "true") == "true"
@@ -412,7 +412,7 @@ fun MainWorkspace(
         }
     }
 
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
     val focusRequester = remember { FocusRequester() }
 
     Box(
@@ -560,7 +560,7 @@ fun MainWorkspace(
                                 onThemeChange = onThemeChange,
                                 syncLogs = syncLogs,
                                 onBrandingRefresh = {
-                                    storeName = Database.getPreference("store_name") ?: "NEXOVA COFFEE & RETAIL"
+                                    storeName = Database.getPreference("store_name") ?: "VALENIXIA COFFEE & RETAIL"
                                     storeLogoEmoji = Database.getPreference("store_logo_emoji") ?: "☕"
                                     showBranding = (Database.getPreference("whitelabel_show_branding") ?: "true") == "true"
                                     glassmorphismEnabled = (Database.getPreference("glassmorphism_enabled") ?: "true") == "true"
@@ -600,7 +600,7 @@ private fun Sidebar(
     showBranding: Boolean
 ) {
     val borderSubtleColor = BorderSubtle
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
     val sidebarWidth by animateDpAsState(if (isCollapsed) 64.dp else 220.dp, spring(stiffness = 200f))
 
     Column(
@@ -644,7 +644,7 @@ private fun Sidebar(
                         Spacer(Modifier.width(10.dp))
                         Column {
                             Text(
-                                if (showBranding) "NEXOVA" else storeName,
+                                if (showBranding) "VALENIXIA" else storeName,
                                 color = colors.textPrimary,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
@@ -843,7 +843,7 @@ private fun TopStatusBar(
     }
 
     val borderSubtleColor = BorderSubtle
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
     Row(
         Modifier
             .fillMaxWidth()
@@ -979,7 +979,7 @@ fun CheckoutScreen(
             speechTranscript = "Listening to audio channel..."
 
             val simulatedSentences = listOf(
-                "Hello! Welcome to Nexova.",
+                "Hello! Welcome to Valenixia.",
                 "Add one cold brew coffee and cookie, please.",
                 "That basically will be like seven dollars and twenty five cents, um, cash or card?",
                 "No problem! Let me get a manager override to void this item, sorry for the slow queue.",
@@ -1097,7 +1097,7 @@ fun CheckoutScreen(
     // Customer creation dialog in checkout
     var showAddCustomerDialog by remember { mutableStateOf(false) }
 
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
 
     var isRightSidebarClosed by remember { mutableStateOf(false) }
     var taxPctState by remember { mutableStateOf(8.0) }
@@ -2234,7 +2234,7 @@ fun CheckoutScreen(
 
     // Receipt Preview Dialog
     if (showReceiptPreview) {
-        val storeName = Database.getPreference("store_name") ?: "Nexova Retail"
+        val storeName = Database.getPreference("store_name") ?: "Valenixia Retail"
         val txId = remember { UUID.randomUUID().toString() }
         val paymentDetails = when (paymentMode) {
             "SPLIT" -> "Cash: ${formatCents(splitCashCents)}, Card: ${formatCents(splitCardCents)}"
@@ -2377,7 +2377,7 @@ fun CustomerSearchDialog(
 ) {
     var search by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<Customer>>(emptyList()) }
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
 
     LaunchedEffect(search) {
         results = if (search.isEmpty()) Database.getCustomers() else Database.searchCustomers(search)
@@ -2496,7 +2496,7 @@ fun generateReceiptText(
     if (address.isNotEmpty()) sb.append(centerAlign(address, 40)).append("\n")
     if (phone.isNotEmpty()) sb.append(centerAlign(phone, 40)).append("\n")
     if (website.isNotEmpty()) sb.append(centerAlign(website, 40)).append("\n")
-    sb.append(centerAlign("NEXOVA COMMERCE POS", 40)).append("\n")
+    sb.append(centerAlign("VALENIXIA COMMERCE POS", 40)).append("\n")
     sb.append(centerAlign("Receipt of Sale", 40)).append("\n")
     sb.append(line)
     
@@ -2538,7 +2538,7 @@ fun generateReceiptText(
     sb.append("\n")
     sb.append(centerAlign(policy, 40)).append("\n")
     sb.append(centerAlign("Thank you for your business!", 40)).append("\n")
-    sb.append(centerAlign("Powered by Nexova Commerce", 40)).append("\n")
+    sb.append(centerAlign("Powered by Valenixia Commerce", 40)).append("\n")
     return sb.toString()
 }
 
@@ -2550,7 +2550,7 @@ private fun centerAlign(str: String, width: Int): String {
 
 @Composable
 private fun CartRow(item: CartItem, onQtyMinus: () -> Unit, onQtyPlus: () -> Unit, onRemove: () -> Unit) {
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
     Row(
         Modifier
             .fillMaxWidth()
@@ -2585,7 +2585,7 @@ private fun CartRow(item: CartItem, onQtyMinus: () -> Unit, onQtyPlus: () -> Uni
 
 @Composable
 private fun QtyButton(label: String, onClick: () -> Unit) {
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
     Box(
         Modifier.size(22.dp).clip(CircleShape)
             .background(colors.surface3)
@@ -2597,7 +2597,7 @@ private fun QtyButton(label: String, onClick: () -> Unit) {
 
 @Composable
 private fun TotalRow(label: String, value: String, color: Color, bold: Boolean = false, fontSize: androidx.compose.ui.unit.TextUnit = 13.sp) {
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, color = colors.textSecondary, fontSize = fontSize, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal)
         Text(value,  color = color,        fontSize = fontSize, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal)
@@ -2635,7 +2635,7 @@ fun CatalogScreen(syncLogs: MutableList<String>) {
     var showImportCSV by remember { mutableStateOf(false) }
     var csvPasteText by remember { mutableStateOf("") }
 
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
 
     fun refresh() {
         scope.launch(Dispatchers.IO) {
@@ -3241,7 +3241,7 @@ fun CatalogScreen(syncLogs: MutableList<String>) {
 
 @Composable
 private fun CatalogTableHeader(allSelected: Boolean, onSelectAllChange: (Boolean) -> Unit) {
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
     Row(
         Modifier
             .fillMaxWidth()
@@ -3267,7 +3267,7 @@ private fun CatalogTableHeader(allSelected: Boolean, onSelectAllChange: (Boolean
 
 @Composable
 private fun CatalogRow(item: InventoryItem, isEven: Boolean, selected: Boolean, onSelectChange: (Boolean) -> Unit, onEdit: () -> Unit) {
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
     val stockColor = when {
         item.stockLevel <= 0 -> colors.error
         item.stockLevel <= item.lowStockThreshold -> colors.warning
@@ -3349,7 +3349,7 @@ private fun AddProductDialog(
     var selectedCat by remember { mutableStateOf(categories.firstOrNull() ?: "Uncategorized") }
     var error by remember { mutableStateOf("") }
 
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
 
     DialogOverlay {
         Column(
@@ -3460,7 +3460,7 @@ private fun EditProductDialog(
     var selectedCat by remember { mutableStateOf(item.category) }
     var confirmDel by remember { mutableStateOf(false) }
 
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
 
     // Stock Movement History State
     var movements by remember { mutableStateOf<List<StockMovement>>(emptyList()) }
@@ -3656,7 +3656,7 @@ fun HistoryScreen(syncLogs: MutableList<String>) {
     val refundQtys = remember { mutableStateMapOf<String, Int>() }
 
     val scope = rememberCoroutineScope()
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
 
     fun loadTransactions() {
         scope.launch(Dispatchers.IO) {
@@ -3893,10 +3893,10 @@ fun HistoryScreen(syncLogs: MutableList<String>) {
                 }
             } else {
                 val tx = selected!!
-                var storeName by remember(tx.id) { mutableStateOf("Nexova Retail") }
+                var storeName by remember(tx.id) { mutableStateOf("Valenixia Retail") }
                 LaunchedEffect(tx.id) {
                     storeName = withContext(Dispatchers.IO) {
-                        Database.getPreference("store_name") ?: "Nexova Retail"
+                        Database.getPreference("store_name") ?: "Valenixia Retail"
                     }
                 }
 
@@ -4171,7 +4171,7 @@ fun AnalyticsScreen() {
     var animateTrigger by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
 
     fun loadAnalytics() {
         scope.launch(Dispatchers.IO) {
@@ -4564,7 +4564,7 @@ fun AnalyticsScreen() {
 
 @Composable
 fun AnimatedKpiCard(title: String, targetValue: Long, isCurrency: Boolean, color: Color, icon: String, modifier: Modifier = Modifier, trigger: Boolean) {
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
     var startAnim by remember { mutableStateOf(false) }
 
     LaunchedEffect(trigger) {
@@ -4596,7 +4596,7 @@ fun AnimatedKpiCard(title: String, targetValue: Long, isCurrency: Boolean, color
 
 @Composable
 private fun RevenueBarChart(data: List<DailySalesPoint>, modifier: Modifier) {
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
     val maxRevenue = data.maxOfOrNull { it.revenueCents }?.toFloat()?.coerceAtLeast(1f) ?: 1f
     Canvas(modifier) {
         val barW    = (size.width / (data.size * 1.6f)).coerceAtMost(40.dp.toPx())
@@ -4646,7 +4646,7 @@ private fun RevenueBarChart(data: List<DailySalesPoint>, modifier: Modifier) {
 fun EmployeesScreen(syncLogs: MutableList<String>) {
     val employeesWithShifts = remember { mutableStateListOf<EmployeeWithShift>() }
     val scope = rememberCoroutineScope()
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
 
     var showAdd by remember { mutableStateOf(false) }
     var newRole by remember { mutableStateOf("CASHIER") }
@@ -5041,10 +5041,10 @@ fun SettingsScreen(
     onBrandingRefresh: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
 
     var taxRateStr   by remember { mutableStateOf(Database.getPreference("tax_rate") ?: "8.0") }
-    var storeName    by remember { mutableStateOf(Database.getPreference("store_name") ?: "NEXOVA COFFEE & RETAIL") }
+    var storeName    by remember { mutableStateOf(Database.getPreference("store_name") ?: "VALENIXIA COFFEE & RETAIL") }
     var logoEmoji    by remember { mutableStateOf(Database.getPreference("store_logo_emoji") ?: "☕") }
     var receiptTagline by remember { mutableStateOf(Database.getPreference("store_receipt_tagline") ?: "Stability meets Speed. Thank you!") }
     var showBranding by remember { mutableStateOf((Database.getPreference("whitelabel_show_branding") ?: "true") == "true") }
@@ -5058,7 +5058,7 @@ fun SettingsScreen(
     // Receipt details
     var receiptAddress by remember { mutableStateOf(Database.getPreference("receipt_address") ?: "123 Business Rd, Suite 100") }
     var receiptPhone by remember { mutableStateOf(Database.getPreference("receipt_phone") ?: "+1 (555) 019-2834") }
-    var receiptWebsite by remember { mutableStateOf(Database.getPreference("receipt_website") ?: "www.nexovaretail.com") }
+    var receiptWebsite by remember { mutableStateOf(Database.getPreference("receipt_website") ?: "www.valenixiaretail.com") }
     var receiptPolicy by remember { mutableStateOf(Database.getPreference("receipt_policy") ?: "Returns accepted within 14 days with receipt.") }
     var qrAccountDetails by remember { mutableStateOf(Database.getPreference("qr_account_details") ?: "Direct Transfer / Venmo: @MyStore") }
 
@@ -5081,8 +5081,8 @@ fun SettingsScreen(
     fun backupDb() {
         scope.launch(Dispatchers.IO) {
             try {
-                val dbFile = java.io.File("nexova.db")
-                val backupFile = java.io.File("backups/nexova_backup_${System.currentTimeMillis()}.db")
+                val dbFile = java.io.File("valenixia.db")
+                val backupFile = java.io.File("backups/valenixia_backup_${System.currentTimeMillis()}.db")
                 backupFile.parentFile.mkdirs()
                 dbFile.copyTo(backupFile, overwrite = true)
                 withContext(Dispatchers.Main) {
@@ -5103,7 +5103,7 @@ fun SettingsScreen(
         scope.launch(Dispatchers.IO) {
             try {
                 val backupsDir = java.io.File("backups")
-                val files = backupsDir.listFiles { _, name -> name.startsWith("nexova_backup_") && name.endsWith(".db") }
+                val files = backupsDir.listFiles { _, name -> name.startsWith("valenixia_backup_") && name.endsWith(".db") }
                 if (files.isNullOrEmpty()) {
                     withContext(Dispatchers.Main) {
                         statusMsg = "No backups found to restore."
@@ -5112,7 +5112,7 @@ fun SettingsScreen(
                     return@launch
                 }
                 val latest = files.maxByOrNull { it.lastModified() }!!
-                val dbFile = java.io.File("nexova.db")
+                val dbFile = java.io.File("valenixia.db")
                 latest.copyTo(dbFile, overwrite = true)
                 withContext(Dispatchers.Main) {
                     statusMsg = "Restored from ${latest.name}. Please restart the app."
@@ -5141,12 +5141,12 @@ fun SettingsScreen(
                 Text("STORE SETTINGS & RECEIPT TEMPLATE", color = colors.textSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                 Divider(color = colors.borderSubtle)
 
-                FormField("Store / Business Name", storeName, "e.g. Nexova Retail") { storeName = it }
+                FormField("Store / Business Name", storeName, "e.g. Valenixia Retail") { storeName = it }
                 FormField("Store Logo Emoji", logoEmoji, "e.g. ☕") { logoEmoji = it }
                 FormField("Tax Rate (%)", taxRateStr, "e.g. 8.0") { taxRateStr = it }
                 FormField("Store Address (Receipt)", receiptAddress, "e.g. 123 Main St") { receiptAddress = it }
                 FormField("Store Phone (Receipt)", receiptPhone, "e.g. +1 (555) 123-4567") { receiptPhone = it }
-                FormField("Store Website (Receipt)", receiptWebsite, "e.g. nexovaretail.com") { receiptWebsite = it }
+                FormField("Store Website (Receipt)", receiptWebsite, "e.g. valenixiaretail.com") { receiptWebsite = it }
                 FormField("Receipt Tagline", receiptTagline, "e.g. Stability meets Speed.") { receiptTagline = it }
                 FormField("Return Policy (Receipt Footer)", receiptPolicy, "e.g. All sales final") { receiptPolicy = it }
                 FormField("QR Payment Instructions (Free Transfer)", qrAccountDetails, "e.g. Venmo: @MyStore / Bank Transfer details") { qrAccountDetails = it }
@@ -5162,7 +5162,7 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("Show 'Powered by Nexova' Branding", color = colors.textPrimary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Show 'Powered by Valenixia' Branding", color = colors.textPrimary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         Text("Toggle default ecosystem labels in the app", color = colors.textMuted, fontSize = 9.sp)
                     }
                     Button(
@@ -5722,7 +5722,7 @@ fun SettingsScreen(
                                             scope.launch(Dispatchers.IO) {
                                                 Database.approveDevice(dev.nodeId)
                                                 try {
-                                                    com.nexova.commerce.sync.SyncServer.broadcast("""{"type":"device_whitelist_changed"}""")
+                                                    com.valenixia.commerce.sync.SyncServer.broadcast("""{"type":"device_whitelist_changed"}""")
                                                 } catch (e: Exception) {}
                                                 devices = Database.getAllDevices()
                                             }
@@ -5737,14 +5737,14 @@ fun SettingsScreen(
                                     }
                                 }
 
-                                val isSelf = dev.nodeId == Database.hlc.nodeId || dev.nodeId == "nexova_master_pc_01"
+                                val isSelf = dev.nodeId == Database.hlc.nodeId || dev.nodeId == "valenixia_master_pc_01"
                                 if (!isSelf) {
                                     Button(
                                         onClick = {
                                             scope.launch(Dispatchers.IO) {
                                                 Database.rejectDevice(dev.nodeId)
                                                 try {
-                                                    com.nexova.commerce.sync.SyncServer.broadcast("""{"type":"device_whitelist_changed"}""")
+                                                    com.valenixia.commerce.sync.SyncServer.broadcast("""{"type":"device_whitelist_changed"}""")
                                                 } catch (e: Exception) {}
                                                 devices = Database.getAllDevices()
                                             }
@@ -6004,7 +6004,7 @@ private fun drawAerospaceGrid(scope: DrawScope) {
 @Composable
 fun CalculatorOverlay(onDismiss: () -> Unit) {
     var display by remember { mutableStateOf("") }
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
 
     Box(
         modifier = Modifier
@@ -6145,7 +6145,7 @@ private fun evaluateSimpleMath(expr: String): String {
 
 @Composable
 fun ShortcutsHelpOverlay(onDismiss: () -> Unit) {
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -6235,7 +6235,7 @@ private fun getLocalIpAddresses(): List<String> {
 
 @Composable
 private fun ProductInitialsBadge(name: String, modifier: Modifier = Modifier) {
-    val colors = LocalNexovaColors.current
+    val colors = LocalValenixiaColors.current
     Box(
         modifier = modifier
             .size(36.dp)

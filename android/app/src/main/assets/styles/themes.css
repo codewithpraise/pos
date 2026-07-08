@@ -127,3 +127,34 @@ body.theme-monochrome-ivory {
   --shadow-md: 0 4px 16px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.08);
   --shadow-lg: 0 20px 40px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.10);
 }
+
+/* ── High Contrast Accessibility Override ── */
+body.theme-high-contrast {
+  --bg-obsidian: #000000 !important;
+  --panel-graphite: #000000 !important;
+  --panel-graphite-mid: #121212 !important;
+  --panel-graphite-light: #1e1e1e !important;
+  --panel-hover: #2a2a2a !important;
+  --border-titanium: #ffffff !important;
+  --border-bright: #ffffff !important;
+  --accent-emerald: #00ffcc !important;
+  --accent-emerald-dim: #00cccc !important;
+  --accent-emerald-glow: rgba(0, 255, 204, 0.20) !important;
+  --accent-emerald-mid: rgba(0, 255, 204, 0.40) !important;
+  --accent-emerald-solid: rgba(0, 255, 204, 0.30) !important;
+  --accent-emerald-gradient: linear-gradient(135deg, #00ffcc 0%, #00ccff 100%) !important;
+  --alert-coral: #ff3333 !important;
+  --alert-coral-dim: rgba(255, 51, 51, 0.20) !important;
+  --alert-amber: #ffcc00 !important;
+  --text-white: #ffffff !important;
+  --text-muted: #ffffff !important;
+  --text-gray: #f0f0f0 !important;
+  --text-dim: #cccccc !important;
+  --text-dark: #000000 !important;
+  --success: #00ff66 !important;
+  --warning: #ffcc00 !important;
+}
+body.theme-high-contrast * {
+  text-shadow: none !important;
+  box-shadow: none !important;
+}

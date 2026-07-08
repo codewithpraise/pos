@@ -1,10 +1,10 @@
 // ============================================================================
-// NEXOVA COMMERCE ECOSYSTEM - OFFLINE PWA SERVICE WORKER
+// VALENIXIA COMMERCE ECOSYSTEM - OFFLINE PWA SERVICE WORKER
 // Caches core application assets for local-first operations
 // v7 - Hardened fetch handler: no unhandled rejections, no undefined responses
 // ============================================================================
 
-const CACHE_NAME = 'nexova-pos-cache-v9';
+const CACHE_NAME = 'valenixia-pos-cache-v10';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -42,7 +42,7 @@ function offlineJsonResponse(msg, status) {
 
 // Helper: build a clean offline HTML response for navigation misses
 function offlineHtmlResponse() {
-  return new Response('<html><body><h2>Nexova POS – Offline</h2><p>Please connect to your local server.</p></body></html>', {
+  return new Response('<html><body><h2>Valenixia POS – Offline</h2><p>Please connect to your local server.</p></body></html>', {
     status: 503,
     headers: { 'Content-Type': 'text/html' }
   });
@@ -59,7 +59,11 @@ self.addEventListener('install', (event) => {
           console.warn('[ServiceWorker] Failed to pre-cache:', url);
         }))
       );
-    }).then(() => self.skipWaiting())
+    }).then(() => {
+      // skipWaiting makes the new SW activate immediately without waiting for
+      // existing clients to close. claim() is intentionally deferred to activate.
+      return self.skipWaiting();
+    })
   );
 });
 
@@ -75,6 +79,8 @@ self.addEventListener('activate', (event) => {
           }
         })
       )
+    // clients.claim() is only valid inside activate — calling it elsewhere
+    // throws InvalidStateError: Only the active worker can claim clients.
     ).then(() => self.clients.claim())
   );
 });

@@ -1,8 +1,8 @@
-package com.nexova.commerce.db
+package com.valenixia.commerce.db
 
-import com.nexova.commerce.crdt.HLC
-import com.nexova.commerce.crdt.SyncChange
-import com.nexova.commerce.crdt.shouldApplyDelta
+import com.valenixia.commerce.crdt.HLC
+import com.valenixia.commerce.crdt.SyncChange
+import com.valenixia.commerce.crdt.shouldApplyDelta
 import kotlin.math.max
 import kotlinx.serialization.Serializable
 import java.security.spec.KeySpec
@@ -164,7 +164,7 @@ object Database {
     fun initDatabase(terminalId: String) {
         hlc = HLC(terminalId)
         Class.forName("org.sqlite.JDBC")
-        conn = DriverManager.getConnection("jdbc:sqlite:nexova.db")
+        conn = DriverManager.getConnection("jdbc:sqlite:valenixia.db")
 
         // Enable Write-Ahead Logging (WAL) & Foreign Keys & Safety Performance PRAGMAs
         conn?.createStatement()?.use { stmt ->
@@ -205,7 +205,7 @@ object Database {
             INSERT OR REPLACE INTO approved_devices (node_id, device_name, user_agent, approved_at, status)
             VALUES (?, ?, ?, ?, ?)
         """)?.use { pstmt ->
-            pstmt.setString(1, "nexova_master_pc_01")
+            pstmt.setString(1, "valenixia_master_pc_01")
             pstmt.setString(2, "Master Register PC (Web UI)")
             pstmt.setString(3, "Browser UI")
             pstmt.setLong(4, System.currentTimeMillis())
@@ -438,7 +438,7 @@ object Database {
                 InventoryItem("PASTRY-COK", "0000000000006", "Choco Chip Cookie", 250L, 50, 0, 1L, hlc.tick(), "Bakery", "", 80L, 10),
                 InventoryItem("TECH-CHG",  "0000000000007", "Rapid USB-C Charger", 1999L, 25, 0, 1L, hlc.tick(), "Electronics", "", 750L, 5),
                 InventoryItem("TECH-CBL",  "0000000000008", "Braid Type-C Cable 1m", 999L, 45, 0, 1L, hlc.tick(), "Electronics", "", 300L, 5),
-                InventoryItem("RETAIL-MUG", "0000000000009", "Nexova Ceramic Mug", 1450L, 20, 0, 1L, hlc.tick(), "Merchandise", "", 450L, 3),
+                InventoryItem("RETAIL-MUG", "0000000000009", "Valenixia Ceramic Mug", 1450L, 20, 0, 1L, hlc.tick(), "Merchandise", "", 450L, 3),
                 InventoryItem("RETAIL-TSH", "0000000000010", "Nova Cotton Tee (L)", 2499L, 15, 0, 1L, hlc.tick(), "Merchandise", "", 950L, 4),
                 InventoryItem("RETAIL-BAG", "0000000000011", "Canvas Tote Bag", 1200L, 35, 0, 1L, hlc.tick(), "Merchandise", "", 380L, 5),
                 InventoryItem("WATER-SPK", "0000000000012", "Sparkling Mineral Water", 200L, 120, 0, 1L, hlc.tick(), "Beverages", "", 60L, 15)
@@ -451,14 +451,14 @@ object Database {
             // 3. Seed preferences
             val seedPrefs = listOf(
                 Triple("onboarding_complete", "BOOL", "true"),
-                Triple("store_name", "STR", "NEXOVA COFFEE & RETAIL"),
+                Triple("store_name", "STR", "VALENIXIA COFFEE & RETAIL"),
                 Triple("store_theme_palette", "STR", "Obsidian Emerald"),
                 Triple("store_logo_emoji", "STR", "☕"),
                 Triple("store_tax_rate", "STR", "0.08"),
                 Triple("store_receipt_tagline", "STR", "Stability meets Speed. Thank you!"),
                 Triple("whitelabel_show_branding", "STR", "true"),
                 Triple("glassmorphism_enabled", "STR", "true"),
-                Triple("terminal_name", "STR", "Nexova Master PC 01"),
+                Triple("terminal_name", "STR", "Valenixia Master PC 01"),
                 Triple("store_receipt_width", "STR", "42")
             )
             conn?.prepareStatement("INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, 0, ?)")?.use { pstmt ->

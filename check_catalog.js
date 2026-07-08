@@ -20,10 +20,10 @@ async function main() {
   });
   const get=async expr=>{const r=await ev(expr);return r?.result?.result?.value;};
 
-  const count = await get('(async function(){try{var all=await NexovaDB.getAll("inventory_catalog"); return all?all.length:0;}catch(e){return "ERR:"+e.message;}}())');
+  const count = await get('(async function(){try{var all=await ValenixiaDB.getAll("inventory_catalog"); return all?all.length:0;}catch(e){return "ERR:"+e.message;}}())');
   console.log('Catalog Count in IndexedDB:', count);
 
-  const products = await get('(async function(){try{var all=await NexovaDB.getAll("inventory_catalog"); return all.map(p=>p.sku);}catch(e){return [];}}())');
+  const products = await get('(async function(){try{var all=await ValenixiaDB.getAll("inventory_catalog"); return all.map(p=>p.sku);}catch(e){return [];}}())');
   console.log('Catalog SKUs in IndexedDB:', products);
 
   ws.close();

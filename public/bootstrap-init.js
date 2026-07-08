@@ -17,13 +17,13 @@ window.safeAtob = function(base64Str) {
 };
 
 // BLACK BOX FLIGHT RECORDER
-window.__nexovaLogs = [];
+window.__valenixiaLogs = [];
 
 function drawCrashConsole(msg, source, lineno, error) {
-    let consoleDiv = document.getElementById('nexova-crash-console');
+    let consoleDiv = document.getElementById('valenixia-crash-console');
     if (!consoleDiv) {
         consoleDiv = document.createElement('div');
-        consoleDiv.id = 'nexova-crash-console';
+        consoleDiv.id = 'valenixia-crash-console';
         consoleDiv.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:50vh; background:rgba(0,0,0,0.95); color:#ff4444; z-index:999999999; overflow-y:auto; padding:20px; font-family:monospace; font-size:14px; border-bottom: 3px solid #ff0000;';
         
         // Add a close button
@@ -49,18 +49,34 @@ window.drawCrashConsole = drawCrashConsole;
 // 1. Catch all standard JavaScript runtime errors
 window.onerror = function(msg, url, lineNo, columnNo, error) {
     const logStr = `Error: ${msg} at ${lineNo}:${columnNo}`;
-    window.__nexovaLogs.push(logStr);
+    window.__valenixiaLogs.push(logStr);
     console.error(logStr, error);
+    
+    // Ignore cross-origin script errors or network load failures
+    const lowerMsg = String(msg || '').toLowerCase();
+    if (lowerMsg.includes('script error') || lowerMsg.includes('load failed') || lowerMsg.includes('failed to fetch')) {
+        return false;
+    }
+    
     drawCrashConsole(msg, url, lineNo, error);
     return false; 
 };
 
 // 2. Catch all asynchronous Promise failures (like failed fetch calls)
 window.addEventListener('unhandledrejection', function(event) {
-    const msg = 'Unhandled Promise: ' + (event.reason ? event.reason.message : 'Unknown');
-    window.__nexovaLogs.push(msg);
-    console.error(msg, event.reason);
-    drawCrashConsole(msg, 'Async Promise', 'N/A', event.reason);
+    const reason = event.reason;
+    const msg = reason ? (reason.message || String(reason)) : 'Unknown';
+    const lowerMsg = String(msg).toLowerCase();
+    
+    // Ignore expected network / fetch connectivity errors from triggering the crash console
+    if (lowerMsg.includes('failed to fetch') || lowerMsg.includes('networkerror') || lowerMsg.includes('load failed') || lowerMsg.includes('network') || lowerMsg.includes('fetch')) {
+        console.warn('[Bootstrap] Ignored network rejection:', msg);
+        return;
+    }
+    
+    window.__valenixiaLogs.push('Unhandled Promise: ' + msg);
+    console.error('Unhandled Promise:', reason);
+    drawCrashConsole(msg, 'Async Promise', 'N/A', reason);
 });
 
 (function() {
@@ -71,7 +87,7 @@ window.addEventListener('unhandledrejection', function(event) {
         return nativeUrl.trim();
       }
     }
-    const localUrl = localStorage.getItem('nexova_server_url');
+    const localUrl = localStorage.getItem('valenixia_server_url');
     if (localUrl && localUrl.trim()) {
       return localUrl.trim();
     }
@@ -80,8 +96,8 @@ window.addEventListener('unhandledrejection', function(event) {
     }
     return 'http://localhost:3000';
   }
-  window.__nexovaServerUrl = resolveServerUrl();
-  console.log('[Bootstrap] Resolved backend server URL:', window.__nexovaServerUrl);
+  window.__valenixiaServerUrl = resolveServerUrl();
+  console.log('[Bootstrap] Resolved backend server URL:', window.__valenixiaServerUrl);
 })();
 
 // ── System Theme Detection (runs before first paint to prevent FOUC) ────────
@@ -96,7 +112,7 @@ window.addEventListener('unhandledrejection', function(event) {
   ];
 
   // 1. Try saved preference (fastest path for returning users)
-  const saved = localStorage.getItem('nexova_theme_override');
+  const saved = localStorage.getItem('valenixia_theme_override');
   if (saved && ALL_THEMES.includes(saved)) {
     document.documentElement.classList.add(saved);
     document.documentElement.dataset.themeResolved = saved;
@@ -110,16 +126,16 @@ window.addEventListener('unhandledrejection', function(event) {
   const systemTheme = prefersDark ? 'theme-obsidian-emerald' : 'theme-monochrome-ivory';
   document.documentElement.classList.add(systemTheme);
   document.documentElement.dataset.themeResolved = systemTheme;
-  window.__nexovaSystemTheme = systemTheme;
+  window.__valenixiaSystemTheme = systemTheme;
 
   // 3. Watch for OS theme changes at runtime (e.g., macOS auto dark/light)
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
     // Only react if the user has never manually set a theme preference
-    if (localStorage.getItem('nexova_theme_override')) return;
+    if (localStorage.getItem('valenixia_theme_override')) return;
     const next = e.matches ? 'theme-obsidian-emerald' : 'theme-monochrome-ivory';
     ALL_THEMES.forEach(t => document.body.classList.remove(t));
     document.body.classList.add(next);
-    window.__nexovaSystemTheme = next;
+    window.__valenixiaSystemTheme = next;
     console.log('[Theme] OS theme changed, switching to:', next);
   });
 })();

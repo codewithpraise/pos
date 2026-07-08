@@ -25,10 +25,10 @@ async function main() {
   await send('Runtime.enable',{});
 
   // Check license data in localStorage
-  const licToken = await get('localStorage.getItem("nexova_license_token")');
+  const licToken = await get('localStorage.getItem("valenixia_license_token")');
   const onboarding = await get('localStorage.getItem("onboarding_complete")');
   const hydrated = await get('localStorage.getItem("database_hydrated")');
-  const serverUrl = await get('localStorage.getItem("nexova_server_url")||"none"');
+  const serverUrl = await get('localStorage.getItem("valenixia_server_url")||"none"');
   
   console.log('=== LOCALSTORAGE STATE ===');
   console.log('license_token:', licToken ? licToken.substring(0,80)+'...' : 'NOT SET');
@@ -58,7 +58,7 @@ async function main() {
   console.log('\n=== MANUAL LICENSE DEBUG ===');
   const debugResult = await get(`(async function(){
     try {
-      var stored = localStorage.getItem("nexova_license_token");
+      var stored = localStorage.getItem("valenixia_license_token");
       var isSecureCtx = !!(crypto && crypto.subtle);
       var isLocalhost = location.hostname==="localhost"||location.hostname==="127.0.0.1";
       var isHttpCtx = !isSecureCtx || (location.protocol==="http:"&&!isLocalhost);

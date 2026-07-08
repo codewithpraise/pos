@@ -4,6 +4,10 @@ private.pem
 nexova.db
 nexova.db-wal
 nexova.db-shm
+valenixia.db
+valenixia.db-wal
+valenixia.db-shm
+.valenixia_hwid
 node_modules/
 .gradle/
 build/

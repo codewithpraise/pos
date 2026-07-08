@@ -1,5 +1,5 @@
 // ============================================================================
-// NEXOVA COMMERCE ECOSYSTEM - CRDT & HLC ENGINE
+// VALENIXIA COMMERCE ECOSYSTEM - CRDT & HLC ENGINE
 // Optimized for Conflict-Free Replicated Data Types & Lamport Ordering
 // ============================================================================
 

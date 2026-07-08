@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "NexovaPOS"
+rootProject.name = "ValenixiaPOS"
 include(":app")

@@ -9,7 +9,12 @@ async function main() {
     });
   });
 
-  const target = tabs.find(t=>t.url&&t.url.includes('localhost:3000')&&t.type==='page');
+  console.log('ACTIVE TABS:', tabs);
+  const target = tabs.find(t=>t.type==='page' && (t.title==='Valenixia Commerce POS' || (t.url&&t.url.includes('localhost:3000'))));
+  if (!target) {
+    console.error('No localhost:3000 tab found!');
+    process.exit(1);
+  }
   const ws = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise(r=>{ws.once('open',r);});
 
@@ -38,7 +43,7 @@ async function main() {
   // Force reload and capture events
   console.log('Reloading page...');
   await send('Page.enable',{});
-  await send('Page.reload',{ignoreCache:true});
+  await send('Page.navigate',{url:'http://localhost:3000'});
   
   // Wait for load + init to complete
   await new Promise(r=>setTimeout(r,5000));
@@ -56,7 +61,7 @@ async function main() {
   const wizD = await get('(function(){var el=document.getElementById("first-boot-wizard");return el?window.getComputedStyle(el).display:"MISSING";}())');
   const authD = await get('(function(){var el=document.getElementById("auth-lock-screen");return el?window.getComputedStyle(el).display:"MISSING";}())');
   const layD  = await get('(function(){var el=document.getElementById("pos-app-layout");return el?window.getComputedStyle(el).display:"MISSING";}())');
-  const tier  = await get('window.__nexovaTier||"NOT-SET"');
+  const tier  = await get('window.__valenixiaTier||"NOT-SET"');
 
   console.log('\n--- STATE AFTER RELOAD ---');
   console.log('  wizard:', wizD, '| auth:', authD, '| layout:', layD, '| tier:', tier);

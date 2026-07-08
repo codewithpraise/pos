@@ -1,5 +1,5 @@
 /**
- * NEXOVA — Mobile E2E Test Suite v1
+ * VALENIXIA — Mobile E2E Test Suite v1
  * Tests mobile layout, offline pill, navigation, touch interactions, theme on mobile.
  * Emulates iPhone 14 viewport (390x844) via CDP Emulation.
  */
@@ -26,7 +26,7 @@ async function connectCDP() {
   });
 
   const target = tabList.find(t => t.url && t.url.includes('localhost:3000') && t.type === 'page');
-  if (!target) { log('No Nexova page target found'); process.exit(1); }
+  if (!target) { log('No Valenixia page target found'); process.exit(1); }
 
   const ws = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((res, rej) => { ws.once('open', res); ws.once('error', rej); });
@@ -95,7 +95,7 @@ async function clickPinDigit(ev, digit) {
 
 async function run() {
   log('\n══════════════════════════════════════════════════════════════');
-  log(' NEXOVA POS — MOBILE E2E TEST SUITE v1');
+  log(' VALENIXIA POS — MOBILE E2E TEST SUITE v1');
   log(' Viewport: iPhone 14 (390x844) @ 3x DPR | Touch enabled');
   log('══════════════════════════════════════════════════════════════\n');
 
@@ -138,9 +138,9 @@ async function run() {
 
   // SECTION 2: License
   section('SECTION 2: License Tier (Mobile)');
-  const tier = await waitFor(ev, 'window.__nexovaTier', 8000, 400);
+  const tier = await waitFor(ev, 'window.__valenixiaTier', 8000, 400);
   if (tier) pass('License tier: ' + tier);
-  else fail('License tier on mobile', 'window.__nexovaTier not set');
+  else fail('License tier on mobile', 'window.__valenixiaTier not set');
 
   // SECTION 3: Wizard Setup + Login
   section('SECTION 3: Setup Wizard + PIN Login (Mobile)');
@@ -293,9 +293,9 @@ async function run() {
   if (swReady) pass('Service Worker active on mobile');
   else info('Service Worker controller not yet active (normal on first load)');
 
-  const dbReady = await ev('typeof window.NexovaDB !== "undefined"');
-  if (dbReady) pass('NexovaDB accessible on mobile');
-  else fail('NexovaDB on mobile', 'window.NexovaDB not defined');
+  const dbReady = await ev('typeof window.ValenixiaDB !== "undefined"');
+  if (dbReady) pass('ValenixiaDB accessible on mobile');
+  else fail('ValenixiaDB on mobile', 'window.ValenixiaDB not defined');
 
   // SECTION 9: Passphrase Mismatch Loop Check
   section('SECTION 9: PASSPHRASE_MISMATCH Suppression');

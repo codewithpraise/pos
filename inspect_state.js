@@ -43,7 +43,7 @@ async function main() {
     authClass:   await get('(function(){var el=document.getElementById("auth-lock-screen");return el?el.className:"MISSING";}())'),
     layoutDisplay: await get('(function(){var el=document.getElementById("pos-app-layout");return el?window.getComputedStyle(el).display:"MISSING";}())'),
     layoutStyleDisplay: await get('(function(){var el=document.getElementById("pos-app-layout");return el?el.style.display:"MISSING";}())'),
-    tier: await get('window.__nexovaTier||"NOT-SET"'),
+    tier: await get('window.__valenixiaTier||"NOT-SET"'),
     syncWorker: await get('typeof syncWorker!=="undefined"?"ok":"missing"'),
     bodyClass: await get('document.body.className'),
     currentTheme: await get('(function(){var themes=["theme-obsidian-emerald","theme-midnight-sapphire","theme-warm-amber","theme-minimalist-chrome","theme-monochrome-ivory"];return themes.find(t=>document.body.classList.contains(t))||"none";}())'),

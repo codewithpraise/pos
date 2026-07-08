@@ -1,4 +1,4 @@
-package com.nexova.pos
+package com.valenixia.pos
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -13,7 +13,7 @@ class BootReceiver : BroadcastReceiver() {
             } else {
                 context
             }
-            val prefs = storageContext.getSharedPreferences("nexova_prefs", Context.MODE_PRIVATE)
+            val prefs = storageContext.getSharedPreferences("valenixia_prefs", Context.MODE_PRIVATE)
             val autoStart = prefs.getBoolean("auto_start_on_boot", false)
             if (autoStart) {
                 val launchIntent = Intent(context, MainActivity::class.java).apply {

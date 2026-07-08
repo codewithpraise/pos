@@ -1,4 +1,4 @@
-# Nexova POS - UI/UX Design System
+# Valenixia POS - UI/UX Design System
 
 ## Themes
 - `theme-obsidian-emerald`

@@ -4,7 +4,7 @@ plugins {
     id("org.jetbrains.compose") version "1.5.12"
 }
 
-group = "com.nexova"
+group = "com.valenixia"
 version = "1.0.0"
 
 repositories {
@@ -58,10 +58,10 @@ kotlin {
 
 compose.desktop {
     application {
-        mainClass = "com.nexova.commerce.MainKt"
+        mainClass = "com.valenixia.commerce.MainKt"
         nativeDistributions {
             targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi, org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe)
-            packageName = "NexovaPOS"
+            packageName = "ValenixiaPOS"
             packageVersion = "1.0.0"
         }
     }

@@ -1,5 +1,5 @@
 // ============================================================================
-// NEXOVA COMMERCE ECOSYSTEM - SECURE LOCAL INDEXEDDB STORE
+// VALENIXIA COMMERCE ECOSYSTEM - SECURE LOCAL INDEXEDDB STORE
 // Client-side transactional zero-dependency database layer
 // ============================================================================
 
@@ -61,7 +61,9 @@
         {
           name: 'PBKDF2',
           salt: saltBytes,
-          iterations: 600000, // OWASP recommendation
+          // Must match server deriveKey: crypto.pbkdf2Sync(pass, salt, 100000, 32, 'sha256')
+          // Mismatching iterations produces a different key — decryption silently fails.
+          iterations: 100000,
           hash: 'SHA-256'
         },
         keyMaterial,
@@ -95,8 +97,8 @@
       combined.set(iv, salt.length);
       combined.set(new Uint8Array(encrypted), salt.length + iv.length);
       
-      // Prefix with 'NEX1:' so decrypt can reliably detect ciphertext vs plain values
-      return 'NEX1:' + arrayBufferToBase64(combined);
+      // Prefix with 'VAL1:' so decrypt can reliably detect ciphertext vs plain values
+      return 'VAL1:' + arrayBufferToBase64(combined);
     },
 
     async decrypt(ciphertextB64, passphrase) {
@@ -105,10 +107,11 @@
       if (globalScope.AndroidPOS && typeof globalScope.AndroidPOS.decryptAES === 'function') {
         return globalScope.AndroidPOS.decryptAES(ciphertextB64, passphrase);
       }
-      // Only attempt decryption if value has NEX1: prefix — plain values pass through
-      if (!ciphertextB64 || !ciphertextB64.startsWith('NEX1:')) return ciphertextB64;
+      // Only attempt decryption if value has VAL1: or NEX1: prefix — plain values pass through
+      const hasPrefix = ciphertextB64 && (ciphertextB64.startsWith('VAL1:') || ciphertextB64.startsWith('NEX1:'));
+      if (!hasPrefix) return ciphertextB64;
       try {
-        const combined = base64ToUint8Array(ciphertextB64.slice(5)); // strip 'NEX1:'
+        const combined = base64ToUint8Array(ciphertextB64.slice(5)); // strip prefix (both are 5 chars)
         if (combined.length < 28) return ciphertextB64;
         
         const salt = combined.slice(0, 16);
@@ -126,6 +129,52 @@
         return new TextDecoder().decode(decrypted);
       } catch (err) {
         return ciphertextB64; // Return original on failure — do not log to prevent spam
+      }
+    },
+
+    async encryptSync(text, passphrase) {
+      if (!passphrase) return text;
+      const enc = new TextEncoder();
+      const salt = 'valenixia_salt';
+      const key = await this.deriveKey(passphrase, salt);
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const encrypted = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: iv },
+        key,
+        enc.encode(text)
+      );
+      const combined = new Uint8Array(iv.length + encrypted.byteLength);
+      combined.set(iv, 0);
+      combined.set(new Uint8Array(encrypted), iv.length);
+      return arrayBufferToBase64(combined);
+    },
+
+    async decryptSync(ciphertextB64, passphrase) {
+      // Decrypts server-side AES-256-GCM payloads.
+      // Server format: base64( iv[12] + ciphertext + tag[16] )
+      // WebCrypto subtle.decrypt expects: iv + ciphertext_with_tag_appended
+      // which is exactly what we have — just split at byte 12 and pass the rest.
+      if (!passphrase) return ciphertextB64;
+      try {
+        const combined = base64ToUint8Array(ciphertextB64);
+        // Minimum: 12 (iv) + 16 (tag) + 1 (at least 1 byte payload)
+        if (combined.length < 29) return ciphertextB64;
+
+        const iv = combined.slice(0, 12);
+        // Everything after IV: ciphertext bytes + 16-byte auth tag (WebCrypto handles tag verification)
+        const ciphertextWithTag = combined.slice(12);
+        const salt = 'valenixia_salt';
+        const key = await this.deriveKey(passphrase, salt);
+
+        const decrypted = await crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv: iv, tagLength: 128 },
+          key,
+          ciphertextWithTag
+        );
+        return new TextDecoder().decode(decrypted);
+      } catch (err) {
+        // Decryption failed — could be wrong passphrase or non-encrypted message
+        return ciphertextB64;
       }
     }
   };
@@ -407,9 +456,9 @@
     return newItem;
   }
 
-  const NexovaDB = {
+  const ValenixiaDB = {
     db: null,
-    dbName: 'nexova_db',
+    dbName: 'valenixia_db',
     dbVersion: 3,
 
     init() {
@@ -597,7 +646,7 @@
         { key: 'store_receipt_tagline', value_type: 'STR', value_payload: 'Stability meets Speed. Thank you!', is_idempotent_flag: 0, updated_at: now },
         { key: 'whitelabel_show_branding', value_type: 'STR', value_payload: 'true', is_idempotent_flag: 0, updated_at: now },
         { key: 'glassmorphism_enabled', value_type: 'STR', value_payload: 'true', is_idempotent_flag: 0, updated_at: now },
-        { key: 'terminal_name', value_type: 'STR', value_payload: 'Nexova Master PC 01', is_idempotent_flag: 0, updated_at: now },
+        { key: 'terminal_name', value_type: 'STR', value_payload: 'Valenixia Master PC 01', is_idempotent_flag: 0, updated_at: now },
         { key: 'store_receipt_width', value_type: 'STR', value_payload: '42', is_idempotent_flag: 0, updated_at: now },
         { key: 'shop_mode', value_type: 'STR', value_payload: shopMode, is_idempotent_flag: 0, updated_at: now }
         // NOTE: sync_passphrase intentionally NOT stored in IndexedDB — it lives in
@@ -755,7 +804,7 @@
       }
       try {
         const root = await navigator.storage.getDirectory();
-        const fileHandle = await root.getFileHandle('nexova_vault.db', { create: true });
+        const fileHandle = await root.getFileHandle('valenixia_vault.db', { create: true });
         
         let encrypted = backupDataText;
         if (passphrase) {
@@ -766,7 +815,7 @@
           const writable = await fileHandle.createWritable();
           await writable.write(encrypted);
           await writable.close();
-          console.log('[OPFS] Database encrypted state written to nexova_vault.db successfully.');
+          console.log('[OPFS] Database encrypted state written to valenixia_vault.db successfully.');
         } else {
           console.log('[OPFS] createWritable not available on fileHandle, skipping active file write.');
         }
@@ -1224,7 +1273,7 @@
 
   async function deriveSecurePrefHWID() {
     if (globalScope.hwid) return globalScope.hwid;
-    if (globalScope.__nexovaHWID) return globalScope.__nexovaHWID;
+    if (globalScope.__valenixiaHWID) return globalScope.__valenixiaHWID;
 
     if (globalScope.AndroidPOS && typeof globalScope.AndroidPOS.getDeviceID === 'function') {
       const nativeHwid = globalScope.AndroidPOS.getDeviceID();
@@ -1238,7 +1287,7 @@
       if (ctx) {
         ctx.textBaseline = 'top';
         ctx.font = '14px Arial';
-        ctx.fillText('NexovaPOS-HWID-Seed', 2, 2);
+        ctx.fillText('ValenixiaPOS-HWID-Seed', 2, 2);
         canvasData = canvas.toDataURL();
       }
     }
@@ -1278,5 +1327,5 @@
   }
 
   globalScope.hashPin = hashPin;
-  globalScope.NexovaDB = NexovaDB;
+  globalScope.ValenixiaDB = ValenixiaDB;
 })();

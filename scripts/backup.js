@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================================
-// NEXOVA POS - SQLite Online Backup Utility
+// VALENIXIA POS - SQLite Online Backup Utility
 // Uses SQLite's VACUUM INTO for a crash-safe, warm online copy.
 // Run via: node scripts/backup.js
 // ============================================================================
@@ -12,7 +12,7 @@ const fs   = require('fs');
 const { db } = require('../database');
 
 const BACKUP_DIR  = path.resolve(__dirname, '../backups');
-const DB_PATH     = path.resolve(__dirname, '../nexova.db');
+const DB_PATH     = path.resolve(__dirname, '../valenixia.db');
 const MAX_BACKUPS = parseInt(process.env.MAX_BACKUPS || '7');  // keep last N copies
 
 function timestamp() {
@@ -25,7 +25,7 @@ async function runBackup() {
     fs.mkdirSync(BACKUP_DIR, { recursive: true });
   }
 
-  const backupPath = path.join(BACKUP_DIR, `nexova_${timestamp()}.db`);
+  const backupPath = path.join(BACKUP_DIR, `valenixia_${timestamp()}.db`);
   console.log(`[Backup] Starting online backup → ${backupPath}`);
 
   try {
@@ -37,7 +37,7 @@ async function runBackup() {
 
     // Rotate old backups — keep only the most recent MAX_BACKUPS files
     const files = fs.readdirSync(BACKUP_DIR)
-      .filter(f => f.startsWith('nexova_') && f.endsWith('.db'))
+      .filter(f => f.startsWith('valenixia_') && f.endsWith('.db'))
       .map(f => ({ name: f, time: fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs }))
       .sort((a, b) => b.time - a.time);
 

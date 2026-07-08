@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================================
-// NEXOVA LICENSE KEYGEN TOOL — DEVELOPER USE ONLY. NEVER SHIP TO CLIENTS.
+// VALENIXIA LICENSE KEYGEN TOOL — DEVELOPER USE ONLY. NEVER SHIP TO CLIENTS.
 // Ed25519 Asymmetric License Generation & Signing System
 // Usage:
 //   node license-keygen.js generate
@@ -108,7 +108,7 @@ switch (command) {
   case 'sign':     signLicense(flags.hwid, flags.tier, flags.days); break;
   case 'verify':   verifyLicense(flags.token, flags.hwid); break;
   default:
-    console.log('Nexova License Keygen Tool\n');
+    console.log('Valenixia License Keygen Tool\n');
     console.log('  node license-keygen.js generate');
     console.log('  node license-keygen.js sign --hwid=<hash> --tier=PRO --days=365');
     console.log('  node license-keygen.js verify --token=<base64> --hwid=<hash>');

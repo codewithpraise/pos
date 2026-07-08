@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================================
-// NEXOVA POS - Database Integration Tests
+// VALENIXIA POS - Database Integration Tests
 // Tests the SQLite database wrapper, migrations, PIN hashing, and type safety
 // Run: node tests/db.test.js
 // ============================================================================
@@ -39,7 +39,7 @@ async function testAsync(name, fn) {
 }
 
 console.log('\n══════════════════════════════════════════════════');
-console.log('  NEXOVA POS — Database Integration Tests');
+console.log('  VALENIXIA POS — Database Integration Tests');
 console.log('══════════════════════════════════════════════════\n');
 
 // Use a throw-away in-memory SQLite for testing (no external DB needed)

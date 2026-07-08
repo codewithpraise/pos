@@ -1,5 +1,5 @@
 /**
- * NEXOVA POS — Comprehensive Deep Diagnostic & Fix Script
+ * VALENIXIA POS — Comprehensive Deep Diagnostic & Fix Script
  * 
  * This script:
  * 1. Navigates to the app fresh
@@ -114,7 +114,7 @@ async function getEl(ws, id_or_sel, evalId) {
 }
 
 async function run() {
-  log('=== NEXOVA POS COMPREHENSIVE DIAGNOSTIC ===');
+  log('=== VALENIXIA POS COMPREHENSIVE DIAGNOSTIC ===');
   
   // Get CDP target
   const td = await new Promise((res, rej) => {
@@ -223,7 +223,7 @@ async function run() {
       if (!phoneInput) return 'NO_PHONE_INPUT';
       if (!activateBtn) return 'NO_ACTIVATE_BTN';
       
-      keyInput.value = 'NEXOVA-ADMIN-777';
+      keyInput.value = 'VALENIXIA-ADMIN-777';
       keyInput.dispatchEvent(new Event('input', { bubbles: true }));
       phoneInput.value = '03001234567';
       phoneInput.dispatchEvent(new Event('input', { bubbles: true }));

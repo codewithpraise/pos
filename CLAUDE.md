@@ -1,7 +1,7 @@
-# Nexova POS - Development Guide & Architecture
+# Valenixia POS - Development Guide & Architecture
 
 ## System Overview
-Nexova is a zero-trust, local-first distributed POS system featuring offline-resilient CRDT synchronizations, end-to-end WebCrypto encryption (AES-GCM-256), multi-device role modes (Register, Kitchen Display, Customer Facing Display), and an asynchronous Supabase cloud backup layer for fleet management and disaster recovery.
+Valenixia is a zero-trust, local-first distributed POS system featuring offline-resilient CRDT synchronizations, end-to-end WebCrypto encryption (AES-GCM-256), multi-device role modes (Register, Kitchen Display, Customer Facing Display), and an asynchronous Supabase cloud backup layer for fleet management and disaster recovery.
 
 ## Build & Run Commands
 - **Launch Development Server (Node.js):** `npm start`
@@ -9,6 +9,7 @@ Nexova is a zero-trust, local-first distributed POS system featuring offline-res
 - **Launch Kotlin Multiplatform Desktop app:** `./gradlew run`
 - **Build Desktop App Distributable:** `./gradlew packageDistributionForCurrentOS` (outputs to `build/compose/binaries`)
 - **Build Android App (APK):** Run `./gradlew assembleDebug` inside the `android/` directory (outputs `app-debug.apk`)
+- **Sync Web Assets to Android Assets:** `npm run sync:android`
 - **Test Supabase Connection:** `node test_supabase.js`
 
 ---
@@ -22,7 +23,7 @@ We use Supabase strictly as a background disaster recovery layer. The system rem
    ```bash
    npx supabase init
    ```
-2. Copy the SQL migration script located in [init_disaster_recovery.sql](file:///c:/Users/DELL/Desktop/nexova/supabase/migrations/20260630000000_init_disaster_recovery.sql) and paste it into the **SQL Editor** on your Supabase dashboard, then click **Run**.
+2. Copy the SQL migration script located in [init_disaster_recovery.sql](file:///c:/Users/DELL/Desktop/valenixia/supabase/migrations/20260630000000_init_disaster_recovery.sql) and paste it into the **SQL Editor** on your Supabase dashboard, then click **Run**.
 3. Create a `.env` file in the root directory:
    ```env
    SUPABASE_URL=https://your-supabase-project.supabase.co
@@ -112,3 +113,9 @@ To append an analytics dashboard component:
 * **Context**: Different retail verticals have distinct KPIs (e.g., modifiers for food, warranties for electronics).
 * **Decision**: Analytics views are dynamically reconfigured based on active shop_mode. We segregate category breakdowns, variants, and booking details into targeted charts.
 * **Consequence**: Clean, decoupled layouts with minimal visual noise for POS operators.
+
+#### ADR-004: Responsive Viewport Resizing & Dialog Containment
+* **Context**: POS screens range from large desktop monitors to narrow mobile screens or split-screen views. Squeezing three-column layouts on narrow viewports broke readability.
+* **Decision**: We shifted the 3-column layout breakpoint to `1200px` (forcing 2-column stacked layouts below it). We enforced scroll-lock classes and MutationObserver checking to prevent double-scrollbar glitches, added close buttons to top-level fixed banner overlays, and bound input-resize handlers to re-center focused elements when the virtual keyboard pops.
+* **Consequence**: Full responsive coverage from 320px wide up to ultra-wide displays.
+

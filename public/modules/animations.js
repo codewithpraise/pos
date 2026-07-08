@@ -1,5 +1,5 @@
 /* ============================================================================
-   NEXOVA POS — ANIMATIONS & HAPTICS MODULE
+   VALENIXIA POS — ANIMATIONS & HAPTICS MODULE
    Wraps device vibration, cart additions, quantity pulses, and error shakes.
    ============================================================================ */
 
@@ -11,7 +11,7 @@
 export function haptic(pattern = 50) {
   try {
     const localPref = window.state?.preferences?.['haptic_feedback_enabled'];
-    const storagePref = localStorage.getItem('nexova_haptics_enabled');
+    const storagePref = localStorage.getItem('valenixia_haptics_enabled');
     const enabled = localPref !== 'false' && storagePref !== 'false';
     if (enabled && 'vibrate' in navigator) {
       navigator.vibrate(pattern);

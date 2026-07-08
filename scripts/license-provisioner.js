@@ -37,7 +37,7 @@ function loadPrivateKey() {
   throw new Error('Ed25519 Private Key was not found. Set the LICENSE_PRIVATE_KEY environment variable or create .license-private.pem');
 }
 
-function mintToken(storeId, hwid, tier, mode, days, status = 'active') {
+function mintToken(storeId, hwid, tier, mode, days, status = 'active', purchasedAt = null, amcPaidUntil = null, fbrEnabled = 0, fbrIntegrator = null) {
   if (!storeId || !hwid || !tier || !mode) {
     throw new Error('Missing arguments for license minting. Required: storeId, hwid, tier, mode');
   }
@@ -57,7 +57,7 @@ function mintToken(storeId, hwid, tier, mode, days, status = 'active') {
   
   let exp = null;
   if (mode === 'subscription') {
-    const numDays = parseInt(days || 3); // Default to 3 days trial
+    const numDays = parseInt(days || 7); // Default to 7 days trial
     if (isNaN(numDays) || numDays <= 0) {
       throw new Error('Invalid subscription days value.');
     }
@@ -71,7 +71,11 @@ function mintToken(storeId, hwid, tier, mode, days, status = 'active') {
     mode,
     status,
     exp,
-    iat
+    iat,
+    purchased_at: purchasedAt,
+    amc_paid_until: amcPaidUntil,
+    fbr_enabled: fbrEnabled,
+    fbr_integrator: fbrIntegrator
   });
 
   const signature = crypto.sign(null, Buffer.from(payload), privateKey).toString('base64');
@@ -99,9 +103,13 @@ if (require.main === module) {
   const tier = flags.tier;
   const mode = flags.mode;
   const days = flags.days;
+  const purchasedAt = flags.purchasedAt ? parseInt(flags.purchasedAt, 10) : null;
+  const amcPaidUntil = flags.amcPaidUntil ? parseInt(flags.amcPaidUntil, 10) : null;
+  const fbrEnabled = flags.fbrEnabled ? parseInt(flags.fbrEnabled, 10) : 0;
+  const fbrIntegrator = flags.fbrIntegrator || null;
 
   if (args.length === 0 || flags.help || !store || !hwid || !tier || !mode) {
-    console.log('Nexova POS License Provisioning Tool\n');
+    console.log('Valenixia POS License Provisioning Tool\n');
     console.log('Usage:');
     console.log('  node scripts/license-provisioner.js --store=<id> --hwid=<fingerprint> --tier=<TRIAL|STARTER|PRO|ENTERPRISE> --mode=<subscription|lifetime> [--days=<days>]\n');
     console.log('Example (Subscription):');
@@ -112,7 +120,7 @@ if (require.main === module) {
   }
 
   try {
-    const result = mintToken(store, hwid, tier, mode, days);
+    const result = mintToken(store, hwid, tier, mode, days, 'active', purchasedAt, amcPaidUntil, fbrEnabled, fbrIntegrator);
     console.log('\n=== MINTED LICENSE METADATA ===');
     console.log(JSON.stringify(result.payload, null, 2));
     console.log('\n=== ENCODED LICENSE KEY ===');

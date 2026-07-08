@@ -1,10 +1,10 @@
-# Nexova POS - Agent Guidelines
+# Valenixia POS - Agent Guidelines
 
 ## How to Map the Codebase
-1. Start with [[Nexova POS - Architecture]].
-2. Check [[Nexova POS - UI-UX Design System]] for styling.
-3. See [[Nexova POS - Premium UI Overhaul v3]] for latest changes.
-4. Review [[Nexova POS - Known Bugs & Fixes]] to avoid repeats.
+1. Start with [[Valenixia POS - Architecture]].
+2. Check [[Valenixia POS - UI-UX Design System]] for styling.
+3. See [[Valenixia POS - Premium UI Overhaul v3]] for latest changes.
+4. Review [[Valenixia POS - Known Bugs & Fixes]] to avoid repeats.
 
 ## Common Tasks & Code Templates
 

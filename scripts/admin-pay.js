@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================================
-// NEXOVA COMMERCE ECOSYSTEM - SECURE ADMIN PAYMENT APPROVAL CLI
+// VALENIXIA COMMERCE ECOSYSTEM - SECURE ADMIN PAYMENT APPROVAL CLI
 // Processes pending payments, activates store accounts, and renews licenses.
 // ============================================================================
 
@@ -9,7 +9,7 @@ const path = require('path');
 const readline = require('readline');
 const { mintToken } = require('./license-provisioner');
 
-const dbPath = path.join(__dirname, '..', 'nexova.db');
+const dbPath = path.join(__dirname, '..', 'valenixia.db');
 const db = new sqlite3.Database(dbPath);
 
 const rl = readline.createInterface({
@@ -37,7 +37,7 @@ function run(sql, params = []) {
 
 async function main() {
   console.log('============================================================================');
-  console.log(' NEXOVA POS - ADMIN PAYMENT APPROVAL & LICENSE MINTING CLI');
+  console.log(' VALENIXIA POS - ADMIN PAYMENT APPROVAL & LICENSE MINTING CLI');
   console.log('============================================================================\n');
   try {
     const pendings = await query(`

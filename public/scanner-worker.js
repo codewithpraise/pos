@@ -1,5 +1,5 @@
 // ============================================================================
-// NEXOVA COMMERCE ECOSYSTEM - OFF-THREAD BARCODE & QR DECODING WORKER
+// VALENIXIA COMMERCE ECOSYSTEM - OFF-THREAD BARCODE & QR DECODING WORKER
 // Powered by ZXing multi-format decoding engine running off the main thread
 // ============================================================================
 
