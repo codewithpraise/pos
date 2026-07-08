@@ -14,7 +14,7 @@ let currentHlc = null;
 let currentDbVersion = 0; // Incremented on each local transaction change
 
 // Schema version: increment when adding columns/tables that clients must have before syncing
-const SERVER_SCHEMA_VERSION = 8;
+const SERVER_SCHEMA_VERSION = 9;
 module.exports && Object.assign(module.exports, { SERVER_SCHEMA_VERSION });
 
 // Secure PBKDF2 password hashing helper (OWASP approved, zero external dependencies)
@@ -672,6 +672,22 @@ async function initDatabase(terminalId) {
         console.log('[Database] Migrated database schema to v8 (payment_proofs table).');
       } catch (err) {
         console.error('[Database] Failed to migrate database schema in v8:', err.message);
+      }
+    } else if (v === 9) {
+      try {
+        await db.exec(`
+          CREATE TABLE IF NOT EXISTS admin_audit_log (
+            id TEXT PRIMARY KEY,
+            user_id TEXT,
+            action TEXT NOT NULL,
+            details TEXT,
+            created_at INTEGER NOT NULL
+          );
+          CREATE INDEX IF NOT EXISTS idx_admin_audit_log_action ON admin_audit_log(action);
+        `);
+        console.log('[Database] Migrated database schema to v9 (admin_audit_log table).');
+      } catch (err) {
+        console.error('[Database] Failed to migrate database schema in v9:', err.message);
       }
     }
 

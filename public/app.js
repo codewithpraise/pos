@@ -9250,12 +9250,12 @@
 
   async function checkForUpdates() {
     try {
-      const resp = await fetch(window.__nexovaServerUrl + '/version.json');
+      const resp = await fetch((window.__nexovaServerUrl || '') + '/api/version');
       if (resp.ok) {
         const data = await resp.json();
-        if (data && data.version && data.version !== CLIENT_VERSION) {
-          console.log(`[Update] New version detected: ${data.version} (Current: ${CLIENT_VERSION})`);
-          showUpdateNotification(data.version, data.changelog);
+        if (data && data.serverVersion && data.serverVersion !== CLIENT_VERSION) {
+          console.log(`[Update] New version detected: ${data.serverVersion} (Current: ${CLIENT_VERSION})`);
+          showUpdateNotification(data.serverVersion, data.changelog || 'Stability improvements.');
         }
       }
     } catch (err) {
@@ -9279,9 +9279,12 @@
         <span style="font-weight: 800; font-size: 14px; letter-spacing: -0.01em;">Software Update Available</span>
         <button id="btn-close-update-banner" style="background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer; padding: 0; font-size: 16px;">&times;</button>
       </div>
-      <p style="font-size: 12px; margin: 0 0 12px 0; color: rgba(255,255,255,0.9); line-height: 1.5;">
+      <p style="font-size: 12px; margin: 0 0 4px 0; color: rgba(255,255,255,0.9); line-height: 1.5;">
         A new version (v${newVersion}) is available. Update to get the latest features and stability fixes.
       </p>
+      <div style="font-size: 10px; color: rgba(255,255,255,0.7); font-style: italic; margin-bottom: 12px; word-break: break-word;">
+        Notes: ${changelog}
+      </div>
       <div style="display: flex; gap: 8px;">
         <a href="/downloads/nexova-pos-latest.apk" target="_blank" style="flex: 1; text-align: center; text-decoration: none; padding: 8px 12px; background: #fff; color: #0d9488; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">GET APK</a>
         <a href="/downloads/nexova-pos-setup.msi" target="_blank" style="flex: 1; text-align: center; text-decoration: none; padding: 8px 12px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">GET WINDOWS</a>

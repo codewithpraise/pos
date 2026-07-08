@@ -33,27 +33,58 @@ jobs:
       - name: Run Test Suite (Unit, DB, Backups)
         run: npm test
 
-      - name: Start Nexova POS Server
-        run: node server.js &
-        env:
-          PORT: 3000
-
-      - name: Start Headless Chrome for CDP
-        run: google-chrome --headless --remote-debugging-port=9222 --disable-gpu --no-sandbox http://localhost:3000 &
-
-      - name: Wait for Services to be Ready
+      - name: Run Full E2E & Diagnostic Suites with Headless Services
         run: |
-          for i in {1..20}; do
+          # Start Nexova Server in background
+          PORT=3000 node server.js > server.log 2>&1 &
+          SERVER_PID=$!
+
+          # Start Headless Chrome for Chrome DevTools Protocol
+          google-chrome --headless --remote-debugging-port=9222 --disable-gpu --no-sandbox http://localhost:3000 > chrome.log 2>&1 &
+          CHROME_PID=$!
+
+          # Wait for both services to become ready
+          READY=false
+          for i in {1..30}; do
             if curl -s http://localhost:3000 > /dev/null && curl -s http://localhost:9222/json > /dev/null; then
               echo "Services are ready!"
+              READY=true
               break
             fi
-            echo "Waiting for local server and chrome..."
+            echo "Waiting for local server and chrome (attempt $i/30)..."
             sleep 1
           done
 
-      - name: Run Full E2E & Diagnostic Suites
-        run: npm run test:e2e
+          if [ "$READY" = "false" ]; then
+            echo "Error: Services failed to start within timeout."
+            echo "=== SERVER LOG ==="
+            cat server.log || true
+            echo "=== CHROME LOG ==="
+            cat chrome.log || true
+            exit 1
+          fi
+
+          # Execute E2E test suites
+          npm run test:e2e
+          TEST_EXIT_CODE=$?
+
+          # Clean up background services
+          kill $SERVER_PID || true
+          kill $CHROME_PID || true
+
+          exit $TEST_EXIT_CODE
+
+      - name: Upload Logs on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: headless-test-diagnostics
+          path: |
+            server.log
+            chrome.log
+            public/proofs/
+            tests/results/
+          if-no-files-found: ignore
 
   android-build:
     name: Android Kotlin Compilation

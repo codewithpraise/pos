@@ -62,6 +62,15 @@ const billingLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Rate limiter for release management updates (max 5 attempts per minute)
+const releaseUpdateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 5,
+  message: { error: 'Too many update attempts. Please try again after 60 seconds.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Apply security middleware
 app.use(helmet({
   contentSecurityPolicy: {
@@ -2514,19 +2523,139 @@ app.post('/api/admin/gc', async (req, res) => {
   }
 });
 
+// POST /api/admin/release-update - Updates version.json with validation, logging, and backups
+app.post('/api/admin/release-update', releaseUpdateLimiter, async (req, res) => {
+  const { version, changelog, adminPin } = req.body;
+  if (!version || !changelog || !adminPin) {
+    return res.status(400).json({ error: 'Version, changelog, and Admin PIN are required.' });
+  }
+
+  // Validate version format (Semantic Versioning x.y.z)
+  if (!/^\d+\.\d+\.\d+$/.test(version.trim())) {
+    return res.status(400).json({ error: 'Invalid version format. Must follow semantic versioning (e.g. 1.0.4).' });
+  }
+
+  try {
+    const employees = await db.all("SELECT * FROM employees WHERE is_active = 1");
+    const matched = employees.find(emp => verifyPin(adminPin, emp.auth_hash));
+    if (!matched || (matched.role !== 'ADMIN' && matched.role !== 'MANAGER')) {
+      return res.status(403).json({ error: 'Access denied: Valid Manager or Admin PIN required.' });
+    }
+
+    const versionPath = path.join(__dirname, 'public', 'version.json');
+    const backupPath = path.join(__dirname, 'public', 'version.json.bak');
+
+    // 1. Create a backup of the current version if it exists
+    const fs = require('fs');
+    try {
+      if (fs.existsSync(versionPath)) {
+        const currentData = await fs.promises.readFile(versionPath, 'utf8');
+        await fs.promises.writeFile(backupPath, currentData, 'utf8');
+      }
+    } catch (backupErr) {
+      console.warn('[ReleaseManager] Backup of version.json failed:', backupErr.message);
+    }
+
+    // 2. Write the new version details
+    const versionData = {
+      version: version.trim(),
+      changelog: changelog.trim(),
+      updated_at: new Date().toISOString(),
+      updated_by: matched.id
+    };
+    await fs.promises.writeFile(versionPath, JSON.stringify(versionData, null, 2), 'utf8');
+
+    // 3. Write to SQLite audit log
+    const auditId = 'audit_' + Math.random().toString(36).substring(2, 11);
+    await db.run(
+      "INSERT INTO admin_audit_log (id, user_id, action, details, created_at) VALUES (?, ?, ?, ?, ?)",
+      [auditId, matched.id, 'release_update', `Version updated to ${versionData.version}. Changelog: ${versionData.changelog}`, Date.now()]
+    );
+
+    console.log(`[ReleaseManager] Version updated to ${versionData.version} by ${matched.role} PIN authentication.`);
+    res.json({ success: true, version: versionData.version });
+  } catch (err) {
+    console.error('[ReleaseManager] Error updating version:', err);
+    res.status(500).json({ error: 'Internal server error: ' + err.message });
+  }
+});
+
+// POST /api/admin/release-rollback - Rollbacks version.json to version.json.bak
+app.post('/api/admin/release-rollback', releaseUpdateLimiter, async (req, res) => {
+  const { adminPin } = req.body;
+  if (!adminPin) {
+    return res.status(400).json({ error: 'Admin PIN is required for rollback.' });
+  }
+
+  try {
+    const employees = await db.all("SELECT * FROM employees WHERE is_active = 1");
+    const matched = employees.find(emp => verifyPin(adminPin, emp.auth_hash));
+    if (!matched || (matched.role !== 'ADMIN' && matched.role !== 'MANAGER')) {
+      return res.status(403).json({ error: 'Access denied: Valid Manager or Admin PIN required.' });
+    }
+
+    const versionPath = path.join(__dirname, 'public', 'version.json');
+    const backupPath = path.join(__dirname, 'public', 'version.json.bak');
+
+    const fs = require('fs');
+    if (!fs.existsSync(backupPath)) {
+      return res.status(404).json({ error: 'No backup release version found to rollback to.' });
+    }
+
+    // 1. Swap/overwrite version
+    const backupData = await fs.promises.readFile(backupPath, 'utf8');
+    const backupObj = JSON.parse(backupData);
+    
+    // Save current as backup (so rollback is reversible!)
+    if (fs.existsSync(versionPath)) {
+      const currentData = await fs.promises.readFile(versionPath, 'utf8');
+      await fs.promises.writeFile(backupPath, currentData, 'utf8');
+    }
+    
+    await fs.promises.writeFile(versionPath, backupData, 'utf8');
+
+    // 2. Write audit log
+    const auditId = 'audit_' + Math.random().toString(36).substring(2, 11);
+    await db.run(
+      "INSERT INTO admin_audit_log (id, user_id, action, details, created_at) VALUES (?, ?, ?, ?, ?)",
+      [auditId, matched.id, 'release_rollback', `Version rolled back to ${backupObj.version}.`, Date.now()]
+    );
+
+    console.log(`[ReleaseManager] Version rolled back to ${backupObj.version} by ${matched.role}`);
+    res.json({ success: true, version: backupObj.version, changelog: backupObj.changelog });
+  } catch (err) {
+    console.error('[ReleaseManager] Error during rollback:', err);
+    res.status(500).json({ error: 'Internal server error: ' + err.message });
+  }
+});
+
 // Serve download portal
 app.get('/download', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'download.html'));
 });
 
 // Expose Server Version API endpoint (Issue 31)
-app.get('/api/version', (req, res) => {
-  res.json({
-    appName: "Nexova POS",
-    serverVersion: "1.0.0",
-    schemaVersion: SERVER_SCHEMA_VERSION,
-    status: "healthy"
-  });
+app.get('/api/version', async (req, res) => {
+  try {
+    const versionPath = path.join(__dirname, 'public', 'version.json');
+    const fs = require('fs');
+    const content = await fs.promises.readFile(versionPath, 'utf8');
+    const versionData = JSON.parse(content);
+    res.json({
+      appName: "Nexova POS",
+      serverVersion: versionData.version,
+      changelog: versionData.changelog,
+      schemaVersion: SERVER_SCHEMA_VERSION,
+      status: "healthy"
+    });
+  } catch (e) {
+    res.json({
+      appName: "Nexova POS",
+      serverVersion: "1.0.0",
+      schemaVersion: SERVER_SCHEMA_VERSION,
+      status: "healthy"
+    });
+  }
 });
 
 // Serve frontend shell entry
