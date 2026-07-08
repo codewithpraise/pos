@@ -35,6 +35,143 @@
     isCheckingOut: false
   };
 
+  // Global User-Friendly Error Boundary Modal
+  window.addEventListener('error', (event) => {
+    console.error('[Global Error Interceptor]', event.error || event.message);
+    if (document.getElementById('pos-crash-overlay')) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'pos-crash-overlay';
+    overlay.style.cssText = `
+      position: fixed; inset: 0; z-index: 99999999;
+      background: rgba(15,23,42,0.98); display: flex; align-items: center; justify-content: center;
+      color: #fff; font-family: var(--font-body); padding: 24px;
+    `;
+
+    overlay.innerHTML = `
+      <div style="max-width: 480px; width: 100%; text-align: center; background: var(--panel-graphite); border: 1px solid var(--border-bright); padding: 32px; border-radius: 12px; box-shadow: var(--shadow-lg);">
+        <div style="font-size: 56px; margin-bottom: 16px;">⚡</div>
+        <h2 style="font-family: var(--font-display); font-size: 20px; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; color: var(--alert-coral);">Unexpected Application Crash</h2>
+        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.6;">
+          Nexova POS has encountered a fatal runtime exception. The local database state remains fully safe.
+        </p>
+        <div style="background: #000; border: 1px solid var(--border-titanium); padding: 12px; border-radius: 6px; font-family: var(--font-mono); font-size: 10px; color: var(--text-gray); text-align: left; max-height: 120px; overflow-y: auto; margin-bottom: 24px; word-break: break-all;">
+          ${event.message || 'Unknown error details'}
+        </div>
+        <button onclick="window.location.reload()" style="background: var(--accent-emerald-gradient); border: none; color: var(--text-dark); height: 40px; padding: 0 24px; font-family: var(--font-display); font-weight: 800; font-size: 11px; text-transform: uppercase; border-radius: 6px; cursor: pointer; transition: var(--transition-tactile);">
+          Restart Register App
+        </button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  });
+
+  // Guided Onboarding Tutorial Tour
+  function startOnboardingTour() {
+    const steps = [
+      {
+        element: 'product-search-input',
+        title: 'Search & Add Products',
+        desc: 'Type names, categories or scan barcodes here. Press Ctrl+K to focus this search box instantly.'
+      },
+      {
+        element: 'cart-items-tbody',
+        title: 'Sales Cart Ledger',
+        desc: 'Items show up here. You can swipe left on mobile to delete or tap +/- to adjust unit count.'
+      },
+      {
+        element: 'btn-charge',
+        title: 'Complete Checkout',
+        desc: 'Tap this or press Ctrl+Shift+P to open the payment modal and finish the transaction.'
+      },
+      {
+        element: 'theme-toggle-btn',
+        title: 'System Themes',
+        desc: 'Toggle between the 6 premium palettes (including Premium Navy) to suit your lighting.'
+      }
+    ];
+
+    let currentStep = 0;
+
+    function showTourStep() {
+      document.getElementById('tour-overlay')?.remove();
+
+      if (currentStep >= steps.length) {
+        showNotificationToast('🎉 Onboarding tour completed! You are ready to sell.', null, 4000);
+        return;
+      }
+
+      const step = steps[currentStep];
+      const target = document.getElementById(step.element) || document.querySelector(`.${step.element}`);
+      
+      if (!target) {
+        currentStep++;
+        showTourStep();
+        return;
+      }
+
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      const overlay = document.createElement('div');
+      overlay.id = 'tour-overlay';
+      overlay.style.cssText = `
+        position: fixed; inset: 0; z-index: 9999999;
+        background: rgba(5,5,10,0.5); backdrop-filter: blur(2px);
+        pointer-events: auto; display: flex; align-items: center; justify-content: center;
+      `;
+
+      const rect = target.getBoundingClientRect();
+      
+      overlay.innerHTML = `
+        <div style="
+          position: absolute;
+          top: ${Math.max(20, rect.bottom + 12)}px;
+          left: ${Math.max(20, Math.min(window.innerWidth - 300, rect.left))}px;
+          width: 280px; background: var(--panel-graphite);
+          border: 1px solid var(--accent-emerald); border-radius: 8px;
+          padding: 16px; box-shadow: var(--shadow-lg);
+          animation: slideDown 0.3s var(--ease-spring);
+          color: var(--text-white); font-family: var(--font-body);
+        ">
+          <h4 style="font-family: var(--font-display); font-weight: 800; font-size: 13px; text-transform: uppercase; margin-bottom: 6px; color: var(--accent-emerald); display: flex; justify-content: space-between;">
+            <span>${step.title}</span>
+            <span style="color: var(--text-gray); font-size: 10px;">${currentStep + 1}/${steps.length}</span>
+          </h4>
+          <p style="font-size: 11px; line-height: 1.5; color: var(--text-muted); margin-bottom: 12px;">${step.desc}</p>
+          <div style="display: flex; justify-content: space-between; gap: 8px;">
+            <button id="tour-skip" style="background: transparent; border: 1px solid var(--border-titanium); color: var(--text-gray); padding: 4px 10px; font-size: 10px; font-weight: 700; border-radius: 4px; text-transform: uppercase;">Skip</button>
+            <button id="tour-next" style="background: var(--accent-emerald-gradient); border: none; color: var(--text-dark); padding: 4px 12px; font-size: 10px; font-weight: 800; border-radius: 4px; text-transform: uppercase; display: flex; align-items: center; gap: 4px;">
+              ${currentStep === steps.length - 1 ? 'Finish' : 'Next'} ➔
+            </button>
+          </div>
+        </div>
+        <div style="
+          position: absolute;
+          top: ${rect.top - 4}px; left: ${rect.left - 4}px;
+          width: ${rect.width + 8}px; height: ${rect.height + 8}px;
+          border: 2px solid var(--accent-emerald); border-radius: 6px;
+          box-shadow: 0 0 15px var(--accent-emerald);
+          pointer-events: none;
+        "></div>
+      `;
+
+      document.body.appendChild(overlay);
+
+      document.getElementById('tour-skip').addEventListener('click', () => {
+        overlay.remove();
+        if (typeof window.haptic === 'function') window.haptic(20);
+      });
+
+      document.getElementById('tour-next').addEventListener('click', () => {
+        currentStep++;
+        if (typeof window.haptic === 'function') window.haptic(30);
+        showTourStep();
+      });
+    }
+
+    showTourStep();
+  }
+
   let syncWorker = null;
   let speechCoach = null;
 
@@ -1483,6 +1620,21 @@
         payload: { key: 'haptic_feedback_enabled', val: String(enabled) }
       });
       state.preferences['haptic_feedback_enabled'] = String(enabled);
+    });
+
+    document.getElementById('setting-motion-enabled').addEventListener('change', (e) => {
+      const enabled = e.target.checked;
+      syncWorker.postMessage({
+        type: 'SAVE_PREFERENCE',
+        payload: { key: 'motion_effects_enabled', val: String(enabled) }
+      });
+      state.preferences['motion_effects_enabled'] = String(enabled);
+      document.body.classList.toggle('reduced-motion', !enabled);
+    });
+
+    document.getElementById('btn-replay-tutorial').addEventListener('click', () => {
+      if (typeof playAudioSignal === 'function') playAudioSignal('click');
+      startOnboardingTour();
     });
 
     document.getElementById('setting-fbr-enabled')?.addEventListener('change', (e) => {
@@ -3749,6 +3901,11 @@
     const hapticEnabled = state.preferences['haptic_feedback_enabled'] !== 'false';
     const hapticEl = document.getElementById('setting-haptic-enabled');
     if (hapticEl) hapticEl.checked = hapticEnabled;
+
+    const motionEnabled = state.preferences['motion_effects_enabled'] !== 'false';
+    const motionEl = document.getElementById('setting-motion-enabled');
+    if (motionEl) motionEl.checked = motionEnabled;
+    document.body.classList.toggle('reduced-motion', !motionEnabled);
 
     const fbrToggle = document.getElementById('setting-fbr-enabled');
     if (fbrToggle) fbrToggle.checked = state.preferences['fbr_integration_enabled'] === 'true';
@@ -7973,306 +8130,4 @@
       document.body.appendChild(modal);
     }
   });
-})();
-
-/* ============================================================================
-   PREMIUM UI/UX MODULE — v3.0
-   Keyboard shortcuts, haptic feedback, offline banner, cart animations,
-   empty states, ARIA announcements — all self-contained, non-breaking.
-   ============================================================================ */
-(function initPremiumUIModule() {
-  'use strict';
-
-  /* ── 1. Haptic Feedback ─────────────────────────────────────────────────── */
-  /**
-   * Trigger device vibration for haptic feedback.
-   * Pattern examples: 50 (single), [50,50,50] (triple tap)
-   * @param {number|number[]} pattern
-   */
-  window.haptic = function haptic(pattern = 50) {
-    try {
-      if ('vibrate' in navigator) navigator.vibrate(pattern);
-    } catch (_) { /* Silently fail in restricted contexts */ }
-  };
-
-  /* ── 2. ARIA Live Region Announcements ───────────────────────────────────── */
-  /**
-   * Announce a message to screen readers via the ARIA live region.
-   * @param {string} message
-   */
-  window.announceToScreenReader = function announceToScreenReader(message) {
-    const live = document.getElementById('aria-live');
-    if (!live) return;
-    live.textContent = '';
-    // Force DOM mutation so screen readers re-read it
-    requestAnimationFrame(() => { live.textContent = message; });
-  };
-
-  /* ── 3. Offline Banner ───────────────────────────────────────────────────── */
-  function updateOfflineBanner(isOnline) {
-    const banner = document.getElementById('offline-banner');
-    const pill   = document.getElementById('mobile-offline-pill');
-    const body   = document.body;
-
-    if (!isOnline) {
-      if (banner) banner.style.display = 'flex';
-      if (pill)   pill.style.display   = 'flex';
-      body.classList.add('is-offline');
-      announceToScreenReader('You are offline. Sales are being saved locally.');
-    } else {
-      if (banner) banner.style.display = 'none';
-      if (pill)   pill.style.display   = 'none';
-      body.classList.remove('is-offline');
-      announceToScreenReader('Connection restored. Syncing your data.');
-    }
-  }
-
-  // Initial state
-  updateOfflineBanner(!navigator.onLine);
-
-  // Listen for changes
-  window.addEventListener('online',  () => updateOfflineBanner(true));
-  window.addEventListener('offline', () => updateOfflineBanner(false));
-
-  /* ── 4. Cart Item Animations ────────────────────────────────────────────── */
-  /**
-   * Animate a cart row when it's added.
-   * @param {HTMLElement} row - the <tr> or row element
-   */
-  window.animateCartItemAdd = function animateCartItemAdd(row) {
-    if (!row) return;
-    row.classList.remove('adding');
-    // Force reflow
-    void row.offsetWidth;
-    row.classList.add('adding');
-    row.addEventListener('animationend', () => row.classList.remove('adding'), { once: true });
-    haptic(30);
-  };
-
-  /**
-   * Animate a cart row when it's removed, then call callback.
-   * @param {HTMLElement} row
-   * @param {Function} onComplete
-   */
-  window.animateCartItemRemove = function animateCartItemRemove(row, onComplete) {
-    if (!row) { if (onComplete) onComplete(); return; }
-    row.classList.add('removing');
-    row.addEventListener('animationend', () => {
-      if (onComplete) onComplete();
-    }, { once: true });
-    haptic([30, 20]);
-  };
-
-  /**
-   * Pulse the quantity display on quantity change.
-   * @param {HTMLElement} qtyEl
-   */
-  window.pulseQtyDisplay = function pulseQtyDisplay(qtyEl) {
-    if (!qtyEl) return;
-    qtyEl.classList.remove('bump');
-    void qtyEl.offsetWidth;
-    qtyEl.classList.add('bump');
-    qtyEl.addEventListener('animationend', () => qtyEl.classList.remove('bump'), { once: true });
-  };
-
-  /* ── 5. Payment Success Flash ───────────────────────────────────────────── */
-  /**
-   * Flash the charge button with a success ring animation.
-   */
-  window.flashPaymentSuccess = function flashPaymentSuccess() {
-    const btn = document.getElementById('btn-charge');
-    if (!btn) return;
-    btn.classList.add('success-pulse');
-    btn.addEventListener('animationend', () => btn.classList.remove('success-pulse'), { once: true });
-    haptic([50, 30, 100]);
-    announceToScreenReader('Payment successful!');
-  };
-
-  /* ── 6. Field Shake (Error Feedback) ────────────────────────────────────── */
-  /**
-   * Shake an element to indicate an error.
-   * @param {HTMLElement|string} elOrId
-   */
-  window.shakeElement = function shakeElement(elOrId) {
-    const el = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
-    if (!el) return;
-    el.classList.remove('shake');
-    void el.offsetWidth;
-    el.classList.add('shake');
-    el.addEventListener('animationend', () => el.classList.remove('shake'), { once: true });
-    haptic([50, 30, 50]);
-  };
-
-  /* ── 7. Empty State Renderer ────────────────────────────────────────────── */
-  /**
-   * Inject a premium animated empty state into a container.
-   * @param {string} containerId
-   * @param {string} icon       - Emoji or SVG string
-   * @param {string} title
-   * @param {string} subtitle
-   * @param {string} [ctaLabel] - Optional CTA button label
-   * @param {Function} [ctaFn]  - Optional CTA click handler
-   */
-  window.renderPremiumEmptyState = function renderPremiumEmptyState(containerId, icon, title, subtitle, ctaLabel, ctaFn) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-
-    const ctaHtml = ctaLabel ? `<button class="btn-empty-cta" id="empty-cta-${containerId}">${ctaLabel}</button>` : '';
-
-    container.innerHTML = `
-      <div class="pos-empty-state" role="status" aria-label="${title}">
-        <span class="pos-empty-state-icon" aria-hidden="true">${icon}</span>
-        <h3>${title}</h3>
-        <p>${subtitle}</p>
-        ${ctaHtml}
-      </div>
-    `;
-
-    if (ctaLabel && ctaFn) {
-      const ctaEl = document.getElementById(`empty-cta-${containerId}`);
-      if (ctaEl) ctaEl.addEventListener('click', ctaFn);
-    }
-  };
-
-  /**
-   * Inject a skeleton loader grid into a container.
-   * @param {string} containerId
-   * @param {number} count    - Number of skeleton cards
-   * @param {'card'|'row'} type
-   */
-  window.renderSkeletonLoader = function renderSkeletonLoader(containerId, count = 8, type = 'row') {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-
-    if (type === 'card') {
-      container.innerHTML = Array.from({ length: count }, () => `
-        <div class="skeleton-card" style="border-radius:10px;" aria-hidden="true"></div>
-      `).join('');
-    } else {
-      container.innerHTML = Array.from({ length: count }, () => `
-        <div style="display:flex; flex-direction:column; gap:6px; padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.03);" aria-hidden="true">
-          <div class="skeleton-line" style="width:60%;"></div>
-          <div class="skeleton-line short" style="width:40%;"></div>
-        </div>
-      `).join('');
-    }
-
-    container.setAttribute('aria-busy', 'true');
-    container.setAttribute('aria-label', 'Loading…');
-  };
-
-  /* ── 8. Keyboard Shortcuts ───────────────────────────────────────────────── */
-  /**
-   * Find the topmost visible modal overlay and close it.
-   */
-  function closeTopmostModal() {
-    // Find all active modal overlays
-    const activeModals = Array.from(document.querySelectorAll('.modal-overlay.active'));
-    if (activeModals.length === 0) return;
-    // Close the last one (topmost in DOM order)
-    const topmost = activeModals[activeModals.length - 1];
-    // Find a close button inside it
-    const closeBtn = topmost.querySelector('.btn-close-modal, [data-action="close"], .btn-cancel');
-    if (closeBtn) {
-      closeBtn.click();
-    } else {
-      // Fallback: remove active class directly
-      topmost.classList.remove('active');
-    }
-  }
-
-  document.addEventListener('keydown', (e) => {
-    // Skip when typing in an input/textarea/select
-    const tag = document.activeElement?.tagName;
-    const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
-                  || document.activeElement?.isContentEditable;
-
-    // Ctrl/Cmd + K → focus product search
-    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-      e.preventDefault();
-      const searchInput = document.getElementById('product-search-input');
-      if (searchInput) {
-        // Switch to checkout view if not already there
-        const checkoutNav = document.querySelector('[data-screen="checkout"]');
-        if (checkoutNav && !checkoutNav.classList.contains('active')) checkoutNav.click();
-        // Small delay to let view switch complete
-        setTimeout(() => {
-          searchInput.focus();
-          searchInput.select();
-        }, 80);
-      }
-      announceToScreenReader('Product search focused');
-      return;
-    }
-
-    // Ctrl/Cmd + Shift + P → trigger charge / payment modal
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'P') {
-      e.preventDefault();
-      const chargeBtn = document.getElementById('btn-charge');
-      if (chargeBtn && !chargeBtn.disabled) {
-        chargeBtn.click();
-        announceToScreenReader('Payment modal opened');
-      }
-      return;
-    }
-
-    // Esc → close topmost modal
-    if (e.key === 'Escape' && !isTyping) {
-      closeTopmostModal();
-      return;
-    }
-
-    // Ctrl/Cmd + / → show keyboard shortcuts hint (future)
-    // (reserved for help panel)
-  });
-
-  /* ── 9. History Filter Pills ─────────────────────────────────────────────── */
-  /**
-   * Wire up history filter pills. Call after history view renders.
-   * @param {string} pillContainerId
-   * @param {Function} filterCallback - receives 'today'|'week'|'month'|'all'
-   */
-  window.wireHistoryFilterPills = function wireHistoryFilterPills(pillContainerId, filterCallback) {
-    const container = document.getElementById(pillContainerId);
-    if (!container || container.__wired) return;
-    container.__wired = true;
-
-    container.addEventListener('click', (e) => {
-      const pill = e.target.closest('.history-filter-pill');
-      if (!pill) return;
-
-      container.querySelectorAll('.history-filter-pill').forEach(p => p.classList.remove('active'));
-      pill.classList.add('active');
-
-      const filter = pill.dataset.filter || 'all';
-      if (filterCallback) filterCallback(filter);
-      haptic(20);
-    });
-  };
-
-  /* ── 10. Sync Status Badge ────────────────────────────────────────────────── */
-  /**
-   * Update the sync status badge in the topbar (if it exists).
-   * @param {'syncing'|'synced'|'offline'} status
-   */
-  window.updateSyncStatusBadge = function updateSyncStatusBadge(status) {
-    const badge = document.querySelector('.sync-status-badge');
-    if (!badge) return;
-
-    badge.className = 'sync-status-badge';
-    badge.classList.add(status);
-
-    const icon = badge.querySelector('.sync-icon');
-    if (status === 'syncing') {
-      badge.innerHTML = '<span class="spin-icon" aria-hidden="true">↻</span> Syncing…';
-    } else if (status === 'synced') {
-      badge.innerHTML = '✓ Synced';
-    } else {
-      badge.innerHTML = '⚡ Offline';
-    }
-  };
-
-  /* ── Module initialized ──────────────────────────────────────────────────── */
-  console.info('[PremiumUI] Module v3.0 initialized. Keyboard shortcuts: Ctrl+K (search), Ctrl+Shift+P (pay), Esc (close modal).');
-
 })();

@@ -1,0 +1,129 @@
+/* ── Premium Navy / Teal Theme (6th theme — GitHub/Linear/Stripe vibe) ─── */
+body.theme-premium-navy {
+  --bg-obsidian: #0f172a;
+  --panel-graphite: #1e293b;
+  --panel-graphite-mid: #1e293b;
+  --panel-graphite-light: #334155;
+  --panel-hover: #334155;
+  --border-titanium: rgba(148, 163, 184, 0.12);
+  --border-bright: rgba(148, 163, 184, 0.22);
+  --accent-emerald: #06b6d4;
+  --accent-emerald-dim: #0891b2;
+  --accent-emerald-glow: rgba(6, 182, 212, 0.10);
+  --accent-emerald-mid: rgba(6, 182, 212, 0.28);
+  --accent-emerald-solid: rgba(6, 182, 212, 0.15);
+  --accent-emerald-gradient: linear-gradient(135deg, #06b6d4 0%, #0ea5e9 100%);
+  --alert-coral: #f43f5e;
+  --alert-coral-dim: rgba(244, 63, 94, 0.12);
+  --alert-amber: #f59e0b;
+  --text-white: #f8fafc;
+  --text-muted: #e2e8f0;
+  --text-gray: #94a3b8;
+  --text-dim: #475569;
+  --text-dark: #0f172a;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.75), 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 30px rgba(6, 182, 212, 0.14);
+  --font-display: 'Inter', 'Outfit', system-ui, sans-serif;
+  --font-body: 'Inter', 'Manrope', system-ui, sans-serif;
+}
+
+/* Midnight Sapphire Theme */
+body.theme-midnight-sapphire {
+  --bg-obsidian: #020617;
+  --panel-graphite: #0a1020;
+  --panel-graphite-mid: #0d1528;
+  --panel-graphite-light: #132038;
+  --border-titanium: rgba(59, 130, 246, 0.12);
+  --accent-emerald: #4f9eff;
+  --accent-emerald-dim: #3b7ed4;
+  --accent-emerald-glow: rgba(79, 158, 255, 0.10);
+  --accent-emerald-mid: rgba(79, 158, 255, 0.30);
+  --accent-emerald-solid: rgba(79, 158, 255, 0.18);
+  --accent-emerald-gradient: linear-gradient(135deg, #4f9eff 0%, #3b6de0 100%);
+  --text-white: #e8f0ff;
+  --text-gray: #6b85b0;
+  --text-dim: #3a4a6a;
+  --text-dark: #020617;
+  --success: #4f9eff;
+}
+
+/* Warm Amber Theme */
+body.theme-warm-amber {
+  --bg-obsidian: #150f0a;
+  --panel-graphite: #1c1410;
+  --panel-graphite-mid: #221810;
+  --panel-graphite-light: #2a1e14;
+  --border-titanium: rgba(180, 120, 60, 0.12);
+  --accent-emerald: #f59e2a;
+  --accent-emerald-dim: #d98a20;
+  --accent-emerald-glow: rgba(245, 158, 42, 0.10);
+  --accent-emerald-mid: rgba(245, 158, 42, 0.30);
+  --accent-emerald-solid: rgba(245, 158, 42, 0.18);
+  --accent-emerald-gradient: linear-gradient(135deg, #f59e2a 0%, #d97706 100%);
+  --text-white: #fef3e8;
+  --text-gray: #a08060;
+  --text-dim: #6b4f38;
+  --text-dark: #150f0a;
+  --success: #f59e2a;
+  --font-display: 'Outfit', sans-serif;
+}
+
+/* Minimalist Chrome Theme */
+body.theme-minimalist-chrome {
+  --bg-obsidian: #000000;
+  --panel-graphite: #0d0d0d;
+  --panel-graphite-mid: #141414;
+  --panel-graphite-light: #1e1e1e;
+  --panel-hover: #242424;
+  --border-titanium: rgba(255,255,255,0.07);
+  --border-bright: rgba(255,255,255,0.15);
+  --accent-emerald: #e8e8e8;
+  --accent-emerald-dim: #c0c0c0;
+  --accent-emerald-glow: rgba(255,255,255,0.07);
+  --accent-emerald-mid: rgba(255,255,255,0.25);
+  --accent-emerald-solid: rgba(255,255,255,0.12);
+  --accent-emerald-gradient: linear-gradient(135deg, #e8e8e8 0%, #b0b0b0 100%);
+  --alert-coral: #ff4040;
+  --alert-coral-dim: rgba(255,64,64,0.12);
+  --text-white: #ffffff;
+  --text-muted: #e0e0e0;
+  --text-gray: #888888;
+  --text-dim: #555555;
+  --text-dark: #000000;
+  --success: #e8e8e8;
+  --warning: #d4a847;
+}
+
+/* Monochrome Ivory Theme (Light Mode) */
+body.theme-monochrome-ivory {
+  --bg-obsidian: #f7f6f3;
+  --panel-graphite: #eeece8;
+  --panel-graphite-mid: #e5e3de;
+  --panel-graphite-light: #d8d6d0;
+  --panel-hover: #ceccc6;
+  --border-titanium: rgba(0,0,0,0.12);
+  --border-bright: rgba(0,0,0,0.22);
+  --accent-emerald: #1a1a1a;
+  --accent-emerald-dim: #333333;
+  --accent-emerald-glow: rgba(0,0,0,0.06);
+  --accent-emerald-mid: rgba(0,0,0,0.20);
+  --accent-emerald-solid: rgba(0,0,0,0.10);
+  --accent-emerald-gradient: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+  --alert-coral: #c0392b;
+  --alert-coral-dim: rgba(192,57,43,0.10);
+  --alert-amber: #c67c26;
+  --text-white: #111111;
+  --text-muted: #1e1e1e;
+  --text-gray: #2d2d2d;
+  --text-dim: #4c4c4c;
+  --text-dark: #f7f6f3;
+  --success: #1a7a4a;
+  --warning: #c67c26;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.08);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-lg: 0 20px 40px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.10);
+}

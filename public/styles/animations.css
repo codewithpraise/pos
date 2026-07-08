@@ -1,0 +1,174 @@
+  transition: opacity var(--transition-speed) var(--ease-spring),
+@keyframes skeleton-shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+  animation: skeleton-shimmer 1.6s linear infinite;
+  transition: grid-template-columns var(--transition-speed) var(--ease-spring);
+  transition: width var(--transition-speed) var(--ease-spring);
+  transition: var(--transition-tactile);
+  transition: var(--transition-tactile);
+  transition: var(--transition-tactile);
+  animation: pulse-dot 2.5s ease-in-out infinite;
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+  animation: none;
+  transition: var(--transition-tactile);
+  animation: fadeIn 0.15s ease-out;
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+  transition: var(--transition-tactile);
+  transition: border-color 0.2s ease;
+  transition: border-color 0.25s ease;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: max-height 0.25s cubic-bezier(0.16, 1, 0.3, 1), padding 0.25s ease;
+  transition: var(--transition-tactile);
+  transition: var(--transition-tactile);
+  transition: var(--transition-tactile);
+  transition: var(--transition-tactile);
+  transition: left 0.5s ease;
+  transition: var(--transition-tactile);
+  transition: var(--transition-tactile);
+  transition: var(--transition-tactile);
+  animation: pulse-border 1.5s infinite;
+@keyframes pulse-border {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+  transition: var(--transition-tactile);
+  transition: var(--transition-tactile);
+  transition: var(--transition-tactile);
+  transition: var(--transition-tactile);
+  transition: var(--transition-tactile);
+  transition: grid-template-columns 0.25s var(--ease-spring);
+  transition: var(--transition-tactile);
+  transition: var(--transition-tactile);
+  transition: height 0.8s var(--ease-spring);
+  transition: opacity 0.15s ease;
+  animation: modalSlide 0.18s var(--ease-spring);
+@keyframes modalSlide {
+  from { transform: scale(0.93) translateY(8px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+  transition: var(--transition-tactile);
+  animation: modalSlide 0.2s var(--ease-spring);
+  transition: all 0.15s ease !important;
+  transition: all 0.08s ease;
+  transition: background 0.1s ease, transform 0.08s ease, border-color 0.1s ease, box-shadow 0.1s ease;
+    transition: var(--transition-tactile);
+    transition: transform 0.2s var(--ease-spring);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+  animation: pill-pulse 1.5s infinite ease-in-out;
+@keyframes pill-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: laser-sweep 2.5s infinite ease-in-out;
+@keyframes laser-sweep {
+  0% { top: calc(50% - 130px); }
+  50% { top: calc(50% + 130px); }
+  100% { top: calc(50% - 130px); }
+}
+  transition: transform 0.15s ease;
+  animation: slideDown 0.3s ease;
+@keyframes slideDown {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+    animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  @keyframes modalSlideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+    transition: grid-template-columns 0.25s var(--ease-spring);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: color 0.15s ease;
+  transition: var(--transition-tactile);
+  transition: var(--transition-tactile);
+.wiz-panel { animation: wizPanelIn 0.3s cubic-bezier(0.16,1,0.3,1); }
+@keyframes wizPanelIn { from { opacity:0; transform:translateX(16px); } to { opacity:1; transform:translateX(0); } }
+.wiz-panel.slide-back { animation: wizPanelBack 0.3s cubic-bezier(0.16,1,0.3,1); }
+@keyframes wizPanelBack { from { opacity:0; transform:translateX(-16px); } to { opacity:1; transform:translateX(0); } }
+#btn-wizard-scan-qr-direct::before { content:''; position:absolute; inset:-2px; border-radius:14px; background:linear-gradient(135deg,#00d68f,#00a876); z-index:-1; opacity:0; animation:qrGlow 2.5s ease-in-out infinite; }
+@keyframes qrGlow { 0%,100% { opacity:0; transform:scale(1); } 50% { opacity:0.35; transform:scale(1.02); } }
+  transition: var(--transition-tactile);
+  transition: var(--transition-tactile);
+.wiz-panel { animation: wizPanelIn 0.3s cubic-bezier(0.16,1,0.3,1); }
+@keyframes wizPanelIn { from { opacity:0; transform:translateX(16px); } to { opacity:1; transform:translateX(0); } }
+.wiz-panel.slide-back { animation: wizPanelBack 0.3s cubic-bezier(0.16,1,0.3,1); }
+@keyframes wizPanelBack { from { opacity:0; transform:translateX(-16px); } to { opacity:1; transform:translateX(0); } }
+#btn-wizard-scan-qr-direct::before { content:''; position:absolute; inset:-2px; border-radius:14px; background:linear-gradient(135deg,#00d68f,#00a876); z-index:-1; opacity:0; animation:qrGlow 2.5s ease-in-out infinite; }
+@keyframes qrGlow { 0%,100% { opacity:0; transform:scale(1); } 50% { opacity:0.35; transform:scale(1.02); } }
+  transition: border-color 0.2s ease;
+  transition: background 0.1s ease, transform 0.08s ease, border-color 0.1s ease, box-shadow 0.1s ease;
+  transition: all 0.2s ease;
+  transition: all 0.2s ease;
+  transition: var(--transition-tactile);
+  animation: offlineBannerSlideDown 0.3s var(--ease-spring, cubic-bezier(0.16, 1, 0.3, 1));
+@keyframes offlineBannerSlideDown {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+  animation: pulse-dot 1.5s ease-in-out infinite;
+@keyframes viewFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+  animation: viewFadeIn 0.2s var(--ease-spring, cubic-bezier(0.16, 1, 0.3, 1));
+  animation: viewFadeIn 0.3s var(--ease-spring, cubic-bezier(0.16, 1, 0.3, 1));
+  animation: emptyIconFloat 3s ease-in-out infinite;
+@keyframes emptyIconFloat {
+  0%,  100% { transform: translateY(0px); }
+  50%        { transform: translateY(-8px); }
+}
+  transition: var(--transition-tactile);
+@keyframes cartItemSlideIn {
+  from { opacity: 0; transform: translateX(-10px) scale(0.97); }
+  to   { opacity: 1; transform: translateX(0)     scale(1); }
+}
+@keyframes cartItemSlideOut {
+  from { opacity: 1; transform: translateX(0) scale(1); max-height: 80px; }
+  to   { opacity: 0; transform: translateX(10px) scale(0.95); max-height: 0; padding: 0; margin: 0; border: none; }
+}
+@keyframes qtyPulse {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.35); color: var(--accent-emerald); }
+  100% { transform: scale(1); }
+}
+  animation: cartItemSlideIn 0.18s var(--ease-spring, cubic-bezier(0.16, 1, 0.3, 1));
+  animation: cartItemSlideOut 0.2s ease-in forwards;
+  animation: qtyPulse 0.25s var(--ease-bounce, cubic-bezier(0.34, 1.56, 0.64, 1));
+  transition: opacity 0.15s ease;
+@keyframes paymentSuccessFlash {
+  0%   { box-shadow: 0 0 0 0 rgba(0, 214, 143, 0.6); }
+  60%  { box-shadow: 0 0 0 16px rgba(0, 214, 143, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 214, 143, 0); }
+}
+  animation: paymentSuccessFlash 0.6s ease-out;
+@keyframes fieldShake {
+  0%, 100% { transform: translateX(0); }
+  15%       { transform: translateX(-6px); }
+  30%       { transform: translateX(6px); }
+  45%       { transform: translateX(-4px); }
+  60%       { transform: translateX(4px); }
+  75%       { transform: translateX(-2px); }
+  90%       { transform: translateX(2px); }
+}
+.shake {
+  animation: fieldShake 0.4s ease-in-out;
+  animation: skeleton-shimmer 1.6s linear infinite;
+  transition: var(--transition-tactile);
+  transition: var(--transition-tactile);
+  transition: var(--transition-tactile);
+  animation: spin 1s linear infinite;
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+  transition: transform 0.2s var(--ease-spring), box-shadow 0.2s var(--ease-spring), border-color 0.2s ease;

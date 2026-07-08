@@ -786,6 +786,14 @@
                 <input type="checkbox" id="setting-haptic-enabled" class="pos-checkbox" checked>
               </div>
               <div class="settings-row flex-row">
+                <label for="setting-motion-enabled" style="cursor: pointer;">Enable interface animations & motion transitions</label>
+                <input type="checkbox" id="setting-motion-enabled" class="pos-checkbox" checked>
+              </div>
+              <div class="settings-row flex-row">
+                <label style="cursor: pointer; flex: 1;" for="btn-replay-tutorial">Guided Register onboarding tour</label>
+                <button type="button" class="action-btn action-success" id="btn-replay-tutorial" style="min-height:32px; font-size:11px; padding:0 16px; width:auto; text-transform:uppercase; font-weight:800; border-radius:4px;">Start Tour</button>
+              </div>
+              <div class="settings-row flex-row">
                 <label for="setting-fbr-enabled" style="cursor: pointer;">Enable FBR Tax Integration</label>
                 <input type="checkbox" id="setting-fbr-enabled" class="pos-checkbox">
               </div>
@@ -2235,6 +2243,11 @@
   <!-- CHECKOUT & TAX CALCULATIONS ENGINE -->
   <script src="checkout-engine.js"></script>
   <!-- MAIN CONTROLLER REGISTER -->
+  <!-- PREMIUM UI MODULAR EXTENSIONS (ES Modules) -->
+  <script type="module" src="modules/ui.js"></script>
+  <script type="module" src="modules/animations.js"></script>
+  <script type="module" src="modules/offline.js"></script>
+  <script type="module" src="modules/keyboard.js"></script>
   <script src="app.js"></script>
 
   <script src="sw-loader.js"></script>

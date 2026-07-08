@@ -4,12 +4,20 @@
 // v7 - Hardened fetch handler: no unhandled rejections, no undefined responses
 // ============================================================================
 
-const CACHE_NAME = 'nexova-pos-cache-v8';
+const CACHE_NAME = 'nexova-pos-cache-v9';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/style.css',
+  '/styles/design-tokens.css',
+  '/styles/themes.css',
+  '/styles/animations.css',
+  '/styles/components.css',
   '/app.js',
+  '/modules/ui.js',
+  '/modules/animations.js',
+  '/modules/offline.js',
+  '/modules/keyboard.js',
   '/client-db.js',
   '/client-audio.js',
   '/client-speech.js',
@@ -20,7 +28,7 @@ const ASSETS_TO_CACHE = [
   '/icon-512.png',
   '/polyfill.min.js',
   '/NotoNastaliqUrdu-Regular.ttf',
-  'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Manrope:wght@200..800&family=Outfit:wght@100..900&display=swap',
+  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Manrope:wght@200..800&family=Outfit:wght@100..900&display=swap',
   'https://unpkg.com/@zxing/library@0.21.0/umd/index.min.js'
 ];
 
