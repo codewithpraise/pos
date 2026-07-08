@@ -8,7 +8,7 @@ async function main() {
       r.on('end',()=>{ try{res(JSON.parse(b));}catch(e){rej(e);} });
     }).on('error',rej);
   });
-  const t = tabs.find(x => x.url && x.url.includes('localhost:3000') && x.type === 'page');
+  const t = tabs.find(x => x.type === 'page' && (x.title?.includes('Valenixia') || x.url?.includes('localhost:3000') || x.faviconUrl?.includes('localhost:3000') || tabs.filter(y => y.type === 'page').length === 1));
   if(!t) { console.log('No page target found'); return; }
 
   const ws = new WebSocket(t.webSocketDebuggerUrl);

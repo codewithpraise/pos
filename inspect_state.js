@@ -11,7 +11,7 @@ async function main() {
 
   console.log('Open tabs:', tabs.map(t=>t.url+' ['+t.type+']').join('\n  '));
 
-  const target = tabs.find(t=>t.url&&t.url.includes('localhost:3000')&&t.type==='page');
+  const target = tabs.find(t => t.type === 'page' && (t.title?.includes('Valenixia') || t.url?.includes('localhost:3000') || t.faviconUrl?.includes('localhost:3000') || tabs.filter(x => x.type === 'page').length === 1));
   if (!target) { console.log('No page target found'); return; }
   console.log('\nConnecting to:', target.url);
 

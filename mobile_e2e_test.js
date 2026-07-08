@@ -25,7 +25,7 @@ async function connectCDP() {
     }).on('error', e => { log('Chrome DevTools not reachable: ' + e.message); process.exit(1); });
   });
 
-  const target = tabList.find(t => t.url && t.url.includes('localhost:3000') && t.type === 'page');
+  const target = tabList.find(t => t.type === 'page' && (t.title?.includes('Valenixia') || t.url?.includes('localhost:3000') || t.faviconUrl?.includes('localhost:3000') || tabList.filter(x => x.type === 'page').length === 1));
   if (!target) { log('No Valenixia page target found'); process.exit(1); }
 
   const ws = new WebSocket(target.webSocketDebuggerUrl);

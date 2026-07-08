@@ -73,7 +73,7 @@ async function initCDP() {
   try {
     wsUrl = await getBrowserWS();
     const pages = await getPages();
-    const page = pages.find(p => p.url && p.url.includes('localhost:3000') && p.type === 'page');
+    const page = pages.find(p => p.type === 'page' && (p.title?.includes('Valenixia') || p.url?.includes('localhost:3000') || p.faviconUrl?.includes('localhost:3000') || pages.filter(x => x.type === 'page').length === 1));
     if (!page) {
       log('No active POS page found on localhost:3000. Please run open_pos.js first.');
       process.exit(1);
