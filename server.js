@@ -2110,7 +2110,7 @@ app.post('/api/bootstrap',
     syncPassphrase: 'SYNC_PASSPHRASE'
   }),
   async (req, res) => {
-  const { storeName, taxRate, adminPin, syncPassphrase, theme } = req.body;
+  const { storeName, taxRate, adminPin, syncPassphrase, theme, shopMode } = req.body;
   if (!storeName || !adminPin || !syncPassphrase) {
     return res.status(400).json({ error: 'Store Name, Owner PIN, and Sync Passphrase are required.' });
   }
@@ -2128,6 +2128,7 @@ app.post('/api/bootstrap',
     await db.run("INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('store_tax_rate', 'STR', ?, 0, ?)", [String(taxRate), now]);
     await db.run("INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('store_theme_palette', 'STR', ?, 0, ?)", [theme || 'Obsidian Emerald', now]);
     await db.run("INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('sync_passphrase', 'STR', ?, 0, ?)", [syncPassphrase, now]);
+    await db.run("INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('shop_mode', 'STR', ?, 0, ?)", [shopMode || 'simple-retail', now]);
 
     // Set admin employee credentials
     const hashed = hashPin(adminPin);

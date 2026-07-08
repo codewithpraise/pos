@@ -958,7 +958,7 @@
                 cashierName: state.activeCashier?.name || 'N/A',
                 timestamp: Date.now(),
                 items: state.activeCart.map(i => ({
-                  name: i.name, qty: i.qty, unitPrice: i.price, discount: i.discount || 0
+                  name: i.displayName || i.name, qty: i.qty, unitPrice: i.price, discount: i.discount || 0
                 })),
                 subtotal: event.data.subtotal || 0,
                 tax: event.data.tax || 0,
@@ -1457,6 +1457,24 @@
       submitProductForm();
     });
 
+    const imgFileInput = document.getElementById('form-product-image-file');
+    if (imgFileInput) {
+      imgFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const preview = document.getElementById('form-product-image-preview');
+        preview.style.backgroundImage = '';
+        preview.textContent = '⏳';
+
+        processAndCompressImage(file, (base64) => {
+          document.getElementById('form-product-image-url').value = base64;
+          preview.style.backgroundImage = `url(${base64})`;
+          preview.textContent = '';
+        });
+      });
+    }
+
     // --- CUSTOMERS MODAL BINDINGS ---
     document.getElementById('btn-customers-create').addEventListener('click', () => {
       openCustomerEditModal(null);
@@ -1562,6 +1580,20 @@
         payload: { key: 'store_receipt_width', val: e.target.value }
       });
       state.preferences['store_receipt_width'] = e.target.value;
+    });
+
+    document.getElementById('setting-shop-mode')?.addEventListener('change', (e) => {
+      const mode = e.target.value;
+      if (confirm('Warning: Changing the shop business domain changes how variants, modifiers, and checkout configurations are handled. Existing product data will remain, but input configurations may differ. Do you want to proceed?')) {
+        syncWorker.postMessage({
+          type: 'SAVE_PREFERENCE',
+          payload: { key: 'shop_mode', val: mode }
+        });
+        state.preferences['shop_mode'] = mode;
+        showNotificationToast('Shop business domain changed to ' + mode, 'success', 3000);
+      } else {
+        e.target.value = state.preferences['shop_mode'] || 'simple-retail';
+      }
     });
 
     document.getElementById('setting-ui-lang')?.addEventListener('change', (e) => {
@@ -1923,13 +1955,14 @@
     (function initWizardController() {
       let wizStep = 1;
       let wizPath = 'NEW';
-      const MAX_STEPS = 4;
+      const MAX_STEPS = 5;
       const subtitles = {
         1:   "Let's get your point-of-sale ready in just a few steps.",
         '2a': 'Tell us about your store — this will appear on receipts and the POS header.',
         '2b':"Enter the network details to connect to an existing store.",
-        3:   "Set your security credentials to protect this register.",
-        4:   "Review your configuration before we initialize the database.",
+        3:   "Choose your shop business domain for optimal workflow configurations.",
+        4:   "Set your security credentials to protect this register.",
+        5:   "Review your configuration before we initialize the database.",
       };
 
       const btnNext    = document.getElementById('btn-wiz-next');
@@ -1951,6 +1984,62 @@
       }
 
       if (!btnNext) return;
+
+      // Shop Mode card click selection and preview rendering
+      const cards = document.querySelectorAll('.shop-mode-card');
+      const hiddenInput = document.getElementById('wizard-shop-mode');
+      const previewTitle = document.getElementById('mode-preview-title');
+      const previewDetails = document.getElementById('mode-preview-details');
+
+      const previews = {
+        'simple-retail': {
+          title: '🛒 Simple Retail Active',
+          details: '• Checkout flow: Instant add-to-cart on barcode scan.<br>• Product features: Simple quantity edits, supplier names, reorder levels.'
+        },
+        'clothing-fashion': {
+          title: '👕 Clothing & Fashion Active',
+          details: '• Checkout flow: Intercept adds → select size grid & color swatches.<br>• Product features: Extended size/color variant matrix, brand/season tracking.'
+        },
+        'food-restaurant': {
+          title: '🍽️ Food & Restaurant Active',
+          details: '• Checkout flow: Intercept adds → select modifiers (toppings/sides), combo builders.<br>• Product features: Allergens lists, kitchen tickets output, table numbers.'
+        },
+        'services-appointments': {
+          title: '✂️ Services & Booking Active',
+          details: '• Checkout flow: Intercept adds → select staff assignment, time slots calendar.<br>• Product features: Service durations, booking buffers, calendar rescheduling.'
+        },
+        'electronics-highvalue': {
+          title: '📱 Electronics & High-Value Active',
+          details: '• Checkout flow: Scan serial number, record buyer ID verification.<br>• Product features: Serial number inventory validation, warranty terms lookup.'
+        },
+        'custom-mixed': {
+          title: '⚙️ Custom / Mixed Active',
+          details: '• Checkout flow: Multi-option selection picker.<br>• Product features: Advanced toggles in Settings allowing modular option blends.'
+        }
+      };
+
+      cards.forEach(card => {
+        card.addEventListener('click', () => {
+          if (typeof playAudioSignal === 'function') playAudioSignal('click');
+          cards.forEach(c => {
+            c.classList.remove('active');
+            c.style.border = '1px solid rgba(255,255,255,0.08)';
+            c.style.background = 'rgba(255,255,255,0.03)';
+          });
+          card.classList.add('active');
+          card.style.border = '2px solid var(--accent-emerald)';
+          card.style.background = 'rgba(0, 214, 143, 0.05)';
+          
+          const mode = card.getAttribute('data-mode');
+          if (hiddenInput) hiddenInput.value = mode;
+          
+          const info = previews[mode];
+          if (info) {
+            if (previewTitle) previewTitle.textContent = info.title;
+            if (previewDetails) previewDetails.innerHTML = info.details;
+          }
+        });
+      });
 
       function getStepKey() {
         return wizStep === 2 ? (wizPath === 'NEW' ? '2a' : '2b') : String(wizStep);
@@ -1993,6 +2082,12 @@
       }
       function goTo(step, path, dir) {
         if (path) wizPath = path;
+        
+        // Skip step 3 (Shop Mode Selection) if we are joining an existing network
+        if (wizPath === 'JOIN' && step === 3) {
+          step = (dir === 'back') ? 2 : 4;
+        }
+
         wizStep = step;
         render(dir || 'forward');
       }
@@ -2000,8 +2095,8 @@
       // Step 1 path choice
       const bNew  = document.getElementById('btn-wiz-choose-new');
       const bJoin = document.getElementById('btn-wiz-choose-join');
-      if (bNew)  bNew.addEventListener('click',  () => { playAudioSignal('click'); goTo(2,'NEW'); });
-      if (bJoin) bJoin.addEventListener('click', () => { playAudioSignal('click'); goTo(2,'JOIN'); });
+      if (bNew)  bNew.addEventListener('click',  () => { if (typeof playAudioSignal === 'function') playAudioSignal('click'); goTo(2,'NEW'); });
+      if (bJoin) bJoin.addEventListener('click', () => { if (typeof playAudioSignal === 'function') playAudioSignal('click'); goTo(2,'JOIN'); });
 
       // Scan QR buttons
       const bScan1 = document.getElementById('btn-wizard-scan-qr-direct');
@@ -2012,7 +2107,7 @@
       // Back
       btnBack.addEventListener('click', (e) => {
         if (e) e.preventDefault();
-        playAudioSignal('click');
+        if (typeof playAudioSignal === 'function') playAudioSignal('click');
         goTo(wizStep === 2 ? 1 : wizStep - 1, wizPath, 'back');
       });
 
@@ -2041,10 +2136,20 @@
         const v = id => (document.getElementById(id)||{}).value||'';
         const e = id => document.getElementById(id);
         if (wizPath === 'NEW') {
-          if (e('wiz-sum-store'))  e('wiz-sum-store').textContent  = v('wizard-store-name') || 'â€”';
+          if (e('wiz-sum-store'))  e('wiz-sum-store').textContent  = v('wizard-store-name') || '—';
           if (e('wiz-sum-tax'))    e('wiz-sum-tax').textContent    = v('wizard-tax-rate') + '%';
-          if (e('wiz-sum-theme'))  e('wiz-sum-theme').textContent  = v('wizard-theme') || 'â€”';
-          if (e('wiz-sum-mode'))   e('wiz-sum-mode').textContent   = 'Master Register';
+          if (e('wiz-sum-theme'))  e('wiz-sum-theme').textContent  = v('wizard-theme') || '—';
+          
+          const modeVal = v('wizard-shop-mode');
+          const modeMap = {
+            'simple-retail': 'Retail',
+            'clothing-fashion': 'Apparel & Fashion',
+            'food-restaurant': 'Food & Restaurant',
+            'services-appointments': 'Services & Booking',
+            'electronics-highvalue': 'Electronics',
+            'custom-mixed': 'Custom / Mixed'
+          };
+          if (e('wiz-sum-mode'))   e('wiz-sum-mode').textContent   = modeMap[modeVal] || 'Simple Retail';
         } else {
           if (e('wiz-sum-store'))  e('wiz-sum-store').textContent  = v('wizard-join-server-url') || '(QR paired)';
           if (e('wiz-sum-tax'))    e('wiz-sum-tax').textContent    = 'From Master';
@@ -2063,12 +2168,12 @@
         if (wizStep === 2 && wizPath === 'JOIN') {
           if (!v('wizard-join-passphrase').trim()) { showNotificationToast('Network key is required.','error',3000); return false; }
         }
-        if (wizStep === 3) {
+        if (wizStep === 4) {
           const pin = v('wizard-admin-pin').trim();
           if (!pin || pin.length !== 4 || isNaN(pin)) { showNotificationToast('Owner PIN must be exactly 4 digits.','error',3000); focus('wizard-admin-pin'); return false; }
           if (!v('wizard-sync-passphrase').trim()) { showNotificationToast('Network encryption key is required.','error',3000); focus('wizard-sync-passphrase'); return false; }
         }
-        if (wizStep === 4) {
+        if (wizStep === 5) {
           const eula = document.getElementById('wizard-eula-checkbox');
           if (!eula || !eula.checked) { showNotificationToast('Please accept the EULA to continue.','error',3000); return false; }
         }
@@ -2078,10 +2183,10 @@
       // Next / Submit
       btnNext.addEventListener('click', (e) => {
         if (e) e.preventDefault();
-        playAudioSignal('click');
+        if (typeof playAudioSignal === 'function') playAudioSignal('click');
         if (!validate()) return;
         if (wizStep < MAX_STEPS) {
-          if (wizStep === 3) populateReview();
+          if (wizStep === 4) populateReview();
           goTo(wizStep + 1, wizPath, 'forward');
         } else {
           document.getElementById('btn-submit-wizard') && document.getElementById('btn-submit-wizard').click();
@@ -2103,6 +2208,7 @@
           const adminPin = document.getElementById('wizard-admin-pin').value.trim();
           const syncPassphrase = document.getElementById('wizard-sync-passphrase').value;
           const theme = document.getElementById('wizard-theme').value;
+          const shopMode = document.getElementById('wizard-shop-mode').value;
 
           if (!storeName || !adminPin || !syncPassphrase) {
             alert('Store Name, Owner PIN, and Network Encryption Key are required for bootstrap.');
@@ -2124,7 +2230,7 @@
           fetch(window.__nexovaServerUrl + '/api/bootstrap', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ storeName, taxRate, adminPin, syncPassphrase, theme })
+            body: JSON.stringify({ storeName, taxRate, adminPin, syncPassphrase, theme, shopMode })
           })
           .then(async (resp) => {
             if (!resp.ok) {
@@ -2136,7 +2242,7 @@
             localStorage.setItem('database_hydrated', 'true'); // Prevent hydration overlay on reload
             syncWorker.postMessage({
               type: 'BOOTSTRAP_STORE',
-              payload: { storeName, taxRate, adminPin: hashedPin, syncPassphrase, theme }
+              payload: { storeName, taxRate, adminPin: hashedPin, syncPassphrase, theme, shopMode }
             });
           })
           .catch((err) => {
@@ -2149,7 +2255,7 @@
             // Tell the worker to build the database
             syncWorker.postMessage({
               type: 'BOOTSTRAP_STORE',
-              payload: { storeName, taxRate, adminPin: hashedPin, syncPassphrase, theme }
+              payload: { storeName, taxRate, adminPin: hashedPin, syncPassphrase, theme, shopMode }
             });
             
             if (typeof showNotificationToast === 'function') {
@@ -3882,6 +3988,10 @@
     themes.forEach(t => body.classList.remove(t));
     body.classList.add(themeClass);
 
+    const mode = state.preferences['shop_mode'] || 'simple-retail';
+    const modeEl = document.getElementById('setting-shop-mode');
+    if (modeEl) modeEl.value = mode;
+
     const glass = state.preferences['glassmorphism_enabled'] !== 'false';
     document.getElementById('setting-glass-fx').checked = glass;
     body.classList.toggle('performance-solid-mode', !glass);
@@ -4326,10 +4436,251 @@
     dropdown.classList.add('active');
   }
 
+  // Checkout Option Selection Modal helper
+  function showCheckoutSelectionModal(title, contentHTML, onSave, onCancel) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay active';
+    overlay.id = 'checkout-options-modal';
+    overlay.style.zIndex = '99999';
+
+    overlay.innerHTML = `
+      <div class="modal-card select-modal-card" style="max-width: 420px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5), 0 10px 10px -5px rgba(0,0,0,0.5);">
+        <div class="modal-header">
+          <h3>${title}</h3>
+          <button class="btn-close-modal" id="btn-close-options">×</button>
+        </div>
+        <div class="modal-body" style="display:flex; flex-direction:column; gap:14px; max-height: 400px; overflow-y:auto; padding-top: 6px;">
+          ${contentHTML}
+        </div>
+        <div class="modal-footer" style="margin-top:14px; gap:8px;">
+          <button class="action-btn" id="btn-cancel-options">Cancel</button>
+          <button class="action-btn action-success" id="btn-save-options">Add to Cart</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const btnClose = overlay.querySelector('#btn-close-options');
+    const btnCancel = overlay.querySelector('#btn-cancel-options');
+    const btnSave = overlay.querySelector('#btn-save-options');
+
+    const close = () => {
+      overlay.remove();
+      document.removeEventListener('keydown', keyHandler);
+      if (onCancel) onCancel();
+    };
+
+    const save = () => {
+      if (onSave(overlay)) {
+        overlay.remove();
+        document.removeEventListener('keydown', keyHandler);
+      }
+    };
+
+    const focusable = overlay.querySelectorAll('button, select, input, textarea');
+    if (focusable.length > 0) {
+      setTimeout(() => focusable[0].focus(), 50);
+    }
+
+    const keyHandler = (e) => {
+      if (e.key === 'Escape') {
+        close();
+      }
+      if (e.key === 'Tab') {
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          last.focus();
+          e.preventDefault();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          first.focus();
+          e.preventDefault();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', keyHandler);
+    btnClose.addEventListener('click', close);
+    btnCancel.addEventListener('click', close);
+    btnSave.addEventListener('click', save);
+  }
+
   // Checkout Cart additions
-  function addProductToCheckoutCart(sku) {
+  function addProductToCheckoutCart(sku, options = null) {
     const prod = state.catalog.find(p => p.sku === sku);
     if (!prod) return;
+
+    const shopMode = state.preferences['shop_mode'] || 'simple-retail';
+
+    // If options are not provided and the shop mode requires configuration, trigger picker modals!
+    if (!options) {
+      let parsedFields = {};
+      try {
+        parsedFields = JSON.parse(prod.mode_fields || '{}');
+      } catch (e) {
+        parsedFields = {};
+      }
+
+      if (shopMode === 'clothing-fashion' && parsedFields.variants && parsedFields.variants.length > 0) {
+        const rowsHTML = parsedFields.variants.map((v, idx) => `
+          <label class="pos-input" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; padding:8px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.06); background:rgba(255,255,255,0.01); margin-bottom: 6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <input type="radio" name="variant-select" value="${idx}" ${idx === 0 ? 'checked' : ''} style="margin:0;">
+              <span style="font-weight:700; color:var(--text-white); font-size:11px;">Size: ${v.size} — ${v.color}</span>
+            </div>
+            <span style="font-size:10px; color:var(--text-gray);">${v.stock} in stock</span>
+          </label>
+        `).join('');
+
+        showCheckoutSelectionModal(
+          `Select Variant for ${prod.name}`,
+          `<div style="display:flex; flex-direction:column; gap:8px;">${rowsHTML}</div>`,
+          (overlay) => {
+            const selectedRadio = overlay.querySelector('input[name="variant-select"]:checked');
+            if (!selectedRadio) {
+              alert('Please select a variant.');
+              return false;
+            }
+            const idx = parseInt(selectedRadio.value);
+            const variant = parsedFields.variants[idx];
+            addProductToCheckoutCart(sku, {
+              variant,
+              display: `(${variant.size}/${variant.color})`
+            });
+            return true;
+          }
+        );
+        return;
+      }
+
+      if (shopMode === 'food-restaurant' && parsedFields.modifiers && parsedFields.modifiers.length > 0) {
+        const rowsHTML = parsedFields.modifiers.map((m, idx) => `
+          <label class="pos-input" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; padding:8px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.06); background:rgba(255,255,255,0.01); margin-bottom: 6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <input type="checkbox" name="modifier-select" value="${idx}" style="margin:0;">
+              <span style="font-weight:700; color:var(--text-white); font-size:11px;">${m.name}</span>
+            </div>
+            <span style="font-size:10px; color:var(--accent-emerald); font-weight:700;">+Rs. ${(m.price / 100.0).toFixed(2)}</span>
+          </label>
+        `).join('');
+
+        const noteHTML = `
+          <div style="display:flex; flex-direction:column; gap:4px; margin-top:8px;">
+            <span style="font-size:10px; color:var(--text-gray);">Special Kitchen Instructions:</span>
+            <input type="text" id="checkout-kitchen-note" class="pos-input" placeholder="e.g. No onions, extra hot" style="font-size:11px; padding:6px;" aria-label="Kitchen Note">
+          </div>
+        `;
+
+        showCheckoutSelectionModal(
+          `Select Customizations for ${prod.name}`,
+          `<div style="display:flex; flex-direction:column; gap:8px;">${rowsHTML}${noteHTML}</div>`,
+          (overlay) => {
+            const checkedCheckboxes = overlay.querySelectorAll('input[name="modifier-select"]:checked');
+            const modifiersSelected = [];
+            let priceAdjustment = 0;
+            checkedCheckboxes.forEach(cb => {
+              const idx = parseInt(cb.value);
+              const mod = parsedFields.modifiers[idx];
+              modifiersSelected.push(mod);
+              priceAdjustment += mod.price;
+            });
+            const kitchenNote = overlay.querySelector('#checkout-kitchen-note').value.trim();
+            
+            const displayParts = [];
+            if (modifiersSelected.length > 0) {
+              displayParts.push(modifiersSelected.map(m => m.name).join(', '));
+            }
+            if (kitchenNote) {
+              displayParts.push(`Note: "${kitchenNote}"`);
+            }
+
+            addProductToCheckoutCart(sku, {
+              modifiers: modifiersSelected,
+              kitchenNote,
+              priceAdjustment,
+              display: displayParts.length > 0 ? `(${displayParts.join(' | ')})` : null
+            });
+            return true;
+          }
+        );
+        return;
+      }
+
+      if (shopMode === 'services-appointments') {
+        const duration = parsedFields.duration || 30;
+        const staffList = parsedFields.staff || [];
+        const staffHTML = staffList.length > 0 ? `
+          <div style="display:flex; flex-direction:column; gap:4px; margin-bottom: 8px;">
+            <span style="font-size:10px; color:var(--text-gray);">Select Staff Member:</span>
+            <select id="checkout-service-staff" class="pos-input" style="font-size:11px; padding:6px;" aria-label="Staff Member">
+              ${staffList.map(s => `<option value="${s}">${s}</option>`).join('')}
+            </select>
+          </div>
+        ` : '';
+
+        const timeSlots = ['09:00 AM', '10:00 AM', '11:00 AM', '01:00 PM', '02:00 PM', '03:00 PM', '04:00 PM'];
+        const slotsHTML = `
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <span style="font-size:10px; color:var(--text-gray);">Select Available Slot:</span>
+            <select id="checkout-service-slot" class="pos-input" style="font-size:11px; padding:6px;" aria-label="Available Slot">
+              ${timeSlots.map(t => `<option value="${t}">${t}</option>`).join('')}
+            </select>
+          </div>
+        `;
+
+        showCheckoutSelectionModal(
+          `Book Service: ${prod.name}`,
+          `<div style="display:flex; flex-direction:column; gap:8px;">
+            <div style="font-size:11px; color:var(--text-gray); margin-bottom: 6px;">Duration: <strong style="color:var(--text-white);">${duration} mins</strong></div>
+            ${staffHTML}
+            ${slotsHTML}
+          </div>`,
+          (overlay) => {
+            const staffEl = overlay.querySelector('#checkout-service-staff');
+            const slotEl = overlay.querySelector('#checkout-service-slot');
+            const staff = staffEl ? staffEl.value : 'Any Staff';
+            const slot = slotEl ? slotEl.value : 'Immediate';
+
+            addProductToCheckoutCart(sku, {
+              staff,
+              slot,
+              display: `(Booked: ${slot} with ${staff})`
+            });
+            return true;
+          }
+        );
+        return;
+      }
+
+      if (shopMode === 'electronics-highvalue' && parsedFields.serial_required) {
+        const inputHTML = `
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <span style="font-size:10px; color:var(--text-gray);">Enter/Scan Product Serial Number:</span>
+            <input type="text" id="checkout-serial-number" class="pos-input" placeholder="e.g. SN-92837492-X" style="font-size:11px; padding:6px;" required aria-label="Serial Number">
+          </div>
+        `;
+
+        showCheckoutSelectionModal(
+          `Serial Verification for ${prod.name}`,
+          `<div style="display:flex; flex-direction:column; gap:8px;">${inputHTML}</div>`,
+          (overlay) => {
+            const serialInput = overlay.querySelector('#checkout-serial-number');
+            const serial = serialInput.value.trim();
+            if (!serial) {
+              alert('Serial number is required for high-value electronics warranty registration.');
+              return false;
+            }
+            addProductToCheckoutCart(sku, {
+              serial,
+              display: `(S/N: ${serial})`
+            });
+            return true;
+          }
+        );
+        return;
+      }
+    }
 
     const isOversellBlocked = state.preferences['oversell_block_enabled'] === 'true';
 
@@ -4343,7 +4694,16 @@
       }
     }
 
-    const exists = state.activeCart.find(item => item.sku === sku);
+    let price = prod.base_price_minor_units;
+    let displayName = prod.name;
+    if (options && options.priceAdjustment) {
+      price += options.priceAdjustment;
+    }
+    if (options && options.display) {
+      displayName += ` ${options.display}`;
+    }
+
+    const exists = state.activeCart.find(item => item.sku === sku && item.displayName === displayName);
     if (exists) {
       if (exists.qty + 1 > prod.stock_level) {
         if (isOversellBlocked) {
@@ -4359,10 +4719,12 @@
       state.activeCart.push({
         sku: prod.sku,
         name: prod.name,
-        price: prod.base_price_minor_units,
+        displayName: displayName,
+        price: price,
         cost: prod.cost_price_minor_units || 0,
         qty: 1,
-        emoji: ''
+        emoji: '',
+        options: options
       });
     }
 
@@ -4371,8 +4733,8 @@
   }
 
   // Modify quantity in cart
-  function modifyCartQty(sku, delta) {
-    const item = state.activeCart.find(i => i.sku === sku);
+  function modifyCartQty(sku, delta, displayName = null) {
+    const item = state.activeCart.find(i => i.sku === sku && (!displayName || i.displayName === displayName));
     const prod = state.catalog.find(p => p.sku === sku);
     if (!item || !prod) return;
 
@@ -4390,16 +4752,19 @@
 
     item.qty += delta;
     if (item.qty <= 0) {
-      state.activeCart = state.activeCart.filter(i => i.sku !== sku);
+      state.activeCart = state.activeCart.filter(i => !(i.sku === sku && (!displayName || i.displayName === displayName)));
     }
     
     playAudioSignal('click');
     renderCart();
 
-    // Pulse the quantity display of the modified row
+    // Pulse quantity animation
     if (item.qty > 0) {
       requestAnimationFrame(() => {
-        const row = document.querySelector(`.cart-item-row[data-sku="${CSS.escape(sku)}"]`);
+        const selector = displayName
+          ? `.cart-item-row[data-sku="${CSS.escape(sku)}"][data-display-name="${CSS.escape(displayName)}"]`
+          : `.cart-item-row[data-sku="${CSS.escape(sku)}"]`;
+        const row = document.querySelector(selector);
         if (row) {
           const qtyEl = row.querySelector('.qty-val');
           if (qtyEl && typeof pulseQtyDisplay === 'function') pulseQtyDisplay(qtyEl);
@@ -4409,17 +4774,19 @@
   }
 
   // Remove item completely
-  function removeCartItem(sku) {
-    // Animate removal if the row is currently in the DOM
-    const existingRow = document.querySelector(`.cart-item-row[data-sku="${CSS.escape(sku)}"]`);
+  function removeCartItem(sku, displayName = null) {
+    const selector = displayName
+      ? `.cart-item-row[data-sku="${CSS.escape(sku)}"][data-display-name="${CSS.escape(displayName)}"]`
+      : `.cart-item-row[data-sku="${CSS.escape(sku)}"]`;
+    const existingRow = document.querySelector(selector);
     if (existingRow && typeof animateCartItemRemove === 'function') {
       animateCartItemRemove(existingRow, () => {
-        state.activeCart = state.activeCart.filter(i => i.sku !== sku);
+        state.activeCart = state.activeCart.filter(i => !(i.sku === sku && (!displayName || i.displayName === displayName)));
         playAudioSignal('click');
         renderCart();
       });
     } else {
-      state.activeCart = state.activeCart.filter(i => i.sku !== sku);
+      state.activeCart = state.activeCart.filter(i => !(i.sku === sku && (!displayName || i.displayName === displayName)));
       playAudioSignal('click');
       renderCart();
     }
@@ -4712,6 +5079,7 @@
         const tr = document.createElement('tr');
         tr.className = 'cart-item-row';
         tr.setAttribute('data-sku', item.sku);
+        tr.setAttribute('data-display-name', item.displayName || '');
         tr.innerHTML = `
           <div class="cart-swipe-bg">
             <span class="trash-icon">REMOVE</span>
@@ -4719,7 +5087,7 @@
           <div class="cart-swipe-fg">
             <td>
               <div class="cart-product-cell">
-                <span class="cart-product-title">${item.name}</span>
+                <span class="cart-product-title">${item.displayName || item.name}</span>
                 <span class="cart-product-sku">${item.sku}</span>
               </div>
             </td>
@@ -4754,9 +5122,9 @@
         }
 
         // Event listeners
-        tr.querySelector('.btn-minus').addEventListener('click', () => modifyCartQty(item.sku, -1));
-        tr.querySelector('.btn-plus').addEventListener('click', () => modifyCartQty(item.sku, 1));
-        tr.querySelector('.btn-remove-item').addEventListener('click', () => removeCartItem(item.sku));
+        tr.querySelector('.btn-minus').addEventListener('click', () => modifyCartQty(item.sku, -1, item.displayName));
+        tr.querySelector('.btn-plus').addEventListener('click', () => modifyCartQty(item.sku, 1, item.displayName));
+        tr.querySelector('.btn-remove-item').addEventListener('click', () => removeCartItem(item.sku, item.displayName));
 
         // Bind swipe gesture handler for mobile viewports
         bindSwipeEvents(tr);
@@ -5093,7 +5461,6 @@
       if (availStock <= 0) {
         card.classList.add('out-of-stock');
       }
-
       const catCode = p.category ? p.category.substring(0, 3).toUpperCase() : 'GEN';
 
       card.innerHTML = `
@@ -5143,6 +5510,184 @@
     list.appendChild(fragment);
   }
 
+  // Offline Canvas Image Scaling & Compression Helper
+  function processAndCompressImage(file, callback) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 400;
+
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const base64 = canvas.toDataURL('image/jpeg', 0.7);
+        callback(base64);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // Dynamic Mode-Specific Product Fields Renderer
+  function renderFormModeFields(container, mode, currentFieldsJSON) {
+    container.innerHTML = '';
+    let fields = {};
+    try {
+      fields = JSON.parse(currentFieldsJSON || '{}');
+    } catch (e) {
+      fields = {};
+    }
+
+    if (mode === 'clothing-fashion') {
+      const variants = fields.variants || [];
+      container.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label style="font-weight:700; font-size:11px; text-transform:uppercase; color:var(--accent-emerald);">Fashion Variants Matrix</label>
+          <button type="button" class="action-btn action-success" id="btn-add-form-variant" style="min-height:22px; font-size:10px; padding:0 8px; width:auto;">+ Add Size/Color</button>
+        </div>
+        <div id="form-variants-list" style="display:flex; flex-direction:column; gap:8px; max-height:160px; overflow-y:auto; padding-right:4px;"></div>
+      `;
+
+      const list = document.getElementById('form-variants-list');
+      const addVarRow = (v = {}) => {
+        const row = document.createElement('div');
+        row.className = 'variant-form-row';
+        row.style.cssText = 'display:flex; gap:6px; align-items:center; background:rgba(255,255,255,0.02); padding:6px; border-radius:6px; border:1px solid rgba(255,255,255,0.04);';
+        row.innerHTML = `
+          <select class="pos-input var-size" style="flex:1; font-size:10px; padding:4px;" aria-label="Variant Size">
+            <option value="S" ${v.size === 'S'?'selected':''}>S</option>
+            <option value="M" ${v.size === 'M'?'selected':''}>M</option>
+            <option value="L" ${v.size === 'L'?'selected':''}>L</option>
+            <option value="XL" ${v.size === 'XL'?'selected':''}>XL</option>
+          </select>
+          <input type="text" class="pos-input var-color" placeholder="Color" value="${v.color || ''}" style="flex:1.5; font-size:10px; padding:4px;" aria-label="Variant Color">
+          <input type="number" class="pos-input var-stock" placeholder="Qty" value="${v.stock !== undefined ? v.stock : ''}" style="width:50px; font-size:10px; padding:4px;" aria-label="Variant Stock">
+          <button type="button" class="action-btn action-danger btn-remove-var" style="min-height:22px; width:22px; padding:0; flex-shrink:0; font-size:10px;">×</button>
+        `;
+        row.querySelector('.btn-remove-var').addEventListener('click', () => row.remove());
+        list.appendChild(row);
+      };
+
+      variants.forEach(v => addVarRow(v));
+      document.getElementById('btn-add-form-variant').addEventListener('click', () => addVarRow());
+
+    } else if (mode === 'food-restaurant') {
+      const modifiers = fields.modifiers || [];
+      container.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label style="font-weight:700; font-size:11px; text-transform:uppercase; color:var(--accent-emerald);">Food Modifier Options</label>
+          <button type="button" class="action-btn action-success" id="btn-add-form-modifier" style="min-height:22px; font-size:10px; padding:0 8px; width:auto;">+ Add Extra</button>
+        </div>
+        <div id="form-modifiers-list" style="display:flex; flex-direction:column; gap:8px; max-height:160px; overflow-y:auto; padding-right:4px;"></div>
+      `;
+
+      const list = document.getElementById('form-modifiers-list');
+      const addModRow = (m = {}) => {
+        const row = document.createElement('div');
+        row.className = 'modifier-form-row';
+        row.style.cssText = 'display:flex; gap:6px; align-items:center; background:rgba(255,255,255,0.02); padding:6px; border-radius:6px; border:1px solid rgba(255,255,255,0.04);';
+        row.innerHTML = `
+          <input type="text" class="pos-input mod-name" placeholder="e.g. Extra Cheese" value="${m.name || ''}" style="flex:2; font-size:10px; padding:4px;" aria-label="Modifier Name">
+          <input type="number" class="pos-input mod-price" placeholder="Price (cents)" value="${m.price !== undefined ? m.price : ''}" style="flex:1.2; font-size:10px; padding:4px;" aria-label="Modifier Price">
+          <button type="button" class="action-btn action-danger btn-remove-mod" style="min-height:22px; width:22px; padding:0; flex-shrink:0; font-size:10px;">×</button>
+        `;
+        row.querySelector('.btn-remove-mod').addEventListener('click', () => row.remove());
+        list.appendChild(row);
+      };
+
+      modifiers.forEach(m => addModRow(m));
+      document.getElementById('btn-add-form-modifier').addEventListener('click', () => addModRow());
+
+    } else if (mode === 'services-appointments') {
+      container.innerHTML = `
+        <label style="font-weight:700; font-size:11px; text-transform:uppercase; color:var(--accent-emerald);">Service Settings</label>
+        <div style="display:flex; gap:12px;">
+          <div style="flex:1;">
+            <span style="font-size:10px; color:var(--text-gray);">Duration (Minutes)</span>
+            <input type="number" id="form-service-duration" class="pos-input" value="${fields.duration || 30}" style="margin-top:4px;" aria-label="Duration">
+          </div>
+          <div style="flex:1;">
+            <span style="font-size:10px; color:var(--text-gray);">Buffer Time (Mins)</span>
+            <input type="number" id="form-service-buffer" class="pos-input" value="${fields.buffer || 10}" style="margin-top:4px;" aria-label="Buffer">
+          </div>
+        </div>
+        <div>
+          <span style="font-size:10px; color:var(--text-gray);">Assigned Staff (Comma separated names)</span>
+          <input type="text" id="form-service-staff" class="pos-input" placeholder="e.g. Alice, Bob" value="${(fields.staff || []).join(', ')}" style="margin-top:4px;" aria-label="Staff">
+        </div>
+      `;
+    } else if (mode === 'electronics-highvalue') {
+      container.innerHTML = `
+        <label style="font-weight:700; font-size:11px; text-transform:uppercase; color:var(--accent-emerald);">Electronics Configuration</label>
+        <div style="display:flex; gap:12px; align-items:center;">
+          <div style="flex:1;">
+            <span style="font-size:10px; color:var(--text-gray);">Warranty Period (Months)</span>
+            <input type="number" id="form-electronics-warranty" class="pos-input" value="${fields.warranty_months || 12}" style="margin-top:4px;" aria-label="Warranty">
+          </div>
+          <div style="flex:1; display:flex; align-items:center; gap:8px; margin-top:16px;">
+            <input type="checkbox" id="form-electronics-serial" class="pos-checkbox" ${fields.serial_required ? 'checked' : ''}>
+            <label for="form-electronics-serial" style="cursor:pointer; font-size:10px; color:var(--text-gray);">Require Serial Number</label>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  function getFormModeFields(mode) {
+    const fields = {};
+    if (mode === 'clothing-fashion') {
+      fields.variants = [];
+      const rows = document.querySelectorAll('.variant-form-row');
+      rows.forEach((row, i) => {
+        const size = row.querySelector('.var-size').value;
+        const color = row.querySelector('.var-color').value.trim();
+        const stock = parseInt(row.querySelector('.var-stock').value || 0);
+        if (color) {
+          fields.variants.push({ id: 'var_' + i, size, color, stock });
+        }
+      });
+    } else if (mode === 'food-restaurant') {
+      fields.modifiers = [];
+      const rows = document.querySelectorAll('.modifier-form-row');
+      rows.forEach((row, i) => {
+        const name = row.querySelector('.mod-name').value.trim();
+        const price = parseInt(row.querySelector('.mod-price').value || 0);
+        if (name) {
+          fields.modifiers.push({ id: 'mod_' + i, name, price });
+        }
+      });
+    } else if (mode === 'services-appointments') {
+      const durEl = document.getElementById('form-service-duration');
+      const bufEl = document.getElementById('form-service-buffer');
+      const staffEl = document.getElementById('form-service-staff');
+      fields.duration = durEl ? parseInt(durEl.value || 30) : 30;
+      fields.buffer = bufEl ? parseInt(bufEl.value || 10) : 10;
+      fields.staff = staffEl ? staffEl.value.split(',').map(s => s.trim()).filter(Boolean) : [];
+    } else if (mode === 'electronics-highvalue') {
+      const warEl = document.getElementById('form-electronics-warranty');
+      const serEl = document.getElementById('form-electronics-serial');
+      fields.warranty_months = warEl ? parseInt(warEl.value || 12) : 12;
+      fields.serial_required = serEl ? serEl.checked : false;
+    }
+    return JSON.stringify(fields);
+  }
+
   // --- CATALOG FORM SUBMISSIONS ---
   function openProductEditModal(sku) {
     playAudioSignal('click');
@@ -5150,8 +5695,14 @@
     const title = document.getElementById('modal-product-title');
     const auditResetCheckbox = document.getElementById('form-product-audit-reset');
     const auditRow = document.getElementById('form-product-audit-row');
+    const imagePreview = document.getElementById('form-product-image-preview');
+    const imageUrlInput = document.getElementById('form-product-image-url');
+    const imageFileInput = document.getElementById('form-product-image-file');
+    const dynamicContainer = document.getElementById('form-product-mode-fields-container');
+    const shopMode = state.preferences['shop_mode'] || 'simple-retail';
 
     if (auditResetCheckbox) auditResetCheckbox.checked = false;
+    if (imageFileInput) imageFileInput.value = '';
     
     if (sku) {
       const p = state.catalog.find(item => item.sku === sku);
@@ -5167,6 +5718,20 @@
       document.getElementById('form-product-cost').value = p.cost_price_minor_units || p.cost_minor_units || 0;
       document.getElementById('form-product-threshold').value = p.low_stock_threshold !== undefined ? p.low_stock_threshold : 10;
       
+      // Load image data
+      if (p.image_url) {
+        imageUrlInput.value = p.image_url;
+        imagePreview.style.backgroundImage = `url(${p.image_url})`;
+        imagePreview.textContent = '';
+      } else {
+        imageUrlInput.value = '';
+        imagePreview.style.backgroundImage = '';
+        imagePreview.textContent = '📦';
+      }
+
+      // Render mode-specific configs
+      renderFormModeFields(dynamicContainer, shopMode, p.mode_fields || '{}');
+
       // SKU cannot be changed on edit
       document.getElementById('form-product-sku').disabled = true;
       if (auditRow) auditRow.style.display = 'flex';
@@ -5202,6 +5767,10 @@
     const auditResetCheckbox = document.getElementById('form-product-audit-reset');
     const isAuditReset = auditResetCheckbox ? auditResetCheckbox.checked : false;
 
+    const image_url = document.getElementById('form-product-image-url').value;
+    const shopMode = state.preferences['shop_mode'] || 'simple-retail';
+    const mode_fields = getFormModeFields(shopMode);
+
     if (!sku || !name || !price) {
       alert('SKU, Name, and Price are required.');
       return;
@@ -5221,7 +5790,7 @@
 
     syncWorker.postMessage({
       type: 'SAVE_PRODUCT',
-      payload: { sku, name, gtin, price, stock, category, emoji, cost, low_stock_threshold, isAuditReset }
+      payload: { sku, name, gtin, price, stock, category, emoji, cost, low_stock_threshold, isAuditReset, mode_fields, image_url }
     });
 
     setTimeout(() => syncWorker.postMessage({ type: 'GET_CATALOG' }), 150);

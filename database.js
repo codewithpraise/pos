@@ -14,7 +14,7 @@ let currentHlc = null;
 let currentDbVersion = 0; // Incremented on each local transaction change
 
 // Schema version: increment when adding columns/tables that clients must have before syncing
-const SERVER_SCHEMA_VERSION = 6;
+const SERVER_SCHEMA_VERSION = 7;
 module.exports && Object.assign(module.exports, { SERVER_SCHEMA_VERSION });
 
 // Secure PBKDF2 password hashing helper (OWASP approved, zero external dependencies)
@@ -640,6 +640,16 @@ async function initDatabase(terminalId) {
         console.log('[Database] Migrated database schema to v6 (trusted_whitelist and idempotent_actions).');
       } catch (err) {
         console.error('[Database] Failed to migrate database schema in v6:', err.message);
+      }
+    } else if (v === 7) {
+      try {
+        await db.exec(`
+          ALTER TABLE inventory_catalog ADD COLUMN mode_fields TEXT DEFAULT '{}';
+          ALTER TABLE inventory_catalog ADD COLUMN image_url TEXT DEFAULT '';
+        `);
+        console.log('[Database] Migrated database schema to v7 (inventory_catalog mode_fields & image_url).');
+      } catch (err) {
+        console.error('[Database] Failed to migrate database schema in v7:', err.message);
       }
     }
 

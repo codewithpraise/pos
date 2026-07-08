@@ -749,6 +749,17 @@
                 </select>
               </div>
               <div class="settings-row">
+                <label>POS Shop Business Domain:</label>
+                <select id="setting-shop-mode" class="pos-input" aria-label="POS Shop Business Domain">
+                  <option value="simple-retail">Simple Retail Mode</option>
+                  <option value="clothing-fashion">Clothing & Fashion apparel</option>
+                  <option value="food-restaurant">Food & Restaurant Diner</option>
+                  <option value="services-appointments">Services & Booking Appointments</option>
+                  <option value="electronics-highvalue">Electronics & High-value products</option>
+                  <option value="custom-mixed">Custom / Mixed Mode</option>
+                </select>
+              </div>
+              <div class="settings-row">
                 <label>Language:</label>
                 <select id="setting-ui-lang" class="pos-input" aria-label="Language">
                   <option value="en">English / Roman English</option>
@@ -1350,6 +1361,23 @@
           <label for="form-product-audit-reset" style="cursor: pointer; font-size: 11px; color: var(--alert-coral); flex-grow: 1;">Physical Inventory Audit Reset (Overrides offline sales)</label>
           <input type="checkbox" id="form-product-audit-reset" class="pos-checkbox">
         </div>
+
+        <!-- Product Image Upload Section -->
+        <div class="settings-row" style="margin-top: 14px; border-top: 1px dashed rgba(255,255,255,0.06); padding-top: 12px;">
+          <label>Product Image (Max 150KB - Compressed Offline):</label>
+          <div style="display: flex; gap: 12px; align-items: center; margin-top: 6px;">
+            <div id="form-product-image-preview" style="width: 50px; height: 50px; border-radius: 6px; border: 1px solid var(--border-titanium); background: rgba(255,255,255,0.02); display: flex; align-items: center; justify-content: center; font-size: 20px; overflow: hidden; background-size: cover; background-position: center;">📦</div>
+            <div style="flex: 1;">
+              <input type="file" id="form-product-image-file" accept="image/*" class="pos-input" style="font-size: 10px; padding: 4px;" aria-label="Upload Image">
+              <input type="hidden" id="form-product-image-url">
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Mode-Specific Product Fields -->
+        <div id="form-product-mode-fields-container" style="margin-top: 14px; border-top: 1px dashed rgba(255,255,255,0.06); padding-top: 12px; display: flex; flex-direction: column; gap: 12px;">
+          <!-- Content is dynamically rendered in app.js based on active POS shopMode -->
+        </div>
       </div>
       <div class="modal-footer">
         <button class="action-btn" id="btn-cancel-product-modal">Cancel</button>
@@ -1762,12 +1790,14 @@
         <!-- Step Progress Dots -->
         <div id="wizard-step-dots" style="display: flex; align-items: center; justify-content: center; gap: 0; margin-bottom: 28px;">
           <div class="wiz-dot active" data-step="1" style="width: 28px; height: 6px; border-radius: 3px; background: #00d68f; transition: all 0.35s cubic-bezier(0.16,1,0.3,1);"></div>
-          <div style="width: 20px; height: 2px; background: rgba(255,255,255,0.07);"></div>
+          <div style="width: 15px; height: 2px; background: rgba(255,255,255,0.07);"></div>
           <div class="wiz-dot" data-step="2" style="width: 6px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.12); transition: all 0.35s cubic-bezier(0.16,1,0.3,1);"></div>
-          <div style="width: 20px; height: 2px; background: rgba(255,255,255,0.07);"></div>
+          <div style="width: 15px; height: 2px; background: rgba(255,255,255,0.07);"></div>
           <div class="wiz-dot" data-step="3" style="width: 6px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.12); transition: all 0.35s cubic-bezier(0.16,1,0.3,1);"></div>
-          <div style="width: 20px; height: 2px; background: rgba(255,255,255,0.07);"></div>
+          <div style="width: 15px; height: 2px; background: rgba(255,255,255,0.07);"></div>
           <div class="wiz-dot" data-step="4" style="width: 6px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.12); transition: all 0.35s cubic-bezier(0.16,1,0.3,1);"></div>
+          <div style="width: 15px; height: 2px; background: rgba(255,255,255,0.07);"></div>
+          <div class="wiz-dot" data-step="5" style="width: 6px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.12); transition: all 0.35s cubic-bezier(0.16,1,0.3,1);"></div>
         </div>
       </div>
 
@@ -1873,8 +1903,65 @@
           </div>
         </div>
 
-        <!-- STEP 3: Security -->
-        <div class="wiz-panel" id="wiz-panel-3" style="display:none; flex-direction:column; gap:14px;">
+        <!-- STEP 3: Shop Mode Selection -->
+        <div class="wiz-panel" id="wiz-panel-3" style="display:none; flex-direction:column; gap:16px; width: 100%;">
+          <div class="shop-modes-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; max-height: 240px; overflow-y: auto; padding: 4px;">
+            <!-- Mode 1: Simple Retail -->
+            <div class="shop-mode-card active" data-mode="simple-retail" style="background: rgba(255,255,255,0.03); border: 2px solid var(--accent-emerald); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s ease;">
+              <div style="font-size: 24px; margin-bottom: 6px;">🛒</div>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; color: var(--text-white);">Simple Retail</h4>
+              <p style="font-size: 9px; line-height: 1.4; color: var(--text-muted); margin: 0;">Grocery, convenience, general retail. Barcode scan-to-cart focus.</p>
+            </div>
+            
+            <!-- Mode 2: Clothing & Fashion -->
+            <div class="shop-mode-card" data-mode="clothing-fashion" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s ease;">
+              <div style="font-size: 24px; margin-bottom: 6px;">👕</div>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; color: var(--text-white);">Clothing & Fashion</h4>
+              <p style="font-size: 9px; line-height: 1.4; color: var(--text-muted); margin: 0;">Apparel and accessories. Size, color, and variant picker modal.</p>
+            </div>
+            
+            <!-- Mode 3: Food & Restaurant -->
+            <div class="shop-mode-card" data-mode="food-restaurant" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s ease;">
+              <div style="font-size: 24px; margin-bottom: 6px;">🍽️</div>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; color: var(--text-white);">Food & Restaurant</h4>
+              <p style="font-size: 9px; line-height: 1.4; color: var(--text-muted); margin: 0;">Cafes, diners, food trucks. Modifiers, menu items, kitchen views.</p>
+            </div>
+            
+            <!-- Mode 4: Services & Appointments -->
+            <div class="shop-mode-card" data-mode="services-appointments" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s ease;">
+              <div style="font-size: 24px; margin-bottom: 6px;">✂️</div>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; color: var(--text-white);">Services & Booking</h4>
+              <p style="font-size: 9px; line-height: 1.4; color: var(--text-muted); margin: 0;">Salons, repairs, sessions. Time booking, resource assignment.</p>
+            </div>
+            
+            <!-- Mode 5: Electronics & High-Value -->
+            <div class="shop-mode-card" data-mode="electronics-highvalue" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s ease;">
+              <div style="font-size: 24px; margin-bottom: 6px;">📱</div>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; color: var(--text-white);">Electronics</h4>
+              <p style="font-size: 9px; line-height: 1.4; color: var(--text-muted); margin: 0;">Devices and jewelry. Track by serial numbers and warranty terms.</p>
+            </div>
+            
+            <!-- Mode 6: Custom / Mixed -->
+            <div class="shop-mode-card" data-mode="custom-mixed" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s ease;">
+              <div style="font-size: 24px; margin-bottom: 6px;">⚙️</div>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; color: var(--text-white);">Custom / Mixed</h4>
+              <p style="font-size: 9px; line-height: 1.4; color: var(--text-muted); margin: 0;">Mixed catalog. Enable modifiers, serial tracking, and services together.</p>
+            </div>
+          </div>
+
+          <!-- Confirmation Preview Box -->
+          <div id="shop-mode-preview-box" style="background: rgba(0,0,0,0.25); border: 1px dashed rgba(255,255,255,0.1); border-radius: 8px; padding: 14px; margin-top: 4px;">
+            <h5 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--accent-emerald); margin: 0 0 6px 0;" id="mode-preview-title">Simple Retail Active</h5>
+            <div id="mode-preview-details" style="font-size: 10px; line-height: 1.5; color: #7a8bb0;">
+              • Checkout flow: Instant add-to-cart on barcode scan.<br>
+              • Product features: Simple quantity edits, supplier names, reorder levels.
+            </div>
+          </div>
+          <input type="hidden" id="wizard-shop-mode" value="simple-retail">
+        </div>
+
+        <!-- STEP 4: Security -->
+        <div class="wiz-panel" id="wiz-panel-4" style="display:none; flex-direction:column; gap:14px;">
           <div class="wiz-field-group">
             <label class="wiz-label">Owner PIN <span style="color:#4a5478; font-weight:500; font-size:10px;">(4 digits)</span></label>
             <div class="password-wrapper" style="margin-top:6px;">
@@ -1900,7 +1987,7 @@
           <div id="wiz-passphrase-strength" style="padding:10px 14px; border-radius:8px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04);">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
               <span style="font-size:10px; font-weight:700; color:#7a8bb0; text-transform:uppercase; letter-spacing:0.5px;">Key Strength</span>
-              <span id="wiz-strength-label" style="font-size:10px; font-weight:800; color:#00d68f;">â€”</span>
+              <span id="wiz-strength-label" style="font-size:10px; font-weight:800; color:#00d68f;">—</span>
             </div>
             <div style="height:4px; background:rgba(255,255,255,0.06); border-radius:2px; overflow:hidden;">
               <div id="wiz-strength-bar" style="height:100%; width:0; background:#00d68f; border-radius:2px; transition:all 0.3s ease;"></div>
@@ -1908,15 +1995,15 @@
           </div>
         </div>
 
-        <!-- STEP 4: Review & EULA -->
-        <div class="wiz-panel" id="wiz-panel-4" style="display:none; flex-direction:column; gap:14px;">
+        <!-- STEP 5: Review & EULA -->
+        <div class="wiz-panel" id="wiz-panel-5" style="display:none; flex-direction:column; gap:14px;">
           <div id="wiz-review-summary" style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:16px; display:flex; flex-direction:column; gap:10px;">
             <div style="font-size:10px; font-weight:800; color:#4a5478; letter-spacing:0.8px; text-transform:uppercase; margin-bottom:2px;">Configuration Summary</div>
-            <div style="display:flex; justify-content:space-between;"><span style="font-size:11px; color:#7a8bb0;">Store Name</span><span style="font-size:11px; font-weight:700; color:#f0f4ff;" id="wiz-sum-store">â€”</span></div>
+            <div style="display:flex; justify-content:space-between;"><span style="font-size:11px; color:#7a8bb0;">Store Name</span><span style="font-size:11px; font-weight:700; color:#f0f4ff;" id="wiz-sum-store">—</span></div>
             <div style="height:1px; background:rgba(255,255,255,0.04);"></div>
-            <div style="display:flex; justify-content:space-between;"><span style="font-size:11px; color:#7a8bb0;">Tax Rate</span><span style="font-size:11px; font-weight:700; color:#f0f4ff;" id="wiz-sum-tax">â€”</span></div>
+            <div style="display:flex; justify-content:space-between;"><span style="font-size:11px; color:#7a8bb0;">Tax Rate</span><span style="font-size:11px; font-weight:700; color:#f0f4ff;" id="wiz-sum-tax">—</span></div>
             <div style="height:1px; background:rgba(255,255,255,0.04);"></div>
-            <div style="display:flex; justify-content:space-between;"><span style="font-size:11px; color:#7a8bb0;">Theme</span><span style="font-size:11px; font-weight:700; color:#f0f4ff;" id="wiz-sum-theme">â€”</span></div>
+            <div style="display:flex; justify-content:space-between;"><span style="font-size:11px; color:#7a8bb0;">Theme</span><span style="font-size:11px; font-weight:700; color:#f0f4ff;" id="wiz-sum-theme">—</span></div>
             <div style="height:1px; background:rgba(255,255,255,0.04);"></div>
             <div style="display:flex; justify-content:space-between;"><span style="font-size:11px; color:#7a8bb0;">Mode</span><span style="font-size:11px; font-weight:700; color:#00d68f;" id="wiz-sum-mode">Master Register</span></div>
           </div>

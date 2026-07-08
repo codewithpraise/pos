@@ -82,9 +82,14 @@ const EscPosEngine = (() => {
     text(divider());
 
     for (const item of (data.items || [])) {
-      const name  = (item.name || '').slice(0, 20);
+      const name  = item.name || '';
       const price = `Rs.${(item.unitPrice / 100).toFixed(2)}`;
-      text(formatLine(name, price));
+      if (name.length > 20) {
+        text(formatLine(name.slice(0, 20), price));
+        text(`  ${name.slice(20)}`);
+      } else {
+        text(formatLine(name, price));
+      }
       if (item.qty > 1) {
         const sub = `  x${item.qty}`;
         const total = `Rs.${(item.unitPrice * item.qty / 100).toFixed(2)}`;
@@ -282,9 +287,14 @@ const EscPosEngine = (() => {
     lines.push({ text: dividerStr, align: 'center' });
 
     for (const item of (data.items || [])) {
-      const name = (item.name || '').slice(0, 20);
+      const name = item.name || '';
       const price = `Rs.${(item.unitPrice / 100).toFixed(2)}`;
-      lines.push({ left: name, right: price, align: 'split' });
+      if (name.length > 20) {
+        lines.push({ left: name.slice(0, 20), right: price, align: 'split' });
+        lines.push({ text: `  ${name.slice(20)}`, align: 'left' });
+      } else {
+        lines.push({ left: name, right: price, align: 'split' });
+      }
       if (item.qty > 1) {
         const sub = `  x${item.qty}`;
         const total = `Rs.${(item.unitPrice * item.qty / 100).toFixed(2)}`;

@@ -6,6 +6,34 @@
 importScripts('client-db.js', 'client-sync.js');
 let dbReadyPromise = NexovaDB.init(); // Capture the init promise
 
+function validateModeFields(mode, modeFieldsRaw) {
+  let fields = {};
+  try {
+    fields = typeof modeFieldsRaw === 'string' ? JSON.parse(modeFieldsRaw || '{}') : (modeFieldsRaw || {});
+  } catch (e) {
+    throw new Error('Invalid JSON structure for mode fields.');
+  }
+
+  if (mode === 'clothing-fashion') {
+    if (fields.variants && !Array.isArray(fields.variants)) {
+      throw new Error('Variants must be a valid array list.');
+    }
+  } else if (mode === 'food-restaurant') {
+    if (fields.modifiers && !Array.isArray(fields.modifiers)) {
+      throw new Error('Modifiers must be a valid array list.');
+    }
+  } else if (mode === 'services-appointments') {
+    if (fields.duration && typeof fields.duration !== 'number') {
+      throw new Error('Duration must be a valid number representation.');
+    }
+  } else if (mode === 'electronics-highvalue') {
+    if (fields.warranty && typeof fields.warranty !== 'object') {
+      throw new Error('Warranty details must be a valid configuration object.');
+    }
+  }
+  return JSON.stringify(fields);
+}
+
 let syncClient = null;
 let nodeId = null;
 
@@ -213,8 +241,8 @@ self.onmessage = async (event) => {
         break;
 
       case 'BOOTSTRAP_STORE': {
-        const { storeName, taxRate, adminPin, syncPassphrase, theme } = payload;
-        await NexovaDB.bootstrapStore(storeName, taxRate, adminPin, syncPassphrase, theme);
+        const { storeName, taxRate, adminPin, syncPassphrase, theme, shopMode } = payload;
+        await NexovaDB.bootstrapStore(storeName, taxRate, adminPin, syncPassphrase, theme, shopMode);
         
         // Mark database as hydrated locally since it was just bootstrapped fresh
         await NexovaDB.put('local_preferences', {
@@ -669,11 +697,22 @@ self.onmessage = async (event) => {
       }
 
       case 'SAVE_PRODUCT': {
-        const { sku, name, gtin, price, stock, category, emoji, cost, low_stock_threshold, isAuditReset } = payload;
+        const { sku, name, gtin, price, stock, category, emoji, cost, low_stock_threshold, isAuditReset, mode_fields, image_url } = payload;
         const tickHlc = syncClient.hlc.tick();
 
         const exists = await NexovaDB.get('inventory_catalog', sku);
         const colVersion = exists ? (exists.col_version || 1) + 1 : 1;
+
+        const shopModePref = await NexovaDB.get('local_preferences', 'shop_mode');
+        const shopMode = shopModePref ? shopModePref.value_payload : 'simple-retail';
+
+        let validatedFields = '{}';
+        try {
+          validatedFields = validateModeFields(shopMode, mode_fields);
+        } catch (valErr) {
+          postMessage({ type: 'ERROR', error: `Validation Error: ${valErr.message}` });
+          return;
+        }
 
         const cleanGtin = (gtin && gtin.trim()) ? gtin.trim() : undefined;
         const prod = {
@@ -687,6 +726,8 @@ self.onmessage = async (event) => {
           emoji: emoji || '📦',
           cost_price_minor_units: cost || 0,
           low_stock_threshold: low_stock_threshold !== undefined ? low_stock_threshold : 10,
+          mode_fields: validatedFields,
+          image_url: image_url || '',
           col_version: colVersion,
           sync_hlc: tickHlc
         };
@@ -700,6 +741,8 @@ self.onmessage = async (event) => {
         await logFieldChange('inventory_catalog', sku, 'emoji', emoji || '📦', tickHlc, colVersion);
         await logFieldChange('inventory_catalog', sku, 'cost_price_minor_units', cost || 0, tickHlc, colVersion);
         await logFieldChange('inventory_catalog', sku, 'low_stock_threshold', prod.low_stock_threshold, tickHlc, colVersion);
+        await logFieldChange('inventory_catalog', sku, 'mode_fields', prod.mode_fields, tickHlc, colVersion);
+        await logFieldChange('inventory_catalog', sku, 'image_url', prod.image_url, tickHlc, colVersion);
 
         if (exists) {
           if (isAuditReset) {

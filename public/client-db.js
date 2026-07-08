@@ -552,7 +552,7 @@
       });
     },
 
-    async bootstrapStore(storeName, taxRate, adminPin, syncPassphrase, theme) {
+    async bootstrapStore(storeName, taxRate, adminPin, syncPassphrase, theme, shopMode = 'simple-retail') {
       console.log('[IndexedDB] Bootstrapping new store database...');
       
       const now = Date.now();
@@ -598,7 +598,8 @@
         { key: 'whitelabel_show_branding', value_type: 'STR', value_payload: 'true', is_idempotent_flag: 0, updated_at: now },
         { key: 'glassmorphism_enabled', value_type: 'STR', value_payload: 'true', is_idempotent_flag: 0, updated_at: now },
         { key: 'terminal_name', value_type: 'STR', value_payload: 'Nexova Master PC 01', is_idempotent_flag: 0, updated_at: now },
-        { key: 'store_receipt_width', value_type: 'STR', value_payload: '42', is_idempotent_flag: 0, updated_at: now }
+        { key: 'store_receipt_width', value_type: 'STR', value_payload: '42', is_idempotent_flag: 0, updated_at: now },
+        { key: 'shop_mode', value_type: 'STR', value_payload: shopMode, is_idempotent_flag: 0, updated_at: now }
         // NOTE: sync_passphrase intentionally NOT stored in IndexedDB — it lives in
         // server memory only and is sent to the worker over postMessage for session use.
       ];
