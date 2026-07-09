@@ -4257,9 +4257,17 @@ body.is-offline .modal-overlay {
   .sidebar-nav {
     flex-direction: row;
     align-items: center;
-    justify-content: space-around;
+    justify-content: flex-start;
     padding: 0 10px;
-    overflow: visible;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    scrollbar-width: none;
+  }
+
+  .sidebar-nav::-webkit-scrollbar {
+    display: none;
   }
 
   .nav-item {
@@ -4271,6 +4279,7 @@ body.is-offline .modal-overlay {
     min-width: 64px;
     min-height: 48px; /* Touch target minimum */
     justify-content: center;
+    flex-shrink: 0;
   }
 
   .nav-item svg {
