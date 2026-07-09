@@ -298,7 +298,7 @@ class SyncClient {
     
     else if (data.type === 'SYNC_ERROR') {
       console.error(`[SyncClient:${this.nodeId}] Sync error: ${data.error}`);
-      if (data.error === 'PASSPHRASE_MISMATCH' || data.error === 'LICENSE_EXPIRED' || data.error === 'LICENSE_INACTIVE') {
+      if (data.error === 'PASSPHRASE_MISMATCH' || data.error === 'LICENSE_EXPIRED' || data.error === 'LICENSE_INACTIVE' || data.error.includes('Connection limit reached')) {
         // Halt reconnection loop — user must fix key or activate license
         if (!this.passphraseInvalid) {
           this.passphraseInvalid = true;
