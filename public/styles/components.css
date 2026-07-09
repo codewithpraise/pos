@@ -4220,3 +4220,100 @@ body.is-offline .modal-overlay {
 
 
 
+
+/* MOBILE RESPONSIVE ENGINE & SECURE INPUTS */
+.secure-input {
+  -webkit-text-security: disc;
+  text-security: disc; /* Standard property fallback */
+  /* We skip custom font fallback as -webkit-text-security covers >95% of target mobile/desktop */
+}
+
+@media (max-width: 768px) {
+  .pos-app-layout {
+    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  .pos-sidebar {
+    order: 2; /* Move sidebar to the bottom */
+    flex-direction: row;
+    height: 70px;
+    padding: 0;
+    border-right: none;
+    border-top: 1px solid var(--border-titanium);
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    z-index: 100;
+  }
+
+  .sidebar-brand {
+    display: none; /* Hide brand logo in bottom nav */
+  }
+
+  .sidebar-nav {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-around;
+    padding: 0 10px;
+    overflow: visible;
+  }
+
+  .nav-item {
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 4px;
+    width: auto;
+    font-size: 10px;
+    min-width: 64px;
+    min-height: 48px; /* Touch target minimum */
+    justify-content: center;
+  }
+
+  .nav-item svg {
+    margin-right: 0;
+    width: 20px;
+    height: 20px;
+  }
+
+  .nav-item.active::before {
+    left: 20%;
+    right: 20%;
+    top: auto;
+    bottom: 0;
+    width: auto;
+    height: 3px;
+    border-radius: 3px 3px 0 0;
+  }
+
+  .sidebar-footer {
+    display: none; /* Hide logout/cashier info on mobile nav to save space */
+  }
+
+  /* Main content area needs padding at bottom for the fixed nav */
+  main, .checkout-main, #checkout-view {
+    padding-bottom: 80px !important;
+  }
+
+  /* Checkout Split - Stack Cart below Catalog */
+  .checkout-split {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+  }
+
+  .checkout-main {
+    height: auto;
+    min-height: 60vh;
+  }
+
+  .cart-panel {
+    border-left: none;
+    border-top: 1px solid var(--border-titanium);
+    height: auto;
+    min-height: 50vh;
+  }
+}

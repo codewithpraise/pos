@@ -6,10 +6,14 @@
 (function() {
   // --- SCROLL LOCK & MOBILE KEYBOARD RESIZE UTILITIES ---
   function lockScroll() {
-    document.body.classList.add('scroll-lock');
+    if (!document.body.classList.contains('scroll-lock')) {
+      document.body.classList.add('scroll-lock');
+    }
   }
   function unlockScroll() {
-    document.body.classList.remove('scroll-lock');
+    if (document.body.classList.contains('scroll-lock')) {
+      document.body.classList.remove('scroll-lock');
+    }
   }
 
   // Keyboard show/hide resize listener to re-center focused input
@@ -48,6 +52,10 @@
 
   // MutationObserver to automatically manage body scroll locking for any open modal/wizard overlay
   function initScrollObserver() {
+    // Prevent double instantiation
+    if (window.__scrollObserverActive) return;
+    window.__scrollObserverActive = true;
+
     const observer = new MutationObserver(() => {
       let activeOverlayCount = 0;
       document.querySelectorAll('.modal-overlay.active, .pos-modal-backdrop.active, .auth-overlay.active').forEach(() => {
@@ -59,9 +67,11 @@
         activeOverlayCount++;
       }
       
-      if (activeOverlayCount > 0) {
+      const shouldLock = activeOverlayCount > 0;
+      const isLocked = document.body.classList.contains('scroll-lock');
+      if (shouldLock && !isLocked) {
         lockScroll();
-      } else {
+      } else if (!shouldLock && isLocked) {
         unlockScroll();
       }
     });
@@ -396,8 +406,11 @@
   async function init() {
     try {
       updateBootProgress(20, 'Initializing database...');
-      await ValenixiaDB.init(); // Initialize IndexedDB on main thread for local PIN auth
-      
+      const dbResult = await ValenixiaDB.init(); // Initialize IndexedDB on main thread for local PIN auth
+      if (!dbResult) {
+        console.warn('[App] IndexedDB initialization returned null (degraded boot). Attempting to proceed without local DB...');
+      }
+
       // CRITICAL: Enforce License Gate immediately upon DB initialization
       updateBootProgress(50, 'Verifying system license...');
       const licenseOk = await LicenseEngine.init();
@@ -584,6 +597,8 @@
     // Start background license heartbeat (every 5 minutes)
     setInterval(async () => {
       if (location.protocol === 'file:') return; // Skip in file:// asset context
+      if (localStorage.getItem('onboarding_complete') !== 'true') return; // Skip if not onboarded
+      
       try {
         const serverBase = (window.__valenixiaServerUrl || location.origin);
         const resp = await fetch(serverBase + '/api/auth/verify', {
@@ -9772,6 +9787,19 @@
       initDataManagement();
       checkForUpdates();
       setInterval(checkForUpdates, 3600000); // Check hourly
+    }).catch(err => {
+      console.error('[Boot] Critical fault during application boot:', err);
+      const wrap = document.getElementById('app-boot-loader-wrap');
+      if (wrap) wrap.style.display = 'none';
+      const root = document.getElementById('pos-app-layout');
+      if (root) {
+        root.innerHTML = `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; text-align:center; padding:2rem; font-family:sans-serif; background:#121212; color:#fff; z-index: 999999; position: relative;">
+          <h1 style="color:#ff5555; margin-bottom:1rem; font-size:24px;">System Boot Failure</h1>
+          <p style="margin-bottom:2rem; max-width:600px; line-height:1.5; color:#aaa;">A critical error occurred while initializing the application. Local storage may be blocked or inaccessible in this browser environment.</p>
+          <pre style="background:#000; padding:1rem; border-radius:8px; text-align:left; overflow:auto; max-width:800px; width:100%; color:#f0f0f0; font-size: 12px; border: 1px solid #333;">${err.stack || err.message || err}</pre>
+          <button onclick="location.reload()" style="margin-top:2rem; padding:12px 24px; background:#3482f6; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:16px; font-weight: bold;">Retry Boot Sequence</button>
+        </div>`;
+      }
     });
   });
 

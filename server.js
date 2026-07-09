@@ -1353,7 +1353,7 @@ app.get('/api/auth/verify', requireAuth, async (req, res) => {
   try {
     const storeRow = await db.get("SELECT * FROM stores LIMIT 1");
     if (!storeRow) {
-      return res.status(404).json({ error: 'Store profile not found.' });
+      return res.status(200).json({ status: 'UNCONFIGURED' });
     }
 
     let isEmergencyOverride = false;

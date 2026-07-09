@@ -15,7 +15,8 @@
   <!-- Premium Font Pairing: Inter (premium navy), Fraunces (boutique headers), Outfit (headers), Manrope (interface/numbers), Literata (receipts) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Manrope:wght@200..800&family=Outfit:wght@100..900&display=swap" rel="stylesheet">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Manrope:wght@200..800&family=Outfit:wght@100..900&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Manrope:wght@200..800&family=Outfit:wght@100..900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <script src="polyfill.min.js"></script>
   <link rel="stylesheet" href="style.css">
   <script src="theme-transfer.js"></script>
@@ -71,7 +72,7 @@
 
       <!-- Real passcode input for native keyboard, physical keyboard, and scanner support -->
       <form id="pin-form" style="margin-bottom: 20px; display: flex; justify-content: center; position: relative; width: 100%;">
-        <input type="password" id="pin-input" class="pin-input-field" 
+        <input type="text"  autocomplete="new-password" id="pin-input" class="secure-input pin-input-field" 
                inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="••••"
                autocomplete="one-time-code" aria-label="••••">
         <button type="submit" style="display: none;"></button>
@@ -792,7 +793,7 @@
               <div class="settings-row">
                 <label>P2P Sync Encryption Key:</label>
                 <div class="password-wrapper">
-                  <input type="password" id="setting-sync-passphrase" class="pos-input" placeholder="Encryption Passphrase" aria-label="Encryption Passphrase">
+                  <input type="text"  autocomplete="new-password" id="setting-sync-passphrase" class="secure-input pos-input" placeholder="Encryption Passphrase" aria-label="Encryption Passphrase" inputmode="numeric">
                   <button type="button" class="btn-toggle-password" title="Toggle visibility">
                     <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -898,15 +899,15 @@
               <h3>Change My Security PIN</h3>
               <div class="settings-row">
                 <label>Current Security PIN:</label>
-                <input type="password" id="setting-change-pin-current" class="pos-input" maxlength="4" placeholder="4-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
+                <input type="text"  autocomplete="new-password" id="setting-change-pin-current" class="secure-input pos-input" maxlength="4" placeholder="4-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
               </div>
               <div class="settings-row">
                 <label>New Security PIN:</label>
-                <input type="password" id="setting-change-pin-new" class="pos-input" maxlength="4" placeholder="4-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
+                <input type="text"  autocomplete="new-password" id="setting-change-pin-new" class="secure-input pos-input" maxlength="4" placeholder="4-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
               </div>
               <div class="settings-row">
                 <label>Confirm New PIN:</label>
-                <input type="password" id="setting-change-pin-confirm" class="pos-input" maxlength="4" placeholder="4-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
+                <input type="text"  autocomplete="new-password" id="setting-change-pin-confirm" class="secure-input pos-input" maxlength="4" placeholder="4-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
               </div>
               <button type="button" class="action-btn action-success" id="btn-change-my-pin" style="width: 100%; margin-top: 12px;">Update My Passcode</button>
             </div>
@@ -1076,7 +1077,7 @@
               <div class="settings-row" style="margin-bottom:12px;">
                 <label style="font-size:11px;font-weight:700;color:var(--text-gray);text-transform:uppercase;letter-spacing:0.5px;">Google OAuth 2.0 Access Token</label>
                 <div class="password-wrapper" style="margin-top:6px;">
-                  <input type="password" id="setting-google-drive-token" class="pos-input" placeholder="Paste your Google OAuth2 access token" aria-label="Paste your Google OAuth2 access token">
+                  <input type="text"  autocomplete="new-password" id="setting-google-drive-token" class="secure-input pos-input" placeholder="Paste your Google OAuth2 access token" aria-label="Paste your Google OAuth2 access token" inputmode="numeric">
                   <button type="button" class="btn-toggle-password" title="Toggle"><svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button>
                 </div>
               </div>
@@ -1788,7 +1789,7 @@
         <div class="settings-row">
           <label>Register Security PIN Code (Numeric):</label>
           <div class="password-wrapper">
-            <input type="password" id="form-employee-pin" class="pos-input" placeholder="4-digit PIN number" maxlength="4" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN number">
+            <input type="text"  autocomplete="new-password" id="form-employee-pin" class="secure-input pos-input" placeholder="4-digit PIN number" maxlength="4" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN number">
             <button type="button" class="btn-toggle-password" title="Toggle visibility">
               <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -1862,7 +1863,7 @@
           <div class="settings-row">
             <label style="font-size:11px;font-weight:700;color:var(--text-gray);text-transform:uppercase;letter-spacing:0.5px;">Admin PIN</label>
             <div class="password-wrapper" style="margin-top:6px;">
-              <input type="password" id="delete-confirm-pin" class="pos-input" placeholder="4-digit owner PIN" maxlength="4" inputmode="numeric" aria-label="4-digit owner PIN">
+              <input type="text"  autocomplete="new-password" id="delete-confirm-pin" class="secure-input pos-input" placeholder="4-digit owner PIN" maxlength="4" inputmode="numeric" aria-label="4-digit owner PIN">
               <button type="button" class="btn-toggle-password" title="Toggle"><svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button>
             </div>
           </div>
@@ -1891,7 +1892,7 @@
         <div class="settings-row" style="margin-top: 16px;">
           <label>Enter Admin PIN Code (e.g. 1234):</label>
           <div class="password-wrapper">
-            <input type="password" id="reset-admin-pin-auth" class="pos-input" placeholder="Enter Admin security PIN" inputmode="numeric" pattern="[0-9]*" aria-label="Enter Admin security PIN">
+            <input type="text"  autocomplete="new-password" id="reset-admin-pin-auth" class="secure-input pos-input" placeholder="Enter Admin security PIN" inputmode="numeric" pattern="[0-9]*" aria-label="Enter Admin security PIN">
             <button type="button" class="btn-toggle-password" title="Toggle visibility">
               <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -2120,7 +2121,7 @@
 
   <!-- FIRST BOOT ONBOARDING WIZARD OVERLAY -->
   <div id="first-boot-wizard" style="display: none; position: fixed; inset: 0; z-index: 999999; background: rgba(6, 6, 8, 0.95); backdrop-filter: blur(20px); flex-direction: column; align-items: center; justify-content: flex-start; overflow-y: auto; padding: 40px 20px;">
-    <div id="wizard-card" role="region" aria-label="Onboarding setup wizard" aria-live="polite" style="max-width: 520px; width: 92%; margin: 40px auto; background: linear-gradient(160deg, #1a1a28 0%, #0e0e1a 60%, #080810 100%); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; box-shadow: 0 40px 80px rgba(0,0,0,0.9), 0 0 80px rgba(0,214,143,0.04), inset 0 1px 0 rgba(255,255,255,0.07); overflow: hidden; position: relative;">
+    <div id="wizard-card" role="region" aria-label="Onboarding setup wizard" aria-live="polite" style="max-width: 520px; width: 92%; margin: auto; flex-shrink: 0; background: linear-gradient(160deg, #1a1a28 0%, #0e0e1a 60%, #080810 100%); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; box-shadow: 0 40px 80px rgba(0,0,0,0.9), 0 0 80px rgba(0,214,143,0.04), inset 0 1px 0 rgba(255,255,255,0.07); overflow: hidden; position: relative;">
 
       <!-- Wizard Header -->
       <div style="padding: 28px 32px 0; text-align: center;">
@@ -2235,7 +2236,7 @@
             <div class="wiz-field-group">
               <label class="wiz-label">Network Encryption Key</label>
               <div class="password-wrapper" style="margin-top:6px;">
-                <input type="password" id="wizard-join-passphrase" class="pos-input" placeholder="Shared store passphrase" aria-label="Shared store passphrase">
+                <input type="text"  autocomplete="new-password" id="wizard-join-passphrase" class="secure-input pos-input" placeholder="Shared store passphrase" aria-label="Shared store passphrase" inputmode="numeric">
                 <button type="button" class="btn-toggle-password" title="Toggle visibility">
                   <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                   <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -2305,7 +2306,7 @@
           <div class="wiz-field-group">
             <label class="wiz-label">Owner PIN <span style="color:#4a5478; font-weight:500; font-size:10px;">(4 digits)</span></label>
             <div class="password-wrapper" style="margin-top:6px;">
-              <input type="password" id="wizard-admin-pin" class="pos-input" placeholder="e.g. 1234" maxlength="4" inputmode="numeric" pattern="[0-9]*" aria-label="e.g. 1234">
+              <input type="text"  autocomplete="new-password" id="wizard-admin-pin" class="secure-input pos-input" placeholder="e.g. 1234" maxlength="4" inputmode="numeric" pattern="[0-9]*" aria-label="e.g. 1234">
               <button type="button" class="btn-toggle-password" title="Toggle visibility">
                 <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -2316,7 +2317,7 @@
           <div class="wiz-field-group">
             <label class="wiz-label">Network Encryption Key</label>
             <div class="password-wrapper" style="margin-top:6px;">
-              <input type="password" id="wizard-sync-passphrase" class="pos-input" placeholder="Secure passphrase for P2P Wi-Fi sync" aria-label="Secure passphrase for P2P Wi-Fi sync">
+              <input type="text"  autocomplete="new-password" id="wizard-sync-passphrase" class="secure-input pos-input" placeholder="Secure passphrase for P2P Wi-Fi sync" aria-label="Secure passphrase for P2P Wi-Fi sync" inputmode="numeric">
               <button type="button" class="btn-toggle-password" title="Toggle visibility">
                 <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -2394,7 +2395,7 @@
         <div class="settings-row">
           <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">NETWORK ENCRYPTION KEY (PASSPHRASE):</label>
           <div class="password-wrapper">
-            <input type="password" id="pairing-sync-passphrase" class="pos-input" placeholder="Enter store network key" style="margin-top: 4px; border-radius: 4px; width: 100%;" aria-label="Enter store network key">
+            <input type="text"  autocomplete="new-password" id="pairing-sync-passphrase" class="secure-input pos-input" placeholder="Enter store network key" style="margin-top: 4px; border-radius: 4px; width: 100%;" aria-label="Enter store network key" inputmode="numeric">
             <button type="button" class="btn-toggle-password" title="Toggle visibility">
               <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -2652,7 +2653,7 @@
   </div>
 
   <!-- ZXING BARCODE DECODER LIBRARY (Polyfill Fallback) -->
-  <script src="https://unpkg.com/@zxing/library@0.21.0/umd/index.min.js"></script>
+  <script src="zxing.min.js"></script>
   <!-- DATABASE MANAGER -->
   <script src="client-db.js"></script>
   <!-- AUDIO FEEDBACK BRIDGE -->
