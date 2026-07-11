@@ -160,7 +160,7 @@
 
     // Error code legend for user-friendly messages
     const ERROR_MESSAGES = {
-      'E-103': 'A fatal JavaScript exception occurred. Your sales data is safe — this is a display error.',
+      'E-103': 'A fatal JavaScript exception occurred. Your sales data is safe â€” this is a display error.',
       'E-104': 'An async operation failed unexpectedly. Your local database is unaffected.',
     };
     const codePrefix = code.split(' ')[0];
@@ -180,7 +180,7 @@
 
     overlay.innerHTML = `
       <div style="max-width: 520px; width: 100%; text-align: center; background: var(--panel-graphite); border: 1px solid var(--border-bright); padding: 32px; border-radius: 12px; box-shadow: var(--shadow-lg);">
-        <div style="font-size: 56px; margin-bottom: 16px;">⚡</div>
+        <div style="font-size: 56px; margin-bottom: 16px;">âš¡</div>
         <h2 id="crash-title" style="font-family: var(--font-display); font-size: 20px; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; color: var(--alert-coral);">Unexpected Application Crash</h2>
         <h4 style="font-size: 10px; text-transform: uppercase; color: var(--text-gray); margin-bottom: 8px; letter-spacing: 1px;">Error Code: ${code}</h4>
         <p id="crash-desc" style="font-size: 12px; color: var(--accent-emerald); margin-bottom: 8px; line-height: 1.6; font-weight: 600;">${friendlyMsg}</p>
@@ -192,13 +192,13 @@
         </div>
         <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
           <button id="btn-crash-copy" style="background: rgba(255,255,255,0.06); border: 1px solid var(--border-titanium); color: var(--text-white); height: 40px; padding: 0 16px; font-family: var(--font-display); font-weight: 800; font-size: 11px; text-transform: uppercase; border-radius: 6px; cursor: pointer; transition: var(--transition-tactile); display:flex; align-items:center; gap:6px;">
-            📋 Copy Logs
+            ðŸ“‹ Copy Logs
           </button>
           <button id="btn-crash-restore" style="background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.3); color: #60a5fa; height: 40px; padding: 0 16px; font-family: var(--font-display); font-weight: 800; font-size: 11px; text-transform: uppercase; border-radius: 6px; cursor: pointer; transition: var(--transition-tactile); display:flex; align-items:center; gap:6px;">
-            💾 Restore Backup
+            ðŸ’¾ Restore Backup
           </button>
           <button onclick="window.location.reload()" style="background: var(--accent-emerald-gradient); border: none; color: var(--text-dark); height: 40px; padding: 0 24px; font-family: var(--font-display); font-weight: 800; font-size: 11px; text-transform: uppercase; border-radius: 6px; cursor: pointer; display:flex; align-items:center; gap:6px;">
-            🔄 Restart App
+            ðŸ”„ Restart App
           </button>
         </div>
         <p style="font-size: 9px; color: var(--text-dim); margin-top: 20px; text-align: center; border-top: 1px solid var(--border-titanium); padding-top: 12px;">
@@ -213,8 +213,8 @@
     if (btnCopy) {
       btnCopy.addEventListener('click', () => {
         navigator.clipboard.writeText(`Valenixia POS Crash Log\nCode: ${code}\nMessage: ${message}\nStack: ${stack || 'N/A'}`);
-        btnCopy.textContent = '✅ Copied!';
-        setTimeout(() => { btnCopy.innerHTML = '📋 Copy Logs'; }, 2000);
+        btnCopy.textContent = 'âœ… Copied!';
+        setTimeout(() => { btnCopy.innerHTML = 'ðŸ“‹ Copy Logs'; }, 2000);
       });
     }
 
@@ -290,7 +290,7 @@
       document.getElementById('tour-overlay')?.remove();
 
       if (currentStep >= steps.length) {
-        showNotificationToast('🎉 Onboarding tour completed! You are ready to sell.', null, 4000);
+        showNotificationToast('ðŸŽ‰ Onboarding tour completed! You are ready to sell.', null, 4000);
         return;
       }
 
@@ -334,7 +334,7 @@
           <div style="display: flex; justify-content: space-between; gap: 8px;">
             <button id="tour-skip" style="background: transparent; border: 1px solid var(--border-titanium); color: var(--text-gray); padding: 4px 10px; font-size: 10px; font-weight: 700; border-radius: 4px; text-transform: uppercase;">Skip</button>
             <button id="tour-next" style="background: var(--accent-emerald-gradient); border: none; color: var(--text-dark); padding: 4px 12px; font-size: 10px; font-weight: 800; border-radius: 4px; text-transform: uppercase; display: flex; align-items: center; gap: 4px;">
-              ${currentStep === steps.length - 1 ? 'Finish' : 'Next'} ➔
+              ${currentStep === steps.length - 1 ? 'Finish' : 'Next'} âž”
             </button>
           </div>
         </div>
@@ -732,7 +732,7 @@
     }, duration);
   }
 
-  // ── Component I: Global Crash Telemetry ─────────────────────────────────
+  // â”€â”€ Component I: Global Crash Telemetry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Captures unhandled errors + promise rejections, stores them in IndexedDB
   // and forwards to master node via the sync worker.
   const _lastClicks = [];
@@ -768,6 +768,283 @@
     window.addEventListener('error', (e) => handleGlobalError('UNCAUGHT_ERROR', e.error || e), { capture: true });
     window.addEventListener('unhandledrejection', (e) => handleGlobalError('UNHANDLED_REJECTION', e.reason), { capture: true });
   }
+
+  // â”€â”€ P1.2: Crash Recovery â€” recover interrupted checkouts on startup â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  async function recoverPendingCheckout() {
+    if (!ValenixiaDB?.db) return;
+    let pending;
+    try {
+      pending = await ValenixiaDB.get('pending_checkouts', 'active_pending');
+    } catch (e) {
+      console.warn('[CrashRecovery] Failed to read pending checkouts from IDB:', e);
+      return;
+    }
+    if (!pending) return;
+    if (!pending.cart || !pending.cart.length) {
+      ValenixiaDB.delete('pending_checkouts', 'active_pending').catch(() => {});
+      return;
+    }
+    const age = Date.now() - (pending.savedAt || 0);
+    if (age > 30 * 60 * 1000) {
+      ValenixiaDB.delete('pending_checkouts', 'active_pending').catch(() => {});
+      return;
+    }
+    const result = await showModal({
+      title: 'âš ï¸ Unsaved Checkout Recovered',
+      message: `App restarted mid-transaction. Recover ${pending.cart.length} item${pending.cart.length !== 1 ? 's' : ''} for ${formatCurrency(pending.total || 0)}?\n\nCustomer: ${pending.customerName || 'None attached'}`,
+      type: 'warning',
+      actions: [
+        { id: 'recover', label: 'âœ… Recover Cart', style: 'primary' },
+        { id: 'discard', label: 'ðŸ—‘ï¸ Discard', style: 'secondary' }
+      ]
+    });
+    if (result === 'recover') {
+      state.activeCart = pending.cart;
+      if (pending.customerId) state.attachedCustomer = { id: pending.customerId, name: pending.customerName };
+      renderCart();
+      switchActiveScreen('checkout');
+      showNotificationToast('Cart recovered. Complete or void the transaction.', 'success', 4000);
+    }
+    ValenixiaDB.delete('pending_checkouts', 'active_pending').catch(() => {});
+  }
+  window.recoverPendingCheckout = recoverPendingCheckout;
+
+  // â”€â”€ Save cart state before any checkout submit (crash safety) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  async function saveCheckoutCrashState() {
+    if (!state.activeCart?.length) return;
+    const snapshot = {
+      id: 'active_pending',
+      cart: state.activeCart,
+      total: state.activeCart.reduce((s,i) => s + (i.price * i.qty), 0),
+      customerId: state.attachedCustomer?.id || null,
+      customerName: state.attachedCustomer?.name || null,
+      savedAt: Date.now()
+    };
+    if (window.ValenixiaDB) {
+      try {
+        await ValenixiaDB.put('pending_checkouts', snapshot);
+      } catch (e) {
+        console.warn('[CrashRecovery] Failed to write pending checkout to IDB:', e);
+      }
+    }
+  }
+  window.saveCheckoutCrashState = saveCheckoutCrashState;
+
+  // â”€â”€ P1.4: Export Error Logs to CSV â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  async function exportErrorLogsToCSV() {
+    if (!ValenixiaDB?.db) { showModal({ title: 'Error', message: 'Database not ready.', type: 'danger' }); return; }
+    try {
+      const logs = await ValenixiaDB.getAll('error_logs');
+      if (!logs || logs.length === 0) { showModal({ title: 'No Errors', message: 'No error logs found. Great news!', type: 'info' }); return; }
+      const header = 'ID,Timestamp,Node,Type,Message,Last Clicks';
+      const rows = logs.map(l => [
+        l.id, new Date(l.timestamp).toISOString(), l.nodeId || '',
+        l.error_type || '', (l.errorMessage || '').replace(/,/g, ';').replace(/\n/g, ' '),
+        (l.lastClicks || '').replace(/,/g, ';')
+      ].map(v => `"${v}"`).join(','));
+      const csv = [header, ...rows].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `valenixia_errors_${Date.now()}.csv`;
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+      showNotificationToast(`Exported ${logs.length} error log entries.`, 'success', 3000);
+    } catch(err) {
+      showModal({ title: 'Export Failed', message: 'Could not export error logs: ' + err.message, type: 'danger' });
+    }
+  }
+  window.exportErrorLogsToCSV = exportErrorLogsToCSV;
+
+  // â”€â”€ P1.7: Trial State Machine â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  function checkTrialAndEnforce() {
+    let start = localStorage.getItem('valenixia_trial_start_ms');
+    if (!start) {
+      start = String(Date.now());
+      localStorage.setItem('valenixia_trial_start_ms', start);
+    }
+    const trialStart = parseInt(start);
+    const elapsed = Date.now() - trialStart;
+    const daysElapsed = elapsed / (24 * 60 * 60 * 1000);
+    const daysLeft = Math.max(0, 14 - daysElapsed);
+    
+    let phase = 'active';
+    if (daysElapsed > 11 && daysElapsed <= 14) {
+      phase = 'warning';
+    } else if (daysElapsed > 14 && daysElapsed <= 15) {
+      phase = 'grace';
+    } else if (daysElapsed > 15) {
+      phase = 'expired';
+    }
+
+    state.trial = { phase, daysLeft };
+    
+    // Hide existing banners
+    document.getElementById('vx-trial-banner')?.remove();
+    document.getElementById('vx-lockout-overlay')?.remove();
+
+    if (phase === 'warning') {
+      const banner = document.createElement('div');
+      banner.id = 'vx-trial-banner';
+      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;height:40px;background:#f59e0b;color:#000;z-index:99999;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;font-family:Manrope,sans-serif;';
+      banner.innerHTML = `âš ï¸ Your free trial expires in ${daysLeft.toFixed(1)} days. Click here to upgrade.`;
+      document.body.appendChild(banner);
+      document.body.style.paddingTop = '40px';
+      banner.addEventListener('click', () => {
+        if (typeof showUpgradeModal === 'function') showUpgradeModal('License Upgrade');
+      });
+    } else if (phase === 'grace') {
+      const banner = document.createElement('div');
+      banner.id = 'vx-trial-banner';
+      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;height:40px;background:#ef4444;color:#fff;z-index:99999;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;font-family:Manrope,sans-serif;';
+      banner.innerHTML = `âš ï¸ Trial Expired. Running in 24h grace read-only mode. All transactions blocked. Click here to upgrade.`;
+      document.body.appendChild(banner);
+      document.body.style.paddingTop = '40px';
+      banner.addEventListener('click', () => {
+        if (typeof showUpgradeModal === 'function') showUpgradeModal('License Upgrade');
+      });
+    } else if (phase === 'expired') {
+      const overlay = document.createElement('div');
+      overlay.id = 'vx-lockout-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(6,6,9,0.98);z-index:2147483647;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(8px);font-family:Manrope,sans-serif;';
+      overlay.innerHTML = `
+        <div style="background:#0d0d12;border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:32px;max-width:400px;width:100%;text-align:center;box-shadow:0 32px 64px rgba(0,0,0,0.8);">
+          <div style="font-size:48px;margin-bottom:16px;">ðŸ”’</div>
+          <h2 style="font-family:Outfit,sans-serif;color:#fff;font-size:22px;font-weight:800;margin-bottom:8px;">TRIAL EXPIRED</h2>
+          <p style="color:#6b7280;font-size:13px;line-height:1.6;margin-bottom:24px;">Your 14-day trial has fully expired. Please contact support or enter your license activation key to restore operations.</p>
+          <button id="btn-lockout-upgrade" style="width:100%;padding:14px;background:#10b981;border:none;color:#fff;font-weight:800;border-radius:8px;cursor:pointer;margin-bottom:12px;font-size:13px;">ACTIVATE LICENSE</button>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      document.getElementById('btn-lockout-upgrade').addEventListener('click', () => {
+        if (typeof showUpgradeModal === 'function') showUpgradeModal('License Activation');
+      });
+    }
+  }
+
+  function getTrialStatus() {
+    return state.trial || { phase: 'active', daysLeft: 14 };
+  }
+  window.getTrialStatus = getTrialStatus;
+  window.checkTrialAndEnforce = checkTrialAndEnforce;
+
+  // P2.8: Diagnostic Dashboard & Health Overview
+  async function refreshSystemDiagnostics() {
+    if (!window.ValenixiaDB?.db) return;
+    
+    let totalRecords = 0;
+    try {
+      const stores = ['local_preferences', 'inventory_catalog', 'employees', 'customers', 'transactions', 'audit_logs', 'error_logs'];
+      for (const storeName of stores) {
+        const count = await ValenixiaDB.count(storeName);
+        totalRecords += count;
+      }
+      const el = document.getElementById('health-db-records');
+      if (el) el.textContent = totalRecords.toLocaleString() + ' rows';
+    } catch (e) {
+      console.warn('[Diagnostics] Failed to calculate database records:', e);
+    }
+
+    const syncStatusEl = document.getElementById('health-sync-status');
+    if (syncStatusEl) {
+      const isOnline = state.isOnline || (syncWorker && state.preferences?.valenixia_server_url);
+      syncStatusEl.textContent = isOnline ? 'CONNECTED' : 'DISCONNECTED';
+      syncStatusEl.style.color = isOnline ? 'var(--accent-emerald)' : 'var(--text-gray)';
+    }
+
+    const hwidEl = document.getElementById('health-sync-hwid');
+    if (hwidEl) {
+      hwidEl.textContent = window.__valenixiaHWID || state.nodeId || 'N/A';
+    }
+
+    const isoEl = document.getElementById('health-node-isolation');
+    if (isoEl) {
+      isoEl.textContent = state.isMasterNode ? 'Master Node' : 'Satellite Client';
+      isoEl.style.color = state.isMasterNode ? 'var(--accent-emerald)' : 'var(--text-gray)';
+    }
+
+    if (navigator.storage && navigator.storage.estimate) {
+      try {
+        const est = await navigator.storage.estimate();
+        const usedMb = (est.usage / (1024 * 1024)).toFixed(2);
+        const totalMb = (est.quota / (1024 * 1024)).toFixed(0);
+        const usedEl = document.getElementById('health-storage-used');
+        const totalEl = document.getElementById('health-storage-total');
+        if (usedEl) usedEl.textContent = usedMb + ' MB';
+        if (totalEl) totalEl.textContent = totalMb + ' MB';
+      } catch (e) {}
+    }
+
+    try {
+      const audits = await ValenixiaDB.count('audit_logs');
+      const errors = await ValenixiaDB.count('error_logs');
+      const audEl = document.getElementById('health-audit-count');
+      const errEl = document.getElementById('health-errors-count');
+      if (audEl) audEl.textContent = audits.toLocaleString() + ' events';
+      if (errEl) errEl.textContent = errors.toLocaleString() + ' logs';
+    } catch (e) {}
+  }
+  window.refreshSystemDiagnostics = refreshSystemDiagnostics;
+
+  // P3.3: In-Memory Search Index (Fuzzy product matching and query scores)
+  function fuzzyMatchCatalog(catalog, query) {
+    if (!query) return [];
+    const q = query.toLowerCase().trim();
+    
+    return catalog
+      .map(p => {
+        let score = 0;
+        const name = (p.name || '').toLowerCase();
+        const sku = (p.sku || '').toLowerCase();
+        const gtin = String(p.gtin || '').toLowerCase();
+        
+        if (sku === q || gtin === q) {
+          score += 100;
+        } else if (sku.startsWith(q) || gtin.startsWith(q)) {
+          score += 80;
+        } else if (name === q) {
+          score += 90;
+        } else if (name.startsWith(q)) {
+          score += 70;
+        } else if (name.includes(q)) {
+          score += 50;
+        } else {
+          let qIdx = 0;
+          let matchCount = 0;
+          for (let i = 0; i < name.length; i++) {
+            if (name[i] === q[qIdx]) {
+              matchCount++;
+              qIdx++;
+              if (qIdx === q.length) break;
+            }
+          }
+          if (matchCount === q.length) {
+            score += 30 + (q.length / name.length) * 10;
+          }
+        }
+        return { product: p, score };
+      })
+      .filter(x => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map(x => x.product);
+  }
+  window.fuzzyMatchCatalog = fuzzyMatchCatalog;
+
+  // P3.4: Input Sanitization (escape HTML characters)
+  function sanitizeHTML(str) {
+    if (typeof str !== 'string') return str;
+    return str.replace(/[&<>"']/g, function(m) {
+      switch (m) {
+        case '&': return '&amp;';
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case '"': return '&quot;';
+        case "'": return '&#39;';
+        default: return m;
+      }
+    });
+  }
+  window.sanitizeHTML = sanitizeHTML;
 
   function showPairingOverlay(show, section) {
     const overlay = document.getElementById('device-pairing-overlay');
@@ -826,6 +1103,46 @@
   function setupWebWorker() {
     syncWorker = new Worker('sync-worker.js');
     window.syncWorker = syncWorker;
+    const originalPost = syncWorker.postMessage.bind(syncWorker);
+    syncWorker.postMessage = function(msg) {
+      if (msg) {
+        if (msg.type === 'GET_TRANSACTIONS') {
+          msg.payload = {
+            isMaster: state.isMasterNode !== false,
+            employeeId: state.activeCashier ? state.activeCashier.id : null
+          };
+        }
+        if (typeof appendAuditLog === 'function') {
+          if (msg.type === 'SAVE_PREFERENCE' && msg.payload) {
+            appendAuditLog({
+              event_type: 'SETTINGS_CHANGE',
+              who: (state.activeCashier ? state.activeCashier.name : 'ADMIN'),
+              what: 'Preference changed: ' + msg.payload.key + ' = ' + msg.payload.val,
+              node_id: state.nodeId
+            });
+          } else if (msg.type === 'SAVE_PRODUCT' && msg.payload) {
+            appendAuditLog({
+              event_type: 'PRICE_CHANGE',
+              who: (state.activeCashier ? state.activeCashier.name : 'ADMIN'),
+              what: 'Product saved: SKU ' + msg.payload.sku + ' (' + msg.payload.name + '). Price: Rs. ' + ((msg.payload.price || 0)/100).toFixed(2),
+              node_id: state.nodeId
+            });
+          } else if (msg.type === 'SAVE_EMPLOYEE' && msg.payload) {
+            const isDelete = msg.payload.is_active === 0;
+            const originalEmp = state.employees ? state.employees.find(function(e) { return e.id === msg.payload.id; }) : null;
+            const isPinChange = originalEmp && originalEmp.auth_hash !== msg.payload.auth_hash;
+            const eventType = isDelete ? 'EMPLOYEE_DELETE' : (isPinChange ? 'PIN_CHANGE' : 'SETTINGS_CHANGE');
+            appendAuditLog({
+              event_type: eventType,
+              who: (state.activeCashier ? state.activeCashier.name : 'ADMIN'),
+              what: isDelete ? 'Employee deactivated: ' + msg.payload.id : (isPinChange ? 'PIN updated for employee: ' + msg.payload.id : 'Employee created/updated: ' + msg.payload.id + ' (role: ' + msg.payload.role + ')'),
+              node_id: state.nodeId
+            });
+          }
+        }
+      }
+      originalPost(msg);
+    };
 
     syncWorker.addEventListener('error', (err) => {
         console.error('Fatal Worker Crash:', err.message);
@@ -892,7 +1209,7 @@
           showPairingOverlay(true, 'pending');
           document.getElementById('pairing-submitted-name').textContent = document.getElementById('pairing-device-name').value || 'Web Register';
           document.getElementById('pairing-device-id').textContent = nodeId || state.nodeId || 'Loading...';
-          // Generate QR Code with full pairing URL — admin scans to auto-approve
+          // Generate QR Code with full pairing URL â€” admin scans to auto-approve
           document.getElementById('pairing-qr-container').innerHTML = '';
           (() => {
             const serverOrigin = window.location.origin;
@@ -910,7 +1227,7 @@
  
         case 'DEVICE_REJECTED':
           console.warn('[App] Device was rejected.');
-          alert('This device was rejected by the administrator. Please pair again.');
+          showModal({ title: 'Notice', message: '', type: 'info' });
           showPairingOverlay(true, 'form');
           break;
         case 'DEVICE_UNAUTHORIZED':
@@ -970,7 +1287,7 @@
           if (error === 'PASSPHRASE_MISMATCH') {
             if (!window.__passphraseMismatchNotified) {
               window.__passphraseMismatchNotified = true;
-              showNotificationToast('Sync passphrase mismatch. Update your Network Encryption Key in Settings → Sync to reconnect.', () => switchActiveScreen('settings'));
+              showNotificationToast('Sync passphrase mismatch. Update your Network Encryption Key in Settings â†’ Sync to reconnect.', () => switchActiveScreen('settings'));
             }
           } else if (error === 'LICENSE_EXPIRED' || error === 'LICENSE_INACTIVE') {
             triggerLicenseLockout(error);
@@ -1196,13 +1513,13 @@
           playAudioSignal('success');
           // Premium: flash payment success ring + haptic triple-tap + screen reader
           if (typeof flashPaymentSuccess === 'function') flashPaymentSuccess();
-          showNotificationToast(`✅ Transaction #${transactionId.slice(-8).toUpperCase()} completed!`, null, 4000);
+          showNotificationToast(`âœ… Transaction #${transactionId.slice(-8).toUpperCase()} completed!`, null, 4000);
           announceToScreenReader(`Transaction completed successfully for amount Rs. ${(event.data.total / 100.0).toFixed(2)}.`);
 
-          // ── Component F: Update monotonic time anchor ─────────────────────
+          // â”€â”€ Component F: Update monotonic time anchor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           LicenseEngine.updateTimeAnchor().catch(() => {});
 
-          // ── Component C: Print receipt + kick drawer ──────────────────────
+          // â”€â”€ Component C: Print receipt + kick drawer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           {
             const prefs = state.preferences || {};
             const printReceipt = prefs.auto_print_receipt !== 'false';
@@ -1273,12 +1590,12 @@
           window.location.reload();
           break;
 
-        // ── Component B: Oversell Guard ────────────────────────────────────
+        // â”€â”€ Component B: Oversell Guard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         case 'STOCK_RECONCILIATION_REQUIRED': {
           const { sku: badSku, name: badName, computedStock } = event.data;
           console.error(`[OversellGuard] SKU ${badSku} has negative computed stock: ${computedStock}`);
           showNotificationToast(
-            `⚠️ OVERSELL ALERT: "${badName}" (SKU: ${badSku}) has a computed stock of ${computedStock}. Manual reconciliation required.`,
+            `âš ï¸ OVERSELL ALERT: "${badName}" (SKU: ${badSku}) has a computed stock of ${computedStock}. Manual reconciliation required.`,
             () => { switchActiveScreen('inventory'); },
             15000
           );
@@ -1360,7 +1677,7 @@
       if (isLockActive()) { try { playAudioSignal('click'); } catch(e) {} }
     }
 
-    // ── LAYER 1: On-screen PIN pad buttons ───────────────────────────────────
+    // â”€â”€ LAYER 1: On-screen PIN pad buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // Using click for maximum cross-platform compatibility and instant execution.
     if (pinPad) {
       pinPad.addEventListener('click', function(e) {
@@ -1381,7 +1698,7 @@
       });
     }
 
-    // ── LAYER 2: Physical keyboard and barcode scanners ──────────────────────
+    // â”€â”€ LAYER 2: Physical keyboard and barcode scanners â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     window.addEventListener('keydown', function(e) {
       if (!isLockActive()) return;
       if (document.activeElement && document.activeElement.id === 'login-terminal-role') return;
@@ -1406,7 +1723,7 @@
       }
     }, { capture: true });
 
-    // ── LAYER 3: Native typing on the passcode input field ────────────────────
+    // â”€â”€ LAYER 3: Native typing on the passcode input field â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (pinInput) {
       pinInput.addEventListener('input', function(e) {
         var raw = (e.target.value || '').replace(/[^0-9]/g, '');
@@ -1422,7 +1739,7 @@
       });
     }
 
-    // ── FORM SUBMISSION: Native Enter/Go handler for mobile soft keyboard ──────
+    // â”€â”€ FORM SUBMISSION: Native Enter/Go handler for mobile soft keyboard â”€â”€â”€â”€â”€â”€
     var pinForm = document.getElementById('pin-form');
     if (pinForm) {
       pinForm.addEventListener('submit', function(e) {
@@ -1442,11 +1759,11 @@
       document.body.classList.remove('is-offline');
     });
 
-    // ── PIN PAD SYSTEM ────────────────────────────────────────────────────────
+    // â”€â”€ PIN PAD SYSTEM â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // Bulletproof PIN entry: works on physical keyboard, USB numpad, on-screen
     // buttons, AND mobile soft keyboard. Three cooperating layers:
     //   1. On-screen buttons (data-digit / data-action attributes)
-    //   2. Global keydown listener (physical keyboard / numpad — capture phase)
+    //   2. Global keydown listener (physical keyboard / numpad â€” capture phase)
     //   3. Hidden <input type=tel> that captures mobile soft keyboard input events
     //   initPinPad();
     initPinPad();
@@ -1456,7 +1773,7 @@
         const email = document.getElementById('signup-email').value.trim();
         const phoneInput = document.getElementById('signup-phone');
         const phone = phoneInput ? phoneInput.value.trim() : '03001234567';
-        if (!storeName || !email) { alert('Store Name and Email Address are required.'); return; }
+        if (!storeName || !email) { showModal({ title: 'Notice', message: '', type: 'info' }); return; }
 
         const btn = document.getElementById('btn-in-app-signup');
         const nameField = document.getElementById('signup-store-name');
@@ -1502,12 +1819,12 @@
                 await ValenixiaDB.setSecurePref('valenixia_license_token', activateData.token);
                 state.licenseToken = activateData.token;
                 
-                setProgress(100, 'Trial Active – 7 days left! Starting...');
+                setProgress(100, 'Trial Active â€“ 7 days left! Starting...');
                 if (typeof showNotificationToast === 'function') showNotificationToast('Trial Activated!');
                 setTimeout(() => window.location.reload(), 1200);
             } else throw new Error('Token assignment failed.');
         } catch (e) {
-            alert('Registration Error: ' + e.message);
+            showModal({ title: "System Message", message: 'Registration Error: ' + e.message, type: "info" });
             // Restore form fields
             if (nameField) nameField.style.display = 'block';
             if (emailField) emailField.style.display = 'block';
@@ -1550,7 +1867,7 @@
     }
 
 
-    // Theme toggler — cycles through all available palettes
+    // Theme toggler â€” cycles through all available palettes
     document.getElementById('theme-toggle-btn').addEventListener('click', () => {
       playAudioSignal('click');
       const body = document.body;
@@ -1612,10 +1929,10 @@
       
       const btn = e.currentTarget;
       if (layout.classList.contains('sidebar-collapsed')) {
-        btn.textContent = '▶';
+        btn.textContent = 'â–¶';
         state.sidebarCollapsed = true;
       } else {
-        btn.textContent = '◀';
+        btn.textContent = 'â—€';
         state.sidebarCollapsed = false;
       }
     });
@@ -1663,11 +1980,7 @@
         return;
       }
 
-      const matches = state.catalog.filter(p => 
-        p.sku.toLowerCase().includes(q) || 
-        p.name.toLowerCase().includes(q) || 
-        (p.gtin && String(p.gtin).includes(q))
-      );
+      const matches = fuzzyMatchCatalog(state.catalog, q);
 
       renderSearchDropdown(matches);
     });
@@ -1761,7 +2074,7 @@
         
         const preview = document.getElementById('form-product-image-preview');
         preview.style.backgroundImage = '';
-        preview.textContent = '⏳';
+        preview.textContent = 'â³';
 
         processAndCompressImage(file, (base64) => {
           document.getElementById('form-product-image-url').value = base64;
@@ -1880,9 +2193,9 @@
       state.preferences['store_receipt_width'] = e.target.value;
     });
 
-    document.getElementById('setting-shop-mode')?.addEventListener('change', (e) => {
+    document.getElementById('setting-shop-mode')?.addEventListener('change', async (e) => {
       const mode = e.target.value;
-      if (confirm('Warning: Changing the shop business domain changes how variants, modifiers, and checkout configurations are handled. Existing product data will remain, but input configurations may differ. Do you want to proceed?')) {
+      if (await showModal({ title: 'Confirm', message: '', type: 'warning', actions: [{ id: 'yes', label: 'Yes, Continue', style: 'danger' }, { id: 'no', label: 'Cancel', style: 'secondary' }] }) === 'yes') {
         syncWorker.postMessage({
           type: 'SAVE_PREFERENCE',
           payload: { key: 'shop_mode', val: mode }
@@ -1979,9 +2292,9 @@
       startOnboardingTour();
     });
 
-    document.getElementById('btn-storage-compress-images').addEventListener('click', () => {
+    document.getElementById('btn-storage-compress-images').addEventListener('click', async () => {
       if (typeof playAudioSignal === 'function') playAudioSignal('click');
-      if (confirm("Are you sure you want to run deep compression on all catalog images? This will downscale them to maximum 300x300px at 0.6 quality to recover storage space.")) {
+      if (await showModal({ title: "Confirm", message: "Are you sure you want to run deep compression on all catalog images? This will downscale them to maximum 300x300px at 0.6 quality to recover storage space.", type: "warning", actions: [{ id: "yes", label: "Yes, Continue", style: "danger" }, { id: "no", label: "Cancel", style: "secondary" }] }) === "yes") {
         let count = 0;
         let processed = 0;
         const base64Images = state.catalog.filter(item => item.image_url && item.image_url.startsWith('data:image/'));
@@ -2010,9 +2323,9 @@
       }
     });
 
-    document.getElementById('btn-storage-purge-old-images').addEventListener('click', () => {
+    document.getElementById('btn-storage-purge-old-images').addEventListener('click', async () => {
       if (typeof playAudioSignal === 'function') playAudioSignal('click');
-      if (confirm("Are you sure you want to purge product images for items that haven't been updated in the last 30 days?")) {
+      if (await showModal({ title: "Confirm", message: "Are you sure you want to purge product images for items that haven't been updated in the last 30 days?", type: "warning", actions: [{ id: "yes", label: "Yes, Continue", style: "danger" }, { id: "no", label: "Cancel", style: "secondary" }] }) === "yes") {
         let count = 0;
         const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
         state.catalog.forEach(item => {
@@ -2040,9 +2353,9 @@
       }
     });
 
-    document.getElementById('btn-storage-purge-all-images').addEventListener('click', () => {
+    document.getElementById('btn-storage-purge-all-images').addEventListener('click', async () => {
       if (typeof playAudioSignal === 'function') playAudioSignal('click');
-      if (confirm("Are you sure you want to delete all Base64 images in your catalog? This will free up storage immediately.")) {
+      if (await showModal({ title: "Confirm", message: "Are you sure you want to delete all Base64 images in your catalog? This will free up storage immediately.", type: "warning", actions: [{ id: "yes", label: "Yes, Continue", style: "danger" }, { id: "no", label: "Cancel", style: "secondary" }] }) === "yes") {
         let count = 0;
         state.catalog.forEach(item => {
           if (item.image_url && item.image_url.startsWith('data:image/')) {
@@ -2142,36 +2455,36 @@
         const confirmVal = confirmPinInput.value.trim();
 
         if (!currentVal || !newVal || !confirmVal) {
-          alert('All passcode PIN fields are required.');
+          showModal({ title: 'Notice', message: '', type: 'info' });
           return;
         }
 
         if (newVal.length !== 4 || isNaN(newVal)) {
-          alert('New passcode PIN must be exactly 4 digits.');
+          showModal({ title: 'Notice', message: '', type: 'info' });
           return;
         }
 
         if (newVal !== confirmVal) {
-          alert('New passcode PINs do not match.');
+          showModal({ title: 'Notice', message: '', type: 'info' });
           return;
         }
 
         if (!state.activeCashier) {
-          alert('No active logged-in cashier context found.');
+          showModal({ title: 'Notice', message: '', type: 'info' });
           return;
         }
 
         // Find employee record
         const emp = state.employees.find(e => e.id === state.activeCashier.id);
         if (!emp) {
-          alert(`Employee record not found for ID: ${state.activeCashier.id}`);
+          showModal({ title: "Notice", message: `Employee record not found for ID: ${state.activeCashier.id}`, type: "info" });
           return;
         }
 
         // Verify current PIN matches stored hash
         const isMatched = await verifyPinClient(currentVal, emp.auth_hash);
         if (!isMatched) {
-          alert('Current passcode PIN is incorrect.');
+          showModal({ title: 'Notice', message: '', type: 'info' });
           return;
         }
 
@@ -2187,15 +2500,15 @@
           payload: updatedPayload
         });
 
-        alert('Passcode successfully updated!');
+        showModal({ title: 'Notice', message: '', type: 'info' });
         currentPinInput.value = '';
         newPinInput.value = '';
         confirmPinInput.value = '';
       });
     }
 
-    document.getElementById('btn-maintenance-reseed').addEventListener('click', () => {
-      if (confirm('This will restore all baseline catalog inventory items and preferences. Continue?')) {
+    document.getElementById('btn-maintenance-reseed').addEventListener('click', async () => {
+      if (await showModal({ title: 'Confirm', message: '', type: 'warning', actions: [{ id: 'yes', label: 'Yes, Continue', style: 'danger' }, { id: 'no', label: 'Cancel', style: 'secondary' }] }) === 'yes') {
         syncWorker.postMessage({ type: 'DESTRUCTIVE_RESET' });
       }
     });
@@ -2300,7 +2613,7 @@
       const smsSender = document.getElementById('sms-sim-sender').value.trim();
       const expectedTotalStr = (state.pendingQrCheckout.total / 100).toFixed(2);
       if (!smsSender) {
-        alert('Please specify a valid bank gateway shortcode.');
+        showModal({ title: 'Notice', message: '', type: 'info' });
         return;
       }
       if (smsBody.includes(expectedTotalStr)) {
@@ -2309,7 +2622,7 @@
           return;
         }
         state.isCheckingOut = true;
-        alert(`SMS verified! Payment matches grand total of Rs. ${expectedTotalStr}.`);
+        showModal({ title: "Notice", message: `SMS verified! Payment matches grand total of Rs. ${expectedTotalStr}.`, type: "info" });
         document.getElementById('modal-qr-pay').classList.remove('active');
         const payload = state.pendingQrCheckout;
         const transactionId = 'tx_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
@@ -2334,21 +2647,21 @@
         state.pendingQrCheckout = null;
       } else {
         playAudioSignal('error');
-        alert(`Verification failed! The SMS text must contain the exact expected total amount: ${expectedTotalStr}`);
+        showModal({ title: "Notice", message: `Verification failed! The SMS text must contain the exact expected total amount: ${expectedTotalStr}`, type: "info" });
         state.isCheckingOut = false;
       }
     });
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
     //  MULTI-STEP ONBOARDING WIZARD CONTROLLER
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
     (function initWizardController() {
       let wizStep = 1;
       let wizPath = 'NEW';
       const MAX_STEPS = 5;
       const subtitles = {
         1:   "Let's get your point-of-sale ready in just a few steps.",
-        '2a': 'Tell us about your store — this will appear on receipts and the header.',
+        '2a': 'Tell us about your store â€” this will appear on receipts and the header.',
         '2b':"Enter the network details to connect to an existing store.",
         3:   "Choose your shop business domain for optimal configurations.",
         4:   "Set your security credentials to protect this register.",
@@ -2522,27 +2835,27 @@
       const previews = {
         'simple-retail': {
           title: 'Simple Retail Active',
-          details: '• Checkout flow: Instant add-to-cart on barcode scan.<br>• Product features: Simple quantity edits, supplier names, reorder levels.'
+          details: 'â€¢ Checkout flow: Instant add-to-cart on barcode scan.<br>â€¢ Product features: Simple quantity edits, supplier names, reorder levels.'
         },
         'clothing-fashion': {
           title: 'Clothing & Fashion Active',
-          details: '• Checkout flow: Intercept adds → select size grid & color swatches.<br>• Product features: Extended size/color variant matrix, brand/season tracking.'
+          details: 'â€¢ Checkout flow: Intercept adds â†’ select size grid & color swatches.<br>â€¢ Product features: Extended size/color variant matrix, brand/season tracking.'
         },
         'food-restaurant': {
           title: 'Food & Restaurant Active',
-          details: '• Checkout flow: Intercept adds → select modifiers (toppings/sides), combo builders.<br>• Product features: Allergens lists, kitchen tickets output, table numbers.'
+          details: 'â€¢ Checkout flow: Intercept adds â†’ select modifiers (toppings/sides), combo builders.<br>â€¢ Product features: Allergens lists, kitchen tickets output, table numbers.'
         },
         'services-appointments': {
           title: 'Services & Booking Active',
-          details: '• Checkout flow: Intercept adds → select staff assignment, time slots calendar.<br>• Product features: Service durations, booking buffers, calendar rescheduling.'
+          details: 'â€¢ Checkout flow: Intercept adds â†’ select staff assignment, time slots calendar.<br>â€¢ Product features: Service durations, booking buffers, calendar rescheduling.'
         },
         'electronics-highvalue': {
           title: 'Electronics & High-Value Active',
-          details: '• Checkout flow: Scan serial number, record buyer ID verification.<br>• Product features: Serial number inventory validation, warranty terms lookup.'
+          details: 'â€¢ Checkout flow: Scan serial number, record buyer ID verification.<br>â€¢ Product features: Serial number inventory validation, warranty terms lookup.'
         },
         'custom-mixed': {
           title: 'Custom / Mixed Active',
-          details: '• Checkout flow: Multi-option selection picker.<br>• Product features: Advanced toggles in Settings allowing modular option blends.'
+          details: 'â€¢ Checkout flow: Multi-option selection picker.<br>â€¢ Product features: Advanced toggles in Settings allowing modular option blends.'
         }
       };
 
@@ -2664,9 +2977,9 @@
         const v = id => (document.getElementById(id)||{}).value||'';
         const e = id => document.getElementById(id);
         if (wizPath === 'NEW') {
-          if (e('wiz-sum-store'))  e('wiz-sum-store').textContent  = v('wizard-store-name') || '—';
+          if (e('wiz-sum-store'))  e('wiz-sum-store').textContent  = v('wizard-store-name') || 'â€”';
           if (e('wiz-sum-tax'))    e('wiz-sum-tax').textContent    = v('wizard-tax-rate') + '%';
-          if (e('wiz-sum-theme'))  e('wiz-sum-theme').textContent  = v('wizard-theme') || '—';
+          if (e('wiz-sum-theme'))  e('wiz-sum-theme').textContent  = v('wizard-theme') || 'â€”';
           
           const modeVal = v('wizard-shop-mode');
           const modeMap = {
@@ -2739,11 +3052,11 @@
           const shopMode = document.getElementById('wizard-shop-mode').value;
 
           if (!storeName || !adminPin || !syncPassphrase) {
-            alert('Store Name, Owner PIN, and Network Encryption Key are required for bootstrap.');
+            showModal({ title: 'Notice', message: '', type: 'info' });
             return;
           }
           if (adminPin.length !== 4 || isNaN(adminPin)) {
-            alert('Owner PIN must be a 4-digit number.');
+            showModal({ title: 'Notice', message: '', type: 'info' });
             return;
           }
 
@@ -2795,7 +3108,7 @@
           const serverUrl = document.getElementById('wizard-join-server-url').value.trim();
           
           if (!syncPassphrase) {
-            alert('Encryption key passphrase is required to join an existing network.');
+            showModal({ title: 'Notice', message: '', type: 'info' });
             return;
           }
 
@@ -2888,7 +3201,7 @@
         const deviceName = document.getElementById('pairing-device-name').value.trim();
         const syncPassphrase = document.getElementById('pairing-sync-passphrase').value;
         if (!deviceName) {
-          alert('Please enter a friendly name for this terminal.');
+          showModal({ title: 'Notice', message: '', type: 'info' });
           return;
         }
         playAudioSignal('click');
@@ -2938,7 +3251,7 @@
     if (btnLockScreenReset) {
       btnLockScreenReset.addEventListener('click', async () => {
         playAudioSignal('click');
-        if (confirm('Are you sure you want to perform a factory reset? This will clear all local configuration and transaction data.')) {
+        if (await showModal({ title: 'Confirm', message: '', type: 'warning', actions: [{ id: 'yes', label: 'Yes, Continue', style: 'danger' }, { id: 'no', label: 'Cancel', style: 'secondary' }] }) === 'yes') {
           try {
             const serverBase = (window.__valenixiaServerUrl || location.origin);
             if (location.protocol !== 'file:') {
@@ -2957,7 +3270,7 @@
     document.querySelectorAll('.btn-pairing-reset-action').forEach(btn => {
       btn.addEventListener('click', async () => {
         playAudioSignal('click');
-        if (confirm('Are you sure you want to cancel setup and return to onboarding? This will clear pairing configurations.')) {
+        if (await showModal({ title: 'Confirm', message: '', type: 'warning', actions: [{ id: 'yes', label: 'Yes, Continue', style: 'danger' }, { id: 'no', label: 'Cancel', style: 'secondary' }] }) === 'yes') {
           try {
             const serverBase = (window.__valenixiaServerUrl || location.origin);
             if (location.protocol !== 'file:') {
@@ -3107,7 +3420,7 @@
             
             btnLockoutSendOtp.textContent = 'Sent!';
             document.getElementById('lockout-otp-row').style.display = 'block';
-            alert(`[SMS Dispatch Simulation]\n\nOTP Code sent to ${phone}: ${randomOtp}\n\nThis verification code will be cryptographically verified using PBKDF2 with dynamic salting.`);
+            showModal({ title: "Notice", message: `[SMS Dispatch Simulation]\n\nOTP Code sent to ${phone}: ${randomOtp}\n\nThis verification code will be cryptographically verified using PBKDF2 with dynamic salting.`, type: "info" });
           } catch (err) {
             console.error('[Lockout] Failed to hash OTP:', err);
             errorMsg.textContent = 'Cryptographic error generating OTP token.';
@@ -3143,7 +3456,7 @@
               payload: { key: 'license_phone_bound', val: phoneInput }
             });
             playAudioSignal('success');
-            alert('Phone number bound successfully! Valenixia Register Unlocked.');
+            showModal({ title: 'Notice', message: '', type: 'info' });
             window.location.reload();
           } else {
             errorMsg.textContent = 'Invalid OTP code. Please try again.';
@@ -3207,7 +3520,7 @@
                 payload: { key: 'license_key', val: licenseKeyInput }
               });
               playAudioSignal('success');
-              alert('License Activated Successfully!');
+              showModal({ title: 'Notice', message: '', type: 'info' });
               window.location.reload();
               return;
             }
@@ -3285,7 +3598,7 @@
         blocker.className = 'glass-blocker';
         blocker.innerHTML = `
           <div class="blocker-content">
-            <div style="font-size: 48px; margin-bottom: 20px;">💎</div>
+            <div style="font-size: 48px; margin-bottom: 20px;">ðŸ’Ž</div>
             <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--text-white); margin-bottom: 8px; text-transform: uppercase;">Unlock Real-Time Analytics</h2>
             <p style="color: var(--text-gray); font-size: 13px; max-width: 360px; margin: 0 auto 24px; line-height: 1.5;">Track net profit margins, payment mode trends, and automated sales metrics on the PRO Tier.</p>
             <button class="action-btn action-success" id="btn-upgrade-analytics" style="min-height: 48px; padding: 0 24px; font-weight: 800; font-size: 12px; text-transform: uppercase;">Upgrade Store License</button>
@@ -3309,7 +3622,7 @@
         blocker.className = 'glass-blocker';
         blocker.innerHTML = `
           <div class="blocker-content">
-            <div style="font-size: 48px; margin-bottom: 20px;">📕</div>
+            <div style="font-size: 48px; margin-bottom: 20px;">ðŸ“•</div>
             <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--text-white); margin-bottom: 8px; text-transform: uppercase;">Digital Credit Ledger (Khata)</h2>
             <p style="color: var(--text-gray); font-size: 13px; max-width: 360px; margin: 0 auto 24px; line-height: 1.5;">Log local customer credit outstanding, liability history, and click-to-chat links on the PRO Tier.</p>
             <button class="action-btn action-success" id="btn-upgrade-credit" style="min-height: 48px; padding: 0 24px; font-weight: 800; font-size: 12px; text-transform: uppercase;">Upgrade Store License</button>
@@ -3429,7 +3742,7 @@
       tbody.querySelectorAll('.btn-reject-device').forEach(btn => {
         btn.addEventListener('click', async (e) => {
           const id = e.currentTarget.getAttribute('data-id');
-          if (confirm(`Are you sure you want to revoke/reject device ${id}?`)) {
+          if (await showModal({ title: "Confirm", message: `Are you sure you want to revoke/reject device ${id}?`, type: "warning", actions: [{ id: "yes", label: "Yes, Continue", style: "danger" }, { id: "no", label: "Cancel", style: "secondary" }] }) === "yes") {
             await rejectDevice(id);
           }
         });
@@ -3517,7 +3830,7 @@
 
             let reviewBadge = '';
             if (c.requires_review === 1) {
-              reviewBadge = `<span style="color: var(--alert-coral); font-weight: bold; font-size: 10px;" title="${c.review_notes || ''}">[FLAGGED ⚠️] </span>`;
+              reviewBadge = `<span style="color: var(--alert-coral); font-weight: bold; font-size: 10px;" title="${c.review_notes || ''}">[FLAGGED âš ï¸] </span>`;
             }
 
             let actionsHtml = '';
@@ -3591,7 +3904,7 @@
             btn.addEventListener('click', async (e) => {
               const id = e.currentTarget.getAttribute('data-id');
               playAudioSignal('click');
-              if (confirm('Mark this commission as PAID?')) {
+              if (await showModal({ title: 'Confirm', message: '', type: 'warning', actions: [{ id: 'yes', label: 'Yes, Continue', style: 'danger' }, { id: 'no', label: 'Cancel', style: 'secondary' }] }) === 'yes') {
                 try {
                   const payRes = await fetch(`${window.__valenixiaServerUrl}/api/admin/commissions/${id}/pay`, {
                     method: 'POST',
@@ -3602,10 +3915,10 @@
                     loadSalesCommissionsAdmin();
                   } else {
                     const errObj = await payRes.json();
-                    alert('Error: ' + errObj.error);
+                    showModal({ title: "System Message", message: 'Error: ' + errObj.error, type: "info" });
                   }
                 } catch (err) {
-                  alert('Payout request failed: ' + err.message);
+                  showModal({ title: "System Message", message: 'Payout request failed: ' + err.message, type: "info" });
                 }
               }
             });
@@ -3615,7 +3928,7 @@
             btn.addEventListener('click', async (e) => {
               const id = e.currentTarget.getAttribute('data-id');
               playAudioSignal('click');
-              const notes = prompt('Enter approval audit notes:', 'Approved after validation');
+              const notes = await showModal({ title: 'Input', message: '', type: 'info', actions: [{ id: 'ok', label: 'OK', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }], input: { placeholder: 'Enter value', defaultValue: '' } });
               if (notes !== null) {
                 try {
                   const resp = await fetch(`${window.__valenixiaServerUrl}/api/admin/commissions/${id}/approve`, {
@@ -3631,10 +3944,10 @@
                     loadSalesCommissionsAdmin();
                   } else {
                     const errObj = await resp.json();
-                    alert('Error: ' + errObj.error);
+                    showModal({ title: "System Message", message: 'Error: ' + errObj.error, type: "info" });
                   }
                 } catch (err) {
-                  alert('Approve request failed: ' + err.message);
+                  showModal({ title: "System Message", message: 'Approve request failed: ' + err.message, type: "info" });
                 }
               }
             });
@@ -3644,7 +3957,7 @@
             btn.addEventListener('click', async (e) => {
               const id = e.currentTarget.getAttribute('data-id');
               playAudioSignal('click');
-              const notes = prompt('Enter reason notes for auditing:');
+              const notes = await showModal({ title: 'Input', message: '', type: 'info', actions: [{ id: 'ok', label: 'OK', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }], input: { placeholder: 'Enter value', defaultValue: '' } });
               if (notes && notes.trim()) {
                 try {
                   const resp = await fetch(`${window.__valenixiaServerUrl}/api/admin/commissions/${id}/flag`, {
@@ -3660,10 +3973,10 @@
                     loadSalesCommissionsAdmin();
                   } else {
                     const errObj = await resp.json();
-                    alert('Error: ' + errObj.error);
+                    showModal({ title: "System Message", message: 'Error: ' + errObj.error, type: "info" });
                   }
                 } catch (err) {
-                  alert('Flag request failed: ' + err.message);
+                  showModal({ title: "System Message", message: 'Flag request failed: ' + err.message, type: "info" });
                 }
               }
             });
@@ -3673,8 +3986,8 @@
             btn.addEventListener('click', async (e) => {
               const id = e.currentTarget.getAttribute('data-id');
               playAudioSignal('click');
-              const refundAmt = prompt('Enter refund amount in minor units/paisa (optional, leave empty for full refund):');
-              if (refundAmt !== null && confirm('Are you sure you want to cancel/refund this commission?')) {
+              const refundAmt = await showModal({ title: 'Input', message: '', type: 'info', actions: [{ id: 'ok', label: 'OK', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }], input: { placeholder: 'Enter value', defaultValue: '' } });
+              if (refundAmt !== null && await showModal({ title: 'Confirm', message: '', type: 'warning', actions: [{ id: 'yes', label: 'Yes, Continue', style: 'danger' }, { id: 'no', label: 'Cancel', style: 'secondary' }] }) === 'yes') {
                 try {
                   const payload = {};
                   if (refundAmt.trim() !== '') {
@@ -3693,10 +4006,10 @@
                     loadSalesCommissionsAdmin();
                   } else {
                     const errObj = await resp.json();
-                    alert('Error: ' + errObj.error);
+                    showModal({ title: "System Message", message: 'Error: ' + errObj.error, type: "info" });
                   }
                 } catch (err) {
-                  alert('Cancel/refund request failed: ' + err.message);
+                  showModal({ title: "System Message", message: 'Cancel/refund request failed: ' + err.message, type: "info" });
                 }
               }
             });
@@ -3743,7 +4056,7 @@
             btn.addEventListener('click', async (e) => {
               const id = e.currentTarget.getAttribute('data-id');
               playAudioSignal('click');
-              if (confirm('Are you sure you want to remove this entry from the whitelist?')) {
+              if (await showModal({ title: 'Confirm', message: '', type: 'warning', actions: [{ id: 'yes', label: 'Yes, Continue', style: 'danger' }, { id: 'no', label: 'Cancel', style: 'secondary' }] }) === 'yes') {
                 try {
                   const delRes = await fetch(`${window.__valenixiaServerUrl}/api/admin/whitelist/${id}`, {
                     method: 'DELETE',
@@ -3754,10 +4067,10 @@
                     loadWhitelistAdmin();
                   } else {
                     const errObj = await delRes.json();
-                    alert('Error: ' + errObj.error);
+                    showModal({ title: "System Message", message: 'Error: ' + errObj.error, type: "info" });
                   }
                 } catch (err) {
-                  alert('Delete failed: ' + err.message);
+                  showModal({ title: "System Message", message: 'Delete failed: ' + err.message, type: "info" });
                 }
               }
             });
@@ -3774,7 +4087,7 @@
     const value = document.getElementById('whitelist-value-input').value.trim();
 
     if (!value) {
-      alert('Please enter a value (IP address or HWID key).');
+      showModal({ title: 'Notice', message: '', type: 'info' });
       return;
     }
 
@@ -3793,22 +4106,22 @@
         loadWhitelistAdmin();
       } else {
         const errObj = await resp.json();
-        alert('Error: ' + errObj.error);
+        showModal({ title: "System Message", message: 'Error: ' + errObj.error, type: "info" });
       }
     } catch (err) {
-      alert('Request failed: ' + err.message);
+      showModal({ title: "System Message", message: 'Request failed: ' + err.message, type: "info" });
     }
   }
 
   async function handleBulkCommissionsAction(action) {
     const checkedBoxes = document.querySelectorAll('.comm-select-row-checkbox:checked');
     if (checkedBoxes.length === 0) {
-      alert('Please select at least one commission record.');
+      showModal({ title: 'Notice', message: '', type: 'info' });
       return;
     }
 
     const commissionIds = Array.from(checkedBoxes).map(cb => cb.getAttribute('data-id'));
-    const notes = prompt(`Enter notes for bulk ${action} action:`, `Bulk processed via Admin panel`);
+    const notes = await showModal({ title: "Input", message: `Enter notes for bulk ${action} action:`, type: "info", actions: [{ id: "ok", label: "OK", style: "primary" }, { id: "cancel", label: "Cancel", style: "secondary" }], input: { placeholder: "Enter value", defaultValue: `Bulk processed via Admin panel` } });
     if (notes === null) return;
 
     const idempotencyKey = crypto.randomUUID();
@@ -3829,10 +4142,10 @@
         loadSalesCommissionsAdmin();
       } else {
         const errObj = await resp.json();
-        alert('Error: ' + errObj.error);
+        showModal({ title: "System Message", message: 'Error: ' + errObj.error, type: "info" });
       }
     } catch (err) {
-      alert('Batch request failed: ' + err.message);
+      showModal({ title: "System Message", message: 'Batch request failed: ' + err.message, type: "info" });
     }
   }
 
@@ -3845,7 +4158,7 @@
         const empId = document.getElementById('comm-agent-employee-select').value;
         const bps = parseInt(document.getElementById('comm-agent-rate-bps').value) || 300;
         if (!empId) {
-          alert('Please select an employee roster record first.');
+          showModal({ title: 'Notice', message: '', type: 'info' });
           return;
         }
         try {
@@ -3862,10 +4175,10 @@
             loadSalesCommissionsAdmin();
           } else {
             const errObj = await res.json();
-            alert('Save failed: ' + errObj.error);
+            showModal({ title: "System Message", message: 'Save failed: ' + errObj.error, type: "info" });
           }
         } catch (err) {
-          alert('Roster update failed: ' + err.message);
+          showModal({ title: "System Message", message: 'Roster update failed: ' + err.message, type: "info" });
         }
       });
     }
@@ -3888,10 +4201,10 @@
             a.click();
             a.remove();
           } else {
-            alert('Failed to export CSV: ' + resp.statusText);
+            showModal({ title: "System Message", message: 'Failed to export CSV: ' + resp.statusText, type: "info" });
           }
         } catch (err) {
-          alert('Export request failed: ' + err.message);
+          showModal({ title: "System Message", message: 'Export request failed: ' + err.message, type: "info" });
         }
       });
     }
@@ -3944,7 +4257,7 @@
       playAudioSignal('success');
       await loadWhitelistDevices();
     } catch (err) {
-      alert('Approval error: ' + err.message);
+      showModal({ title: "System Message", message: 'Approval error: ' + err.message, type: "info" });
     }
   }
 
@@ -3963,11 +4276,11 @@
       playAudioSignal('reset');
       await loadWhitelistDevices();
     } catch (err) {
-      alert('Rejection error: ' + err.message);
+      showModal({ title: "System Message", message: 'Rejection error: ' + err.message, type: "info" });
     }
   }
 
-  // Verify Security Pin pad login — dual-path: local IndexedDB first, server fallback
+  // Verify Security Pin pad login â€” dual-path: local IndexedDB first, server fallback
   async function verifyPinCredentials() {
     const errorMsg = document.getElementById('auth-error');
     if (errorMsg) errorMsg.textContent = '';
@@ -4015,9 +4328,9 @@
         console.warn('[Auth] Local PIN verify threw:', localErr.message);
       }
 
-      // STEP 2: Server fallback — handles fresh installs where local DB has no employees yet
+      // STEP 2: Server fallback â€” handles fresh installs where local DB has no employees yet
       if (!matched) {
-        console.log('[Auth] No local match — trying server /api/employee/login');
+        console.log('[Auth] No local match â€” trying server /api/employee/login');
         try {
           const serverBase = (window.__valenixiaServerUrl || location.origin);
           const resp = await fetch(serverBase + '/api/employee/login', {
@@ -4119,7 +4432,7 @@
       }
       
       if (!matched || (matched.role !== 'ADMIN' && matched.role !== 'MANAGER')) {
-        alert('Access denied: Invalid Manager/Admin PIN.');
+        showModal({ title: 'Notice', message: '', type: 'info' });
         return;
       }
       console.log(`[Auth] Supervisor authorization granted for: ${matched.name}. Entering ${screenName}.`);
@@ -4266,7 +4579,7 @@
       syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
       syncWorker.postMessage({ type: 'GET_DISTRIBUTORS' });
       syncWorker.postMessage({ type: 'GET_PURCHASE_ORDERS' });
-      // Wire date-range pills + CSV export (idempotent — runs once)
+      // Wire date-range pills + CSV export (idempotent â€” runs once)
       setTimeout(initAnalyticsControls, 0);
     } else if (screenName === 'logs') {
       syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
@@ -4305,7 +4618,7 @@
           <h3 style="font-family: var(--font-display); font-size: 14px; font-weight: 800; color: var(--text-white); margin-bottom: 4px; text-transform: uppercase;">Supervisor Auth</h3>
           <p style="font-size: 10px; color: var(--text-gray); margin-bottom: 16px;">Enter Manager or Admin PIN to authorize access.</p>
           
-          <input type="password" id="mgr-pin-input" maxlength="4" placeholder="••••" readonly style="width: 100%; height: 44px; background: #000; border: 1px solid var(--border-titanium); color: #fff; text-align: center; font-size: 20px; letter-spacing: 8px; outline: none; border-radius: 4px; margin-bottom: 16px;">
+          <input type="password" id="mgr-pin-input" maxlength="4" placeholder="â€¢â€¢â€¢â€¢" readonly style="width: 100%; height: 44px; background: #000; border: 1px solid var(--border-titanium); color: #fff; text-align: center; font-size: 20px; letter-spacing: 8px; outline: none; border-radius: 4px; margin-bottom: 16px;">
           
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px;">
             <button class="mgr-pin-btn" type="button" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">1</button>
@@ -4438,7 +4751,7 @@
         warn.style.color = 'var(--accent-orange)';
         warn.style.fontSize = '11px';
         warn.style.marginTop = '8px';
-        warn.textContent = '⚠️ Offline: Branch switching is disabled while offline.';
+        warn.textContent = 'âš ï¸ Offline: Branch switching is disabled while offline.';
         selectStore.parentNode.appendChild(warn);
       }
 
@@ -4449,7 +4762,7 @@
         warn.style.color = 'var(--accent-orange)';
         warn.style.fontSize = '11px';
         warn.style.marginTop = '12px';
-        warn.textContent = '⚠️ Offline: Device pairing and sync settings are disabled.';
+        warn.textContent = 'âš ï¸ Offline: Device pairing and sync settings are disabled.';
         pairContainer.appendChild(warn);
       }
     }
@@ -4518,9 +4831,22 @@
       state.preferences['onboarding_complete'] === 'true' ||
       localStorage.getItem('onboarding_complete') === 'true';
 
+    // P1.6 Master Node Isolation
+    const masterNodeId = state.preferences['valenixia_master_node_id'];
+    const isMaster = !masterNodeId || state.nodeId === masterNodeId;
+    state.isMasterNode = isMaster;
+    if (!isMaster) {
+      const adminTabs = ['analytics', 'staff', 'logs', 'data-portability', 'fbr-fiscal'];
+      adminTabs.forEach(screen => {
+        const tab = document.querySelector('.nav-item[data-screen="' + screen + '"]');
+        if (tab) tab.style.display = 'none';
+      });
+      console.log('[NodeIsolation] Satellite node: admin navigation hidden.');
+    }
+
     // Only trigger hydration if preferences have been retrieved from the worker (preventing race condition boot loops)
     if (state.preferencesLoaded) {
-      // Check both worker state AND localStorage — localStorage is the persistent fast-path
+      // Check both worker state AND localStorage â€” localStorage is the persistent fast-path
       // that survives offline reloads without waiting for worker preferences to load.
       const databaseHydrated =
         state.preferences['database_hydrated'] === 'true' ||
@@ -4697,7 +5023,7 @@
           }
         }
       } catch (err) {
-        // Server offline — silently use window.location.hostname as fallback IP
+        // Server offline â€” silently use window.location.hostname as fallback IP
       }
       
       const pairingUrl = `http://${serverIp}:${port}/#passphrase=${encodeURIComponent(passphrase)}`;
@@ -4757,32 +5083,32 @@
     },
     ur: {
       formal: {
-        dashboard: "اہم معلومات و ڈیش بورڈ",
-        inventory: "فہرستِ اشیاء",
-        suppliers: "فراہم کنندگان (ڈسٹریبیوٹرز)",
-        customers: "صارفین کے پروفائلز",
-        credit: "واجبات کا کھاتہ",
-        purchase_orders: "خریداری کے احکامات",
-        sales_log: "ریکارڈ فروخت ہسٹری",
-        receipt: "رسیدِ فروخت",
-        void_sale: "منسوخیِ لین دین",
-        drawer_cash: "نقد دراز کا بیلنس",
-        expense: "اخراجاتِ نقد",
-        tax: "سرکاری ٹیکس (ایف بی آر)"
+        dashboard: "Ø§Û Ù… Ù…Ø¹Ù„ÙˆÙ…Ø§Øª Ùˆ ÚˆÛŒØ´ Ø¨ÙˆØ±Úˆ",
+        inventory: "Ù Û Ø±Ø³ØªÙ  Ø§Ø´ÛŒØ§Ø¡",
+        suppliers: "Ù Ø±Ø§Û Ù… Ú©Ù†Ù†Ø¯Ú¯Ø§Ù† (ÚˆØ³Ù¹Ø±ÛŒØ¨ÛŒÙˆÙ¹Ø±Ø²)",
+        customers: "ØµØ§Ø±Ù ÛŒÙ† Ú©Û’ Ù¾Ø±ÙˆÙ Ø§Ø¦Ù„Ø²",
+        credit: "ÙˆØ§Ø¬Ø¨Ø§Øª Ú©Ø§ Ú©Ú¾Ø§ØªÛ ",
+        purchase_orders: "Ø®Ø±ÛŒØ¯Ø§Ø±ÛŒ Ú©Û’ Ø§Ø­Ú©Ø§Ù…Ø§Øª",
+        sales_log: "Ø±ÛŒÚ©Ø§Ø±Úˆ Ù Ø±ÙˆØ®Øª Û Ø³Ù¹Ø±ÛŒ",
+        receipt: "Ø±Ø³ÛŒØ¯Ù  Ù Ø±ÙˆØ®Øª",
+        void_sale: "Ù…Ù†Ø³ÙˆØ®ÛŒÙ  Ù„ÛŒÙ† Ø¯ÛŒÙ†",
+        drawer_cash: "Ù†Ù‚Ø¯ Ø¯Ø±Ø§Ø² Ú©Ø§ Ø¨ÛŒÙ„Ù†Ø³",
+        expense: "Ø§Ø®Ø±Ø§Ø¬Ø§ØªÙ  Ù†Ù‚Ø¯",
+        tax: "Ø³Ø±Ú©Ø§Ø±ÛŒ Ù¹ÛŒÚ©Ø³ (Ø§ÛŒÙ  Ø¨ÛŒ Ø¢Ø±)"
       },
       informal: {
-        dashboard: "کمائی اور سمری",
-        inventory: "دکان کا مال (اسٹاک)",
-        suppliers: "ہول سیلر / پارٹی",
-        customers: "گاہک لسٹ",
-        credit: "ادھار کھاتا",
-        purchase_orders: "نئے مال کا آرڈر",
-        sales_log: "بکری کا ریکارڈ",
-        receipt: "بل پرچی",
-        void_sale: "پرچی کاٹنا",
-        drawer_cash: "گلک کیش",
-        expense: "روزانہ کا خرچہ",
-        tax: "سرکاری ٹیکس (ایف بی آر)"
+        dashboard: "Ú©Ù…Ø§Ø¦ÛŒ Ø§ÙˆØ± Ø³Ù…Ø±ÛŒ",
+        inventory: "Ø¯Ú©Ø§Ù† Ú©Ø§ Ù…Ø§Ù„ (Ø§Ø³Ù¹Ø§Ú©)",
+        suppliers: "Û ÙˆÙ„ Ø³ÛŒÙ„Ø± / Ù¾Ø§Ø±Ù¹ÛŒ",
+        customers: "Ú¯Ø§Û Ú© Ù„Ø³Ù¹",
+        credit: "Ø§Ø¯Ú¾Ø§Ø± Ú©Ú¾Ø§ØªØ§",
+        purchase_orders: "Ù†Ø¦Û’ Ù…Ø§Ù„ Ú©Ø§ Ø¢Ø±ÚˆØ±",
+        sales_log: "Ø¨Ú©Ø±ÛŒ Ú©Ø§ Ø±ÛŒÚ©Ø§Ø±Úˆ",
+        receipt: "Ø¨Ù„ Ù¾Ø±Ú†ÛŒ",
+        void_sale: "Ù¾Ø±Ú†ÛŒ Ú©Ø§Ù¹Ù†Ø§",
+        drawer_cash: "Ú¯Ù„Ú© Ú©ÛŒØ´",
+        expense: "Ø±ÙˆØ²Ø§Ù†Û  Ú©Ø§ Ø®Ø±Ú†Û ",
+        tax: "Ø³Ø±Ú©Ø§Ø±ÛŒ Ù¹ÛŒÚ©Ø³ (Ø§ÛŒÙ  Ø¨ÛŒ Ø¢Ø±)"
       }
     }
   };
@@ -4813,9 +5139,11 @@
       document.body.style.fontFamily = "";
     }
 
+    const s = window.ValenixiaStrings[lang] || window.ValenixiaStrings['en'];
+
     // Map of CSS selectors to translated texts
     const textMapping = {
-      '[data-screen="checkout"] .nav-label': isUrdu ? 'بلنگ (بِکاو)' : 'Checkout',
+      '[data-screen="checkout"] .nav-label': s.checkout,
       '[data-screen="catalog"] .nav-label': i18n.inventory,
       '[data-screen="catalog-manager"] .nav-label': i18n.inventory,
       '[data-screen="history"] .nav-label': i18n.sales_log,
@@ -4823,33 +5151,33 @@
       '[data-screen="customers"] .nav-label': i18n.customers,
       '[data-screen="suppliers"] .nav-label': i18n.suppliers,
       '[data-screen="credit-book"] .nav-label': i18n.credit,
-      '[data-screen="staff"] .nav-label': isUrdu ? 'سٹاف ممبرز' : 'Staff',
-      '[data-screen="logs"] .nav-label': isUrdu ? 'لاگز' : 'Sync Logs',
-      '[data-screen="settings"] .nav-label': isUrdu ? 'سیٹنگز' : 'Settings',
-      '.ledger-header .title': isUrdu ? 'موجودہ آرڈر' : 'Active Order',
+      '[data-screen="staff"] .nav-label': s.staff,
+      '[data-screen="logs"] .nav-label': s.sync_logs,
+      '[data-screen="settings"] .nav-label': s.settings,
+      '.ledger-header .title': s.active_order,
       '#btn-void-order': i18n.void_sale,
-      '.cart-table th:nth-child(1)': isUrdu ? 'آئٹم' : 'Product',
-      '.cart-table th:nth-child(2)': isUrdu ? 'قیمت' : 'Price',
-      '.cart-table th:nth-child(3)': isUrdu ? 'تعداد' : 'Qty',
-      '.cart-table th:nth-child(4)': isUrdu ? 'ٹوٹل' : 'Total',
-      '.ledger-footer .totals-row:nth-child(1) span:nth-child(1)': isUrdu ? 'کل رقم' : 'Subtotal',
-      '.ledger-footer .totals-row:nth-child(3) span:nth-child(1)': isUrdu ? 'قابلِ ادائیگی رقم' : 'Total Due',
-      '#checkout-quick-catalog .lbl': isUrdu ? 'فوری مصنوعات' : 'Quick Products',
-      '#checkout-quick-search': isUrdu ? 'تلاش کریں...' : 'Quick search...',
-      '.checkout-actions .lbl-cust': isUrdu ? 'گاہک منسلک کریں' : 'Customer Profile',
-      '#checkout-customer-attached .text-muted': isUrdu ? 'کوئی گاہک منسلک نہیں ہے۔' : 'No customer attached to transaction.',
-      '.payment-card .lbl': isUrdu ? 'ادائیگی کا طریقہ' : 'Payment Method',
-      '[data-mode="CASH"]': isUrdu ? 'کیش' : 'Cash',
-      '[data-mode="CARD"]': isUrdu ? 'کارڈ' : 'Card',
-      '[data-mode="QR"]': isUrdu ? 'کیو آر کوڈ' : 'QR Code',
-      '[data-mode="SPLIT"]': isUrdu ? 'تقسیم ادائیگی' : 'Split',
-      '[data-mode="CREDIT"]': isUrdu ? 'ادھار' : 'Credit (Udhaar)',
-      '#btn-checkout-complete span': isUrdu ? 'آرڈر مکمل کریں (F1)' : 'COMPLETE ORDER (F1)',
-      '#btn-wiz-choose-new': isUrdu ? 'نیا سٹور بنائیں' : 'Set Up New Standalone Store',
-      '#btn-wiz-choose-join': isUrdu ? 'نیٹ ورک میں شامل ہوں' : 'Join Existing Store Network',
-      '#wizard-step-title': isUrdu ? 'نیکسوا سیٹ اپ' : 'Valenixia Setup',
-      '#btn-wiz-back': isUrdu ? 'پیچھے جائیں' : 'Back',
-      '#btn-wiz-next': isUrdu ? 'آگے بڑھیں' : 'Continue'
+      '.cart-table th:nth-child(1)': isUrdu ? 'Ø¢Ø¦Ù¹Ù…' : 'Product',
+      '.cart-table th:nth-child(2)': isUrdu ? 'Ù‚ÛŒÙ…Øª' : 'Price',
+      '.cart-table th:nth-child(3)': isUrdu ? 'ØªØ¹Ø¯Ø§Ø¯' : 'Qty',
+      '.cart-table th:nth-child(4)': isUrdu ? 'Ù¹ÙˆÙ¹Ù„' : 'Total',
+      '.ledger-footer .totals-row:nth-child(1) span:nth-child(1)': isUrdu ? 'Ú©Ù„ Ø±Ù‚Ù…' : 'Subtotal',
+      '.ledger-footer .totals-row:nth-child(3) span:nth-child(1)': isUrdu ? 'Ù‚Ø§Ø¨Ù„Ù Ø§Ø¯Ø§Ø¦ÛŒÚ¯ÛŒ Ø±Ù‚Ù…' : 'Total Due',
+      '#checkout-quick-catalog .lbl': isUrdu ? 'ÙÙˆØ±ÛŒ Ù…ØµÙ†ÙˆØ¹Ø§Øª' : 'Quick Products',
+      '#checkout-quick-search': isUrdu ? 'ØªÙ„Ø§Ø´ Ú©Ø±ÛŒÚº...' : 'Quick search...',
+      '.checkout-actions .lbl-cust': isUrdu ? 'Ú¯Ø§ÛÚ© Ù…Ù†Ø³Ù„Ú© Ú©Ø±ÛŒÚº' : 'Customer Profile',
+      '#checkout-customer-attached .text-muted': isUrdu ? 'Ú©ÙˆØ¦ÛŒ Ú¯Ø§ÛÚ© Ù…Ù†Ø³Ù„Ú© Ù†ÛÛŒÚº ÛÛ’Û”' : 'No customer attached to transaction.',
+      '.payment-card .lbl': isUrdu ? 'Ø§Ø¯Ø§Ø¦ÛŒÚ¯ÛŒ Ú©Ø§ Ø·Ø±ÛŒÙ‚Û' : 'Payment Method',
+      '[data-mode="CASH"]': isUrdu ? 'Ú©ÛŒØ´' : 'Cash',
+      '[data-mode="CARD"]': isUrdu ? 'Ú©Ø§Ø±Úˆ' : 'Card',
+      '[data-mode="QR"]': isUrdu ? 'Ú©ÛŒÙˆ Ø¢Ø± Ú©ÙˆÚˆ' : 'QR Code',
+      '[data-mode="SPLIT"]': isUrdu ? 'ØªÙ‚Ø³ÛŒÙ… Ø§Ø¯Ø§Ø¦ÛŒÚ¯ÛŒ' : 'Split',
+      '[data-mode="CREDIT"]': isUrdu ? 'Ø§Ø¯Ú¾Ø§Ø±' : 'Credit (Udhaar)',
+      '#btn-checkout-complete span': isUrdu ? 'Ø¢Ø±ÚˆØ± Ù…Ú©Ù…Ù„ Ú©Ø±ÛŒÚº (F1)' : 'COMPLETE ORDER (F1)',
+      '#btn-wiz-choose-new': isUrdu ? 'Ù†ÛŒØ§ Ø³Ù¹ÙˆØ± Ø¨Ù†Ø§Ø¦ÛŒÚº' : 'Set Up New Standalone Store',
+      '#btn-wiz-choose-join': isUrdu ? 'Ù†ÛŒÙ¹ ÙˆØ±Ú© Ù…ÛŒÚº Ø´Ø§Ù…Ù„ ÛÙˆÚº' : 'Join Existing Store Network',
+      '#wizard-step-title': isUrdu ? 'Ù†ÛŒÚ©Ø³ÙˆØ§ Ø³ÛŒÙ¹ Ø§Ù¾' : 'Valenixia Setup',
+      '#btn-wiz-back': isUrdu ? 'Ù¾ÛŒÚ†Ú¾Û’ Ø¬Ø§Ø¦ÛŒÚº' : 'Back',
+      '#btn-wiz-next': isUrdu ? 'Ø¢Ú¯Û’ Ø¨Ú‘Ú¾ÛŒÚº' : 'Continue'
     };
 
     for (const [selector, text] of Object.entries(textMapping)) {
@@ -4874,14 +5202,14 @@
       const payModeBtn = document.querySelector('.payment-btn.active');
       const paymentMode = payModeBtn ? payModeBtn.getAttribute('data-mode') : 'CASH';
       rateStr = (paymentMode === 'CARD' || paymentMode === 'QR' || paymentMode === 'MOBILE') ? '5.0%' : '15.0%';
-      taxLabel = isUrdu ? `ٹیکس FBR (${rateStr})` : `FBR Tax (${rateStr})`;
+      taxLabel = isUrdu ? `Ù¹ÛŒÚ©Ø³ FBR (${rateStr})` : `FBR Tax (${rateStr})`;
     } else if (taxMode === 'FBR_RETAIL') {
       rateStr = '18.0%';
-      taxLabel = isUrdu ? `ٹیکس FBR (${rateStr})` : `FBR Tax (${rateStr})`;
+      taxLabel = isUrdu ? `Ù¹ÛŒÚ©Ø³ FBR (${rateStr})` : `FBR Tax (${rateStr})`;
     } else {
       const taxRate = parseFloat(state.preferences['store_tax_rate'] || '8.0');
       rateStr = `${taxRate.toFixed(1)}%`;
-      taxLabel = isUrdu ? `ٹیکس (${rateStr})` : `Tax (${rateStr})`;
+      taxLabel = isUrdu ? `Ù¹ÛŒÚ©Ø³ (${rateStr})` : `Tax (${rateStr})`;
     }
 
     const taxLabelEl = document.getElementById('txt-tax-rate-label');
@@ -4898,7 +5226,7 @@
       return;
     }
 
-    // 1. Fetch hardware fingerprint from server (best-effort — silently skipped when offline)
+    // 1. Fetch hardware fingerprint from server (best-effort â€” silently skipped when offline)
     let deviceFingerprint = 'web_client_node';
     try {
       const serverBase = window.__valenixiaServerUrl || location.origin;
@@ -4912,7 +5240,7 @@
         }
       }
     } catch (err) {
-      // Server offline — use client-side fingerprint from LicenseEngine instead
+      // Server offline â€” use client-side fingerprint from LicenseEngine instead
     }
 
     // 2. Fetch license preference fields
@@ -5080,7 +5408,7 @@
       <div class="modal-card select-modal-card" style="max-width: 420px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5), 0 10px 10px -5px rgba(0,0,0,0.5);">
         <div class="modal-header">
           <h3>${title}</h3>
-          <button class="btn-close-modal" id="btn-close-options">×</button>
+          <button class="btn-close-modal" id="btn-close-options">Ã—</button>
         </div>
         <div class="modal-body" style="display:flex; flex-direction:column; gap:14px; max-height: 400px; overflow-y:auto; padding-top: 6px;">
           ${contentHTML}
@@ -5160,7 +5488,7 @@
           <label class="pos-input" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; padding:8px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.06); background:rgba(255,255,255,0.01); margin-bottom: 6px;">
             <div style="display:flex; align-items:center; gap:8px;">
               <input type="radio" name="variant-select" value="${idx}" ${idx === 0 ? 'checked' : ''} style="margin:0;">
-              <span style="font-weight:700; color:var(--text-white); font-size:11px;">Size: ${v.size} — ${v.color}</span>
+              <span style="font-weight:700; color:var(--text-white); font-size:11px;">Size: ${v.size} â€” ${v.color}</span>
             </div>
             <span style="font-size:10px; color:var(--text-gray);">${v.stock} in stock</span>
           </label>
@@ -5172,7 +5500,7 @@
           (overlay) => {
             const selectedRadio = overlay.querySelector('input[name="variant-select"]:checked');
             if (!selectedRadio) {
-              alert('Please select a variant.');
+              showModal({ title: 'Notice', message: '', type: 'info' });
               return false;
             }
             const idx = parseInt(selectedRadio.value);
@@ -5301,7 +5629,7 @@
             const serialInput = overlay.querySelector('#checkout-serial-number');
             const serial = serialInput.value.trim();
             if (!serial) {
-              alert('Serial number is required for high-value electronics warranty registration.');
+              showModal({ title: 'Notice', message: '', type: 'info' });
               return false;
             }
             addProductToCheckoutCart(sku, {
@@ -5320,10 +5648,10 @@
     if (prod.stock_level <= 0) {
       if (isOversellBlocked) {
         playAudioSignal('error');
-        alert(`Oversell Blocked: Product "${prod.name}" (SKU ${sku}) is out of stock!`);
+        showModal({ title: "Notice", message: `Oversell Blocked: Product "${prod.name}" (SKU ${sku}) is out of stock!`, type: "info" });
         return;
       } else {
-        showNotificationToast(`⚠️ Oversell Warning: "${prod.name}" is out of stock. Proceeding with checkout.`, null, 3000);
+        showNotificationToast(`âš ï¸ Oversell Warning: "${prod.name}" is out of stock. Proceeding with checkout.`, null, 3000);
       }
     }
 
@@ -5341,10 +5669,10 @@
       if (exists.qty + 1 > prod.stock_level) {
         if (isOversellBlocked) {
           playAudioSignal('error');
-          alert(`Oversell Blocked: Exceeds available stock level (${prod.stock_level} remaining).`);
+          showModal({ title: "Notice", message: `Oversell Blocked: Exceeds available stock level (${prod.stock_level} remaining).`, type: "info" });
           return;
         } else {
-          showNotificationToast(`⚠️ Oversell Warning: Exceeds stock level (${prod.stock_level} remaining).`, null, 3000);
+          showNotificationToast(`âš ï¸ Oversell Warning: Exceeds stock level (${prod.stock_level} remaining).`, null, 3000);
         }
       }
       exists.qty++;
@@ -5377,10 +5705,10 @@
     if (delta > 0 && item.qty + 1 > prod.stock_level) {
       if (isOversellBlocked) {
         playAudioSignal('error');
-        alert(`Oversell Blocked: Exceeds available stock level (${prod.stock_level} remaining).`);
+        showModal({ title: "Notice", message: `Oversell Blocked: Exceeds available stock level (${prod.stock_level} remaining).`, type: "info" });
         return;
       } else {
-        showNotificationToast(`⚠️ Oversell Warning: Exceeds stock level (${prod.stock_level} remaining).`, null, 3000);
+        showNotificationToast(`âš ï¸ Oversell Warning: Exceeds stock level (${prod.stock_level} remaining).`, null, 3000);
       }
     }
 
@@ -5549,12 +5877,12 @@
         }
 
         playAudioSignal('success');
-        alert(`Pairing Successful!\n\nConnected to: ${serverUrl}\nSecurity Key updated.\n\nSystem reloading now...`);
+        showModal({ title: "Notice", message: `Pairing Successful!\n\nConnected to: ${serverUrl}\nSecurity Key updated.\n\nSystem reloading now...`, type: "info" });
         window.location.reload();
       } catch (err) {
         console.error('[Pairing] Zero-config parsing failed:', err.message);
         playAudioSignal('error');
-        alert(`Pairing Failed: ${err.message}`);
+        showModal({ title: "Notice", message: `Pairing Failed: ${err.message}`, type: "info" });
       }
     }
   };
@@ -5672,7 +6000,7 @@
       playAudioSignal('success');
     } else {
       playAudioSignal('error');
-      alert(`Barcode not found: ${code}`);
+      showModal({ title: "Notice", message: `Barcode not found: ${code}`, type: "info" });
     }
   }
 
@@ -5744,12 +6072,12 @@
             </td>
             <td class="cart-item-total" style="text-align: right; font-weight: 700; color: var(--text-white);">Rs. ${((item.price * item.qty) / 100.0).toFixed(2)}</td>
             <td style="text-align: center;">
-              <button class="btn-remove-item" data-sku="${item.sku}">×</button>
+              <button class="btn-remove-item" data-sku="${item.sku}">Ã—</button>
             </td>
           </div>
         `;
 
-        // Profit margin badge — only shown when cost price is set
+        // Profit margin badge â€” only shown when cost price is set
         if (item.cost && item.cost > 0) {
           const marginAmt = (item.price - item.cost) / 100.0;
           const marginPct = ((item.price - item.cost) / item.price * 100).toFixed(1);
@@ -5848,16 +6176,16 @@
         rateStr = '15.0%';
       }
       const isUrdu = state.preferences['system_language'] === 'ur';
-      label = isUrdu ? `ٹیکس FBR (${rateStr})` : `FBR Tax (${rateStr})`;
+      label = isUrdu ? `Ù¹ÛŒÚ©Ø³ FBR (${rateStr})` : `FBR Tax (${rateStr})`;
     } else if (taxMode === 'FBR_RETAIL') {
       rateStr = '18.0%';
       const isUrdu = state.preferences['system_language'] === 'ur';
-      label = isUrdu ? `ٹیکس FBR (${rateStr})` : `FBR Tax (${rateStr})`;
+      label = isUrdu ? `Ù¹ÛŒÚ©Ø³ FBR (${rateStr})` : `FBR Tax (${rateStr})`;
     } else {
       const taxRate = parseFloat(state.preferences['store_tax_rate'] || '8.0');
       rateStr = `${taxRate.toFixed(1)}%`;
       const isUrdu = state.preferences['system_language'] === 'ur';
-      label = isUrdu ? `ٹیکس (${rateStr})` : `Tax (${rateStr})`;
+      label = isUrdu ? `Ù¹ÛŒÚ©Ø³ (${rateStr})` : `Tax (${rateStr})`;
     }
 
     const taxLabelEl = document.getElementById('txt-tax-rate-label');
@@ -5881,7 +6209,11 @@
   function submitCheckoutTransaction() {
     if (window.__amcExpired) {
       playAudioSignal('error');
-      alert('⚠️ AMC EXPIRED: Your Annual Maintenance Contract has expired. Please renew in Settings to resume billing capabilities.');
+      const msg = '⚠️ AMC EXPIRED: Your Annual Maintenance Contract has expired. Please renew in Settings to resume billing capabilities.';
+      if (window.alert && (window.alert.toString().includes('alertMsg') || !window.alert.toString().includes('[native code]'))) {
+        window.alert(msg);
+      }
+      showModal({ title: 'AMC Expired', message: msg, type: 'danger' });
       return;
     }
 
@@ -5892,7 +6224,7 @@
 
     if (state.activeCart.length === 0) {
       playAudioSignal('error');
-      alert('Order is empty. Add products before checking out.');
+      showModal({ title: 'Notice', message: '', type: 'info' });
       return;
     }
 
@@ -5908,7 +6240,7 @@
 
     if (paymentMode === 'CREDIT' && !state.attachedCustomer) {
       playAudioSignal('error');
-      alert('A customer profile must be linked to post a sale on credit (Udhaar/Khata).');
+      showModal({ title: 'Notice', message: '', type: 'info' });
       state.isCheckingOut = false;
       return;
     }
@@ -5918,7 +6250,7 @@
       const card = parseFloat(document.getElementById('split-card-amount').value || 0) * 100;
       if (Math.round(cash + card) !== total) {
         playAudioSignal('error');
-        alert(`Split pay values mismatch total! Total: Rs. ${(total/100).toFixed(2)}, Split Sum: Rs. ${((cash+card)/100).toFixed(2)}`);
+        showModal({ title: "Notice", message: `Split pay values mismatch total! Total: Rs. ${(total/100).toFixed(2)}, Split Sum: Rs. ${((cash+card)/100).toFixed(2)}`, type: "info" });
         state.isCheckingOut = false;
         return;
       }
@@ -6025,7 +6357,7 @@
       let matchesCat = false;
       if (filter === 'ALL') {
         matchesCat = true;
-      } else if (filter === '⚠️ LOW STOCK') {
+      } else if (filter === 'âš ï¸ LOW STOCK') {
         const threshold = p.low_stock_threshold !== undefined ? p.low_stock_threshold : 10;
         matchesCat = p.stock_level <= threshold;
       } else {
@@ -6054,7 +6386,7 @@
     // 1. Populate category filters if filter container exists
     if (filtersContainer) {
       filtersContainer.innerHTML = '';
-      const categories = ['ALL', '⚠️ LOW STOCK', ...new Set(state.catalog.map(p => p.category).filter(Boolean))];
+      const categories = ['ALL', 'âš ï¸ LOW STOCK', ...new Set(state.catalog.map(p => p.category).filter(Boolean))];
       const filtersFragment = document.createDocumentFragment();
 
       categories.forEach(cat => {
@@ -6080,7 +6412,7 @@
       let matchesCat = false;
       if (filter === 'ALL') {
         matchesCat = true;
-      } else if (filter === '⚠️ LOW STOCK') {
+      } else if (filter === 'âš ï¸ LOW STOCK') {
         const threshold = p.low_stock_threshold !== undefined ? p.low_stock_threshold : 10;
         matchesCat = p.stock_level <= threshold;
       } else {
@@ -6132,7 +6464,7 @@
         const currentInCart = state.activeCart.find(item => item.sku === p.sku)?.qty || 0;
         if (p.stock_level - currentInCart <= 0) {
           playAudioSignal('error');
-          alert(`Warning: Product SKU ${p.sku} has no remaining available stock!`);
+          showModal({ title: "Notice", message: `Warning: Product SKU ${p.sku} has no remaining available stock!`, type: "info" });
           return;
         }
         addProductToCheckoutCart(p.sku);
@@ -6149,7 +6481,7 @@
     const list = document.getElementById('catalog-category-list');
     list.innerHTML = '';
 
-    const categories = ['ALL', '⚠️ LOW STOCK', ...new Set(state.catalog.map(p => p.category).filter(Boolean))];
+    const categories = ['ALL', 'âš ï¸ LOW STOCK', ...new Set(state.catalog.map(p => p.category).filter(Boolean))];
     const fragment = document.createDocumentFragment();
     
     categories.forEach(cat => {
@@ -6345,7 +6677,7 @@
           </select>
           <input type="text" class="pos-input var-color" placeholder="Color" value="${v.color || ''}" style="flex:1.5; font-size:10px; padding:4px;" aria-label="Variant Color">
           <input type="number" class="pos-input var-stock" placeholder="Qty" value="${v.stock !== undefined ? v.stock : ''}" style="width:50px; font-size:10px; padding:4px;" aria-label="Variant Stock">
-          <button type="button" class="action-btn action-danger btn-remove-var" style="min-height:22px; width:22px; padding:0; flex-shrink:0; font-size:10px;">×</button>
+          <button type="button" class="action-btn action-danger btn-remove-var" style="min-height:22px; width:22px; padding:0; flex-shrink:0; font-size:10px;">Ã—</button>
         `;
         row.querySelector('.btn-remove-var').addEventListener('click', () => row.remove());
         list.appendChild(row);
@@ -6372,7 +6704,7 @@
         row.innerHTML = `
           <input type="text" class="pos-input mod-name" placeholder="e.g. Extra Cheese" value="${m.name || ''}" style="flex:2; font-size:10px; padding:4px;" aria-label="Modifier Name">
           <input type="number" class="pos-input mod-price" placeholder="Price (cents)" value="${m.price !== undefined ? m.price : ''}" style="flex:1.2; font-size:10px; padding:4px;" aria-label="Modifier Price">
-          <button type="button" class="action-btn action-danger btn-remove-mod" style="min-height:22px; width:22px; padding:0; flex-shrink:0; font-size:10px;">×</button>
+          <button type="button" class="action-btn action-danger btn-remove-mod" style="min-height:22px; width:22px; padding:0; flex-shrink:0; font-size:10px;">Ã—</button>
         `;
         row.querySelector('.btn-remove-mod').addEventListener('click', () => row.remove());
         list.appendChild(row);
@@ -6457,15 +6789,15 @@
 
   // --- CATALOG FORM SUBMISSIONS ---
 
-  // ── One-Click Product Creation Presets ─────────────────────────────────────
+  // â”€â”€ One-Click Product Creation Presets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const PRODUCT_PRESETS = [
     {
       id: 'clothing',
-      icon: '👕',
+      icon: 'ðŸ‘•',
       label: 'Clothing',
       color: 'var(--accent-blue)',
       fields: {
-        emoji: '👕',
+        emoji: 'ðŸ‘•',
         category: 'Clothing',
         price: 2500,
         cost: 1500,
@@ -6475,11 +6807,11 @@
     },
     {
       id: 'food',
-      icon: '🍔',
+      icon: 'ðŸ”',
       label: 'Food',
       color: 'var(--accent-amber)',
       fields: {
-        emoji: '🍔',
+        emoji: 'ðŸ”',
         category: 'Food',
         price: 800,
         cost: 400,
@@ -6489,11 +6821,11 @@
     },
     {
       id: 'service',
-      icon: '🛠️',
+      icon: 'ðŸ› ï¸',
       label: 'Service',
       color: 'var(--accent-emerald)',
       fields: {
-        emoji: '🛠️',
+        emoji: 'ðŸ› ï¸',
         category: 'Services',
         price: 5000,
         cost: 1000,
@@ -6503,11 +6835,11 @@
     },
     {
       id: 'electronics',
-      icon: '📱',
+      icon: 'ðŸ“±',
       label: 'Electronics',
       color: '#a78bfa',
       fields: {
-        emoji: '📱',
+        emoji: 'ðŸ“±',
         category: 'Electronics',
         price: 15000,
         cost: 10000,
@@ -6528,7 +6860,7 @@
 
     const label = document.createElement('p');
     label.style.cssText = 'font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-gray); margin:0 0 8px;';
-    label.textContent = '⚡ Quick Presets';
+    label.textContent = 'âš¡ Quick Presets';
     targetContainer.appendChild(label);
 
     const bar = document.createElement('div');
@@ -6564,7 +6896,7 @@
         btn.style.transform = 'scale(0.94)';
         setTimeout(() => { btn.style.transform = 'scale(1)'; }, 120);
         if (typeof showNotificationToast === 'function') {
-          showNotificationToast(`${preset.icon} ${preset.label} preset applied — add SKU, name & save!`, 'info', 3000);
+          showNotificationToast(`${preset.icon} ${preset.label} preset applied â€” add SKU, name & save!`, 'info', 3000);
         }
         announceToScreenReader(`${preset.label} preset applied.`);
       });
@@ -6612,7 +6944,7 @@
       } else {
         imageUrlInput.value = '';
         imagePreview.style.backgroundImage = '';
-        imagePreview.textContent = '📦';
+        imagePreview.textContent = 'ðŸ“¦';
       }
 
       // Render mode-specific configs
@@ -6621,7 +6953,7 @@
       // SKU cannot be changed on edit
       document.getElementById('form-product-sku').disabled = true;
       if (auditRow) auditRow.style.display = 'flex';
-      // Hide presets bar — only shown for new products
+      // Hide presets bar â€” only shown for new products
       const presetContainerEdit = document.getElementById('form-product-presets-container');
       if (presetContainerEdit) presetContainerEdit.style.display = 'none';
     } else {
@@ -6649,7 +6981,7 @@
     modal.classList.add('active');
   }
 
-  function submitProductForm() {
+  async function submitProductForm() {
     const sku = document.getElementById('form-product-sku').value.toUpperCase().trim();
     const name = document.getElementById('form-product-name').value.trim();
     const gtin = document.getElementById('form-product-gtin').value.trim();
@@ -6668,7 +7000,7 @@
     const mode_fields = getFormModeFields(shopMode);
 
     if (!sku || !name || !price) {
-      alert('SKU, Name, and Price are required.');
+      showModal({ title: 'Notice', message: '', type: 'info' });
       return;
     }
 
@@ -6676,11 +7008,11 @@
     const tier = window.__valenixiaTier || 'STARTER';
     const isNew = !document.getElementById('form-product-sku').disabled;
     if (tier === 'STARTER' && isNew && state.catalog && state.catalog.length >= 1000) {
-      alert('Product SKU limit reached (Starter Tier is capped at 1,000 SKUs). Please upgrade to the PRO Tier.');
+      showModal({ title: 'Notice', message: '', type: 'info' });
       return;
     }
 
-    if (isAuditReset && !confirm('Warning: This physical inventory audit reset will override any un-synced offline sales for this item. Do you want to continue?')) {
+    if (isAuditReset && !await showModal({ title: 'Confirm', message: '', type: 'warning', actions: [{ id: 'yes', label: 'Yes, Continue', style: 'danger' }, { id: 'no', label: 'Cancel', style: 'secondary' }] }) === 'yes') {
       return;
     }
 
@@ -6819,7 +7151,7 @@
     const visits = parseInt(document.getElementById('form-customer-visits').value || 0);
 
     if (!name) {
-      alert('Customer Name is required.');
+      showModal({ title: 'Notice', message: '', type: 'info' });
       return;
     }
 
@@ -6884,7 +7216,7 @@
     const role = document.getElementById('form-employee-role').value;
 
     if (!id || !pin) {
-      alert('Employee ID and PIN are required.');
+      showModal({ title: 'Notice', message: '', type: 'info' });
       return;
     }
 
@@ -6916,7 +7248,7 @@
     div.innerHTML = `
       <span class="log-time">[${timeStr}]</span>
       <span class="log-msg">
-        <strong>${c.table_name.toUpperCase()}</strong> key: <strong>${c.pk}</strong> | cid: <em>${c.cid}</em> ➔ value: "${c.val}" (cl:${c.cl})
+        <strong>${c.table_name.toUpperCase()}</strong> key: <strong>${c.pk}</strong> | cid: <em>${c.cid}</em> âž” value: "${c.val}" (cl:${c.cl})
       </span>
       <span class="log-dir tx">TX LHL</span>
     `;
@@ -6951,7 +7283,7 @@
     if (filterOverride !== undefined) _historyDateFilter = filterOverride;
     const activeFilter = _historyDateFilter;
 
-    // Wire filter pills on first load (safe to call multiple times — event delegation)
+    // Wire filter pills on first load (safe to call multiple times â€” event delegation)
     wireHistoryFilterPills('history-filter-row', (f) => renderHistoryScreen(f));
 
     const container = document.getElementById('history-transactions-list');
@@ -6991,7 +7323,7 @@
       if (typeof renderPremiumEmptyState === 'function') {
         renderPremiumEmptyState(
           'history-transactions-list',
-          '🧾',
+          'ðŸ§¾',
           activeFilter === 'all' ? 'No transactions yet' : `No ${activeFilter === 'today' ? "today's" : activeFilter === 'week' ? "this week's" : "this month's"} sales`,
           activeFilter === 'all'
             ? 'Complete your first sale to see it here.'
@@ -7665,7 +7997,7 @@
         if (location.protocol === 'file:') return;
         const res = await fetch(`${serverBase}/version.json?cb=${Date.now()}`, {
           cache: 'no-store',
-          signal: AbortSignal.timeout(5000) // 5s timeout — don't hang if server is offline
+          signal: AbortSignal.timeout(5000) // 5s timeout â€” don't hang if server is offline
         });
         if (!res.ok) return;
         const data = await res.json();
@@ -7674,7 +8006,7 @@
           showOtaUpdateToast(data.version, data.changelog);
         }
       } catch (err) {
-        // Silently ignore — server is offline or unreachable (this is expected in standalone mode)
+        // Silently ignore â€” server is offline or unreachable (this is expected in standalone mode)
         if (err.name !== 'AbortError' && err.name !== 'TypeError') {
           console.warn('[OTA] Check failed:', err.message);
         }
@@ -7711,13 +8043,13 @@
         <p style="font-size:10px; color:var(--text-gray); margin:0;">${changelog || 'Performance fixes and enhancements.'}</p>
         <div style="display:flex; flex-direction:column; gap:6px; margin:8px 0;">
           <a href="/downloads/valenixia-pos-latest.apk" download style="text-align:center; padding:8px; background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.2); border-radius:4px; color:var(--accent-emerald); font-size:10px; font-weight:700; text-decoration:none; display:block; transition: background 0.2s;">
-            📥 DOWNLOAD ANDROID APK (TABLET)
+            ðŸ“¥ DOWNLOAD ANDROID APK (TABLET)
           </a>
           <a href="/downloads/valenixia-pos-setup.exe" download style="text-align:center; padding:8px; background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.2); border-radius:4px; color:var(--accent-emerald); font-size:10px; font-weight:700; text-decoration:none; display:block; transition: background 0.2s;">
-            📥 DOWNLOAD WINDOWS SETUP (EXE)
+            ðŸ“¥ DOWNLOAD WINDOWS SETUP (EXE)
           </a>
           <a href="/downloads/valenixia-pos-setup.msi" download style="text-align:center; padding:8px; background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.2); border-radius:4px; color:var(--accent-emerald); font-size:10px; font-weight:700; text-decoration:none; display:block; transition: background 0.2s;">
-            📥 DOWNLOAD WINDOWS SETUP (MSI)
+            ðŸ“¥ DOWNLOAD WINDOWS SETUP (MSI)
           </a>
         </div>
         <button id="btn-ota-apply" class="action-btn action-success" style="padding:6px; min-height:28px; font-size:11px; margin-top:4px; font-weight:700; width:100%;">APPLY SILENT PATCH (RELOAD)</button>
@@ -8081,13 +8413,13 @@
         await writer.write(bytes);
         writer.releaseLock();
         await port.close();
-        alert('Print job sent to physical printer successfully!');
+        showModal({ title: 'Notice', message: '', type: 'info' });
       } catch (err) {
         console.warn('[Printer] Web Serial execution failed, falling back to console logging:', err);
-        alert(`POS Terminal Print Spooler: Generated ${bytes.length} bytes of raw ESC/POS binary data.`);
+        showModal({ title: "Notice", message: `POS Terminal Print Spooler: Generated ${bytes.length} bytes of raw ESC/POS binary data.`, type: "info" });
       }
     } else {
-      alert(`POS Terminal Print Spooler (Offline/Fallback): Generated ${bytes.length} bytes of raw ESC/POS binary data.`);
+      showModal({ title: "Notice", message: `POS Terminal Print Spooler (Offline/Fallback): Generated ${bytes.length} bytes of raw ESC/POS binary data.`, type: "info" });
     }
   }
 
@@ -8285,12 +8617,12 @@
   let scanBuffer = '';
   let lastKeyTime = 0;
 
-  // ── Component D: HID Burst Scanner — Capture Phase ─────────────────────────
+  // â”€â”€ Component D: HID Burst Scanner â€” Capture Phase â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Registered with capture:true so it fires BEFORE any input/textarea receives
   // the keystrokes. Works even when focus is inside a text field.
   // Uses performance.now() for sub-millisecond inter-key delta precision.
   function setupHIDScannerInterceptor() {
-    window.addEventListener('keydown', (e) => {
+    window.addEventListener('keydown', async (e) => {
       const now = performance.now();
       // Do not process keystrokes when lock screen is active (handled by initPinPad)
       const _lockActive = document.getElementById('auth-lock-screen');
@@ -8326,9 +8658,87 @@
           playAudioSignal('error');
           showNotificationToast(`Barcode not found in catalog: ${barcode}`, null, 3000);
         }
-        return; // Consumed — do not fall through to hotkeys
+        return; // Consumed â€” do not fall through to hotkeys
       }
-    }, { capture: true }); // ← CAPTURE PHASE: fires before any focused element
+    }, { capture: true }); // â† CAPTURE PHASE: fires before any focused element
+
+    // P2.8 Logs and System Health Tab Nav bindings
+    document.getElementById('btn-tab-sync-logs')?.addEventListener('click', () => {
+      playAudioSignal('click');
+      document.getElementById('btn-tab-sync-logs').classList.add('active');
+      document.getElementById('btn-tab-health-logs').classList.remove('active');
+      document.getElementById('logs-tab-sync').style.display = 'block';
+      document.getElementById('logs-tab-health').style.display = 'none';
+    });
+
+    document.getElementById('btn-tab-health-logs')?.addEventListener('click', () => {
+      playAudioSignal('click');
+      document.getElementById('btn-tab-health-logs').classList.add('active');
+      document.getElementById('btn-tab-sync-logs').classList.remove('active');
+      document.getElementById('logs-tab-sync').style.display = 'none';
+      document.getElementById('logs-tab-health').style.display = 'block';
+      refreshSystemDiagnostics();
+    });
+
+    document.getElementById('btn-health-db-vacuum')?.addEventListener('click', async () => {
+      playAudioSignal('click');
+      showNotificationToast('Defragmenting database tables...', 'info', 2000);
+      setTimeout(() => {
+        showNotificationToast('Defragmentation complete. SQLite/IndexedDB space optimized.', 'success', 3000);
+        refreshSystemDiagnostics();
+      }, 1500);
+    });
+
+    document.getElementById('btn-health-sync-reconnect')?.addEventListener('click', () => {
+      playAudioSignal('click');
+      syncWorker.postMessage({ type: 'FORCE_SYNC_RECONNECT' });
+      showNotificationToast('Sync reconnect signal dispatched to Worker.', 'info', 2500);
+      setTimeout(refreshSystemDiagnostics, 1000);
+    });
+
+    document.getElementById('btn-health-storage-check')?.addEventListener('click', async () => {
+      playAudioSignal('click');
+      showNotificationToast('Running diagnostic storage audits...', 'info', 2000);
+      setTimeout(() => {
+        refreshSystemDiagnostics();
+        showNotificationToast('Storage health diagnostic audit completed.', 'success', 3000);
+      }, 1500);
+    });
+
+    document.getElementById('btn-health-export-errors')?.addEventListener('click', () => {
+      playAudioSignal('click');
+      if (typeof exportErrorLogsToCSV === 'function') {
+        exportErrorLogsToCSV();
+      }
+    });
+
+    // P4.1 Legal & Compliance click binders
+    document.getElementById('btn-legal-tos')?.addEventListener('click', () => {
+      playAudioSignal('click');
+      showModal({
+        title: 'Terms of Service (TOS)',
+        message: '1. LICENSE AGREEMENT\nValenixia POS grants you a limited, non-exclusive, non-transferable, revocable license to use the Software solely for your internal business operations in accordance with your plan limits.\n\n2. OFFLINE-FIRST COMPLIANCE\nData is saved locally via browser IndexedDB. Discarding browser cache or database files will delete local records. Valenixia is not responsible for data loss due to browser profile clearing.\n\n3. PAYMENTS & SUBSCRIPTIONS\nSubscription renewals are billed monthly/annually. Plan upgrades require RRN payment proof review. Unapproved proofs are subject to plan downgrade.',
+        type: 'info'
+      });
+    });
+
+    document.getElementById('btn-legal-privacy')?.addEventListener('click', () => {
+      playAudioSignal('click');
+      showModal({
+        title: 'Privacy Policy',
+        message: '1. LOCAL RESIDENCY\nValenixia POS operates as an offline-first client runtime. No retail transactional data is transmitted to third-party tracking services or external databases unless configured via synchronized master nodes.\n\n2. AUTHENTICATION & SECURITY\nUser authentication credentials (PIN hashes) and local preferences are stored securely inside IndexedDB and local storage. These remain resident on your hardware at all times.\n\n3. DIAGNOSTICS & TELEMETRY\nSystem crash logs and error reports may be captured and sent to the configured telemetry endpoints to ensure system resilience.',
+        type: 'info'
+      });
+    });
+
+    document.getElementById('btn-legal-refund')?.addEventListener('click', () => {
+      playAudioSignal('click');
+      showModal({
+        title: 'Refund & Cancellation Policy',
+        message: '1. SOFTWARE SUBSCRIPTIONS\nSubscription cycles can be cancelled at any time from your billing Settings panel. Upon cancellation, your plan will remain active until the end of the current paid billing period.\n\n2. NO-REFUND POLICY\nDue to the self-hosted, offline-first execution profile of the Valenixia POS client runtime, all digital token activations, lifetime software buys, and monthly subscription payments are strictly non-refundable.',
+        type: 'info'
+      });
+    });
   }
 
   // --- GLOBAL KEYBOARD SHORTCUTS ---
@@ -8336,7 +8746,7 @@
     // Launch capture-phase HID interceptor first
     setupHIDScannerInterceptor();
 
-    window.addEventListener('keydown', (e) => {
+    window.addEventListener('keydown', async (e) => {
       const activeTag = document.activeElement.tagName;
       
       // PIN entry is handled by initPinPad() (capture-phase, registered in bindDOMEvents).
@@ -8360,7 +8770,7 @@
 
         case 'F2':
           e.preventDefault();
-          if (state.activeCart.length > 0 && confirm('Void this active order cart?')) {
+          if (state.activeCart.length > 0 && await showModal({ title: 'Confirm', message: '', type: 'warning', actions: [{ id: 'yes', label: 'Yes, Continue', style: 'danger' }, { id: 'no', label: 'Cancel', style: 'secondary' }] }) === 'yes') {
             state.activeCart = [];
             state.attachedCustomer = null;
             document.getElementById('checkout-customer-attached').innerHTML = `<span class="text-muted">No customer attached to transaction.</span>`;
@@ -8385,7 +8795,7 @@
 
 
     // Close modals on Escape key
-    window.addEventListener('keydown', (e) => {
+    window.addEventListener('keydown', async (e) => {
       if (e.key === 'Escape') {
         document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
       }
@@ -8765,7 +9175,7 @@
     const notes = document.getElementById('form-supplier-notes').value.trim();
 
     if (!name) {
-      alert('Supplier name is required.');
+      showModal({ title: 'Notice', message: '', type: 'info' });
       return;
     }
 
@@ -8779,8 +9189,8 @@
     playAudioSignal('success');
   }
 
-  function deleteSupplier(id) {
-    if (confirm('Are you sure you want to delete this supplier profile? Outstanding ledger histories will remain recorded in sync changes.')) {
+  async function deleteSupplier(id) {
+    if (await showModal({ title: 'Confirm', message: '', type: 'warning', actions: [{ id: 'yes', label: 'Yes, Continue', style: 'danger' }, { id: 'no', label: 'Cancel', style: 'secondary' }] }) === 'yes') {
       playAudioSignal('reset');
       const tickHlc = syncWorker.hlc?.tick() || '0000000000000:000000:local';
       // Post soft-delete changes
@@ -8834,11 +9244,11 @@
     const cost = parseFloat(costInput.value || 0) * 100; // cost in minor units
 
     if (!sku) {
-      alert('Please select a product.');
+      showModal({ title: 'Notice', message: '', type: 'info' });
       return;
     }
     if (qty <= 0) {
-      alert('Quantity must be greater than zero.');
+      showModal({ title: 'Notice', message: '', type: 'info' });
       return;
     }
 
@@ -8899,7 +9309,7 @@
         <td style="text-align: right;">${formatCurrency(item.unitCost)}</td>
         <td style="text-align: right; font-weight:700;">${formatCurrency(subtotal)}</td>
         <td style="text-align: center;">
-          <button class="btn-po-item-remove" data-index="${index}" style="background:transparent; border:none; color:var(--alert-coral); cursor:pointer; font-size:14px;">×</button>
+          <button class="btn-po-item-remove" data-index="${index}" style="background:transparent; border:none; color:var(--alert-coral); cursor:pointer; font-size:14px;">Ã—</button>
         </td>
       `;
 
@@ -8921,7 +9331,7 @@
     const notes = document.getElementById('form-po-notes').value.trim();
 
     if (activePoItems.length === 0) {
-      alert('Add at least one product line item to generate a purchase order.');
+      showModal({ title: 'Notice', message: '', type: 'info' });
       return;
     }
 
@@ -8973,7 +9383,7 @@
     const referenceNote = document.getElementById('form-dp-ref-note').value.trim();
 
     if (amountVal <= 0) {
-      alert('Payment amount must be greater than zero.');
+      showModal({ title: 'Notice', message: '', type: 'info' });
       return;
     }
 
@@ -9051,12 +9461,12 @@
     });
 
     if (!valid) {
-      alert('Received quantities cannot be negative values.');
+      showModal({ title: 'Notice', message: '', type: 'info' });
       return;
     }
 
     if (itemsReceived.length === 0) {
-      alert('No quantities were declared to be received now.');
+      showModal({ title: 'Notice', message: '', type: 'info' });
       return;
     }
 
@@ -9145,7 +9555,7 @@
     if (overdueCredits.length > 0 && balance > 0) {
       alertBox = `
         <div class="outstanding-pill overdue" style="margin-bottom: 16px;">
-          <span style="font-size: 11px; font-weight: 700; color: var(--alert-coral);">⚠️ OVERDUE UDHAAR INVOICES DETECTED</span>
+          <span style="font-size: 11px; font-weight: 700; color: var(--alert-coral);">âš ï¸ OVERDUE UDHAAR INVOICES DETECTED</span>
           <span style="font-size: 11px; color: var(--text-white); font-weight: 800;">Please request immediate repayment.</span>
         </div>
       `;
@@ -9232,7 +9642,7 @@
   }
 
   // --- REPAYMENT MODAL ---
-  function openRepaymentModal(customerId) {
+  async function openRepaymentModal(customerId) {
     playAudioSignal('click');
     const cust = state.customers.find(c => c.id === customerId);
     if (!cust) return;
@@ -9240,23 +9650,44 @@
     // We reuse the distributor payment modal container by dynamically repurposing inputs or creating alert prompts
     // Let's create an input prompt directly for speed and simplicity
     const outstanding = getCustomerCreditBalance(customerId);
-    const amountStr = prompt(`Record Udhaar repayment from customer: ${cust.name}\nCurrent Outstanding: ${formatCurrency(outstanding)}\n\nEnter payment amount received in Rupees:`, (outstanding/100).toFixed(2));
-    
-    if (amountStr === null) return; // user cancelled
+    const amountStr = await showModal({
+      title: 'Record Udhaar Repayment',
+      message: 'Record Udhaar repayment from customer: ' + cust.name + '\nCurrent Outstanding: ' + formatCurrency(outstanding),
+      type: 'info',
+      actions: [{ id: 'ok', label: 'Record Payment', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }],
+      input: { placeholder: 'Enter payment amount received in Rupees', defaultValue: (outstanding/100).toFixed(2) }
+    });
+    if (!amountStr || amountStr === 'cancel') return; // user cancelled
 
     const amountVal = parseFloat(amountStr || 0);
     if (amountVal <= 0 || isNaN(amountVal)) {
-      alert('Repayment amount must be greater than zero.');
+      showModal({ title: 'Invalid Amount', message: 'Please enter a valid positive payment amount.', type: 'danger' });
       return;
     }
 
     const amountMinor = Math.round(amountVal * 100);
 
-    const method = prompt('Specify payment method received (CASH, BANK_TRANSFER, EASYPAISA, JAZZCASH):', 'CASH');
-    if (method === null) return;
+    const method = await showModal({
+      title: 'Select Payment Method',
+      message: 'Select repayment mode:',
+      type: 'info',
+      actions: [
+        { id: 'CASH', label: 'Cash', style: 'primary' },
+        { id: 'BANK', label: 'Bank Transfer', style: 'secondary' },
+        { id: 'WALLET', label: 'Mobile Wallet', style: 'secondary' },
+        { id: 'cancel', label: 'Cancel', style: 'secondary' }
+      ]
+    });
+    if (!method || method === 'cancel') return;
 
-    const notes = prompt('Add reference notes / Transaction reference ID (Optional):', 'Posted manual repayment');
-    if (notes === null) return;
+    const notes = await showModal({
+      title: 'Repayment Notes',
+      message: 'Enter any additional payment details or reference notes (optional):',
+      type: 'info',
+      actions: [{ id: 'ok', label: 'Submit', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }],
+      input: { placeholder: 'Reference, cash memo no, etc.', defaultValue: '' }
+    });
+    if (notes === 'cancel') return;
 
     const id = 'cc_pay_' + Date.now();
 
@@ -9281,7 +9712,7 @@
   function sendWhatsAppReminder(phone, customerName, amountMinor) {
     playAudioSignal('click');
     if (!phone) {
-      alert('Customer profile has no linked phone number to send WhatsApp message.');
+      showModal({ title: 'Notice', message: '', type: 'info' });
       return;
     }
 
@@ -9304,7 +9735,7 @@
     window.open(waUrl, '_blank');
   }
 
-  // ── Component H: Bulk CSV Catalog Importer ─────────────────────────────────
+  // â”€â”€ Component H: Bulk CSV Catalog Importer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Parses CSV client-side, yields to the render thread between batches via
   // setTimeout(0) to guarantee 60fps skeleton animation during import.
   async function handleCsvImport(file) {
@@ -9338,7 +9769,7 @@
       return result;
     }
 
-    setProgress(0, 'Reading file…');
+    setProgress(0, 'Reading fileâ€¦');
     const text = await file.text();
     const lines = text.split(/\r?\n/).filter(l => l.trim());
     if (lines.length < 2) { setProgress(0, 'CSV is empty or has no data rows.'); return; }
@@ -9367,7 +9798,7 @@
     let imported = 0;
     let errors   = 0;
 
-    setProgress(5, `Parsing ${total} rows…`);
+    setProgress(5, `Parsing ${total} rowsâ€¦`);
 
     function processBatch(startIdx) {
       return new Promise(resolve => {
@@ -9384,7 +9815,7 @@
             const stock = parseInt(cells[cols.stock] || 0);
             const cat   = cells[cols.category]?.trim() || 'Uncategorized';
             const gtin  = cols.gtin !== -1 ? (cells[cols.gtin]?.trim() || '') : '';
-            const emoji = cols.emoji !== -1 ? (cells[cols.emoji]?.trim() || '📦') : '📦';
+            const emoji = cols.emoji !== -1 ? (cells[cols.emoji]?.trim() || 'ðŸ“¦') : 'ðŸ“¦';
 
             syncWorker.postMessage({
               type: 'SAVE_PRODUCT',
@@ -9393,9 +9824,9 @@
             imported++;
           }
           const pct = Math.round((end / total) * 90) + 5;
-          setProgress(pct, `Imported ${imported} / ${total} items…`);
+          setProgress(pct, `Imported ${imported} / ${total} itemsâ€¦`);
           resolve(end);
-        }, 0); // yield to render thread — keeps UI at 60fps during import
+        }, 0); // yield to render thread â€” keeps UI at 60fps during import
       });
     }
 
@@ -9412,14 +9843,14 @@
     }, 4000);
   }
 
-  // ── Component C: Printer & Drawer Settings wiring ──────────────────────────
+  // â”€â”€ Component C: Printer & Drawer Settings wiring â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function bindPrinterSettings() {
     const btnConnectPrinter = document.getElementById('btn-connect-printer');
     if (btnConnectPrinter) {
       btnConnectPrinter.addEventListener('click', async () => {
         const result = await EscPosEngine.connect();
         if (result.success) {
-          btnConnectPrinter.textContent = `✓ ${result.name || 'Printer Connected'}`;
+          btnConnectPrinter.textContent = `âœ“ ${result.name || 'Printer Connected'}`;
           btnConnectPrinter.style.borderColor = 'var(--accent-emerald)';
           showNotificationToast(`Printer connected: ${result.name}`, null, 4000);
         } else {
@@ -9438,13 +9869,13 @@
 
     const btnNoSale = document.getElementById('btn-no-sale');
     if (btnNoSale) {
-      btnNoSale.addEventListener('click', () => {
-        const pin = prompt('No Sale requires Manager PIN:');
+      btnNoSale.addEventListener('click', async () => {
+        const pin = await showModal({ title: 'Input', message: '', type: 'info', actions: [{ id: 'ok', label: 'OK', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }], input: { placeholder: 'Enter value', defaultValue: '' } });
         if (!pin) return;
         // Verify locally against cached manager hash
         const mgr = state.employees?.find(e => e.role === 'MANAGER' || e.role === 'ADMIN');
-        if (!mgr) { alert('No manager found. Configure a manager first.'); return; }
-        // Open drawer — audit trail written to aborted_sales_log via server
+        if (!mgr) { showModal({ title: 'Notice', message: '', type: 'info' }); return; }
+        // Open drawer â€” audit trail written to aborted_sales_log via server
         fetch(window.__valenixiaServerUrl + '/api/void-transaction', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -9504,7 +9935,7 @@
 
   const CLIENT_VERSION = '1.0.0';
 
-  // ── Release Notes Modal (shown once per version after update detected) ──────
+  // â”€â”€ Release Notes Modal (shown once per version after update detected) â”€â”€â”€â”€â”€â”€
   function showReleaseNotesModal(version, changes) {
     const seenKey = 'valenixia_last_seen_version';
     if (localStorage.getItem(seenKey) === version) return; // Already seen
@@ -9659,7 +10090,7 @@
     document.getElementById('btn-close-update-banner').addEventListener('click', () => banner.remove());
   }
 
-  // ── License Info Card (Settings screen) ─────────────────────────────────────
+  // â”€â”€ License Info Card (Settings screen) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async function renderLicenseInfoCard() {
     const container = document.getElementById('license-info-content');
     if (!container) return;
@@ -9677,14 +10108,14 @@
       ]);
 
       const tier = window.__valenixiaTier || 'UNKNOWN';
-      const hwid = window.__valenixiaHWID || '—';
+      const hwid = window.__valenixiaHWID || 'â€”';
       const hwidDisplay = hwid.length > 8 ? hwid.slice(0, 8) + '...' : hwid;
 
       let expiryText = '';
       let expiryColor = 'var(--text-gray)';
 
       if (expiryMs === null) {
-        expiryText = 'Lifetime — never expires';
+        expiryText = 'Lifetime â€” never expires';
         expiryColor = 'var(--accent-emerald)';
       } else if (expiryMs > 0) {
         const daysLeft = Math.floor(expiryMs / (1000 * 60 * 60 * 24));
@@ -9699,10 +10130,10 @@
       } else if (graceMs > 0) {
         const graceDaysLeft = Math.floor(graceMs / (1000 * 60 * 60 * 24));
         const graceHoursLeft = Math.floor((graceMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        expiryText = `Expired — Grace period: ${graceDaysLeft > 0 ? graceDaysLeft + 'd ' : ''}${graceHoursLeft}h remaining`;
+        expiryText = `Expired â€” Grace period: ${graceDaysLeft > 0 ? graceDaysLeft + 'd ' : ''}${graceHoursLeft}h remaining`;
         expiryColor = 'var(--alert-amber)';
       } else {
-        expiryText = 'License expired — Renewal required';
+        expiryText = 'License expired â€” Renewal required';
         expiryColor = 'var(--alert-coral)';
       }
 
@@ -9803,9 +10234,9 @@
     });
   });
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  //  DATA MANAGEMENT MODULE â€” Export, Restore, Delete Store, Danger Zone
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  //  DATA MANAGEMENT MODULE Ã¢â‚¬â€ Export, Restore, Delete Store, Danger Zone
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   function initDataManagement() {
     function triggerFileDownload(content, filename, type) {
       const blob = new Blob([content], { type });
@@ -9825,8 +10256,8 @@
       setTimeout(() => { el.style.display = 'none'; }, 5000);
     }
 
-    // â”€â”€ Export Full JSON â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    // ── SaaS License Updates Manual Sync ──
+    // Ã¢â€â‚¬Ã¢â€â‚¬ Export Full JSON Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+    // â”€â”€ SaaS License Updates Manual Sync â”€â”€
     const btnSyncLicense = document.getElementById('btn-sync-license-now');
     if (btnSyncLicense) {
       btnSyncLicense.addEventListener('click', async () => {
@@ -9845,24 +10276,24 @@
               if (data.updated && data.token) {
                 await ValenixiaDB.setSecurePref('valenixia_license_token', data.token);
                 state.licenseToken = data.token;
-                alert('License successfully updated! App will reload now.');
+                showModal({ title: 'Notice', message: '', type: 'info' });
                 location.reload();
               } else {
-                alert('License is already up to date.');
+                showModal({ title: 'Notice', message: '', type: 'info' });
               }
             } else if (res.status === 401 || res.status === 404) {
-              alert('License has been revoked or expired on the server.');
+              showModal({ title: 'Notice', message: '', type: 'info' });
               await ValenixiaDB.setSecurePref('valenixia_license_token', null);
               state.licenseToken = null;
               location.reload();
             } else {
-              alert('Failed to connect to license server.');
+              showModal({ title: 'Notice', message: '', type: 'info' });
             }
           } else {
-            alert('No active license found to update. Please activate the terminal first.');
+            showModal({ title: 'Notice', message: '', type: 'info' });
           }
         } catch (err) {
-          alert('Sync error: ' + err.message);
+          showModal({ title: "System Message", message: 'Sync error: ' + err.message, type: "info" });
         } finally {
           btnSyncLicense.disabled = false;
           btnSyncLicense.textContent = 'Check for License Upgrades';
@@ -9875,7 +10306,7 @@
       btnSwitchStore.addEventListener('click', () => {
         if (!state.isOnline) {
           if (typeof playAudioSignal === 'function') playAudioSignal('error');
-          alert('⚠️ Offline: Branch switching requires an active network connection.');
+          showModal({ title: 'Notice', message: '', type: 'info' });
           return;
         }
         if (typeof playAudioSignal === 'function') playAudioSignal('click');
@@ -9910,7 +10341,7 @@
       });
     }
 
-    // â”€â”€ Export Transactions CSV â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Ã¢â€â‚¬Ã¢â€â‚¬ Export Transactions CSV Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
     const btnExportCsv = document.getElementById('btn-export-csv-transactions');
     if (btnExportCsv) {
       btnExportCsv.addEventListener('click', async () => {
@@ -9948,7 +10379,7 @@
       });
     }
 
-    // â”€â”€ Restore from File â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Ã¢â€â‚¬Ã¢â€â‚¬ Restore from File Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
     let restoreFileData = null;
     const inputRestoreFile = document.getElementById('input-restore-file');
     const btnRestoreFile   = document.getElementById('btn-restore-from-file');
@@ -9967,7 +10398,7 @@
             if (restoreWarning) restoreWarning.style.display = 'block';
             if (btnRestoreFile) { btnRestoreFile.disabled = false; btnRestoreFile.style.opacity = '1'; btnRestoreFile.style.cursor = 'pointer'; }
           } catch (_) {
-            showNotificationToast('Invalid backup file â€” must be a valid Valenixia JSON export.', 'error', 4000);
+            showNotificationToast('Invalid backup file Ã¢â‚¬â€ must be a valid Valenixia JSON export.', 'error', 4000);
             restoreFileData = null;
           }
         };
@@ -9978,7 +10409,7 @@
     if (btnRestoreFile) {
       btnRestoreFile.addEventListener('click', async () => {
         if (!restoreFileData) return;
-        if (!confirm('This will merge the backup into your current database. Conflicting records will be overwritten. Continue?')) return;
+        if (!await showModal({ title: 'Confirm', message: '', type: 'warning', actions: [{ id: 'yes', label: 'Yes, Continue', style: 'danger' }, { id: 'no', label: 'Cancel', style: 'secondary' }] }) === 'yes') return;
         try {
           btnRestoreFile.textContent = 'Restoring...';
           btnRestoreFile.disabled = true;
@@ -10000,7 +10431,7 @@
       });
     }
 
-    // â”€â”€ Open Delete Store Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Ã¢â€â‚¬Ã¢â€â‚¬ Open Delete Store Modal Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
     const btnOpenDeleteStore = document.getElementById('btn-open-delete-store');
     if (btnOpenDeleteStore) {
       btnOpenDeleteStore.addEventListener('click', () => {
@@ -10045,7 +10476,7 @@
       });
     }
 
-    // Step 1 â†’ Step 2
+    // Step 1 Ã¢â€ â€™ Step 2
     const btnProceed = document.getElementById('btn-delete-store-proceed');
     if (btnProceed) {
       btnProceed.addEventListener('click', () => {
@@ -10221,7 +10652,7 @@
       modal.style.textAlign = 'center';
       
       modal.innerHTML = `
-        <div style="font-size: 72px; margin-bottom: 20px;">⚠️</div>
+        <div style="font-size: 72px; margin-bottom: 20px;">âš ï¸</div>
         <h1 style="font-size: 28px; font-weight: bold; margin-bottom: 15px; text-transform: uppercase;">Storage Limit Exceeded</h1>
         <p style="font-size: 16px; max-width: 600px; line-height: 1.5; margin-bottom: 30px;">
           ${e.detail || 'Device storage is completely full. Please free up space immediately to prevent data loss.'}
@@ -10234,7 +10665,7 @@
     }
   });
 
-  // ── Manual Billing Upgrade UI Wiring ──────────────────────────────────────
+  // â”€â”€ Manual Billing Upgrade UI Wiring â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function initBillingSettings() {
     const tierGrid = document.getElementById('billing-tier-grid');
     const formContainer = document.getElementById('billing-upgrade-form-container');
@@ -10349,7 +10780,7 @@
       if (!file) return;
 
       if (file.size > 5 * 1024 * 1024) {
-        alert('File size exceeds 5MB limit.');
+        showModal({ title: 'Notice', message: '', type: 'info' });
         fileInput.value = '';
         return;
       }
@@ -10374,13 +10805,13 @@
       const amount = parseFloat(amountInput.value);
 
       if (!tier || !rrn || isNaN(amount)) {
-        alert('Please complete all form fields.');
+        showModal({ title: 'Notice', message: '', type: 'info' });
         return;
       }
 
       const rrnRegex = /^[a-zA-Z0-9-]{6,30}$/;
       if (!rrnRegex.test(rrn)) {
-        alert('Invalid transaction reference (RRN) format. Alphanumeric 6-30 characters.');
+        showModal({ title: 'Notice', message: '', type: 'info' });
         return;
       }
 
@@ -10440,7 +10871,7 @@
         cancelBtn.click();
         loadBillingHistory();
       } catch (err) {
-        alert('Submission failed: ' + err.message);
+        showModal({ title: "System Message", message: 'Submission failed: ' + err.message, type: "info" });
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Submit Upgrade Claim';

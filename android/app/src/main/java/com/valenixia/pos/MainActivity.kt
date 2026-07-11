@@ -356,6 +356,12 @@ class MainActivity : AppCompatActivity() {
                 Base64.decode(base64Payload, Base64.DEFAULT)
             } catch (e: Exception) {
                 Log.e("POSHardwareInterface", "Failed to decode base64 receipt payload: ${e.message}")
+                runOnUiThread {
+                    webView?.evaluateJavascript(
+                        "window.dispatchEvent(new CustomEvent('PRINT_ERROR', { detail: { message: 'Invalid print payload: ${e.message}' } }));",
+                        null
+                    )
+                }
                 return
             }
 
@@ -365,13 +371,22 @@ class MainActivity : AppCompatActivity() {
                     val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
                     if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {
                         Log.w("POSHardwareInterface", "Bluetooth adapter not available or disabled")
+                        runOnUiThread {
+                            webView?.evaluateJavascript(
+                                "window.dispatchEvent(new CustomEvent('PRINT_ERROR', { detail: { message: 'Bluetooth not available or disabled' } }));",
+                                null
+                            )
+                        }
                         return@thread
                     }
 
                     // Check BLUETOOTH_CONNECT permission on Android 12+
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
                         checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                        Log.w("POSHardwareInterface", "Missing BLUETOOTH_CONNECT permission")
+                        Log.w("POSHardwareInterface", "Missing BLUETOOTH_CONNECT permission, requesting...")
+                        runOnUiThread {
+                            requestPermissions(arrayOf(android.Manifest.permission.BLUETOOTH_CONNECT, android.Manifest.permission.BLUETOOTH_SCAN), 101)
+                        }
                         return@thread
                     }
 
@@ -384,6 +399,12 @@ class MainActivity : AppCompatActivity() {
 
                     if (printerDevice == null) {
                         Log.w("POSHardwareInterface", "No paired Bluetooth thermal printer found.")
+                        runOnUiThread {
+                            webView?.evaluateJavascript(
+                                "window.dispatchEvent(new CustomEvent('PRINT_ERROR', { detail: { message: 'No paired thermal printer found' } }));",
+                                null
+                            )
+                        }
                         return@thread
                     }
 
@@ -398,8 +419,21 @@ class MainActivity : AppCompatActivity() {
                     outputStream.flush()
                     socket.close()
                     Log.i("POSHardwareInterface", "Receipt printed successfully over Bluetooth.")
+                    runOnUiThread {
+                        webView?.evaluateJavascript(
+                            "window.dispatchEvent(new CustomEvent('PRINT_SUCCESS', { detail: { message: 'Receipt printed successfully' } }));",
+                            null
+                        )
+                    }
                 } catch (e: Exception) {
                     Log.e("POSHardwareInterface", "Bluetooth print failed: ${e.message}", e)
+                    val errMsg = (e.message ?: "Unknown print error").replace("'", "\\'")
+                    runOnUiThread {
+                        webView?.evaluateJavascript(
+                            "window.dispatchEvent(new CustomEvent('PRINT_ERROR', { detail: { message: '$errMsg' } }));",
+                            null
+                        )
+                    }
                 }
             }
         }
@@ -407,6 +441,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Edge-to-edge layout styling
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            window.decorView.systemUiVisibility = (
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+            )
+        }
         
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
@@ -555,6 +598,26 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(this, "Hardware permissions denied. POS capabilities may be limited.", Toast.LENGTH_LONG).show()
                 }
             }
+        } else if (requestCode == 101) {
+            var granted = true
+            for (result in grantResults) {
+                if (result != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    granted = false
+                    break
+                }
+            }
+            if (granted) {
+                runOnUiThread {
+                    Toast.makeText(this, "Bluetooth permissions granted. Please tap print again.", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                runOnUiThread {
+                    webView?.evaluateJavascript(
+                        "window.dispatchEvent(new CustomEvent('PRINT_ERROR', { detail: { message: 'Bluetooth permission denied' } }));",
+                        null
+                    )
+                }
+            }
         }
     }
 
@@ -569,7 +632,7 @@ class MainActivity : AppCompatActivity() {
         val wv = WebView(this)
         
         wv.overScrollMode = View.OVER_SCROLL_NEVER
-        wv.isVerticalScrollBarEnabled = false
+        wv.isVerticalScrollBarEnabled = true
         wv.isHorizontalScrollBarEnabled = false
 
         wv.settings.apply {
@@ -581,14 +644,13 @@ class MainActivity : AppCompatActivity() {
             allowFileAccessFromFileURLs = false
             allowUniversalAccessFromFileURLs = false
             mediaPlaybackRequiresUserGesture = false
-            mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             cacheMode = WebSettings.LOAD_DEFAULT
             setSupportZoom(false)
             builtInZoomControls = false
             displayZoomControls = false
             useWideViewPort = true
-            @Suppress("DEPRECATION")
-            setRenderPriority(WebSettings.RenderPriority.HIGH)
+            loadWithOverviewMode = true
         }
 
         // Enable Google Safe Browsing on Android 8.0+ (API 26+)
@@ -1052,16 +1114,23 @@ class MainActivity : AppCompatActivity() {
                     val now = System.currentTimeMillis()
 
                     // 1. Enforce size rotation first (regardless of network success/failure/state)
+                    // Keep file strictly under 2MB limit (Strict rotation - trim to last 1MB of lines)
                     if (logFile.length() > 2 * 1024 * 1024) {
                         try {
-                            val tempFile = File(logFile.parent, "valenixia_crash.log.tmp")
                             val lines = logFile.readLines()
-                            val halfLines = lines.takeLast(lines.size / 2)
-                            tempFile.writeText(halfLines.joinToString("\n") + "\n")
+                            val keptLines = mutableListOf<String>()
+                            var totalSize = 0L
+                            for (line in lines.asReversed()) {
+                                if (totalSize + line.length + 1 > 1 * 1024 * 1024) break
+                                keptLines.add(0, line)
+                                totalSize += line.length + 1
+                            }
+                            val tempFile = File(logFile.parent, "valenixia_crash.log.tmp")
+                            tempFile.writeText(keptLines.joinToString("\n") + "\n")
                             if (tempFile.renameTo(logFile)) {
-                                Log.i("ValenixiaCrash", "Crash log rotated atomically: trimmed to half size.")
+                                Log.i("ValenixiaCrash", "Crash log rotated atomically: trimmed to size under 1MB.")
                             } else {
-                                logFile.writeText(halfLines.joinToString("\n") + "\n")
+                                logFile.writeText(keptLines.joinToString("\n") + "\n")
                             }
                         } catch (e: Exception) {
                             Log.e("ValenixiaCrash", "Failed to rotate log: ${e.message}")
@@ -1129,7 +1198,7 @@ class MainActivity : AppCompatActivity() {
                             .apply()
                         Log.i("ValenixiaCrash", "Crash logs uploaded and cleared successfully. Retry count reset.")
                     } else {
-                        val newRetryCount = retryCount + 1
+                        val newRetryCount = (retryCount + 1).coerceAtMost(10)
                         prefs.edit()
                             .putLong("last_crash_upload_ts", now)
                             .putInt("crash_upload_retry_count", newRetryCount)
@@ -1139,7 +1208,7 @@ class MainActivity : AppCompatActivity() {
                     conn.disconnect()
                 } catch (e: Exception) {
                     val retryCount = prefs.getInt("crash_upload_retry_count", 0)
-                    val newRetryCount = retryCount + 1
+                    val newRetryCount = (retryCount + 1).coerceAtMost(10)
                     prefs.edit()
                         .putLong("last_crash_upload_ts", System.currentTimeMillis())
                         .putInt("crash_upload_retry_count", newRetryCount)

@@ -1,7 +1,7 @@
 # Valenixia POS - Development Guide & Architecture
 
 ## System Overview
-Valenixia is a zero-trust, local-first distributed POS system featuring offline-resilient CRDT synchronizations, end-to-end WebCrypto encryption (AES-GCM-256), multi-device role modes (Register, Kitchen Display, Customer Facing Display), and an asynchronous Supabase cloud backup layer for fleet management and disaster recovery.
+Valenixia is a zero-trust, local-first distributed POS system featuring offline-resilient CRDT synchronizations, end-to-end WebCrypto encryption (AES-GCM-256), multi-device role modes (Register, Kitchen Display, Customer Facing Display), dynamic i18n support via a dedicated `strings.js` translation library (English & Urdu support), and an asynchronous Supabase cloud backup layer for fleet management and disaster recovery.
 
 ## Build & Run Commands
 - **Launch Development Server (Node.js):** `npm start`
@@ -11,6 +11,7 @@ Valenixia is a zero-trust, local-first distributed POS system featuring offline-
 - **Build Android App (APK):** Run `./gradlew assembleDebug` inside the `android/` directory (outputs `app-debug.apk`)
 - **Sync Web Assets to Android Assets:** `npm run sync:android`
 - **Test Supabase Connection:** `node test_supabase.js`
+- **Run Complete E2E Test Suite:** `powershell -ExecutionPolicy Bypass -File ./test_runner.ps1`
 
 ---
 
@@ -118,4 +119,9 @@ To append an analytics dashboard component:
 * **Context**: POS screens range from large desktop monitors to narrow mobile screens or split-screen views. Squeezing three-column layouts on narrow viewports broke readability.
 * **Decision**: We shifted the 3-column layout breakpoint to `1200px` (forcing 2-column stacked layouts below it). We enforced scroll-lock classes and MutationObserver checking to prevent double-scrollbar glitches, added close buttons to top-level fixed banner overlays, and bound input-resize handlers to re-center focused elements when the virtual keyboard pops.
 * **Consequence**: Full responsive coverage from 320px wide up to ultra-wide displays.
+
+#### ADR-005: Decoupled Internationalization and System Diagnostics Dashboard
+* **Context**: POS terminal systems require localized support for non-English speakers (such as Urdu in Pakistan) and active local telemetry/diagnostic tracking without cluttering main controller script files.
+* **Decision**: We moved all static translation dictionaries to a standalone `strings.js` asset script loaded synchronously, replaced legacy unicode hardcoding with structured references, and implemented an active, real-time System Diagnostics panel showing local IndexedDB schema counts, Circuit Breaker status, current terminal HWID, and Storage Quotas.
+* **Consequence**: Better codebase readability, simplified maintenance for future translation sets, and real-time support diagnostic reporting.
 

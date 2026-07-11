@@ -49,6 +49,14 @@ Valenixia is a zero-trust, masterless, offline-first Point of Sale (POS) system 
 - Listens for unhandled promise rejections and uncaught exceptions, writing stack traces and user click paths to local IndexedDB logs, and batching uploads to the cloud.
 - Rejects outdated client synchronization streams using `SERVER_SCHEMA_VERSION = 3`.
 
+### 7. Decoupled Internationalization (strings.js)
+- Features dynamic translation bundles (English and Urdu) separated into a dedicated `strings.js` script asset.
+- Implements right-to-left (RTL) document layout flow and automatic Nastaliq font pairing when switching translation sets.
+
+### 8. Real-time System Diagnostics Dashboard
+- Embeds a real-time health dashboard inside the sync logs panel detailing local IndexedDB connection status, table row counts, sync engine network circuit breaker states, and HTML5 Web Storage quotas.
+- Automatically handles vacuum defragmentation, sync force-reconnection, and telemetry logs export directly inside the client interface.
+
 ---
 
 ## 🚀 Quick Start Guide

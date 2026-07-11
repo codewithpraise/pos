@@ -1,40 +1,77 @@
-﻿const WebSocket = require('ws');
+const WebSocket = require('ws');
 const http = require('http');
 
-http.get('http://localhost:9222/json', (res) => {
-  let data = '';
-  res.on('data', d => data += d);
-  res.on('end', () => {
-    const pages = JSON.parse(data);
-    const page = pages.find(p => p.url && p.url.includes('localhost:3000') && p.type === 'page');
-    if (!page) { console.log('NO_PAGE'); process.exit(1); }
-    const ws = new WebSocket(page.webSocketDebuggerUrl);
-    
-    ws.on('open', async () => {
-      ws.send(JSON.stringify({ id: 1, method: 'Runtime.enable', params: {} }));
-      ws.send(JSON.stringify({ id: 2, method: 'Log.enable', params: {} }));
-      
-      const checkScript = `(() => {
-        const errorEl = document.getElementById('auth-error');
-        return JSON.stringify({
-          errorText: errorEl ? errorEl.textContent : 'NO_ERROR_EL',
-          pinLength: typeof state !== 'undefined' ? state.currentPin.length : 'state_undefined',
-          activeCashier: typeof state !== 'undefined' ? state.activeCashier : 'state_undefined',
-          terminalRole: typeof state !== 'undefined' ? state.terminalRole : 'state_undefined'
-        });
-      })()`;
-      ws.send(JSON.stringify({ id: 3, method: 'Runtime.evaluate', params: { expression: checkScript, returnByValue: true } }));
+function devToolsRequest(path, method = 'GET') {
+  return new Promise((resolve, reject) => {
+    const req = http.request({
+      hostname: '127.0.0.1',
+      port: 9223,
+      path: path,
+      method: method
+    }, res => {
+      let b = '';
+      res.on('data', d => b += d);
+      res.on('end', () => resolve(b));
     });
-    
-    ws.on('message', (raw) => {
-      const msg = JSON.parse(raw);
-      if (msg.method === 'Log.entryAdded') {
-        console.log('CONSOLE_LOG:', JSON.stringify(msg.params.entry));
-      }
-      if (msg.id === 3) {
-        console.log('EVAL_RESULT:', msg.result.result.value);
-        setTimeout(() => { ws.close(); }, 1000);
-      }
-    });
+    req.on('error', reject);
+    req.end();
   });
+}
+
+async function main() {
+  console.log('Fetching active tabs from port 9223...');
+  const tabsRes = await devToolsRequest('/json');
+  const tabs = JSON.parse(tabsRes);
+  
+  const target = tabs.find(t => t.type === 'page' && t.url.includes('localhost:3000'));
+  if (!target) {
+    console.error('No localhost:3000 page found! Active pages:', tabs.map(t => `${t.title} (${t.url})`));
+    process.exit(1);
+  }
+  
+  console.log('Connecting to target:', target.title, target.url);
+  const ws = new WebSocket(target.webSocketDebuggerUrl.replace('localhost', '127.0.0.1'));
+  
+  let id = 1;
+  const send = (method, params = {}) => {
+    const msgId = id++;
+    ws.send(JSON.stringify({ id: msgId, method, params }));
+    return msgId;
+  };
+  
+  ws.on('open', () => {
+    console.log('WebSocket open!');
+    send('Runtime.enable');
+    
+    setTimeout(() => {
+      console.log('Evaluating boot loader status...');
+      send('Runtime.evaluate', { expression: `document.getElementById('app-boot-loader-status')?.textContent`, returnByValue: true });
+      
+      console.log('Evaluating ValenixiaDB status...');
+      send('Runtime.evaluate', { expression: `window.ValenixiaDB ? (window.ValenixiaDB.db ? "db-ok" : "db-null") : "no-valenixiadb"`, returnByValue: true });
+      
+      console.log('Evaluating appInitialized...');
+      send('Runtime.evaluate', { expression: `window.appInitialized`, returnByValue: true });
+    }, 1000);
+  });
+  
+  ws.on('message', (raw) => {
+    const msg = JSON.parse(raw.toString());
+    if (msg.id) {
+      console.log(`Response ID ${msg.id}:`, JSON.stringify(msg.result || msg.error || msg));
+    } else {
+      console.log('Event:', msg.method, JSON.stringify(msg.params));
+    }
+  });
+  
+  setTimeout(() => {
+    console.log('Timeout. Exiting.');
+    ws.close();
+    process.exit(0);
+  }, 6000);
+}
+
+main().catch(err => {
+  console.error('Error:', err);
+  process.exit(1);
 });

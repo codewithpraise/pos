@@ -93,7 +93,9 @@ async function initializeSyncEngine(serverUrl) {
       const stores = [
         'transactions', 'line_items', 'inventory_catalog', 'crsql_changes', 
         'local_preferences', 'customers', 'categories', 'distributors', 
-        'purchase_orders', 'po_line_items', 'distributor_payments', 'customer_credit'
+        'purchase_orders', 'po_line_items', 'distributor_payments', 'customer_credit',
+        'employees', 'speech_analytics_logs', 'stock_movements', 'employee_shifts',
+        'fbr_offline_queue'
       ];
       
       const idbTx = ValenixiaDB.db.transaction(stores, 'readwrite');
@@ -221,7 +223,7 @@ self.onmessage = async (event) => {
 
   // SAVE_TELEMETRY and CHECK_OVERSELL only need the DB (not the sync connection),
   // so they can run before the sync engine is fully initialized.
-  const dbOnlyMessages = ['SAVE_TELEMETRY', 'CHECK_OVERSELL', 'PURGE_OLD_IMAGES'];
+  const dbOnlyMessages = ['SAVE_TELEMETRY', 'CHECK_OVERSELL', 'PURGE_OLD_IMAGES', 'SAVE_PREFERENCE'];
   // GET_ messages only read from IndexedDB — they work before the WS sync engine initialises
   const dbReadMessages = [
     'GET_PREFERENCES', 'GET_CATALOG', 'GET_EMPLOYEES', 'GET_CUSTOMERS',
@@ -465,7 +467,14 @@ self.onmessage = async (event) => {
       }
 
       case 'GET_TRANSACTIONS': {
-        const transactions = await ValenixiaDB.getAll('transactions');
+        let transactions = await ValenixiaDB.getAll('transactions');
+        const isMaster = payload ? payload.isMaster !== false : true;
+        const empId = payload ? payload.employeeId : null;
+
+        if (!isMaster && empId) {
+          transactions = transactions.filter(t => t.employee_id === empId);
+        }
+
         // Map line items to transactions
         const enriched = [];
         for (const tx of transactions) {

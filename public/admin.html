@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
-  <title>Nexova Admin — Payment Management</title>
+  <title>Valenixia Admin â€” Payment Management</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet">
@@ -111,7 +111,7 @@
   <div class="pin-gate-card">
     <div class="pin-gate-logo">
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-      <span>NEXOVA ADMIN</span>
+      <span>Valenixia ADMIN</span>
     </div>
     <div class="pin-gate-title">Secure Access</div>
     <div class="pin-gate-sub">Admin and Manager PINs only. Session expires after 15 minutes of inactivity.</div>
@@ -125,7 +125,7 @@
   <nav class="topnav">
     <div class="topnav-brand">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-      <span>Nexova Admin - Payment Management</span>
+      <span>Valenixia Admin - Payment Management</span>
     </div>
     <div class="topnav-right">
       <span id="session-timer">Session: 15:00</span>
@@ -338,15 +338,15 @@ document.getElementById('status-filter').addEventListener('change', renderTable)
 document.getElementById('btn-bulk-approve').addEventListener('click', async function() {
   var ids = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(function(cb) { return cb.dataset.id; });
   if (!ids.length) return;
-  if (!confirm('Approve ' + ids.length + ' payment(s)? Licenses will be minted for each.')) return;
+  if (await showModal({ title: 'Confirm Bulk Approval', message: 'Approve ' + ids.length + ' payment(s)? Licenses will be minted for each.', type: 'warning', actions: [{ id: 'yes', label: 'Approve Payments', style: 'primary' }, { id: 'no', label: 'Cancel', style: 'secondary' }] }) !== 'yes') return;
   for (var i = 0; i < ids.length; i++) await submitDecision(ids[i], 'approved', '');
   loadProofs(); toast(ids.length + ' payment(s) approved.', 'success');
 });
 document.getElementById('btn-bulk-reject').addEventListener('click', async function() {
   var ids = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(function(cb) { return cb.dataset.id; });
   if (!ids.length) return;
-  var reason = prompt('Rejection reason for ' + ids.length + ' payment(s):');
-  if (reason === null) return;
+  var reason = await showModal({ title: 'Bulk Rejection', message: 'Enter rejection reason for ' + ids.length + ' payment(s):', type: 'info', actions: [{ id: 'ok', label: 'Reject Payments', style: 'danger' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }], input: { placeholder: 'Insufficient payment / Invalid reference', defaultValue: '' } });
+  if (!reason || reason === 'cancel') return;
   for (var i = 0; i < ids.length; i++) await submitDecision(ids[i], 'rejected', reason);
   loadProofs(); toast(ids.length + ' payment(s) rejected.', 'info');
 });

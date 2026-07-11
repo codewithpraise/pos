@@ -4,13 +4,16 @@ const http = require('http');
 function cdpEval(ws, script, id) {
   return new Promise((resolve) => {
     const msg = { id, method: 'Runtime.evaluate', params: { expression: script, awaitPromise: true, returnByValue: true } };
-    ws.send(JSON.stringify(msg));
     const handler = (raw) => {
       const m = JSON.parse(raw);
-      if (m.id === id) { ws.removeListener('message', handler); resolve(m.result); }
+      if (m.id === id) { 
+        ws.removeListener('message', handler); 
+        resolve(m.result || m.error); 
+      }
     };
     ws.on('message', handler);
-    setTimeout(() => { ws.removeListener('message', handler); resolve(null); }, 8000);
+    ws.send(JSON.stringify(msg));
+    setTimeout(() => { ws.removeListener('message', handler); resolve(null); }, 2500);
   });
 }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -29,34 +32,68 @@ async function waitForStableContext(ws, idStart) {
 }
 
 async function waitForAppInitialized(ws, idStart) {
-  console.log('Waiting for window.appInitialized to be true...');
-  for (let i = 0; i < 100; i++) { // wait up to 50s
-    const r = await cdpEval(ws, '!!window.appInitialized', idStart + i);
-    if (r && r.result && r.result.value === true) {
-      console.log('App initialization is complete.');
+  console.log('Waiting for DOM readiness and critical UI elements...');
+  const checkExpr = `(function() {
+    if (document.readyState === 'loading') return 'not_complete';
+    const ids = ['first-boot-wizard', 'auth-lock-screen', 'pos-app-layout', 'license-lockout-overlay'];
+    for (const id of ids) {
+      const el = document.getElementById(id);
+      if (el && el.offsetHeight > 0 && window.getComputedStyle(el).display !== 'none') {
+        return id;
+      }
+    }
+    return 'none_visible';
+  })()`;
+  for (let i = 0; i < 60; i++) { // wait up to 30s
+    const r = await cdpEval(ws, checkExpr, idStart + i);
+    console.log(`  [check #${i}] result:`, JSON.stringify(r));
+    if (r && r.result && r.result.value && r.result.value !== 'not_complete' && r.result.value !== 'none_visible') {
+      console.log('App initialization is complete. Found visible element: #' + r.result.value);
       await sleep(400); // short grace period
       return true;
     }
     await sleep(500);
   }
-  console.log('Timeout waiting for window.appInitialized.');
+  console.log('Timeout waiting for DOM readiness or critical UI elements.');
   return false;
 }
 
-http.get('http://localhost:9222/json', async (res) => {
-  let data = '';
-  res.on('data', d => data += d);
-  res.on('end', async () => {
-    const pages = JSON.parse(data);
-    const page = pages.find(p => p.type === 'page' && (p.title === 'Valenixia Commerce POS' || (p.url && p.url.includes('localhost:3000'))));
-    if (!page) { console.log('NO_PAGE'); process.exit(1); }
+const CDP_PORT = process.env.CDP_PORT || '9222';
+
+function devToolsRequest(path, method = 'GET') {
+  return new Promise((resolve, reject) => {
+    const req = http.request({
+      hostname: '127.0.0.1',
+      port: parseInt(CDP_PORT),
+      path: path,
+      method: method
+    }, res => {
+      let b = '';
+      res.on('data', d => b += d);
+      res.on('end', () => resolve(b));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+let activeTabId = null;
+
+(async () => {
+  try {
+    console.log('Creating new test tab...');
+    const newTabRes = await devToolsRequest('/json/new', 'PUT');
+    const newTab = JSON.parse(newTabRes);
+    activeTabId = newTab.id;
+    console.log('Created tab ID:', activeTabId);
     
-    const ws = new WebSocket(page.webSocketDebuggerUrl);
+    const ws = new WebSocket(newTab.webSocketDebuggerUrl.replace('localhost', '127.0.0.1'));
     let id = 1000;
     
     ws.on('open', async () => {
       ws.send(JSON.stringify({ id: id++, method: 'Runtime.enable', params: {} }));
       ws.send(JSON.stringify({ id: id++, method: 'Page.enable', params: {} }));
+      ws.send(JSON.stringify({ id: id++, method: 'Page.bringToFront', params: {} }));
       ws.send(JSON.stringify({
         id: id++,
         method: 'Page.addScriptToEvaluateOnNewDocument',
@@ -76,6 +113,11 @@ http.get('http://localhost:9222/json', async (res) => {
         }
       }));
       await sleep(200);
+
+      console.log('Navigating to http://localhost:3000 for initial load...');
+      ws.send(JSON.stringify({ id: id++, method: 'Page.navigate', params: { url: 'http://localhost:3000' } }));
+      await sleep(2000);
+
 
       // 1. Force mobile view emulation
       console.log('Setting mobile viewport emulation (390x844)...');
@@ -122,6 +164,7 @@ http.get('http://localhost:9222/json', async (res) => {
       ws.send(JSON.stringify({ id: id++, method: 'Page.navigate', params: { url: 'http://localhost:3000' } }));
       
       // Wait for reload
+      await sleep(3000);
       await waitForAppInitialized(ws, id);
       id += 100;
 
@@ -148,7 +191,7 @@ http.get('http://localhost:9222/json', async (res) => {
       console.log('P1_ACTIVATE:', r?.result?.value);
       
       // Wait for reload post-activation
-      await sleep(1000);
+      await sleep(3000);
       await waitForAppInitialized(ws, id);
       id += 100;
 
@@ -320,10 +363,32 @@ http.get('http://localhost:9222/json', async (res) => {
       })()`, id++);
       console.log('THEME_SWITCH_CHECK:', themeCheck?.result?.value);
       
+      console.log('Closing websocket...');
       ws.close();
+      if (activeTabId) {
+        console.log('Closing test tab...');
+        await devToolsRequest(`/json/close/${activeTabId}`, 'GET');
+        console.log('Test tab closed successfully!');
+      }
       process.exit(0);
     });
-    ws.on('error', e => { console.log('WS_ERR:', e.message); process.exit(1); });
-    setTimeout(() => { console.log('TIMEOUT'); ws.close(); process.exit(0); }, 55000);
-  });
-}).on('error', e => console.log('HTTP_ERR:', e.message));
+    ws.on('error', async (e) => {
+      console.log('WS_ERR:', e.message);
+      if (activeTabId) {
+        await devToolsRequest(`/json/close/${activeTabId}`, 'GET');
+      }
+      process.exit(1);
+    });
+    setTimeout(async () => {
+      console.log('TIMEOUT');
+      ws.close();
+      if (activeTabId) {
+        await devToolsRequest(`/json/close/${activeTabId}`, 'GET');
+      }
+      process.exit(0);
+    }, 55000);
+  } catch (err) {
+    console.error('Boot/Setup Error:', err);
+    process.exit(1);
+  }
+})();

@@ -34,5 +34,11 @@ android/app/src/main/assets/*.png
 scripts/*.ps1
 *.hprof
 chrome-profile/
+chrome-profile-*/
+chrome-profile-fresh-*/
 .nexova_hwid
 chrome_startup.log
+*results.txt
+scan.js
+scan-root.js
+test.js

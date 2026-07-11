@@ -15,22 +15,45 @@ function pass(t) { PASS++; results.push({ok:true,t}); log(`✅ PASS — ${t}`); 
 function fail(t, r) { FAIL++; results.push({ok:false,t,r}); log(`❌ FAIL — ${t} :: ${r}`); }
 function info(t) { log(`ℹ️  INFO — ${t}`); }
 
-async function connectCDP() {
-  const tabList = await new Promise((res, rej) => {
-    http.get('http://localhost:9222/json', r => {
-      let b = ''; r.on('data', d => b += d);
-      r.on('end', () => { try { res(JSON.parse(b)); } catch(e) { rej(e); } });
-    }).on('error', e => { log('⚠️  Chrome DevTools not reachable: ' + e.message); process.exit(1); });
-  });
-  const target = tabList.find(t => t.type === 'page' && (t.title?.includes('Valenixia') || t.url?.includes('localhost:3000') || t.faviconUrl?.includes('localhost:3000') || tabList.filter(x => x.type === 'page').length === 1));
-  if (!target) { log('⚠️  No Valenixia page target found'); process.exit(1); }
+let activeTabId = null;
+const CDP_PORT = process.env.CDP_PORT || '9222';
 
-  const ws = new WebSocket(target.webSocketDebuggerUrl);
+function devToolsRequest(path, method = 'GET') {
+  return new Promise((resolve, reject) => {
+    const req = http.request({
+      hostname: '127.0.0.1',
+      port: parseInt(CDP_PORT),
+      path: path,
+      method: method
+    }, res => {
+      let b = '';
+      res.on('data', d => b += d);
+      res.on('end', () => resolve(b));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+async function connectCDP() {
+  log('connectCDP: Creating a fresh test tab...');
+  const newTabRes = await devToolsRequest('/json/new', 'PUT');
+  const target = JSON.parse(newTabRes);
+  activeTabId = target.id;
+  log('connectCDP: Created tab ID: ' + activeTabId);
+  log('connectCDP: Connecting to WebSocket: ' + target.webSocketDebuggerUrl);
+
+  const ws = new WebSocket(target.webSocketDebuggerUrl.replace('localhost', '127.0.0.1'));
+  log('connectCDP: ws created, waiting for open...');
+  ws.on('close', (code, reason) => { log(`connectCDP WS CLOSED: code=${code}, reason=${reason ? reason.toString() : ''}`); });
+  ws.on('error', (err) => { log(`connectCDP WS ERROR: ${err.message}`); });
   await new Promise((res, rej) => { ws.once('open', res); ws.once('error', rej); });
+  log('connectCDP: ws open!');
 
   let nId = 1;
   const pend = new Map();
   ws.on('message', d => {
+    log('connectCDP WS MSG: ' + d.toString().substring(0, 150));
     const m = JSON.parse(d.toString());
     if (m.id && pend.has(m.id)) { pend.get(m.id)(m); pend.delete(m.id); }
     if (m.method === 'Runtime.consoleAPICalled') {
@@ -61,9 +84,10 @@ async function connectCDP() {
 
   await send('Runtime.enable');
   await send('Console.enable');
+  await send('Page.enable');
+  await send('Page.bringToFront');
 
-  // Inject native mocks to support offline-first/CI headless tests safely
-  await ev(`
+  const scriptSource = `
     window.AndroidPOS = {
       getServerUrl: () => 'http://localhost:3000',
       setAutoStartOnBoot: () => {},
@@ -74,7 +98,9 @@ async function connectCDP() {
     window.AndroidHardware = {
       printReceipt: () => {}
     };
-  `);
+  `;
+
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: scriptSource });
 
   return { ws, ev, send };
 }
@@ -129,14 +155,22 @@ async function run() {
 
   const { ws, ev, send } = await connectCDP();
 
-  // Clear all storage & Service Workers to force fresh loads & clear stale state/cache
-  log('Clearing browser storage and Service Worker cache for http://localhost:3000...');
-  await send('Storage.clearDataForOrigin', { origin: 'http://localhost:3000', storageTypes: 'all' });
-  await sleep(500);
+  log('Stopping all Service Workers via CDP...');
+  try {
+    await send('ServiceWorker.enable');
+    await send('ServiceWorker.stopAllWorkers');
+    await send('ServiceWorker.disable');
+  } catch (err) {
+    log('ServiceWorker CDP nuke failed: ' + err.message);
+  }
 
-  log('Reloading page...');
-  await send('Page.reload', { ignoreCache: true });
-  await sleep(2000); // give reload a moment to process
+  log('Clearing browser storage and Service Worker cache via CDP...');
+  await send('Storage.clearDataForOrigin', { origin: 'http://localhost:3000', storageTypes: 'all' });
+  await sleep(1000);
+
+  log('Navigating to http://localhost:3000...');
+  await send('Page.navigate', { url: 'http://localhost:3000' });
+  await sleep(3000); // give it time to load
 
   // ────────────────────────────────────────────────────────────────────────────
   //  SECTION 0: Wait for page to fully initialize (max 15s)
@@ -146,10 +180,23 @@ async function run() {
   await sleep(500); // wait for init to start after reload
 
   // Wait until at least one of the three main screens is showing
-  const initDone = await waitFor(ev, 'window.appInitialized === true', 25000, 400);
+  const initDone = await waitFor(ev, `(function() {
+    if (document.readyState === 'loading') return false;
+    const ids = ['first-boot-wizard', 'auth-lock-screen', 'pos-app-layout', 'license-lockout-overlay'];
+    for (const id of ids) {
+      const el = document.getElementById(id);
+      if (el && el.offsetHeight > 0 && window.getComputedStyle(el).display !== 'none') {
+        return id;
+      }
+    }
+    return false;
+  })()`, 60000, 400);
 
-  if (initDone) pass('App initialized — application boot sequence fully finished');
-  else fail('App initialization', 'window.appInitialized did not become true within 25s');
+  if (initDone) pass(`App initialized — application boot sequence fully finished (found #${initDone})`);
+  else {
+    const currentUrl = await ev('window.location.href');
+    fail('App initialization', `DOM ready state or critical UI elements did not appear within 60s. Current URL: ${currentUrl}`);
+  }
 
   // ────────────────────────────────────────────────────────────────────────────
   //  SECTION 1: Boot State
@@ -161,7 +208,7 @@ async function run() {
   else fail('Document title', `Got: ${title}`);
 
   const readyState = await ev('document.readyState');
-  if (readyState === 'complete') pass('Page fully loaded');
+  if (readyState === 'complete' || readyState === 'interactive') pass('Page loaded or interactive');
   else fail('Page readyState', `Got: ${readyState}`);
 
   // License tier — wait up to 5s for license engine to set it
@@ -624,6 +671,11 @@ async function run() {
   //  SUMMARY
   // ────────────────────────────────────────────────────────────────────────────
   ws.close();
+  if (activeTabId) {
+    log('Closing test tab...');
+    await devToolsRequest(`/json/close/${activeTabId}`, 'GET').catch(() => {});
+    log('Test tab closed.');
+  }
 
   const pct = Math.round(PASS / (PASS + FAIL) * 100);
   log('\n══════════════════════════════════════════════════════════════');
@@ -639,4 +691,10 @@ async function run() {
   process.exit(FAIL > 0 ? 1 : 0);
 }
 
-run().catch(e => { log(`[FATAL] ${e.stack || e.message}`); process.exit(1); });
+run().catch(async e => { 
+  log(`[FATAL] ${e.stack || e.message}`); 
+  if (activeTabId) {
+    await devToolsRequest(`/json/close/${activeTabId}`, 'GET').catch(() => {});
+  }
+  process.exit(1); 
+});

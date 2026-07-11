@@ -57,8 +57,8 @@ export function initOfflineListeners() {
   window.addEventListener('offline', () => updateOfflineBanner(false));
 }
 
-// Automatically initialize on module load
-initOfflineListeners();
+// Auto-initialization removed — app.js manages online/offline listeners centrally
+// to prevent triple-conflict flicker. Call initOfflineListeners() explicitly if needed.
 
 // Expose globally for backward compatibility
 window.updateOfflineBanner = updateOfflineBanner;

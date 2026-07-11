@@ -15,7 +15,7 @@ async function main() {
     console.error('No localhost:3000 tab found!');
     process.exit(1);
   }
-  const ws = new WebSocket(target.webSocketDebuggerUrl);
+  const ws = new WebSocket(target.webSocketDebuggerUrl.replace('localhost', '127.0.0.1'));
   await new Promise(r=>{ws.once('open',r);});
 
   let nId=1; const pend=new Map(); const events=[];

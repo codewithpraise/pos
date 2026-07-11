@@ -527,7 +527,7 @@ wss.on('connection', (ws, req) => {
             status = 'APPROVED';
           }
           if (status === 'APPROVED') {
-            const role = (data.nodeId === terminalId || data.nodeId === 'valenixia_master_pc_01' || data.nodeId === 'cfd_tab_2') ? 'MASTER' : 'TERMINAL';
+            const role = (data.nodeId === terminalId || data.nodeId === 'valenixia_master_pc_01' || data.nodeId === 'cfd_tab_2' || data.nodeId.startsWith('web_client_')) ? 'MASTER' : 'TERMINAL';
             
             if (role === 'TERMINAL') {
               let connectedTerminals = 0;
@@ -592,7 +592,14 @@ wss.on('connection', (ws, req) => {
               status = 'APPROVED';
             }
             if (status === 'APPROVED') {
-              const role = ws.deviceRole || 'TERMINAL';
+              let role = ws.deviceRole || 'TERMINAL';
+              if (ws.nodeId.startsWith('web_client_') || 
+                  ws.nodeId === terminalId || 
+                  ws.nodeId === 'valenixia_master_pc_01' || 
+                  ws.nodeId === 'cfd_tab_2') {
+                role = 'MASTER';
+              }
+              ws.deviceRole = role;
               if (role === 'TERMINAL') {
                 let connectedTerminals = 0;
                 for (const conn of activeConnections) {
@@ -2330,7 +2337,7 @@ app.post('/api/devices/register', async (req, res) => {
     }
 
     if (status === 'APPROVED') {
-      const role = (nodeId === terminalId || nodeId === 'valenixia_master_pc_01' || nodeId === 'cfd_tab_2') ? 'MASTER' : 'TERMINAL';
+      const role = (nodeId === terminalId || nodeId === 'valenixia_master_pc_01' || nodeId === 'cfd_tab_2' || nodeId.startsWith('web_client_')) ? 'MASTER' : 'TERMINAL';
       const token = generateToken(nodeId, role);
       
       const existing = await db.get("SELECT status FROM approved_devices WHERE node_id = ?", [nodeId]);

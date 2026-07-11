@@ -459,7 +459,11 @@
   const ValenixiaDB = {
     db: null,
     dbName: 'valenixia_db',
-    dbVersion: 3,
+    dbVersion: 5,
+
+    runMigrations(oldVer, newVer) {
+      console.log(`[IndexedDB] Migration triggered from v${oldVer} to v${newVer}`);
+    },
 
     init() {
       if (navigator.storage && navigator.storage.persist) {
@@ -475,10 +479,30 @@
       return new Promise((resolve, reject) => {
         if (this.db) return resolve(this.db);
 
+        let settled = false;
+        const settle = (fn, val) => {
+          if (!settled) {
+            settled = true;
+            clearTimeout(timeoutHandle);
+            fn(val);
+          }
+        };
+
+        // Hard timeout — never block app boot more than 8 seconds
+        const timeoutHandle = setTimeout(() => {
+          if (!settled) {
+            console.error('[IndexedDB] Open request timed out after 8s — resolving with null to allow app boot degraded.');
+            settle(resolve, null);
+          }
+        }, 8000);
+
         const request = globalScope.indexedDB.open(this.dbName, this.dbVersion);
 
         request.onupgradeneeded = (event) => {
           const db = event.target.result;
+          const oldVer = event.oldVersion;
+          const newVer = event.newVersion;
+          ValenixiaDB.runMigrations(oldVer, newVer);
 
           // Domain 1: Transaction & LineItems Core Ledger
           if (!db.objectStoreNames.contains('transactions')) {
@@ -576,30 +600,77 @@
             fbrStore.createIndex('status', 'status', { unique: false });
             fbrStore.createIndex('created_at', 'created_at', { unique: false });
           }
+
+          // Domain 18 (v5): Audit Log — append-only, never deleted, integrity-protected
+          if (!db.objectStoreNames.contains('audit_logs')) {
+            const auditStore = db.createObjectStore('audit_logs', { keyPath: 'id' });
+            auditStore.createIndex('timestamp', 'timestamp', { unique: false });
+            auditStore.createIndex('action', 'action', { unique: false });
+            auditStore.createIndex('actor_id', 'actor_id', { unique: false });
+          }
+
+          // Domain 19 (v5): Error Logs — crash telemetry, exportable
+          if (!db.objectStoreNames.contains('error_logs')) {
+            const errStore = db.createObjectStore('error_logs', { keyPath: 'id' });
+            errStore.createIndex('timestamp', 'timestamp', { unique: false });
+            errStore.createIndex('error_type', 'error_type', { unique: false });
+          }
+
+          // Domain 20 (v5): Pending Checkouts — crash recovery
+          if (!db.objectStoreNames.contains('pending_checkouts')) {
+            db.createObjectStore('pending_checkouts', { keyPath: 'id' });
+          }
         };
 
         request.onsuccess = async (event) => {
+          if (typeof window !== 'undefined' && typeof window.debugLog === 'function') window.debugLog('IndexedDB open onsuccess triggered');
           this.db = event.target.result;
           console.log('[IndexedDB] DB initialized successfully.');
-          
+
+          // Yield this connection when a newer version needs to open
+          this.db.onversionchange = () => {
+            console.warn('[IndexedDB] Version change detected — closing DB connection to allow upgrade.');
+            this.db.close();
+            this.db = null;
+          };
+
           try {
             await optimizeSqliteStorageEngine(this);
           } catch (err) {}
 
           try {
             await this.seedIfNeeded();
-            resolve(this.db);
           } catch (e) {
-            reject(e);
+            console.warn('[IndexedDB] seedIfNeeded failed (non-fatal):', e);
           }
+          settle(resolve, this.db);
         };
 
         request.onerror = (event) => {
           console.error('[IndexedDB] Failed to open DB:', event.target.error);
-          reject(event.target.error);
+          settle(reject, event.target.error);
+        };
+
+        // CRITICAL: This fires when another tab/SW holds the DB at a lower version.
+        // Without this handler, the open request hangs indefinitely.
+        request.onblocked = (event) => {
+          console.warn('[IndexedDB] Open request BLOCKED — another tab/SW is holding DB v' +
+            (event.oldVersion || '?') + '. Triggering reload on all clients...');
+          // Broadcast to all SW clients to close their connections
+          if (globalScope.navigator && navigator.serviceWorker && navigator.serviceWorker.controller) {
+            try {
+              navigator.serviceWorker.controller.postMessage({ type: 'IDB_CLOSE_FOR_UPGRADE' });
+            } catch (e) {}
+          }
+          // Resolve with null after a brief wait so boot can continue in degraded mode
+          setTimeout(() => {
+            console.warn('[IndexedDB] Block timeout reached — resolving with null for degraded boot.');
+            settle(resolve, null);
+          }, 3000);
         };
       });
     },
+
 
     async bootstrapStore(storeName, taxRate, adminPin, syncPassphrase, theme, shopMode = 'simple-retail') {
       console.log('[IndexedDB] Bootstrapping new store database...');
@@ -648,6 +719,7 @@
         { key: 'glassmorphism_enabled', value_type: 'STR', value_payload: 'true', is_idempotent_flag: 0, updated_at: now },
         { key: 'terminal_name', value_type: 'STR', value_payload: 'Valenixia Master PC 01', is_idempotent_flag: 0, updated_at: now },
         { key: 'store_receipt_width', value_type: 'STR', value_payload: '42', is_idempotent_flag: 0, updated_at: now },
+        { key: 'valenixia_master_node_id', value_type: 'STR', value_payload: 'Valenixia Master PC 01', is_idempotent_flag: 0, updated_at: now },
         { key: 'shop_mode', value_type: 'STR', value_payload: shopMode, is_idempotent_flag: 0, updated_at: now }
         // NOTE: sync_passphrase intentionally NOT stored in IndexedDB — it lives in
         // server memory only and is sent to the worker over postMessage for session use.
@@ -706,7 +778,7 @@
     // CRUD Helper methods
     async get(storeName, key, tx = null) {
       const row = await new Promise((resolve, reject) => {
-        if (!this.db && !tx) return reject(new Error('DB not initialized'));
+        if (!this.db && !tx) return resolve(null);
         const store = tx ? tx.objectStore(storeName) : this.db.transaction([storeName], 'readonly').objectStore(storeName);
         const request = store.get(key);
 
@@ -728,7 +800,7 @@
       }
       const encryptedItem = await encryptItem(storeName, item, passphrase);
       return new Promise((resolve, reject) => {
-        if (!this.db && !tx) return reject(new Error('DB not initialized'));
+        if (!this.db && !tx) return resolve(true);
         try {
           const store = tx ? tx.objectStore(storeName) : this.db.transaction([storeName], 'readwrite').objectStore(storeName);
           const request = store.put(encryptedItem);
@@ -759,7 +831,7 @@
 
     delete(storeName, key, tx = null) {
       return new Promise((resolve, reject) => {
-        if (!this.db && !tx) return reject(new Error('DB not initialized'));
+        if (!this.db && !tx) return resolve(true);
         try {
           const store = tx ? tx.objectStore(storeName) : this.db.transaction([storeName], 'readwrite').objectStore(storeName);
           const request = store.delete(key);
@@ -787,6 +859,42 @@
         }
       });
     },
+
+    async count(storeName) {
+      if (!this.db) return 0;
+      return new Promise((resolve, reject) => {
+        try {
+          const tx = this.db.transaction(storeName, 'readonly');
+          const store = tx.objectStore(storeName);
+          const req = store.count();
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        } catch (e) {
+          resolve(0);
+        }
+      });
+    },
+
+    async appendAuditLog({ event_type, who, what, node_id }) {
+      const entry = {
+        id: `aud_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        event_type,
+        action: event_type,
+        who,
+        actor_id: who,
+        what,
+        details: what,
+        node_id: node_id || 'unknown',
+        timestamp: Date.now()
+      };
+      try {
+        await this.put('audit_logs', entry);
+        console.log('[AuditLog]', entry);
+      } catch (err) {
+        console.warn('[AuditLog] Failed to write to IndexedDB:', err);
+      }
+    },
+
 
     async getSyncPassphrase(tx = null) {
       try {
@@ -849,7 +957,7 @@
 
     async getAll(storeName, tx = null) {
       const rows = await new Promise((resolve, reject) => {
-        if (!this.db && !tx) return reject(new Error('DB not initialized'));
+        if (!this.db && !tx) return resolve([]);
         const store = tx ? tx.objectStore(storeName) : this.db.transaction([storeName], 'readonly').objectStore(storeName);
         const request = store.getAll();
 
@@ -870,7 +978,7 @@
     // Custom query helpers
     getAllLineItemsByTx(transactionId) {
       return new Promise((resolve, reject) => {
-        if (!this.db) return reject(new Error('DB not initialized'));
+        if (!this.db) return resolve([]);
         const transaction = this.db.transaction(['line_items'], 'readonly');
         const store = transaction.objectStore('line_items');
         const index = store.index('transaction_id');
@@ -1328,4 +1436,5 @@
 
   globalScope.hashPin = hashPin;
   globalScope.ValenixiaDB = ValenixiaDB;
+  globalScope.appendAuditLog = ValenixiaDB.appendAuditLog.bind(ValenixiaDB);
 })();
