@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 // VALENIXIA LICENSE ENGINE â€” CLIENT-SIDE ASYMMETRIC VERIFICATION
 // Runs before any app logic. Blocks execution if unlicensed/expired/tampered.
 // Uses Ed25519 via SubtleCrypto. No network calls â€” fully offline.
@@ -277,8 +277,16 @@ const LicenseEngine = (() => {
     document.body.appendChild(overlay);
 
     document.getElementById('license-emergency-btn')?.addEventListener('click', async () => {
-      const pin = prompt('Enter Manager or Administrator PIN for emergency override:');
-      if (!pin) return;
+      const pin = await showModal({
+        title: 'Emergency Override',
+        message: 'Enter Manager or Administrator PIN for emergency override:',
+        input: { type: 'password', placeholder: 'Enter PIN' },
+        actions: [
+          { id: 'cancel', label: 'Cancel', style: 'secondary' },
+          { id: 'submit', label: 'Submit', style: 'primary' }
+        ]
+      });
+      if (!pin || pin === 'cancel') return;
       
       const serverBase = window.__valenixiaServerUrl || location.origin;
       try {

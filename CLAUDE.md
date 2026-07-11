@@ -100,10 +100,10 @@ To append an analytics dashboard component:
 
 ### Architectural Decision Records (ADRs)
 
-#### ADR-001: Accessibility Live Regions Over Blocking Alerts
-* **Context**: POS operators require immediate, non-intrusive feedback during high-volume scans without blocking checkout velocity.
-* **Decision**: We use screen reader live regions (aria-live="polite", role="status") to announce cart additions, tier changes, and sync errors. JavaScript alert() dialogs are strictly restricted to fatal operations.
-* **Consequence**: Improves application accessibility (WCAG 2.1 AA compliant) and prevents UI thread blocks.
+#### ADR-001: Zero-Blocking Native Call Policy & Custom Modals
+* **Context**: Native browser alert(), confirm(), and prompt() calls block the main JS execution thread, which is dangerous for real-time local-first operations and incompatible with headless automated verification sweeps.
+* **Decision**: All native modal pop-ups are completely prohibited in production paths. They are fully replaced with the asynchronous, non-blocking window.showModal custom promise-based overlay, supporting titles, multi-actions, custom classes, and standard inputs.
+* **Consequence**: Guaranteed non-blocking thread behavior and full E2E automation compatibility.
 
 #### ADR-002: Storage Limitations Guardrails
 * **Context**: Local registers operate on resource-constrained hardware. Storing high-resolution transaction images can cause SQLite/browser quota overflow.
@@ -124,4 +124,9 @@ To append an analytics dashboard component:
 * **Context**: POS terminal systems require localized support for non-English speakers (such as Urdu in Pakistan) and active local telemetry/diagnostic tracking without cluttering main controller script files.
 * **Decision**: We moved all static translation dictionaries to a standalone `strings.js` asset script loaded synchronously, replaced legacy unicode hardcoding with structured references, and implemented an active, real-time System Diagnostics panel showing local IndexedDB schema counts, Circuit Breaker status, current terminal HWID, and Storage Quotas.
 * **Consequence**: Better codebase readability, simplified maintenance for future translation sets, and real-time support diagnostic reporting.
+
+#### ADR-006: PIN Cooldown Lockout Rate Limiter
+* **Context**: POS systems are prone to brute-force attacks on the local lock screen when left unattended.
+* **Decision**: We enforced a local, state-level rate limiter on pin verification: if an operator enters an incorrect PIN 3 times sequentially, the lock screen enters a 30-second lockout mode, disabling the PIN input overlay and displaying a remaining lockout seconds alert.
+* **Consequence**: Protects registers against localized brute-force security overrides.
 

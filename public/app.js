@@ -4307,6 +4307,14 @@
       return;
     }
 
+    if (state.pin_lockout_until && Date.now() < state.pin_lockout_until) {
+      const secondsLeft = Math.ceil((state.pin_lockout_until - Date.now()) / 1000);
+      if (errorMsg) errorMsg.textContent = `Locked out. Please wait ${secondsLeft} seconds.`;
+      state.currentPin = '';
+      updatePinDisplayDots();
+      return;
+    }
+
     if (state.currentPin.length === 0) {
       if (errorMsg) errorMsg.textContent = 'Please enter security PIN';
       return;
@@ -4378,7 +4386,14 @@
         applyRoleNavigationLimits(matched.role);
         try { playAudioSignal('login'); } catch(e) {}
       } else {
-        if (errorMsg) errorMsg.textContent = 'Invalid PIN. Try again.';
+        state.pin_attempts = (state.pin_attempts || 0) + 1;
+        if (state.pin_attempts >= 3) {
+          state.pin_lockout_until = Date.now() + 30 * 1000;
+          state.pin_attempts = 0;
+          if (errorMsg) errorMsg.textContent = 'Too many failed attempts. Locked out for 30s.';
+        } else {
+          if (errorMsg) errorMsg.textContent = `Invalid PIN. Try again. (${3 - state.pin_attempts} attempts remaining)`;
+        }
         try { playAudioSignal('error'); } catch(e) {}
         // Premium: shake PIN input + haptic + screen reader
         if (typeof shakeElement === 'function') shakeElement('pin-input');
@@ -8448,8 +8463,16 @@
     let token = state.googleDriveOauthToken || state.preferences['google_drive_oauth_token'];
     
     if (!token) {
-      const userToken = prompt("Please enter a valid Google OAuth 2.0 Access Token to authenticate this backup sync:");
-      if (!userToken) {
+      const userToken = await showModal({
+        title: 'Google Drive Authentication',
+        message: 'Please enter a valid Google OAuth 2.0 Access Token to authenticate this backup sync:',
+        input: { type: 'text', placeholder: 'OAuth Token' },
+        actions: [
+          { id: 'cancel', label: 'Cancel', style: 'secondary' },
+          { id: 'submit', label: 'Submit', style: 'primary' }
+        ]
+      });
+      if (!userToken || userToken === 'cancel') {
         statusTxt.textContent = 'Sync canceled: No Access Token provided.';
         setButtonLoading('btn-cloud-sync', false, '', 'BACKUP TO GOOGLE DRIVE');
         return;

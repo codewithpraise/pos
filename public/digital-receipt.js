@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 // VALENIXIA DIGITAL RECEIPT ENGINE — PDF generation, WhatsApp & Email sharing
 // Requires jsPDF (jspdf.umd.min.js loaded before this file)
 // ============================================================================
@@ -95,7 +95,10 @@
   // ── Download PDF to device ───────────────────────────────────────────────────
   function downloadReceiptPDF(data) {
     const doc = generateReceiptPDF(data);
-    if (!doc) { alert("PDF engine not available."); return; }
+    if (!doc) {
+      showModal({ title: 'Error', message: 'PDF engine not available.', type: 'danger' });
+      return;
+    }
     const filename = "receipt_" + (data.transactionId || Date.now()).toString().slice(-8) + ".pdf";
     doc.save(filename);
   }
