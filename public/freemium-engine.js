@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 // VALENIXIA FREEMIUM ENGINE — Tier System, Feature Gates, Upgrade Modals
 // Version: 1.0.0
 // All plans are FREE during beta — limits enforced so the system is tested.
@@ -73,7 +73,11 @@ const TIER_TO_PLAN = {
 };
 
 function getCurrentPlan() {
-  if (window.__valenixiaPlan) return window.__valenixiaPlan;
+  const saved = localStorage.getItem('valenixia_plan');
+  if (saved) {
+    window.__valenixiaPlan = saved;
+    return saved;
+  }
   const tier = (window.__valenixiaTier || "STARTER").toUpperCase();
   const mapped = TIER_TO_PLAN[tier] || PLANS.STARTER;
   window.__valenixiaPlan = mapped;

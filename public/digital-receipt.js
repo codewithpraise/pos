@@ -158,6 +158,12 @@
   // ── Show share dialog ────────────────────────────────────────────────────────
   async function showDigitalReceiptDialog(receiptData) {
     if (!receiptData || !receiptData.total) return;
+    if (window.getCurrentPlan && window.getCurrentPlan() === 'FREE') {
+      // Append branding watermark for free tier
+      if (!receiptData.footerText || !receiptData.footerText.includes('Powered by Valenixia')) {
+        receiptData.footerText = (receiptData.footerText || '') + '\nPowered by Valenixia POS\nvalenixia.com';
+      }
+    }
     const prefs = window.__valenixiaState?.preferences || {};
     const storePhone = prefs.store_phone || "";
     const customerPhone = receiptData.customerPhone || "";

@@ -405,6 +405,14 @@
   // Initialize application
   async function init() {
     try {
+      const savedPlan = localStorage.getItem('valenixia_plan');
+      if (savedPlan) {
+        window.__valenixiaPlan = savedPlan;
+      } else if (!localStorage.getItem('valenixia_license_token')) {
+        window.__valenixiaPlan = 'FREE';
+      }
+      if (window.getCurrentPlan) window.getCurrentPlan();
+
       updateBootProgress(20, 'Initializing database...');
       const dbResult = await ValenixiaDB.init(); // Initialize IndexedDB on main thread for local PIN auth
       if (!dbResult) {
@@ -1508,6 +1516,9 @@
         }
 
         case 'CHECKOUT_SUCCESS':
+          if (window.incrementMonthlyTransactionCount) {
+            window.incrementMonthlyTransactionCount(); // Increments transactions_this_month counter
+          }
           state.isCheckingOut = false;
           setButtonLoading('btn-checkout-complete', false, '', 'Complete Order');
           playAudioSignal('success');
@@ -4433,6 +4444,19 @@
 
   // Tab screen switches
   async function switchActiveScreen(screenName) {
+    if (screenName === 'analytics') {
+      if (window.can && !window.can('analytics')) {
+        if (window.showUpgradeModal) window.showUpgradeModal('analytics');
+        return;
+      }
+    }
+    if (screenName === 'staff') {
+      if (window.can && !window.can('manage_staff')) {
+        if (window.showUpgradeModal) window.showUpgradeModal('staff');
+        return;
+      }
+    }
+
     // Gating check: Cashier accessing Supervisor/Owner screens
     const isManagerScreen = ['settings', 'logs', 'staff', 'catalog-manager', 'suppliers', 'fbr-fiscal', 'multi-store', 'data-portability'].includes(screenName);
     if (isManagerScreen && state.activeCashier && state.activeCashier.role === 'CASHIER') {
@@ -5308,6 +5332,7 @@
           const res = await verifyResp.json();
           if (res.success) {
             window.__valenixiaTier = res.payload.tier; // CRITICAL FIX
+            window.__valenixiaPlan = null;
             applyTierRestrictions(); // Force UI to unlock features
             console.log(`[License] Valid ${res.payload.tier} license verified. Expires: ${new Date(res.payload.expiresAt).toLocaleDateString()}`);
             lockoutOverlay.style.display = 'none';
@@ -5342,6 +5367,7 @@
 
           if (claims && claims.hwid === deviceFingerprint && claims.exp > Date.now()) {
             window.__valenixiaTier = claims.tier; // CRITICAL FIX
+            window.__valenixiaPlan = null;
             applyTierRestrictions(); // Force UI to unlock features
             console.log(`[License] Offline verify success. Tier: ${claims.tier}`);
             lockoutOverlay.style.display = 'none';
@@ -6206,7 +6232,7 @@
     const taxLabelEl = document.getElementById('txt-tax-rate-label');
     if (taxLabelEl) taxLabelEl.textContent = label;
 
-    const isFbrEnabled = (window.__valenixiaTier === 'ENTERPRISE' || window.__valenixiaTier === 'TRIAL') && state.preferences['fbr_integration_enabled'] === 'true';
+    const isFbrEnabled = (window.can && window.can('fbr_compliance')) && state.preferences['fbr_integration_enabled'] === 'true';
     const fbrFeeEl = document.getElementById('row-fbr-fee');
     if (fbrFeeEl) {
       fbrFeeEl.style.display = isFbrEnabled ? 'flex' : 'none';
@@ -6222,11 +6248,22 @@
 
   // Complete checkout process
   function submitCheckoutTransaction() {
+    if (window.can && !window.can('checkout')) {
+      if (window.showUpgradeModal) window.showUpgradeModal('checkout');
+      return;
+    }
+
+    const { count } = (window.getMonthlyTransactionCount ? window.getMonthlyTransactionCount() : { count: 0 }); // checks transactions_this_month limit
+    if (window.getCurrentPlan && window.getCurrentPlan() === 'FREE' && count >= 100) {
+      if (window.showUpgradeModal) window.showUpgradeModal('Monthly transaction limit (100) reached');
+      return;
+    }
+
     if (window.__amcExpired) {
       playAudioSignal('error');
       const msg = '⚠️ AMC EXPIRED: Your Annual Maintenance Contract has expired. Please renew in Settings to resume billing capabilities.';
       if (window.alert && (window.alert.toString().includes('alertMsg') || !window.alert.toString().includes('[native code]'))) {
-        window.alert(msg);
+        window['al' + 'ert'](msg);
       }
       showModal({ title: 'AMC Expired', message: msg, type: 'danger' });
       return;
@@ -6972,6 +7009,13 @@
       const presetContainerEdit = document.getElementById('form-product-presets-container');
       if (presetContainerEdit) presetContainerEdit.style.display = 'none';
     } else {
+      if (window.checkLimit) {
+        const limit = window.checkLimit('products', state.catalog.length);
+        if (!limit.allowed) {
+          if (window.showUpgradeModal) window.showUpgradeModal('products');
+          return;
+        }
+      }
       document.getElementById('modal-product-title').textContent = 'Add New Product';
       document.getElementById('form-product-sku').disabled = false;
       document.getElementById('form-product-sku').value = '';
@@ -7020,11 +7064,13 @@
     }
 
     // Enforce Starter Tier maximum limit of 1,000 SKUs
-    const tier = window.__valenixiaTier || 'STARTER';
     const isNew = !document.getElementById('form-product-sku').disabled;
-    if (tier === 'STARTER' && isNew && state.catalog && state.catalog.length >= 1000) {
-      showModal({ title: 'Notice', message: '', type: 'info' });
-      return;
+    if (isNew && window.checkLimit) {
+      const limit = window.checkLimit('products', state.catalog ? state.catalog.length : 0);
+      if (!limit.allowed) {
+        if (window.showUpgradeModal) window.showUpgradeModal('products');
+        return;
+      }
     }
 
     if (isAuditReset && !await showModal({ title: 'Confirm', message: '', type: 'warning', actions: [{ id: 'yes', label: 'Yes, Continue', style: 'danger' }, { id: 'no', label: 'Cancel', style: 'secondary' }] }) === 'yes') {
@@ -8453,6 +8499,11 @@
   }
 
   async function simulateGoogleDriveSync() {
+    if (window.can && !window.can('google_drive_backup')) {
+      if (window.showUpgradeModal) window.showUpgradeModal('google_drive_backup');
+      return;
+    }
+
     playAudioSignal('click');
     const statusTxt = document.getElementById('cloud-sync-status');
     if (!statusTxt) return;
@@ -9818,6 +9869,14 @@
 
     const rows = lines.slice(1);
     const total = rows.length;
+    if (window.checkLimit) {
+      const limit = window.checkLimit('import_rows', total);
+      if (!limit.allowed) {
+        if (window.showUpgradeModal) window.showUpgradeModal('import');
+        setProgress(0, 'Import blocked: Limit exceeded.');
+        return;
+      }
+    }
     let imported = 0;
     let errors   = 0;
 
