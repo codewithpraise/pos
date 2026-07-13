@@ -1,5 +1,5 @@
 // license-worker/index.js
-// Cloudflare Worker script for Nexova POS license check
+// Cloudflare Worker script for Valenixia POS license check
 
 async function generateJWT(payload, secretKey) {
   const header = { alg: "HS256", typ: "JWT" };
