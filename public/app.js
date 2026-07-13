@@ -1974,8 +1974,17 @@
           window.__isSubmitting = false;
           setButtonLoading('btn-checkout-complete', false, '', 'Complete Order');
           playAudioSignal('success');
-          // Premium: flash payment success ring + haptic triple-tap + screen reader
-          if (typeof flashPaymentSuccess === 'function') flashPaymentSuccess();
+          // Premium: flash payment success ring + haptic triple-tap + screen reader via lazy loading (P1-35 Code Splitting)
+          import('./modules/animations.js').then(module => {
+            if (module && typeof module.flashPaymentSuccess === 'function') {
+              module.flashPaymentSuccess();
+            } else if (typeof flashPaymentSuccess === 'function') {
+              flashPaymentSuccess();
+            }
+          }).catch(e => {
+            console.error('[App] Dynamic import for animations module failed, falling back:', e);
+            if (typeof flashPaymentSuccess === 'function') flashPaymentSuccess();
+          });
           showNotificationToast(`âœ… Transaction #${transactionId.slice(-8).toUpperCase()} completed!`, null, 4000);
           announceToScreenReader(`Transaction completed successfully for amount Rs. ${(event.data.total / 100.0).toFixed(2)}.`);
 
