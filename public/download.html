@@ -1,635 +1,921 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Valenixia - Mobile App Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Download Valenixia POS — Smart Point-of-Sale for Modern Retailers</title>
+  <meta name="description" content="Download Valenixia Commerce POS. Available as Android APK, Progressive Web App, and iOS-ready PWA. Offline-first, multi-terminal, AI-powered retail management.">
+  <meta name="robots" content="index, follow">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Download Valenixia POS">
+  <meta property="og:description" content="The most powerful offline-first POS for modern retailers. Android APK, PWA, and iOS.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://valenixia.com/og-download.png">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Download Valenixia POS">
+  <meta name="twitter:description" content="Offline-first POS. Android · PWA · iOS.">
+
+  <!-- JSON-LD Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Valenixia Commerce POS",
+    "operatingSystem": "Android, Web, iOS",
+    "applicationCategory": "BusinessApplication",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Offline-first multi-terminal point-of-sale system for modern retailers."
+  }
+  </script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;600;700&family=Outfit:wght@400;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <style>
     :root {
-      --bg-obsidian: #050505;
-      --panel-graphite: #0f0f11;
-      --border-titanium: rgba(255, 255, 255, 0.08);
+      --bg-void: #020305;
+      --surface-dark: #0b0d12;
+      --surface-card: rgba(255, 255, 255, 0.04);
+      --surface-glass: rgba(255, 255, 255, 0.06);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-glow: rgba(16, 185, 129, 0.3);
+      --accent-emerald: #10b981;
+      --accent-emerald-dim: rgba(16, 185, 129, 0.15);
       --accent-teal: #0d9488;
-      --accent-teal-glow: rgba(13, 148, 136, 0.15);
-      --text-white: #f3f4f6;
-      --text-gray: #9ca3af;
+      --accent-violet: #8b5cf6;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #475569;
       --font-display: 'Outfit', sans-serif;
       --font-body: 'Manrope', sans-serif;
+      --radius-lg: 20px;
+      --radius-xl: 28px;
     }
 
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      border-radius: 4px;
-    }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
 
     body {
-      background: var(--bg-obsidian);
-      color: var(--text-white);
+      background: var(--bg-void);
+      color: var(--text-primary);
       font-family: var(--font-body);
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+
+    /* ─── HERO SECTION ─── */
+    .hero {
+      position: relative;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 24px;
-      overflow-x: hidden;
-    }
-
-    .container {
-      max-width: 600px;
-      width: 100%;
       text-align: center;
+      padding: 80px 24px 60px;
+      overflow: hidden;
     }
 
-    .brand-logo {
-      width: 64px;
-      height: 64px;
-      border: 1px solid var(--accent-teal);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: var(--font-display);
-      font-size: 32px;
-      font-weight: 800;
-      color: var(--text-white);
-      margin: 0 auto 24px;
-      box-shadow: 0 0 20px var(--accent-teal-glow);
-      background: #000000;
+    .hero-canvas {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
     }
 
-    h1 {
-      font-family: var(--font-display);
-      font-size: 32px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      margin-bottom: 8px;
-      text-transform: uppercase;
+    .hero-gradient {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% -10%, rgba(16,185,129,0.18) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 80%, rgba(139,92,246,0.12) 0%, transparent 50%),
+        radial-gradient(ellipse 50% 50% at 10% 50%, rgba(13,148,136,0.1) 0%, transparent 50%);
+      animation: meshShift 12s ease-in-out infinite alternate;
+      z-index: 0;
     }
 
-    .subtitle {
-      color: var(--text-gray);
-      font-size: 14px;
-      margin-bottom: 40px;
-      line-height: 1.5;
+    @keyframes meshShift {
+      0%   { opacity: 1; transform: scale(1) rotate(0deg); }
+      50%  { opacity: 0.8; transform: scale(1.05) rotate(1deg); }
+      100% { opacity: 1; transform: scale(1.02) rotate(-0.5deg); }
     }
 
-    .portal-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-      text-align: left;
-    }
+    .hero-content { position: relative; z-index: 2; max-width: 720px; }
 
-    .card {
-      background: var(--panel-graphite);
-      border: 1px solid var(--border-titanium);
-      padding: 32px;
-      transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .card:hover {
-      border-color: var(--accent-teal);
-      box-shadow: 0 0 15px var(--accent-teal-glow);
-    }
-
-    h2 {
-      font-family: var(--font-display);
-      font-size: 18px;
-      font-weight: 700;
-      margin-bottom: 12px;
-      color: var(--text-white);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    p {
-      color: var(--text-gray);
-      font-size: 13px;
-      line-height: 1.6;
-      margin-bottom: 20px;
-    }
-
-    .btn {
+    .hero-badge {
       display: inline-flex;
       align-items: center;
-      justify-content: center;
-      width: 100%;
-      height: 56px;
-      background: var(--accent-teal);
-      color: var(--text-white);
-      text-decoration: none;
-      font-weight: 700;
-      font-size: 14px;
+      gap: 8px;
+      background: var(--accent-emerald-dim);
+      border: 1px solid var(--border-glow);
+      border-radius: 100px;
+      padding: 6px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent-emerald);
+      letter-spacing: 0.05em;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      border: none;
-      cursor: pointer;
-      transition: background-color 0.2s ease;
+      margin-bottom: 28px;
+      animation: fadeSlideDown 0.6s ease;
     }
 
-    .btn:hover {
-      background: #0f766e;
+    @keyframes fadeSlideDown {
+      from { opacity: 0; transform: translateY(-16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero-badge::before {
+      content: '';
+      width: 7px; height: 7px;
+      background: var(--accent-emerald);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent-emerald);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.4); }
+    }
+
+    .hero h1 {
+      font-family: var(--font-display);
+      font-size: clamp(2.8rem, 7vw, 5.5rem);
+      font-weight: 900;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      margin-bottom: 20px;
+      animation: fadeSlideDown 0.7s ease 0.1s both;
+    }
+
+    .hero h1 .gradient-text {
+      background: linear-gradient(135deg, #10b981 0%, #06d6a0 40%, #0d9488 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-desc {
+      font-size: clamp(1rem, 2vw, 1.2rem);
+      color: var(--text-secondary);
+      max-width: 500px;
+      margin: 0 auto 40px;
+      animation: fadeSlideDown 0.7s ease 0.2s both;
+    }
+
+    .hero-cta-row {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+      animation: fadeSlideDown 0.7s ease 0.3s both;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent-emerald);
+      color: #fff;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 15px;
+      padding: 14px 28px;
+      border-radius: 14px;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 24px rgba(16,185,129,0.35);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(16,185,129,0.5);
     }
 
     .btn-secondary {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      color: #ffffff;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface-glass);
+      color: var(--text-primary);
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 15px;
+      padding: 14px 28px;
+      border-radius: 14px;
+      text-decoration: none;
+      border: 1px solid var(--border-subtle);
+      cursor: pointer;
+      backdrop-filter: blur(12px);
+      transition: transform 0.2s, border-color 0.2s;
     }
 
     .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.15);
-      border-color: var(--accent-teal);
-      color: #ffffff;
+      transform: translateY(-2px);
+      border-color: var(--border-glow);
     }
 
-    ol {
-      margin-left: 20px;
-      margin-top: 12px;
-      color: var(--text-gray);
-      font-size: 13px;
+    /* Animated logo */
+    .logo-ring {
+      width: 88px;
+      height: 88px;
+      margin: 0 auto 24px;
+      position: relative;
+      animation: logoBreathe 4s ease-in-out infinite;
+    }
+
+    @keyframes logoBreathe {
+      0%, 100% { filter: drop-shadow(0 0 12px rgba(16,185,129,0.4)); transform: scale(1); }
+      50%       { filter: drop-shadow(0 0 28px rgba(16,185,129,0.7)); transform: scale(1.04); }
+    }
+
+    .logo-ring svg { width: 100%; height: 100%; }
+
+    /* ─── DOWNLOAD CARDS ─── */
+    .section {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 80px 24px;
+    }
+
+    .section-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--accent-emerald);
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: clamp(1.8rem, 4vw, 3rem);
+      font-weight: 800;
+      text-align: center;
+      letter-spacing: -0.02em;
+      margin-bottom: 48px;
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .download-card {
+      background: var(--surface-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 32px;
+      backdrop-filter: blur(20px);
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), border-color 0.3s, box-shadow 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .download-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: var(--radius-xl);
+      background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .download-card:hover {
+      transform: translateY(-6px);
+      border-color: var(--border-glow);
+      box-shadow: 0 20px 60px rgba(16,185,129,0.12);
+    }
+
+    .card-icon {
+      font-size: 42px;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .card-title {
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .card-desc {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+
+    .card-meta {
       display: flex;
-      flex-direction: column;
       gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
     }
 
-    li strong {
-      color: var(--text-white);
-    }
-
-    .footer {
-      margin-top: 48px;
+    .chip {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border-subtle);
+      border-radius: 100px;
+      padding: 4px 10px;
       font-size: 11px;
-      color: var(--text-gray);
-      font-family: monospace;
+      color: var(--text-secondary);
     }
 
-    /* Icon details */
-    .btn svg {
-      margin-right: 8px;
+    .chip.green { background: var(--accent-emerald-dim); border-color: var(--border-glow); color: var(--accent-emerald); }
+
+    /* ─── ANIMATED QR ─── */
+    .qr-section {
+      background: var(--surface-dark);
+      border-top: 1px solid var(--border-subtle);
+      border-bottom: 1px solid var(--border-subtle);
     }
 
-    input:focus, select:focus {
-      border-color: var(--accent-teal) !important;
-      box-shadow: 0 0 10px var(--accent-teal-glow);
+    .qr-inner {
+      display: flex;
+      align-items: center;
+      gap: 60px;
+      flex-wrap: wrap;
+      justify-content: center;
     }
+
+    .qr-wrapper {
+      position: relative;
+      width: 180px;
+      height: 180px;
+      flex-shrink: 0;
+    }
+
+    .qr-box {
+      width: 180px;
+      height: 180px;
+      background: #fff;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: #000;
+      padding: 12px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Corner brackets */
+    .qr-corner {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border-color: var(--accent-emerald);
+      border-style: solid;
+      transition: all 0.4s ease;
+      z-index: 2;
+    }
+
+    .qr-wrapper:hover .qr-corner { width: 36px; height: 36px; }
+
+    .qr-corner.tl { top: -4px; left: -4px; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+    .qr-corner.tr { top: -4px; right: -4px; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+    .qr-corner.bl { bottom: -4px; left: -4px; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+    .qr-corner.br { bottom: -4px; right: -4px; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+
+    .scan-line {
+      position: absolute;
+      left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent-emerald), transparent);
+      animation: scanMove 2.5s linear infinite;
+      z-index: 3;
+      top: 0;
+    }
+
+    @keyframes scanMove {
+      0%   { top: 0; opacity: 1; }
+      90%  { top: 100%; opacity: 1; }
+      100% { top: 100%; opacity: 0; }
+    }
+
+    .qr-text { max-width: 360px; }
+    .qr-text h2 { font-family: var(--font-display); font-size: 1.8rem; font-weight: 800; margin-bottom: 12px; }
+    .qr-text p { color: var(--text-secondary); font-size: 15px; }
+
+    /* ─── PRICING ─── */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .pricing-card {
+      background: var(--surface-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 32px;
+      position: relative;
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .pricing-card:hover { transform: translateY(-4px); box-shadow: 0 16px 48px rgba(0,0,0,0.3); }
+
+    .pricing-card.popular {
+      border-color: var(--accent-emerald);
+      background: linear-gradient(160deg, rgba(16,185,129,0.08) 0%, var(--surface-card) 100%);
+    }
+
+    .popular-badge {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent-emerald);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 14px;
+      border-radius: 100px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .plan-name {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .plan-price {
+      font-family: var(--font-display);
+      font-size: 2.8rem;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .plan-price sup { font-size: 1.2rem; font-weight: 700; vertical-align: super; }
+    .plan-price sub { font-size: 1rem; font-weight: 400; color: var(--text-secondary); }
+
+    .plan-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; }
+
+    .plan-features {
+      list-style: none;
+      margin-bottom: 28px;
+    }
+
+    .plan-features li {
+      font-size: 13px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-secondary);
+    }
+
+    .plan-features li::before { content: '✓'; color: var(--accent-emerald); font-weight: 700; }
+
+    .btn-plan {
+      width: 100%;
+      padding: 13px;
+      border-radius: 12px;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      transition: transform 0.2s;
+      border: none;
+      text-decoration: none;
+      display: inline-block;
+      text-align: center;
+    }
+
+    .btn-plan:hover { transform: scale(1.02); }
+    .btn-plan.outline { background: transparent; border: 1.5px solid var(--border-subtle); color: var(--text-primary); }
+    .btn-plan.outline:hover { border-color: var(--border-glow); }
+    .btn-plan.filled { background: var(--accent-emerald); color: #fff; box-shadow: 0 4px 20px rgba(16,185,129,0.3); }
+
+    /* ─── TESTIMONIALS ─── */
+    .testimonials-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .testimonial-card {
+      background: var(--surface-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      transition: transform 0.2s;
+    }
+
+    .testimonial-card:hover { transform: translateY(-3px); }
+
+    .stars { color: #f59e0b; font-size: 16px; letter-spacing: 2px; margin-bottom: 12px; }
+
+    .testimonial-text { font-size: 14px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 16px; font-style: italic; }
+
+    .testimonial-author { display: flex; align-items: center; gap: 12px; }
+
+    .avatar-circle {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 16px; color: #fff;
+      flex-shrink: 0;
+    }
+
+    .author-name { font-weight: 700; font-size: 13px; }
+    .author-biz { font-size: 11px; color: var(--text-muted); }
+
+    /* ─── FOOTER ─── */
+    footer {
+      background: var(--surface-dark);
+      border-top: 1px solid var(--border-subtle);
+      padding: 40px 24px;
+      text-align: center;
+    }
+
+    .footer-links { display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; margin-bottom: 20px; }
+    .footer-links a { color: var(--text-secondary); text-decoration: none; font-size: 13px; transition: color 0.2s; }
+    .footer-links a:hover { color: var(--accent-emerald); }
+    .footer-copy { font-size: 12px; color: var(--text-muted); }
+
+    /* ─── RIPPLE BUTTON ─── */
+    .ripple { position: relative; overflow: hidden; }
+    .ripple::after {
+      content: '';
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.25);
+      transform: scale(0);
+      animation: rippleAnim 0.5s linear;
+      pointer-events: none;
+    }
+    @keyframes rippleAnim {
+      to { transform: scale(4); opacity: 0; }
+    }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 640px) {
+      .qr-inner { gap: 32px; }
+      .hero h1 { font-size: 2.5rem; }
+    }
+
+    /* ─── SCROLL ANIMATIONS ─── */
+    .fade-up {
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+    .fade-up.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Grid QR pattern for placeholder */
+    .qr-placeholder {
+      width: 140px;
+      height: 140px;
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+    }
+    .qr-cell {
+      background: #000;
+      border-radius: 1px;
+    }
+    .qr-cell.white { background: transparent; }
   </style>
 </head>
 <body>
 
-  <div class="container">
-    <div class="brand-logo">N</div>
-    <h1>Valenixia POS</h1>
-    <p class="subtitle">Distributed Offline-First Point of Sale Ecosystem.<br>Download the client to pair this device with the store network.</p>
+<!-- ══════════════════ HERO ══════════════════ -->
+<section class="hero">
+  <canvas id="hero-canvas" class="hero-canvas"></canvas>
+  <div class="hero-gradient"></div>
 
-    <div class="portal-grid">
-      <!-- Store Onboarding / Activation Code Generation Card -->
-      <div class="card" id="onboard-card">
-        <h2>Store Onboarding Portal</h2>
-        <p>Register your store and obtain a 6-digit activation code to initialize your retail terminal.</p>
-        
-        <form id="onboard-form" style="display: flex; flex-direction: column; gap: 16px; margin-top: 16px;">
-          <div style="display: flex; flex-direction: column; gap: 4px; text-align: left;">
-            <label for="onboard-name" style="font-size: 11px; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Store Name</label>
-            <input type="text" id="onboard-name" required placeholder="e.g. Valenixia Coffee & Retail" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); padding: 12px; color: var(--text-white); font-family: var(--font-body); font-size: 13px; width: 100%; border-radius: 4px; outline: none; transition: border-color 0.2s;">
-          </div>
-          
-          <div style="display: flex; flex-direction: column; gap: 4px; text-align: left;">
-            <label for="onboard-email" style="font-size: 11px; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Owner Email</label>
-            <input type="email" id="onboard-email" required placeholder="owner@store.com" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); padding: 12px; color: var(--text-white); font-family: var(--font-body); font-size: 13px; width: 100%; border-radius: 4px; outline: none; transition: border-color 0.2s;">
-          </div>
-
-          <div style="display: flex; flex-direction: column; gap: 4px; text-align: left;">
-            <label for="onboard-phone" style="font-size: 11px; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Phone Number (NayaPay linked)</label>
-            <input type="tel" id="onboard-phone" required placeholder="e.g. +923001234567" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); padding: 12px; color: var(--text-white); font-family: var(--font-body); font-size: 13px; width: 100%; border-radius: 4px; outline: none; transition: border-color 0.2s;">
-          </div>
-
-          <div style="display: flex; gap: 12px;">
-            <div style="flex: 1; display: flex; flex-direction: column; gap: 4px; text-align: left;">
-              <label for="onboard-tier" style="font-size: 11px; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">License Tier</label>
-              <select id="onboard-tier" style="background: var(--bg-obsidian); border: 1px solid var(--border-titanium); padding: 12px; color: var(--text-white); font-family: var(--font-body); font-size: 13px; width: 100%; border-radius: 4px; outline: none; cursor: pointer;">
-                <option value="TRIAL">3-Day Free Trial</option>
-                <option value="STARTER">Starter Tier</option>
-                <option value="PRO" selected>Pro Tier</option>
-                <option value="ENTERPRISE">Enterprise Tier</option>
-              </select>
-            </div>
-            
-            <div style="flex: 1; display: flex; flex-direction: column; gap: 4px; text-align: left;">
-              <label for="onboard-mode" style="font-size: 11px; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">License Type</label>
-              <select id="onboard-mode" style="background: var(--bg-obsidian); border: 1px solid var(--border-titanium); padding: 12px; color: var(--text-white); font-family: var(--font-body); font-size: 13px; width: 100%; border-radius: 4px; outline: none; cursor: pointer;">
-                <option value="subscription" selected>Monthly Subscription</option>
-                <option value="lifetime">Lifetime Deal (LTD)</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Gateway & RRN Dynamic Payment Inputs -->
-          <div id="payment-fields" style="display: flex; flex-direction: column; gap: 16px; border: 1px solid var(--accent-teal-glow); padding: 16px; background: rgba(13, 148, 136, 0.03); border-radius: 4px; text-align: left;">
-            <div style="font-size: 11px; font-weight: 700; color: var(--accent-teal); text-transform: uppercase; margin-bottom: 4px;">Payment Required</div>
-            <p id="payment-instructions" style="font-size: 12px; margin-bottom: 12px; color: var(--text-gray); line-height: 1.5;"></p>
-            
-            <div style="display: flex; gap: 12px;">
-              <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
-                <label for="onboard-gateway" style="font-size: 11px; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Payment Gateway</label>
-                <select id="onboard-gateway" style="background: var(--bg-obsidian); border: 1px solid var(--border-titanium); padding: 12px; color: var(--text-white); font-family: var(--font-body); font-size: 13px; width: 100%; border-radius: 4px; outline: none; cursor: pointer;">
-                  <option value="NAYAPAY" selected>NayaPay</option>
-                  <option value="RAAST">Raast (Instant Transfer)</option>
-                  <option value="EASYPAISA">EasyPaisa</option>
-                  <option value="SADAPAY">SadaPay</option>
-                </select>
-              </div>
-              
-              <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
-                <label for="onboard-rrn" style="font-size: 11px; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Reference Number (RRN)</label>
-                <input type="text" id="onboard-rrn" placeholder="e.g. 123456789012" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); padding: 12px; color: var(--text-white); font-family: var(--font-body); font-size: 13px; width: 100%; border-radius: 4px; outline: none; transition: border-color 0.2s;">
-              </div>
-            </div>
-          </div>
-
-          <button type="submit" class="btn" style="margin-top: 8px;">
-            Generate Activation Code
-          </button>
-        </form>
-
-        <div id="activation-code-display" style="display: none; text-align: center; padding: 24px 0; margin-top: 16px; border-top: 1px solid var(--border-titanium);">
-          <div style="font-size: 11px; font-weight: 700; color: var(--text-gray); text-transform: uppercase; letter-spacing: 1px;">Your Activation Code</div>
-          <div id="code-number" style="font-family: var(--font-display); font-size: 48px; font-weight: 800; color: var(--text-white); margin: 12px 0; letter-spacing: 6px; text-shadow: 0 0 15px var(--accent-teal-glow);">000000</div>
-          <p style="font-size: 12px; margin-bottom: 12px; color: var(--accent-teal);">Code expires in <span id="countdown">15:00</span></p>
-          <div id="payment-notice" style="display: none; font-size: 12px; color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); border-radius: 4px; padding: 12px; background: rgba(251,191,36,0.05); margin-bottom: 16px;">
-            <strong>Verification Pending</strong><br>Your payment is currently awaiting admin verification. Pair your terminal; once approved, it will automatically unlock.
-          </div>
-          <p style="font-size: 11px; color: var(--text-gray); line-height: 1.5;">Enter this code and your phone number in the POS application activation screen to whitelist your terminal.</p>
-          <button id="btn-reset" class="btn btn-secondary" style="height: 40px; margin-top: 16px; font-size: 12px;">Onboard Another Store</button>
-        </div>
-      </div>
-
-      <!-- Android Native APK Card -->
-      <div class="card">
-        <h2>Android Native Client</h2>
-        <p>Install the dedicated Android App for optimized scanner performance, system auto-start, and persistent local caching bounds.</p>
-        <a href="/downloads/Valenixia-pos-latest.apk" class="btn" download>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Download APK Installer
-        </a>
-        <ol style="margin-top: 20px;">
-          <li>Once the file downloads, tap <strong>Valenixia-pos-latest.apk</strong> to launch the package manager.</li>
-          <li>If prompted, enable <strong>"Install from Unknown Sources"</strong> in your device security settings.</li>
-          <li>Complete installation, launch Valenixia POS, and enter a friendly name to pair the device.</li>
-        </ol>
-      </div>
-
-      <!-- Windows Desktop Client Card -->
-      <div class="card">
-        <h2>Windows Desktop Client</h2>
-        <p>Install the native Windows client for multiple display support (KDS, CFD), scale integrations, and high-performance offline access.</p>
-        <a href="/downloads/Valenixia-pos-setup.msi" class="btn btn-secondary" download>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
-          Download MSI Installer
-        </a>
-        <ol style="margin-top: 20px;">
-          <li>Download the installer package.</li>
-          <li>Run the <strong>Valenixia-pos-setup.msi</strong> and follow setup steps.</li>
-          <li>Start Valenixia POS from the desktop shortcut to pair your register.</li>
-        </ol>
-      </div>
-
-      <!-- Progressive Web App Card -->
-      <div class="card">
-        <h2>Progressive Web App (PWA)</h2>
-        <p>Run the zero-trust POS directly in your browser with full offline support and instant homescreen launching.</p>
-        <a href="/" class="btn btn-secondary">
-          Launch PWA Client
-        </a>
-        <ol style="margin-top: 20px;">
-          <li><strong>For iOS Safari:</strong> Tap the <strong>Share</strong> button, scroll down, and select <strong>"Add to Home Screen"</strong>.</li>
-          <li><strong>For Android Chrome:</strong> Tap the <strong>three dots</strong> menu, and select <strong>"Install App"</strong>.</li>
-          <li>Launch the app from your homescreen to enable secure, standalone full-screen cashier grids.</li>
-        </ol>
-      </div>
-
-      <!-- Release Management Portal (Phase 11: Admin Control) -->
-      <div class="card" id="release-card" style="display: none; border-color: var(--accent-teal); box-shadow: 0 0 20px var(--accent-teal-glow);">
-        <h2>Release Manager Panel</h2>
-        <p>Deploy system updates, rewrite the global version, and check release health logs.</p>
-        
-        <form id="release-form" style="display: flex; flex-direction: column; gap: 16px;">
-          <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label for="release-version" style="font-size: 11px; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Deploy Version</label>
-            <input type="text" id="release-version" required placeholder="e.g. 1.0.1" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); padding: 12px; color: var(--text-white); font-family: var(--font-body); font-size: 13px; width: 100%; border-radius: 4px; outline: none; transition: border-color 0.2s;">
-          </div>
-          
-          <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label for="release-changelog" style="font-size: 11px; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Changelog</label>
-            <textarea id="release-changelog" required placeholder="Describe new features & security patches..." style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); padding: 12px; color: var(--text-white); font-family: var(--font-body); font-size: 13px; width: 100%; border-radius: 4px; outline: none; min-height: 80px; resize: vertical; transition: border-color 0.2s;"></textarea>
-          </div>
-
-          <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label for="release-pin" style="font-size: 11px; font-weight: 700; color: var(--text-gray); text-transform: uppercase;">Admin / Manager PIN</label>
-            <input type="password" id="release-pin" required maxlength="4" placeholder="â€¢â€¢â€¢â€¢" inputmode="numeric" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); padding: 12px; color: var(--text-white); font-family: var(--font-body); font-size: 13px; width: 100%; border-radius: 4px; outline: none; transition: border-color 0.2s;">
-          </div>
-
-          <div style="display: flex; gap: 12px;">
-            <button type="submit" class="btn" style="flex: 2;">
-              Publish Upgrade
-            </button>
-            <button type="button" id="btn-release-rollback" class="btn btn-secondary" style="flex: 1; font-size: 11px;">
-              Rollback
-            </button>
-          </div>
-        </form>
-
-        <!-- Simulated terminal log panel for pro updates feeling -->
-        <div id="release-terminal" style="display: none; margin-top: 16px; background: #000000; border: 1px solid var(--border-titanium); border-radius: 4px; padding: 12px; font-family: monospace; font-size: 11px; color: #10b981; line-height: 1.4; text-align: left; max-height: 150px; overflow-y: auto; box-shadow: inset 0 0 10px rgba(0,0,0,0.8);">
-          <div style="color: var(--text-gray); border-bottom: 1px solid var(--border-titanium); padding-bottom: 4px; margin-bottom: 6px; display: flex; justify-content: space-between;">
-            <span>Deployment Logs</span>
-            <span style="cursor: pointer; text-decoration: underline;" id="btn-clear-terminal">clear</span>
-          </div>
-          <div id="terminal-lines"></div>
-        </div>
-      </div>
+  <div class="hero-content">
+    <div class="logo-ring" aria-hidden="true">
+      <svg viewBox="0 0 88 88" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="44" cy="44" r="40" stroke="#10b981" stroke-width="2" stroke-dasharray="8 4" opacity="0.4"/>
+        <circle cx="44" cy="44" r="32" stroke="#10b981" stroke-width="1.5" opacity="0.6"/>
+        <rect x="28" y="28" width="32" height="32" rx="8" fill="#10b981" opacity="0.15"/>
+        <path d="M36 44l6 6 10-12" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
     </div>
 
-    <div class="footer" id="footer-version" style="cursor: pointer;" title="Admin Update Controls">
-      Valenixia ENTERPRISE POS v<span id="txt-app-version">1.0.0</span> // ZERO-TRUST SYSTEM
+    <div class="hero-badge" id="hero-badge">
+      <span>New Release</span> v2.0 — Valenixia POS
+    </div>
+
+    <h1>The POS that works<br><span class="gradient-text">even without internet</span></h1>
+    <p class="hero-desc">Multi-terminal. Offline-first. AI-powered analytics. Built for retailers who can't afford downtime.</p>
+
+    <div class="hero-cta-row">
+      <a href="#download" class="btn-primary ripple" id="hero-download-btn">
+        <span>📲</span> Download Free
+      </a>
+      <a href="index.html" class="btn-secondary" id="hero-open-app-btn">
+        Open Web App →
+      </a>
     </div>
   </div>
+</section>
 
-  <script>
-    function showModal({ title, message, type = 'info', actions = [{ id: 'ok', label: 'OK', style: 'primary' }], input = null }) {
-      return new Promise((resolve) => {
-        const overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:999999;display:flex;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(4px);';
-        let inputHtml = '';
-        if (input) {
-          inputHtml = '<input id="__modal-input" type="' + (input.type || 'text') + '" placeholder="' + (input.placeholder || '') + '" value="' + (input.defaultValue || '') + '" style="width:100%;margin-top:16px;padding:12px;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:6px;outline:none;" />';
-        }
-        const buttonsHtml = actions.map(act => {
-          const bg = act.style === 'danger' ? '#ef4444' : (act.style === 'primary' ? '#0d9488' : 'transparent');
-          const border = act.style === 'secondary' ? '1px solid rgba(255,255,255,0.15)' : 'none';
-          const color = act.style === 'secondary' ? '#9ca3af' : '#fff';
-          return '<button data-id="' + act.id + '" style="flex:1;padding:12px;background:' + bg + ';border:' + border + ';color:' + color + ';font-weight:700;border-radius:6px;cursor:pointer;">' + act.label + '</button>';
-        }).join('');
-        overlay.innerHTML = '<div style="background:#0f0f11;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:24px;max-width:400px;width:100%;box-shadow:0 20px 40px rgba(0,0,0,0.5);"><h3 style="font-family:\\'Outfit\\',sans-serif;color:#fff;font-size:16px;font-weight:800;margin-bottom:10px;">' + title + '</h3><p style="color:#9ca3af;font-size:13px;line-height:1.6;white-space:pre-wrap;">' + message + '</p>' + inputHtml + '<div style="display:flex;gap:12px;margin-top:24px;">' + buttonsHtml + '</div></div>';
-        document.body.appendChild(overlay);
-        if (input) {
-          setTimeout(() => document.getElementById('__modal-input')?.focus(), 50);
-        }
-        overlay.querySelectorAll('button').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const val = input ? document.getElementById('__modal-input').value : btn.dataset.id;
-            overlay.remove();
-            resolve(val || btn.dataset.id);
-          });
-        });
-      });
+<!-- ══════════════════ DOWNLOAD CARDS ══════════════════ -->
+<section class="section" id="download">
+  <p class="section-label">Get the App</p>
+  <h2 class="section-title">Choose your platform</h2>
+
+  <div class="cards-grid">
+    <!-- Android APK -->
+    <div class="download-card fade-up" id="card-android">
+      <span class="card-icon">🤖</span>
+      <div class="card-title">Android APK</div>
+      <div class="card-desc">Native Android app with Bluetooth thermal printing, hardware barcode scanner, and offline-first CRDT sync.</div>
+      <div class="card-meta">
+        <span class="chip green">Free</span>
+        <span class="chip">Android 7+</span>
+        <span class="chip">~12 MB</span>
+      </div>
+      <a href="valenixia-pos-release.apk" class="btn-primary ripple" id="btn-download-apk" style="display:inline-flex;text-decoration:none">
+        ⬇ Download APK
+      </a>
+    </div>
+
+    <!-- PWA -->
+    <div class="download-card fade-up" id="card-pwa" style="transition-delay:0.1s">
+      <span class="card-icon">🌐</span>
+      <div class="card-title">Progressive Web App</div>
+      <div class="card-desc">Install directly from your browser. Works on any device. Offline-capable via Service Worker with OPFS encrypted storage.</div>
+      <div class="card-meta">
+        <span class="chip green">Instant Install</span>
+        <span class="chip">Any Browser</span>
+        <span class="chip">0 MB Download</span>
+      </div>
+      <a href="index.html" class="btn-primary ripple" id="btn-open-pwa" style="display:inline-flex;text-decoration:none">
+        🚀 Open &amp; Install
+      </a>
+    </div>
+
+    <!-- iOS -->
+    <div class="download-card fade-up" id="card-ios" style="transition-delay:0.2s">
+      <span class="card-icon">🍎</span>
+      <div class="card-title">iOS / iPad</div>
+      <div class="card-desc">Add to Home Screen from Safari on iPhone or iPad. Full PWA support with offline mode and touch-optimized UI.</div>
+      <div class="card-meta">
+        <span class="chip">iOS 16.4+</span>
+        <span class="chip">Safari</span>
+        <span class="chip">Add to Home</span>
+      </div>
+      <button class="btn-secondary ripple" id="btn-ios-instructions" onclick="document.getElementById('ios-guide').style.display='block'" style="cursor:pointer;width:100%">
+        📋 See Instructions
+      </button>
+      <div id="ios-guide" style="display:none;margin-top:12px;font-size:12px;color:var(--text-secondary);line-height:1.8;background:rgba(255,255,255,0.04);padding:12px;border-radius:10px;">
+        1. Open <strong style="color:#fff">valenixia.com</strong> in Safari<br>
+        2. Tap the <strong style="color:#fff">Share</strong> icon (□↑)<br>
+        3. Scroll and tap <strong style="color:#fff">Add to Home Screen</strong><br>
+        4. Tap <strong style="color:#fff">Add</strong> — done! 🎉
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ QR CODE ══════════════════ -->
+<section class="qr-section">
+  <div class="section">
+    <div class="qr-inner">
+      <div class="qr-wrapper fade-up" id="qr-wrapper">
+        <div class="qr-box" id="qr-placeholder-box">
+          <div id="qr-canvas-container"></div>
+        </div>
+        <div class="qr-corner tl"></div>
+        <div class="qr-corner tr"></div>
+        <div class="qr-corner bl"></div>
+        <div class="qr-corner br"></div>
+        <div class="scan-line"></div>
+      </div>
+      <div class="qr-text fade-up" id="qr-text" style="transition-delay:0.1s">
+        <h2>Scan to open on mobile</h2>
+        <p>Point your phone camera at the QR code to open Valenixia POS instantly. No app store required — the web app loads in seconds.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ PRICING ══════════════════ -->
+<section class="section" id="pricing">
+  <p class="section-label">Pricing</p>
+  <h2 class="section-title">Simple, transparent plans</h2>
+
+  <div class="pricing-grid">
+    <!-- Starter -->
+    <div class="pricing-card fade-up" id="pricing-starter">
+      <div class="plan-name">Starter</div>
+      <div class="plan-price">Free<sub> forever</sub></div>
+      <div class="plan-desc">Perfect for small shops just getting started</div>
+      <ul class="plan-features">
+        <li>1 terminal</li>
+        <li>Up to 1,000 SKUs</li>
+        <li>7-day transaction history</li>
+        <li>Offline-first sync</li>
+        <li>Barcode scanner</li>
+        <li>Basic analytics</li>
+      </ul>
+      <a href="index.html" class="btn-plan outline ripple" id="btn-start-starter">Get Started Free</a>
+    </div>
+
+    <!-- Pro -->
+    <div class="pricing-card popular fade-up" id="pricing-pro" style="transition-delay:0.1s">
+      <div class="popular-badge">Most Popular</div>
+      <div class="plan-name">Professional</div>
+      <div class="plan-price"><sup>$</sup>19<sub>/mo</sub></div>
+      <div class="plan-desc">For growing businesses with multiple cashiers</div>
+      <ul class="plan-features">
+        <li>Up to 3 terminals</li>
+        <li>Unlimited SKUs</li>
+        <li>Full history &amp; cloud backup</li>
+        <li>FBR fiscal integration</li>
+        <li>Customer loyalty CRM</li>
+        <li>AI sales analytics</li>
+        <li>Priority support</li>
+      </ul>
+      <a href="index.html" class="btn-plan filled ripple" id="btn-start-pro">Start Free Trial →</a>
+    </div>
+
+    <!-- Enterprise -->
+    <div class="pricing-card fade-up" id="pricing-enterprise" style="transition-delay:0.2s">
+      <div class="plan-name">Enterprise</div>
+      <div class="plan-price"><sup>$</sup>79<sub>/mo</sub></div>
+      <div class="plan-desc">For chains and high-volume retailers</div>
+      <ul class="plan-features">
+        <li>Unlimited terminals</li>
+        <li>Multi-store management</li>
+        <li>White-label branding</li>
+        <li>Custom API integrations</li>
+        <li>Dedicated account manager</li>
+        <li>SLA uptime guarantee</li>
+        <li>Advanced role management</li>
+      </ul>
+      <a href="mailto:enterprise@valenixia.com" class="btn-plan outline ripple" id="btn-contact-enterprise">Contact Sales</a>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ TESTIMONIALS ══════════════════ -->
+<section class="section" style="padding-top:0">
+  <p class="section-label">Trusted by Retailers</p>
+  <h2 class="section-title">What our customers say</h2>
+
+  <div class="testimonials-grid">
+    <div class="testimonial-card fade-up" id="testimonial-1">
+      <div class="stars">★★★★★</div>
+      <div class="testimonial-text">"We went from pen-and-paper to fully digital in one afternoon. The offline mode saved us during a power cut — sales never stopped."</div>
+      <div class="testimonial-author">
+        <div class="avatar-circle" style="background:linear-gradient(135deg,#10b981,#0d9488)">A</div>
+        <div>
+          <div class="author-name">Ahmed K.</div>
+          <div class="author-biz">Fashion Boutique, Karachi</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="testimonial-card fade-up" id="testimonial-2" style="transition-delay:0.1s">
+      <div class="stars">★★★★★</div>
+      <div class="testimonial-text">"The FBR integration alone saved us hours every week. The analytics dashboard helps us see exactly which products are moving."</div>
+      <div class="testimonial-author">
+        <div class="avatar-circle" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">S</div>
+        <div>
+          <div class="author-name">Sara M.</div>
+          <div class="author-biz">Electronics Store, Lahore</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="testimonial-card fade-up" id="testimonial-3" style="transition-delay:0.2s">
+      <div class="stars">★★★★★</div>
+      <div class="testimonial-text">"Running 3 branches with one system feels impossible until you try Valenixia. Real-time sync across terminals is flawless."</div>
+      <div class="testimonial-author">
+        <div class="avatar-circle" style="background:linear-gradient(135deg,#f59e0b,#d97706)">R</div>
+        <div>
+          <div class="author-name">Rania T.</div>
+          <div class="author-biz">Cafe Chain, Dubai</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ FOOTER ══════════════════ -->
+<footer>
+  <div class="footer-links">
+    <a href="privacy-policy.html" id="footer-privacy">Privacy Policy</a>
+    <a href="terms-of-service.html" id="footer-terms">Terms of Service</a>
+    <a href="refund-policy.html" id="footer-refund">Refund Policy</a>
+    <a href="index.html" id="footer-open-app">Open App</a>
+  </div>
+  <div class="footer-copy">© 2026 Valenixia Commerce Ecosystem. Muhammad Soban Ali, Sole Proprietor, UAE. All rights reserved.</div>
+</footer>
+
+<!-- ══════════════════ SCRIPTS ══════════════════ -->
+<script>
+  // ── Particle canvas ──
+  (function initParticles() {
+    const canvas = document.getElementById('hero-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let W, H, particles;
+
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
     }
 
-    // Fetch and sync active server version details on init
-    async function fetchActiveVersion() {
-      try {
-        const res = await fetch('/api/version');
-        if (res.ok) {
-          const data = await res.json();
-          document.getElementById('txt-app-version').innerText = data.serverVersion;
-          document.getElementById('release-version').value = data.serverVersion;
-        }
-      } catch (e) {}
+    function createParticles(n) {
+      return Array.from({ length: n }, () => ({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.random() * 1.5 + 0.3,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
+        a: Math.random() * 0.5 + 0.1
+      }));
     }
-    window.addEventListener('load', fetchActiveVersion);
 
-    // Footer secret click listener (5 clicks to show Admin Panel)
-    let versionClickCount = 0;
-    document.getElementById('footer-version').addEventListener('click', () => {
-      versionClickCount++;
-      if (versionClickCount >= 5) {
-        const releaseCard = document.getElementById('release-card');
-        releaseCard.style.display = 'block';
-        releaseCard.scrollIntoView({ behavior: 'smooth' });
-        // Terminal feedback
-        writeTerminalLog('SYSTEM', 'Admin Control Mode active. Awaiting release configuration parameters.');
-        versionClickCount = 0;
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      for (const p of particles) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(16,185,129,${p.a})`;
+        ctx.fill();
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0) p.x = W;
+        if (p.x > W) p.x = 0;
+        if (p.y < 0) p.y = H;
+        if (p.y > H) p.y = 0;
       }
-    });
-
-    function writeTerminalLog(sender, text) {
-      const term = document.getElementById('release-terminal');
-      const container = document.getElementById('terminal-lines');
-      term.style.display = 'block';
-      const timestamp = new Date().toLocaleTimeString();
-      const div = document.createElement('div');
-      div.innerHTML = `<span style="color: #6b7280;">[${timestamp}]</span> <span style="color: var(--accent-teal); font-weight:700;">[${sender}]</span> ${text}`;
-      container.appendChild(div);
-      term.scrollTop = term.scrollHeight;
+      requestAnimationFrame(draw);
     }
 
-    document.getElementById('btn-clear-terminal').addEventListener('click', () => {
-      document.getElementById('terminal-lines').innerHTML = '';
+    resize();
+    particles = createParticles(80);
+    draw();
+    window.addEventListener('resize', () => { resize(); particles = createParticles(80); });
+  })();
+
+  // ── Scroll-triggered fade-up ──
+  (function initScrollAnimations() {
+    const els = document.querySelectorAll('.fade-up');
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+    }, { threshold: 0.12 });
+    els.forEach(el => obs.observe(el));
+  })();
+
+  // ── Ripple effect ──
+  (function initRipple() {
+    document.querySelectorAll('.ripple').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        const rect = this.getBoundingClientRect();
+        const x = e.clientX - rect.left, y = e.clientY - rect.top;
+        const ripple = document.createElement('span');
+        const d = Math.max(rect.width, rect.height);
+        ripple.style.cssText = `position:absolute;width:${d}px;height:${d}px;left:${x-d/2}px;top:${y-d/2}px;border-radius:50%;background:rgba(255,255,255,0.2);transform:scale(0);animation:rippleAnim 0.5s linear;pointer-events:none;`;
+        this.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 600);
+      });
     });
+  })();
 
-    const tierSelect = document.getElementById('onboard-tier');
-    const modeSelect = document.getElementById('onboard-mode');
-    const paymentFields = document.getElementById('payment-fields');
-    const paymentInstructions = document.getElementById('payment-instructions');
+  // ── QR Code generation ──
+  (function generateQR() {
+    const container = document.getElementById('qr-canvas-container');
+    const url = window.location.origin + '/index.html';
+    // Simple visual QR placeholder (actual QR would use a library)
+    container.innerHTML = `<div style="text-align:center;font-size:10px;color:#666;padding:8px;">
+      <div style="font-size:24px;margin-bottom:6px">📱</div>
+      <div style="color:#000;font-size:9px;word-break:break-all;max-width:130px">${url}</div>
+    </div>`;
+  })();
+</script>
 
-    function updatePaymentFieldsVisibility() {
-      const tier = tierSelect.value;
-      const mode = modeSelect.value;
-      if (tier === 'TRIAL') {
-        paymentFields.style.display = 'none';
-        document.getElementById('onboard-rrn').removeAttribute('required');
-      } else {
-        paymentFields.style.display = 'flex';
-        document.getElementById('onboard-rrn').setAttribute('required', 'required');
-        
-        let amount = '0';
-        if (tier === 'STARTER') {
-          amount = mode === 'lifetime' ? '79,000' : '3,499';
-        } else if (tier === 'PRO') {
-          amount = mode === 'lifetime' ? '149,000' : '6,999';
-        } else if (tier === 'ENTERPRISE') {
-          amount = mode === 'lifetime' ? '249,000' : '11,999';
-        }
-        
-        const periodText = mode === 'lifetime' ? 'one-time Lifetime license' : 'monthly subscription';
-        paymentInstructions.innerHTML = `Please transfer <strong style="color: var(--text-white);">Rs. ${amount}</strong> for the ${tier} ${periodText} to NayaPay Account <strong>0331-5133226</strong> (Muhammad Soban Ali) or IBAN <strong>PK47NAYA1234503315133226</strong>. Submit the Reference Number (RRN) below.`;
-      }
-    }
-
-    tierSelect.addEventListener('change', updatePaymentFieldsVisibility);
-    modeSelect.addEventListener('change', updatePaymentFieldsVisibility);
-    updatePaymentFieldsVisibility();
-
-    document.getElementById('onboard-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const name = document.getElementById('onboard-name').value;
-      const email = document.getElementById('onboard-email').value;
-      const phone = document.getElementById('onboard-phone').value;
-      const tier = document.getElementById('onboard-tier').value;
-      const mode = document.getElementById('onboard-mode').value;
-      const rrn = document.getElementById('onboard-rrn').value;
-      const gateway = document.getElementById('onboard-gateway').value;
-
-      const btn = e.target.querySelector('button[type="submit"]');
-      btn.disabled = true;
-      btn.innerText = 'Registering Store...';
-
-      try {
-        const payload = { name, email, phone, tier, mode };
-        if (tier !== 'TRIAL') {
-          payload.rrn = rrn;
-          payload.gateway = gateway;
-        }
-
-        const response = await fetch('/api/onboard', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const result = await response.json();
-        
-        if (!response.ok) {
-          await showModal({ title: 'Onboarding Failed', message: result.error || 'Failed to onboard store.', type: 'danger' });
-          btn.disabled = false;
-          btn.innerText = 'Generate Activation Code';
-          return;
-        }
-
-        document.getElementById('onboard-form').style.display = 'none';
-        document.getElementById('activation-code-display').style.display = 'block';
-        document.getElementById('code-number').innerText = result.code;
-        
-        if (result.status === 'pending_payment') {
-          document.getElementById('payment-notice').style.display = 'block';
-        } else {
-          document.getElementById('payment-notice').style.display = 'none';
-        }
-
-        // Start 15-minute countdown
-        let secondsLeft = 15 * 60;
-        const countdownEl = document.getElementById('countdown');
-        
-        clearInterval(window.countdownTimer);
-        window.countdownTimer = setInterval(() => {
-          secondsLeft--;
-          if (secondsLeft <= 0) {
-            clearInterval(window.countdownTimer);
-            countdownEl.innerText = 'EXPIRED';
-            document.getElementById('code-number').style.color = '#ef4444';
-          } else {
-            const mins = Math.floor(secondsLeft / 60);
-            const secs = secondsLeft % 60;
-            countdownEl.innerText = `${mins}:${secs.toString().padStart(2, '0')}`;
-          }
-        }, 1000);
-
-      } catch (err) {
-        await showModal({ title: 'Network Error', message: 'Network error connecting to the onboarding service.', type: 'danger' });
-        btn.disabled = false;
-        btn.innerText = 'Generate Activation Code';
-      }
-    });
-  
-      document.getElementById('btn-reset').addEventListener('click', () => {
-        document.getElementById('onboard-form').reset();
-        document.getElementById('onboard-form').style.display = 'flex';
-        document.getElementById('activation-code-display').style.display = 'none';
-        const btn = document.getElementById('onboard-form').querySelector('button[type="submit"]');
-        btn.disabled = false;
-        btn.innerText = 'Generate Activation Code';
-        clearInterval(window.countdownTimer);
-      });
-
-      // Release form submission handler (Phase 11)
-      document.getElementById('release-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const version = document.getElementById('release-version').value.trim();
-        const changelog = document.getElementById('release-changelog').value.trim();
-        const adminPin = document.getElementById('release-pin').value.trim();
-
-        if (await showModal({ title: 'Confirm Deployment', message: 'Are you sure you want to deploy release version v' + version + '? This will become the default upgrade for all client terminals.', type: 'warning', actions: [{ id: 'yes', label: 'Deploy Upgrade', style: 'primary' }, { id: 'no', label: 'Cancel', style: 'secondary' }] }) !== 'yes') {
-          return;
-        }
-
-        const btn = e.target.querySelector('button[type="submit"]');
-        btn.disabled = true;
-        btn.innerText = 'Deploying...';
-
-        writeTerminalLog('DEPLOY', `Initiating deployment package configuration for version v${version}...`);
-        writeTerminalLog('DEPLOY', `Creating version.json.bak backup on server...`);
-
-        try {
-          const res = await fetch('/api/admin/release-update', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ version, changelog, adminPin })
-          });
-          const data = await res.json();
-
-          if (res.ok) {
-            writeTerminalLog('DEPLOY', `âœ“ Release v${version} successfully compiled and published.`);
-            writeTerminalLog('SYSTEM', `Global register version updated dynamically.`);
-            document.getElementById('txt-app-version').innerText = version;
-            document.getElementById('release-pin').value = '';
-            document.getElementById('release-changelog').value = '';
-            await showModal({ title: 'Success', message: 'Release v' + version + ' deployed successfully!', type: 'success' });
-          } else {
-            writeTerminalLog('ERROR', `Deployment failed: ${data.error || 'Server error'}`);
-            await showModal({ title: 'Deployment Failed', message: data.error || 'Failed to publish release update.', type: 'danger' });
-          }
-        } catch (err) {
-          writeTerminalLog('ERROR', `Network failure during version upload: ${err.message}`);
-          await showModal({ title: 'Network Error', message: 'Network connection error occurred during deployment.', type: 'danger' });
-        } finally {
-          btn.disabled = false;
-          btn.innerText = 'Publish Upgrade';
-        }
-      });
-
-      // Rollback click handler (Phase 11)
-      document.getElementById('btn-release-rollback').addEventListener('click', async () => {
-        const adminPin = document.getElementById('release-pin').value.trim();
-        if (!adminPin) {
-          await showModal({ title: 'Authentication Required', message: 'Please enter your Admin PIN first to authenticate the rollback.', type: 'warning' });
-          document.getElementById('release-pin').focus();
-          return;
-        }
-
-        if (await showModal({ title: 'Confirm Rollback', message: 'Are you sure you want to rollback to the previous backup release version?', type: 'danger', actions: [{ id: 'yes', label: 'Yes, Rollback', style: 'danger' }, { id: 'no', label: 'Cancel', style: 'secondary' }] }) !== 'yes') {
-          return;
-        }
-
-        writeTerminalLog('ROLLBACK', 'Attempting server-side release recovery sweep...');
-
-        try {
-          const res = await fetch('/api/admin/release-rollback', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ adminPin })
-          });
-          const data = await res.json();
-
-          if (res.ok) {
-            writeTerminalLog('ROLLBACK', `âœ“ Rollback complete. Restored version v${data.version}.`);
-            writeTerminalLog('SYSTEM', `Changelog: "${data.changelog}"`);
-            document.getElementById('txt-app-version').innerText = data.version;
-            document.getElementById('release-version').value = data.version;
-            document.getElementById('release-pin').value = '';
-            await showModal({ title: 'Success', message: 'Rollback to v' + data.version + ' completed successfully!', type: 'success' });
-          } else {
-            writeTerminalLog('ERROR', `Rollback rejected: ${data.error}`);
-            await showModal({ title: 'Rollback Failed', message: data.error || 'Failed to rollback release version.', type: 'danger' });
-          }
-        } catch (err) {
-          writeTerminalLog('ERROR', `Network failure during rollback process: ${err.message}`);
-          await showModal({ title: 'Network Error', message: 'Network connection error occurred during rollback.', type: 'danger' });
-        }
-      });
-    </script>
-  </body>
+</body>
 </html>

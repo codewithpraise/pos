@@ -8,6 +8,7 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const cors = require('cors');
+const compression = require('compression');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const WebSocket = require('ws');
@@ -41,6 +42,16 @@ const { pushOfflineBackupsToCloud } = require('./supabase-sync');
 const LICENSE_CONFIG = require('./public/license-config');
 const logger = require('./lib/logger');
 const { requireBody, sanitizeHtml, validate } = require('./lib/validator');
+
+function escapeHtml(str) {
+  if (typeof str !== 'string') return str;
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -82,6 +93,14 @@ const adminActionLimiter = rateLimit({
 });
 
 // Apply security middleware
+app.use((req, res, next) => {
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  if (req.headers['x-forwarded-proto'] && req.headers['x-forwarded-proto'] !== 'https') {
+    return res.redirect(301, 'https://' + req.headers.host + req.url);
+  }
+  next();
+});
+
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -97,9 +116,81 @@ app.use(helmet({
     }
   }
 }));
-app.use(cors());
+app.use(cors({
+  origin: (origin, callback) => {
+    const allowed = [
+      /^https?:\/\/localhost/,
+      /^https?:\/\/127\.0\.0\.1/,
+      /^https?:\/\/192\.168\./,
+      /^https?:\/\/10\./,
+      /^https?:\/\/172\.(1[6-9]|2\d|3[01])\./,
+      /^https?:\/\/(.*\.)?valenixia\.com$/
+    ];
+    if (!origin || allowed.some(r => r.test(origin))) return callback(null, true);
+    callback(new Error(`CORS blocked: ${origin}`));
+  },
+  credentials: true
+}));
 
-app.use(express.json());
+app.use(compression());
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// Prevent search engines from indexing API routes
+app.use('/api', (req, res, next) => {
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
+  next();
+});
+
+// Ensure request_audit_logs table exists
+async function initRequestAuditLogsTable() {
+  try {
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS request_audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp TEXT NOT NULL,
+        ip TEXT,
+        method TEXT,
+        path TEXT,
+        status_code INTEGER,
+        response_time_ms REAL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (err) {
+    console.error('[Security] Failed to create request_audit_logs table:', err.message);
+  }
+}
+initRequestAuditLogsTable();
+
+function requestAuditMiddleware(req, res, next) {
+  const start = process.hrtime();
+  const timestamp = new Date().toISOString();
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const method = req.method;
+  const path = req.path;
+
+  res.on('finish', async () => {
+    const diff = process.hrtime(start);
+    const timeMs = (diff[0] * 1e9 + diff[1]) / 1e6;
+    const statusCode = res.statusCode;
+    
+    // Log API requests to the database
+    if (path.startsWith('/api')) {
+      try {
+        await db.run(
+          'INSERT INTO request_audit_logs (timestamp, ip, method, path, status_code, response_time_ms) VALUES (?, ?, ?, ?, ?, ?)',
+          [timestamp, ip, method, path, statusCode, timeMs]
+        );
+      } catch (err) {
+        console.error('[Security] Failed to write request audit log:', err.message);
+      }
+    }
+  });
+  next();
+}
+app.use(requestAuditMiddleware);
 
 // Serve .apk files with correct MIME type and force download (reliability fix)
 app.use((req, res, next) => {
@@ -110,7 +201,16 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '1d',
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+    }
+  }
+}));
 
 // Create Server with optional TLS/HTTPS (Issue 5)
 const keyPath = path.join(__dirname, 'key.pem');
@@ -244,10 +344,11 @@ function deriveKey(passphrase, salt = syncSalt) {
 function generateToken(nodeId, role = 'TERMINAL') {
   const header = { alg: 'HS256', typ: 'JWT' };
   const base64Header = Buffer.from(JSON.stringify(header)).toString('base64url');
+  const tokenExpiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
   const base64Payload = Buffer.from(JSON.stringify({ 
     sub: nodeId, 
     role, 
-    exp: Date.now() + 365 * 24 * 60 * 60 * 1000 
+    exp: tokenExpiresAt 
   })).toString('base64url');
   const signature = crypto.createHmac('sha256', jwtSecret)
     .update(`${base64Header}.${base64Payload}`)
@@ -328,12 +429,54 @@ async function requireAuth(req, res, next) {
   next();
 }
 
+async function initAdminAuditLogsTable() {
+  try {
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS admin_audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp TEXT NOT NULL,
+        ip TEXT,
+        method TEXT,
+        path TEXT,
+        user_agent TEXT,
+        device_token TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (err) {
+    console.error('[AdminSecurity] Failed to create admin_audit_logs table:', err.message);
+  }
+}
+initAdminAuditLogsTable();
+
+async function logAdminAccess(req, res, next) {
+  const timestamp = new Date().toISOString();
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const userAgent = req.headers['user-agent'] || 'unknown';
+  const path = req.path;
+  const method = req.method;
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : '';
+
+  console.log(`[AdminAudit] ${timestamp} | ${ip} | ${method} ${path} | UA: ${userAgent.slice(0, 50)}...`);
+
+  try {
+    await db.run(
+      'INSERT INTO admin_audit_logs (timestamp, ip, method, path, user_agent, device_token) VALUES (?, ?, ?, ?, ?, ?)',
+      [timestamp, ip, method, path, userAgent, token]
+    );
+  } catch (e) {
+    console.error('[AdminSecurity] Failed to write admin audit log:', e.message);
+  }
+  next();
+}
+
 function requireAdmin(req, res, next) {
   requireAuth(req, res, () => {
     if (req.device.role !== 'MASTER' && req.device.role !== 'TERMINAL' && req.device.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Access denied: Requires Admin privileges.' });
     }
-    next();
+    logAdminAccess(req, res, next);
   });
 }
 
@@ -2537,6 +2680,30 @@ app.get('/api/sync/bootstrap', async (req, res) => {
   }
 });
 
+// GDPR Data Export Endpoint (Requires Admin privileges)
+app.get('/api/export', requireAdmin, async (req, res) => {
+  try {
+    const data = {};
+    const tables = [
+      'transactions', 'line_items', 'inventory_catalog', 
+      'employees', 'customers', 'categories', 'distributors',
+      'purchase_orders', 'po_line_items', 'distributor_payments', 'customer_credit'
+    ];
+    for (const table of tables) {
+      try {
+        data[table] = await db.all(`SELECT * FROM ${table}`);
+      } catch (err) {
+        data[table] = [];
+      }
+    }
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename="valenixia_export.json"');
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Export failed: ' + err.message });
+  }
+});
+
 // 7. Reset baseline cleanly (Requires Admin privileges)
 app.post('/api/reset', requireAdmin, async (req, res) => {
   const { pin } = req.body;
@@ -2932,4 +3099,27 @@ initDatabase(terminalId)
     console.error('Initialization error:', err);
     process.exit(1);
   });
+
+function handleGracefulShutdown(signal) {
+  console.log(`[Shutdown] Received ${signal}. Starting graceful shutdown...`);
+  if (server) {
+    server.close(async () => {
+      console.log('[Shutdown] HTTP/2 server closed.');
+      try {
+        if (db && typeof db.close === 'function') {
+          await db.close();
+          console.log('[Shutdown] Database connection closed.');
+        }
+      } catch (err) {
+        console.error('[Shutdown] Error closing database:', err.message);
+      }
+      process.exit(0);
+    });
+  } else {
+    process.exit(0);
+  }
+}
+
+process.on('SIGTERM', () => handleGracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => handleGracefulShutdown('SIGINT'));
 

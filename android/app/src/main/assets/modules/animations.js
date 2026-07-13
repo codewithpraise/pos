@@ -29,7 +29,7 @@ export function animateCartItemAdd(row) {
   // Force reflow
   void row.offsetWidth;
   row.classList.add('adding');
-  row.addEventListener('animationend', () => row.classList.remove('adding'), { once: true });
+  row.addEventListener('animationend', () => { try { row.classList.remove('adding'); } catch(e){} }, { once: true });
   haptic(30);
 }
 
@@ -42,7 +42,9 @@ export function animateCartItemRemove(row, onComplete) {
   if (!row) { if (onComplete) onComplete(); return; }
   row.classList.add('removing');
   row.addEventListener('animationend', () => {
-    if (onComplete) onComplete();
+    try {
+      if (onComplete) onComplete();
+    } catch(e){}
   }, { once: true });
   haptic([30, 20]);
 }
@@ -56,7 +58,7 @@ export function pulseQtyDisplay(qtyEl) {
   qtyEl.classList.remove('bump');
   void qtyEl.offsetWidth;
   qtyEl.classList.add('bump');
-  qtyEl.addEventListener('animationend', () => qtyEl.classList.remove('bump'), { once: true });
+  qtyEl.addEventListener('animationend', () => { try { qtyEl.classList.remove('bump'); } catch(e){} }, { once: true });
 }
 
 /**
@@ -66,7 +68,7 @@ export function flashPaymentSuccess() {
   const btn = document.getElementById('btn-charge');
   if (!btn) return;
   btn.classList.add('success-pulse');
-  btn.addEventListener('animationend', () => btn.classList.remove('success-pulse'), { once: true });
+  btn.addEventListener('animationend', () => { try { btn.classList.remove('success-pulse'); } catch(e){} }, { once: true });
   haptic([50, 30, 100]);
   if (typeof window.announceToScreenReader === 'function') {
     window.announceToScreenReader('Payment successful!');
@@ -83,7 +85,7 @@ export function shakeElement(elOrId) {
   el.classList.remove('shake');
   void el.offsetWidth;
   el.classList.add('shake');
-  el.addEventListener('animationend', () => el.classList.remove('shake'), { once: true });
+  el.addEventListener('animationend', () => { try { el.classList.remove('shake'); } catch(e){} }, { once: true });
   haptic([50, 30, 50]);
 }
 

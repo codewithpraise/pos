@@ -50,11 +50,27 @@ export function updateSyncStatusBadge(status) {
 }
 
 export function initOfflineListeners() {
-  // Initial connectivity check
-  updateOfflineBanner(navigator.onLine);
+  try {
+    // Initial connectivity check
+    updateOfflineBanner(navigator.onLine);
 
-  window.addEventListener('online',  () => updateOfflineBanner(true));
-  window.addEventListener('offline', () => updateOfflineBanner(false));
+    window.addEventListener('online',  () => {
+      try {
+        updateOfflineBanner(true);
+      } catch (err) {
+        console.error('[OfflineModule] Failed to update banner on online event:', err);
+      }
+    });
+    window.addEventListener('offline', () => {
+      try {
+        updateOfflineBanner(false);
+      } catch (err) {
+        console.error('[OfflineModule] Failed to update banner on offline event:', err);
+      }
+    });
+  } catch (e) {
+    console.error('[OfflineModule] Failed to initialize offline listeners:', e);
+  }
 }
 
 // Auto-initialization removed — app.js manages online/offline listeners centrally

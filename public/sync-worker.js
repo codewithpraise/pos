@@ -6,6 +6,25 @@
 importScripts('client-db.js', 'client-sync.js');
 let dbReadyPromise = ValenixiaDB.init(); // Capture the init promise
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error(`Request timed out after ${timeoutMs}ms: ${url}`);
+    }
+    throw err;
+  }
+}
+
 function validateModeFields(mode, modeFieldsRaw) {
   let fields = {};
   try {
@@ -36,6 +55,8 @@ function validateModeFields(mode, modeFieldsRaw) {
 
 let syncClient = null;
 let nodeId = null;
+let isBootstrapped = false;
+let bootstrapPromise = null;
 
 // Exact decimal string serialization to prevent IEEE 754 float precision issues for PRAL compliance
 function serializePRALPayload(fbrInvoiceNumber, now, total, tax, subtotal, cart, paymentMode, usin) {
@@ -58,13 +79,36 @@ function serializePRALPayload(fbrInvoiceNumber, now, total, tax, subtotal, cart,
   return JSON.stringify(formattedObj);
 }
 
+async function flushFBRQueue() {
+  const queue = await ValenixiaDB.getAll('fbr_offline_queue');
+  if (!queue || queue.length === 0) return;
+  
+  for (const entry of queue) {
+    try {
+      const response = await fetchWithTimeout(`${self.serverUrl}/api/fbr/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: entry.payload
+      }, 10000);
+      if (response.ok) {
+        await ValenixiaDB.delete('fbr_offline_queue', entry.id);
+      }
+    } catch (e) {
+      console.warn('[SyncWorker] Failed to flush FBR queue item', entry.id);
+    }
+  }
+}
+
 // Initialize Database and Sync Client
 async function initializeSyncEngine(serverUrl) {
-  if (serverUrl) {
-    self.serverUrl = serverUrl;
-  }
-  try {
-    await ValenixiaDB.init();
+  if (bootstrapPromise) return bootstrapPromise;
+
+  bootstrapPromise = (async () => {
+    if (serverUrl) {
+      self.serverUrl = serverUrl;
+    }
+    try {
+      await ValenixiaDB.init();
 
     // Fetch persistent terminal/node ID from local preferences or create one
     let terminalNamePref = await ValenixiaDB.get('local_preferences', 'terminal_name');
@@ -195,6 +239,8 @@ async function initializeSyncEngine(serverUrl) {
 
     syncClient.connect();
 
+    isBootstrapped = true;
+
     // Fetch initial status and send to UI
     postMessage({
       type: 'INIT_SUCCESS',
@@ -206,13 +252,16 @@ async function initializeSyncEngine(serverUrl) {
 
   } catch (err) {
     console.error('[SyncWorker] Init failed:', err);
+    isBootstrapped = false;
     postMessage({ type: 'INIT_ERROR', error: err.message });
+    throw err;
   }
+  })();
+  return bootstrapPromise;
 }
 
 // Global listener for UI thread events
 self.onmessage = async (event) => {
-  await dbReadyPromise;
   const { type, payload } = event.data;
 
   // Handle reload instruction from SyncClient
@@ -221,18 +270,14 @@ self.onmessage = async (event) => {
     return;
   }
 
-  // SAVE_TELEMETRY and CHECK_OVERSELL only need the DB (not the sync connection),
-  // so they can run before the sync engine is fully initialized.
-  const dbOnlyMessages = ['SAVE_TELEMETRY', 'CHECK_OVERSELL', 'PURGE_OLD_IMAGES', 'SAVE_PREFERENCE'];
-  // GET_ messages only read from IndexedDB — they work before the WS sync engine initialises
-  const dbReadMessages = [
-    'GET_PREFERENCES', 'GET_CATALOG', 'GET_EMPLOYEES', 'GET_CUSTOMERS',
-    'GET_TRANSACTIONS', 'GET_ANALYTICS', 'GET_SHIFTS', 'HYDRATE_DB',
-    'GET_INVENTORY', 'GET_ALERTS', 'GET_STAFF'
-  ];
-  if (!syncClient && type !== 'INIT' && !dbOnlyMessages.includes(type) && !dbReadMessages.includes(type)) {
-    // For mutation-type messages before init, return a soft warning (not a loud error)
-    console.warn(`[SyncWorker] Message "${type}" received before sync engine initialized — queuing skipped.`);
+  // Guard: Reject non-INIT messages if not bootstrapped
+  if (type !== 'INIT' && !isBootstrapped) {
+    console.warn(`[SyncWorker] Rejected message type "${type}" — engine not bootstrapped yet`);
+    postMessage({
+      type: 'ERROR',
+      error: 'SyncEngine not initialized. Please wait for database initialization to complete.',
+      rejectedType: type
+    });
     return;
   }
 
@@ -341,14 +386,13 @@ self.onmessage = async (event) => {
           // Ensure we don't try to fetch relative to file:// origin
           const bootstrapUrl = base.startsWith('http') ? (base + '/api/sync/bootstrap') : '/api/sync/bootstrap';
 
-          const response = await fetch(bootstrapUrl, {
+          const response = await fetchWithTimeout(bootstrapUrl, {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${licenseToken}`,
               'Content-Type': 'application/json'
-            },
-            signal: AbortSignal.timeout(15000)
-          });
+            }
+          }, 15000);
           const result = await response.json();
           if (!response.ok) {
             throw new Error(result.error || 'Hydration request failed');
@@ -1234,11 +1278,11 @@ self.onmessage = async (event) => {
           });
           // Forward crash to master server if online
           if (syncClient && syncClient.isConnected) {
-            fetch('/api/telemetry', {
+            fetchWithTimeout('/api/telemetry', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(log)
-            }).catch(() => {});
+            }, 5000).catch(() => {});
           }
         } catch(e) { /* non-fatal */ }
         break;
@@ -1354,12 +1398,11 @@ async function flushFBRQueue() {
     
     for (const entry of pending) {
       try {
-        const response = await fetch('/api/fbr/queue', {
+        const response = await fetchWithTimeout('/api/fbr/queue', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ invoices: [entry] }),
-          signal: AbortSignal.timeout(15000)
-        });
+          body: JSON.stringify({ invoices: [entry] })
+        }, 15000);
 
         if (!response.ok) {
           console.warn(`[FBR] Server communication error for USIN: ${entry.usin}, HTTP: ${response.status}`);

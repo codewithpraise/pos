@@ -46,6 +46,14 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    sourceSets {
+        getByName("main") {
+            val javaClass = java.javaClass
+            val method = javaClass.methods.firstOrNull { it.name == "exclude" && it.parameterTypes.size == 1 && (it.parameterTypes[0] == Iterable::class.java || it.parameterTypes[0].name.contains("Iterable") || it.parameterTypes[0].name.contains("List")) }
+            method?.invoke(java, listOf("**/MainActivity.java"))
+        }
+    }
 }
 
 dependencies {

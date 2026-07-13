@@ -1,9 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Placeholder for dynamically injected nonce value for CSP compliance: <script nonce="nonce-placeholder"></script> -->
+  <!-- CDN dependencies with Subresource Integrity (SRI) checks: -->
+  <!-- <script src="https://unpkg.com/react@18/umd/react.production.min.js" integrity="sha384-placeholder" crossorigin="anonymous"></script> -->
   <script src="bootstrap-init.js"></script>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https: http:; connect-src 'self' ws: wss: https: http:; media-src 'self' blob: data:;">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#0a0a0a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -15,19 +19,21 @@
   <!-- Premium Font Pairing: Inter (premium navy), Fraunces (boutique headers), Outfit (headers), Manrope (interface/numbers), Literata (receipts) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Manrope:wght@200..800&family=Outfit:wght@100..900&display=swap" rel="stylesheet">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Manrope:wght@200..800&family=Outfit:wght@100..900&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Manrope:wght@200..800&family=Outfit:wght@100..900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <script src="polyfill.min.js"></script>
   <link rel="stylesheet" href="style.css">
   <script src="theme-transfer.js"></script>
 </head>
 <body>
   <!-- HTML APP BOOT LOADER OVERLAY -->
-  <div id="app-boot-loader" style="position: fixed; inset: 0; z-index: 99999999; background: #0A0A0F; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; font-family: 'Manrope', sans-serif;">
-    <div style="font-family: 'Outfit', sans-serif; font-size: 24px; font-weight: 800; color: var(--accent-emerald); letter-spacing: 0.1em; text-transform: uppercase;">Valenixia POS</div>
-    <div style="font-size: 11px; color: #6b7280; letter-spacing: 0.05em; text-transform: uppercase;" id="app-boot-loader-status">Initializing local runtime...</div>
-    <div style="width: 140px; height: 3px; background: rgba(255,255,255,0.05); border-radius: 99px; overflow: hidden; margin-top: 12px;">
-      <div id="app-boot-loader-progress" style="width: 15%; height: 100%; background: #00d68f; border-radius: 99px; transition: width 0.3s ease;"></div>
+  <div id="app-boot-loader" style="position:fixed;inset:0;z-index:99999999;background:#060609;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;font-family:'Manrope',sans-serif;">
+    <div style="font-family:'Outfit',sans-serif;font-size:26px;font-weight:900;background:linear-gradient(135deg,#00d68f,#10b981);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:4px;">Valenixia POS</div>
+    <div style="font-size:11px;color:#6b7280;letter-spacing:0.05em;text-transform:uppercase;" id="app-boot-loader-status">Initializing local runtime...</div>
+    <div style="width:180px;height:2px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;margin-top:8px;">
+      <div id="app-boot-loader-progress" style="width:15%;height:100%;background:linear-gradient(90deg,#00d68f,#10b981);border-radius:99px;transition:width 0.4s ease;"></div>
     </div>
+    <div id="app-boot-loader-tip" style="font-size:10px;color:#4b5563;max-width:260px;text-align:center;margin-top:8px;transition:opacity 0.25s ease;line-height:1.5;min-height:30px;"></div>
   </div>
 
   <!-- SCREEN READER ACCESSIBILITY LIVE ANNOUNCER -->
@@ -71,7 +77,7 @@
 
       <!-- Real passcode input for native keyboard, physical keyboard, and scanner support -->
       <form id="pin-form" style="margin-bottom: 20px; display: flex; justify-content: center; position: relative; width: 100%;">
-        <input type="password" id="pin-input" class="pin-input-field" 
+        <input type="text"  autocomplete="new-password" id="pin-input" class="secure-input pin-input-field" 
                inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="••••"
                autocomplete="one-time-code" aria-label="••••">
         <button type="submit" style="display: none;"></button>
@@ -94,7 +100,7 @@
       </div>
 
       <div class="auth-error-msg" id="auth-error"></div>
-      <div class="hint-credentials">Developer Seed PINs: Cashier: <strong>5678</strong> | Admin: <strong>1234</strong></div>
+
       <!-- Loopback Reset Trigger for recovery -->
       <div style="margin-top: 16px; text-align: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
         <button type="button" class="btn-link" id="btn-lock-screen-reset" style="font-size: 10px; color: var(--text-gray); background: none; border: none; text-decoration: underline; cursor: pointer; opacity: 0.6; transition: opacity 0.2s;">
@@ -134,7 +140,7 @@
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
           </span>
-          <span class="nav-label">Inventory</span>
+          <span class="nav-label">Inventory Ledger</span>
         </button>
         <button class="nav-item" data-screen="history">
           <span class="nav-icon">
@@ -273,7 +279,12 @@
         
         <!-- View 1: Checkout -->
         <section class="content-view active" id="view-checkout">
-          <div class="checkout-split">
+          <div class="checkout-tabs-mobile" id="checkout-tabs-mobile-nav" style="display: none; width: 100%; border-bottom: 1px solid var(--border-titanium); padding: 8px 16px; gap: 8px; box-sizing: border-box; background: var(--panel-graphite); flex-shrink: 0;">
+            <button type="button" class="checkout-tab-btn active" data-tab="catalog" style="flex: 1; min-height: 40px; border-radius: 6px; font-weight: 700; font-size: 12px; background: var(--panel-graphite-light); border: 1px solid var(--border-titanium); color: var(--text-white); cursor: pointer; transition: all 0.2s ease;">Catalog</button>
+            <button type="button" class="checkout-tab-btn" data-tab="cart" style="flex: 1; min-height: 40px; border-radius: 6px; font-weight: 700; font-size: 12px; background: transparent; border: 1px solid transparent; color: var(--text-gray); cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 6px;">Cart <span id="mobile-cart-badge" style="background: var(--alert-coral); color: white; border-radius: 10px; padding: 2px 6px; font-size: 9px; font-weight: 800; display: inline-block; min-width: 12px; text-align: center;">0</span></button>
+            <button type="button" class="checkout-tab-btn" data-tab="payment" style="flex: 1; min-height: 40px; border-radius: 6px; font-weight: 700; font-size: 12px; background: transparent; border: 1px solid transparent; color: var(--text-gray); cursor: pointer; transition: all 0.2s ease;">Payment</button>
+          </div>
+          <div class="checkout-split tab-catalog-active" id="checkout-split-layout">
             
             <!-- Left Panel: Cart items ledger -->
             <div class="checkout-cart">
@@ -359,9 +370,6 @@
                 <div class="card-collapsible-content">
                   <div style="display: flex; gap: 8px; width: 100%;">
                     <input type="text" id="checkout-search-input" class="pos-input" placeholder="Search catalog sku, name, or scan barcode..." autocomplete="off" style="flex-grow: 1;" aria-label="Search catalog sku, name, or scan barcode...">
-                    <button class="action-btn" id="btn-desktop-camera-scanner" title="Scan with camera" style="padding: 0; min-height: 48px; width: 48px; display: flex; align-items: center; justify-content: center; background: var(--panel-graphite-light); border: 1px solid var(--border-titanium); color: var(--text-white); flex-shrink: 0; cursor: pointer; transition: var(--transition-tactile);">
-                      <svg class="svg-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                    </button>
                   </div>
                   <div class="search-dropdown" id="search-dropdown-results"></div>
                 </div>
@@ -494,14 +502,14 @@
 
         <!-- View 2.b: Catalog Manager -->
         <section class="content-view" id="view-catalog-manager">
-          <div class="view-header">
-            <div class="header-left">
-              <h2>Product Catalog Management</h2>
+          <div class="view-header" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <div class="header-left" style="flex:1; min-width:0;">
+              <h2>Inventory Ledger</h2>
               <div class="category-filters" id="catalog-category-list">
                 <!-- populated dynamically -->
               </div>
             </div>
-            <button class="action-btn action-success" id="btn-catalog-create-product">+ Add Product</button>
+            <button class="action-btn action-success" id="btn-catalog-create-product" style="flex-shrink:0;">+ Add Product</button>
           </div>
           
           <div class="catalog-table-wrapper">
@@ -553,6 +561,9 @@
 
             <!-- Right Column: receipt HTML print renderer -->
             <div class="receipt-preview-pane">
+              <div class="preview-header-mobile" style="display: none; align-items: center; margin-bottom: 12px; width: 100%;">
+                <button class="action-btn" id="btn-history-back-to-list" style="padding: 6px 12px; font-size: 11px; min-height: 32px; font-family: var(--font-display); font-weight: 700; width: 100%;">← Back to Receipt List</button>
+              </div>
               <h3>Active Receipt Print Preview</h3>
               <div class="receipt-paper" id="receipt-printout-render">
                 <p class="text-center text-muted" style="margin-top: 100px;">Select a completed sales transaction to preview thermal receipt details.</p>
@@ -743,14 +754,102 @@
           </div>
         </section>
 
-        <!-- View 7: CRDT Sync Stream Logs -->
+        <!-- View 7: CRDT Sync Stream & System Health Logs -->
         <section class="content-view" id="view-logs">
-          <div class="view-header">
-            <h2>Lamport delta-CRDT Broadcast Log Feed</h2>
-            <button class="action-btn" id="btn-clear-logs-feed">Clear Stream Logs</button>
+          <div class="view-header" style="border-bottom: 1px solid var(--border-titanium); padding-bottom: 16px; margin-bottom: 20px;">
+            <h2>System Health &amp; Logs</h2>
+            <div style="display: flex; gap: 8px;" id="logs-tabs-nav">
+              <button class="action-btn active" id="btn-tab-sync-logs" style="padding: 6px 16px; font-size: 11px; border-radius: 6px; text-transform: uppercase; font-weight: 800;">Sync Stream</button>
+              <button class="action-btn" id="btn-tab-health-logs" style="padding: 6px 16px; font-size: 11px; border-radius: 6px; text-transform: uppercase; font-weight: 800;">Diagnostics &amp; Health</button>
+            </div>
           </div>
-          <div class="sync-logs-feed" id="sync-logs-feed-container">
-            <!-- filled by WebSocket/IndexedDB updates -->
+          
+          <!-- Tab 1: Sync Logs Stream -->
+          <div id="logs-tab-sync" class="logs-tab-content">
+            <div class="view-header" style="margin-bottom: 12px;">
+              <span class="text-muted" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Live CRDT Broadcast Feed</span>
+              <button class="action-btn" id="btn-clear-logs-feed">Clear Stream Logs</button>
+            </div>
+            <div class="sync-logs-feed" id="sync-logs-feed-container" style="max-height: 480px; overflow-y: auto;">
+              <!-- filled by WebSocket/IndexedDB updates -->
+            </div>
+          </div>
+
+          <!-- Tab 2: Diagnostics & Health Panel -->
+          <div id="logs-tab-health" class="logs-tab-content" style="display: none;">
+            <div class="settings-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+              <!-- IDB Card -->
+              <div class="settings-section" style="padding: 16px; border: 1px solid var(--border-titanium); border-radius: 8px;">
+                <h3 style="margin-top:0;">Database Status (IndexedDB)</h3>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;">
+                  <span>Connection:</span>
+                  <span id="health-db-status" style="color:var(--accent-emerald); font-weight:bold;">CONNECTED</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;">
+                  <span>Schema Version:</span>
+                  <span id="health-db-version" style="font-weight:bold;">5</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;">
+                  <span>Total Records:</span>
+                  <span id="health-db-records" style="font-weight:bold;">Loading...</span>
+                </div>
+                <button class="action-btn" id="btn-health-db-vacuum" style="width:100%; min-height:32px; font-size:11px; margin-top:8px;">OPTIMIZE / DEFRAG DATABASE</button>
+              </div>
+
+              <!-- Sync Engine Card -->
+              <div class="settings-section" style="padding: 16px; border: 1px solid var(--border-titanium); border-radius: 8px;">
+                <h3 style="margin-top:0;">Sync Engine &amp; P2P Connection</h3>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;">
+                  <span>Network Sync Status:</span>
+                  <span id="health-sync-status" style="color:var(--text-gray); font-weight:bold;">DISCONNECTED</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;">
+                  <span>Circuit Breaker:</span>
+                  <span id="health-sync-breaker" style="color:var(--accent-emerald); font-weight:bold;">CLOSED (OK)</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;">
+                  <span>Client HWID:</span>
+                  <span id="health-sync-hwid" style="font-family:var(--font-mono); font-size:10px; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Loading...</span>
+                </div>
+                <button class="action-btn" id="btn-health-sync-reconnect" style="width:100%; min-height:32px; font-size:11px; margin-top:8px;">FORCE RECONNECT SYNC</button>
+              </div>
+
+              <!-- Storage & System Usage Card -->
+              <div class="settings-section" style="padding: 16px; border: 1px solid var(--border-titanium); border-radius: 8px;">
+                <h3 style="margin-top:0;">Quota &amp; Storage Footprint</h3>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;">
+                  <span>Storage Type:</span>
+                  <span id="health-storage-type" style="font-weight:bold;">PERSISTED</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;">
+                  <span>Utilized Space:</span>
+                  <span id="health-storage-used" style="font-weight:bold;">Loading...</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;">
+                  <span>Total Quota:</span>
+                  <span id="health-storage-total" style="font-weight:bold;">Loading...</span>
+                </div>
+                <button class="action-btn" id="btn-health-storage-check" style="width:100%; min-height:32px; font-size:11px; margin-top:8px;">RUN STORAGE DIAGNOSTIC</button>
+              </div>
+
+              <!-- Error & Audit Analytics Card -->
+              <div class="settings-section" style="padding: 16px; border: 1px solid var(--border-titanium); border-radius: 8px;">
+                <h3 style="margin-top:0;">Audit Logs &amp; Integrity</h3>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;">
+                  <span>Security Events:</span>
+                  <span id="health-audit-count" style="font-weight:bold;">Loading...</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;">
+                  <span>Total Error Logs:</span>
+                  <span id="health-errors-count" style="font-weight:bold;">Loading...</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;">
+                  <span>Device Isolation:</span>
+                  <span id="health-node-isolation" style="font-weight:bold;">Loading...</span>
+                </div>
+                <button class="action-btn action-warning" id="btn-health-export-errors" style="width:100%; min-height:32px; font-size:11px; margin-top:8px;">EXPORT ERROR LOGS (CSV)</button>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -792,7 +891,7 @@
               <div class="settings-row">
                 <label>P2P Sync Encryption Key:</label>
                 <div class="password-wrapper">
-                  <input type="password" id="setting-sync-passphrase" class="pos-input" placeholder="Encryption Passphrase" aria-label="Encryption Passphrase">
+                  <input type="text"  autocomplete="new-password" id="setting-sync-passphrase" class="secure-input pos-input" placeholder="Encryption Passphrase" aria-label="Encryption Passphrase">
                   <button type="button" class="btn-toggle-password" title="Toggle visibility">
                     <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -898,15 +997,15 @@
               <h3>Change My Security PIN</h3>
               <div class="settings-row">
                 <label>Current Security PIN:</label>
-                <input type="password" id="setting-change-pin-current" class="pos-input" maxlength="4" placeholder="4-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
+                <input type="text"  autocomplete="new-password" id="setting-change-pin-current" class="secure-input pos-input" maxlength="4" placeholder="4-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
               </div>
               <div class="settings-row">
                 <label>New Security PIN:</label>
-                <input type="password" id="setting-change-pin-new" class="pos-input" maxlength="4" placeholder="4-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
+                <input type="text"  autocomplete="new-password" id="setting-change-pin-new" class="secure-input pos-input" maxlength="4" placeholder="4-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
               </div>
               <div class="settings-row">
                 <label>Confirm New PIN:</label>
-                <input type="password" id="setting-change-pin-confirm" class="pos-input" maxlength="4" placeholder="4-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
+                <input type="text"  autocomplete="new-password" id="setting-change-pin-confirm" class="secure-input pos-input" maxlength="4" placeholder="4-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
               </div>
               <button type="button" class="action-btn action-success" id="btn-change-my-pin" style="width: 100%; margin-top: 12px;">Update My Passcode</button>
             </div>
@@ -915,6 +1014,16 @@
               <h3>Recent System Errors</h3>
               <div id="settings-errors-container" style="display: flex; flex-direction: column; gap: 8px; font-family: var(--font-mono); font-size: 10px; max-height: 180px; overflow-y: auto;">
                 <p class="text-muted" style="text-align: center; margin-top: 10px;">No system errors recorded during this session.</p>
+              </div>
+            </div>
+
+            <div class="settings-section">
+              <h3>Legal &amp; Compliance</h3>
+              <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 12px;">Review system policy agreements and software licenses.</p>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <button type="button" class="action-btn" id="btn-legal-tos" style="width: 100%; text-align: left; padding: 10px 14px; font-size: 12px;">📄 Terms of Service (TOS)</button>
+                <button type="button" class="action-btn" id="btn-legal-privacy" style="width: 100%; text-align: left; padding: 10px 14px; font-size: 12px;">🛡️ Privacy Policy</button>
+                <button type="button" class="action-btn" id="btn-legal-refund" style="width: 100%; text-align: left; padding: 10px 14px; font-size: 12px;">💸 Refund &amp; Cancellation Policy</button>
               </div>
             </div>
             
@@ -1076,7 +1185,7 @@
               <div class="settings-row" style="margin-bottom:12px;">
                 <label style="font-size:11px;font-weight:700;color:var(--text-gray);text-transform:uppercase;letter-spacing:0.5px;">Google OAuth 2.0 Access Token</label>
                 <div class="password-wrapper" style="margin-top:6px;">
-                  <input type="password" id="setting-google-drive-token" class="pos-input" placeholder="Paste your Google OAuth2 access token" aria-label="Paste your Google OAuth2 access token">
+                  <input type="text"  autocomplete="new-password" id="setting-google-drive-token" class="secure-input pos-input" placeholder="Paste your Google OAuth2 access token" aria-label="Paste your Google OAuth2 access token">
                   <button type="button" class="btn-toggle-password" title="Toggle"><svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button>
                 </div>
               </div>
@@ -1291,7 +1400,7 @@
                   <button type="button" class="billing-cycle-btn" id="btn-billing-cycle-lifetime" data-cycle="lifetime" style="padding: 6px 12px; font-size: 10px; font-weight: 700; border: none; border-radius: 6px; cursor: pointer; transition: background 0.2s, color 0.2s; background: transparent; color: var(--text-gray); text-transform: uppercase; letter-spacing: 0.05em;">Full Software Buy</button>
                 </div>
 
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;" id="billing-tier-grid">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px;" id="billing-tier-grid">
                   
                   <!-- STARTER -->
                   <div class="billing-tier-card" data-tier="STARTER" style="border: 1px solid var(--border-titanium); padding: 16px; border-radius: 8px; cursor: pointer; transition: var(--transition-tactile); background: rgba(255,255,255,0.01);">
@@ -1299,23 +1408,29 @@
                       <span style="font-family:var(--font-display); font-weight:800; font-size:13px; color:var(--text-white);">STARTER</span>
                       <span id="price-val-STARTER" style="font-size:10px; color:var(--text-gray); font-weight:700;">PKR 3,499 / mo</span>
                     </div>
-                    <ul style="font-size: 10px; color: var(--text-muted); padding-left: 12px; margin: 0; line-height: 1.6;">
-                      <li>1 Register terminal max</li>
-                      <li>Standard retail features</li>
-                      <li>Basic local telemetry</li>
+                    <ul style="font-size: 10px; color: var(--text-muted); padding-left: 14px; margin: 0; line-height: 1.6;">
+                      <li><strong style="color:var(--text-white);">1</strong> Register terminal</li>
+                      <li>Standard Retail POS features</li>
+                      <li>Offline-first Local DB sync</li>
+                      <li>Basic Sales & Inventory Reports</li>
+                      <li>Standard Receipt Printing</li>
+                      <li>Basic Telegram Error Telemetry</li>
                     </ul>
                   </div>
 
-                  <!-- PRO -->
+                  <!-- PRO (GROWTH) -->
                   <div class="billing-tier-card" data-tier="PRO" style="border: 1px solid var(--border-titanium); padding: 16px; border-radius: 8px; cursor: pointer; transition: var(--transition-tactile); background: rgba(255,255,255,0.01);">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                      <span style="font-family:var(--font-display); font-weight:800; font-size:13px; color:var(--text-white);">GROWTH</span>
+                      <span style="font-family:var(--font-display); font-weight:800; font-size:13px; color:var(--accent-emerald);">GROWTH</span>
                       <span id="price-val-PRO" style="font-size:10px; color:var(--text-gray); font-weight:700;">PKR 6,999 / mo</span>
                     </div>
-                    <ul style="font-size: 10px; color: var(--text-muted); padding-left: 12px; margin: 0; line-height: 1.6;">
-                      <li>2 Register terminals max</li>
-                      <li>Recipe costing & suppliers ledger</li>
-                      <li>COGS & margin dashboard</li>
+                    <ul style="font-size: 10px; color: var(--text-muted); padding-left: 14px; margin: 0; line-height: 1.6;">
+                      <li><strong style="color:var(--text-white);">2</strong> Register terminals</li>
+                      <li><strong style="color:var(--accent-emerald);">Everything in Starter, plus:</strong></li>
+                      <li>Kitchen/Bar Order Ticket (KOT/BOT) Routing</li>
+                      <li>Recipe Costing & Suppliers Ledger</li>
+                      <li>COGS & Profit Margin Dashboard</li>
+                      <li>FBR/PRA POS Integration Ready</li>
                     </ul>
                   </div>
 
@@ -1325,10 +1440,14 @@
                       <span style="font-family:var(--font-display); font-weight:800; font-size:13px; color:var(--text-white);">ENTERPRISE</span>
                       <span id="price-val-ENTERPRISE" style="font-size:10px; color:var(--text-gray); font-weight:700;">PKR 11,999 / mo</span>
                     </div>
-                    <ul style="font-size: 10px; color: var(--text-muted); padding-left: 12px; margin: 0; line-height: 1.6;">
-                      <li>5 Register terminals max</li>
-                      <li>Multi-branch consolidated reports</li>
-                      <li>HR, payroll & security audit logs</li>
+                    <ul style="font-size: 10px; color: var(--text-muted); padding-left: 14px; margin: 0; line-height: 1.6;">
+                      <li><strong style="color:var(--text-white);">5</strong> Register terminals</li>
+                      <li><strong style="color:var(--text-white);">Everything in Growth, plus:</strong></li>
+                      <li>Multi-Branch Consolidated Reporting</li>
+                      <li>Advanced HR, Payroll & Attendance</li>
+                      <li>High-Security Audit & Activity Logs</li>
+                      <li>Custom Roles & Permissions (RBAC)</li>
+                      <li>24/7 Priority Support & Onsite Assistance</li>
                     </ul>
                   </div>
 
@@ -1605,37 +1724,29 @@
         </section>
 
       </div>
+
+      <!-- MOBILE BOTTOM NAVIGATION -->
+      <nav class="pos-bottom-nav">
+        <button class="nav-btn active" data-screen="checkout">
+          <span class="nav-icon">🛒</span>
+          <span class="nav-label">Checkout</span>
+        </button>
+        <button class="nav-btn" data-screen="catalog">
+          <span class="nav-icon">📦</span>
+          <span class="nav-label">Catalog</span>
+        </button>
+        <button class="nav-btn" data-screen="history">
+          <span class="nav-icon">📜</span>
+          <span class="nav-label">History</span>
+        </button>
+        <button class="nav-btn" data-screen="settings">
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-label">Settings</span>
+        </button>
+      </nav>
     </div>
-
-    <!-- PERSISTENT BOTTOM NAVIGATION (Mobile / Touch devices viewports) -->
-    <nav class="pos-bottom-nav">
-      <button class="nav-btn active" data-screen="checkout">
-        <span class="nav-icon">
-          <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-        </span>
-        <span class="nav-label">Checkout</span>
-      </button>
-      <button class="nav-btn" data-screen="catalog">
-        <span class="nav-icon">
-          <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-        </span>
-        <span class="nav-label">Catalog</span>
-      </button>
-      <button class="nav-btn" data-screen="history">
-        <span class="nav-icon">
-          <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        </span>
-        <span class="nav-label">History</span>
-      </button>
-      <button class="nav-btn" data-screen="settings">
-        <span class="nav-icon">
-          <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        </span>
-        <span class="nav-label">Settings</span>
-      </button>
-    </nav>
-
   </div>
+
 
   <!-- DIALOG MODAL 1: ADD/EDIT PRODUCT -->
   <div class="modal-overlay" id="modal-product">
@@ -1788,7 +1899,7 @@
         <div class="settings-row">
           <label>Register Security PIN Code (Numeric):</label>
           <div class="password-wrapper">
-            <input type="password" id="form-employee-pin" class="pos-input" placeholder="4-digit PIN number" maxlength="4" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN number">
+            <input type="text"  autocomplete="new-password" id="form-employee-pin" class="secure-input pos-input" placeholder="4-digit PIN number" maxlength="4" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN number">
             <button type="button" class="btn-toggle-password" title="Toggle visibility">
               <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -1862,7 +1973,7 @@
           <div class="settings-row">
             <label style="font-size:11px;font-weight:700;color:var(--text-gray);text-transform:uppercase;letter-spacing:0.5px;">Admin PIN</label>
             <div class="password-wrapper" style="margin-top:6px;">
-              <input type="password" id="delete-confirm-pin" class="pos-input" placeholder="4-digit owner PIN" maxlength="4" inputmode="numeric" aria-label="4-digit owner PIN">
+              <input type="text"  autocomplete="new-password" id="delete-confirm-pin" class="secure-input pos-input" placeholder="4-digit owner PIN" maxlength="4" inputmode="numeric" aria-label="4-digit owner PIN">
               <button type="button" class="btn-toggle-password" title="Toggle"><svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button>
             </div>
           </div>
@@ -1891,7 +2002,7 @@
         <div class="settings-row" style="margin-top: 16px;">
           <label>Enter Admin PIN Code (e.g. 1234):</label>
           <div class="password-wrapper">
-            <input type="password" id="reset-admin-pin-auth" class="pos-input" placeholder="Enter Admin security PIN" inputmode="numeric" pattern="[0-9]*" aria-label="Enter Admin security PIN">
+            <input type="text"  autocomplete="new-password" id="reset-admin-pin-auth" class="secure-input pos-input" placeholder="Enter Admin security PIN" inputmode="numeric" pattern="[0-9]*" aria-label="Enter Admin security PIN">
             <button type="button" class="btn-toggle-password" title="Toggle visibility">
               <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -2120,7 +2231,7 @@
 
   <!-- FIRST BOOT ONBOARDING WIZARD OVERLAY -->
   <div id="first-boot-wizard" style="display: none; position: fixed; inset: 0; z-index: 999999; background: rgba(6, 6, 8, 0.95); backdrop-filter: blur(20px); flex-direction: column; align-items: center; justify-content: flex-start; overflow-y: auto; padding: 40px 20px;">
-    <div id="wizard-card" role="region" aria-label="Onboarding setup wizard" aria-live="polite" style="max-width: 520px; width: 92%; margin: 40px auto; background: linear-gradient(160deg, #1a1a28 0%, #0e0e1a 60%, #080810 100%); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; box-shadow: 0 40px 80px rgba(0,0,0,0.9), 0 0 80px rgba(0,214,143,0.04), inset 0 1px 0 rgba(255,255,255,0.07); overflow: hidden; position: relative;">
+    <div id="wizard-card" role="region" aria-label="Onboarding setup wizard" aria-live="polite" style="max-width: 520px; width: 92%; margin: auto; flex-shrink: 0; background: linear-gradient(160deg, #1a1a28 0%, #0e0e1a 60%, #080810 100%); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; box-shadow: 0 40px 80px rgba(0,0,0,0.9), 0 0 80px rgba(0,214,143,0.04), inset 0 1px 0 rgba(255,255,255,0.07); overflow: hidden; position: relative;">
 
       <!-- Wizard Header -->
       <div style="padding: 28px 32px 0; text-align: center;">
@@ -2151,11 +2262,11 @@
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
             Scan QR Code to Pair
           </button>
-          <p style="font-size:10px; color:#4a5478; text-align:center; margin:-4px 0 4px;">Secondary device? Scan the Master register's pairing QR to join instantly.</p>
+          <p style="font-size:10px; color:#8f9cb5; text-align:center; margin:-4px 0 4px;">Secondary device? Scan the Master register's pairing QR to join instantly.</p>
           <!-- Divider -->
           <div style="display:flex; align-items:center; gap:12px; margin: 4px 0;">
             <div style="flex:1; height:1px; background:rgba(255,255,255,0.06);"></div>
-            <span style="font-size:9px; font-weight:800; letter-spacing:1px; color:#4a5478; text-transform:uppercase;">or set up from scratch</span>
+            <span style="font-size:9px; font-weight:800; letter-spacing:1px; color:#8f9cb5; text-transform:uppercase;">or set up from scratch</span>
             <div style="flex:1; height:1px; background:rgba(255,255,255,0.06);"></div>
           </div>
           <!-- Set Up New -->
@@ -2224,7 +2335,7 @@
             </button>
             <div style="display:flex; align-items:center; gap:12px;">
               <div style="flex:1; height:1px; background:rgba(255,255,255,0.06);"></div>
-              <span style="font-size:9px; color:#4a5478; text-transform:uppercase; letter-spacing:1px;">or enter manually</span>
+              <span style="font-size:9px; color:#8f9cb5; text-transform:uppercase; letter-spacing:1px;">or enter manually</span>
               <div style="flex:1; height:1px; background:rgba(255,255,255,0.06);"></div>
             </div>
             <div class="wiz-field-group">
@@ -2235,7 +2346,7 @@
             <div class="wiz-field-group">
               <label class="wiz-label">Network Encryption Key</label>
               <div class="password-wrapper" style="margin-top:6px;">
-                <input type="password" id="wizard-join-passphrase" class="pos-input" placeholder="Shared store passphrase" aria-label="Shared store passphrase">
+                <input type="text"  autocomplete="new-password" id="wizard-join-passphrase" class="secure-input pos-input" placeholder="Shared store passphrase" aria-label="Shared store passphrase" pattern="[a-zA-Z0-9_\-]+" title="Only letters, numbers, dashes, and underscores allowed">
                 <button type="button" class="btn-toggle-password" title="Toggle visibility">
                   <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                   <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -2303,9 +2414,9 @@
         <!-- STEP 4: Security -->
         <div class="wiz-panel" id="wiz-panel-4" style="display:none; flex-direction:column; gap:14px;">
           <div class="wiz-field-group">
-            <label class="wiz-label">Owner PIN <span style="color:#4a5478; font-weight:500; font-size:10px;">(4 digits)</span></label>
+            <label class="wiz-label">Owner PIN <span style="color:#8f9cb5; font-weight:500; font-size:10px;">(4 digits)</span></label>
             <div class="password-wrapper" style="margin-top:6px;">
-              <input type="password" id="wizard-admin-pin" class="pos-input" placeholder="e.g. 1234" maxlength="4" inputmode="numeric" pattern="[0-9]*" aria-label="e.g. 1234">
+              <input type="text"  autocomplete="new-password" id="wizard-admin-pin" class="secure-input pos-input" placeholder="e.g. 1234" maxlength="4" inputmode="numeric" pattern="[0-9]*" aria-label="e.g. 1234">
               <button type="button" class="btn-toggle-password" title="Toggle visibility">
                 <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -2316,7 +2427,7 @@
           <div class="wiz-field-group">
             <label class="wiz-label">Network Encryption Key</label>
             <div class="password-wrapper" style="margin-top:6px;">
-              <input type="password" id="wizard-sync-passphrase" class="pos-input" placeholder="Secure passphrase for P2P Wi-Fi sync" aria-label="Secure passphrase for P2P Wi-Fi sync">
+              <input type="text" autocomplete="new-password" id="wizard-sync-passphrase" class="secure-input pos-input" placeholder="Secure passphrase for P2P Wi-Fi sync" aria-label="Secure passphrase for P2P Wi-Fi sync" pattern="[a-zA-Z0-9_\-]+" title="Only letters, numbers, dashes, and underscores allowed">
               <button type="button" class="btn-toggle-password" title="Toggle visibility">
                 <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -2338,7 +2449,7 @@
         <!-- STEP 5: Review & EULA -->
         <div class="wiz-panel" id="wiz-panel-5" style="display:none; flex-direction:column; gap:14px;">
           <div id="wiz-review-summary" style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:16px; display:flex; flex-direction:column; gap:10px;">
-            <div style="font-size:10px; font-weight:800; color:#4a5478; letter-spacing:0.8px; text-transform:uppercase; margin-bottom:2px;">Configuration Summary</div>
+            <div style="font-size:10px; font-weight:800; color:#8f9cb5; letter-spacing:0.8px; text-transform:uppercase; margin-bottom:2px;">Configuration Summary</div>
             <div style="display:flex; justify-content:space-between;"><span style="font-size:11px; color: var(--text-gray);">Store Name</span><span style="font-size:11px; font-weight:700; color: var(--text-white);" id="wiz-sum-store">—</span></div>
             <div style="height:1px; background:rgba(255,255,255,0.04);"></div>
             <div style="display:flex; justify-content:space-between;"><span style="font-size:11px; color: var(--text-gray);">Tax Rate</span><span style="font-size:11px; font-weight:700; color: var(--text-white);" id="wiz-sum-tax">—</span></div>
@@ -2394,7 +2505,7 @@
         <div class="settings-row">
           <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">NETWORK ENCRYPTION KEY (PASSPHRASE):</label>
           <div class="password-wrapper">
-            <input type="password" id="pairing-sync-passphrase" class="pos-input" placeholder="Enter store network key" style="margin-top: 4px; border-radius: 4px; width: 100%;" aria-label="Enter store network key">
+            <input type="text"  autocomplete="new-password" id="pairing-sync-passphrase" class="secure-input pos-input" placeholder="Enter store network key" style="margin-top: 4px; border-radius: 4px; width: 100%;" aria-label="Enter store network key">
             <button type="button" class="btn-toggle-password" title="Toggle visibility">
               <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -2574,7 +2685,7 @@
           </select>
         </div>
         <div class="settings-row">
-          <label>Payment Amount (in Rupees):</label>
+          <label>Payment Amount (PKR — Pakistani Rupees):</label>
           <input type="number" id="form-dp-amount" class="pos-input" placeholder="e.g. 15000 for Rs. 15,000" min="1" step="0.01" aria-label="e.g. 15000 for Rs. 15,000">
         </div>
         <div class="settings-row">
@@ -2651,8 +2762,26 @@
     </div>
   </div>
 
-  <!-- ZXING BARCODE DECODER LIBRARY (Polyfill Fallback) -->
-  <script src="https://unpkg.com/@zxing/library@0.21.0/umd/index.min.js"></script>
+  <!-- ZXING BARCODE DECODER LIBRARY — deferred/lazy-loaded on first scanner use (P1-41 code splitting) -->
+  <script>
+    // ZXing is only needed when the barcode scanner is opened.
+    // We defer it to avoid blocking the main thread on page load.
+    window._zxingLoaded = false;
+    window._zxingLoadCallbacks = [];
+    window.loadZXing = function(cb) {
+      if (window._zxingLoaded) { if (cb) cb(); return; }
+      if (cb) window._zxingLoadCallbacks.push(cb);
+      if (document.querySelector('script[src="zxing.min.js"]')) return; // already loading
+      var s = document.createElement('script');
+      s.src = 'zxing.min.js';
+      s.onload = function() {
+        window._zxingLoaded = true;
+        window._zxingLoadCallbacks.forEach(function(fn) { try { fn(); } catch(e) {} });
+        window._zxingLoadCallbacks = [];
+      };
+      document.head.appendChild(s);
+    };
+  </script>
   <!-- DATABASE MANAGER -->
   <script src="client-db.js"></script>
   <!-- AUDIO FEEDBACK BRIDGE -->
@@ -2665,6 +2794,12 @@
   <script src="license-config.js"></script>
   <!-- CRYPTOGRAPHIC LICENSE ENGINE — must load before app.js -->
   <script src="license-engine.js"></script>
+  <!-- jsPDF — Digital receipt PDF generation for WhatsApp/email sharing -->
+  <script src="jspdf.umd.min.js"></script>
+  <!-- DIGITAL RECEIPT ENGINE — PDF build, WhatsApp & Email share dialog -->
+  <script src="digital-receipt.js"></script>
+  <!-- FREEMIUM TIER ENGINE — plan limits, can(), checkLimit(), upgrade modal -->
+  <script src="freemium-engine.js"></script>
   <!-- VIRTUAL LIST WINDOWING ENGINE — 60fps for large catalogs -->
   <script src="virtual-list.js"></script>
   <!-- ESC/POS THERMAL PRINTER ENGINE — WebUSB direct printing -->
@@ -2677,6 +2812,9 @@
   <script type="module" src="modules/animations.js"></script>
   <script type="module" src="modules/offline.js"></script>
   <script type="module" src="modules/keyboard.js"></script>
+  <!-- COMMAND PALETTE — Ctrl+K global quick navigation and product search -->
+  <script src="command-palette.js"></script>
+  <script src="strings.js"></script>
   <script src="app.js"></script>
 
   <script src="sw-loader.js"></script>
@@ -2722,5 +2860,17 @@
       </div>
     </div>
   </div>
+  <!-- MOBILE SCANNER FAB — shown on checkout screen (mobile only), controlled by app.js -->
+  <button
+    id="btn-mobile-scanner-fab"
+    aria-label="Scan barcode with camera"
+    title="Scan barcode"
+    style="display:none; position:fixed; bottom:80px; right:16px; width:56px; height:56px; border-radius:50%; background:var(--accent-emerald,#10b981); border:none; z-index:1000; cursor:pointer; touch-action:manipulation; align-items:center; justify-content:center; box-shadow:0 4px 16px rgba(16,185,129,0.4); transition:transform 0.15s, box-shadow 0.15s;"
+    onmouseenter="this.style.transform='scale(1.08)'"
+    onmouseleave="this.style.transform='scale(1)'"
+  >
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+  </button>
+
 </body>
 </html>

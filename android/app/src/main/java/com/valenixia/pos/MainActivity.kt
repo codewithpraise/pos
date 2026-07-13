@@ -110,6 +110,10 @@ object KeyStoreHelper {
 class MainActivity : AppCompatActivity() {
 
     private var webView: WebView? = null
+
+    fun printBluetoothNative(base64Payload: String) {
+        POSHardwareInterface().printReceipt(base64Payload)
+    }
     private lateinit var prefs: SharedPreferences
     private var serverUrl: String = ""
     private var uploadMessage: ValueCallback<Array<Uri>>? = null
@@ -660,6 +664,7 @@ class MainActivity : AppCompatActivity() {
 
         wv.addJavascriptInterface(AndroidPOSBridge(), "AndroidPOS")
         wv.addJavascriptInterface(POSHardwareInterface(), "AndroidHardware")
+        wv.addJavascriptInterface(WebAppInterface(this), "Android")
 
         wv.setDownloadListener { downloadUrl, _, _, _, _ ->
             if (downloadUrl.endsWith(".apk") || downloadUrl.contains("/downloads/")) {

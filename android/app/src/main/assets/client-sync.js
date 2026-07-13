@@ -1,6 +1,6 @@
 (function() {
   const globalScope = typeof self !== 'undefined' ? self : window;
-  const DB_SCHEMA_VERSION = 10;
+  const DB_SCHEMA_VERSION = 5;
 
   class BrowserHLC {
   constructor(nodeId) {
@@ -62,7 +62,15 @@ class SyncClient {
   constructor(nodeId, onSyncReceived, onConnectionChange) {
     this.nodeId = nodeId;
     this.onSyncReceived = onSyncReceived; // callback when remote data arrives
-    this.onConnectionChange = onConnectionChange; // callback for connection status
+    this._onConnectionChange = onConnectionChange; // raw callback for connection status
+    this._connChangeTimer = null;
+    // Debounced wrapper: collapses rapid online/offline events into single update (300ms)
+    this.onConnectionChange = (isConnected) => {
+      clearTimeout(this._connChangeTimer);
+      this._connChangeTimer = setTimeout(() => {
+        this._onConnectionChange(isConnected);
+      }, 300);
+    };
     this.hlc = new BrowserHLC(nodeId);
     this.ws = null;
     this.isOnline = true; // User toggle
@@ -71,6 +79,7 @@ class SyncClient {
     this.offlineQueue = []; // Queue to store changes while offline
     this.reconnectTimer = null;
     this.backoffTime = 1000;
+    this._reconnectFailures = 0; // circuit breaker counter
     this.passphraseInvalid = false; // Set true on PASSPHRASE_MISMATCH — halts reconnect loop
   }
 
@@ -146,6 +155,7 @@ class SyncClient {
     this.ws.onopen = async () => {
       this.isConnected = true;
       this.backoffTime = 1000;
+      this._reconnectFailures = 0; // reset circuit breaker on successful connect
       this.onConnectionChange(true);
       console.log(`[SyncClient:${this.nodeId}] WebSocket connected. Handshaking...`);
 
@@ -208,8 +218,14 @@ class SyncClient {
         return;
       }
 
-      // Attempt reconnection with exponential backoff
+      // Attempt reconnection with exponential backoff + circuit breaker
       if (this.isOnline) {
+        this._reconnectFailures++;
+        if (this._reconnectFailures > 10) {
+          console.warn(`[SyncClient:${this.nodeId}] Circuit breaker open: ${this._reconnectFailures} consecutive failures. Halting reconnect.`);
+          globalScope.postMessage({ type: 'SYNC_CIRCUIT_OPEN', failures: this._reconnectFailures });
+          return;
+        }
         clearTimeout(this.reconnectTimer);
         this.reconnectTimer = setTimeout(() => {
           this.backoffTime = Math.min(this.backoffTime * 2, 30000);
@@ -298,7 +314,7 @@ class SyncClient {
     
     else if (data.type === 'SYNC_ERROR') {
       console.error(`[SyncClient:${this.nodeId}] Sync error: ${data.error}`);
-      if (data.error === 'PASSPHRASE_MISMATCH' || data.error === 'LICENSE_EXPIRED' || data.error === 'LICENSE_INACTIVE') {
+      if (data.error === 'PASSPHRASE_MISMATCH' || data.error === 'LICENSE_EXPIRED' || data.error === 'LICENSE_INACTIVE' || data.error.includes('Connection limit reached')) {
         // Halt reconnection loop — user must fix key or activate license
         if (!this.passphraseInvalid) {
           this.passphraseInvalid = true;

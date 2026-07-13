@@ -7,3 +7,74 @@
 @import url('styles/themes.css');
 @import url('styles/animations.css');
 @import url('styles/components.css');
+
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+}
+#app, .app-root {
+  padding-top: var(--sat);
+  padding-right: var(--sar);
+  padding-bottom: var(--sab);
+  padding-left: var(--sal);
+  height: var(--viewport-height, 100vh);
+}
+
+button, .btn, .nav-item, .touch-target {
+  min-width: 48px;
+  min-height: 48px;
+}
+
+.bottom-nav, .navigation-bar {
+  box-shadow: 0 -4px 20px rgba(10, 10, 10, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+body {
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.bottom-sheet, .modal-bottom-sheet {
+  touch-action: none;
+}
+
+.pull-to-refresh-indicator {
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+  text-align: center;
+  transition: height 0.2s, opacity 0.2s;
+  background: var(--bg-card, #151515);
+  color: var(--text-gray, #888);
+  font-size: 12px;
+  line-height: 50px;
+}
+
+.urdu-text, [lang="ur"] {
+  font-family: 'Noto Nastaliq Urdu', Inter, system-ui, sans-serif;
+  direction: rtl;
+  text-align: right;
+}
+
+@media print {
+  body {
+    background: #fff;
+    color: #000;
+  }
+  .sidebar, .bottom-nav, .navigation-bar, .topbar, button, .btn {
+    display: none !important;
+  }
+  .receipt-print-area {
+    display: block !important;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+input:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent-blue, #3b82f6);
+  outline-offset: 2px;
+}

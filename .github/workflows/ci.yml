@@ -1,4 +1,4 @@
-name: Nexova POS CI/CD Pipeline
+name: Valenixia POS CI/CD Pipeline
 
 on:
   push:
@@ -35,7 +35,7 @@ jobs:
 
       - name: Run Full E2E & Diagnostic Suites with Headless Services
         run: |
-          # Start Nexova Server in background
+          # Start Valenixia Server in background
           PORT=3000 node server.js > server.log 2>&1 &
           SERVER_PID=$!
 
@@ -110,6 +110,43 @@ jobs:
       - name: Compile Kotlin and Java Source Files
         run: ./gradlew compileDebugKotlin --no-daemon
         working-directory: android
+
+      - name: Verify Android Asset Sync (P3-57)
+        run: |
+          echo "=== Verifying public/ → android/app/src/main/assets/ sync ==="
+          CRITICAL_FILES="app.js index.html style.css sw.js manifest.json sync-worker.js client-db.js freemium-engine.js"
+          FAILED=0
+          for f in $CRITICAL_FILES; do
+            PUB="public/$f"
+            ANDROID="android/app/src/main/assets/$f"
+            if [ ! -f "$PUB" ]; then
+              echo "SKIP: $PUB not found in public/ (may be optional)"
+              continue
+            fi
+            if [ ! -f "$ANDROID" ]; then
+              echo "FAIL: $ANDROID missing from Android assets!"
+              FAILED=1
+              continue
+            fi
+            PUB_HASH=$(sha256sum "$PUB" | awk '{print $1}')
+            AND_HASH=$(sha256sum "$ANDROID" | awk '{print $1}')
+            if [ "$PUB_HASH" != "$AND_HASH" ]; then
+              echo "FAIL: $f is out of sync (public vs android assets differ)"
+              echo "  public hash:  $PUB_HASH"
+              echo "  android hash: $AND_HASH"
+              FAILED=1
+            else
+              echo "OK:   $f is in sync"
+            fi
+          done
+          if [ "$FAILED" -eq 1 ]; then
+            echo ""
+            echo "ERROR: Android assets are out of sync with public/."
+            echo "Run 'npm run sync:android' locally and commit the updated assets."
+            exit 1
+          fi
+          echo "All critical assets are in sync."
+        working-directory: .
 
   android-e2e:
     name: Android Emulated E2E Verification

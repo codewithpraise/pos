@@ -32,6 +32,22 @@ async function runBackup() {
     // VACUUM INTO creates a defragmented, consistent copy while DB is live
     await db.exec(`VACUUM INTO '${backupPath.replace(/'/g, "''")}'`);
 
+    // Verify backup integrity
+    const sqlite3 = require('sqlite3').verbose();
+    const backupDb = new sqlite3.Database(backupPath);
+    const checkResult = await new Promise((resolve, reject) => {
+      backupDb.get('PRAGMA integrity_check', (err, row) => {
+        backupDb.close();
+        if (err) return reject(err);
+        resolve(row.integrity_check);
+      });
+    });
+
+    if (checkResult !== 'ok') {
+      throw new Error(`Backup failed integrity_check: ${checkResult}`);
+    }
+    console.log('[Backup] Integrity check passed.');
+
     const stat = fs.statSync(backupPath);
     console.log(`[Backup] Backup completed. Size: ${(stat.size / 1024).toFixed(1)} KB`);
 

@@ -172,8 +172,12 @@ const EscPosEngine = (() => {
 
   // ── Send raw bytes to printer ──────────────────────────────────────────────
   async function _sendBytes(bytes) {
+    const base64EncodedBytes = btoa(String.fromCharCode(...bytes));
+    if (window.Android && typeof window.Android.printBluetooth === 'function') {
+      window.Android.printBluetooth(base64EncodedBytes);
+      return;
+    }
     if (window.AndroidHardware && typeof window.AndroidHardware.printReceipt === 'function') {
-      const base64EncodedBytes = btoa(String.fromCharCode(...bytes));
       window.AndroidHardware.printReceipt(base64EncodedBytes);
       return;
     }

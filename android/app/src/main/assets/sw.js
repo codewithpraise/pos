@@ -4,7 +4,7 @@
 // v7 - Hardened fetch handler: no unhandled rejections, no undefined responses
 // ============================================================================
 
-const CACHE_NAME = 'valenixia-pos-cache-v10';
+const CACHE_NAME = 'valenixia-pos-cache-v11';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -28,8 +28,8 @@ const ASSETS_TO_CACHE = [
   '/icon-512.png',
   '/polyfill.min.js',
   '/NotoNastaliqUrdu-Regular.ttf',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Manrope:wght@200..800&family=Outfit:wght@100..900&display=swap',
-  'https://unpkg.com/@zxing/library@0.21.0/umd/index.min.js'
+
+  '/zxing.min.js'
 ];
 
 // Helper: build a clean offline JSON response
@@ -145,4 +145,26 @@ self.addEventListener('fetch', (event) => {
         })
       )
   );
+});
+
+// Message handler — clients can send control messages to the SW
+self.addEventListener('message', (event) => {
+  const { type } = event.data || {};
+
+  // IDB_CLOSE_FOR_UPGRADE: a tab's IndexedDB open request is blocked because
+  // this SW holds an old version connection open. Signal all clients to close
+  // their IndexedDB connections so the upgrade can proceed.
+  if (type === 'IDB_CLOSE_FOR_UPGRADE') {
+    console.warn('[ServiceWorker] Received IDB_CLOSE_FOR_UPGRADE — broadcasting to all clients to close IDB connections.');
+    self.clients.matchAll({ includeUncontrolled: true }).then(clients => {
+      clients.forEach(client => {
+        client.postMessage({ type: 'IDB_CLOSE_AND_RELOAD' });
+      });
+    });
+  }
+
+  // SKIP_WAITING: activate the new SW immediately
+  if (type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });

@@ -139,3 +139,33 @@ window.addEventListener('unhandledrejection', function(event) {
     console.log('[Theme] OS theme changed, switching to:', next);
   });
 })();
+
+// --- GLOBAL showModal HELPER ---
+window.showModal = function({ title, message, type = 'info', actions = [{ id: 'ok', label: 'OK', style: 'primary' }], input = null }) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:999999999;display:flex;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(4px);font-family:sans-serif;';
+    let inputHtml = '';
+    if (input) {
+      inputHtml = '<input id="__modal-input" type="' + (input.type || 'text') + '" placeholder="' + (input.placeholder || '') + '" value="' + (input.defaultValue || '') + '" style="width:100%;margin-top:16px;padding:12px;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:6px;outline:none;font-size:14px;" />';
+    }
+    const buttonsHtml = actions.map(act => {
+      const bg = act.style === 'danger' ? '#ef4444' : (act.style === 'primary' ? '#10b981' : 'transparent');
+      const border = act.style === 'secondary' ? '1px solid rgba(255,255,255,0.15)' : 'none';
+      const color = act.style === 'secondary' ? '#9ca3af' : '#fff';
+      return '<button data-id="' + act.id + '" style="flex:1;padding:12px;background:' + bg + ';border:' + border + ';color:' + color + ';font-weight:700;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit;">' + act.label + '</button>';
+    }).join('');
+    overlay.innerHTML = '<div style="background:#0f0f11;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:24px;max-width:400px;width:100%;box-shadow:0 20px 40px rgba(0,0,0,0.5);"><h3 style="color:#fff;font-size:16px;font-weight:800;margin-bottom:10px;font-family:inherit;">' + title + '</h3><p style="color:#9ca3af;font-size:13px;line-height:1.6;white-space:pre-wrap;margin:0;font-family:inherit;">' + message + '</p>' + inputHtml + '<div style="display:flex;gap:12px;margin-top:24px;">' + buttonsHtml + '</div></div>';
+    document.body.appendChild(overlay);
+    if (input) {
+      setTimeout(() => document.getElementById('__modal-input')?.focus(), 50);
+    }
+    overlay.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const val = input ? document.getElementById('__modal-input').value : btn.dataset.id;
+        overlay.remove();
+        resolve(val || btn.dataset.id);
+      });
+    });
+  });
+};

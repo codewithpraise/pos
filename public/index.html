@@ -1,10 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Placeholder for dynamically injected nonce value for CSP compliance: <script nonce="nonce-placeholder"></script> -->
+  <!-- CDN dependencies with Subresource Integrity (SRI) checks: -->
+  <!-- <script src="https://unpkg.com/react@18/umd/react.production.min.js" integrity="sha384-placeholder" crossorigin="anonymous"></script> -->
   <script src="bootstrap-init.js"></script>
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https: http:; connect-src 'self' ws: wss: https: http:; media-src 'self' blob: data:;">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#0a0a0a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -2759,8 +2762,26 @@
     </div>
   </div>
 
-  <!-- ZXING BARCODE DECODER LIBRARY (Polyfill Fallback) -->
-  <script src="zxing.min.js"></script>
+  <!-- ZXING BARCODE DECODER LIBRARY — deferred/lazy-loaded on first scanner use (P1-41 code splitting) -->
+  <script>
+    // ZXing is only needed when the barcode scanner is opened.
+    // We defer it to avoid blocking the main thread on page load.
+    window._zxingLoaded = false;
+    window._zxingLoadCallbacks = [];
+    window.loadZXing = function(cb) {
+      if (window._zxingLoaded) { if (cb) cb(); return; }
+      if (cb) window._zxingLoadCallbacks.push(cb);
+      if (document.querySelector('script[src="zxing.min.js"]')) return; // already loading
+      var s = document.createElement('script');
+      s.src = 'zxing.min.js';
+      s.onload = function() {
+        window._zxingLoaded = true;
+        window._zxingLoadCallbacks.forEach(function(fn) { try { fn(); } catch(e) {} });
+        window._zxingLoadCallbacks = [];
+      };
+      document.head.appendChild(s);
+    };
+  </script>
   <!-- DATABASE MANAGER -->
   <script src="client-db.js"></script>
   <!-- AUDIO FEEDBACK BRIDGE -->

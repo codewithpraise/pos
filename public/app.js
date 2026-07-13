@@ -4,6 +4,80 @@
 // ============================================================================
 
 (function() {
+  const EventListenerRegistry = (() => {
+    const listeners = new Map(); // Element -> [{event, handler, options}]
+    const intervals = new Set();
+    
+    return {
+      add(element, event, handler, options = false) {
+        if (!element) return;
+        element.addEventListener(event, handler, options);
+        if (!listeners.has(element)) listeners.set(element, []);
+        listeners.get(element).push({ event, handler, options });
+      },
+      remove(element, event, handler, options = false) {
+        if (!element) return;
+        element.removeEventListener(event, handler, options);
+        const list = listeners.get(element);
+        if (list) {
+          const idx = list.findIndex(l => l.event === event && l.handler === handler && l.options === options);
+          if (idx !== -1) list.splice(idx, 1);
+        }
+      },
+      removeAllForElement(element) {
+        if (!element) return;
+        const list = listeners.get(element);
+        if (list) {
+          list.forEach(({ event, handler, options }) => {
+            element.removeEventListener(event, handler, options);
+          });
+          listeners.delete(element);
+        }
+      },
+      setInterval(fn, delay) {
+        const id = setInterval(fn, delay);
+        intervals.add(id);
+        return id;
+      },
+      clearInterval(id) {
+        clearInterval(id);
+        intervals.delete(id);
+      },
+      clearAllIntervals() {
+        intervals.forEach(id => clearInterval(id));
+        intervals.clear();
+      },
+      cleanupScreen(screenName) {
+        const screenEl = document.getElementById('view-' + screenName);
+        if (screenEl) {
+          screenEl.querySelectorAll('*').forEach(el => this.removeAllForElement(el));
+          this.removeAllForElement(screenEl);
+        }
+      },
+      destroy() {
+        listeners.forEach((list, element) => {
+          list.forEach(({ event, handler, options }) => {
+            element.removeEventListener(event, handler, options);
+          });
+        });
+        listeners.clear();
+        this.clearAllIntervals();
+      }
+    };
+  })();
+  window.EventListenerRegistry = EventListenerRegistry;
+
+  window.addEventListener('beforeunload', () => {
+    EventListenerRegistry.destroy();
+  });
+
+  const BRAND_CONFIG = {
+    name: 'Valenixia',
+    dbName: 'valenixia_db',
+    website: 'valenixia.com',
+    email: 'codewithpraise@gmail.com'
+  };
+  window.BRAND_CONFIG = BRAND_CONFIG;
   // --- SCROLL LOCK & MOBILE KEYBOARD RESIZE UTILITIES ---
   function lockScroll() {
     if (!document.body.classList.contains('scroll-lock')) {
@@ -26,6 +100,22 @@
       }
     }, 100);
   });
+
+  // Mobile keyboard visualViewport handling to adjust app container height
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => {
+      const height = window.visualViewport.height;
+      document.documentElement.style.setProperty('--viewport-height', `${height}px`);
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+        document.activeElement.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    });
+  }
+
+  function applyEnterKeyHint(element, hint = 'done') {
+    if (element) element.setAttribute('enterkeyhint', hint);
+  }
+  window.applyEnterKeyHint = applyEnterKeyHint;
 
   // Modal active back-button history navigation routing
   let modalHistoryState = false;
@@ -402,8 +492,319 @@
   window.switchActiveScreen = switchActiveScreen;
   window.renderCart = renderCart;
 
+  // Helper: Production-safe fetch with timeout
+  async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        throw new Error(`Request timed out after ${timeoutMs}ms: ${url}`);
+      }
+      throw err;
+    }
+  }
+  window.fetchWithTimeout = fetchWithTimeout;
+
+  async function apiFetch(endpoint, options = {}, timeoutMs = 10000) {
+    const response = await fetchWithTimeout(endpoint, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+      }
+    }, timeoutMs);
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unknown error');
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+    return response;
+  }
+  window.apiFetch = apiFetch;
+
+  function sanitizeHtml(str) {
+    if (typeof str !== 'string') return str;
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+  window.sanitizeHtml = sanitizeHtml;
+
+  function isFeatureEnabled(featureName) {
+    const flags = {
+      'p2p_sync': true,
+      'biometrics': true,
+      'barcode_scanner': true,
+      'speech_coach': false,
+      'fbr_integration': true
+    };
+    return !!flags[featureName];
+  }
+  window.isFeatureEnabled = isFeatureEnabled;
+
+  function isTokenExpired(token) {
+    if (!token) return true;
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) return true;
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+      if (!payload || !payload.exp) return true;
+      return Date.now() >= payload.exp;
+    } catch (e) {
+      return true;
+    }
+  }
+  window.isTokenExpired = isTokenExpired;
+
+  async function exportData() {
+    try {
+      const dbData = {};
+      const stores = [
+        'transactions', 'line_items', 'inventory_catalog', 
+        'customers', 'categories', 'distributors', 
+        'purchase_orders', 'po_line_items', 'distributor_payments', 'customer_credit',
+        'employees'
+      ];
+      for (const store of stores) {
+        dbData[store] = await ValenixiaDB.getAll(store);
+      }
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dbData, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `valenixia_export_${Date.now()}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showTransientToast('Data exported successfully', 'success');
+    } catch (err) {
+      console.error('[GDPR] Data export failed:', err);
+      showTransientToast('Export failed: ' + err.message, 'error');
+    }
+  }
+  window.exportData = exportData;
+
+  class TouchGestureHandler {
+    constructor(element, onSwipeDown) {
+      this.element = element;
+      this.onSwipeDown = onSwipeDown;
+      this.startY = 0;
+      this.currentY = 0;
+      
+      this.element.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: true });
+      this.element.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: true });
+      this.element.addEventListener('touchend', () => this.handleTouchEnd(), { passive: true });
+    }
+    
+    handleTouchStart(e) {
+      this.startY = e.touches[0].clientY;
+    }
+    
+    handleTouchMove(e) {
+      this.currentY = e.touches[0].clientY;
+      const diffY = this.currentY - this.startY;
+      if (diffY > 0) {
+        this.element.style.transform = `translateY(${diffY}px)`;
+      }
+    }
+    
+    handleTouchEnd() {
+      const diffY = this.currentY - this.startY;
+      if (diffY > 100) {
+        this.onSwipeDown();
+      } else {
+        this.element.style.transform = '';
+      }
+      this.startY = 0;
+      this.currentY = 0;
+    }
+  }
+  window.TouchGestureHandler = TouchGestureHandler;
+
+  class PullToRefresh {
+    constructor(container, onRefresh) {
+      this.container = container;
+      this.onRefresh = onRefresh;
+      this.startY = 0;
+      this.currentY = 0;
+      this.isPulling = false;
+      
+      this.indicator = document.createElement('div');
+      this.indicator.className = 'pull-to-refresh-indicator';
+      this.indicator.innerHTML = '↓ Pull to refresh';
+      this.container.insertBefore(this.indicator, this.container.firstChild);
+      
+      this.container.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: true });
+      this.container.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: true });
+      this.container.addEventListener('touchend', () => this.handleTouchEnd(), { passive: true });
+    }
+    
+    handleTouchStart(e) {
+      if (this.container.scrollTop === 0) {
+        this.startY = e.touches[0].clientY;
+        this.isPulling = true;
+      }
+    }
+    
+    handleTouchMove(e) {
+      if (!this.isPulling) return;
+      this.currentY = e.touches[0].clientY;
+      const diffY = this.currentY - this.startY;
+      if (diffY > 0) {
+        this.indicator.style.height = `${Math.min(50, diffY)}px`;
+        this.indicator.style.opacity = Math.min(1, diffY / 50);
+        if (diffY >= 50) {
+          this.indicator.innerHTML = '↑ Release to refresh';
+        } else {
+          this.indicator.innerHTML = '↓ Pull to refresh';
+        }
+      }
+    }
+    
+    handleTouchEnd() {
+      if (!this.isPulling) return;
+      const diffY = this.currentY - this.startY;
+      if (diffY >= 50) {
+        this.indicator.innerHTML = '🔄 Refreshing...';
+        this.onRefresh().finally(() => {
+          this.reset();
+        });
+      } else {
+        this.reset();
+      }
+    }
+    
+    reset() {
+      this.indicator.style.height = '0px';
+      this.indicator.style.opacity = '0';
+      this.isPulling = false;
+      this.startY = 0;
+      this.currentY = 0;
+    }
+  }
+  window.PullToRefresh = PullToRefresh;
+
+  // Helper: Transient toast (non-blocking, auto-dismiss)
+  function showTransientToast(message, type = 'info', duration = 3000) {
+    let container = document.getElementById('transient-toast-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'transient-toast-container';
+      container.style.cssText = `
+        position: fixed; top: 24px; right: 24px; z-index: 99999;
+        display: flex; flex-direction: column; gap: 8px;
+        pointer-events: none;
+      `;
+      document.body.appendChild(container);
+    }
+    
+    const toast = document.createElement('div');
+    const colors = {
+      info: 'var(--accent-blue, #3b82f6)',
+      warning: 'var(--accent-amber, #f59e0b)',
+      error: 'var(--accent-coral, #ef4444)',
+      success: 'var(--accent-emerald, #10b981)'
+    };
+    
+    toast.style.cssText = `
+      background: var(--glass-bg, rgba(17,17,24,0.7)); backdrop-filter: blur(12px);
+      border: 1px solid ${colors[type] || colors.info};
+      border-radius: 12px; padding: 12px 16px;
+      color: var(--text-primary, #f0f0f5); font-size: 13px;
+      font-family: var(--font-body); max-width: 320px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      opacity: 0; transform: translateX(20px);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: auto;
+    `;
+    toast.textContent = message;
+    
+    container.appendChild(toast);
+    requestAnimationFrame(() => {
+      toast.style.opacity = '1';
+      toast.style.transform = 'translateX(0)';
+    });
+    
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(20px)';
+      setTimeout(() => toast.remove(), 300);
+    }, duration);
+  }
+  window.showTransientToast = showTransientToast;
+
+  // Helper: Fatal error overlay (blocks entire app)
+  function mountFatalErrorOverlay(title, message, onReload) {
+    document.getElementById('fatal-error-overlay')?.remove();
+    
+    const overlay = document.createElement('div');
+    overlay.id = 'fatal-error-overlay';
+    overlay.style.cssText = `
+      position: fixed; inset: 0; z-index: 999999;
+      background: var(--bg-primary, #0A0A0F);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 32px; font-family: var(--font-body);
+    `;
+    
+    overlay.innerHTML = `
+      <div style="text-align: center; max-width: 480px;">
+        <div style="width: 64px; height: 64px; margin: 0 auto 24px;
+                    background: var(--accent-coral, #ef4444); border-radius: 50%;
+                    display: flex; align-items: center; justify-content: center;
+                    box-shadow: 0 0 30px rgba(239, 68, 68, 0.4);
+                    animation: pulse-glow 2s infinite;">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+        </div>
+        <h2 style="font-size: 24px; font-weight: 700; color: var(--text-primary, #f0f0f5); margin-bottom: 12px;">
+          ${title}
+        </h2>
+        <pre style="font-size: 13px; color: var(--text-secondary, #8b8b9e); line-height: 1.6; 
+                     white-space: pre-wrap; word-break: break-word; margin-bottom: 32px;
+                     background: var(--bg-tertiary, #1a1a24); padding: 16px; border-radius: 12px;
+                     border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));">${message}</pre>
+        <button id="fatal-reload-btn" style="
+          background: var(--accent-emerald, #10b981); color: #000; font-weight: 700;
+          padding: 14px 32px; border: none; border-radius: 12px;
+          font-size: 15px; cursor: pointer;
+          box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        " onmouseover="this.style.transform='scale(1.05)'" 
+           onmouseout="this.style.transform='scale(1)'">
+          Reload App
+        </button>
+      </div>
+      <style>
+        @keyframes pulse-glow {
+          0%, 100% { box-shadow: 0 0 30px rgba(239, 68, 68, 0.4); }
+          50% { box-shadow: 0 0 50px rgba(239, 68, 68, 0.6); }
+        }
+      </style>
+    `;
+    
+    document.body.appendChild(overlay);
+    document.getElementById('fatal-reload-btn').addEventListener('click', onReload);
+  }
+
   // Initialize application
   async function init() {
+    const MAX_RETRIES = 3;
+    const RETRY_DELAYS = [200, 500, 1000];
+    let dbInitialized = false;
+    let lastError = null;
+
     try {
       const savedPlan = localStorage.getItem('valenixia_plan');
       if (savedPlan) {
@@ -414,9 +815,59 @@
       if (window.getCurrentPlan) window.getCurrentPlan();
 
       updateBootProgress(20, 'Initializing database...');
-      const dbResult = await ValenixiaDB.init(); // Initialize IndexedDB on main thread for local PIN auth
-      if (!dbResult) {
-        console.warn('[App] IndexedDB initialization returned null (degraded boot). Attempting to proceed without local DB...');
+
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          const dbResult = await ValenixiaDB.init();
+          if (dbResult) {
+            dbInitialized = true;
+            console.log(`[App] IndexedDB initialized successfully on attempt ${attempt + 1}`);
+            break;
+          } else {
+            throw new Error('IndexedDB initialization returned null (degraded boot).');
+          }
+        } catch (e) {
+          lastError = e;
+          console.error(`[App] IndexedDB init failed (attempt ${attempt + 1}/${MAX_RETRIES}):`, e);
+          
+          if (attempt < MAX_RETRIES - 1) {
+            showTransientToast(`Database connection retrying... (${attempt + 1}/${MAX_RETRIES})`, 'warning');
+            await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt]));
+            
+            if (attempt === 1) {
+              try {
+                console.warn('[App] Attempting database corruption recovery...');
+                const deleteReq = indexedDB.deleteDatabase('valenixia_db');
+                await new Promise((res, rej) => {
+                  deleteReq.onsuccess = res;
+                  deleteReq.onerror = rej;
+                  deleteReq.onblocked = () => {
+                    console.warn('[App] DB delete blocked — forcing reload');
+                    window.location.reload();
+                  };
+                });
+                console.log('[App] Corrupt database deleted, retrying...');
+              } catch (delErr) {
+                console.error('[App] DB delete failed:', delErr);
+              }
+            }
+          }
+        }
+      }
+
+      if (!dbInitialized) {
+        mountFatalErrorOverlay(
+          'Database Connection Failed',
+          `Unable to initialize local storage after ${MAX_RETRIES} attempts.\n\n` +
+          `Error: ${lastError?.message || 'Unknown error'}\n\n` +
+          `This usually happens when:\n` +
+          `• Browser storage is full or corrupted\n` +
+          `• Private browsing mode is active\n` +
+          `• The app was force-closed during a transaction\n\n` +
+          `Click "Reload App" to attempt recovery.`,
+          () => window.location.reload()
+        );
+        return; // Hard stop — do not proceed to license check
       }
 
       // CRITICAL: Enforce License Gate immediately upon DB initialization
@@ -609,9 +1060,9 @@
       
       try {
         const serverBase = (window.__valenixiaServerUrl || location.origin);
-        const resp = await fetch(serverBase + '/api/auth/verify', {
+        const resp = await fetchWithTimeout(serverBase + '/api/auth/verify', {
           headers: { 'Authorization': `Bearer ${state.deviceToken || ''}` }
-        });
+        }, 5000);
         if (resp.status === 403) {
           const data = await resp.json();
           triggerLicenseLockout(data.error);
@@ -3079,11 +3530,11 @@
           }
 
           // Initialize server SQLite with the bootstrap configuration first
-          fetch(window.__valenixiaServerUrl + '/api/bootstrap', {
+          fetchWithTimeout(window.__valenixiaServerUrl + '/api/bootstrap', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ storeName, taxRate, adminPin, syncPassphrase, theme, shopMode })
-          })
+          }, 15000)
           .then(async (resp) => {
             if (!resp.ok) {
               const err = await resp.json();
@@ -5934,7 +6385,10 @@
   let detectorInterval = null;
   let scannerWorkerInstance = null;
 
+  let isScannerClosing = false;
+
   async function startMobileScanner() {
+    isScannerClosing = false;
     playAudioSignal('click');
     if (document.activeElement && typeof document.activeElement.blur === 'function') {
       document.activeElement.blur();
@@ -5943,6 +6397,13 @@
     if (!modal) return;
     
     modal.classList.add('active');
+
+    // Attempt orientation lock to portrait
+    try {
+      if (screen.orientation && typeof screen.orientation.lock === 'function') {
+        await screen.orientation.lock('portrait').catch(() => {});
+      }
+    } catch (e) {}
 
     const video = document.getElementById('scanner-video');
     const manualInput = document.getElementById('scanner-manual-input');
@@ -5956,16 +6417,21 @@
         video: { facingMode: 'environment' }
       });
       scannerStream = stream;
-      if (video) video.srcObject = stream;
+      if (video) {
+        video.setAttribute('playsinline', 'true');
+        video.srcObject = stream;
+      }
 
       // 1. Check for native BarcodeDetector API support (Runs native off-thread in Chrome/Android)
       if ('BarcodeDetector' in window) {
         const barcodeDetector = new BarcodeDetector({ formats: ['ean_13', 'qr_code', 'code_128', 'upc_a'] });
         
         detectorInterval = setInterval(async () => {
+          if (isScannerClosing) return;
           if (!video.videoWidth) return;
           try {
             const barcodes = await barcodeDetector.detect(video);
+            if (isScannerClosing) return;
             if (barcodes.length > 0) {
               const code = barcodes[0].rawValue;
               console.log(`[BarcodeDetector] Scanned: ${code}`);
@@ -5979,7 +6445,7 @@
       } 
       // 2. Off-Thread Web Worker Canvas Frame Grabber Fallback (Pipes canvas frames to ZXing WebAssembly/Worker)
       else {
-        console.log('[Scanner] Using off-thread canvas frame decoder fallback (scanner-worker.js).');
+        console.log('[Scanner] Using off-thread canvas frame decoder fallback (scanner-worker.js) with ZXing.');
         
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -5989,6 +6455,7 @@
         
         scannerWorkerInstance.onmessage = (e) => {
           isWorkerDecoding = false;
+          if (isScannerClosing) return;
           if (e.data.type === 'success') {
             const code = e.data.text;
             console.log(`[ScannerWorker] Scanned: ${code}`);
@@ -6046,8 +6513,15 @@
   }
 
   function closeMobileScanner() {
+    isScannerClosing = true;
     const modal = document.getElementById('modal-mobile-scanner');
     if (modal) modal.classList.remove('active');
+
+    try {
+      if (screen.orientation && typeof screen.orientation.unlock === 'function') {
+        screen.orientation.unlock();
+      }
+    } catch (e) {}
 
     if (detectorInterval) {
       clearInterval(detectorInterval);
@@ -6248,15 +6722,12 @@
 
   // Complete checkout process
   function submitCheckoutTransaction() {
-    if (window.can && !window.can('checkout')) {
-      if (window.showUpgradeModal) window.showUpgradeModal('checkout');
-      return;
-    }
-
-    const { count } = (window.getMonthlyTransactionCount ? window.getMonthlyTransactionCount() : { count: 0 }); // checks transactions_this_month limit
-    if (window.getCurrentPlan && window.getCurrentPlan() === 'FREE' && count >= 100) {
-      if (window.showUpgradeModal) window.showUpgradeModal('Monthly transaction limit (100) reached');
-      return;
+    if (window.isLimitReached) {
+      const limitStatus = window.isLimitReached();
+      if (limitStatus && limitStatus.blocked) {
+        if (window.showUpgradeModal) window.showUpgradeModal('transactions');
+        return;
+      }
     }
 
     if (window.__amcExpired) {
@@ -6367,6 +6838,7 @@
 
   // --- CATALOG LIST BUILDER ---
   function renderCatalogScreen() {
+    EventListenerRegistry.cleanupScreen('catalog');
     const container = document.getElementById('catalog-virtual-container');
     if (!container) return;
 
@@ -7059,7 +7531,19 @@
     const mode_fields = getFormModeFields(shopMode);
 
     if (!sku || !name || !price) {
-      showModal({ title: 'Notice', message: '', type: 'info' });
+      // Show specific validation errors with red borders
+      if (!sku) {
+        if (window.showFieldError) window.showFieldError('form-product-sku', 'Product SKU is required.');
+        else showNotificationToast('Product SKU is required.', 'error', 3000);
+      }
+      if (!name) {
+        if (window.showFieldError) window.showFieldError('form-product-name', 'Product name is required.');
+        else showNotificationToast('Product name is required.', 'error', 3000);
+      }
+      if (!price) {
+        if (window.showFieldError) window.showFieldError('form-product-price', 'Price must be a positive number.');
+        else showNotificationToast('Price must be a positive number.', 'error', 3000);
+      }
       return;
     }
 
@@ -7088,6 +7572,7 @@
 
   // --- LOYALTY CUSTOMER SCREEN AND LINK MODALS ---
   function renderCustomersScreen() {
+    EventListenerRegistry.cleanupScreen('customers');
     const tbody = document.getElementById('customers-table-tbody');
     tbody.innerHTML = '';
 
@@ -7227,6 +7712,7 @@
 
   // --- STAFF ROSTER SCREEN AND FORM ---
   function renderStaffScreen() {
+    EventListenerRegistry.cleanupScreen('staff');
     const tbody = document.getElementById('staff-table-tbody');
     tbody.innerHTML = '';
 
@@ -7340,6 +7826,7 @@
   let _historyDateFilter = 'all';
 
   function renderHistoryScreen(filterOverride) {
+    EventListenerRegistry.cleanupScreen('history');
     // If a filter override is passed (from pill click), persist it
     if (filterOverride !== undefined) _historyDateFilter = filterOverride;
     const activeFilter = _historyDateFilter;
@@ -11015,4 +11502,406 @@
   setTimeout(() => {
     try { initBillingSettings(); } catch (e) {}
   }, 1000);
+
+  // ─────────────────────────────────────────────────────────────────────
+  // P1-31: Bottom Nav Haptic + Visual Active Glow
+  // ─────────────────────────────────────────────────────────────────────
+  (function initBottomNavHaptic() {
+    try {
+      document.querySelectorAll('.pos-bottom-nav .nav-btn').forEach(btn => {
+        btn.addEventListener('touchstart', () => {
+          try {
+            if (navigator.vibrate) navigator.vibrate(10);
+            btn.style.transform = 'scale(0.92)';
+            btn.style.transition = 'transform 0.1s ease';
+          } catch (_) {}
+        }, { passive: true });
+        btn.addEventListener('touchend', () => {
+          try {
+            btn.style.transform = '';
+          } catch (_) {}
+        }, { passive: true });
+      });
+    } catch (e) {
+      console.error('[P1-31] Bottom nav haptic init failed:', e);
+    }
+  })();
+
+  // ─────────────────────────────────────────────────────────────────────
+  // P1-32: SwipeHandler — swipe-left to reveal delete on cart rows
+  // ─────────────────────────────────────────────────────────────────────
+  window.SwipeHandler = (function() {
+    const THRESHOLD = 60; // px to trigger delete zone reveal
+    function attach(element, onSwipeLeft, onSwipeRight) {
+      let startX = 0, startY = 0, isSwiping = false;
+      element.addEventListener('touchstart', e => {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        isSwiping = false;
+      }, { passive: true });
+      element.addEventListener('touchmove', e => {
+        const dx = e.touches[0].clientX - startX;
+        const dy = e.touches[0].clientY - startY;
+        if (Math.abs(dy) > Math.abs(dx)) return; // vertical scroll, ignore
+        isSwiping = true;
+        if (dx < 0) {
+          const clamped = Math.max(dx, -120);
+          element.style.transform = `translateX(${clamped}px)`;
+          element.style.transition = 'none';
+        }
+      }, { passive: true });
+      element.addEventListener('touchend', e => {
+        if (!isSwiping) return;
+        const dx = e.changedTouches[0].clientX - startX;
+        element.style.transition = 'transform 0.25s cubic-bezier(0.25,0.46,0.45,0.94)';
+        if (dx < -THRESHOLD) {
+          element.style.transform = 'translateX(-80px)';
+          if (typeof onSwipeLeft === 'function') onSwipeLeft(element);
+        } else {
+          element.style.transform = 'translateX(0)';
+          if (dx > THRESHOLD && typeof onSwipeRight === 'function') onSwipeRight(element);
+        }
+      }, { passive: true });
+    }
+    return { attach };
+  })();
+
+  // Auto-attach SwipeHandler to cart rows when rendered
+  (function initCartSwipe() {
+    try {
+      const observer = new MutationObserver(() => {
+        document.querySelectorAll('.cart-item-row:not([data-swipe-attached])').forEach(row => {
+          row.setAttribute('data-swipe-attached', '1');
+          window.SwipeHandler.attach(row,
+            (el) => {
+              // Reveal delete zone on left swipe
+              const deleteZone = el.querySelector('.cart-item-delete-zone') || (() => {
+                const dz = document.createElement('div');
+                dz.className = 'cart-item-delete-zone';
+                dz.innerHTML = '<span>🗑</span>';
+                dz.style.cssText = 'position:absolute;right:0;top:0;height:100%;width:80px;background:var(--alert-coral,#ef4444);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;border-radius:0 8px 8px 0;cursor:pointer;';
+                dz.addEventListener('click', () => {
+                  const sku = el.getAttribute('data-sku');
+                  if (sku) {
+                    syncWorker.postMessage({ type: 'REMOVE_FROM_CART', payload: { sku } });
+                    if (navigator.vibrate) navigator.vibrate([20, 10, 30]);
+                  }
+                });
+                el.style.position = 'relative';
+                el.style.overflow = 'hidden';
+                el.appendChild(dz);
+                return dz;
+              })();
+              void deleteZone; // delete zone is already visible via transform
+            },
+            (el) => {
+              el.style.transform = 'translateX(0)';
+            }
+          );
+        });
+      });
+      const cartList = document.getElementById('cart-list');
+      if (cartList) observer.observe(cartList, { childList: true, subtree: true });
+    } catch (e) {
+      console.error('[P1-32] Cart swipe handler init failed:', e);
+    }
+  })();
+
+  // ─────────────────────────────────────────────────────────────────────
+  // P1-33: PWA Install Prompt (beforeinstallprompt)
+  // ─────────────────────────────────────────────────────────────────────
+  (function initPWAInstallPrompt() {
+    try {
+      let deferredPrompt = null;
+      let navCount = parseInt(sessionStorage.getItem('_pwa_nav_count') || '0', 10);
+
+      window.addEventListener('beforeinstallprompt', e => {
+        e.preventDefault();
+        deferredPrompt = e;
+        // Show banner after 3 navigation events
+        if (navCount >= 3) showInstallBanner();
+      });
+
+      function showInstallBanner() {
+        if (document.getElementById('pwa-install-banner')) return;
+        const banner = document.createElement('div');
+        banner.id = 'pwa-install-banner';
+        banner.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:9999;background:var(--surface-glass,rgba(30,41,59,0.96));backdrop-filter:blur(16px);border:1px solid var(--border-titanium,rgba(255,255,255,0.08));border-radius:14px;padding:12px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,0.4);animation:slideUp 0.3s ease;';
+        banner.innerHTML = `
+          <span style="font-size:22px">📲</span>
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:13px;color:var(--text-primary,#fff)">Install Valenixia POS</div>
+            <div style="font-size:11px;color:var(--text-gray,#94a3b8)">Works offline · Faster access</div>
+          </div>
+          <button id="pwa-install-btn" style="background:var(--accent-emerald,#10b981);color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer">Install</button>
+          <button id="pwa-install-dismiss" style="background:transparent;border:none;color:var(--text-gray,#94a3b8);cursor:pointer;font-size:18px;padding:0 4px">×</button>
+        `;
+        document.body.appendChild(banner);
+        document.getElementById('pwa-install-btn').addEventListener('click', async () => {
+          if (!deferredPrompt) return;
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          console.log('[PWA] Install prompt outcome:', outcome);
+          deferredPrompt = null;
+          banner.remove();
+        });
+        document.getElementById('pwa-install-dismiss').addEventListener('click', () => {
+          banner.remove();
+          sessionStorage.setItem('_pwa_dismissed', '1');
+        });
+      }
+
+      // Count navigations to trigger banner
+      const origSwitch = window.switchActiveScreen;
+      if (typeof origSwitch === 'function') {
+        window.switchActiveScreen = function(...args) {
+          navCount++;
+          sessionStorage.setItem('_pwa_nav_count', navCount);
+          if (navCount >= 3 && deferredPrompt && !sessionStorage.getItem('_pwa_dismissed')) {
+            showInstallBanner();
+          }
+          return origSwitch.apply(this, args);
+        };
+      }
+
+      window.addEventListener('appinstalled', () => {
+        console.log('[PWA] App installed successfully.');
+        deferredPrompt = null;
+      });
+    } catch (e) {
+      console.error('[P1-33] PWA install prompt init failed:', e);
+    }
+  })();
+
+  // ─────────────────────────────────────────────────────────────────────
+  // P1-34: Offline Banner with 2s Debounce + Pending Count Display
+  // ─────────────────────────────────────────────────────────────────────
+  (function initDebouncedOfflineBanner() {
+    try {
+      let offlineTimer = null;
+      let onlineTimer = null;
+      const DEBOUNCE_MS = 2000;
+
+      function showOfflineBanner() {
+        clearTimeout(onlineTimer);
+        offlineTimer = setTimeout(() => {
+          if (typeof window.updateOfflineBanner === 'function') {
+            window.updateOfflineBanner(false);
+          }
+          // Show pending count if available
+          const pill = document.getElementById('mobile-offline-pill');
+          if (pill && typeof window._pendingSyncCount !== 'undefined' && window._pendingSyncCount > 0) {
+            pill.title = `${window._pendingSyncCount} pending changes`;
+          }
+        }, DEBOUNCE_MS);
+      }
+
+      function showOnlineBanner() {
+        clearTimeout(offlineTimer);
+        onlineTimer = setTimeout(() => {
+          if (typeof window.updateOfflineBanner === 'function') {
+            window.updateOfflineBanner(true);
+          }
+        }, DEBOUNCE_MS);
+      }
+
+      // Override existing listeners with debounced versions
+      window.addEventListener('online', showOnlineBanner);
+      window.addEventListener('offline', showOfflineBanner);
+
+      // Track pending sync count from worker messages
+      const origOnMessage = window._syncWorkerMessageHandler;
+      if (typeof syncWorker !== 'undefined') {
+        syncWorker.addEventListener('message', e => {
+          if (e.data && e.data.type === 'PENDING_COUNT') {
+            window._pendingSyncCount = e.data.count || 0;
+          }
+        });
+      }
+    } catch (e) {
+      console.error('[P1-34] Debounced offline banner init failed:', e);
+    }
+  })();
+
+  // ─────────────────────────────────────────────────────────────────────
+  // P1-36: Form Validation — Red borders + meaningful messages
+  // ─────────────────────────────────────────────────────────────────────
+  window.Validators = {
+    required: (val, fieldName) => {
+      if (!val || !String(val).trim()) return `${fieldName} is required.`;
+      return null;
+    },
+    minLength: (val, min, fieldName) => {
+      if (String(val).trim().length < min) return `${fieldName} must be at least ${min} characters.`;
+      return null;
+    },
+    positiveNumber: (val, fieldName) => {
+      const n = parseFloat(val);
+      if (isNaN(n) || n <= 0) return `${fieldName} must be a positive number.`;
+      return null;
+    },
+    pinFormat: (val) => {
+      if (!/^\d{4,8}$/.test(String(val).trim())) return 'PIN must be 4-8 digits.';
+      return null;
+    }
+  };
+
+  window.showFieldError = function(fieldId, message) {
+    const el = document.getElementById(fieldId);
+    if (!el) return;
+    el.style.borderColor = 'var(--alert-coral, #ef4444)';
+    el.style.boxShadow = '0 0 0 2px rgba(239,68,68,0.25)';
+    // Show error message below field
+    const errId = fieldId + '-err';
+    let errEl = document.getElementById(errId);
+    if (!errEl) {
+      errEl = document.createElement('div');
+      errEl.id = errId;
+      errEl.style.cssText = 'color:var(--alert-coral,#ef4444);font-size:11px;margin-top:3px;';
+      el.parentNode.insertBefore(errEl, el.nextSibling);
+    }
+    errEl.textContent = message;
+  };
+
+  window.clearFieldError = function(fieldId) {
+    const el = document.getElementById(fieldId);
+    if (!el) return;
+    el.style.borderColor = '';
+    el.style.boxShadow = '';
+    const errEl = document.getElementById(fieldId + '-err');
+    if (errEl) errEl.remove();
+  };
+
+  window.clearAllFieldErrors = function(formPrefix) {
+    document.querySelectorAll(`[id^="${formPrefix}"]`).forEach(el => {
+      if (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') {
+        el.style.borderColor = '';
+        el.style.boxShadow = '';
+      }
+    });
+    document.querySelectorAll(`[id$="-err"]`).forEach(e => e.remove());
+  };
+
+  // Patch submitProductForm to use proper validation messages
+  (function patchProductFormValidation() {
+    try {
+      const btn = document.getElementById('btn-submit-product-modal');
+      if (!btn) return;
+      // The validation is in submitProductForm — we patch the modal open to add
+      // real-time blur validation and fix the empty message on submit
+      ['form-product-name', 'form-product-price', 'form-product-sku'].forEach(fid => {
+        const el = document.getElementById(fid);
+        if (!el) return;
+        el.addEventListener('blur', () => {
+          if (!el.value.trim()) {
+            const label = fid.replace('form-product-', '').replace('-', ' ');
+            window.showFieldError(fid, `Product ${label} is required.`);
+          } else {
+            window.clearFieldError(fid);
+          }
+        });
+        el.addEventListener('input', () => window.clearFieldError(fid));
+      });
+    } catch (e) {
+      console.error('[P1-36] Product form validation patch failed:', e);
+    }
+  })();
+
+  // ─────────────────────────────────────────────────────────────────────
+  // P1-38: Auto-save Product Form Drafts to localStorage
+  // ─────────────────────────────────────────────────────────────────────
+  (function initProductFormAutosave() {
+    const DRAFT_KEY = 'valenixia_draft_product';
+    const DRAFT_FIELDS = [
+      'form-product-name', 'form-product-price', 'form-product-category',
+      'form-product-emoji', 'form-product-stock', 'form-product-sku'
+    ];
+
+    function saveDraft() {
+      try {
+        const draft = {};
+        DRAFT_FIELDS.forEach(id => {
+          const el = document.getElementById(id);
+          if (el && !el.disabled) draft[id] = el.value;
+        });
+        if (Object.values(draft).some(v => v && String(v).trim())) {
+          localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...draft, _ts: Date.now() }));
+        }
+      } catch (_) {}
+    }
+
+    function restoreDraft() {
+      try {
+        const raw = localStorage.getItem(DRAFT_KEY);
+        if (!raw) return false;
+        const draft = JSON.parse(raw);
+        // Only restore if draft is < 24 hours old
+        if (Date.now() - (draft._ts || 0) > 86400000) {
+          localStorage.removeItem(DRAFT_KEY);
+          return false;
+        }
+        let restored = false;
+        DRAFT_FIELDS.forEach(id => {
+          const el = document.getElementById(id);
+          if (el && !el.disabled && draft[id]) {
+            el.value = draft[id];
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            restored = true;
+          }
+        });
+        return restored;
+      } catch (_) { return false; }
+    }
+
+    function clearDraft() {
+      try { localStorage.removeItem(DRAFT_KEY); } catch (_) {}
+    }
+
+    // Watch for modal open to attach autosave and restore
+    const modal = document.getElementById('modal-product');
+    if (modal) {
+      const observer = new MutationObserver(() => {
+        if (modal.classList.contains('active')) {
+          // Attach autosave listeners
+          DRAFT_FIELDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (el && !el.disabled) {
+              el.removeEventListener('input', saveDraft);
+              el.addEventListener('input', saveDraft);
+            }
+          });
+          // Restore draft only for new products (SKU not disabled)
+          const skuField = document.getElementById('form-product-sku');
+          if (skuField && !skuField.disabled) {
+            const restored = restoreDraft();
+            if (restored) {
+              // Show "Draft restored" banner
+              const banner = document.createElement('div');
+              banner.id = 'draft-restored-banner';
+              banner.style.cssText = 'background:var(--accent-emerald,#10b981);color:#fff;padding:6px 12px;border-radius:6px;font-size:12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;';
+              banner.innerHTML = '<span>📋 Draft restored</span><button onclick="this.parentElement.remove()" style="background:transparent;border:none;color:#fff;cursor:pointer;font-size:16px">×</button>';
+              const form = modal.querySelector('.modal-body') || modal;
+              const existing = document.getElementById('draft-restored-banner');
+              if (!existing) form.insertBefore(banner, form.firstChild);
+            }
+          }
+        } else {
+          // Modal closed: clear draft if submitted, else keep for next open
+        }
+      });
+      observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
+    }
+
+    // Clear draft on successful submit
+    const origSubmit = document.getElementById('btn-submit-product-modal');
+    if (origSubmit) {
+      origSubmit.addEventListener('click', () => {
+        setTimeout(clearDraft, 500); // Clear after form closes
+      });
+    }
+
+    window._clearProductDraft = clearDraft;
+    window._restoreProductDraft = restoreDraft;
+  })();
+
 })();

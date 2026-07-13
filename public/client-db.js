@@ -465,6 +465,87 @@
       console.log(`[IndexedDB] Migration triggered from v${oldVer} to v${newVer}`);
     },
 
+    async migrateDatabase() {
+      return new Promise((resolve) => {
+        const oldDbName = 'nexova_db';
+        try {
+          const req = indexedDB.open(oldDbName);
+          let exists = true;
+          req.onupgradeneeded = (e) => {
+            exists = false;
+            try { e.target.transaction.abort(); } catch(err) {}
+          };
+          req.onerror = () => {
+            resolve();
+          };
+          req.onsuccess = async (e) => {
+            if (!exists) {
+              resolve();
+              return;
+            }
+            const oldDb = e.target.result;
+            console.log('[IndexedDB] Found old nexova_db database. Beginning migration to valenixia_db...');
+            
+            try {
+              const storesToMigrate = Array.from(oldDb.objectStoreNames);
+              if (storesToMigrate.length === 0) {
+                oldDb.close();
+                resolve();
+                return;
+              }
+              
+              const newDb = await new Promise((res, rej) => {
+                const openReq = indexedDB.open(this.dbName, this.dbVersion);
+                openReq.onsuccess = (evt) => res(evt.target.result);
+                openReq.onerror = (evt) => rej(evt.target.error);
+                openReq.onupgradeneeded = (evt) => {
+                  const db = evt.target.result;
+                  storesToMigrate.forEach(s => {
+                    if (!db.objectStoreNames.contains(s)) {
+                      db.createObjectStore(s, { keyPath: s === 'line_items' || s === 'error_logs' || s === 'crsql_changes' ? 'id' : 'key' });
+                    }
+                  });
+                };
+              });
+              
+              for (const storeName of storesToMigrate) {
+                const oldTx = oldDb.transaction(storeName, 'readonly');
+                const oldStore = oldTx.objectStore(storeName);
+                const allRecords = await new Promise((res) => {
+                  const getReq = oldStore.getAll();
+                  getReq.onsuccess = () => res(getReq.result);
+                  getReq.onerror = () => res([]);
+                });
+                
+                if (allRecords.length > 0) {
+                  const newTx = newDb.transaction(storeName, 'readwrite');
+                  const newStore = newTx.objectStore(storeName);
+                  for (const rec of allRecords) {
+                    newStore.put(rec);
+                  }
+                  await new Promise((res) => {
+                    newTx.oncomplete = res;
+                    newTx.onerror = res;
+                  });
+                }
+              }
+              newDb.close();
+              oldDb.close();
+              
+              console.log('[IndexedDB] Migration complete. Deleting old nexova_db...');
+              indexedDB.deleteDatabase(oldDbName);
+            } catch (err) {
+              console.error('[IndexedDB] Database migration failed:', err);
+              try { oldDb.close(); } catch(ex) {}
+            }
+            resolve();
+          };
+        } catch (e) {
+          resolve();
+        }
+      });
+    },
+
     init() {
       if (navigator.storage && navigator.storage.persist) {
         navigator.storage.persist().then(granted => {
@@ -476,8 +557,10 @@
         });
       }
 
-      return new Promise((resolve, reject) => {
+      return new Promise(async (resolve, reject) => {
         if (this.db) return resolve(this.db);
+
+        await this.migrateDatabase();
 
         let settled = false;
         const settle = (fn, val) => {
@@ -646,9 +729,67 @@
           settle(resolve, this.db);
         };
 
-        request.onerror = (event) => {
-          console.error('[IndexedDB] Failed to open DB:', event.target.error);
-          settle(reject, event.target.error);
+        request.onerror = async (event) => {
+          const error = event.target.error;
+          console.error('[IndexedDB] Failed to open DB:', error);
+          
+          const isCorruptionError = 
+            error.name === 'VersionError' ||
+            error.name === 'QuotaExceededError' ||
+            error.name === 'UnknownError' ||
+            error.name === 'NotFoundError' ||
+            (error.message && (
+              error.message.toLowerCase().includes('corrupt') ||
+              error.message.toLowerCase().includes('version') ||
+              error.message.toLowerCase().includes('upgrade')
+            ));
+          
+          if (isCorruptionError) {
+            console.warn('[IndexedDB] Detected corruption error, attempting recovery...');
+            try {
+              if (this.db) {
+                this.db.close();
+                this.db = null;
+              }
+              
+              const deleteReq = indexedDB.deleteDatabase(this.dbName);
+              await new Promise((res, rej) => {
+                deleteReq.onsuccess = () => {
+                  console.log('[IndexedDB] Corrupted database deleted successfully');
+                  res();
+                };
+                deleteReq.onerror = () => {
+                  console.error('[IndexedDB] Failed to delete corrupted database');
+                  rej(deleteReq.error);
+                };
+                deleteReq.onblocked = () => {
+                  console.warn('[IndexedDB] Database delete blocked — other tabs may be using it');
+                  if (typeof BroadcastChannel !== 'undefined') {
+                    const bc = new BroadcastChannel('valenixia_db_reload');
+                    bc.postMessage({ action: 'force_reload' });
+                    bc.close();
+                  }
+                  setTimeout(() => window.location.reload(), 500);
+                };
+              });
+              
+              if (typeof showTransientToast === 'function') {
+                showTransientToast('Database recovered. Reloading app...', 'warning', 2000);
+              }
+              setTimeout(() => window.location.reload(), 1500);
+              return new Promise(() => {});
+            } catch (recoveryErr) {
+              console.error('[IndexedDB] Recovery failed:', recoveryErr);
+            }
+          }
+          
+          const enhancedError = new Error(
+            `IndexedDB initialization failed: ${error.name}: ${error.message}. ` +
+            `Try clearing browser data for this site or disabling private browsing mode.`
+          );
+          enhancedError.originalError = error;
+          enhancedError.isRecoverable = isCorruptionError;
+          settle(reject, enhancedError);
         };
 
         // CRITICAL: This fires when another tab/SW holds the DB at a lower version.
@@ -1432,6 +1573,16 @@
       result += seed.toString(16).padStart(8, '0');
     }
     return result.toUpperCase().slice(0, 32);
+  }
+
+  if (typeof BroadcastChannel !== 'undefined') {
+    const bc = new BroadcastChannel('valenixia_db_reload');
+    bc.onmessage = (event) => {
+      if (event.data && event.data.action === 'force_reload') {
+        console.warn('[BroadcastChannel] Force reload requested.');
+        window.location.reload();
+      }
+    };
   }
 
   globalScope.hashPin = hashPin;
