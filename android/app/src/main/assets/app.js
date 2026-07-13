@@ -1971,12 +1971,53 @@
             window.incrementMonthlyTransactionCount(); // Increments transactions_this_month counter
           }
           state.isCheckingOut = false;
+          window.__isSubmitting = false;
           setButtonLoading('btn-checkout-complete', false, '', 'Complete Order');
           playAudioSignal('success');
           // Premium: flash payment success ring + haptic triple-tap + screen reader
           if (typeof flashPaymentSuccess === 'function') flashPaymentSuccess();
           showNotificationToast(`âœ… Transaction #${transactionId.slice(-8).toUpperCase()} completed!`, null, 4000);
           announceToScreenReader(`Transaction completed successfully for amount Rs. ${(event.data.total / 100.0).toFixed(2)}.`);
+
+          // Lazy-load jsPDF and DigitalReceipt engine dynamically (P1-35 Code Splitting)
+          (function lazyLoadReceipt() {
+            const prefs = state.preferences || {};
+            const receiptData = {
+              storeName: prefs.store_name || 'VALENIXIA POS',
+              storeAddress: prefs.store_address || '',
+              transactionId,
+              cashierName: state.activeCashier?.name || 'N/A',
+              timestamp: Date.now(),
+              items: state.activeCart.map(i => ({
+                name: i.displayName || i.name, qty: i.qty, unitPrice: i.price, discount: i.discount || 0
+              })),
+              subtotal: event.data.subtotal || 0,
+              tax: event.data.tax || 0,
+              taxRate: prefs.tax_rate || 0,
+              total: event.data.total || 0,
+              paymentMode: event.data.paymentMode || 'CASH',
+              footerText: prefs.receipt_footer || 'Thank you!'
+            };
+
+            if (window.DigitalReceipt) {
+              window.DigitalReceipt.showDialog(receiptData);
+            } else {
+              console.log('[App] Lazy loading jsPDF and DigitalReceipt module...');
+              const s1 = document.createElement('script');
+              s1.src = 'jspdf.umd.min.js';
+              s1.onload = () => {
+                const s2 = document.createElement('script');
+                s2.src = 'digital-receipt.js';
+                s2.onload = () => {
+                  if (window.DigitalReceipt) {
+                    window.DigitalReceipt.showDialog(receiptData);
+                  }
+                };
+                document.head.appendChild(s2);
+              };
+              document.head.appendChild(s1);
+            }
+          })();
 
           // â”€â”€ Component F: Update monotonic time anchor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           LicenseEngine.updateTimeAnchor().catch(() => {});
@@ -2066,6 +2107,7 @@
 
         case 'ERROR':
           state.isCheckingOut = false;
+          window.__isSubmitting = false;
           setButtonLoading('btn-checkout-complete', false, '', 'Complete Order');
           console.warn('[App] Worker encountered error:', error);
           
@@ -6740,7 +6782,7 @@
       return;
     }
 
-    if (state.isCheckingOut) {
+    if (state.isCheckingOut || window.__isSubmitting) {
       console.warn('[App] Checkout already in progress, ignoring double click.');
       return;
     }
@@ -6751,6 +6793,7 @@
       return;
     }
 
+    window.__isSubmitting = true;
     state.isCheckingOut = true;
 
     const payModeBtn = document.querySelector('.payment-btn.active');
@@ -6765,6 +6808,7 @@
       playAudioSignal('error');
       showModal({ title: 'Notice', message: '', type: 'info' });
       state.isCheckingOut = false;
+      window.__isSubmitting = false;
       return;
     }
 
@@ -6775,6 +6819,7 @@
         playAudioSignal('error');
         showModal({ title: "Notice", message: `Split pay values mismatch total! Total: Rs. ${(total/100).toFixed(2)}, Split Sum: Rs. ${((cash+card)/100).toFixed(2)}`, type: "info" });
         state.isCheckingOut = false;
+        window.__isSubmitting = false;
         return;
       }
       paymentDetails = JSON.stringify({ cash_cents: Math.round(cash), card_cents: Math.round(card) });
@@ -8761,6 +8806,7 @@
     document.getElementById('modal-qr-pay').classList.remove('active');
     state.pendingQrCheckout = null;
     state.isCheckingOut = false; // Ensure checkout lock is released on QR cancel
+    window.__isSubmitting = false;
     if (state.terminalRole === 'REGISTER') {
       syncWorker.postMessage({
         type: 'BROADCAST_CFD_PAY',

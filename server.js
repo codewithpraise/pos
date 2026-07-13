@@ -110,7 +110,12 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
       imgSrc: ["'self'", "data:", "https://*"],
-      connectSrc: ["'self'", "ws:", "wss:", "http://*", "https://*"],
+      connectSrc: [
+        "'self'",
+        "ws:", "wss:",
+        "http://localhost:*", "http://127.0.0.1:*", "http://192.168.*", "http://10.*", "http://172.*",
+        "https://*.supabase.co", "https://*.pages.dev"
+      ],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: null
     }
@@ -2684,14 +2689,22 @@ app.get('/api/sync/bootstrap', async (req, res) => {
 app.get('/api/export', requireAdmin, async (req, res) => {
   try {
     const data = {};
-    const tables = [
-      'transactions', 'line_items', 'inventory_catalog', 
-      'employees', 'customers', 'categories', 'distributors',
-      'purchase_orders', 'po_line_items', 'distributor_payments', 'customer_credit'
-    ];
-    for (const table of tables) {
+    const tableQueries = {
+      'transactions': () => db.all("SELECT * FROM transactions"),
+      'line_items': () => db.all("SELECT * FROM line_items"),
+      'inventory_catalog': () => db.all("SELECT * FROM inventory_catalog"),
+      'employees': () => db.all("SELECT * FROM employees"),
+      'customers': () => db.all("SELECT * FROM customers"),
+      'categories': () => db.all("SELECT * FROM categories"),
+      'distributors': () => db.all("SELECT * FROM distributors"),
+      'purchase_orders': () => db.all("SELECT * FROM purchase_orders"),
+      'po_line_items': () => db.all("SELECT * FROM po_line_items"),
+      'distributor_payments': () => db.all("SELECT * FROM distributor_payments"),
+      'customer_credit': () => db.all("SELECT * FROM customer_credit")
+    };
+    for (const table of Object.keys(tableQueries)) {
       try {
-        data[table] = await db.all(`SELECT * FROM ${table}`);
+        data[table] = await tableQueries[table]();
       } catch (err) {
         data[table] = [];
       }
