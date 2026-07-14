@@ -4,6 +4,12 @@
 // ============================================================================
 
 (function() {
+  // Production Console Guard — suppress debugging logs on public/production domains
+  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' && !window.location.hostname.startsWith('192.168.')) {
+    console.log = function() {};
+    console.info = function() {};
+    console.debug = function() {};
+  }
   const EventListenerRegistry = (() => {
     const listeners = new Map(); // Element -> [{event, handler, options}]
     const intervals = new Set();
@@ -236,10 +242,10 @@
     container.innerHTML = window.__recentErrors.map(e => `
       <div style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.15); border-radius: 4px; padding: 8px; display: flex; flex-direction: column; gap: 2px;">
         <div style="display: flex; justify-content: space-between; font-weight: 700; color: var(--alert-coral);">
-          <span>${e.code}</span>
+          <span>${sanitizeHtml(e.code)}</span>
           <span style="color: var(--text-gray); font-size: 9px;">${e.timestamp}</span>
         </div>
-        <div style="color: var(--text-white); font-size: 9px; line-height: 1.3;">${e.message}</div>
+        <div style="color: var(--text-white); font-size: 9px; line-height: 1.3;">${sanitizeHtml(e.message)}</div>
       </div>
     `).join('');
   }
@@ -2400,7 +2406,29 @@
         const pinInput = document.getElementById('pin-input');
         if (pinInput) pinInput.focus();
       }, 300);
+    // Idle Session Auto-Logout (PCI DSS compliance — 5-minute timeout)
+    let idleTimer;
+    const IDLE_TIMEOUT_MS = 300000; // 5 minutes
+
+    function resetIdleTimer() {
+      clearTimeout(idleTimer);
+      if (state.activeCashier || state.terminalRole) {
+        idleTimer = setTimeout(() => {
+          console.log('[Auth] Logged out due to inactivity.');
+          performLogout();
+          showNotificationToast("🕒 Session logged out due to inactivity.", null, 5000);
+        }, IDLE_TIMEOUT_MS);
+      }
     }
+
+    // Reset timer on key interactions
+    window.addEventListener('click', resetIdleTimer, true);
+    window.addEventListener('touchstart', resetIdleTimer, true);
+    window.addEventListener('keydown', resetIdleTimer, true);
+    window.addEventListener('mousemove', resetIdleTimer, true);
+    // Initialize
+    resetIdleTimer();
+
 
 
     // Theme toggler â€” cycles through all available palettes

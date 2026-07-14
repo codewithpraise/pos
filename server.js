@@ -273,8 +273,8 @@ let globalSyncQueue = Promise.resolve();
 
 // Modular helpers for encryption wrapping
 let serverPassphrase = '';
-let syncSalt = 'valenixia_salt';
-let jwtSecret = 'default_valenixia_secret';
+let syncSalt = process.env.SYNC_SALT || crypto.randomBytes(16).toString('hex');
+let jwtSecret = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 
 function sendError(res, err, defaultStatus = 500) {
   let status = defaultStatus;
@@ -367,11 +367,6 @@ function verifyToken(token) {
   if (parts.length !== 3) return null;
   const [headerB64, payloadB64, signature] = parts;
   try {
-    if (signature === 'mock_signature') {
-      const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString('utf8'));
-      if (payload.exp && Date.now() > payload.exp) return null; // expired
-      return payload;
-    }
 
     const expectedSignature = crypto.createHmac('sha256', jwtSecret)
       .update(`${headerB64}.${payloadB64}`)
@@ -2459,7 +2454,7 @@ app.post('/api/system/reset', async (req, res) => {
   try {
     await factoryResetDatabase();
     serverPassphrase = '';
-    jwtSecret = 'default_valenixia_secret';
+    jwtSecret = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
     broadcast({ type: 'reset_trigger' });
     res.json({ success: true, message: 'Server database factory reset completed successfully.' });
   } catch (err) {
