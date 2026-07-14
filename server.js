@@ -125,7 +125,15 @@ app.use(helmet({
   referrerPolicy: { policy: 'no-referrer' },
   crossOriginEmbedderPolicy: false,
   dnsPrefetchControl: { allow: false },
-  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true }
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+  permissionsPolicy: {
+    features: {
+      geolocation: ["'none'"],
+      camera: ["'self'"],
+      microphone: ["'self'"],
+      payment: ["'self'"]
+    }
+  }
 }));
 app.use(cors({
   origin: (origin, callback) => {

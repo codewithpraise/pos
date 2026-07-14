@@ -1091,7 +1091,7 @@
     initOtaUpdater();
 
     // Start background license heartbeat (every 5 minutes)
-    setInterval(async () => {
+    EventListenerRegistry.setInterval(async () => {
       if (location.protocol === 'file:') return; // Skip in file:// asset context
       if (localStorage.getItem('onboarding_complete') !== 'true') return; // Skip if not onboarded
       
@@ -1752,7 +1752,7 @@
           const statusElErr = document.getElementById('hydration-status');
           if (statusElErr) {
             statusElErr.style.color = '#ef4444';
-            statusElErr.innerHTML = `Hydration failed: ${event.data.error}<br><br>
+            statusElErr.innerHTML = `Hydration failed: ${sanitizeHtml(event.data.error)}<br><br>
               <button onclick="window.location.reload()" style="padding: 10px 20px; background: #ef4444; border: none; border-radius: 4px; color: #fff; font-weight: 700; cursor: pointer; margin-top: 10px;">Retry Bootstrapping</button>`;
           }
           window.__hydrationInProgress = false;
@@ -1796,7 +1796,7 @@
             const statusEl = document.getElementById('hydration-status');
             if (statusEl) {
               statusEl.style.color = '#ef4444';
-              statusEl.innerHTML = `Sync failure: ${error}<br><br>
+              statusEl.innerHTML = `Sync failure: ${sanitizeHtml(error)}<br><br>
                 Please verify your Network Encryption Key (Passphrase) matches the server.<br><br>
                 <button onclick="localStorage.removeItem('onboarding_complete'); localStorage.removeItem('database_hydrated'); window.location.reload();" style="padding: 10px 20px; background: #3b82f6; border: none; border-radius: 4px; color: #fff; font-weight: 700; cursor: pointer; margin-right: 10px;">Re-run Setup Wizard</button>
                 <button onclick="window.location.reload()" style="padding: 10px 20px; background: #ef4444; border: none; border-radius: 4px; color: #fff; font-weight: 700; cursor: pointer;">Retry Connection</button>`;
@@ -6525,7 +6525,7 @@
       if ('BarcodeDetector' in window) {
         const barcodeDetector = new BarcodeDetector({ formats: ['ean_13', 'qr_code', 'code_128', 'upc_a'] });
         
-        detectorInterval = setInterval(async () => {
+        detectorInterval = EventListenerRegistry.setInterval(async () => {
           if (isScannerClosing) return;
           if (!video.videoWidth) return;
           try {
@@ -6563,7 +6563,7 @@
           }
         };
 
-        detectorInterval = setInterval(() => {
+        detectorInterval = EventListenerRegistry.setInterval(() => {
           if (!video.videoWidth || isWorkerDecoding) return;
           
           canvas.width = video.videoWidth;
@@ -6623,7 +6623,7 @@
     } catch (e) {}
 
     if (detectorInterval) {
-      clearInterval(detectorInterval);
+      EventListenerRegistry.clearInterval(detectorInterval);
       detectorInterval = null;
     }
 
@@ -8724,7 +8724,7 @@
     }
 
     setTimeout(checkUpdates, 5000);
-    setInterval(checkUpdates, 3600000); // Poll hourly
+    EventListenerRegistry.setInterval(checkUpdates, 3600000); // Poll hourly
   }
 
   function plotHourlySalesChart(txs) {
@@ -10590,11 +10590,11 @@
         
         // Simulate loading progress bar increment
         let progress = 0;
-        const timer = setInterval(() => {
+        const timer = EventListenerRegistry.setInterval(() => {
           progress += 10;
           if (fill) fill.style.width = progress + '%';
           if (progress >= 90) {
-            clearInterval(timer);
+            EventListenerRegistry.clearInterval(timer);
           }
         }, 80);
 
@@ -10889,7 +10889,7 @@
       bindPrinterSettings();
       initDataManagement();
       checkForUpdates();
-      setInterval(checkForUpdates, 3600000); // Check hourly
+      EventListenerRegistry.setInterval(checkForUpdates, 3600000); // Check hourly
     }).catch(err => {
       console.error('[Boot] Critical fault during application boot:', err);
       const wrap = document.getElementById('app-boot-loader-wrap');
