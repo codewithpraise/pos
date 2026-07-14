@@ -167,6 +167,8 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
+          force-avd-creation: false
+          emulator-boot-timeout: 900
           script: |
             echo "Device initialized! Boot completed."
             cd android && ./gradlew assembleDebug
