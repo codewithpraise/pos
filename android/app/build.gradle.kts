@@ -17,10 +17,20 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file(System.getenv("RELEASE_STORE_FILE") ?: "release-key.jks")
-            storePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: "valenixiapos"
-            keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: "valenixia"
-            keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: "valenixiapos"
+            val storeFileEnv = System.getenv("RELEASE_STORE_FILE")
+            val storePasswordEnv = System.getenv("RELEASE_STORE_PASSWORD")
+            val keyAliasEnv = System.getenv("RELEASE_KEY_ALIAS")
+            val keyPasswordEnv = System.getenv("RELEASE_KEY_PASSWORD")
+
+            val isReleaseTask = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
+            if (isReleaseTask && (storeFileEnv == null || storePasswordEnv == null || keyAliasEnv == null || keyPasswordEnv == null)) {
+                throw GradleException("Android Release Signing credentials must be provided via environment variables (RELEASE_STORE_FILE, RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD).")
+            }
+
+            storeFile = file(storeFileEnv ?: "release-key.jks")
+            storePassword = storePasswordEnv ?: ""
+            keyAlias = keyAliasEnv ?: ""
+            keyPassword = keyPasswordEnv ?: ""
         }
     }
 
