@@ -10,6 +10,14 @@
     console.info = function() {};
     console.debug = function() {};
   }
+  // Global Unhandled Promise Rejection Handler (P1 compliance)
+  window.addEventListener('unhandledrejection', function(event) {
+    console.error('[Unhandled Rejection]', event.reason);
+    if (typeof recordSystemError === 'function') {
+      recordSystemError('PROMISE_REJECTION', event.reason?.message || String(event.reason));
+    }
+    event.preventDefault();
+  });
   const EventListenerRegistry = (() => {
     const listeners = new Map(); // Element -> [{event, handler, options}]
     const intervals = new Set();
@@ -4055,20 +4063,9 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ licenseKey: licenseKeyInput, nodeId: deviceFingerprint })
           }).catch(() => {
-            // Local fallback simulation if offline / no internet connection
-            const keyPattern = /^VALENIXIA-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
-            if (keyPattern.test(licenseKeyInput)) {
-              let mockToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' + 
-                              btoa(JSON.stringify({ licenseKey: licenseKeyInput, nodeId: deviceFingerprint, tier: licenseKeyInput.includes('PRO') ? 'PRO' : 'TRIAL', exp: Date.now() + 7 * 24 * 60 * 60 * 1000, expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000 })) + 
-                              '.mock_signature';
-              return {
-                ok: true,
-                json: async () => ({ success: true, token: mockToken })
-              };
-            }
             return {
               ok: false,
-              json: async () => ({ error: 'Invalid license key pattern. Format: VALENIXIA-XXXX-XXXX-XXXX' })
+              json: async () => ({ error: 'License activation requires an active internet connection. Please verify your network settings and try again.' })
             };
           });
 

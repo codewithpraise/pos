@@ -119,7 +119,13 @@ app.use(helmet({
       objectSrc: ["'none'"],
       upgradeInsecureRequests: null
     }
-  }
+  },
+  xFrameOptions: { action: 'deny' },
+  xContentTypeOptions: true,
+  referrerPolicy: { policy: 'no-referrer' },
+  crossOriginEmbedderPolicy: false,
+  dnsPrefetchControl: { allow: false },
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true }
 }));
 app.use(cors({
   origin: (origin, callback) => {
@@ -3130,4 +3136,11 @@ function handleGracefulShutdown(signal) {
 
 process.on('SIGTERM', () => handleGracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => handleGracefulShutdown('SIGINT'));
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[UnhandledRejection] Server caught error:', reason);
+});
+process.on('uncaughtException', (error) => {
+  console.error('[UncaughtException] Server caught critical error:', error);
+});
 

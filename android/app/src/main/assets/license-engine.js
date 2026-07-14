@@ -88,13 +88,6 @@ const LicenseEngine = (() => {
           if (payload.licenseKey && !payload.store_id) {
             payload.store_id = payload.licenseKey;
           }
-          if (parts[2] === 'mock_signature') {
-            console.log('[License] Validated mock JWT signature successfully.');
-            if (payload.exp && payload.exp < Date.now()) {
-              return { valid: false, reason: 'Mock license has expired.' };
-            }
-            return { valid: true, payload };
-          }
           
           console.warn('[License] Standard JWT detected â€” parsing claims.');
           if (payload.exp && payload.exp < Date.now()) {
@@ -338,19 +331,6 @@ const LicenseEngine = (() => {
       try {
         const hwid = await generateHWID();
 
-        // God Mode Local Bypass: If master key is entered, validate locally immediately
-        if (code === 'VALENIXIA-ADMIN-777') {
-          const mockToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' + 
-                            btoa(JSON.stringify({ licenseKey: code, hwid: hwid, tier: 'ENTERPRISE', exp: Date.now() + 100 * 365 * 24 * 60 * 60 * 1000 })) + 
-                            '.mock_signature';
-          await ValenixiaDB.setSecurePref(STORAGE_KEY_LICENSE, mockToken);
-          window.__valenixiaTier = 'ENTERPRISE';
-          window.__valenixiaHWID = hwid;
-          document.getElementById('license-lockout-overlay')?.remove();
-          if(window.showModal) showModal({ title: 'License', message: '', type: 'warning' }); else console.warn('[License]', '');
-          location.reload();
-          return;
-        }
 
         const serverBase = window.__valenixiaServerUrl || location.origin;
         
