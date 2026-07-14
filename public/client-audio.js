@@ -136,6 +136,22 @@ class SoundEngine {
 window.sounds = new SoundEngine();
 document.addEventListener('click', () => { try { window.sounds.init(); } catch (err) {} }, { once: true });
 document.addEventListener('keydown', () => { try { window.sounds.init(); } catch (err) {} }, { once: true });
+document.addEventListener('touchstart', () => { 
+  try { 
+    window.sounds.init(); 
+    if (window.sounds.ctx && window.sounds.ctx.state === 'suspended') {
+      window.sounds.ctx.resume();
+    }
+  } catch (err) {} 
+}, { once: true });
+document.addEventListener('touchend', () => { 
+  try { 
+    window.sounds.init(); 
+    if (window.sounds.ctx && window.sounds.ctx.state === 'suspended') {
+      window.sounds.ctx.resume();
+    }
+  } catch (err) {} 
+}, { once: true });
 
 window.playTone = function(type) {
   if (!window.sounds) return;

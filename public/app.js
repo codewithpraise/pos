@@ -870,6 +870,29 @@
         return; // Hard stop — do not proceed to license check
       }
 
+      // Storage Persistence Request (Chrome/Firefox safety) and Storage Quota Warning
+      if (navigator.storage && navigator.storage.persist) {
+        navigator.storage.persist().then(persistent => {
+          if (persistent) {
+            console.log("[Storage] Persistent storage granted by browser.");
+          } else {
+            console.warn("[Storage] Persistent storage not granted. Browser may evict data under storage pressure.");
+          }
+        });
+      }
+
+      if (navigator.storage && navigator.storage.estimate) {
+        navigator.storage.estimate().then(estimate => {
+          const usage = estimate.usage || 0;
+          const quota = estimate.quota || 1;
+          const percentage = (usage / quota) * 100;
+          console.log(`[Storage] Usage: ${(usage / 1024 / 1024).toFixed(2)} MB, Quota: ${(quota / 1024 / 1024).toFixed(2)} MB (${percentage.toFixed(2)}%)`);
+          if (percentage > 80) {
+            showNotificationToast("⚠️ STORAGE WARNING: Device storage is almost full. Please free up space to avoid database write errors.", null, 8000);
+          }
+        });
+      }
+
       // CRITICAL: Enforce License Gate immediately upon DB initialization
       updateBootProgress(50, 'Verifying system license...');
       const licenseOk = await LicenseEngine.init();
