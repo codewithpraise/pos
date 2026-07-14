@@ -2414,6 +2414,8 @@
         const pinInput = document.getElementById('pin-input');
         if (pinInput) pinInput.focus();
       }, 300);
+    }
+
     // Idle Session Auto-Logout (PCI DSS compliance — 5-minute timeout)
     let idleTimer;
     const IDLE_TIMEOUT_MS = 300000; // 5 minutes
