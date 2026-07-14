@@ -3067,7 +3067,7 @@ app.get('/api/release-notes', async (req, res) => {
 });
 
 // Serve frontend shell entry
-app.get('/*', (req, res) => {
+app.get('/{*splat}', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
