@@ -136,6 +136,8 @@ async function run() {
   // Enable domains
   await cdpReq(ws, 'Runtime.enable', {}, 1);
   await cdpReq(ws, 'Log.enable', {}, 2);
+  await cdpReq(ws, 'Network.enable', {}, 3);
+  await cdpReq(ws, 'Network.setCacheDisabled', { cacheDisabled: true }, 4);
 
   // Inject native mocks to support offline-first/CI headless tests safely
   await cdpReq(ws, 'Runtime.evaluate', {

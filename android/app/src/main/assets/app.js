@@ -1647,6 +1647,20 @@
             drawCrashConsole('FATAL WORKER CRASH', err.filename, err.lineno, err.message);
         }
     });
+
+    syncWorker.addEventListener('message', e => {
+      if (e.data && e.data.type === 'PENDING_COUNT') {
+        window._pendingSyncCount = e.data.count || 0;
+        const pill = document.getElementById('mobile-offline-pill');
+        if (pill) {
+          if (window._pendingSyncCount > 0) {
+            pill.title = `${window._pendingSyncCount} pending changes`;
+          } else {
+            pill.removeAttribute('title');
+          }
+        }
+      }
+    });
     
     // Post initial setup signal with serverUrl
     const serverUrl = window.__valenixiaServerUrl || location.origin;
@@ -11814,9 +11828,8 @@
       window.addEventListener('online', showOnlineBanner);
       window.addEventListener('offline', showOfflineBanner);
 
-      // Track pending sync count from worker messages
-      const origOnMessage = window._syncWorkerMessageHandler;
-      if (typeof syncWorker !== 'undefined') {
+      // Track pending sync count from worker messages (listeners registered in setupWebWorker)
+      if (typeof syncWorker !== 'undefined' && syncWorker) {
         syncWorker.addEventListener('message', e => {
           if (e.data && e.data.type === 'PENDING_COUNT') {
             window._pendingSyncCount = e.data.count || 0;
