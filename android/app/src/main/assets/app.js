@@ -1108,16 +1108,6 @@ setHtml(overlay, `
       state.googleDriveOauthToken = gdriveToken;
 
       let devToken = await ValenixiaDB.getSecurePref('valenixia_token');
-      if (!devToken) {
-        const storage = window.localStorage;
-        const key = ['valenixia', 'token'].join('_');
-        const legacyToken = storage.getItem(key);
-        if (legacyToken) {
-          await ValenixiaDB.setSecurePref('valenixia_token', legacyToken);
-          storage.removeItem(key);
-          devToken = legacyToken;
-        }
-      }
       state.deviceToken = devToken;
       updateBootProgress(75, 'Loading product catalog...');
 

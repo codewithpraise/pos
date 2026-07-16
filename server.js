@@ -215,6 +215,15 @@ const billingLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Rate limiter for initial system bootstrap onboarding (max 3 per hour)
+const bootstrapLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3,
+  message: { error: 'Too many store initialization attempts. Please try again after an hour.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Rate limiter for release management updates (max 5 attempts per minute)
 const releaseUpdateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
@@ -2902,25 +2911,11 @@ app.get('/api/server-info', requireAuth, (req, res) => {
   }
 });
 
-// 6.c Fetch system initialization status (Public before onboarding, authenticated after onboarding)
-app.get('/api/system/status', async (req, res) => {
+// 6.c Fetch system initialization status (requireAuth protected)
+app.get('/api/system/status', requireAuth, async (req, res) => {
   try {
     const row = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'onboarding_complete'");
     const isInitialized = !!(row && row.value_payload === 'true');
-    
-    // Once system has been configured, require active authentication to query status details
-    if (isInitialized) {
-      const authHeader = req.headers['authorization'];
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'Authorization token required.' });
-      }
-      const token = authHeader.split(' ')[1];
-      const payload = verifyToken(token);
-      if (!payload) {
-        return res.status(401).json({ error: 'Invalid or expired token.' });
-      }
-    }
-    
     res.json({ isInitialized });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -3073,6 +3068,7 @@ app.get('/api/metrics', requireAuth, async (req, res) => {
 
 // 6.b Bootstrap Core Onboarding Configuration (Public / Safe)
 app.post('/api/bootstrap',
+  bootstrapLimiter,
   requireBody({
     storeName: 'STORE_NAME',
     adminPin: 'ADMIN_PIN',

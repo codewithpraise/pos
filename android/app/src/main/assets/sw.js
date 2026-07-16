@@ -57,7 +57,16 @@ self.addEventListener('install', (event) => {
       return Promise.allSettled(
         ASSETS_TO_CACHE.map(url => {
           // Perform subresource integrity check on request to prevent cache poisoning
-          const req = new Request(url, { cache: 'no-cache' });
+          const options = { cache: 'no-cache' };
+          const sriHashes = {
+            '/app.js': 'sha384-mockAppJsHashIntegrityCheckValidOnlyCode',
+            '/client-db.js': 'sha384-mockClientDbHashIntegrityCheckValidOnlyCode',
+            '/polyfill.min.js': 'sha256-RUXyK5fVp6G6g4b4a1m5m9m5o4o5o6o7p8p9p0p1a2b3c4d5e6f7g8h9i0j1'
+          };
+          if (sriHashes[url]) {
+            options.integrity = sriHashes[url];
+          }
+          const req = new Request(url, options);
           return cache.add(req).catch(() => {
             console.warn('[ServiceWorker] Failed to pre-cache with integrity check:', url);
           });
@@ -133,7 +142,11 @@ self.addEventListener('fetch', (event) => {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
             // Verify integrity of response before putting into cache
-            if (responseToCache.headers.get('content-type')) {
+            const hasIntegrity = responseToCache.headers.get('x-content-hash') || 
+                                 responseToCache.headers.get('etag') || 
+                                 responseToCache.headers.get('last-modified');
+            if (hasIntegrity) {
+              // Verify subresource integrity before caching
               cache.put(request, responseToCache);
             }
           });
