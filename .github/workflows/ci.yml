@@ -191,6 +191,9 @@ jobs:
         run: chmod +x gradlew
         working-directory: android
 
+      - name: Create AVD directory
+        run: mkdir -p ~/.android/avd
+
       - name: Install Android Emulator and Run E2E Target
         uses: ReactiveCircus/android-emulator-runner@v2.30.0
         with:
