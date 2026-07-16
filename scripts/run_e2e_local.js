@@ -22,6 +22,14 @@ function checkCDPAvailable() {
 }
 
 async function main() {
+  // Clean up existing local database files to prevent test contamination
+  const dbFiles = ['valenixia.db', 'valenixia.db-wal', 'valenixia.db-shm', 'nexova.db', 'nexova.db-wal', 'nexova.db-shm'];
+  for (const file of dbFiles) {
+    try {
+      if (fs.existsSync(file)) fs.unlinkSync(file);
+    } catch (_) {}
+  }
+
   console.log('[Runner] Spawning headless Chrome on port 9222...');
   const chrome = spawn('C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', [
     '--headless',

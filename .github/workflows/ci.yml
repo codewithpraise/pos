@@ -53,6 +53,8 @@ jobs:
 
       - name: Run Full E2E & Diagnostic Suites with Headless Services
         run: |
+          # Clean up any existing database files to prevent test contamination
+          rm -f valenixia.db valenixia.db-wal valenixia.db-shm nexova.db nexova.db-wal nexova.db-shm || true
           # Start Valenixia Server in background
           PORT=3000 node server.js > server.log 2>&1 &
           SERVER_PID=$!
