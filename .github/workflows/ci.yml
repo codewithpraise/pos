@@ -168,7 +168,7 @@ jobs:
 
   android-e2e:
     name: Android Emulated E2E Verification
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     needs: [node-tests, android-build]
 
     steps:
@@ -181,6 +181,12 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
       - name: Grant Execute Permission for Gradle Wrapper
         run: chmod +x gradlew
         working-directory: android
@@ -189,8 +195,9 @@ jobs:
         uses: ReactiveCircus/android-emulator-runner@v2.30.0
         with:
           api-level: 29
-          arch: arm64-v8a
-          force-avd-creation: false
+          target: google_apis
+          arch: x86_64
+          force-avd-creation: true
           emulator-boot-timeout: 900
           script: |
             echo "Device initialized! Boot completed."
