@@ -4,13 +4,25 @@
 // ============================================================================
 
 (function() {
-  // Global DOMParser-based HTML Sanitizer (P1 compliance)
-  function sanitizeHTML(html) {
-    if (typeof html !== 'string') return html;
-    if (!html.includes('<')) return html;
+  // Global recursion guard for innerHTML sanitizer
+  let isSanitizing = false;
+
+  // Global safe HTML helper to reduce innerHTML static counts and safely sanitize inputs (P1 compliance)
+  function setHtml(element, html) {
+    if (!element) return;
+    if (typeof html !== 'string') {
+      element.replaceChildren();
+      return;
+    }
+    if (!html.includes('<')) {
+      element.textContent = html;
+      return;
+    }
     try {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
+      isSanitizing = true;
+      // Use cloneNode(false) to match element tag/context during browser parsing
+      const tempElement = element.cloneNode(false);
+      tempElement.innerHTML = html;
       
       const sanitizeNode = (node) => {
         if (node.nodeType === Node.ELEMENT_NODE) {
@@ -49,17 +61,13 @@
         }
       };
       
-      sanitizeNode(doc.body);
-      return doc.body.innerHTML;
+      sanitizeNode(tempElement);
+      element.replaceChildren(...tempElement.childNodes);
     } catch (_) {
-      return '';
+      element.replaceChildren();
+    } finally {
+      isSanitizing = false;
     }
-  }
-
-  // Global safe HTML helper to reduce innerHTML static counts
-  function setHtml(element, html) {
-    if (!element) return;
-    element.innerHTML = sanitizeHTML(html);
   }
   window.setHtml = setHtml;
 
@@ -90,55 +98,67 @@
     };
   })();
 
-  // Global innerHTML Sanitizer to mitigate XSS (P1 compliance)
+  // Global innerHTML Sanitizer to mitigate XSS (P1 compliance - preserves table/select element contexts)
   (function() {
     const originalDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
     if (originalDescriptor && originalDescriptor.set) {
       Object.defineProperty(Element.prototype, 'innerHTML', {
         set: function(html) {
+          if (isSanitizing) {
+            originalDescriptor.set.call(this, html);
+            return;
+          }
           if (typeof html === 'string' && html.includes('<')) {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            // Traverse and sanitize elements
-            const sanitizeNode = (node) => {
-              if (node.nodeType === Node.ELEMENT_NODE) {
-                const tagName = node.tagName.toLowerCase();
-                if (tagName === 'script' || tagName === 'iframe' || tagName === 'object' || tagName === 'embed' || tagName === 'meta') {
-                  node.replaceWith();
-                  return;
-                }
-                
-                const attrs = node.attributes;
-                for (let i = attrs.length - 1; i >= 0; i--) {
-                  const attrName = attrs[i].name.toLowerCase();
-                  const attrValue = attrs[i].value.toLowerCase();
+            try {
+              isSanitizing = true;
+              const tempElement = this.cloneNode(false);
+              tempElement.innerHTML = html;
+              
+              // Traverse and sanitize elements
+              const sanitizeNode = (node) => {
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                  const tagName = node.tagName.toLowerCase();
+                  if (tagName === 'script' || tagName === 'iframe' || tagName === 'object' || tagName === 'embed' || tagName === 'meta') {
+                    node.replaceWith();
+                    return;
+                  }
                   
-                  if (attrName.startsWith('on')) {
-                    if (attrName === 'onclick') {
-                      const isSafe = attrValue.includes('reload') || 
-                                     attrValue.includes('remove') || 
-                                     attrValue.includes('showreleasenotesmodal');
-                      if (!isSafe) {
+                  const attrs = node.attributes;
+                  for (let i = attrs.length - 1; i >= 0; i--) {
+                    const attrName = attrs[i].name.toLowerCase();
+                    const attrValue = attrs[i].value.toLowerCase();
+                    
+                    if (attrName.startsWith('on')) {
+                      if (attrName === 'onclick') {
+                        const isSafe = attrValue.includes('reload') || 
+                                       attrValue.includes('remove') || 
+                                       attrValue.includes('showreleasenotesmodal');
+                        if (!isSafe) {
+                          node.removeAttribute(attrs[i].name);
+                        }
+                      } else {
                         node.removeAttribute(attrs[i].name);
                       }
-                    } else {
+                    }
+                    
+                    if (attrValue.includes('javascript:')) {
                       node.removeAttribute(attrs[i].name);
                     }
                   }
-                  
-                  if (attrValue.includes('javascript:')) {
-                    node.removeAttribute(attrs[i].name);
-                  }
                 }
-              }
-              const children = Array.from(node.childNodes);
-              for (const child of children) {
-                sanitizeNode(child);
-              }
-            };
-            
-            sanitizeNode(doc.body);
-            originalDescriptor.set.call(this, doc.body.innerHTML);
+                const children = Array.from(node.childNodes);
+                for (const child of children) {
+                  sanitizeNode(child);
+                }
+              };
+              
+              sanitizeNode(tempElement);
+              this.replaceChildren(...tempElement.childNodes);
+            } catch (_) {
+              this.replaceChildren();
+            } finally {
+              isSanitizing = false;
+            }
           } else {
             originalDescriptor.set.call(this, html);
           }
