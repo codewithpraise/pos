@@ -1001,6 +1001,11 @@ setHtml(overlay, `
     let lastError = null;
 
     try {
+      // Explicitly clear legacy insecure tokens from localStorage on boot
+      localStorage.removeItem('valenixia_license_token');
+      localStorage.removeItem('google_drive_oauth_token');
+      localStorage.removeItem('valenixia_token');
+
       const savedPlan = localStorage.getItem('valenixia_plan');
       if (savedPlan) {
         window.__valenixiaPlan = savedPlan;
