@@ -4,10 +4,62 @@
 // ============================================================================
 
 (function() {
+  // Global DOMParser-based HTML Sanitizer (P1 compliance)
+  function sanitizeHTML(html) {
+    if (typeof html !== 'string') return html;
+    if (!html.includes('<')) return html;
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      
+      const sanitizeNode = (node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const tagName = node.tagName.toLowerCase();
+          if (tagName === 'script' || tagName === 'iframe' || tagName === 'object' || tagName === 'embed' || tagName === 'meta') {
+            node.replaceWith();
+            return;
+          }
+          
+          const attrs = node.attributes;
+          for (let i = attrs.length - 1; i >= 0; i--) {
+            const attrName = attrs[i].name.toLowerCase();
+            const attrValue = attrs[i].value.toLowerCase();
+            
+            if (attrName.startsWith('on')) {
+              if (attrName === 'onclick') {
+                const isSafe = attrValue.includes('reload') || 
+                               attrValue.includes('remove') || 
+                               attrValue.includes('showreleasenotesmodal');
+                if (!isSafe) {
+                  node.removeAttribute(attrs[i].name);
+                }
+              } else {
+                node.removeAttribute(attrs[i].name);
+              }
+            }
+            
+            if (attrValue.includes('javascript:')) {
+              node.removeAttribute(attrs[i].name);
+            }
+          }
+        }
+        const children = Array.from(node.childNodes);
+        for (const child of children) {
+          sanitizeNode(child);
+        }
+      };
+      
+      sanitizeNode(doc.body);
+      return doc.body.innerHTML;
+    } catch (_) {
+      return '';
+    }
+  }
+
   // Global safe HTML helper to reduce innerHTML static counts
   function setHtml(element, html) {
     if (!element) return;
-    element.innerHTML = html;
+    element.innerHTML = sanitizeHTML(html);
   }
   window.setHtml = setHtml;
 

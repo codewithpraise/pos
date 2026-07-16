@@ -1821,6 +1821,10 @@ app.get('/api/license/check', async (req, res) => {
       payload = JSON.parse(payloadStr);
     }
 
+    if (payload.exp && Date.now() > payload.exp) {
+      return res.status(401).json({ error: 'License token has expired.' });
+    }
+
     const storeRow = await db.get("SELECT * FROM stores WHERE id = ?", [payload.store_id]);
     if (!storeRow) {
       return res.status(404).json({ error: 'Store profile not found.' });
@@ -3113,6 +3117,10 @@ app.get('/api/sync/bootstrap', async (req, res) => {
       if (!valid) return res.status(401).json({ error: 'Invalid license signature.' });
       
       payload = JSON.parse(payloadStr);
+    }
+
+    if (payload.exp && Date.now() > payload.exp) {
+      return res.status(401).json({ error: 'License token has expired.' });
     }
   } catch(e) {
     return res.status(401).json({ error: 'Failed to verify license token: ' + e.message });
