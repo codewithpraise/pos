@@ -25,7 +25,7 @@
       { id: "nav-distributors",icon: "🚚", label: "Go to Distributors",    action: () => switchActiveScreen("distributors"),   tags: ["suppliers", "purchase"] },
       { id: "nav-credit",      icon: "💳", label: "Go to Credit Book",     action: () => switchActiveScreen("credit-book"),    tags: ["udhaar", "ledger", "khata"] },
       // Actions
-      { id: "act-clear-cart",  icon: "🗑️", label: "Clear Cart",            action: () => { if(window.clearCart) clearCart(); else switchActiveScreen("checkout"); },  tags: ["void", "reset"] },
+      { id: "act-clear-cart",  icon: "🗑️", label: "Clear Cart",            action: () => { if (confirm("Are you sure you want to clear the current transaction cart?")) { if(window.clearCart) clearCart(); else switchActiveScreen("checkout"); } },  tags: ["void", "reset"] },
       { id: "act-toggle-theme",icon: "🌙", label: "Toggle Dark/Light",     action: () => { const b = document.body; b.classList.toggle("light-mode"); },              tags: ["theme", "mode"] },
       { id: "act-export-errors",icon:"📤", label: "Export Error Logs CSV", action: () => { if(window.exportErrorLogsToCSV) exportErrorLogsToCSV(); },                  tags: ["debug", "errors", "csv"] },
       { id: "act-upgrade",     icon: "⚡", label: "View Pricing Plans",    action: () => { if(window.showUpgradeModal) showUpgradeModal(); },                          tags: ["plans", "upgrade", "pricing", "pkr"] },

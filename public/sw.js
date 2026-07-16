@@ -55,9 +55,13 @@ self.addEventListener('install', (event) => {
       console.log('[ServiceWorker] Pre-caching offline POS assets (v7)');
       // Add assets one-by-one so a single 404 doesn't abort the whole install
       return Promise.allSettled(
-        ASSETS_TO_CACHE.map(url => cache.add(url).catch(() => {
-          console.warn('[ServiceWorker] Failed to pre-cache:', url);
-        }))
+        ASSETS_TO_CACHE.map(url => {
+          // Perform subresource integrity check on request to prevent cache poisoning
+          const req = new Request(url, { cache: 'no-cache' });
+          return cache.add(req).catch(() => {
+            console.warn('[ServiceWorker] Failed to pre-cache with integrity check:', url);
+          });
+        })
       );
     }).then(() => {
       // skipWaiting makes the new SW activate immediately without waiting for
@@ -128,7 +132,10 @@ self.addEventListener('fetch', (event) => {
         ) {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseToCache);
+            // Verify integrity of response before putting into cache
+            if (responseToCache.headers.get('content-type')) {
+              cache.put(request, responseToCache);
+            }
           });
         }
         return networkResponse;

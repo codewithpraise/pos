@@ -268,6 +268,7 @@ app.use((req, res, next) => {
   next();
 });
 
+// Permissions-Policy header configured via helmet
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -2901,11 +2902,25 @@ app.get('/api/server-info', requireAuth, (req, res) => {
   }
 });
 
-// 6.c Fetch system initialization status (Public)
+// 6.c Fetch system initialization status (Public before onboarding, authenticated after onboarding)
 app.get('/api/system/status', async (req, res) => {
   try {
     const row = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'onboarding_complete'");
     const isInitialized = !!(row && row.value_payload === 'true');
+    
+    // Once system has been configured, require active authentication to query status details
+    if (isInitialized) {
+      const authHeader = req.headers['authorization'];
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Authorization token required.' });
+      }
+      const token = authHeader.split(' ')[1];
+      const payload = verifyToken(token);
+      if (!payload) {
+        return res.status(401).json({ error: 'Invalid or expired token.' });
+      }
+    }
+    
     res.json({ isInitialized });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -3028,6 +3043,32 @@ app.get('/api/health', async (req, res) => {
   }
   if (health.database === 'error') health.status = 'degraded';
   res.status(health.status === 'ok' ? 200 : 503).json(health);
+});
+
+// GET /api/metrics — serves system performance and sync metrics for telemetry
+app.get('/api/metrics', requireAuth, async (req, res) => {
+  try {
+    const memoryUsage = process.memoryUsage();
+    const uptime = process.uptime();
+    const preferencesCount = await db.get("SELECT COUNT(*) as count FROM local_preferences");
+    const changesCount = await db.get("SELECT COUNT(*) as count FROM crsql_changes");
+    res.json({
+      uptime_seconds: uptime,
+      memory: {
+        rss: memoryUsage.rss,
+        heapTotal: memoryUsage.heapTotal,
+        heapUsed: memoryUsage.heapUsed,
+        external: memoryUsage.external
+      },
+      database: {
+        preferences_count: preferencesCount ? preferencesCount.count : 0,
+        pending_sync_changes: changesCount ? changesCount.count : 0
+      },
+      status: "online"
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // 6.b Bootstrap Core Onboarding Configuration (Public / Safe)
@@ -3446,7 +3487,7 @@ app.get('/download', (req, res) => {
 });
 
 // Expose Server Version API endpoint (Issue 31)
-app.get('/api/version', async (req, res) => {
+app.get('/api/version', requireAuth, async (req, res) => {
   try {
     const versionPath = path.join(__dirname, 'public', 'version.json');
     const fs = require('fs');
@@ -3600,7 +3641,7 @@ app.post('/api/admin/payments/decision-pin', requireAdmin, adminActionLimiter, r
 });
 
 // GET /api/release-notes — Returns structured changelog for in-app display
-app.get('/api/release-notes', async (req, res) => {
+app.get('/api/release-notes', requireAuth, async (req, res) => {
   try {
     const versionPath = path.join(__dirname, 'public', 'version.json');
     const content = await fs.promises.readFile(versionPath, 'utf8');

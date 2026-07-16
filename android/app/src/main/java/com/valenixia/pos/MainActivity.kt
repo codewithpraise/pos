@@ -210,6 +210,47 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        @JavascriptInterface
+        fun authenticateManagerBiometric(callbackName: String) {
+            if (!isCurrentOriginTrusted()) {
+                Log.w("AndroidPOSBridge", "biometric auth call rejected: untrusted origin.")
+                return
+            }
+            runOnUiThread {
+                try {
+                    val executor = androidx.core.content.ContextCompat.getMainExecutor(this@MainActivity)
+                    val biometricPrompt = androidx.biometric.BiometricPrompt(this@MainActivity, executor,
+                        object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
+                            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                                super.onAuthenticationError(errorCode, errString)
+                                webView?.evaluateJavascript("javascript:${callbackName}(false, '${errString}')", null)
+                            }
+
+                            override fun onAuthenticationSucceeded(result: androidx.biometric.BiometricPrompt.AuthenticationResult) {
+                                super.onAuthenticationSucceeded(result)
+                                webView?.evaluateJavascript("javascript:${callbackName}(true, 'Success')", null)
+                            }
+
+                            override fun onAuthenticationFailed() {
+                                super.onAuthenticationFailed()
+                                webView?.evaluateJavascript("javascript:${callbackName}(false, 'Failed')", null)
+                            }
+                        })
+
+                    val promptInfo = androidx.biometric.BiometricPrompt.PromptInfo.Builder()
+                        .setTitle("Manager Authentication Required")
+                        .setSubtitle("Confirm shift, reset, or override via biometrics")
+                        .setNegativeButtonText("Cancel")
+                        .build()
+
+                    biometricPrompt.authenticate(promptInfo)
+                } catch (e: Exception) {
+                    Log.e("AndroidPOSBridge", "Biometric auth setup error: ${e.message}")
+                    webView?.evaluateJavascript("javascript:${callbackName}(false, 'Biometric not supported or configured')", null)
+                }
+            }
+        }
+
         // PBKDF2-SHA256: mirrors Node.js crypto.pbkdf2 and client-db.js verifyPinClient.
         @JavascriptInterface
         fun pbkdf2(password: String, saltHex: String, iterations: Int, keyLen: Int): String {

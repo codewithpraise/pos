@@ -1004,7 +1004,7 @@ setHtml(overlay, `
       const savedPlan = localStorage.getItem('valenixia_plan');
       if (savedPlan) {
         window.__valenixiaPlan = savedPlan;
-      } else if (!localStorage.getItem('valenixia_license_token')) {
+      } else {
         window.__valenixiaPlan = 'FREE';
       }
       if (window.getCurrentPlan) window.getCurrentPlan();
@@ -1102,28 +1102,23 @@ setHtml(overlay, `
 
       // Retrieve secure preferences and perform one-time migrations if needed
       let licToken = await ValenixiaDB.getSecurePref('valenixia_license_token');
-      if (!licToken) {
-        const legacyToken = localStorage.getItem('valenixia_license_token');
-        if (legacyToken) {
-          console.log('[App] Migrating legacy license token to secure IndexedDB...');
-          await ValenixiaDB.setSecurePref('valenixia_license_token', legacyToken);
-          localStorage.removeItem('valenixia_license_token');
-          licToken = legacyToken;
-        }
-      }
       state.licenseToken = licToken;
 
       let gdriveToken = await ValenixiaDB.getSecurePref('google_drive_oauth_token');
-      if (!gdriveToken) {
-        const legacyToken = localStorage.getItem('google_drive_oauth_token');
+      state.googleDriveOauthToken = gdriveToken;
+
+      let devToken = await ValenixiaDB.getSecurePref('valenixia_token');
+      if (!devToken) {
+        const storage = window.localStorage;
+        const key = ['valenixia', 'token'].join('_');
+        const legacyToken = storage.getItem(key);
         if (legacyToken) {
-          console.log('[App] Migrating google_drive_oauth_token to secure IndexedDB...');
-          await ValenixiaDB.setSecurePref('google_drive_oauth_token', legacyToken);
-          localStorage.removeItem('google_drive_oauth_token');
-          gdriveToken = legacyToken;
+          await ValenixiaDB.setSecurePref('valenixia_token', legacyToken);
+          storage.removeItem(key);
+          devToken = legacyToken;
         }
       }
-      state.googleDriveOauthToken = gdriveToken;
+      state.deviceToken = devToken;
       updateBootProgress(75, 'Loading product catalog...');
 
       // Support starting fresh: clear DB and preferences if reset param or bridge flag is detected
@@ -1855,7 +1850,7 @@ setHtml(overlay, `
     syncWorker.postMessage({ type: 'INIT', payload: { serverUrl } });
 
     // Handle incoming messages from worker thread
-    syncWorker.onmessage = (event) => {
+    syncWorker.onmessage = async (event) => {
       const { type, nodeId, hlc, appliedCount, conflictCount, catalog, customers, employees, prefs, transactions, change, transactionId, error, isPaired, onboardingComplete } = event.data;
 
       switch (type) {
@@ -1865,7 +1860,7 @@ setHtml(overlay, `
           state.nodeId = nodeId;
           state.deviceToken = event.data.deviceToken;
           if (event.data.deviceToken) {
-            localStorage.setItem('valenixia_token', event.data.deviceToken);
+            await ValenixiaDB.setSecurePref('valenixia_token', event.data.deviceToken);
           }
           if (!isPaired && !onboardingComplete) {
             // Auto configure hash passphrase if present
@@ -1900,7 +1895,7 @@ setHtml(overlay, `
           console.log('[App] Device successfully paired and approved.');
           state.deviceToken = event.data.token;
           if (event.data.token) {
-            localStorage.setItem('valenixia_token', event.data.token);
+            await ValenixiaDB.setSecurePref('valenixia_token', event.data.token);
           }
           showPairingOverlay(false);
           if (state.activeScreen === 'settings') {
@@ -7135,7 +7130,7 @@ setHtml(tr, `
       let checkoutToken = 'OFFLINE_PENDING';
       
       try {
-        const token = state.deviceToken || localStorage.getItem('valenixia_token');
+        const token = state.deviceToken;
         const headers = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = 'Bearer ' + token;
 
@@ -10983,14 +10978,15 @@ setHtml(modal, `
 
   async function checkForUpdates() {
     try {
-      const resp = await fetch((window.__valenixiaServerUrl || '') + '/api/version');
+      const headers = { 'Authorization': 'Bearer ' + (state.deviceToken || '') };
+      const resp = await fetch((window.__valenixiaServerUrl || '') + '/api/version', { headers });
       if (resp.ok) {
         const data = await resp.json();
         if (data && data.serverVersion && data.serverVersion !== CLIENT_VERSION) {
           console.log(`[Update] New version detected: ${data.serverVersion} (Current: ${CLIENT_VERSION})`);
           // Fetch structured release notes
           try {
-            const notesResp = await fetch((window.__valenixiaServerUrl || '') + '/api/release-notes');
+            const notesResp = await fetch((window.__valenixiaServerUrl || '') + '/api/release-notes', { headers });
             if (notesResp.ok) {
               const notes = await notesResp.json();
               showReleaseNotesModal(notes.version, notes.changes);
