@@ -753,15 +753,6 @@ const LicenseEngine = (() => {
 
     // 3. Check stored license
     let stored = await ValenixiaDB.getSecurePref(STORAGE_KEY_LICENSE);
-    if (!stored) {
-      const legacyToken = localStorage.getItem(STORAGE_KEY_LICENSE);
-      if (legacyToken) {
-        console.log('[License] Migrating legacy token from localStorage to secure IndexedDB...');
-        await ValenixiaDB.setSecurePref(STORAGE_KEY_LICENSE, legacyToken);
-        localStorage.removeItem(STORAGE_KEY_LICENSE);
-        stored = legacyToken;
-      }
-    }
 
     // Check local emergency override status
     let isEmergencyOverride = false;
