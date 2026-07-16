@@ -183,9 +183,13 @@ jobs:
 
       - name: Enable KVM
         run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' | sudo tee /etc/udev/rules.d/99-kvm.rules
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
           sudo udevadm control --reload-rules
-          sudo udevadm trigger
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Grant Execute Permission for Gradle Wrapper
+        run: chmod +x gradlew
+        working-directory: android
 
       - name: Install Android Emulator and Run E2E Target
         uses: ReactiveCircus/android-emulator-runner@v2.30.0
