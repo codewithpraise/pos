@@ -1185,13 +1185,13 @@ setHtml(overlay, `
         if (resp.ok) {
           const authData = await resp.json();
           window.__vxSession = {
-            tier: authData.tier,
+            tier: authData.tier || window.__valenixiaTier || 'STARTER',
             status: authData.status,
             expiresAt: authData.expiresAt,
             invoiceCount: authData.invoiceCount,
             trialStart: authData.trialStart || trialStart
           };
-          window.__valenixiaTier = authData.tier;
+          window.__valenixiaTier = authData.tier || window.__valenixiaTier || 'STARTER';
         } else if (resp.status === 403) {
           const data = await resp.json();
           triggerLicenseLockout(data.error);

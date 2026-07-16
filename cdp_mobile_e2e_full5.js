@@ -86,6 +86,20 @@ let activeTabId = null;
     const newTab = JSON.parse(newTabRes);
     activeTabId = newTab.id;
     console.log('Created tab ID:', activeTabId);
+
+    // Close all other page targets to prevent IndexedDB locks
+    try {
+      const targetsRes = await devToolsRequest('/json');
+      const targets = JSON.parse(targetsRes);
+      for (const t of targets) {
+        if (t.type === 'page' && t.id !== activeTabId) {
+          console.log(`Closing existing tab/target to prevent IndexedDB lock: ${t.url}`);
+          await devToolsRequest(`/json/close/${t.id}`, 'GET').catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to clean up other tabs:', e.message);
+    }
     
     const ws = new WebSocket(newTab.webSocketDebuggerUrl.replace('localhost', '127.0.0.1'));
     let id = 1000;
@@ -128,6 +142,20 @@ let activeTabId = null;
         mobile: true
       }}));
       
+      // Set up console and exception event listener
+      ws.on('message', (data) => {
+        try {
+          const msg = JSON.parse(data.toString());
+          if (msg.method === 'Runtime.consoleAPICalled') {
+            const args = msg.params.args.map(a => a.value || a.description || '').join(' ');
+            console.log(`[BROWSER CONSOLE] ${args}`);
+          }
+          if (msg.method === 'Runtime.exceptionThrown') {
+            console.error(`[BROWSER EXCEPTION] ${JSON.stringify(msg.params.exceptionDetails)}`);
+          }
+        } catch (err) {}
+      });
+
       // 2. Clear localStorage and IndexedDB and reload
       console.log('Nuking client local stores (IndexedDB + localStorage)...');
       let clearRes = await cdpEval(ws, `(async () => {
@@ -159,7 +187,7 @@ let activeTabId = null;
           }, 500);
         });
       })()`, id++);
-      console.log('CLEARED_STATUS:', clearRes?.result?.value);
+      console.log('CLEARED_STATUS:', clearRes?.result?.result?.value || clearRes?.result?.value);
       
       ws.send(JSON.stringify({ id: id++, method: 'Page.navigate', params: { url: 'http://localhost:3000' } }));
       

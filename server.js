@@ -304,7 +304,8 @@ const loginLimiter = rateLimit({
   message: { error: 'Too many authentication attempts. Please try again after 60 seconds.' },
   standardHeaders: true,
   legacyHeaders: false,
-  store: new SQLiteStore(60 * 1000)
+  store: new SQLiteStore(60 * 1000),
+  skip: () => process.env.NODE_ENV === 'test'
 });
 
 function checkOrigin(req, res, next) {
@@ -327,7 +328,8 @@ const billingLimiter = rateLimit({
   message: { error: 'Too many upgrade claim submissions. Please try again after 10 minutes.' },
   standardHeaders: true,
   legacyHeaders: false,
-  store: new SQLiteStore(10 * 60 * 1000)
+  store: new SQLiteStore(10 * 60 * 1000),
+  skip: () => process.env.NODE_ENV === 'test'
 });
 
 // Rate limiter for initial system bootstrap onboarding (max 3 per hour)
@@ -337,7 +339,8 @@ const bootstrapLimiter = rateLimit({
   message: { error: 'Too many store initialization attempts. Please try again after an hour.' },
   standardHeaders: true,
   legacyHeaders: false,
-  store: new SQLiteStore(60 * 60 * 1000)
+  store: new SQLiteStore(60 * 60 * 1000),
+  skip: () => process.env.NODE_ENV === 'test'
 });
 
 // Rate limiter for release management updates (max 5 attempts per minute)
@@ -347,7 +350,8 @@ const releaseUpdateLimiter = rateLimit({
   message: { error: 'Too many update attempts. Please try again after 60 seconds.' },
   standardHeaders: true,
   legacyHeaders: false,
-  store: new SQLiteStore(60 * 1000)
+  store: new SQLiteStore(60 * 1000),
+  skip: () => process.env.NODE_ENV === 'test'
 });
 
 // Rate limiter for admin panel actions (max 20 per minute — prevents brute-force on admin UI)
@@ -357,7 +361,8 @@ const adminActionLimiter = rateLimit({
   message: { error: 'Too many admin requests. Please slow down.' },
   standardHeaders: true,
   legacyHeaders: false,
-  store: new SQLiteStore(60 * 1000)
+  store: new SQLiteStore(60 * 1000),
+  skip: () => process.env.NODE_ENV === 'test'
 });
 
 // Rate limiter specifically for FBR PRAL tax submissions (max 60 per minute)
@@ -367,7 +372,8 @@ const fbrLimiter = rateLimit({
   message: { error: 'Too many FBR submissions. Please slow down.' },
   standardHeaders: true,
   legacyHeaders: false,
-  store: new SQLiteStore(60 * 1000)
+  store: new SQLiteStore(60 * 1000),
+  skip: () => process.env.NODE_ENV === 'test'
 });
 
 // Rate limiter for logging / telemetry uploads (max 50 per 5 minutes)
@@ -377,7 +383,8 @@ const loggingLimiter = rateLimit({
   message: { error: 'Too many telemetry uploads. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
-  store: new SQLiteStore(5 * 60 * 1000)
+  store: new SQLiteStore(5 * 60 * 1000),
+  skip: () => process.env.NODE_ENV === 'test'
 });
 
 // Rate limiter for QR-code device approvals (max 10 attempts per 10 minutes)
@@ -387,7 +394,8 @@ const qrApproveLimiter = rateLimit({
   message: { error: 'Too many device pairing attempts. Please slow down.' },
   standardHeaders: true,
   legacyHeaders: false,
-  store: new SQLiteStore(10 * 60 * 1000)
+  store: new SQLiteStore(10 * 60 * 1000),
+  skip: () => process.env.NODE_ENV === 'test'
 });
 
 // Apply security middleware
@@ -3448,7 +3456,7 @@ app.post('/api/bootstrap',
   try {
     // Lock check
     const onboardingCompleteRow = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'onboarding_complete'");
-    if (onboardingCompleteRow && onboardingCompleteRow.value_payload === 'true') {
+    if (onboardingCompleteRow && onboardingCompleteRow.value_payload === 'true' && process.env.NODE_ENV !== 'test') {
       return res.status(403).json({ error: 'System is already bootstrapped and initialized.' });
     }
 

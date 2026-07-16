@@ -187,12 +187,12 @@ const LicenseEngine = (() => {
     }
   }
 
-  // â”€â”€ Monotonic Time Anchor check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ——————————————————————————————————————————————————————————————————————————
   async function checkTimeAnchor() {
     try {
-      const db = await ValenixiaDB.getPreference(STORAGE_KEY_ANCHOR);
-      if (!db) return { tampered: false };
-      const lastKnown = parseInt(db);
+      const pref = await ValenixiaDB.get('local_preferences', STORAGE_KEY_ANCHOR);
+      if (!pref || !pref.value_payload) return { tampered: false };
+      const lastKnown = parseInt(pref.value_payload);
       if (isNaN(lastKnown)) return { tampered: false };
       const now = Date.now();
       if (now < lastKnown - CLOCK_SKEW_TOLERANCE_MS) {
@@ -525,8 +525,8 @@ const LicenseEngine = (() => {
   // â”€â”€ EULA check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async function isEulaAccepted() {
     try {
-      const val = await ValenixiaDB.getPreference(STORAGE_KEY_EULA);
-      return val === 'true';
+      const pref = await ValenixiaDB.get('local_preferences', STORAGE_KEY_EULA);
+      return pref && pref.value_payload === 'true';
     } catch { return false; }
   }
 
@@ -886,7 +886,13 @@ const LicenseEngine = (() => {
   // Called on every successful checkout to update the time anchor
   async function updateTimeAnchor() {
     try {
-      await ValenixiaDB.setPreference(STORAGE_KEY_ANCHOR, String(Date.now()));
+      await ValenixiaDB.put('local_preferences', {
+        key: STORAGE_KEY_ANCHOR,
+        value_type: 'STR',
+        value_payload: String(Date.now()),
+        is_idempotent_flag: 0,
+        updated_at: Date.now()
+      });
     } catch (e) { /* non-fatal */ }
   }
 
