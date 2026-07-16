@@ -321,6 +321,81 @@ app.use((req, res, next) => {
   });
 });
 
+// Lightweight Cookie Parser and res.cookie Helper Middleware
+function parseCookies(cookieHeader) {
+  const list = {};
+  if (!cookieHeader) return list;
+  cookieHeader.split(';').forEach(cookie => {
+    let parts = cookie.split('=');
+    list[parts.shift().trim()] = decodeURIComponent(parts.join('='));
+  });
+  return list;
+}
+
+app.use((req, res, next) => {
+  req.cookies = parseCookies(req.headers.cookie);
+  
+  res.cookie = (name, val, options = {}) => {
+    let str = `${name}=${encodeURIComponent(val)}`;
+    if (options.maxAge) str += `; Max-Age=${options.maxAge}`;
+    if (options.path) str += `; Path=${options.path}`;
+    if (options.domain) str += `; Domain=${options.domain}`;
+    if (options.secure) str += '; Secure';
+    if (options.httpOnly) str += '; HttpOnly';
+    if (options.sameSite) str += `; SameSite=${options.sameSite}`;
+    
+    const existing = res.getHeader('Set-Cookie');
+    if (existing) {
+      if (Array.isArray(existing)) {
+        res.setHeader('Set-Cookie', [...existing, str]);
+      } else {
+        res.setHeader('Set-Cookie', [existing, str]);
+      }
+    } else {
+      res.setHeader('Set-Cookie', str);
+    }
+  };
+  next();
+});
+
+// Double-Submit Cookie CSRF Middleware
+app.use((req, res, next) => {
+  // Generate token if not exists
+  let csrfToken = req.cookies?._csrf;
+  if (!csrfToken) {
+    csrfToken = crypto.randomBytes(24).toString('hex');
+  }
+  
+  // Set the CSRF cookie on all responses (non-httpOnly so JS can read it)
+  res.cookie('_csrf', csrfToken, {
+    secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
+    sameSite: 'strict',
+    path: '/'
+  });
+
+  // Skip CSRF validation for safe methods
+  const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
+  if (safeMethods.includes(req.method)) {
+    return next();
+  }
+
+  // Skip CSRF validation for specific initial bootstrap or device registration routes
+  const skipUrls = ['/api/devices/register', '/api/bootstrap'];
+  if (skipUrls.some(url => req.path.startsWith(url))) {
+    return next();
+  }
+
+  const headerToken = req.headers['x-csrf-token'];
+  const cookieToken = req.cookies?._csrf;
+
+  if (!headerToken || !cookieToken || headerToken !== cookieToken) {
+    console.warn(`[CSRF] Blocked request from ${req.ip} to ${req.path}: token mismatch.`);
+    return res.status(403).json({ error: 'CSRF token mismatch or missing.' });
+  }
+
+  next();
+});
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
@@ -510,6 +585,8 @@ async function loadServerPassphrase() {
     const saltRow = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'sync_salt'");
     if (saltRow && saltRow.value_payload) {
       syncSalt = saltRow.value_payload;
+    } else {
+      await db.run("INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('sync_salt', 'STR', ?, 1, ?)", [syncSalt, Date.now()]);
     }
 
     if (process.env.SYNC_PASSPHRASE) {
@@ -531,7 +608,7 @@ async function loadServerPassphrase() {
 
 const derivedKeyCache = new Map();
 
-function deriveKey(passphrase, salt = syncSalt) {
+function deriveKey(passphrase, salt = 'valenixia_salt') {
   const cacheKey = `${passphrase}:${salt}`;
   if (derivedKeyCache.has(cacheKey)) {
     return derivedKeyCache.get(cacheKey);
@@ -1061,7 +1138,11 @@ wss.on('connection', (ws, req) => {
             'distributors',
             'distributor_payments',
             'employee_shifts',
-            'customers'
+            'customers',
+            'inventory_catalog',
+            'employees',
+            'local_preferences',
+            'categories'
           ]);
 
           const unauthorizedChange = data.changes.find(c => !CLIENT_WRITABLE_TABLES.has(c.table_name));

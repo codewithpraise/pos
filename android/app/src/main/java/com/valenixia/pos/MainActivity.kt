@@ -518,23 +518,6 @@ class MainActivity : AppCompatActivity() {
 
         requestPlayIntegrityCheck()
         
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (!Settings.canDrawOverlays(this)) {
-                androidx.appcompat.app.AlertDialog.Builder(this, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
-                    .setTitle("Overlay Permission Required")
-                    .setMessage("Valenixia POS requires overlay permission to lock down screen controls for kiosk mode.")
-                    .setPositiveButton("Grant") { _, _ ->
-                        val intent = Intent(
-                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                            Uri.parse("package:$packageName")
-                        )
-                        startActivity(intent)
-                    }
-                    .setNegativeButton("Skip", null)
-                    .show()
-            }
-        }
-        
         // Edge-to-edge layout styling
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.decorView.systemUiVisibility = (
@@ -1152,38 +1135,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun executeApkInstall(file: File) {
-        // Android 8+ (Oreo) "Unknown Sources" dynamic check
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if (!packageManager.canRequestPackageInstalls()) {
-                try {
-                    val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                        data = Uri.parse("package:$packageName")
-                    }
-                    startActivityForResult(intent, REQUEST_INSTALL_PACKAGES_CODE)
-                    Toast.makeText(this, "Please authorize Valenixia POS to install updates.", Toast.LENGTH_LONG).show()
-                    return
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "Failed to start Unknown Apps setting: ${e.message}")
-                }
-            }
-        }
-
-        try {
-            val uri = androidx.core.content.FileProvider.getUriForFile(
-                this,
-                "$packageName.fileprovider",
-                file
-            )
-            val installIntent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "application/vnd.android.package-archive")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            startActivity(installIntent)
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Install APK error: ${e.message}")
-            Toast.makeText(this, "Installation failed: ${e.message}", Toast.LENGTH_LONG).show()
-        }
+        Log.w("MainActivity", "OTA installation blocked: REQUEST_INSTALL_PACKAGES permission not available.")
+        Toast.makeText(this, "Self-update disabled in this security-hardened build.", Toast.LENGTH_LONG).show()
     }
 
     private fun isOnline(): Boolean {

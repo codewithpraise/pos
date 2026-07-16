@@ -10,6 +10,27 @@
     console.info = function() {};
     console.debug = function() {};
   }
+  
+  // Global CSRF fetch interceptor
+  (function() {
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options = {}) {
+      const method = (options.method || 'GET').toUpperCase();
+      if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+        const match = document.cookie.match(new RegExp('(^| )_csrf=([^;]+)'));
+        if (match) {
+          options.headers = options.headers || {};
+          if (options.headers instanceof Headers) {
+            options.headers.set('X-CSRF-Token', match[2]);
+          } else {
+            options.headers['X-CSRF-Token'] = match[2];
+          }
+        }
+      }
+      return originalFetch(url, options);
+    };
+  })();
+
   // Global Unhandled Promise Rejection Handler (P1 compliance)
   window.addEventListener('unhandledrejection', function(event) {
     console.error('[Unhandled Rejection]', event.reason);
@@ -1683,6 +1704,9 @@
           document.getElementById('hlc-clock').textContent = hlc;
           state.nodeId = nodeId;
           state.deviceToken = event.data.deviceToken;
+          if (event.data.deviceToken) {
+            localStorage.setItem('valenixia_token', event.data.deviceToken);
+          }
           if (!isPaired && !onboardingComplete) {
             // Auto configure hash passphrase if present
             const hashParams = new URLSearchParams(window.location.hash.substring(1));
@@ -1715,6 +1739,9 @@
         case 'DEVICE_APPROVED':
           console.log('[App] Device successfully paired and approved.');
           state.deviceToken = event.data.token;
+          if (event.data.token) {
+            localStorage.setItem('valenixia_token', event.data.token);
+          }
           showPairingOverlay(false);
           if (state.activeScreen === 'settings') {
             loadWhitelistDevices();
@@ -6948,7 +6975,7 @@
       let checkoutToken = 'OFFLINE_PENDING';
       
       try {
-        const token = localStorage.getItem('valenixia_token');
+        const token = state.deviceToken || localStorage.getItem('valenixia_token');
         const headers = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = 'Bearer ' + token;
 
