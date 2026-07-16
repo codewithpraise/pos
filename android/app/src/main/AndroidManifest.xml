@@ -32,7 +32,8 @@
         android:theme="@style/Theme.ValenixiaPOS"
         android:networkSecurityConfig="@xml/network_security_config"
         android:usesCleartextTraffic="false"
-        android:hardwareAccelerated="true">
+        android:hardwareAccelerated="true"
+        android:taskAffinity="">
 
         <activity
             android:name=".MainActivity"

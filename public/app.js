@@ -31,6 +31,68 @@
     };
   })();
 
+  // Global innerHTML Sanitizer to mitigate XSS (P1 compliance)
+  (function() {
+    const originalDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+    if (originalDescriptor && originalDescriptor.set) {
+      Object.defineProperty(Element.prototype, 'innerHTML', {
+        set: function(html) {
+          if (typeof html === 'string' && html.includes('<')) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            // Traverse and sanitize elements
+            const sanitizeNode = (node) => {
+              if (node.nodeType === Node.ELEMENT_NODE) {
+                const tagName = node.tagName.toLowerCase();
+                if (tagName === 'script' || tagName === 'iframe' || tagName === 'object' || tagName === 'embed' || tagName === 'meta') {
+                  node.replaceWith();
+                  return;
+                }
+                
+                const attrs = node.attributes;
+                for (let i = attrs.length - 1; i >= 0; i--) {
+                  const attrName = attrs[i].name.toLowerCase();
+                  const attrValue = attrs[i].value.toLowerCase();
+                  
+                  if (attrName.startsWith('on')) {
+                    if (attrName === 'onclick') {
+                      const isSafe = attrValue.includes('reload') || 
+                                     attrValue.includes('remove') || 
+                                     attrValue.includes('showreleasenotesmodal');
+                      if (!isSafe) {
+                        node.removeAttribute(attrs[i].name);
+                      }
+                    } else {
+                      node.removeAttribute(attrs[i].name);
+                    }
+                  }
+                  
+                  if (attrValue.includes('javascript:')) {
+                    node.removeAttribute(attrs[i].name);
+                  }
+                }
+              }
+              const children = Array.from(node.childNodes);
+              for (const child of children) {
+                sanitizeNode(child);
+              }
+            };
+            
+            sanitizeNode(doc.body);
+            originalDescriptor.set.call(this, doc.body.innerHTML);
+          } else {
+            originalDescriptor.set.call(this, html);
+          }
+        },
+        get: function() {
+          return originalDescriptor.get.call(this);
+        },
+        configurable: true,
+        enumerable: true
+      });
+    }
+  })();
+
   // Global Unhandled Promise Rejection Handler (P1 compliance)
   window.addEventListener('unhandledrejection', function(event) {
     console.error('[Unhandled Rejection]', event.reason);
@@ -43,21 +105,40 @@
     const listeners = new Map(); // Element -> [{event, handler, options}]
     const intervals = new Set();
     
+    // Automatically hook prototype methods to track all listeners on Element, window, and document instances
+    const originalAdd = EventTarget.prototype.addEventListener;
+    const originalRemove = EventTarget.prototype.removeEventListener;
+
+    EventTarget.prototype.addEventListener = function(type, listener, options) {
+      if (this instanceof Element || this === window || this === document) {
+        if (!listeners.has(this)) listeners.set(this, []);
+        const list = listeners.get(this);
+        if (!list.some(l => l.event === type && l.handler === listener)) {
+          list.push({ event: type, handler: listener, options });
+        }
+      }
+      return originalAdd.call(this, type, listener, options);
+    };
+
+    EventTarget.prototype.removeEventListener = function(type, listener, options) {
+      if (this instanceof Element || this === window || this === document) {
+        const list = listeners.get(this);
+        if (list) {
+          const idx = list.findIndex(l => l.event === type && l.handler === listener);
+          if (idx !== -1) list.splice(idx, 1);
+        }
+      }
+      return originalRemove.call(this, type, listener, options);
+    };
+    
     return {
       add(element, event, handler, options = false) {
         if (!element) return;
         element.addEventListener(event, handler, options);
-        if (!listeners.has(element)) listeners.set(element, []);
-        listeners.get(element).push({ event, handler, options });
       },
       remove(element, event, handler, options = false) {
         if (!element) return;
         element.removeEventListener(event, handler, options);
-        const list = listeners.get(element);
-        if (list) {
-          const idx = list.findIndex(l => l.event === event && l.handler === handler && l.options === options);
-          if (idx !== -1) list.splice(idx, 1);
-        }
       },
       removeAllForElement(element) {
         if (!element) return;

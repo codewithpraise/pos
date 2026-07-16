@@ -233,11 +233,37 @@ const adminActionLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Rate limiter specifically for FBR PRAL tax submissions (max 60 per minute)
+const fbrLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: { error: 'Too many FBR submissions. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Rate limiter for logging / telemetry uploads (max 50 per 5 minutes)
+const loggingLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 50,
+  message: { error: 'Too many telemetry uploads. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Apply security middleware
 app.use((req, res, next) => {
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   if (req.headers['x-forwarded-proto'] && req.headers['x-forwarded-proto'] !== 'https') {
     return res.redirect(301, 'https://' + req.headers.host + req.url);
+  }
+  next();
+});
+
+// API Versioning URL rewrite middleware: rewrites /api/v1/... to /api/...
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api/v1/')) {
+    req.url = '/api/' + req.url.slice(8);
   }
   next();
 });
@@ -1310,7 +1336,7 @@ async function submitToFBR(invoice) {
 // POST /api/fbr/queue  — client pushes invoices generated while offline
 // Body: { invoices: [{ id, transactionId, invoiceNumber, usin, invoicePayload, totalMinor, taxMinor, createdAt }] }
 // POST /api/fbr/queue — requireAuth added: unauthenticated nodes must not submit FBR invoices
-app.post('/api/fbr/queue', requireAuth, async (req, res) => {
+app.post('/api/fbr/queue', requireAuth, fbrLimiter, async (req, res) => {
   const { invoices } = req.body;
   if (!Array.isArray(invoices) || invoices.length === 0) {
     return res.status(400).json({ error: 'invoices array required' });
@@ -1398,7 +1424,7 @@ app.get('/api/fbr/status', requireAdmin, async (req, res) => {
 });
 
 // POST /api/fbr/retry — manually retry all failed submissions (admin action)
-app.post('/api/fbr/retry', requireAdmin, async (req, res) => {
+app.post('/api/fbr/retry', requireAdmin, adminActionLimiter, async (req, res) => {
   const failed = await db.all(`SELECT * FROM fbr_submissions WHERE status IN ('PENDING','FAILED') ORDER BY created_at ASC LIMIT 100`);
   const now = Date.now();
   let submitted = 0;
@@ -1464,7 +1490,7 @@ async function clearActivationAttempt(attemptKey) {
 }
 
 // POST /api/onboard — Mock Web Portal signup
-app.post('/api/onboard', checkOrigin, async (req, res) => {
+app.post('/api/onboard', checkOrigin, loginLimiter, requireBody({ name: 'STORE_NAME', email: 'EMAIL', phone: 'PHONE' }), async (req, res) => {
   const { name, phone, email, tier, mode } = req.body;
   if (!name || !phone || !email) {
     return res.status(400).json({ error: 'Missing required onboarding parameters (name, phone, email).' });
@@ -1587,7 +1613,7 @@ app.post('/api/onboard', checkOrigin, async (req, res) => {
 });
 
 // POST /api/license/activate — Handshake to whitelist hardware ID & return signed license
-app.post('/api/license/activate', checkOrigin, async (req, res) => {
+app.post('/api/license/activate', checkOrigin, billingLimiter, requireBody({ code: 'ADMIN_PIN', phone: 'PHONE', hwid: 'LICENSE_KEY' }), async (req, res) => {
   const { code, phone, hwid, deviceName } = req.body;
   if (!code || !phone || !hwid) {
     return res.status(400).json({ error: 'Missing activation details (code, phone, hwid).' });
@@ -1966,7 +1992,7 @@ app.get('/api/auth/verify', requireAuth, async (req, res) => {
 // ── MANUAL NAYAPAY BILLING HYBRID PIPELINE ───────────────────────────────────
 
 // POST /api/payments/upload-proof — local-first base64 screenshot helper
-app.post('/api/payments/upload-proof', requireAuth, async (req, res) => {
+app.post('/api/payments/upload-proof', requireAuth, billingLimiter, async (req, res) => {
   const { base64Data, filename } = req.body;
   if (!base64Data) {
     return res.status(400).json({ error: 'No image data provided.' });
@@ -2090,7 +2116,7 @@ app.get('/api/payments/my-proofs', requireAuth, async (req, res) => {
 
 // POST /api/admin/payments/decision
 // Admin workflow to approve/reject manual submissions and mint Ed25519 tokens
-app.post('/api/admin/payments/decision', requireAdmin, async (req, res) => {
+app.post('/api/admin/payments/decision', requireAdmin, adminActionLimiter, requireBody({ proof_id: 'TX_ID', action: 'STORE_NAME' }), async (req, res) => {
   const { proof_id, action, rejection_reason } = req.body; // action: 'approved' or 'rejected'
 
   if (!proof_id || !action) {
@@ -2190,7 +2216,7 @@ app.post('/api/admin/payments/decision', requireAdmin, async (req, res) => {
 });
 
 // POST /api/auth/emergency-override — Triggers local emergency override bypass using Manager/Admin PIN
-app.post('/api/auth/emergency-override', checkOrigin, requireAdmin, loginLimiter, async (req, res) => {
+app.post('/api/auth/emergency-override', checkOrigin, requireAdmin, loginLimiter, requireBody({ pin: 'ADMIN_PIN' }), async (req, res) => {
   const { pin } = req.body;
   if (!pin) return res.status(400).json({ error: 'PIN is required.' });
 
@@ -2250,7 +2276,7 @@ app.post('/api/auth/emergency-override', checkOrigin, requireAdmin, loginLimiter
 });
 
 // POST /api/auth/revoke-override — Revoke active emergency override (requires Admin role)
-app.post('/api/auth/revoke-override', requireAdmin, async (req, res) => {
+app.post('/api/auth/revoke-override', requireAdmin, adminActionLimiter, async (req, res) => {
   try {
     await db.run("DELETE FROM local_preferences WHERE key = 'emergency_override_until'");
     res.json({ success: true });
@@ -2278,7 +2304,7 @@ app.get('/api/admin/whitelist', requireAdmin, async (req, res) => {
 });
 
 // POST /api/admin/whitelist — Add IP or HWID to whitelist
-app.post('/api/admin/whitelist', requireAdmin, async (req, res) => {
+app.post('/api/admin/whitelist', requireAdmin, adminActionLimiter, requireBody({ type: 'STORE_NAME', value: 'LICENSE_KEY' }), async (req, res) => {
   const { type, value } = req.body;
   if (!type || !value) return res.status(400).json({ error: 'type and value are required.' });
   if (type !== 'IP' && type !== 'HWID') return res.status(400).json({ error: 'Invalid whitelist type. Must be IP or HWID.' });
@@ -2322,7 +2348,7 @@ app.delete('/api/admin/whitelist/:id', requireAdmin, async (req, res) => {
 });
 
 // 6. Post Speech Analytics logs (Requires approved device token)
-app.post('/api/speech-logs', requireAuth, async (req, res) => {
+app.post('/api/speech-logs', requireAuth, loggingLimiter, requireBody({ id: 'TX_ID' }), async (req, res) => {
   const { id, transactionId, duration, tag, fillerWords, sentiment, flagged, markers } = req.body;
   try {
     const speechHlc = getHlc().tick();
@@ -2447,7 +2473,7 @@ app.get('/api/devices/approve-qr', (req, res) => {
 </html>`);
 });
 
-app.post('/api/devices/approve', requireAdmin, async (req, res) => {
+app.post('/api/devices/approve', requireAdmin, adminActionLimiter, requireBody({ nodeId: 'NODE_ID' }), async (req, res) => {
   const { nodeId } = req.body;
   if (!nodeId) return res.status(400).json({ error: 'nodeId is required' });
   try {
@@ -2473,7 +2499,7 @@ app.post('/api/devices/approve', requireAdmin, async (req, res) => {
   }
 });
 
-app.post('/api/devices/reject', requireAdmin, async (req, res) => {
+app.post('/api/devices/reject', requireAdmin, adminActionLimiter, requireBody({ nodeId: 'NODE_ID' }), async (req, res) => {
   const { nodeId } = req.body;
   if (!nodeId) return res.status(400).json({ error: 'nodeId is required' });
   try {
@@ -2516,7 +2542,7 @@ app.get('/api/admin/sales-agents', requireAdmin, async (req, res) => {
 });
 
 // POST /api/admin/sales-agents — Create or update a sales agent
-app.post('/api/admin/sales-agents', requireAdmin, async (req, res) => {
+app.post('/api/admin/sales-agents', requireAdmin, adminActionLimiter, requireBody({ employee_id: 'TX_ID' }), async (req, res) => {
   const { employee_id, commission_rate_bps } = req.body;
   if (!employee_id) return res.status(400).json({ error: 'employee_id is required' });
   const bps = parseInt(commission_rate_bps) || 300;
@@ -2562,7 +2588,7 @@ app.get('/api/admin/commissions', requireAdmin, async (req, res) => {
 });
 
 // POST /api/admin/commissions/:id/pay — Mark commission as paid
-app.post('/api/admin/commissions/:id/pay', requireAdmin, async (req, res) => {
+app.post('/api/admin/commissions/:id/pay', requireAdmin, adminActionLimiter, async (req, res) => {
   try {
     const result = await db.run(
       `UPDATE commission_earnings SET status = 'PAID', paid_at = ? WHERE id = ? AND status = 'PENDING'`,
@@ -2576,7 +2602,7 @@ app.post('/api/admin/commissions/:id/pay', requireAdmin, async (req, res) => {
 });
 
 // POST /api/admin/commissions/:id/reverse — Reverse a commission (refund/cancellation)
-app.post('/api/admin/commissions/:id/reverse', requireAdmin, async (req, res) => {
+app.post('/api/admin/commissions/:id/reverse', requireAdmin, adminActionLimiter, async (req, res) => {
   const { reason } = req.body;
   if (!reason) return res.status(400).json({ error: 'reason is required for reversal audit trail.' });
   try {
@@ -2592,7 +2618,7 @@ app.post('/api/admin/commissions/:id/reverse', requireAdmin, async (req, res) =>
 });
 
 // POST /api/admin/commissions/:id/approve — Approve a review-flagged commission
-app.post('/api/admin/commissions/:id/approve', requireAdmin, async (req, res) => {
+app.post('/api/admin/commissions/:id/approve', requireAdmin, adminActionLimiter, async (req, res) => {
   const { notes } = req.body;
   const adminName = req.device.deviceName || 'Admin';
   try {
@@ -2608,7 +2634,7 @@ app.post('/api/admin/commissions/:id/approve', requireAdmin, async (req, res) =>
 });
 
 // POST /api/admin/commissions/:id/flag — Manually flag a commission for audit review
-app.post('/api/admin/commissions/:id/flag', requireAdmin, async (req, res) => {
+app.post('/api/admin/commissions/:id/flag', requireAdmin, adminActionLimiter, async (req, res) => {
   const { notes } = req.body;
   const adminName = req.device.deviceName || 'Admin';
   try {
@@ -2624,11 +2650,10 @@ app.post('/api/admin/commissions/:id/flag', requireAdmin, async (req, res) => {
 });
 
 // POST /api/admin/commissions/:id/cancel — Cancel/Refund a commission (idempotent, supporting partial/full refunds)
-app.post('/api/admin/commissions/:id/cancel', requireAdmin, async (req, res) => {
+app.post('/api/admin/commissions/:id/cancel', requireAdmin, adminActionLimiter, async (req, res) => {
   const { refundAmountMinor } = req.body;
   const refundAmount = refundAmountMinor !== undefined ? Number(refundAmountMinor) : null;
   const id = req.params.id;
-
   try {
     const comm = await db.get("SELECT * FROM commission_earnings WHERE id = ?", [id]);
     if (!comm) {
@@ -2683,7 +2708,7 @@ app.post('/api/admin/commissions/:id/cancel', requireAdmin, async (req, res) => 
 });
 
 // POST /api/admin/commissions/cancel — Batch/Idempotent cancellation by storeId or commissionId
-app.post('/api/admin/commissions/cancel', requireAdmin, async (req, res) => {
+app.post('/api/admin/commissions/cancel', requireAdmin, adminActionLimiter, async (req, res) => {
   const { storeId, commissionId } = req.body;
   if (!storeId && !commissionId) {
     return res.status(400).json({ error: 'Either storeId or commissionId is required.' });
@@ -2709,7 +2734,7 @@ app.post('/api/admin/commissions/cancel', requireAdmin, async (req, res) => {
 });
 
 // POST /api/admin/commissions/batch-action — Batch action with idempotency
-app.post('/api/admin/commissions/batch-action', requireAdmin, async (req, res) => {
+app.post('/api/admin/commissions/batch-action', requireAdmin, adminActionLimiter, async (req, res) => {
   const { action, commissionIds, idempotencyKey, notes } = req.body;
   if (!action || !commissionIds || !Array.isArray(commissionIds) || !idempotencyKey) {
     return res.status(400).json({ error: 'action, commissionIds (array), and idempotencyKey are required.' });
@@ -2930,7 +2955,7 @@ app.post('/api/system/reset', checkOrigin, requireAdmin, loginLimiter, async (re
 });
 
 // 6.e Device registration and auto-approval (Public)
-app.post('/api/devices/register', async (req, res) => {
+app.post('/api/devices/register', loginLimiter, requireBody({ nodeId: 'NODE_ID' }), async (req, res) => {
   const { nodeId, deviceName, userAgent } = req.body;
   if (!nodeId) {
     return res.status(400).json({ error: 'nodeId is required.' });
@@ -3179,7 +3204,7 @@ app.get('/api/export', requireAdmin, async (req, res) => {
 });
 
 // 7. Reset baseline cleanly (Requires Admin privileges)
-app.post('/api/reset', requireAdmin, checkOrigin, async (req, res) => {
+app.post('/api/reset', requireAdmin, checkOrigin, adminActionLimiter, requireBody({ pin: 'ADMIN_PIN' }), async (req, res) => {
   const { pin } = req.body;
   const lockoutKey = `sys_reset:${req.ip}`;
   if (!pin) return res.status(400).json({ error: 'PIN is required.' });
@@ -3219,7 +3244,7 @@ app.post('/api/reset', requireAdmin, checkOrigin, async (req, res) => {
 });
 
 // ── Immutable Ledger: Void Transaction (Manager PIN required) ─────────────────
-app.post('/api/void-transaction', checkOrigin, loginLimiter, async (req, res) => {
+app.post('/api/void-transaction', checkOrigin, loginLimiter, requireBody({ transactionId: 'TX_ID', managerPin: 'ADMIN_PIN' }), async (req, res) => {
   try {
     const { transactionId, managerPin, voidReason } = req.body;
     if (!transactionId || !managerPin) return res.status(400).json({ error: 'transactionId and managerPin required.' });
@@ -3248,7 +3273,7 @@ app.post('/api/void-transaction', checkOrigin, loginLimiter, async (req, res) =>
 
 // ── Telemetry: Receive crash dumps from client nodes ─────────────────────────
 // POST /api/telemetry — requireAuth added: was public, allowed anyone to flood crash-log DB
-app.post('/api/telemetry', requireAuth, async (req, res) => {
+app.post('/api/telemetry', requireAuth, loggingLimiter, async (req, res) => {
   try {
     const logs = Array.isArray(req.body) ? req.body : [req.body];
     for (const log of logs) await saveTelemetryLog(log);
@@ -3270,7 +3295,7 @@ app.get('/api/telemetry', requireAdmin, async (req, res) => {
 
 // ── Admin: Manual CRDT GC trigger ─────────────────────────────────────────────
 // POST /api/admin/gc — requireAdmin added: CRDT garbage collection is a destructive admin operation
-app.post('/api/admin/gc', requireAdmin, async (req, res) => {
+app.post('/api/admin/gc', requireAdmin, adminActionLimiter, requireBody({ safeVersion: 'POS_INT' }), async (req, res) => {
   try {
     const { safeVersion } = req.body;
     if (!safeVersion) return res.status(400).json({ error: 'safeVersion required.' });
@@ -3283,7 +3308,7 @@ app.post('/api/admin/gc', requireAdmin, async (req, res) => {
 
 // POST /api/admin/release-update - Updates version.json with validation, logging, and backups
 // POST /api/admin/release-update — requireAdmin added: was rate-limited only, no token auth
-app.post('/api/admin/release-update', requireAdmin, releaseUpdateLimiter, async (req, res) => {
+app.post('/api/admin/release-update', requireAdmin, releaseUpdateLimiter, requireBody({ version: 'STORE_NAME', changelog: 'STORE_NAME', adminPin: 'ADMIN_PIN' }), async (req, res) => {
   const { version, changelog, adminPin } = req.body;
   if (!version || !changelog || !adminPin) {
     return res.status(400).json({ error: 'Version, changelog, and Admin PIN are required.' });
@@ -3350,7 +3375,7 @@ app.post('/api/admin/release-update', requireAdmin, releaseUpdateLimiter, async 
 
 // POST /api/admin/release-rollback - Rollbacks version.json to version.json.bak
 // POST /api/admin/release-rollback — requireAdmin added: was rate-limited only, no token auth
-app.post('/api/admin/release-rollback', requireAdmin, releaseUpdateLimiter, async (req, res) => {
+app.post('/api/admin/release-rollback', requireAdmin, releaseUpdateLimiter, requireBody({ adminPin: 'ADMIN_PIN' }), async (req, res) => {
   const { adminPin } = req.body;
   if (!adminPin) {
     return res.status(400).json({ error: 'Admin PIN is required for rollback.' });
@@ -3480,7 +3505,7 @@ app.get('/api/admin/payments/all', requireAdmin, adminActionLimiter, async (req,
 
 // POST /api/admin/payments/decision with PIN auth (mirrors requireAdmin but PIN-based for admin.html)
 // POST /api/admin/payments/decision-pin — requireAdmin added: was PIN-only with no token gate
-app.post('/api/admin/payments/decision-pin', requireAdmin, adminActionLimiter, async (req, res) => {
+app.post('/api/admin/payments/decision-pin', requireAdmin, adminActionLimiter, requireBody({ proof_id: 'TX_ID', adminPin: 'ADMIN_PIN' }), async (req, res) => {
   const { proof_id, action, rejection_reason, adminPin } = req.body;
   if (!proof_id || !action || !adminPin) {
     return res.status(400).json({ error: 'Missing required fields: proof_id, action, adminPin.' });
