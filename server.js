@@ -206,7 +206,7 @@ function verifyCheckoutToken(tokenStr, expectedSubtotal, expectedTax, expectedTo
 }
 
 const app = express();
-app.set('trust proxy', 'loopback, link-local, uniquelocal');
+app.set('trust proxy', 'loopback, linklocal, uniquelocal');
 
 // Universal HTTP 500 Interceptor and Sanitizer to prevent information disclosure (M-17)
 app.use((req, res, next) => {
