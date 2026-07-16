@@ -167,4 +167,14 @@ self.addEventListener('message', (event) => {
   if (type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+
+  // TERMINATE: Safely close database connections and unregister service worker
+  if (type === 'TERMINATE') {
+    console.warn('[ServiceWorker] TERMINATE received. Unregistering...');
+    self.registration.unregister().then((success) => {
+      if (success) {
+        console.log('[ServiceWorker] Unregistered successfully.');
+      }
+    });
+  }
 });

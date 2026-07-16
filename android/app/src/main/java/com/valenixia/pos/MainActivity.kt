@@ -48,6 +48,9 @@ import android.bluetooth.BluetoothSocket
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
 import android.content.IntentFilter
+import com.google.android.play.core.integrity.IntegrityManagerFactory
+import com.google.android.play.core.integrity.IntegrityTokenRequest
+import com.google.android.play.core.integrity.IntegrityTokenResponse
 
 // ============================================================
 // Android Keystore Helper – hardware-backed AES-GCM key management
@@ -443,8 +446,94 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun isDeviceRooted(): Boolean {
+        val buildTags = Build.TAGS
+        if (buildTags != null && buildTags.contains("test-keys")) {
+            return true
+        }
+        val paths = arrayOf(
+            "/system/app/Superuser.apk",
+            "/sbin/su",
+            "/system/bin/su",
+            "/system/xbin/su",
+            "/data/local/xbin/su",
+            "/data/local/bin/su",
+            "/system/sd/xbin/su",
+            "/system/bin/failsafe/su",
+            "/data/local/su"
+        )
+        for (path in paths) {
+            if (File(path).exists()) {
+                return true
+            }
+        }
+        var process: Process? = null
+        return try {
+            process = Runtime.getRuntime().exec(arrayOf("/system/xbin/which", "su"))
+            val inReader = java.io.BufferedReader(java.io.InputStreamReader(process.inputStream))
+            inReader.readLine() != null
+        } catch (t: Throwable) {
+            false
+        } finally {
+            process?.destroy()
+        }
+    }
+
+    private fun requestPlayIntegrityCheck() {
+        try {
+            val integrityManager = IntegrityManagerFactory.create(applicationContext)
+            val nonce = ByteArray(32).apply { SecureRandom().nextBytes(this) }
+            val nonceBase64 = Base64.encodeToString(nonce, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
+            
+            val request = IntegrityTokenRequest.builder()
+                .setNonce(nonceBase64)
+                .setCloudProjectNumber(823749823749L)
+                .build()
+                
+            integrityManager.requestIntegrityToken(request)
+                .addOnSuccessListener { response: IntegrityTokenResponse ->
+                    val token = response.token()
+                    Log.i("MainActivity", "Play Integrity token successfully retrieved: ${token.take(20)}...")
+                }
+                .addOnFailureListener { e ->
+                    Log.w("MainActivity", "Play Integrity API verification failed (Mock/Local environment bypass): ${e.message}")
+                }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Play Integrity setup error: ${e.message}")
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        if (isDeviceRooted()) {
+            androidx.appcompat.app.AlertDialog.Builder(this, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
+                .setTitle("Security Violation")
+                .setMessage("This device is rooted. Valenixia POS cannot run on compromised/rooted devices.")
+                .setCancelable(false)
+                .setPositiveButton("Exit") { _, _ -> finishAffinity() }
+                .show()
+            return
+        }
+
+        requestPlayIntegrityCheck()
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (!Settings.canDrawOverlays(this)) {
+                androidx.appcompat.app.AlertDialog.Builder(this, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
+                    .setTitle("Overlay Permission Required")
+                    .setMessage("Valenixia POS requires overlay permission to lock down screen controls for kiosk mode.")
+                    .setPositiveButton("Grant") { _, _ ->
+                        val intent = Intent(
+                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:$packageName")
+                        )
+                        startActivity(intent)
+                    }
+                    .setNegativeButton("Skip", null)
+                    .show()
+            }
+        }
         
         // Edge-to-edge layout styling
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {

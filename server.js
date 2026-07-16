@@ -20,6 +20,9 @@ const {
   db, 
   verifyPin, 
   hashPin, 
+  checkPinLockout,
+  recordPinFailure,
+  clearPinLockout,
   getChangesSince, 
   applyRemoteChanges, 
   logLocalChange,
@@ -41,6 +44,52 @@ const {
 const { pushOfflineBackupsToCloud } = require('./supabase-sync');
 const LICENSE_CONFIG = require('./public/license-config');
 const logger = require('./lib/logger');
+
+// Global console interceptor to structured logger (Task 4-A)
+const originalConsoleLog = console.log;
+const originalConsoleWarn = console.warn;
+const originalConsoleError = console.error;
+
+console.log = (message, ...args) => {
+  if (typeof message === 'string') {
+    let formattedMsg = message;
+    if (args.length > 0) {
+      formattedMsg += ' ' + args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+    }
+    logger.info('System', formattedMsg);
+  } else {
+    originalConsoleLog(message, ...args);
+  }
+};
+
+console.warn = (message, ...args) => {
+  if (typeof message === 'string') {
+    let formattedMsg = message;
+    if (args.length > 0) {
+      formattedMsg += ' ' + args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+    }
+    logger.warn('System', formattedMsg);
+  } else {
+    originalConsoleWarn(message, ...args);
+  }
+};
+
+console.error = (message, ...args) => {
+  if (typeof message === 'string') {
+    let formattedMsg = message;
+    let err = null;
+    if (args.length > 0) {
+      if (args[0] instanceof Error) {
+        err = args[0];
+      }
+      formattedMsg += ' ' + args.map(a => typeof a === 'object' && !(a instanceof Error) ? JSON.stringify(a) : String(a)).join(' ');
+    }
+    logger.error('System', formattedMsg, err);
+  } else {
+    originalConsoleError(message, ...args);
+  }
+};
+
 const { requireBody, sanitizeHtml, validate } = require('./lib/validator');
 
 function escapeHtml(str) {
@@ -51,6 +100,85 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+const CANONICAL_PLAN_PRICES = {
+  subscription: { STARTER: 349900, PRO: 699900, ENTERPRISE: 1199900 },
+  lifetime:     { STARTER: 7900000, PRO: 14900000, ENTERPRISE: 24900000 }
+};
+
+async function verifyCheckoutPricing(cart, paymentMode, tier) {
+  const skus = cart.map(item => item.sku);
+  if (skus.length === 0) return { subtotal: 0, tax: 0, total: 0 };
+  
+  const placeholders = skus.map(() => '?').join(',');
+  const itemRows = await db.all(`SELECT sku, base_price_minor_units FROM inventory_catalog WHERE sku IN (${placeholders})`, skus);
+  const priceMap = {};
+  itemRows.forEach(r => { priceMap[r.sku] = r.base_price_minor_units; });
+
+  const prefRows = await db.all("SELECT key, value_payload FROM local_preferences");
+  const prefs = {};
+  prefRows.forEach(r => { prefs[r.key] = r.value_payload; });
+
+  let subtotal = 0;
+  for (const item of cart) {
+    const basePrice = priceMap[item.sku];
+    if (basePrice === undefined) {
+      throw new Error(`Product not found in catalog: ${item.sku}`);
+    }
+    const qty = parseInt(item.qty || item.quantity || 1);
+    subtotal += basePrice * qty;
+  }
+
+  const ratePref = prefs['store_tax_rate'] || '8.0';
+  let ratePercent = parseFloat(ratePref);
+  const taxMode = prefs['store_tax_mode'] || 'FLAT';
+  if (taxMode === 'FBR_FOOD') {
+    if (paymentMode === 'CARD' || paymentMode === 'QR' || paymentMode === 'MOBILE') {
+      ratePercent = 5.0;
+    } else {
+      ratePercent = 15.0;
+    }
+  } else if (taxMode === 'FBR_RETAIL') {
+    ratePercent = 18.0;
+  }
+
+  const rateBps = Math.round(ratePercent * 100);
+  let tax = 0;
+  for (const item of cart) {
+    const basePrice = priceMap[item.sku];
+    const qty = parseInt(item.qty || item.quantity || 1);
+    const itemTax = Math.round((basePrice * qty * rateBps) / 10000);
+    tax += itemTax;
+  }
+
+  const isFbrEnabled = (tier === 'ENTERPRISE' || tier === 'TRIAL') && (prefs['fbr_integration_enabled'] === 'true' || prefs['fbr_integration_enabled'] === true);
+  const fbrFee = isFbrEnabled ? 100 : 0;
+  const total = subtotal + tax + fbrFee;
+
+  return { subtotal, tax, total };
+}
+
+function verifyCheckoutToken(tokenStr, expectedSubtotal, expectedTax, expectedTotal) {
+  if (!tokenStr || !tokenStr.includes(':')) return false;
+  const [sig, payloadB64] = tokenStr.split(':');
+  try {
+    const payloadStr = Buffer.from(payloadB64, 'base64').toString('utf8');
+    const payload = JSON.parse(payloadStr);
+    
+    if (payload.exp < Date.now()) return false;
+    
+    const expectedSig = crypto.createHmac('sha256', jwtSecret).update(payloadStr).digest('hex');
+    if (sig !== expectedSig) return false;
+    
+    if (payload.subtotal !== expectedSubtotal || payload.tax !== expectedTax || payload.total !== expectedTotal) {
+      return false;
+    }
+    
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 const app = express();
@@ -64,6 +192,19 @@ const loginLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+function checkOrigin(req, res, next) {
+  const origin = req.headers['origin'] || req.headers['referer'] || '';
+  const isLocalRequest = !origin || 
+    origin.startsWith('http://localhost') ||
+    origin.startsWith('http://127.0.0.1') ||
+    origin.startsWith('file://') ||
+    /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(origin);
+  if (!isLocalRequest) {
+    return res.status(403).json({ error: 'Cross-origin requests are not permitted to this endpoint.' });
+  }
+  next();
+}
 
 // Rate limiter for subscription and manual upgrade proof submissions (max 5 attempts per 10 minutes)
 const billingLimiter = rateLimit({
@@ -106,32 +247,50 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       // No unsafe-inline or unsafe-eval — inline scripts extracted to static files
-      scriptSrc: ["'self'", "https://unpkg.com"],
+      // Removed https://unpkg.com — jsPDF and QRCode are vendored locally in public/
+      scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
-      imgSrc: ["'self'", "data:", "https://*"],
+      // Restricted to same-origin + data URIs + blob (product images are local)
+      imgSrc: ["'self'", "data:", "blob:"],
       connectSrc: [
         "'self'",
         "ws:", "wss:",
         "http://localhost:*", "http://127.0.0.1:*", "http://192.168.*", "http://10.*", "http://172.*",
-        "https://*.supabase.co", "https://*.pages.dev"
+        "https://*.supabase.co", "https://*.pages.dev",
+        "https://gw.fbr.gov.pk"
       ],
       objectSrc: ["'none'"],
-      upgradeInsecureRequests: null
+      // Prevent <base> tag injection attacks
+      baseUri: ["'self'"],
+      // Force all insecure URLs to HTTPS
+      upgradeInsecureRequests: []
     }
   },
   xFrameOptions: { action: 'deny' },
   xContentTypeOptions: true,
   referrerPolicy: { policy: 'no-referrer' },
-  crossOriginEmbedderPolicy: false,
+  // Enable COOP/COEP/CORP for cross-origin isolation
+  crossOriginOpenerPolicy: { policy: 'same-origin' },
+  crossOriginEmbedderPolicy: { policy: 'require-corp' },
+  crossOriginResourcePolicy: { policy: 'same-origin' },
   dnsPrefetchControl: { allow: false },
   hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
   permissionsPolicy: {
     features: {
       geolocation: ["'none'"],
-      camera: ["'self'"],
-      microphone: ["'self'"],
-      payment: ["'self'"]
+      camera: ["'self'"],          // Barcode scanner
+      microphone: ["'self'"],      // Speech coaching
+      payment: ["'none'"],         // Never browser Payment API — manual proofs only
+      usb: ["'none'"],
+      'ambient-light-sensor': ["'none'"],
+      accelerometer: ["'none'"],
+      gyroscope: ["'none'"],
+      magnetometer: ["'none'"],
+      'picture-in-picture': ["'none'"],
+      'display-capture': ["'none'"],
+      'document-domain': ["'none'"],
+      'fullscreen': ["'self'"]
     }
   }
 }));
@@ -152,6 +311,15 @@ app.use(cors({
 }));
 
 app.use(compression());
+
+// Request Correlation ID Middleware (Task 4-B)
+app.use((req, res, next) => {
+  const correlationId = req.headers['x-correlation-id'] || crypto.randomBytes(8).toString('hex');
+  res.setHeader('x-correlation-id', correlationId);
+  logger.correlationStorage.run(correlationId, () => {
+    next();
+  });
+});
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
@@ -305,9 +473,22 @@ function sendError(res, err, defaultStatus = 500) {
     status = 404;
   }
 
+  // Structured log of the raw error
+  logger.error('API', `HTTP Error ${status}: ${message}`, err, { status });
+
   const isProd = process.env.NODE_ENV === 'production';
+  let clientMessage = message;
+  
+  if (isProd && status === 500) {
+    if (message.includes('SQLITE') || message.includes('database') || message.includes('db') || message.includes('SELECT') || message.includes('INSERT') || message.includes('UPDATE')) {
+      clientMessage = 'An internal database error occurred.';
+    } else {
+      clientMessage = 'An unexpected server error occurred.';
+    }
+  }
+
   res.status(status).json({
-    error: isProd ? 'An internal error occurred. Please contact support.' : message
+    error: clientMessage
   });
 }
 
@@ -865,6 +1046,80 @@ wss.on('connection', (ws, req) => {
             return;
           }
 
+          // Price re-validation guard for incoming sync changes
+          const txChanges = data.changes.filter(c => c.table_name === 'transactions');
+          if (txChanges.length > 0) {
+            const txMap = {};
+            txChanges.forEach(c => {
+              if (!txMap[c.pk]) txMap[c.pk] = {};
+              txMap[c.pk][c.cid] = c.val;
+            });
+            
+            for (const txId of Object.keys(txMap)) {
+              const tx = txMap[txId];
+              if (tx.status === 'PENDING' || tx.status === 'COMPLETED') {
+                const total = parseInt(tx.total_minor_units || 0);
+                const subtotal = parseInt(tx.subtotal_minor_units || 0);
+                const tax = parseInt(tx.tax_minor_units || 0);
+                
+                let verified = false;
+                let token = '';
+                
+                if (tx.payment_details && tx.payment_details.startsWith('{')) {
+                  try {
+                    const parsed = JSON.parse(tx.payment_details);
+                    token = parsed.verified_token;
+                  } catch (_) {}
+                }
+                
+                if (token && token !== 'OFFLINE_PENDING') {
+                  verified = verifyCheckoutToken(token, subtotal, tax, total);
+                }
+                
+                if (!verified) {
+                  const liChanges = data.changes.filter(c => c.table_name === 'line_items' && c.pk.startsWith(`li_${txId}_`));
+                  const cart = [];
+                  const liMap = {};
+                  liChanges.forEach(c => {
+                    const sku = c.pk.split('_')[2];
+                    if (!liMap[sku]) liMap[sku] = {};
+                    liMap[sku][c.cid] = c.val;
+                  });
+                  
+                  for (const sku of Object.keys(liMap)) {
+                    cart.push({ sku, qty: parseInt(liMap[sku].quantity || 1) });
+                  }
+                  
+                  if (cart.length === 0) {
+                    const dbItems = await db.all("SELECT sku, quantity FROM line_items WHERE transaction_id = ?", [txId]);
+                    dbItems.forEach(i => {
+                      cart.push({ sku: i.sku, qty: i.quantity });
+                    });
+                  }
+                  
+                  if (cart.length > 0) {
+                    try {
+                      const tier = tx.payment_details && JSON.parse(tx.payment_details).tier || 'STARTER';
+                      const derived = await verifyCheckoutPricing(cart, tx.payment_mode || 'CASH', tier);
+                      if (derived.total !== total || derived.subtotal !== subtotal || derived.tax !== tax) {
+                        console.warn(`[SyncHub] Tamper detected on sync transaction ${txId}. Client total: ${total}, Server recomputed: ${derived.total}`);
+                        ws.send(encryptPayload({
+                          type: 'SYNC_ERROR',
+                          error: 'PRICE_TAMPER_DETECTED',
+                          transactionId: txId
+                        }));
+                        return; // Discard sync completely to protect ledger integrity
+                      }
+                      verified = true;
+                    } catch (e) {
+                      console.warn(`[SyncHub] Pricing verification failed for ${txId} due to error:`, e.message);
+                    }
+                  }
+                }
+              }
+            }
+          }
+
           // Apply changes locally
           const result = await applyRemoteChanges(data.changes);
           console.log(`[SyncHub] Remote changes applied: ${result.applied}, conflicts: ${result.conflicts}`);
@@ -945,7 +1200,8 @@ async function submitToFBR(invoice) {
 
 // POST /api/fbr/queue  — client pushes invoices generated while offline
 // Body: { invoices: [{ id, transactionId, invoiceNumber, usin, invoicePayload, totalMinor, taxMinor, createdAt }] }
-app.post('/api/fbr/queue', async (req, res) => {
+// POST /api/fbr/queue — requireAuth added: unauthenticated nodes must not submit FBR invoices
+app.post('/api/fbr/queue', requireAuth, async (req, res) => {
   const { invoices } = req.body;
   if (!Array.isArray(invoices) || invoices.length === 0) {
     return res.status(400).json({ error: 'invoices array required' });
@@ -954,19 +1210,30 @@ app.post('/api/fbr/queue', async (req, res) => {
   const results = [];
   for (const inv of invoices) {
     try {
+      // Server-side sequence-based USIN generation (Task 6-A)
+      const countRow = await db.get("SELECT COUNT(*) as count FROM fbr_submissions");
+      const seq = (countRow ? countRow.count : 0) + 1;
+      const serverUsin = `USIN-${String(seq).padStart(8, '0')}`;
+
+      let payloadObj = {};
+      try {
+        payloadObj = typeof inv.invoicePayload === 'string' ? JSON.parse(inv.invoicePayload) : (inv.invoicePayload || {});
+      } catch (_) {}
+      payloadObj.usin = serverUsin;
+      const finalPayloadStr = JSON.stringify(payloadObj);
+
       // Upsert into fbr_submissions (idempotent — safe to re-send)
       await db.run(`
         INSERT OR IGNORE INTO fbr_submissions
           (id, transaction_id, invoice_number, usin, invoice_payload, total_minor, tax_minor, status, retry_count, created_at, sync_hlc)
         VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', 0, ?, ?)
       `, [
-        inv.id, inv.transactionId, inv.invoiceNumber, inv.usin,
-        typeof inv.invoicePayload === 'string' ? inv.invoicePayload : JSON.stringify(inv.invoicePayload),
+        inv.id, inv.transactionId, inv.invoiceNumber, serverUsin, finalPayloadStr,
         inv.totalMinor, inv.taxMinor, inv.createdAt || now, getHlc().tick()
       ]);
 
       // Attempt immediate FBR submission
-      const fbrResult = await submitToFBR({ invoice_payload: inv.invoicePayload });
+      const fbrResult = await submitToFBR({ invoice_payload: finalPayloadStr });
       const newStatus = fbrResult.success ? 'SUBMITTED' : 'FAILED';
       
       let fbrResponseCode = null;
@@ -1088,7 +1355,7 @@ async function clearActivationAttempt(attemptKey) {
 }
 
 // POST /api/onboard — Mock Web Portal signup
-app.post('/api/onboard', async (req, res) => {
+app.post('/api/onboard', checkOrigin, async (req, res) => {
   const { name, phone, email, tier, mode } = req.body;
   if (!name || !phone || !email) {
     return res.status(400).json({ error: 'Missing required onboarding parameters (name, phone, email).' });
@@ -1190,8 +1457,8 @@ app.post('/api/onboard', async (req, res) => {
         );
       }
 
-      // Generate random 6-digit activation code
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      // Generate cryptographically random 6-digit activation code (Math.random is NOT CSPRNG)
+      const code = (100000 + crypto.randomInt(0, 900000)).toString();
       const codeExpires = Date.now() + 15 * 60 * 1000; // valid for 15 minutes
 
       await db.run(
@@ -1211,7 +1478,7 @@ app.post('/api/onboard', async (req, res) => {
 });
 
 // POST /api/license/activate — Handshake to whitelist hardware ID & return signed license
-app.post('/api/license/activate', async (req, res) => {
+app.post('/api/license/activate', checkOrigin, async (req, res) => {
   const { code, phone, hwid, deviceName } = req.body;
   if (!code || !phone || !hwid) {
     return res.status(400).json({ error: 'Missing activation details (code, phone, hwid).' });
@@ -1466,18 +1733,58 @@ app.post('/api/employee/login', loginLimiter, requireAuth, async (req, res) => {
   const { pin } = req.body;
   if (!pin) return res.status(400).json({ error: 'PIN is required' });
 
+  const lockoutKey = `emp_login:${req.ip}`;
   try {
+    const lockout = await checkPinLockout(lockoutKey);
+    if (lockout.locked) {
+      return res.status(429).json({ error: `Too many failed attempts. Locked out for ${lockout.minsLeft} more minutes.` });
+    }
+
     const employees = await db.all('SELECT * FROM employees WHERE is_active = 1');
     const matched = employees.find(emp => verifyPin(pin, emp.auth_hash));
 
     if (matched) {
+      await clearPinLockout(lockoutKey);
       res.json({ 
         success: true, 
         employee: { id: matched.id, role: matched.role } 
       });
     } else {
+      await recordPinFailure(lockoutKey, 5, 15);
       res.status(401).json({ error: 'Invalid security PIN code' });
     }
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+// POST /api/checkout/verify — Server-side checkout verification and token signing
+app.post('/api/checkout/verify', loginLimiter, requireAuth, async (req, res) => {
+  const { cart, paymentMode, tier } = req.body;
+  if (!cart || !Array.isArray(cart)) {
+    return res.status(400).json({ error: 'Cart must be a valid list of items.' });
+  }
+  try {
+    const verified = await verifyCheckoutPricing(cart, paymentMode || 'CASH', tier || 'STARTER');
+    const nonce = crypto.randomBytes(16).toString('hex');
+    const payload = {
+      subtotal: verified.subtotal,
+      tax: verified.tax,
+      total: verified.total,
+      nonce: nonce,
+      exp: Date.now() + 5 * 60 * 1000 // 5 minutes validity
+    };
+    const payloadStr = JSON.stringify(payload);
+    const sig = crypto.createHmac('sha256', jwtSecret).update(payloadStr).digest('hex');
+    const token = `${sig}:${Buffer.from(payloadStr).toString('base64')}`;
+
+    res.json({
+      success: true,
+      subtotal: verified.subtotal,
+      tax: verified.tax,
+      total: verified.total,
+      checkout_token: token
+    });
   } catch (err) {
     sendError(res, err);
   }
@@ -1587,6 +1894,17 @@ app.post('/api/payments/submit-proof', billingLimiter, requireAuth, async (req, 
   }
 
   const selectedMode = mode || 'subscription';
+  const canonicalPriceMinor = CANONICAL_PLAN_PRICES[selectedMode]?.[plan_id];
+  if (!canonicalPriceMinor) {
+    return res.status(400).json({ error: 'Invalid plan_id or mode.' });
+  }
+
+  const submittedMinor = Math.round(parseFloat(amount) * 100);
+  if (submittedMinor !== canonicalPriceMinor) {
+    return res.status(400).json({ error: 'Submitted amount does not match plan price.' });
+  }
+
+  const verifiedAmount = canonicalPriceMinor / 100;
 
   try {
     // 1. Idempotency check: Ensure the RRN reference hasn't been submitted previously
@@ -1601,8 +1919,8 @@ app.post('/api/payments/submit-proof', billingLimiter, requireAuth, async (req, 
     // 2. Insert locally
     await db.run(
       `INSERT INTO payment_proofs (id, user_id, plan_id, mode, rrn_reference, amount, proof_image_url, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
-      [proofId, req.user.id, plan_id, selectedMode, rrn_reference, parseFloat(amount), proof_image_url || '', now, now]
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+      [proofId, req.user.id, plan_id, selectedMode, rrn_reference, verifiedAmount, proof_image_url || '', now, now]
     );
 
     // 3. Try syncing to Supabase if client is configured
@@ -1614,7 +1932,7 @@ app.post('/api/payments/submit-proof', billingLimiter, requireAuth, async (req, 
           user_id: req.user.id,
           plan_id: plan_id,
           rrn_reference: rrn_reference,
-          amount: parseFloat(amount),
+          amount: verifiedAmount,
           proof_image_url: proof_image_url || '',
           status: 'pending'
         });
@@ -1762,39 +2080,36 @@ app.post('/api/admin/payments/decision', requireAdmin, async (req, res) => {
   }
 });
 
-
 // POST /api/auth/emergency-override — Triggers local emergency override bypass using Manager/Admin PIN
-app.post('/api/auth/emergency-override', async (req, res) => {
+app.post('/api/auth/emergency-override', checkOrigin, loginLimiter, async (req, res) => {
   const { pin } = req.body;
   if (!pin) return res.status(400).json({ error: 'PIN is required.' });
+
+  const lockoutKey = `emergency:${req.ip}`;
   try {
+    const lockout = await checkPinLockout(lockoutKey);
+    if (lockout.locked) {
+      return res.status(429).json({ error: `Too many failed attempts. Locked out for ${lockout.minsLeft} more minutes.` });
+    }
+
     const employees = await db.all("SELECT id, role, auth_hash AS pin_hash FROM employees WHERE is_active = 1");
     let matchedEmp = null;
 
     for (const emp of employees) {
       if (emp.role === 'MANAGER' || emp.role === 'ADMIN') {
-        const parts = emp.pin_hash.split(':');
-        if (parts.length === 2) {
-          const saltHex = parts[0];
-          const hashHex = parts[1];
-          
-          const saltBytes = Buffer.from(saltHex, 'hex');
-          const iterations = 600000;
-          const keyLen = 32;
-          const hashBytes = crypto.pbkdf2Sync(pin, saltBytes, iterations, keyLen * 8, 'sha256');
-          const computedHex = hashBytes.toString('hex');
-          
-          if (computedHex === hashHex) {
-            matchedEmp = emp;
-            break;
-          }
+        if (verifyPin(pin, emp.pin_hash)) {
+          matchedEmp = emp;
+          break;
         }
       }
     }
 
     if (!matchedEmp) {
+      await recordPinFailure(lockoutKey, 3, 30);
       return res.status(401).json({ error: 'Invalid Manager or Administrator PIN.' });
     }
+
+    await clearPinLockout(lockoutKey);
 
     const until = Date.now() + 15 * 60 * 1000; // 15 minutes limit
     await db.run(
@@ -2419,7 +2734,8 @@ function getHardwareFingerprint() {
 }
 
 // 6.a Fetch server network configuration (Public)
-app.get('/api/server-info', (req, res) => {
+// GET /api/server-info — requireAuth added: was fully public, exposed LAN IPs + HWID fingerprint
+app.get('/api/server-info', requireAuth, (req, res) => {
   try {
     const interfaces = os.networkInterfaces();
     const ips = [];
@@ -2448,24 +2764,40 @@ app.get('/api/system/status', async (req, res) => {
 });
 
 // 6.d System Factory Reset (Authenticated ADMIN PIN)
-app.post('/api/system/reset', async (req, res) => {
+// POST /api/system/reset — loginLimiter added: factory reset was rate-unlimited, PIN-only gate
+app.post('/api/system/reset', checkOrigin, loginLimiter, async (req, res) => {
   let authorized = false;
   const { pin } = req.body;
-  if (pin) {
-    try {
-      const employees = await db.all("SELECT * FROM employees WHERE role = 'ADMIN' AND is_active = 1");
-      const matched = employees.find(emp => verifyPin(pin, emp.auth_hash));
-      if (matched) authorized = true;
-    } catch (e) {
-      console.error('[SystemReset] Error verifying admin PIN:', e);
+  const lockoutKey = `sys_reset:${req.ip}`;
+
+  if (!pin) {
+    return res.status(400).json({ error: 'PIN is required.' });
+  }
+
+  try {
+    const lockout = await checkPinLockout(lockoutKey);
+    if (lockout.locked) {
+      return res.status(429).json({ error: `Too many failed attempts. Locked out for ${lockout.minsLeft} more minutes.` });
     }
+
+    const employees = await db.all("SELECT * FROM employees WHERE role = 'ADMIN' AND is_active = 1");
+    const matched = employees.find(emp => verifyPin(pin, emp.auth_hash));
+    if (matched) {
+      authorized = true;
+    }
+  } catch (e) {
+    console.error('[SystemReset] Error verifying admin PIN:', e);
   }
 
   if (!authorized) {
+    try {
+      await recordPinFailure(lockoutKey, 3, 60);
+    } catch (_) {}
     return res.status(403).json({ error: 'Access denied: Admin PIN required.' });
   }
 
   try {
+    await clearPinLockout(lockoutKey);
     await factoryResetDatabase();
     serverPassphrase = '';
     jwtSecret = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
@@ -2727,16 +3059,27 @@ app.get('/api/export', requireAdmin, async (req, res) => {
 });
 
 // 7. Reset baseline cleanly (Requires Admin privileges)
-app.post('/api/reset', requireAdmin, async (req, res) => {
+app.post('/api/reset', requireAdmin, checkOrigin, async (req, res) => {
   const { pin } = req.body;
+  const lockoutKey = `sys_reset:${req.ip}`;
+  if (!pin) return res.status(400).json({ error: 'PIN is required.' });
+
   try {
+    const lockout = await checkPinLockout(lockoutKey);
+    if (lockout.locked) {
+      return res.status(429).json({ error: `Too many failed attempts. Locked out for ${lockout.minsLeft} more minutes.` });
+    }
+
     // Requires manager/admin PIN verification
     const employees = await db.all('SELECT * FROM employees WHERE role = "ADMIN"');
     const matched = employees.find(emp => verifyPin(pin, emp.auth_hash));
 
     if (!matched) {
+      await recordPinFailure(lockoutKey, 3, 60);
       return res.status(403).json({ error: 'Admin authentication failed. Destructive reset aborted.' });
     }
+
+    await clearPinLockout(lockoutKey);
 
     await db.beginImmediate();
     // Destructive baseline reset (keep catalog metadata template but clear transactional database logs)
@@ -2756,13 +3099,26 @@ app.post('/api/reset', requireAdmin, async (req, res) => {
 });
 
 // ── Immutable Ledger: Void Transaction (Manager PIN required) ─────────────────
-app.post('/api/void-transaction', loginLimiter, async (req, res) => {
+app.post('/api/void-transaction', checkOrigin, loginLimiter, async (req, res) => {
   try {
     const { transactionId, managerPin, voidReason } = req.body;
     if (!transactionId || !managerPin) return res.status(400).json({ error: 'transactionId and managerPin required.' });
+
+    const lockoutKey = `void:${req.ip}`;
+    const lockout = await checkPinLockout(lockoutKey);
+    if (lockout.locked) {
+      return res.status(429).json({ error: `Too many failed attempts. Locked out for ${lockout.minsLeft} more minutes.` });
+    }
+
     const managers = await db.all("SELECT * FROM employees WHERE auth_hash IS NOT NULL AND (role='MANAGER' OR role='ADMIN') AND is_active=1");
     const matchedMgr = managers.find(m => verifyPin(managerPin, m.auth_hash));
-    if (!matchedMgr) return res.status(403).json({ error: 'Invalid manager PIN.' });
+
+    if (!matchedMgr) {
+      await recordPinFailure(lockoutKey, 5, 15);
+      return res.status(403).json({ error: 'Invalid manager PIN.' });
+    }
+
+    await clearPinLockout(lockoutKey);
     const contraId = await createVoidContraEntry(transactionId, matchedMgr.id, voidReason || 'Manager void');
     res.json({ success: true, contraId });
   } catch (err) {
@@ -2771,7 +3127,8 @@ app.post('/api/void-transaction', loginLimiter, async (req, res) => {
 });
 
 // ── Telemetry: Receive crash dumps from client nodes ─────────────────────────
-app.post('/api/telemetry', async (req, res) => {
+// POST /api/telemetry — requireAuth added: was public, allowed anyone to flood crash-log DB
+app.post('/api/telemetry', requireAuth, async (req, res) => {
   try {
     const logs = Array.isArray(req.body) ? req.body : [req.body];
     for (const log of logs) await saveTelemetryLog(log);
@@ -2781,7 +3138,8 @@ app.post('/api/telemetry', async (req, res) => {
   }
 });
 
-app.get('/api/telemetry', async (req, res) => {
+// GET /api/telemetry — requireAdmin added: crash logs contain sensitive runtime state
+app.get('/api/telemetry', requireAdmin, async (req, res) => {
   try {
     const logs = await db.all('SELECT * FROM telemetry_logs ORDER BY created_at DESC LIMIT 200');
     res.json(logs);
@@ -2791,7 +3149,8 @@ app.get('/api/telemetry', async (req, res) => {
 });
 
 // ── Admin: Manual CRDT GC trigger ─────────────────────────────────────────────
-app.post('/api/admin/gc', async (req, res) => {
+// POST /api/admin/gc — requireAdmin added: CRDT garbage collection is a destructive admin operation
+app.post('/api/admin/gc', requireAdmin, async (req, res) => {
   try {
     const { safeVersion } = req.body;
     if (!safeVersion) return res.status(400).json({ error: 'safeVersion required.' });
@@ -2803,7 +3162,8 @@ app.post('/api/admin/gc', async (req, res) => {
 });
 
 // POST /api/admin/release-update - Updates version.json with validation, logging, and backups
-app.post('/api/admin/release-update', releaseUpdateLimiter, async (req, res) => {
+// POST /api/admin/release-update — requireAdmin added: was rate-limited only, no token auth
+app.post('/api/admin/release-update', requireAdmin, releaseUpdateLimiter, async (req, res) => {
   const { version, changelog, adminPin } = req.body;
   if (!version || !changelog || !adminPin) {
     return res.status(400).json({ error: 'Version, changelog, and Admin PIN are required.' });
@@ -2814,12 +3174,21 @@ app.post('/api/admin/release-update', releaseUpdateLimiter, async (req, res) => 
     return res.status(400).json({ error: 'Invalid version format. Must follow semantic versioning (e.g. 1.0.4).' });
   }
 
+  const lockoutKey = `release_pin:${req.ip}`;
   try {
+    const lockout = await checkPinLockout(lockoutKey);
+    if (lockout.locked) {
+      return res.status(429).json({ error: `Too many failed attempts. Locked out for ${lockout.minsLeft} more minutes.` });
+    }
+
     const employees = await db.all("SELECT * FROM employees WHERE is_active = 1");
     const matched = employees.find(emp => verifyPin(adminPin, emp.auth_hash));
     if (!matched || (matched.role !== 'ADMIN' && matched.role !== 'MANAGER')) {
+      await recordPinFailure(lockoutKey, 5, 15);
       return res.status(403).json({ error: 'Access denied: Valid Manager or Admin PIN required.' });
     }
+
+    await clearPinLockout(lockoutKey);
 
     const versionPath = path.join(__dirname, 'public', 'version.json');
     const backupPath = path.join(__dirname, 'public', 'version.json.bak');
@@ -2845,7 +3214,7 @@ app.post('/api/admin/release-update', releaseUpdateLimiter, async (req, res) => 
     await fs.promises.writeFile(versionPath, JSON.stringify(versionData, null, 2), 'utf8');
 
     // 3. Write to SQLite audit log
-    const auditId = 'audit_' + Math.random().toString(36).substring(2, 11);
+    const auditId = 'audit_' + crypto.randomUUID().replace(/-/g, '').substring(0, 9);
     await db.run(
       "INSERT INTO admin_audit_log (id, user_id, action, details, created_at) VALUES (?, ?, ?, ?, ?)",
       [auditId, matched.id, 'release_update', `Version updated to ${versionData.version}. Changelog: ${versionData.changelog}`, Date.now()]
@@ -2860,18 +3229,28 @@ app.post('/api/admin/release-update', releaseUpdateLimiter, async (req, res) => 
 });
 
 // POST /api/admin/release-rollback - Rollbacks version.json to version.json.bak
-app.post('/api/admin/release-rollback', releaseUpdateLimiter, async (req, res) => {
+// POST /api/admin/release-rollback — requireAdmin added: was rate-limited only, no token auth
+app.post('/api/admin/release-rollback', requireAdmin, releaseUpdateLimiter, async (req, res) => {
   const { adminPin } = req.body;
   if (!adminPin) {
     return res.status(400).json({ error: 'Admin PIN is required for rollback.' });
   }
 
+  const lockoutKey = `release_pin:${req.ip}`;
   try {
+    const lockout = await checkPinLockout(lockoutKey);
+    if (lockout.locked) {
+      return res.status(429).json({ error: `Too many failed attempts. Locked out for ${lockout.minsLeft} more minutes.` });
+    }
+
     const employees = await db.all("SELECT * FROM employees WHERE is_active = 1");
     const matched = employees.find(emp => verifyPin(adminPin, emp.auth_hash));
     if (!matched || (matched.role !== 'ADMIN' && matched.role !== 'MANAGER')) {
+      await recordPinFailure(lockoutKey, 5, 15);
       return res.status(403).json({ error: 'Access denied: Valid Manager or Admin PIN required.' });
     }
+
+    await clearPinLockout(lockoutKey);
 
     const versionPath = path.join(__dirname, 'public', 'version.json');
     const backupPath = path.join(__dirname, 'public', 'version.json.bak');
@@ -2894,7 +3273,7 @@ app.post('/api/admin/release-rollback', releaseUpdateLimiter, async (req, res) =
     await fs.promises.writeFile(versionPath, backupData, 'utf8');
 
     // 2. Write audit log
-    const auditId = 'audit_' + Math.random().toString(36).substring(2, 11);
+    const auditId = 'audit_' + crypto.randomUUID().replace(/-/g, '').substring(0, 9);
     await db.run(
       "INSERT INTO admin_audit_log (id, user_id, action, details, created_at) VALUES (?, ?, ?, ?, ?)",
       [auditId, matched.id, 'release_rollback', `Version rolled back to ${backupObj.version}.`, Date.now()]
@@ -2937,24 +3316,35 @@ app.get('/api/version', async (req, res) => {
   }
 });
 
-// Serve Admin Panel
-app.get('/admin', (req, res) => {
+// Serve Admin Panel — requireAdmin added: previously served admin.html to any unauthenticated request
+app.get('/admin', requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
 // GET /api/admin/payments/all — Full payment proofs list with store info for admin panel
-app.get('/api/admin/payments/all', adminActionLimiter, async (req, res) => {
-  // PIN-based auth: accept adminPin query param or Authorization header
-  const adminPin = req.headers['x-admin-pin'] || req.query.adminPin;
+// GET /api/admin/payments/all — requireAdmin added: was PIN-only via query param (easily leaked in logs)
+app.get('/api/admin/payments/all', requireAdmin, adminActionLimiter, async (req, res) => {
+  // PIN-based auth: accept adminPin only in X-Admin-Pin header
+  const adminPin = req.headers['x-admin-pin'];
   if (!adminPin) {
     return res.status(401).json({ error: 'Admin PIN required.' });
   }
+
+  const lockoutKey = `admin_pin:${req.ip}`;
   try {
+    const lockout = await checkPinLockout(lockoutKey);
+    if (lockout.locked) {
+      return res.status(429).json({ error: `Too many failed attempts. Locked out for ${lockout.minsLeft} more minutes.` });
+    }
+
     const employees = await db.all("SELECT * FROM employees WHERE is_active = 1");
     const matched = employees.find(emp => verifyPin(adminPin, emp.auth_hash));
     if (!matched || (matched.role !== 'ADMIN' && matched.role !== 'MANAGER')) {
+      await recordPinFailure(lockoutKey, 5, 15);
       return res.status(403).json({ error: 'Access denied: Admin or Manager PIN required.' });
     }
+
+    await clearPinLockout(lockoutKey);
 
     const proofs = await db.all(`
       SELECT pp.*, s.name as store_name, s.email as store_email, s.tier as store_tier
@@ -2969,17 +3359,28 @@ app.get('/api/admin/payments/all', adminActionLimiter, async (req, res) => {
 });
 
 // POST /api/admin/payments/decision with PIN auth (mirrors requireAdmin but PIN-based for admin.html)
-app.post('/api/admin/payments/decision-pin', adminActionLimiter, async (req, res) => {
+// POST /api/admin/payments/decision-pin — requireAdmin added: was PIN-only with no token gate
+app.post('/api/admin/payments/decision-pin', requireAdmin, adminActionLimiter, async (req, res) => {
   const { proof_id, action, rejection_reason, adminPin } = req.body;
   if (!proof_id || !action || !adminPin) {
     return res.status(400).json({ error: 'Missing required fields: proof_id, action, adminPin.' });
   }
+
+  const lockoutKey = `admin_pin:${req.ip}`;
   try {
+    const lockout = await checkPinLockout(lockoutKey);
+    if (lockout.locked) {
+      return res.status(429).json({ error: `Too many failed attempts. Locked out for ${lockout.minsLeft} more minutes.` });
+    }
+
     const employees = await db.all("SELECT * FROM employees WHERE is_active = 1");
     const matched = employees.find(emp => verifyPin(adminPin, emp.auth_hash));
     if (!matched || (matched.role !== 'ADMIN' && matched.role !== 'MANAGER')) {
+      await recordPinFailure(lockoutKey, 5, 15);
       return res.status(403).json({ error: 'Access denied: Admin or Manager PIN required.' });
     }
+
+    await clearPinLockout(lockoutKey);
 
     const proof = await db.get("SELECT * FROM payment_proofs WHERE id = ?", [proof_id]);
     if (!proof) return res.status(404).json({ error: 'Payment proof not found.' });
@@ -3116,6 +3517,30 @@ initDatabase(terminalId)
       }
     }, WEEK_MS);
     console.log('[GC] Weekly CRDT tombstone garbage collector scheduled.');
+
+    // ── Enforce 6-Year Data Retention Policy (Task 6-B) ──────────────────────
+    async function enforceDataRetentionPolicy() {
+      try {
+        const SIX_YEARS_MS = 6 * 365 * 24 * 60 * 60 * 1000;
+        const cutoff = Date.now() - SIX_YEARS_MS;
+        
+        const result1 = await db.run("DELETE FROM transactions WHERE created_at < ?", [cutoff]);
+        await db.run("DELETE FROM line_items WHERE transaction_id NOT IN (SELECT id FROM transactions)");
+        await db.run("DELETE FROM fbr_submissions WHERE created_at < ?", [cutoff]);
+        
+        console.log(`[RetentionPolicy] Data retention policy enforced. Removed transaction records older than 6 years.`);
+      } catch (err) {
+        console.error('[RetentionPolicy] Failed to enforce data retention policy:', err);
+      }
+    }
+
+    // Trigger immediate run
+    enforceDataRetentionPolicy();
+
+    // Schedule run daily (every 24 hours)
+    const DAILY_MS = 24 * 60 * 60 * 1000;
+    setInterval(enforceDataRetentionPolicy, DAILY_MS);
+    console.log('[RetentionPolicy] Daily data retention pruner scheduled.');
   })
   .catch((err) => {
     console.error('Initialization error:', err);

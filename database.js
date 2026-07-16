@@ -15,7 +15,7 @@ let currentHlc = null;
 let currentDbVersion = 0; // Incremented on each local transaction change
 
 // Schema version: increment when adding columns/tables that clients must have before syncing
-const SERVER_SCHEMA_VERSION = 10;
+const SERVER_SCHEMA_VERSION = 11;
 module.exports && Object.assign(module.exports, { SERVER_SCHEMA_VERSION });
 
 // Secure PBKDF2 password hashing helper (OWASP approved, zero external dependencies)
@@ -25,12 +25,61 @@ function hashPin(pin, salt) {
   return `${salt}:${hash}`;
 }
 
+// Timing-safe PIN verification using crypto.timingSafeEqual to prevent timing attacks.
+// Both buffers must be the same length; if not, return false immediately (no timing leak
+// because the PBKDF2 hash is always 128 hex chars — length differences only occur if the
+// stored hash is corrupt, which is a hard fail regardless).
 function verifyPin(pin, storedHash) {
   if (!storedHash || !storedHash.includes(':')) return false;
   const [salt, hash] = storedHash.split(':');
   const checkHash = crypto.pbkdf2Sync(pin, salt, 100000, 64, 'sha256').toString('hex');
-  return hash === checkHash;
+  // Use timingSafeEqual to prevent timing oracle attacks on PIN comparison
+  const hashBuf  = Buffer.from(hash,      'utf8');
+  const checkBuf = Buffer.from(checkHash, 'utf8');
+  if (hashBuf.length !== checkBuf.length) return false;
+  return crypto.timingSafeEqual(hashBuf, checkBuf);
 }
+
+// Database-backed PIN brute-force prevention helpers
+async function checkPinLockout(attemptKey) {
+  const row = await db.get("SELECT attempt_count, lockout_until FROM pin_lockout_log WHERE attempt_key = ?", [attemptKey]);
+  if (!row) return { locked: false, minsLeft: 0 };
+  if (row.lockout_until && row.lockout_until > Date.now()) {
+    const minsLeft = Math.ceil((row.lockout_until - Date.now()) / 60000);
+    return { locked: true, minsLeft };
+  }
+  // Lockout expired - clean up or return unlocked
+  if (row.lockout_until && row.lockout_until <= Date.now()) {
+    await db.run("UPDATE pin_lockout_log SET attempt_count = 0, lockout_until = NULL WHERE attempt_key = ?", [attemptKey]);
+  }
+  return { locked: false, minsLeft: 0 };
+}
+
+async function recordPinFailure(attemptKey, maxAttempts = 5, lockoutMinutes = 15) {
+  const now = Date.now();
+  const row = await db.get("SELECT attempt_count FROM pin_lockout_log WHERE attempt_key = ?", [attemptKey]);
+  if (!row) {
+    await db.run(
+      "INSERT INTO pin_lockout_log (attempt_key, attempt_count, lockout_until, last_attempt_at, created_at) VALUES (?, 1, NULL, ?, ?)",
+      [attemptKey, now, now]
+    );
+  } else {
+    const newCount = row.attempt_count + 1;
+    let lockoutUntil = null;
+    if (newCount >= maxAttempts) {
+      lockoutUntil = now + (lockoutMinutes * 60000);
+    }
+    await db.run(
+      "UPDATE pin_lockout_log SET attempt_count = ?, lockout_until = ?, last_attempt_at = ? WHERE attempt_key = ?",
+      [newCount, lockoutUntil, now, attemptKey]
+    );
+  }
+}
+
+async function clearPinLockout(attemptKey) {
+  await db.run("DELETE FROM pin_lockout_log WHERE attempt_key = ?", [attemptKey]);
+}
+
 
 // Strict in-process Write Queue to serialize database writes & prevent interleaved transactions in WAL mode
 const writeQueue = {
@@ -714,6 +763,23 @@ async function initDatabase(terminalId) {
       } catch (err) {
         console.error('[Database] Failed to migrate database schema in v10:', err.message);
       }
+    } else if (v === 11) {
+      try {
+        await db.exec(`
+          CREATE TABLE IF NOT EXISTS pin_lockout_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            attempt_key TEXT NOT NULL,
+            attempt_count INTEGER NOT NULL DEFAULT 1,
+            lockout_until INTEGER,
+            last_attempt_at INTEGER NOT NULL,
+            created_at INTEGER NOT NULL
+          );
+          CREATE UNIQUE INDEX IF NOT EXISTS idx_pin_lockout_key ON pin_lockout_log(attempt_key);
+        `);
+        console.log('[Database] Migrated database schema to v11 (pin_lockout_log table).');
+      } catch (err) {
+        console.error('[Database] Failed to migrate database schema in v11:', err.message);
+      }
     }
 
     // Atomically write new schema version
@@ -1351,6 +1417,9 @@ module.exports = {
   db,
   verifyPin,
   hashPin,
+  checkPinLockout,
+  recordPinFailure,
+  clearPinLockout,
   getChangesSince,
   applyRemoteChanges,
   compactTombstones: pruneAcknowledgedChanges, // backward-compat alias

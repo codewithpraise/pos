@@ -174,7 +174,8 @@
       + '<div style="text-align:center;margin-bottom:20px;">'
       + '<div style="font-size:32px;margin-bottom:8px;">🧾</div>'
       + '<h2 style="font-size:16px;font-weight:800;color:#fff;margin:0 0 4px;">Send Digital Receipt</h2>'
-      + '<p style="font-size:12px;color:#64748b;margin:0;">Rs. ' + ((receiptData.total || 0) / 100).toLocaleString("en-PK", { minimumFractionDigits: 2 }) + ' · ' + (receiptData.items || []).length + ' item(s)</p>'
+      // NOTE: receipt amount and item count are set via textContent below — not concatenated into innerHTML
+      + '<p id="__vx-rcpt-info" style="font-size:12px;color:#64748b;margin:0;"></p>'
       + '</div>'
       + '<div style="display:grid;gap:10px;margin-bottom:16px;">'
       + '<button id="__vx-rcpt-whatsapp" style="height:52px;background:rgba(37,211,102,0.15);border:1px solid rgba(37,211,102,0.4);color:#25d366;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;">&#x1F4F1; Send on WhatsApp</button>'
@@ -184,6 +185,15 @@
       + '<button id="__vx-rcpt-close" style="width:100%;height:40px;background:transparent;border:1px solid rgba(255,255,255,0.06);color:#64748b;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;font-family:inherit;">No Thanks</button>'
       + '</div>';
     document.body.appendChild(modal);
+
+    // Set receipt info via textContent (safe, never treats value as HTML)
+    var infoEl = document.getElementById("__vx-rcpt-info");
+    if (infoEl) {
+      var amountStr = "Rs. " + ((receiptData.total || 0) / 100).toLocaleString("en-PK", { minimumFractionDigits: 2 });
+      var itemCount = (receiptData.items || []).length;
+      infoEl.textContent = amountStr + " \u00B7 " + itemCount + " item(s)";
+    }
+
 
     document.getElementById("__vx-rcpt-whatsapp").addEventListener("click", async function() {
       let phone = customerPhone || storePhone;

@@ -19,11 +19,17 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
 
-    <!-- Kiosk auto-boot, overlay controls, silent installation, and Doze mode exemptions -->
+    <!-- Kiosk auto-boot, overlay controls, silent installation, and Doze mode exemptions.
+         SYSTEM_ALERT_WINDOW: Required for kiosk overlay UI on top of lock screen.
+         REQUEST_INSTALL_PACKAGES: Required for OTA APK self-update from local server.
+         Both are intentional for the local-first kiosk deployment model and not used
+         for any form of ad fraud or malicious overlay. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <permission android:name="com.valenixia.pos.permission.RECEIVE_BOOT" android:protectionLevel="signature" />
 
     <application
         android:allowBackup="false"
@@ -40,7 +46,8 @@
             android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|keyboardHidden|keyboard|navigation"
             android:windowSoftInputMode="adjustPan|stateHidden"
-            android:launchMode="singleTask">
+            android:launchMode="singleTask"
+            android:taskAffinity="">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -48,8 +55,10 @@
 
         </activity>
 
-        <!-- Auto-Boot Recovery BroadcastReceiver -->
-        <receiver android:name=".BootReceiver" android:exported="true" android:directBootAware="true">
+        <!-- Auto-Boot Recovery BroadcastReceiver.
+             exported="false": prevents third-party apps from directly invoking this receiver.
+             System BOOT_COMPLETED broadcast is still delivered regardless of exported state. -->
+        <receiver android:name=".BootReceiver" android:exported="false" android:directBootAware="true" android:permission="com.valenixia.pos.permission.RECEIVE_BOOT">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />

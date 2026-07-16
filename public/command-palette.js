@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 // VALENIXIA COMMAND PALETTE — Ctrl+K global quick navigation
 // Keyboard-first power user interface: navigate screens, search products,
 // trigger actions, all without touching the mouse.
@@ -73,6 +73,16 @@
       .map(x => x.cmd);
   }
 
+  function escapeHTML(str) {
+    if (!str) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
   // ── Render palette ────────────────────────────────────────────────────────────
   function render(query) {
     const allCmds = buildCommands();
@@ -81,16 +91,16 @@
     const list = document.getElementById("__vx-palette-list");
     if (!list) return;
     if (_filteredCommands.length === 0) {
-      list.innerHTML = '<div style="padding:24px;text-align:center;color:#4b5563;font-size:13px;">No results for "' + query + '"</div>';
+      list.innerHTML = '<div style="padding:24px;text-align:center;color:#4b5563;font-size:13px;">No results for "' + escapeHTML(query) + '"</div>';
       return;
     }
     list.innerHTML = _filteredCommands.map((cmd, i) => {
       const sel = i === _selectedIdx;
       return '<div class="__vx-palette-item' + (sel ? " __vx-palette-selected" : "") + '" data-idx="' + i + '" style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-radius:8px;cursor:pointer;background:' + (sel ? "rgba(16,185,129,0.12)" : "transparent") + ';border:1px solid ' + (sel ? "rgba(16,185,129,0.25)" : "transparent") + ';">'
-        + '<span style="font-size:20px;width:28px;text-align:center;">' + (cmd.icon || "▶") + '</span>'
+        + '<span style="font-size:20px;width:28px;text-align:center;">' + escapeHTML(cmd.icon || "▶") + '</span>'
         + '<div style="flex:1;min-width:0;">'
-        + '<div style="font-size:13px;font-weight:600;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + cmd.label + '</div>'
-        + (cmd.sub ? '<div style="font-size:11px;color:#64748b;margin-top:1px;">' + cmd.sub + '</div>' : '')
+        + '<div style="font-size:13px;font-weight:600;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHTML(cmd.label) + '</div>'
+        + (cmd.sub ? '<div style="font-size:11px;color:#64748b;margin-top:1px;">' + escapeHTML(cmd.sub) + '</div>' : '')
         + '</div>'
         + '<span style="font-size:10px;color:#374151;font-weight:600;">↵</span>'
         + '</div>';

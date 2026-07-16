@@ -7,6 +7,10 @@ android {
     namespace = "com.valenixia.pos"
     compileSdk = 35
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     defaultConfig {
         applicationId = "com.valenixia.pos"
         minSdk = 26
@@ -70,6 +74,7 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("com.google.android.material:material:1.12.0")
+    implementation("com.google.android.play:integrity:1.4.0")
 
     // Local JVM Unit Tests
     testImplementation("junit:junit:4.13.2")
