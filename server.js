@@ -129,12 +129,12 @@ async function verifyCheckoutPricing(cart, paymentMode, tier) {
   if (skus.length === 0) return { subtotal: 0, tax: 0, total: 0 };
   
   const placeholders = skus.map(() => '?').join(',');
-  const itemRows = await db.all(`SELECT sku, base_price_minor_units, quantity_on_hand FROM inventory_catalog WHERE sku IN (${placeholders})`, skus);
+  const itemRows = await db.all(`SELECT sku, base_price_minor_units, stock_level FROM inventory_catalog WHERE sku IN (${placeholders})`, skus);
   const priceMap = {};
   const stockMap = {};
   itemRows.forEach(r => { 
     priceMap[r.sku] = r.base_price_minor_units; 
-    stockMap[r.sku] = r.quantity_on_hand;
+    stockMap[r.sku] = r.stock_level;
   });
 
   const prefRows = await db.all("SELECT key, value_payload FROM local_preferences");

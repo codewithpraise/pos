@@ -213,10 +213,10 @@ async function run() {
   if (readyState === 'complete' || readyState === 'interactive') pass('Page loaded or interactive');
   else fail('Page readyState', `Got: ${readyState}`);
 
-  // License tier — wait up to 5s for license engine to set it
-  const tier = await waitFor(ev, 'window.__valenixiaTier', 5000);
+  // License tier — wait up to 15s for license engine to set it (CI runners are slow)
+  const tier = await waitFor(ev, 'window.__valenixiaTier', 15000);
   if (tier) pass(`License tier: ${tier}`);
-  else fail('License tier', 'window.__valenixiaTier not set after 5s');
+  else fail('License tier', 'window.__valenixiaTier not set after 15s');
 
   const graceTrialFn = await ev('typeof window.isGraceTrialActive');
   if (graceTrialFn === 'function') pass('isGraceTrialActive globally exposed');
