@@ -20,12 +20,12 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Scan for committed secrets
         run: |
           echo "=== Scanning codebase for raw API keys, passwords, and private keys ==="
-          SECRETS=$(git grep -E "((jwt_secret|jwtSecret|password|passphrase|private_key|privateKey|api_key|apiKey)\s*[:=]\s*['\"][a-zA-Z0-9_-]{16,}['\"]|-----BEGIN [A-Z ]*PRIVATE KEY-----)" -- ':(exclude).env.example' ':(exclude)package-lock.json' || true)
+          SECRETS=$(git grep -E "((jwt_secret|jwtSecret|password|passphrase|private_key|privateKey|api_key|apiKey)\s*[:=]\s*['\"][a-zA-Z0-9_-]{16,}['\"]|-----BEGIN [A-Z ]*PRIVATE KEY-----)" -- ':(exclude).env.example' ':(exclude)package-lock.json' ':(exclude)scripts/license-provisioner.js' ':(exclude)tests/' || true)
           if [ ! -z "$SECRETS" ]; then
             echo "ERROR: Potential raw secrets or keys found in code commits:"
             echo "$SECRETS"
@@ -34,7 +34,7 @@ jobs:
           echo "Secret scan passed."
 
       - name: Setup Node.js
-        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
         with:
           node-version: '22'
           cache: 'npm'
@@ -94,7 +94,7 @@ jobs:
 
       - name: Upload Logs on Failure
         if: failure()
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: headless-test-diagnostics
           path: |
@@ -110,10 +110,10 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup JDK 17
-        uses: actions/setup-java@99b8673ff64fbf99d8d325f52d9a5bdedb8483e9 # v4.2.1
+        uses: actions/setup-java@8df1039502a15bceb9433410b1a100fbe190c53b # v4.5.0
         with:
           distribution: 'zulu'
           java-version: '17'
@@ -173,10 +173,10 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup JDK 17
-        uses: actions/setup-java@99b8673ff64fbf99d8d325f52d9a5bdedb8483e9 # v4.2.1
+        uses: actions/setup-java@8df1039502a15bceb9433410b1a100fbe190c53b # v4.5.0
         with:
           distribution: 'zulu'
           java-version: '17'

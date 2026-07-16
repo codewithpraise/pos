@@ -1573,14 +1573,14 @@
         LicenseEngine.init().then(ok => {
           if (!ok) {
             const msgEl = document.getElementById('license-message');
-            if (msgEl) msgEl.innerHTML = message;
+            if (msgEl) msgEl.textContent = message;
           }
         });
       }
     } else {
       overlay.style.display = 'flex';
       const msgEl = document.getElementById('license-message');
-      if (msgEl) msgEl.innerHTML = message;
+      if (msgEl) msgEl.textContent = message;
     }
     
     const layout = document.getElementById('pos-app-layout');
@@ -1599,6 +1599,13 @@
   function setupWebWorker() {
     syncWorker = new Worker('sync-worker.js');
     window.syncWorker = syncWorker;
+
+    window.addEventListener('beforeunload', () => {
+      if (syncWorker) {
+        syncWorker.postMessage({ type: 'TERMINATE' });
+      }
+    });
+
     const originalPost = syncWorker.postMessage.bind(syncWorker);
     syncWorker.postMessage = function(msg) {
       if (msg) {
@@ -6935,23 +6942,86 @@
     // Set button loading to prevent double-click
     setButtonLoading('btn-checkout-complete', true, 'Processing...');
 
-    // Dispatch payload to background Web Worker to write to IndexedDB and trigger P2P sync
-    syncWorker.postMessage({
-      type: 'CHECKOUT',
-      payload: {
-        transactionId,
-        employeeId: cashierId,
-        customerId: state.attachedCustomer ? state.attachedCustomer.id : null,
-        cart: state.activeCart,
-        subtotal,
-        tax,
-        total,
-        paymentMode,
-        paymentDetails,
-        tier: window.__valenixiaTier || 'STARTER',
-        fbr_integration_enabled: state.preferences['fbr_integration_enabled']
+    // Asynchronously verify prices before submitting to sync-worker
+    async function verifyAndProceed() {
+      let finalDetails = paymentDetails;
+      let checkoutToken = 'OFFLINE_PENDING';
+      
+      try {
+        const token = localStorage.getItem('valenixia_token');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+
+        const response = await fetch((window.__valenixiaServerUrl || '') + '/api/checkout/verify', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            cart: state.activeCart,
+            paymentMode,
+            tier: window.__valenixiaTier || 'STARTER'
+          })
+        });
+
+        if (response.ok) {
+          const resJson = await response.json();
+          if (resJson.success) {
+            checkoutToken = resJson.checkout_token;
+          } else {
+            throw new Error(resJson.error || 'Server rejected pricing validation.');
+          }
+        } else if (response.status === 400 || response.status === 403 || response.status === 401) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || `Server verification failed (HTTP ${response.status})`);
+        } else {
+          console.warn('[Checkout] Server returned unexpected error, falling back to offline checkout.');
+          checkoutToken = 'OFFLINE_PENDING';
+        }
+      } catch (err) {
+        if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.message.includes('network'))) {
+          console.warn('[Checkout] Server is unreachable. Executing offline checkout fallback.');
+          checkoutToken = 'OFFLINE_PENDING';
+        } else {
+          playAudioSignal('error');
+          showModal({ title: 'Pricing Error', message: `Checkout verification rejected: ${err.message}`, type: 'danger' });
+          setButtonLoading('btn-checkout-complete', false, 'COMPLETE CHECKOUT');
+          state.isCheckingOut = false;
+          window.__isSubmitting = false;
+          return;
+        }
       }
-    });
+
+      const meta = { verified_token: checkoutToken, tier: window.__valenixiaTier || 'STARTER' };
+      if (finalDetails.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(finalDetails);
+          finalDetails = JSON.stringify({ ...parsed, ...meta });
+        } catch (_) {
+          finalDetails = JSON.stringify({ note: finalDetails, ...meta });
+        }
+      } else {
+        finalDetails = JSON.stringify({ note: finalDetails, ...meta });
+      }
+
+      // Dispatch payload to background Web Worker to write to IndexedDB and trigger P2P sync
+      syncWorker.postMessage({
+        type: 'CHECKOUT',
+        payload: {
+          transactionId,
+          employeeId: cashierId,
+          customerId: state.attachedCustomer ? state.attachedCustomer.id : null,
+          cart: state.activeCart,
+          subtotal,
+          tax,
+          total,
+          paymentMode,
+          paymentDetails: finalDetails,
+          tier: window.__valenixiaTier || 'STARTER',
+          fbr_integration_enabled: state.preferences['fbr_integration_enabled']
+        }
+      });
+    }
+
+    verifyAndProceed();
   }
 
   // --- CATALOG LIST BUILDER ---

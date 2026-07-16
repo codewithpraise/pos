@@ -6,6 +6,24 @@
 importScripts('client-db.js', 'client-sync.js');
 let dbReadyPromise = ValenixiaDB.init(); // Capture the init promise
 
+function secureRandomInt(min, max) {
+  const range = max - min + 1;
+  const array = new Uint32Array(1);
+  (self.crypto || crypto).getRandomValues(array);
+  return min + (array[0] % range);
+}
+
+function secureRandomString(length) {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  const array = new Uint8Array(length);
+  (self.crypto || crypto).getRandomValues(array);
+  let str = '';
+  for (let i = 0; i < length; i++) {
+    str += chars[array[i] % chars.length];
+  }
+  return str;
+}
+
 async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -58,20 +76,22 @@ let nodeId = null;
 let isBootstrapped = false;
 let bootstrapPromise = null;
 
-// Exact decimal string serialization to prevent IEEE 754 float precision issues for PRAL compliance
+// Exact decimal conversion to prevent IEEE 754 float precision issues for PRAL compliance
+const toDec = (minor) => Number((minor / 100).toFixed(2));
+
 function serializePRALPayload(fbrInvoiceNumber, now, total, tax, subtotal, cart, paymentMode, usin) {
   // PRAL requires bare numeric doubles (not quoted strings) for monetary fields
   // We build the object with numbers directly — no regex post-processing needed
   const formattedObj = {
     invoiceNumber: fbrInvoiceNumber,
     saleDate: new Date(now).toISOString(),
-    totalAmount: Number((total / 100).toFixed(2)),
-    taxAmount: Number((tax / 100).toFixed(2)),
-    subtotalAmount: Number((subtotal / 100).toFixed(2)),
+    totalAmount: toDec(total),
+    taxAmount: toDec(tax),
+    subtotalAmount: toDec(subtotal),
     items: cart.map(i => ({
       sku: i.sku,
       qty: i.qty,
-      unitPrice: Number((i.price / 100).toFixed(2))
+      unitPrice: toDec(i.price)
     })),
     paymentMode: paymentMode,
     usin: usin
@@ -113,7 +133,7 @@ async function initializeSyncEngine(serverUrl) {
     // Fetch persistent terminal/node ID from local preferences or create one
     let terminalNamePref = await ValenixiaDB.get('local_preferences', 'terminal_name');
     if (!terminalNamePref || !terminalNamePref.value_payload) {
-      nodeId = 'web_client_' + (crypto.randomUUID ? crypto.randomUUID().replace(/-/g,'').slice(0,9) : Math.random().toString(36).substring(2, 9));
+      nodeId = 'web_client_' + ((self.crypto && self.crypto.randomUUID) ? self.crypto.randomUUID().replace(/-/g,'').slice(0,9) : secureRandomString(9));
       await ValenixiaDB.put('local_preferences', {
         key: 'terminal_name',
         value_type: 'STR',
@@ -267,6 +287,24 @@ self.onmessage = async (event) => {
   // Handle reload instruction from SyncClient
   if (type === 'FORCE_RELOAD') {
     postMessage({ type: 'FORCE_RELOAD' });
+    return;
+  }
+
+  // Handle terminate instruction
+  if (type === 'TERMINATE') {
+    console.warn('[SyncWorker] TERMINATE received. Closing database and WebSocket connections...');
+    if (syncClient) {
+      if (syncClient.ws) {
+        try { syncClient.ws.close(); } catch (_) {}
+      }
+    }
+    try {
+      if (ValenixiaDB.db) {
+        ValenixiaDB.db.close();
+      }
+    } catch (_) {}
+    postMessage({ type: 'TERMINATED' });
+    self.close(); // Closes the Web Worker thread
     return;
   }
 
@@ -571,7 +609,7 @@ self.onmessage = async (event) => {
 
         if (isFbrEnabled) {
           // Generate FBR E-Invoicing compliant Fiscal details automatically
-          fbrInvoiceNumber = `FBR-POS-${now}-${Math.floor(1000 + Math.random() * 9000)}`;
+          fbrInvoiceNumber = `FBR-POS-${now}-${secureRandomInt(1000, 9999)}`;
           fbrQrUrl = `https://verification.fbr.gov.pk/verify?invoiceNumber=${fbrInvoiceNumber}&total=${total}&tax=${tax}`;
           
           const fbrMeta = {
@@ -1082,7 +1120,7 @@ self.onmessage = async (event) => {
 
         // Save items
         for (const item of items) {
-          const itemId = `poi_${id}_${item.sku || Math.random().toString(36).substring(2, 9)}`;
+          const itemId = `poi_${id}_${item.sku || secureRandomString(7)}`;
           const poli = {
             id: itemId,
             po_id: id,
@@ -1267,7 +1305,7 @@ self.onmessage = async (event) => {
         try {
           const log = payload;
           await ValenixiaDB.put('telemetry_logs', {
-            id: log.id || `tl_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+            id: log.id || `tl_${Date.now()}_${secureRandomString(4)}`,
             node_id: log.nodeId || nodeId,
             error_type: log.errorType || 'UNKNOWN',
             error_message: log.errorMessage || '',
@@ -1554,7 +1592,7 @@ async function checkStockAlert(sku, tickHlc, tx = null) {
         }
 
         // Generate Automated Draft PO
-        const poId = 'po_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+        const poId = 'po_' + Date.now() + '_' + secureRandomString(4);
         const reorderQty = 50;
         const estimatedCost = prod.cost_price_minor_units || Math.round(prod.base_price_minor_units * 0.60);
         const totalCost = estimatedCost * reorderQty;

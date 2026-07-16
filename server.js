@@ -1046,6 +1046,34 @@ wss.on('connection', (ws, req) => {
             return;
           }
 
+          // Validate that the client only modifies allowed tables (Task 7-B)
+          const CLIENT_WRITABLE_TABLES = new Set([
+            'transactions',
+            'line_items',
+            'stock_movements',
+            'customer_credit',
+            'fbr_submissions',
+            'speech_analytics_logs',
+            'aborted_sales_log',
+            'telemetry_logs',
+            'purchase_orders',
+            'po_line_items',
+            'distributors',
+            'distributor_payments',
+            'employee_shifts',
+            'customers'
+          ]);
+
+          const unauthorizedChange = data.changes.find(c => !CLIENT_WRITABLE_TABLES.has(c.table_name));
+          if (unauthorizedChange) {
+            console.warn(`[SyncHub] Unauthorized table write attempt by node ${data.nodeId} on table "${unauthorizedChange.table_name}"`);
+            ws.send(encryptPayload({
+              type: 'SYNC_ERROR',
+              error: `UNAUTHORIZED_TABLE_WRITE: You do not have permission to sync changes to the table "${unauthorizedChange.table_name}".`
+            }));
+            return;
+          }
+
           // Price re-validation guard for incoming sync changes
           const txChanges = data.changes.filter(c => c.table_name === 'transactions');
           if (txChanges.length > 0) {
@@ -2081,7 +2109,7 @@ app.post('/api/admin/payments/decision', requireAdmin, async (req, res) => {
 });
 
 // POST /api/auth/emergency-override — Triggers local emergency override bypass using Manager/Admin PIN
-app.post('/api/auth/emergency-override', checkOrigin, loginLimiter, async (req, res) => {
+app.post('/api/auth/emergency-override', checkOrigin, requireAdmin, loginLimiter, async (req, res) => {
   const { pin } = req.body;
   if (!pin) return res.status(400).json({ error: 'PIN is required.' });
 
@@ -2106,10 +2134,21 @@ app.post('/api/auth/emergency-override', checkOrigin, loginLimiter, async (req, 
 
     if (!matchedEmp) {
       await recordPinFailure(lockoutKey, 3, 30);
+      const auditId = 'audit_' + crypto.randomUUID().substring(0, 8);
+      await db.run(
+        "INSERT INTO admin_audit_log (id, user_id, action, details, created_at) VALUES (?, ?, ?, ?, ?)",
+        [auditId, req.device?.nodeId || 'UNKNOWN', 'emergency_override_failed', `Failed emergency override attempt from IP: ${req.ip}`, Date.now()]
+      );
       return res.status(401).json({ error: 'Invalid Manager or Administrator PIN.' });
     }
 
     await clearPinLockout(lockoutKey);
+    
+    const auditId = 'audit_' + crypto.randomUUID().substring(0, 8);
+    await db.run(
+      "INSERT INTO admin_audit_log (id, user_id, action, details, created_at) VALUES (?, ?, ?, ?, ?)",
+      [auditId, matchedEmp.id, 'emergency_override', `Emergency override triggered by ${matchedEmp.role} (IP: ${req.ip})`, Date.now()]
+    );
 
     const until = Date.now() + 15 * 60 * 1000; // 15 minutes limit
     await db.run(
@@ -2765,7 +2804,7 @@ app.get('/api/system/status', async (req, res) => {
 
 // 6.d System Factory Reset (Authenticated ADMIN PIN)
 // POST /api/system/reset — loginLimiter added: factory reset was rate-unlimited, PIN-only gate
-app.post('/api/system/reset', checkOrigin, loginLimiter, async (req, res) => {
+app.post('/api/system/reset', checkOrigin, requireAdmin, loginLimiter, async (req, res) => {
   let authorized = false;
   const { pin } = req.body;
   const lockoutKey = `sys_reset:${req.ip}`;
@@ -3518,15 +3557,29 @@ initDatabase(terminalId)
     }, WEEK_MS);
     console.log('[GC] Weekly CRDT tombstone garbage collector scheduled.');
 
-    // ── Enforce 6-Year Data Retention Policy (Task 6-B) ──────────────────────
+    // ── Enforce 6-Year Data Retention Policy (Task 6-B / 7-D) ────────────────
     async function enforceDataRetentionPolicy() {
       try {
+        const lastRunRow = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'last_data_retention_prune_ts'");
+        const lastRun = lastRunRow ? parseInt(lastRunRow.value_payload) : 0;
+        const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+        
+        if (Date.now() - lastRun < ONE_DAY_MS) {
+          console.log('[RetentionPolicy] Skip: Data retention pruner already executed today.');
+          return;
+        }
+
         const SIX_YEARS_MS = 6 * 365 * 24 * 60 * 60 * 1000;
         const cutoff = Date.now() - SIX_YEARS_MS;
         
-        const result1 = await db.run("DELETE FROM transactions WHERE created_at < ?", [cutoff]);
+        await db.run("DELETE FROM transactions WHERE created_at < ?", [cutoff]);
         await db.run("DELETE FROM line_items WHERE transaction_id NOT IN (SELECT id FROM transactions)");
         await db.run("DELETE FROM fbr_submissions WHERE created_at < ?", [cutoff]);
+        
+        await db.run(
+          "INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('last_data_retention_prune_ts', 'NUM', ?, 1, ?)",
+          [String(Date.now()), Date.now()]
+        );
         
         console.log(`[RetentionPolicy] Data retention policy enforced. Removed transaction records older than 6 years.`);
       } catch (err) {
@@ -3537,10 +3590,10 @@ initDatabase(terminalId)
     // Trigger immediate run
     enforceDataRetentionPolicy();
 
-    // Schedule run daily (every 24 hours)
-    const DAILY_MS = 24 * 60 * 60 * 1000;
-    setInterval(enforceDataRetentionPolicy, DAILY_MS);
-    console.log('[RetentionPolicy] Daily data retention pruner scheduled.');
+    // Schedule run check hourly (highly robust against restarts and drift)
+    const HOUR_MS = 60 * 60 * 1000;
+    setInterval(enforceDataRetentionPolicy, HOUR_MS);
+    console.log('[RetentionPolicy] Hourly data retention prune scheduler active.');
   })
   .catch((err) => {
     console.error('Initialization error:', err);

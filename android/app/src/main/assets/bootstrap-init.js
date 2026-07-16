@@ -1,3 +1,13 @@
+window.escapeHTML = function(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+};
+
 // UNIVERSAL BASE64-URL DECODER
 window.safeAtob = function(base64Str) {
     try {
@@ -41,7 +51,7 @@ function drawCrashConsole(msg, source, lineno, error) {
     logEntry.style.marginBottom = '10px';
     logEntry.style.borderBottom = '1px solid #333';
     logEntry.style.paddingBottom = '5px';
-    logEntry.innerHTML = `<strong>[CRASH]</strong> ${msg}<br><span style="color:#888;">File: ${source} (Line: ${lineno})</span><br><span style="color:#ffa500;">${error ? error.stack : 'No stack trace'}</span>`;
+    logEntry.innerHTML = `<strong>[CRASH]</strong> ${escapeHTML(msg)}<br><span style="color:#888;">File: ${escapeHTML(source)} (Line: ${escapeHTML(lineno)})</span><br><span style="color:#ffa500;">${error ? escapeHTML(error.stack) : 'No stack trace'}</span>`;
     consoleDiv.appendChild(logEntry);
 }
 window.drawCrashConsole = drawCrashConsole;
@@ -147,15 +157,15 @@ window.showModal = function({ title, message, type = 'info', actions = [{ id: 'o
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:999999999;display:flex;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(4px);font-family:sans-serif;';
     let inputHtml = '';
     if (input) {
-      inputHtml = '<input id="__modal-input" type="' + (input.type || 'text') + '" placeholder="' + (input.placeholder || '') + '" value="' + (input.defaultValue || '') + '" style="width:100%;margin-top:16px;padding:12px;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:6px;outline:none;font-size:14px;" />';
+      inputHtml = '<input id="__modal-input" type="' + escapeHTML(input.type || 'text') + '" placeholder="' + escapeHTML(input.placeholder || '') + '" value="' + escapeHTML(input.defaultValue || '') + '" style="width:100%;margin-top:16px;padding:12px;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:6px;outline:none;font-size:14px;" />';
     }
     const buttonsHtml = actions.map(act => {
       const bg = act.style === 'danger' ? '#ef4444' : (act.style === 'primary' ? '#10b981' : 'transparent');
       const border = act.style === 'secondary' ? '1px solid rgba(255,255,255,0.15)' : 'none';
       const color = act.style === 'secondary' ? '#9ca3af' : '#fff';
-      return '<button data-id="' + act.id + '" style="flex:1;padding:12px;background:' + bg + ';border:' + border + ';color:' + color + ';font-weight:700;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit;">' + act.label + '</button>';
+      return '<button data-id="' + escapeHTML(act.id) + '" style="flex:1;padding:12px;background:' + bg + ';border:' + border + ';color:' + color + ';font-weight:700;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit;">' + escapeHTML(act.label) + '</button>';
     }).join('');
-    overlay.innerHTML = '<div style="background:#0f0f11;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:24px;max-width:400px;width:100%;box-shadow:0 20px 40px rgba(0,0,0,0.5);"><h3 style="color:#fff;font-size:16px;font-weight:800;margin-bottom:10px;font-family:inherit;">' + title + '</h3><p style="color:#9ca3af;font-size:13px;line-height:1.6;white-space:pre-wrap;margin:0;font-family:inherit;">' + message + '</p>' + inputHtml + '<div style="display:flex;gap:12px;margin-top:24px;">' + buttonsHtml + '</div></div>';
+    overlay.innerHTML = '<div style="background:#0f0f11;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:24px;max-width:400px;width:100%;box-shadow:0 20px 40px rgba(0,0,0,0.5);"><h3 style="color:#fff;font-size:16px;font-weight:800;margin-bottom:10px;font-family:inherit;">' + escapeHTML(title) + '</h3><p style="color:#9ca3af;font-size:13px;line-height:1.6;white-space:pre-wrap;margin:0;font-family:inherit;">' + escapeHTML(message) + '</p>' + inputHtml + '<div style="display:flex;gap:12px;margin-top:24px;">' + buttonsHtml + '</div></div>';
     document.body.appendChild(overlay);
     if (input) {
       setTimeout(() => document.getElementById('__modal-input')?.focus(), 50);
@@ -169,3 +179,14 @@ window.showModal = function({ title, message, type = 'info', actions = [{ id: 'o
     });
   });
 };
+
+// Global click interceptor to prevent tabnabbing vulnerability
+document.addEventListener('click', function(e) {
+  const target = e.target.closest('a');
+  if (target && target.getAttribute('target') === '_blank') {
+    const rel = target.getAttribute('rel');
+    if (!rel || !rel.includes('noopener') || !rel.includes('noreferrer')) {
+      target.setAttribute('rel', 'noopener noreferrer');
+    }
+  }
+}, true);

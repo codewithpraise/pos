@@ -1,12 +1,17 @@
 {
   "name": "Valenixia Commerce Point of Sale",
   "short_name": "Valenixia POS",
+  "id": "/",
+  "lang": "en",
   "description": "Enterprise-grade local-first Point of Sale client with real-time CRDT synchronization.",
   "start_url": "/index.html",
   "display": "standalone",
   "background_color": "#0b0f19",
   "theme_color": "#10b981",
   "orientation": "any",
+  "categories": ["business", "productivity", "finance"],
+  "shortcuts": [],
+  "screenshots": [],
   "icons": [
     {
       "src": "icon-192.png",
