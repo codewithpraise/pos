@@ -1894,6 +1894,14 @@ app.post('/api/employee/login', loginLimiter, requireAuth, async (req, res) => {
 
     if (matched) {
       await clearPinLockout(lockoutKey);
+      
+      // Regenerate session if session middleware is ever configured (Session Fixation defense-in-depth)
+      if (req.session && typeof req.session.regenerate === 'function') {
+        req.session.regenerate((err) => {
+          if (err) logger.error('Auth', 'Session regeneration failed', err);
+        });
+      }
+
       res.json({ 
         success: true, 
         employee: { id: matched.id, role: matched.role } 
