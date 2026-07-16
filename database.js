@@ -18,26 +18,46 @@ let currentDbVersion = 0; // Incremented on each local transaction change
 const SERVER_SCHEMA_VERSION = 11;
 module.exports && Object.assign(module.exports, { SERVER_SCHEMA_VERSION });
 
-// Secure PBKDF2 password hashing helper (OWASP approved, zero external dependencies)
-function hashPin(pin, salt) {
-  if (!salt) salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.pbkdf2Sync(pin, salt, 100000, 64, 'sha256').toString('hex');
-  return `${salt}:${hash}`;
+const argon2 = require('argon2');
+
+// Secure Argon2 password hashing helper (OWASP approved)
+async function hashPin(pin) {
+  return await argon2.hash(pin, {
+    type: argon2.argon2id,
+    memoryCost: 65536, // 64MB
+    timeCost: 3,
+    parallelism: 4
+  });
 }
 
-// Timing-safe PIN verification using crypto.timingSafeEqual to prevent timing attacks.
-// Both buffers must be the same length; if not, return false immediately (no timing leak
-// because the PBKDF2 hash is always 128 hex chars — length differences only occur if the
-// stored hash is corrupt, which is a hard fail regardless).
-function verifyPin(pin, storedHash) {
-  if (!storedHash || !storedHash.includes(':')) return false;
+// Timing-safe and secure verification supporting both Argon2 and legacy PBKDF2 formats
+async function verifyPin(pin, storedHash) {
+  if (!storedHash) return false;
+  if (storedHash.startsWith('$argon2')) {
+    try {
+      return await argon2.verify(storedHash, pin);
+    } catch (e) {
+      return false;
+    }
+  }
+  // Legacy PBKDF2 verification
+  if (!storedHash.includes(':')) return false;
   const [salt, hash] = storedHash.split(':');
   const checkHash = crypto.pbkdf2Sync(pin, salt, 100000, 64, 'sha256').toString('hex');
-  // Use timingSafeEqual to prevent timing oracle attacks on PIN comparison
   const hashBuf  = Buffer.from(hash,      'utf8');
   const checkBuf = Buffer.from(checkHash, 'utf8');
   if (hashBuf.length !== checkBuf.length) return false;
   return crypto.timingSafeEqual(hashBuf, checkBuf);
+}
+
+// Helper to verify PIN across a list of employees asynchronously
+async function verifyEmployeePin(pin, employees) {
+  for (const emp of employees) {
+    if (await verifyPin(pin, emp.auth_hash)) {
+      return emp;
+    }
+  }
+  return null;
 }
 
 // Database-backed PIN brute-force prevention helpers
@@ -196,7 +216,7 @@ async function initDatabase(terminalId) {
     console.warn('[Database] SQLite optimization pass was bypassed:', err.message);
   }
   
-  // 1. Ensure local_preferences table exists first so we can track schema version
+  // 1. Ensure local_preferences and idempotency_keys tables exist first so we can track schema version
   await db.exec(`
     CREATE TABLE IF NOT EXISTS local_preferences (
       key TEXT PRIMARY KEY,
@@ -205,6 +225,12 @@ async function initDatabase(terminalId) {
       value_payload TEXT,
       is_idempotent_flag INTEGER,
       updated_at INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS idempotency_keys (
+      key TEXT PRIMARY KEY,
+      response_code INTEGER,
+      response_body TEXT,
+      created_at INTEGER
     );
   `);
 
@@ -252,16 +278,17 @@ async function initDatabase(terminalId) {
           updated_at INTEGER,
           sync_hlc TEXT,
           is_dirty INTEGER,
-          is_deleted INTEGER
+          is_deleted INTEGER,
+          CHECK (status = 'VOID_CONTRA' OR (subtotal_minor_units >= 0 AND tax_minor_units >= 0 AND total_minor_units >= 0))
         );
 
         CREATE TABLE IF NOT EXISTS line_items (
           id TEXT PRIMARY KEY,
           transaction_id TEXT,
           sku TEXT,
-          quantity INTEGER,
-          unit_price_minor_units INTEGER,
-          applied_discount_minor_units INTEGER,
+          quantity INTEGER CHECK (quantity > 0),
+          unit_price_minor_units INTEGER CHECK (unit_price_minor_units >= 0),
+          applied_discount_minor_units INTEGER CHECK (applied_discount_minor_units >= 0),
           sync_hlc TEXT,
           is_deleted INTEGER,
           FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
@@ -273,7 +300,7 @@ async function initDatabase(terminalId) {
           sku TEXT PRIMARY KEY,
           gtin TEXT UNIQUE,
           name TEXT,
-          base_price_minor_units INTEGER,
+          base_price_minor_units INTEGER CHECK (base_price_minor_units >= 0),
           stock_level INTEGER,
           reserved_stock INTEGER,
           search_vector TEXT,
@@ -864,21 +891,24 @@ async function seedDatabase() {
     const empAdminId = crypto.randomUUID();
     const empCashierId = crypto.randomUUID();
     
+    const adminHash = await hashPin('1234');
+    const cashierHash = await hashPin('5678');
+
     const adminHlc = currentHlc.tick();
     await db.run(
       'INSERT INTO employees (id, auth_hash, biometric_token, role, is_active, sync_hlc) VALUES (?, ?, ?, ?, ?, ?)',
-      [empAdminId, hashPin('1234'), 'secure_biometric_admin_token', 'ADMIN', 1, adminHlc]
+      [empAdminId, adminHash, 'secure_biometric_admin_token', 'ADMIN', 1, adminHlc]
     );
-    await logLocalChange('employees', empAdminId, 'auth_hash', hashPin('1234'), 1, 1, adminHlc);
+    await logLocalChange('employees', empAdminId, 'auth_hash', adminHash, 1, 1, adminHlc);
     await logLocalChange('employees', empAdminId, 'role', 'ADMIN', 1, 1, adminHlc);
     await logLocalChange('employees', empAdminId, 'is_active', 1, 1, 1, adminHlc);
 
     const cashierHlc = currentHlc.tick();
     await db.run(
       'INSERT INTO employees (id, auth_hash, biometric_token, role, is_active, sync_hlc) VALUES (?, ?, ?, ?, ?, ?)',
-      [empCashierId, hashPin('5678'), 'secure_biometric_cashier_token', 'CASHIER', 1, cashierHlc]
+      [empCashierId, cashierHash, 'secure_biometric_cashier_token', 'CASHIER', 1, cashierHlc]
     );
-    await logLocalChange('employees', empCashierId, 'auth_hash', hashPin('5678'), 1, 1, cashierHlc);
+    await logLocalChange('employees', empCashierId, 'auth_hash', cashierHash, 1, 1, cashierHlc);
     await logLocalChange('employees', empCashierId, 'role', 'CASHIER', 1, 1, cashierHlc);
     await logLocalChange('employees', empCashierId, 'is_active', 1, 1, 1, cashierHlc);
 
@@ -1027,29 +1057,36 @@ async function applyRemoteChanges(changes) {
 }
 
 async function recalculateCachedStock(sku) {
-  const baseStockRow = await db.get(
-    "SELECT val, sync_hlc FROM crsql_changes WHERE table_name = 'inventory_catalog' AND pk = ? AND cid = 'stock_level'",
-    [sku]
-  );
-  const baseStock = baseStockRow ? Number(baseStockRow.val) : 0;
-  const baseHlc = baseStockRow ? baseStockRow.sync_hlc : '0000000000000:000000:seed';
+  await db.beginImmediate();
+  try {
+    const baseStockRow = await db.get(
+      "SELECT val, sync_hlc FROM crsql_changes WHERE table_name = 'inventory_catalog' AND pk = ? AND cid = 'stock_level'",
+      [sku]
+    );
+    const baseStock = baseStockRow ? Number(baseStockRow.val) : 0;
+    const baseHlc = baseStockRow ? baseStockRow.sync_hlc : '0000000000000:000000:seed';
 
-  const deltas = await db.all(
-    "SELECT val FROM crsql_changes WHERE table_name = 'inventory_catalog_counters' AND pk LIKE ? AND cid = 'delta' AND sync_hlc > ?",
-    [sku + '/%', baseHlc]
-  );
-  let totalDelta = 0;
-  for (const row of deltas) {
-    totalDelta += Number(row.val);
+    const deltas = await db.all(
+      "SELECT val FROM crsql_changes WHERE table_name = 'inventory_catalog_counters' AND pk LIKE ? AND cid = 'delta' AND sync_hlc > ?",
+      [sku + '/%', baseHlc]
+    );
+    let totalDelta = 0;
+    for (const row of deltas) {
+      totalDelta += Number(row.val);
+    }
+
+    const finalStock = Math.max(0, baseStock + totalDelta);
+    await db.run(
+      "UPDATE inventory_catalog SET stock_level = ? WHERE sku = ?",
+      [finalStock, sku]
+    );
+    await db.commit();
+    console.log(`[Database] Recalculated stock for ${sku}: base=${baseStock} (${baseHlc}), delta=${totalDelta}, final=${finalStock}`);
+    return finalStock;
+  } catch (err) {
+    await db.rollback();
+    throw err;
   }
-
-  const finalStock = Math.max(0, baseStock + totalDelta);
-  await db.run(
-    "UPDATE inventory_catalog SET stock_level = ? WHERE sku = ?",
-    [finalStock, sku]
-  );
-  console.log(`[Database] Recalculated stock for ${sku}: base=${baseStock} (${baseHlc}), delta=${totalDelta}, final=${finalStock}`);
-  return finalStock;
 }
 
 async function applyRemoteChangesInternal(changes) {
@@ -1417,6 +1454,7 @@ module.exports = {
   db,
   verifyPin,
   hashPin,
+  verifyEmployeePin,
   checkPinLockout,
   recordPinFailure,
   clearPinLockout,

@@ -28,7 +28,8 @@ const ASSETS_TO_CACHE = [
   '/icon-512.png',
   '/polyfill.min.js',
   '/NotoNastaliqUrdu-Regular.ttf',
-
+  '/dompurify.min.js',
+  '/jspdf.umd.min.js',
   '/zxing.min.js'
 ];
 
@@ -59,9 +60,12 @@ self.addEventListener('install', (event) => {
           // Perform subresource integrity check on request to prevent cache poisoning
           const options = { cache: 'no-cache' };
           const sriHashes = {
-            '/app.js': 'sha384-mockAppJsHashIntegrityCheckValidOnlyCode',
-            '/client-db.js': 'sha384-mockClientDbHashIntegrityCheckValidOnlyCode',
-            '/polyfill.min.js': 'sha256-RUXyK5fVp6G6g4b4a1m5m9m5o4o5o6o7p8p9p0p1a2b3c4d5e6f7g8h9i0j1'
+            '/app.js': 'sha384-gcpD8tWG+8nYMtrgfk7Ovl89O7RfytNoJr/85CFVxOQW/6IsjwwiV6YDDWO5ifnO',
+            '/client-db.js': 'sha384-A44fcMLCzwwkcQG32yja6WNDQBv06ytcG01pJRsKG8bVaiCaHBeRJcngjTHdJN3O',
+            '/polyfill.min.js': 'sha384-P1J6VFE0IBOGvQjC3qf5YzjpdKWZ5EkHW4kGwsHnyLXMvhRbGJ01arDKwVqcdkUG',
+            '/dompurify.min.js': 'sha384-piCcpDdJ7qVeK4Tv8Z6Hpcr3ZBIgP16TxQTPVfsLFdZ5uDgwc3Y8Ho7oUnqf12qu',
+            '/jspdf.umd.min.js': 'sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk',
+            '/zxing.min.js': 'sha384-ET1PhbRYLe6k2AXPuFZAF+LZYXgMwkHwqrsbw4PobRULALuRP1buPYV++5ODebL5'
           };
           if (sriHashes[url]) {
             options.integrity = sriHashes[url];

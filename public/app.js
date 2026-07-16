@@ -4,8 +4,20 @@
 // ============================================================================
 
 (function() {
-  // Global recursion guard for innerHTML sanitizer
-  let isSanitizing = false;
+  // Configure DOMPurify hook to preserve safe inline click actions
+  if (typeof DOMPurify !== 'undefined') {
+    DOMPurify.addHook('uponSanitizeAttribute', function(node, data) {
+      if (data.attrName === 'onclick') {
+        const attrValue = data.attrValue.toLowerCase();
+        const isSafe = attrValue.includes('reload') || 
+                       attrValue.includes('remove') || 
+                       attrValue.includes('showreleasenotesmodal');
+        if (isSafe) {
+          data.forceKeep = true;
+        }
+      }
+    });
+  }
 
   // Global safe HTML helper to reduce innerHTML static counts and safely sanitize inputs (P1 compliance)
   function setHtml(element, html) {
@@ -19,54 +31,12 @@
       return;
     }
     try {
-      isSanitizing = true;
-      // Use cloneNode(false) to match element tag/context during browser parsing
+      const cleanHtml = typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(html, { USE_PROFILES: { html: true } }) : html;
       const tempElement = element.cloneNode(false);
-      tempElement.innerHTML = html;
-      
-      const sanitizeNode = (node) => {
-        if (node.nodeType === Node.ELEMENT_NODE) {
-          const tagName = node.tagName.toLowerCase();
-          if (tagName === 'script' || tagName === 'iframe' || tagName === 'object' || tagName === 'embed' || tagName === 'meta') {
-            node.replaceWith();
-            return;
-          }
-          
-          const attrs = node.attributes;
-          for (let i = attrs.length - 1; i >= 0; i--) {
-            const attrName = attrs[i].name.toLowerCase();
-            const attrValue = attrs[i].value.toLowerCase();
-            
-            if (attrName.startsWith('on')) {
-              if (attrName === 'onclick') {
-                const isSafe = attrValue.includes('reload') || 
-                               attrValue.includes('remove') || 
-                               attrValue.includes('showreleasenotesmodal');
-                if (!isSafe) {
-                  node.removeAttribute(attrs[i].name);
-                }
-              } else {
-                node.removeAttribute(attrs[i].name);
-              }
-            }
-            
-            if (attrValue.includes('javascript:')) {
-              node.removeAttribute(attrs[i].name);
-            }
-          }
-        }
-        const children = Array.from(node.childNodes);
-        for (const child of children) {
-          sanitizeNode(child);
-        }
-      };
-      
-      sanitizeNode(tempElement);
+      tempElement.innerHTML = cleanHtml;
       element.replaceChildren(...tempElement.childNodes);
     } catch (_) {
       element.replaceChildren();
-    } finally {
-      isSanitizing = false;
     }
   }
   window.setHtml = setHtml;
@@ -98,79 +68,7 @@
     };
   })();
 
-  // Global innerHTML Sanitizer to mitigate XSS (P1 compliance - preserves table/select element contexts)
-  (function() {
-    const originalDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
-    if (originalDescriptor && originalDescriptor.set) {
-      Object.defineProperty(Element.prototype, 'innerHTML', {
-        set: function(html) {
-          if (isSanitizing) {
-            originalDescriptor.set.call(this, html);
-            return;
-          }
-          if (typeof html === 'string' && html.includes('<')) {
-            try {
-              isSanitizing = true;
-              const tempElement = this.cloneNode(false);
-              tempElement.innerHTML = html;
-              
-              // Traverse and sanitize elements
-              const sanitizeNode = (node) => {
-                if (node.nodeType === Node.ELEMENT_NODE) {
-                  const tagName = node.tagName.toLowerCase();
-                  if (tagName === 'script' || tagName === 'iframe' || tagName === 'object' || tagName === 'embed' || tagName === 'meta') {
-                    node.replaceWith();
-                    return;
-                  }
-                  
-                  const attrs = node.attributes;
-                  for (let i = attrs.length - 1; i >= 0; i--) {
-                    const attrName = attrs[i].name.toLowerCase();
-                    const attrValue = attrs[i].value.toLowerCase();
-                    
-                    if (attrName.startsWith('on')) {
-                      if (attrName === 'onclick') {
-                        const isSafe = attrValue.includes('reload') || 
-                                       attrValue.includes('remove') || 
-                                       attrValue.includes('showreleasenotesmodal');
-                        if (!isSafe) {
-                          node.removeAttribute(attrs[i].name);
-                        }
-                      } else {
-                        node.removeAttribute(attrs[i].name);
-                      }
-                    }
-                    
-                    if (attrValue.includes('javascript:')) {
-                      node.removeAttribute(attrs[i].name);
-                    }
-                  }
-                }
-                const children = Array.from(node.childNodes);
-                for (const child of children) {
-                  sanitizeNode(child);
-                }
-              };
-              
-              sanitizeNode(tempElement);
-              this.replaceChildren(...tempElement.childNodes);
-            } catch (_) {
-              this.replaceChildren();
-            } finally {
-              isSanitizing = false;
-            }
-          } else {
-            originalDescriptor.set.call(this, html);
-          }
-        },
-        get: function() {
-          return originalDescriptor.get.call(this);
-        },
-        configurable: true,
-        enumerable: true
-      });
-    }
-  })();
+
 
   // Global Unhandled Promise Rejection Handler (P1 compliance)
   window.addEventListener('unhandledrejection', function(event) {
@@ -1006,12 +904,8 @@ setHtml(overlay, `
       localStorage.removeItem('google_drive_oauth_token');
       localStorage.removeItem('valenixia_token');
 
-      const savedPlan = localStorage.getItem('valenixia_plan');
-      if (savedPlan) {
-        window.__valenixiaPlan = savedPlan;
-      } else {
-        window.__valenixiaPlan = 'FREE';
-      }
+      localStorage.removeItem('valenixia_plan');
+      window.__valenixiaPlan = 'FREE';
       if (window.getCurrentPlan) window.getCurrentPlan();
 
       updateBootProgress(20, 'Initializing database...');
@@ -1251,7 +1145,63 @@ setHtml(overlay, `
       console.warn('[App] Device registration pass skipped or failed:', e);
     }
 
+    // Sync device token to Android native shell if present
+    if (state.deviceToken && window.Android && typeof window.Android.setDeviceToken === 'function') {
+      window.Android.setDeviceToken(state.deviceToken);
+    }
 
+    // Initialize window.__vxSession and load/migrate trial start time (C-5)
+    try {
+      let trialStartPref = await ValenixiaDB.get('local_preferences', 'valenixia_trial_start');
+      let trialStart = trialStartPref ? parseInt(trialStartPref.value_payload) : 0;
+      if (!trialStart) {
+        const legacyStart = localStorage.getItem("valenixia_trial_start");
+        if (legacyStart) {
+          trialStart = parseInt(legacyStart);
+          await ValenixiaDB.put('local_preferences', {
+            key: 'valenixia_trial_start',
+            value_type: 'STR',
+            value_payload: legacyStart,
+            is_idempotent_flag: 0,
+            updated_at: Date.now()
+          });
+          localStorage.removeItem("valenixia_trial_start");
+        }
+      }
+
+      window.__vxSession = {
+        tier: 'STARTER',
+        status: 'active',
+        expiresAt: null,
+        invoiceCount: 0,
+        trialStart: trialStart
+      };
+
+      const serverBase = window.__valenixiaServerUrl || (location.protocol === 'file:' ? '' : location.origin);
+      if (state.deviceToken && serverBase) {
+        const resp = await fetch(serverBase + '/api/auth/verify', {
+          headers: { 'Authorization': `Bearer ${state.deviceToken}` }
+        });
+        if (resp.ok) {
+          const authData = await resp.json();
+          window.__vxSession = {
+            tier: authData.tier,
+            status: authData.status,
+            expiresAt: authData.expiresAt,
+            invoiceCount: authData.invoiceCount,
+            trialStart: authData.trialStart || trialStart
+          };
+          window.__valenixiaTier = authData.tier;
+        } else if (resp.status === 403) {
+          const data = await resp.json();
+          triggerLicenseLockout(data.error);
+        }
+      }
+      if (window.getCurrentPlan) window.getCurrentPlan();
+      if (window.renderTrialBanner) window.renderTrialBanner();
+    } catch (e) {
+      console.warn('[App] Session initialization failed:', e);
+    }
 
     setupGlobalErrorHandlers(); // Component I: crash telemetry
     setupWebWorker();
@@ -2249,9 +2199,13 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
               console.log('[App] Lazy loading jsPDF and DigitalReceipt module...');
               const s1 = document.createElement('script');
               s1.src = 'jspdf.umd.min.js';
+              s1.setAttribute('integrity', 'sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk');
+              s1.setAttribute('crossorigin', 'anonymous');
               s1.onload = () => {
                 const s2 = document.createElement('script');
                 s2.src = 'digital-receipt.js';
+                s2.setAttribute('integrity', 'sha384-kbLcmc6pG0gJx+5r8owUW5v0BTP2cjUKUouWnUDTjZ5mL8zeFwRhOQ67afiglTD7');
+                s2.setAttribute('crossorigin', 'anonymous');
                 s2.onload = () => {
                   if (window.DigitalReceipt) {
                     window.DigitalReceipt.showDialog(receiptData);

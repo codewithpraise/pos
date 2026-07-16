@@ -2767,7 +2767,7 @@
   </div>
 
   <!-- ZXING BARCODE DECODER LIBRARY — deferred/lazy-loaded on first scanner use (P1-41 code splitting) -->
-  <script>
+  <script nonce="nonce-placeholder">
     // ZXing is only needed when the barcode scanner is opened.
     // We defer it to avoid blocking the main thread on page load.
     window._zxingLoaded = false;
@@ -2778,6 +2778,8 @@
       if (document.querySelector('script[src="zxing.min.js"]')) return; // already loading
       var s = document.createElement('script');
       s.src = 'zxing.min.js';
+      s.setAttribute('integrity', 'sha384-ET1PhbRYLe6k2AXPuFZAF+LZYXgMwkHwqrsbw4PobRULALuRP1buPYV++5ODebL5');
+      s.setAttribute('crossorigin', 'anonymous');
       s.onload = function() {
         window._zxingLoaded = true;
         window._zxingLoadCallbacks.forEach(function(fn) { try { fn(); } catch(e) {} });
@@ -2815,6 +2817,7 @@
   <!-- COMMAND PALETTE — Ctrl+K global quick navigation and product search -->
   <script src="command-palette.js"></script>
   <script src="strings.js"></script>
+  <script src="dompurify.min.js" integrity="sha384-piCcpDdJ7qVeK4Tv8Z6Hpcr3ZBIgP16TxQTPVfsLFdZ5uDgwc3Y8Ho7oUnqf12qu" crossorigin="anonymous"></script>
   <script src="app.js"></script>
 
   <script src="sw-loader.js"></script>

@@ -105,3 +105,9 @@ CREATE POLICY "FBR Logs Access Policy" ON cloud_fbr_invoice_logs
     FOR ALL
     USING (COALESCE(current_setting('request.headers', true)::json->>'x-store-id', '') = store_id::text)
     WITH CHECK (COALESCE(current_setting('request.headers', true)::json->>'x-store-id', '') = store_id::text);
+
+DROP POLICY IF EXISTS "Activation Codes Access Policy" ON activation_codes;
+CREATE POLICY "Activation Codes Access Policy" ON activation_codes
+    FOR ALL
+    USING (COALESCE(current_setting('request.headers', true)::json->>'x-store-id', '') = store_id::text)
+    WITH CHECK (COALESCE(current_setting('request.headers', true)::json->>'x-store-id', '') = store_id::text);

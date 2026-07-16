@@ -175,13 +175,21 @@ class MainActivity : AppCompatActivity() {
         return false
     }
 
-    private fun isCurrentOriginTrusted(): Boolean {
+    fun isCurrentOriginTrusted(): Boolean {
         val url = webView?.url ?: return false
         if (url.startsWith("file:///android_asset/")) return true
-        if (serverUrl.isNotEmpty() && url.startsWith(serverUrl)) {
-            return isUrlAllowed(url)
+        return try {
+            val uri = Uri.parse(url)
+            if (!uri.userInfo.isNullOrEmpty()) return false
+            if (serverUrl.isEmpty()) return false
+            val serverUri = Uri.parse(serverUrl)
+            uri.scheme == serverUri.scheme &&
+            uri.host == serverUri.host &&
+            uri.port == serverUri.port &&
+            isUrlAllowed(url)
+        } catch (e: Exception) {
+            false
         }
-        return false
     }
 
     // ============================================================
@@ -190,6 +198,25 @@ class MainActivity : AppCompatActivity() {
     // methods to JavaScript -- they are silently stripped by the compiler.
     // ============================================================
     inner class AndroidPOSBridge {
+
+        @JavascriptInterface
+        fun setDeviceToken(token: String) {
+            if (!isCurrentOriginTrusted()) return
+            prefs.edit().putString("device_token", token).apply()
+        }
+
+        @JavascriptInterface
+        fun clearSessionData() {
+            if (!isCurrentOriginTrusted()) return
+            runOnUiThread {
+                webView?.clearCache(true)
+                webView?.clearHistory()
+                webView?.clearFormData()
+                android.webkit.CookieManager.getInstance().removeAllCookies(null)
+                prefs.edit().remove("device_token").apply()
+                Toast.makeText(this@MainActivity, "Session cache cleared.", Toast.LENGTH_SHORT).show()
+            }
+        }
 
         @JavascriptInterface
         fun setServerUrl(url: String) {
@@ -223,7 +250,8 @@ class MainActivity : AppCompatActivity() {
                         object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
                             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                                 super.onAuthenticationError(errorCode, errString)
-                                webView?.evaluateJavascript("javascript:${callbackName}(false, '${errString}')", null)
+                                val safeErr = errString.toString().replace("'", "\\'").replace("\n", "\\n")
+                                webView?.evaluateJavascript("javascript:${callbackName}(false, '${safeErr}')", null)
                             }
 
                             override fun onAuthenticationSucceeded(result: androidx.biometric.BiometricPrompt.AuthenticationResult) {
@@ -240,6 +268,7 @@ class MainActivity : AppCompatActivity() {
                     val promptInfo = androidx.biometric.BiometricPrompt.PromptInfo.Builder()
                         .setTitle("Manager Authentication Required")
                         .setSubtitle("Confirm shift, reset, or override via biometrics")
+                        .setAllowedAuthenticators(androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG)
                         .setNegativeButtonText("Cancel")
                         .build()
 
@@ -528,7 +557,7 @@ class MainActivity : AppCompatActivity() {
             
             val request = IntegrityTokenRequest.builder()
                 .setNonce(nonceBase64)
-                .setCloudProjectNumber(823749823749L)
+                .setCloudProjectNumber(BuildConfig.PLAY_INTEGRITY_PROJECT_NUMBER)
                 .build()
                 
             integrityManager.requestIntegrityToken(request)
@@ -596,7 +625,7 @@ class MainActivity : AppCompatActivity() {
                 throwable.printStackTrace(PrintWriter(sw))
                 val crashLog = "${System.currentTimeMillis()} [CRASH] Thread=${thread.name}\n$sw\n"
                 synchronized(logLock) {
-                    val logFile = File(getExternalFilesDir(null), "valenixia_crash.log")
+                    val logFile = File(filesDir, "valenixia_crash.log")
                     // Keep file under 2MB limit (Strict rotation - trim to last 1MB of lines)
                     if (logFile.exists() && logFile.length() > 2 * 1024 * 1024) {
                         try {
@@ -668,6 +697,11 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         releaseWakeLock()
         super.onPause()
+    }
+
+    override fun onStop() {
+        releaseWakeLock()
+        super.onStop()
     }
 
     private fun acquireWakeLock() {
@@ -780,7 +814,10 @@ class MainActivity : AppCompatActivity() {
         wv.addJavascriptInterface(WebAppInterface(this), "Android")
 
         wv.setDownloadListener { downloadUrl, _, _, _, _ ->
-            if (downloadUrl.endsWith(".apk") || downloadUrl.contains("/downloads/")) {
+            val parsedUri = try { Uri.parse(downloadUrl) } catch (e: Exception) { null }
+            val lastSegment = parsedUri?.lastPathSegment ?: ""
+            val isApk = lastSegment.endsWith(".apk", ignoreCase = true) || (parsedUri?.path?.contains("/downloads/") == true)
+            if (isApk) {
                 if (!isCurrentOriginTrusted()) {
                     Log.w("MainActivity", "Blocked update download request from untrusted origin: $currentLoadedUrl")
                     return@setDownloadListener
@@ -859,15 +896,22 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPermissionRequest(request: PermissionRequest) {
                 runOnUiThread { 
-                    if (request.resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)) {
-                        request.grant(arrayOf(PermissionRequest.RESOURCE_VIDEO_CAPTURE))
-                    } else {
-                        request.grant(request.resources) 
+                    if (!isCurrentOriginTrusted()) {
+                        request.deny()
+                        return@runOnUiThread
                     }
+                    val allowed = request.resources.filter {
+                        it == PermissionRequest.RESOURCE_VIDEO_CAPTURE
+                    }.toTypedArray()
+                    if (allowed.isNotEmpty()) request.grant(allowed) else request.deny()
                 }
             }
             override fun onGeolocationPermissionsShowPrompt(origin: String, callback: GeolocationPermissions.Callback) {
-                callback.invoke(origin, true, false)
+                if (isCurrentOriginTrusted()) {
+                    callback.invoke(origin, true, false)
+                } else {
+                    callback.invoke(origin, false, false)
+                }
             }
             override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
                 consoleMessage?.let {
@@ -912,7 +956,11 @@ class MainActivity : AppCompatActivity() {
 
         wv.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                currentLoadedUrl = url ?: ""
+                if (url != null && isUrlAllowed(url)) {
+                    currentLoadedUrl = url
+                } else if (url == null) {
+                    currentLoadedUrl = ""
+                }
             }
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
@@ -1196,7 +1244,7 @@ class MainActivity : AppCompatActivity() {
         kotlin.concurrent.thread {
             synchronized(logLock) {
                 try {
-                    val logFile = File(getExternalFilesDir(null), "valenixia_crash.log")
+                    val logFile = File(filesDir, "valenixia_crash.log")
                     if (!logFile.exists() || logFile.length() == 0L) return@thread
 
                     val now = System.currentTimeMillis()
@@ -1252,7 +1300,14 @@ class MainActivity : AppCompatActivity() {
                     val content = logFile.readText()
                     if (content.isEmpty()) return@thread
 
-                    val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "android-device"
+                    val rawDeviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "android-device"
+                    val deviceId = try {
+                        val digest = java.security.MessageDigest.getInstance("SHA-256")
+                        val hash = digest.digest((rawDeviceId + "valenixia_salt").toByteArray(Charsets.UTF_8))
+                        hash.joinToString("") { "%02x".format(it) }.take(16)
+                    } catch (e: Exception) {
+                        "hashed-device"
+                    }
 
                     val logObj = org.json.JSONObject().apply {
                         put("id", "android_crash_${System.currentTimeMillis()}")
@@ -1272,6 +1327,10 @@ class MainActivity : AppCompatActivity() {
                     conn.connectTimeout = 5000
                     conn.readTimeout = 5000
                     conn.setRequestProperty("Content-Type", "application/json")
+                    val deviceToken = prefs.getString("device_token", "") ?: ""
+                    if (!deviceToken.isNullOrEmpty()) {
+                        conn.setRequestProperty("Authorization", "Bearer $deviceToken")
+                    }
                     conn.doOutput = true
                     conn.outputStream.use { os ->
                         os.write(jsonPayload.toByteArray(Charsets.UTF_8))

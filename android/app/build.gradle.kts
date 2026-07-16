@@ -17,6 +17,9 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
+
+        val integrityProjectNumber = System.getenv("PLAY_INTEGRITY_PROJECT_NUMBER") ?: "823749823749"
+        buildConfigField("long", "PLAY_INTEGRITY_PROJECT_NUMBER", "${integrityProjectNumber}L")
     }
 
     signingConfigs {

@@ -1,7 +1,14 @@
 # Add project specific ProGuard rules here.
--keep class com.nexova.pos.** { *; }
+
+# Keep the JavascriptInterface methods
 -keepclassmembers class * implements android.webkit.JavascriptInterface {
    <methods>;
 }
 -keepclassmembers class * { @android.webkit.JavascriptInterface <methods>; }
--keep class com.nexova.pos.MainActivity$* { *; }
+
+# Keep MainActivity and its inner classes (like AndroidPOSBridge) intact
+-keep class com.valenixia.pos.MainActivity { *; }
+-keep class com.valenixia.pos.MainActivity$* { *; }
+
+# Keep BuildConfig to prevent class/field stripping
+-keep class com.valenixia.pos.BuildConfig { *; }

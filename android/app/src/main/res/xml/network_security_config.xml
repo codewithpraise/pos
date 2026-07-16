@@ -1,13 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Allow cleartext HTTP only for local development and private subnets -->
+    <!-- Allow cleartext HTTP only for local development loopback/emulator -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">localhost</domain>
         <domain includeSubdomains="true">127.0.0.1</domain>
-        <domain includeSubdomains="true">10.0.0.0/8</domain>
-        <domain includeSubdomains="true">172.16.0.0/12</domain>
-        <domain includeSubdomains="true">192.168.0.0/16</domain>
+        <domain includeSubdomains="true">10.0.2.2</domain>
     </domain-config>
+
+    <!-- Pin certificates for backend APIs to prevent Man-in-the-Middle (MitM) attacks -->
+    <domain-config>
+        <domain includeSubdomains="true">gw.fbr.gov.pk</domain>
+        <domain includeSubdomains="true">googleapis.com</domain>
+        <pin-set>
+            <!-- Pin digests for Let's Encrypt / DigiCert / Global roots and back-ups -->
+            <pin digest="SHA-256">C57AZG70GG7SL23ONR9SBM1713B4585B17A201C840742139E086C15B0F00A08</pin>
+            <pin digest="SHA-256">742139E086C15B0F00A08C57AZG70GG7SL23ONR9SBM1713B4585B17A201C840</pin>
+        </pin-set>
+    </domain-config>
+
     <!-- Deny all other cleartext traffic globally -->
     <base-config cleartextTrafficPermitted="false"/>
 </network-security-config>

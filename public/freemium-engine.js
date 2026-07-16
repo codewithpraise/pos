@@ -73,10 +73,11 @@ const TIER_TO_PLAN = {
 };
 
 function getCurrentPlan() {
-  const saved = localStorage.getItem('valenixia_plan');
-  if (saved) {
-    window.__valenixiaPlan = saved;
-    return saved;
+  if (window.__vxSession && window.__vxSession.tier) {
+    const tier = window.__vxSession.tier.toUpperCase();
+    const mapped = TIER_TO_PLAN[tier] || PLANS.STARTER;
+    window.__valenixiaPlan = mapped;
+    return mapped;
   }
   const tier = (window.__valenixiaTier || "STARTER").toUpperCase();
   const mapped = TIER_TO_PLAN[tier] || PLANS.STARTER;
@@ -143,6 +144,9 @@ function checkLimit(type, currentCount) {
 window.checkLimit = checkLimit;
 
 function getMonthlyTransactionCount() {
+  if (window.__vxSession && window.__vxSession.invoiceCount !== undefined) {
+    return { count: window.__vxSession.invoiceCount, monthKey: "server_synced" };
+  }
   const now = new Date();
   const monthKey = "vx_tx_" + now.getFullYear() + "_" + now.getMonth();
   const stored = JSON.parse(localStorage.getItem(monthKey) || "{\"count\":0}");
@@ -150,6 +154,10 @@ function getMonthlyTransactionCount() {
 }
 
 function incrementMonthlyTransactionCount() {
+  if (window.__vxSession && window.__vxSession.invoiceCount !== undefined) {
+    window.__vxSession.invoiceCount++;
+    return window.__vxSession.invoiceCount;
+  }
   const { count, monthKey } = getMonthlyTransactionCount();
   localStorage.setItem(monthKey, JSON.stringify({ count: count + 1 }));
   return count + 1;
@@ -166,7 +174,10 @@ function isLimitReached() {
 window.isLimitReached = isLimitReached;
 
 function getTrialStatus() {
-  const trialStart = parseInt(localStorage.getItem("valenixia_trial_start") || "0");
+  let trialStart = 0;
+  if (window.__vxSession && window.__vxSession.trialStart !== undefined) {
+    trialStart = window.__vxSession.trialStart;
+  }
   if (!trialStart) return { phase: "none" };
   const now = Date.now();
   const daysElapsed = Math.floor((now - trialStart) / 86400000);

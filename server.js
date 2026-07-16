@@ -3,16 +3,32 @@
 // Core runtime managing SQLite, HTTP/2 REST routes, and WebSocket telemetry
 // ============================================================================
 
+const path = require('path');
+const fs = require('fs');
+
+// Initialize environment configuration
+const envPath = path.join(__dirname, '.env');
+require('dotenv').config({ path: envPath });
+
+if (!process.env.SERVER_MASTER_KEY) {
+  const crypto = require('crypto');
+  const masterKey = crypto.randomBytes(32).toString('hex');
+  let envContent = '';
+  if (fs.existsSync(envPath)) {
+    envContent = fs.readFileSync(envPath, 'utf8');
+  }
+  fs.writeFileSync(envPath, envContent + `\nSERVER_MASTER_KEY=${masterKey}\n`);
+  process.env.SERVER_MASTER_KEY = masterKey;
+}
+
 const express = require('express');
 const http = require('http');
 const https = require('https');
-const fs = require('fs');
 const cors = require('cors');
 const compression = require('compression');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const WebSocket = require('ws');
-const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
 const { 
@@ -20,6 +36,7 @@ const {
   db, 
   verifyPin, 
   hashPin, 
+  verifyEmployeePin,
   checkPinLockout,
   recordPinFailure,
   clearPinLockout,
@@ -112,22 +129,29 @@ async function verifyCheckoutPricing(cart, paymentMode, tier) {
   if (skus.length === 0) return { subtotal: 0, tax: 0, total: 0 };
   
   const placeholders = skus.map(() => '?').join(',');
-  const itemRows = await db.all(`SELECT sku, base_price_minor_units FROM inventory_catalog WHERE sku IN (${placeholders})`, skus);
+  const itemRows = await db.all(`SELECT sku, base_price_minor_units, quantity_on_hand FROM inventory_catalog WHERE sku IN (${placeholders})`, skus);
   const priceMap = {};
-  itemRows.forEach(r => { priceMap[r.sku] = r.base_price_minor_units; });
+  const stockMap = {};
+  itemRows.forEach(r => { 
+    priceMap[r.sku] = r.base_price_minor_units; 
+    stockMap[r.sku] = r.quantity_on_hand;
+  });
 
   const prefRows = await db.all("SELECT key, value_payload FROM local_preferences");
   const prefs = {};
   prefRows.forEach(r => { prefs[r.key] = r.value_payload; });
 
-  let subtotal = 0;
+  let subtotal = 0n;
   for (const item of cart) {
     const basePrice = priceMap[item.sku];
     if (basePrice === undefined) {
       throw new Error(`Product not found in catalog: ${item.sku}`);
     }
     const qty = parseInt(item.qty || item.quantity || 1);
-    subtotal += basePrice * qty;
+    if ((stockMap[item.sku] ?? 0) < qty) {
+      throw new Error(`Insufficient stock for SKU ${item.sku}`);
+    }
+    subtotal += BigInt(basePrice) * BigInt(qty);
   }
 
   const ratePref = prefs['store_tax_rate'] || '8.0';
@@ -143,20 +167,20 @@ async function verifyCheckoutPricing(cart, paymentMode, tier) {
     ratePercent = 18.0;
   }
 
-  const rateBps = Math.round(ratePercent * 100);
-  let tax = 0;
+  const rateBps = BigInt(Math.round(ratePercent * 100));
+  let tax = 0n;
   for (const item of cart) {
     const basePrice = priceMap[item.sku];
     const qty = parseInt(item.qty || item.quantity || 1);
-    const itemTax = Math.round((basePrice * qty * rateBps) / 10000);
+    const itemTax = (BigInt(basePrice) * BigInt(qty) * rateBps) / 10000n;
     tax += itemTax;
   }
 
   const isFbrEnabled = (tier === 'ENTERPRISE' || tier === 'TRIAL') && (prefs['fbr_integration_enabled'] === 'true' || prefs['fbr_integration_enabled'] === true);
-  const fbrFee = isFbrEnabled ? 100 : 0;
+  const fbrFee = isFbrEnabled ? 100n : 0n;
   const total = subtotal + tax + fbrFee;
 
-  return { subtotal, tax, total };
+  return { subtotal: Number(subtotal), tax: Number(tax), total: Number(total) };
 }
 
 function verifyCheckoutToken(tokenStr, expectedSubtotal, expectedTax, expectedTotal) {
@@ -182,7 +206,96 @@ function verifyCheckoutToken(tokenStr, expectedSubtotal, expectedTax, expectedTo
 }
 
 const app = express();
+app.set('trust proxy', 'loopback, link-local, uniquelocal');
+
+// Universal HTTP 500 Interceptor and Sanitizer to prevent information disclosure (M-17)
+app.use((req, res, next) => {
+  const originalStatus = res.status;
+  res.status = function (statusCode) {
+    if (statusCode === 500) {
+      const originalJson = res.json;
+      res.json = function (body) {
+        if (body && body.error) {
+          const isProd = process.env.NODE_ENV === 'production';
+          let clientMessage = body.error;
+          if (isProd) {
+            const msg = String(body.error);
+            if (msg.includes('SQLITE') || msg.includes('database') || msg.includes('db') || msg.includes('SELECT') || msg.includes('INSERT') || msg.includes('UPDATE')) {
+              clientMessage = 'An internal database error occurred.';
+            } else {
+              clientMessage = 'An unexpected server error occurred.';
+            }
+          }
+          res.status = originalStatus;
+          res.json = originalJson;
+          logger.error('API', `Intercepted HTTP 500: ${body.error}`, new Error(body.error));
+          return originalJson.call(this, { error: clientMessage });
+        }
+        res.status = originalStatus;
+        res.json = originalJson;
+        return originalJson.call(this, body);
+      };
+    }
+    return originalStatus.call(this, statusCode);
+  };
+  next();
+});
+
+function hashIp(ip) {
+  if (!ip || ip === 'unknown') return 'unknown';
+  if (ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') return ip;
+  return crypto.createHash('sha256').update(ip).digest('hex').substring(0, 16);
+}
+
 const port = process.env.PORT || 3000;
+
+class SQLiteStore {
+  constructor(windowMs) {
+    this.windowMs = windowMs;
+  }
+
+  async increment(key) {
+    const now = Date.now();
+    const expiry = now + this.windowMs;
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS rate_limits (
+        key TEXT PRIMARY KEY,
+        hits INTEGER DEFAULT 0,
+        reset_time INTEGER NOT NULL
+      )
+    `);
+    
+    if (Math.random() < 0.05) {
+      await db.run("DELETE FROM rate_limits WHERE reset_time < ?", [now]);
+    }
+
+    await db.run(`
+      INSERT INTO rate_limits (key, hits, reset_time) 
+      VALUES (?, 1, ?)
+      ON CONFLICT(key) DO UPDATE SET 
+        hits = CASE WHEN reset_time < ? THEN 1 ELSE hits + 1 END,
+        reset_time = CASE WHEN reset_time < ? THEN ? ELSE reset_time END
+    `, [key, expiry, now, now, expiry]);
+
+    const row = await db.get("SELECT hits, reset_time FROM rate_limits WHERE key = ?", [key]);
+    return {
+      totalHits: row ? row.hits : 1,
+      resetTime: new Date(row ? row.reset_time : expiry)
+    };
+  }
+
+  async decrement(key) {
+    try {
+      await db.run("UPDATE rate_limits SET hits = MAX(0, hits - 1) WHERE key = ?", [key]);
+    } catch (e) {}
+  }
+
+  async resetKey(key) {
+    try {
+      await db.run("DELETE FROM rate_limits WHERE key = ?", [key]);
+    } catch (e) {}
+  }
+}
 
 // Rate limiter specifically for login/PIN endpoints (max 10 attempts per minute)
 const loginLimiter = rateLimit({
@@ -191,6 +304,7 @@ const loginLimiter = rateLimit({
   message: { error: 'Too many authentication attempts. Please try again after 60 seconds.' },
   standardHeaders: true,
   legacyHeaders: false,
+  store: new SQLiteStore(60 * 1000)
 });
 
 function checkOrigin(req, res, next) {
@@ -213,6 +327,7 @@ const billingLimiter = rateLimit({
   message: { error: 'Too many upgrade claim submissions. Please try again after 10 minutes.' },
   standardHeaders: true,
   legacyHeaders: false,
+  store: new SQLiteStore(10 * 60 * 1000)
 });
 
 // Rate limiter for initial system bootstrap onboarding (max 3 per hour)
@@ -222,6 +337,7 @@ const bootstrapLimiter = rateLimit({
   message: { error: 'Too many store initialization attempts. Please try again after an hour.' },
   standardHeaders: true,
   legacyHeaders: false,
+  store: new SQLiteStore(60 * 60 * 1000)
 });
 
 // Rate limiter for release management updates (max 5 attempts per minute)
@@ -231,6 +347,7 @@ const releaseUpdateLimiter = rateLimit({
   message: { error: 'Too many update attempts. Please try again after 60 seconds.' },
   standardHeaders: true,
   legacyHeaders: false,
+  store: new SQLiteStore(60 * 1000)
 });
 
 // Rate limiter for admin panel actions (max 20 per minute — prevents brute-force on admin UI)
@@ -240,6 +357,7 @@ const adminActionLimiter = rateLimit({
   message: { error: 'Too many admin requests. Please slow down.' },
   standardHeaders: true,
   legacyHeaders: false,
+  store: new SQLiteStore(60 * 1000)
 });
 
 // Rate limiter specifically for FBR PRAL tax submissions (max 60 per minute)
@@ -249,6 +367,7 @@ const fbrLimiter = rateLimit({
   message: { error: 'Too many FBR submissions. Please slow down.' },
   standardHeaders: true,
   legacyHeaders: false,
+  store: new SQLiteStore(60 * 1000)
 });
 
 // Rate limiter for logging / telemetry uploads (max 50 per 5 minutes)
@@ -258,6 +377,17 @@ const loggingLimiter = rateLimit({
   message: { error: 'Too many telemetry uploads. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  store: new SQLiteStore(5 * 60 * 1000)
+});
+
+// Rate limiter for QR-code device approvals (max 10 attempts per 10 minutes)
+const qrApproveLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 10,
+  message: { error: 'Too many device pairing attempts. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: new SQLiteStore(10 * 60 * 1000)
 });
 
 // Apply security middleware
@@ -277,6 +407,11 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use((req, res, next) => {
+  res.locals.nonce = crypto.randomBytes(16).toString('base64');
+  next();
+});
+
 // Permissions-Policy header configured via helmet
 app.use(helmet({
   contentSecurityPolicy: {
@@ -284,7 +419,7 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       // No unsafe-inline or unsafe-eval — inline scripts extracted to static files
       // Removed https://unpkg.com — jsPDF and QRCode are vendored locally in public/
-      scriptSrc: ["'self'"],
+      scriptSrc: ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
       // Restricted to same-origin + data URIs + blob (product images are local)
@@ -332,14 +467,17 @@ app.use(helmet({
 }));
 app.use(cors({
   origin: (origin, callback) => {
+    const isProd = process.env.NODE_ENV === 'production';
     const allowed = [
-      /^https?:\/\/localhost/,
-      /^https?:\/\/127\.0\.0\.1/,
       /^https?:\/\/192\.168\./,
       /^https?:\/\/10\./,
       /^https?:\/\/172\.(1[6-9]|2\d|3[01])\./,
       /^https?:\/\/(.*\.)?valenixia\.com$/
     ];
+    if (!isProd) {
+      allowed.push(/^https?:\/\/localhost/);
+      allowed.push(/^https?:\/\/127\.0\.0\.1/);
+    }
     if (!origin || allowed.some(r => r.test(origin))) return callback(null, true);
     callback(new Error(`CORS blocked: ${origin}`));
   },
@@ -425,7 +563,7 @@ app.use((req, res, next) => {
   const cookieToken = req.cookies?._csrf;
 
   if (!headerToken || !cookieToken || headerToken !== cookieToken) {
-    console.warn(`[CSRF] Blocked request from ${req.ip} to ${req.path}: token mismatch.`);
+    console.warn(`[CSRF] Blocked request from ${hashIp(req.ip)} to ${req.path}: token mismatch.`);
     return res.status(403).json({ error: 'CSRF token mismatch or missing.' });
   }
 
@@ -490,6 +628,23 @@ function requestAuditMiddleware(req, res, next) {
 }
 app.use(requestAuditMiddleware);
 
+// Prevent caching on all sensitive authentication and licensing endpoints (M-18)
+app.use((req, res, next) => {
+  const sensitivePaths = [
+    '/api/auth',
+    '/api/employee',
+    '/api/license',
+    '/api/bootstrap',
+    '/api/devices/approve'
+  ];
+  if (sensitivePaths.some(p => req.path.startsWith(p))) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+  next();
+});
+
 // Serve .apk files with correct MIME type and force download (reliability fix)
 app.use((req, res, next) => {
   if (req.path.endsWith('.apk')) {
@@ -497,6 +652,20 @@ app.use((req, res, next) => {
     res.setHeader('Content-Disposition', 'attachment; filename="valenixia-pos-release.apk"');
   }
   next();
+});
+
+app.get(['/', '/index.html'], (req, res) => {
+  const indexPagePath = path.join(__dirname, 'public', 'index.html');
+  fs.readFile(indexPagePath, 'utf8', (err, html) => {
+    if (err) {
+      return res.status(500).send('Error loading page');
+    }
+    const nonce = res.locals.nonce || '';
+    const dynamicHtml = html.replace(/nonce-placeholder/g, nonce);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+    res.send(dynamicHtml);
+  });
 });
 
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -603,6 +772,32 @@ function sendError(res, err, defaultStatus = 500) {
   });
 }
 
+function encryptPassphrase(plaintext) {
+  const masterKey = Buffer.from(process.env.SERVER_MASTER_KEY, 'hex');
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', masterKey, iv);
+  let encrypted = cipher.update(plaintext, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const authTag = cipher.getAuthTag().toString('hex');
+  return `ENC1:${iv.toString('hex')}:${authTag}:${encrypted}`;
+}
+
+function decryptPassphrase(encryptedString) {
+  if (!encryptedString.startsWith('ENC1:')) {
+    return encryptedString;
+  }
+  const parts = encryptedString.split(':');
+  const iv = Buffer.from(parts[1], 'hex');
+  const authTag = Buffer.from(parts[2], 'hex');
+  const encrypted = Buffer.from(parts[3], 'hex');
+  const masterKey = Buffer.from(process.env.SERVER_MASTER_KEY, 'hex');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', masterKey, iv);
+  decipher.setAuthTag(authTag);
+  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+}
+
 async function loadServerPassphrase() {
   try {
     // Generate secure default jwtSecret if it doesn't exist
@@ -632,9 +827,19 @@ async function loadServerPassphrase() {
     } else {
       const row = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'sync_passphrase'");
       if (row && row.value_payload) {
-        serverPassphrase = row.value_payload;
-        jwtSecret = crypto.createHash('sha256').update(serverPassphrase + syncSalt).digest('hex');
-        console.log(`[SyncHub] Server synchronization passphrase loaded successfully. JWT secret initialized.`);
+        try {
+          serverPassphrase = decryptPassphrase(row.value_payload);
+          // If it was legacy/unencrypted, encrypt it in the DB now!
+          if (!row.value_payload.startsWith('ENC1:')) {
+            const encrypted = encryptPassphrase(serverPassphrase);
+            await db.run("UPDATE local_preferences SET value_payload = ? WHERE key = 'sync_passphrase'", [encrypted]);
+            console.log(`[SyncHub] Legacy sync passphrase encrypted at rest successfully.`);
+          }
+          jwtSecret = crypto.createHash('sha256').update(serverPassphrase + syncSalt).digest('hex');
+          console.log(`[SyncHub] Server synchronization passphrase loaded and decrypted successfully. JWT secret initialized.`);
+        } catch (decErr) {
+          console.error('[SyncHub] Failed to decrypt sync passphrase:', decErr.message);
+        }
       }
     }
   } catch (err) {
@@ -644,8 +849,11 @@ async function loadServerPassphrase() {
 
 const derivedKeyCache = new Map();
 
-function deriveKey(passphrase, salt = 'valenixia_salt') {
-  const cacheKey = `${passphrase}:${salt}`;
+function deriveKey(passphrase, salt) {
+  if (!salt) {
+    throw new Error('Cryptographic salt is required for key derivation.');
+  }
+  const cacheKey = crypto.createHash('sha256').update(`${passphrase}:${salt}`).digest('hex');
   if (derivedKeyCache.has(cacheKey)) {
     return derivedKeyCache.get(cacheKey);
   }
@@ -710,9 +918,9 @@ async function requireAuth(req, res, next) {
     const storeRow = await db.get("SELECT * FROM stores LIMIT 1");
     if (storeRow) {
       let isEmergencyOverride = false;
-      const overrideVal = await db.get("SELECT val FROM local_preferences WHERE key = 'emergency_override_until'");
+      const overrideVal = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'emergency_override_until'");
       if (overrideVal) {
-        const until = Number(overrideVal.val);
+        const until = Number(overrideVal.value_payload);
         if (!isNaN(until) && until > Date.now()) {
           isEmergencyOverride = true;
         }
@@ -765,13 +973,14 @@ async function logAdminAccess(req, res, next) {
   const method = req.method;
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : '';
+  const hashedToken = token ? crypto.createHash('sha256').update(token).digest('hex') : '';
 
-  console.log(`[AdminAudit] ${timestamp} | ${ip} | ${method} ${path} | UA: ${userAgent.slice(0, 50)}...`);
+  console.log(`[AdminAudit] ${timestamp} | ${hashIp(ip)} | ${method} ${path} | UA: ${userAgent.slice(0, 50)}...`);
 
   try {
     await db.run(
       'INSERT INTO admin_audit_logs (timestamp, ip, method, path, user_agent, device_token) VALUES (?, ?, ?, ?, ?, ?)',
-      [timestamp, ip, method, path, userAgent, token]
+      [timestamp, ip, method, path, userAgent, hashedToken]
     );
   } catch (e) {
     console.error('[AdminSecurity] Failed to write admin audit log:', e.message);
@@ -792,7 +1001,7 @@ function encryptPayload(payload) {
   const json = JSON.stringify(payload);
   if (serverPassphrase) {
     try {
-      const key = deriveKey(serverPassphrase);
+      const key = deriveKey(serverPassphrase, syncSalt);
       const iv = crypto.randomBytes(12);
       const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
       let encrypted = cipher.update(json, 'utf8');
@@ -805,6 +1014,30 @@ function encryptPayload(payload) {
     }
   }
   return json;
+}
+
+function safeJsonParse(str, fallback = null) {
+  try {
+    const obj = JSON.parse(str);
+    const sanitize = (val) => {
+      if (val && typeof val === 'object') {
+        if (Array.isArray(val)) {
+          val.forEach(sanitize);
+        } else {
+          if ('__proto__' in val) delete val['__proto__'];
+          if ('constructor' in val) delete val['constructor'];
+          if ('prototype' in val) delete val['prototype'];
+          for (const key in val) {
+            sanitize(val[key]);
+          }
+        }
+      }
+    };
+    sanitize(obj);
+    return obj;
+  } catch (e) {
+    return fallback;
+  }
 }
 
 function decryptPayload(rawData) {
@@ -825,18 +1058,18 @@ function decryptPayload(rawData) {
       const tag = buffer.subarray(buffer.length - 16);
       const ciphertext = buffer.subarray(12, buffer.length - 16);
       
-      const key = deriveKey(serverPassphrase);
+      const key = deriveKey(serverPassphrase, syncSalt);
       const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
       decipher.setAuthTag(tag);
       let decrypted = decipher.update(ciphertext, 'binary', 'utf8');
       decrypted += decipher.final('utf8');
-      return JSON.parse(decrypted);
+      return safeJsonParse(decrypted);
     } catch (err) {
       console.error('[SyncHub] Decryption failed:', err.message);
       throw new Error('SyncHub payload decryption failure: invalid key or corrupt bytes.');
     }
   }
-  return JSON.parse(text);
+  return safeJsonParse(text);
 }
 
 // Passphrase mismatch rate limiter — tracks per-IP failure counts
@@ -856,7 +1089,7 @@ function recordPassphraseMismatch(ip) {
     entry.count++;
     if (entry.count >= MAX_MISMATCH_ERRORS) {
       entry.bannedUntil = now + MISMATCH_WINDOW_MS;
-      console.warn(`[SyncHub] Rate-limiting ${ip}: ${entry.count} passphrase mismatches — suppressing for ${MISMATCH_WINDOW_MS/1000}s`);
+      console.warn(`[SyncHub] Rate-limiting ${hashIp(ip)}: ${entry.count} passphrase mismatches — suppressing for ${MISMATCH_WINDOW_MS/1000}s`);
     }
   }
   passphraseFailMap.set(ip, entry);
@@ -905,19 +1138,22 @@ wss.on('connection', (ws, req) => {
           const trimmed = text.trim();
           if (trimmed.startsWith('{')) {
             // Plaintext JSON — parse directly
-            data = JSON.parse(trimmed);
+            data = safeJsonParse(trimmed);
+            if (!data) throw new Error('Plain JSON parse failed');
           } else if (serverPassphrase) {
             // Looks like base64 encrypted payload — attempt decryption
             data = decryptPayload(message);
           } else {
             // No passphrase set, try plain parse anyway
-            data = JSON.parse(trimmed);
+            data = safeJsonParse(trimmed);
+            if (!data) throw new Error('Plain JSON parse failed');
           }
         } catch (e) {
           // If all parsing fails, try raw plaintext as last resort
           try {
             const text = typeof message === 'string' ? message : message.toString('utf8');
-            data = JSON.parse(text.trim());
+            data = safeJsonParse(text.trim());
+            if (!data) throw new Error('Fallback JSON parse failed');
           } catch (e2) {
             console.warn('[SyncHub] Unreadable message from client (decryption + plaintext parse both failed). Sending sync error and closing connection...');
             // Record mismatch for rate-limiting — after MAX_MISMATCH_ERRORS, ban this IP
@@ -932,15 +1168,24 @@ wss.on('connection', (ws, req) => {
             return;
           }
         }
-
+        const ALLOWED_WS_TYPES = new Set(['REGISTER', 'AUTH', 'sync_deltas', 'request_sync', 'ephemeral_broadcast']);
+        if (!data || !data.type || !ALLOWED_WS_TYPES.has(data.type)) {
+          console.warn(`[SyncHub] Rejected message with unknown type: ${data ? data.type : 'null'}`);
+          try {
+            ws.send(encryptPayload({ type: 'SYNC_ERROR', error: 'INVALID_MESSAGE_TYPE', reason: `Unknown message type: ${data ? data.type : 'null'}` }));
+            ws.close(1008, 'INVALID_MESSAGE_TYPE');
+          } catch (_) {}
+          activeConnections.delete(ws);
+          return;
+        }
         // Enforce license verification on all non-registration/non-auth WebSocket messages
         if (data.type !== 'REGISTER' && data.type !== 'AUTH') {
           const storeRow = await db.get("SELECT * FROM stores LIMIT 1");
           if (storeRow) {
             let isEmergencyOverride = false;
-            const overrideVal = await db.get("SELECT val FROM local_preferences WHERE key = 'emergency_override_until'");
+            const overrideVal = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'emergency_override_until'");
             if (overrideVal) {
-              const until = Number(overrideVal.val);
+              const until = Number(overrideVal.value_payload);
               if (!isNaN(until) && until > Date.now()) {
                 isEmergencyOverride = true;
               }
@@ -1306,7 +1551,7 @@ wss.on('connection', (ws, req) => {
 function broadcast(payload, skipWs = null) {
   const msg = encryptPayload(payload);
   for (const client of activeConnections) {
-    if (client !== skipWs && client.readyState === WebSocket.OPEN) {
+    if (client.authenticated && client !== skipWs && client.readyState === WebSocket.OPEN) {
       client.send(msg);
     }
   }
@@ -1802,33 +2047,23 @@ app.get('/api/license/check', async (req, res) => {
   let payload;
 
   try {
-    // 1. Verify token signature
-    if (token.includes('.')) {
-      const parts = token.split('.');
-      if (parts.length === 3) {
-        const payloadStr = Buffer.from(parts[1], 'base64').toString('utf8');
-        payload = JSON.parse(payloadStr);
-        if (payload.licenseKey && !payload.store_id) {
-          payload.store_id = payload.licenseKey;
-        }
-      } else {
-        return res.status(400).json({ error: 'Malformed token structure.' });
-      }
-    } else {
-      const decodedStr = Buffer.from(token, 'base64').toString('utf8');
-      const pipeIndex = decodedStr.lastIndexOf('|');
-      if (pipeIndex === -1) {
-        return res.status(400).json({ error: 'Malformed token structure.' });
-      }
-      const payloadStr = decodedStr.substring(0, pipeIndex);
-      const sigBase64 = decodedStr.substring(pipeIndex + 1);
-      const signature = Buffer.from(sigBase64, 'base64');
-      
-      const valid = crypto.verify(null, Buffer.from(payloadStr), PUBLIC_KEY_PEM, signature);
-      if (!valid) {
-        return res.status(401).json({ error: 'Invalid license signature.' });
-      }
-      payload = JSON.parse(payloadStr);
+    // 1. Verify token signature — enforce signed pipe-delimited format only
+    const decodedStr = Buffer.from(token, 'base64').toString('utf8');
+    const pipeIndex = decodedStr.lastIndexOf('|');
+    if (pipeIndex === -1) {
+      return res.status(400).json({ error: 'Malformed token structure. Must be signed license token.' });
+    }
+    const payloadStr = decodedStr.substring(0, pipeIndex);
+    const sigBase64 = decodedStr.substring(pipeIndex + 1);
+    const signature = Buffer.from(sigBase64, 'base64');
+    
+    const valid = crypto.verify(null, Buffer.from(payloadStr), PUBLIC_KEY_PEM, signature);
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid license signature.' });
+    }
+    payload = safeJsonParse(payloadStr);
+    if (!payload) {
+      return res.status(400).json({ error: 'Failed to parse license payload.' });
     }
 
     if (payload.exp && Date.now() > payload.exp) {
@@ -1890,7 +2125,7 @@ app.post('/api/employee/login', loginLimiter, requireAuth, async (req, res) => {
     }
 
     const employees = await db.all('SELECT * FROM employees WHERE is_active = 1');
-    const matched = employees.find(emp => verifyPin(pin, emp.auth_hash));
+    const matched = await verifyEmployeePin(pin, employees);
 
     if (matched) {
       await clearPinLockout(lockoutKey);
@@ -1917,12 +2152,32 @@ app.post('/api/employee/login', loginLimiter, requireAuth, async (req, res) => {
 
 // POST /api/checkout/verify — Server-side checkout verification and token signing
 app.post('/api/checkout/verify', loginLimiter, requireAuth, async (req, res) => {
-  const { cart, paymentMode, tier } = req.body;
+  const { cart, paymentMode } = req.body;
   if (!cart || !Array.isArray(cart)) {
     return res.status(400).json({ error: 'Cart must be a valid list of items.' });
   }
   try {
-    const verified = await verifyCheckoutPricing(cart, paymentMode || 'CASH', tier || 'STARTER');
+    const storeRow = await db.get("SELECT tier FROM stores LIMIT 1");
+    const activeTier = storeRow ? storeRow.tier : 'STARTER';
+
+    // Enforce tier transaction limits server-side
+    if (activeTier === 'STARTER' || activeTier === 'FREE' || activeTier === 'TRIAL') {
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+      const startTimestamp = startOfMonth.getTime();
+      const txCountRow = await db.get(
+        "SELECT COUNT(*) as count FROM transactions WHERE created_at >= ? AND is_deleted = 0 AND status = 'COMPLETED'",
+        [startTimestamp]
+      );
+      const invoiceCount = txCountRow ? txCountRow.count : 0;
+      const limit = activeTier === 'FREE' ? 100 : (activeTier === 'TRIAL' ? 500 : 200); // FREE: 100, STARTER: 200, TRIAL: 500
+      if (invoiceCount >= limit) {
+        return res.status(403).json({ error: `Monthly transaction limit reached (${limit} transactions) for your tier.` });
+      }
+    }
+
+    const verified = await verifyCheckoutPricing(cart, paymentMode || 'CASH', activeTier);
     const nonce = crypto.randomBytes(16).toString('hex');
     const payload = {
       subtotal: verified.subtotal,
@@ -1986,14 +2241,27 @@ app.get('/api/auth/verify', requireAuth, async (req, res) => {
 
     let isEmergencyOverride = false;
     let emergencyOverrideUntil = null;
-    const overrideVal = await db.get("SELECT val FROM local_preferences WHERE key = 'emergency_override_until'");
+    const overrideVal = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'emergency_override_until'");
     if (overrideVal) {
-      const until = Number(overrideVal.val);
+      const until = Number(overrideVal.value_payload);
       if (!isNaN(until) && until > Date.now()) {
         isEmergencyOverride = true;
         emergencyOverrideUntil = until;
       }
     }
+
+    const trialStartPref = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'valenixia_trial_start'");
+    const trialStart = trialStartPref ? Number(trialStartPref.value_payload) : 0;
+
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    const startTimestamp = startOfMonth.getTime();
+    const txCountRow = await db.get(
+      "SELECT COUNT(*) as count FROM transactions WHERE created_at >= ? AND is_deleted = 0 AND status = 'COMPLETED'",
+      [startTimestamp]
+    );
+    const invoiceCount = txCountRow ? txCountRow.count : 0;
 
     res.json({
       success: true,
@@ -2004,7 +2272,9 @@ app.get('/api/auth/verify', requireAuth, async (req, res) => {
       expiresAt: storeRow.expires_at,
       serverTime: Date.now(),
       isEmergencyOverride,
-      emergencyOverrideUntil
+      emergencyOverrideUntil,
+      trialStart,
+      invoiceCount
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -2021,12 +2291,23 @@ app.post('/api/payments/upload-proof', requireAuth, billingLimiter, async (req, 
   }
   try {
     const cleanFilename = String(filename || 'proof_' + Date.now() + '.png').replace(/[^a-zA-Z0-9_.-]/g, '');
-    const dir = path.join(__dirname, 'public', 'proofs');
+    const dir = path.resolve(__dirname, 'public', 'proofs');
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    const filePath = path.join(dir, cleanFilename);
+    const filePath = path.resolve(dir, cleanFilename);
+    if (!filePath.startsWith(dir)) {
+      return res.status(400).json({ error: 'Directory traversal attempt detected.' });
+    }
     const dataBuffer = Buffer.from(base64Data.replace(/^data:image\/\w+;base64,/, ""), 'base64');
+    
+    // Validate file magic bytes (signatures)
+    const isPng = dataBuffer[0] === 0x89 && dataBuffer[1] === 0x50 && dataBuffer[2] === 0x4E && dataBuffer[3] === 0x47;
+    const isJpeg = dataBuffer[0] === 0xFF && dataBuffer[1] === 0xD8 && dataBuffer[2] === 0xFF;
+    if (!isPng && !isJpeg) {
+      return res.status(400).json({ error: 'Only PNG and JPEG images are allowed.' });
+    }
+
     fs.writeFileSync(filePath, dataBuffer);
     
     const localUrl = `/proofs/${cleanFilename}`;
@@ -2036,29 +2317,52 @@ app.post('/api/payments/upload-proof', requireAuth, billingLimiter, async (req, 
   }
 });
 
-// POST /api/payments/submit-proof
-// Receive payment reference and plan ID, verify context, and record proof
 app.post('/api/payments/submit-proof', billingLimiter, requireAuth, async (req, res) => {
+  const idempotencyKey = req.headers['idempotency-key'];
+  if (idempotencyKey) {
+    if (!/^[a-zA-Z0-9-]{10,100}$/.test(idempotencyKey)) {
+      return res.status(400).json({ error: 'Invalid Idempotency-Key format. Alphanumeric with dashes, 10-100 chars.' });
+    }
+    try {
+      const existingKey = await db.get("SELECT * FROM idempotency_keys WHERE key = ?", [idempotencyKey]);
+      if (existingKey) {
+        return res.status(existingKey.response_code).json(JSON.parse(existingKey.response_body));
+      }
+    } catch (e) {
+      console.warn('[Idempotency] Failed to query idempotency key:', e.message);
+    }
+  }
+
+  const sendResponse = (status, body) => {
+    if (idempotencyKey) {
+      db.run(
+        "INSERT OR REPLACE INTO idempotency_keys (key, response_code, response_body, created_at) VALUES (?, ?, ?, ?)",
+        [idempotencyKey, status, JSON.stringify(body), Date.now()]
+      ).catch(err => console.error('[Idempotency] Failed to save key:', err.message));
+    }
+    return res.status(status).json(body);
+  };
+
   const { plan_id, rrn_reference, amount, proof_image_url, mode } = req.body;
   
   if (!plan_id || !rrn_reference || !amount) {
-    return res.status(400).json({ error: 'Missing required parameters: plan_id, rrn_reference, amount.' });
+    return sendResponse(400, { error: 'Missing required parameters: plan_id, rrn_reference, amount.' });
   }
 
   const rrnRegex = /^[a-zA-Z0-9-]{6,30}$/;
   if (!rrnRegex.test(rrn_reference)) {
-    return res.status(400).json({ error: 'Invalid transaction reference format. Alphanumeric 6-30 characters.' });
+    return sendResponse(400, { error: 'Invalid transaction reference format. Alphanumeric 6-30 characters.' });
   }
 
   const selectedMode = mode || 'subscription';
   const canonicalPriceMinor = CANONICAL_PLAN_PRICES[selectedMode]?.[plan_id];
   if (!canonicalPriceMinor) {
-    return res.status(400).json({ error: 'Invalid plan_id or mode.' });
+    return sendResponse(400, { error: 'Invalid plan_id or mode.' });
   }
 
   const submittedMinor = Math.round(parseFloat(amount) * 100);
   if (submittedMinor !== canonicalPriceMinor) {
-    return res.status(400).json({ error: 'Submitted amount does not match plan price.' });
+    return sendResponse(400, { error: 'Submitted amount does not match plan price.' });
   }
 
   const verifiedAmount = canonicalPriceMinor / 100;
@@ -2067,7 +2371,7 @@ app.post('/api/payments/submit-proof', billingLimiter, requireAuth, async (req, 
     // 1. Idempotency check: Ensure the RRN reference hasn't been submitted previously
     const existing = await db.get("SELECT * FROM payment_proofs WHERE rrn_reference = ?", [rrn_reference]);
     if (existing) {
-      return res.status(409).json({ error: 'This Transaction Reference has already been submitted.' });
+      return sendResponse(409, { error: 'This Transaction Reference has already been submitted.' });
     }
 
     const proofId = crypto.randomUUID();
@@ -2098,9 +2402,9 @@ app.post('/api/payments/submit-proof', billingLimiter, requireAuth, async (req, 
       }
     }
 
-    res.status(201).json({ success: true, message: 'Proof submitted successfully', proof_id: proofId });
+    return sendResponse(201, { success: true, message: 'Proof submitted successfully', proof_id: proofId });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return sendResponse(500, { error: err.message });
   }
 });
 
@@ -2254,7 +2558,7 @@ app.post('/api/auth/emergency-override', checkOrigin, requireAdmin, loginLimiter
 
     for (const emp of employees) {
       if (emp.role === 'MANAGER' || emp.role === 'ADMIN') {
-        if (verifyPin(pin, emp.pin_hash)) {
+        if (await verifyPin(pin, emp.pin_hash)) {
           matchedEmp = emp;
           break;
         }
@@ -2266,7 +2570,7 @@ app.post('/api/auth/emergency-override', checkOrigin, requireAdmin, loginLimiter
       const auditId = 'audit_' + crypto.randomUUID().substring(0, 8);
       await db.run(
         "INSERT INTO admin_audit_log (id, user_id, action, details, created_at) VALUES (?, ?, ?, ?, ?)",
-        [auditId, req.device?.nodeId || 'UNKNOWN', 'emergency_override_failed', `Failed emergency override attempt from IP: ${req.ip}`, Date.now()]
+        [auditId, req.device?.nodeId || 'UNKNOWN', 'emergency_override_failed', `Failed emergency override attempt from IP: ${hashIp(req.ip)}`, Date.now()]
       );
       return res.status(401).json({ error: 'Invalid Manager or Administrator PIN.' });
     }
@@ -2276,14 +2580,13 @@ app.post('/api/auth/emergency-override', checkOrigin, requireAdmin, loginLimiter
     const auditId = 'audit_' + crypto.randomUUID().substring(0, 8);
     await db.run(
       "INSERT INTO admin_audit_log (id, user_id, action, details, created_at) VALUES (?, ?, ?, ?, ?)",
-      [auditId, matchedEmp.id, 'emergency_override', `Emergency override triggered by ${matchedEmp.role} (IP: ${req.ip})`, Date.now()]
+      [auditId, matchedEmp.id, 'emergency_override', `Emergency override triggered by ${matchedEmp.role} (IP: ${hashIp(req.ip)})`, Date.now()]
     );
 
     const until = Date.now() + 15 * 60 * 1000; // 15 minutes limit
     await db.run(
-      `INSERT INTO local_preferences (key, val, val_type) VALUES ('emergency_override_until', ?, 'number')
-       ON CONFLICT(key) DO UPDATE SET val = ?`,
-      [until, until]
+      `INSERT OR REPLACE INTO local_preferences (key, value_payload, val_type, updated_at) VALUES ('emergency_override_until', ?, 'number', ?)`,
+      [String(until), Date.now()]
     );
 
     res.json({
@@ -2406,8 +2709,8 @@ app.get('/api/devices', requireAdmin, async (req, res) => {
 
 // GET /api/devices/approve-qr — serves a secure confirmation page.
 // The page reads the admin Bearer token from IndexedDB via JS and POSTs to /api/devices/approve.
-// This prevents CSRF: the approval only succeeds if the opener has a valid admin token.
-app.get('/api/devices/approve-qr', (req, res) => {
+// It also provides a secure fallback to prompt for the Admin PIN if not authenticated.
+app.get('/api/devices/approve-qr', qrApproveLimiter, (req, res) => {
   const { nodeId } = req.query;
   if (!nodeId) return res.status(400).send('<h2>Missing nodeId parameter</h2>');
   const safeNodeId = nodeId.replace(/[^a-zA-Z0-9_\-]/g, '');
@@ -2427,6 +2730,9 @@ app.get('/api/devices/approve-qr', (req, res) => {
     h2{color:#10b981;margin:0 0 8px;font-size:22px}
     p{color:#94a3b8;margin:8px 0;font-size:14px;line-height:1.6}
     code{background:rgba(255,255,255,.06);padding:2px 6px;border-radius:4px;font-size:13px}
+    input{background:rgba(255,255,255,.06);border:1px solid rgba(16,185,129,.3);color:#f8fafc;
+          padding:12px;width:calc(100% - 24px);text-align:center;font-size:24px;border-radius:6px;
+          letter-spacing:8px;margin-top:12px;outline:none}
     button{margin-top:24px;width:100%;padding:14px;background:#10b981;color:#060608;
            font-weight:800;font-size:13px;border:none;border-radius:6px;cursor:pointer;
            letter-spacing:.05em;text-transform:uppercase;transition:opacity .15s}
@@ -2438,7 +2744,8 @@ app.get('/api/devices/approve-qr', (req, res) => {
   <div class="card">
     <h2>Approve Pairing Request</h2>
     <p>Device <code>${safeNodeId}</code> is requesting to sync with this Valenixia POS register.</p>
-    <p>Only approve if you recognise this device.</p>
+    <p>Enter the Administrator PIN to approve:</p>
+    <input type="password" id="pin-input" placeholder="••••" maxlength="4" />
     <button id="btn-approve">Approve Device</button>
     <div id="status"></div>
   </div>
@@ -2446,6 +2753,12 @@ app.get('/api/devices/approve-qr', (req, res) => {
     document.getElementById('btn-approve').addEventListener('click', async () => {
       const btn = document.getElementById('btn-approve');
       const status = document.getElementById('status');
+      const pinVal = document.getElementById('pin-input').value;
+      if (!pinVal) {
+        status.style.color = '#ef4444';
+        status.textContent = 'Please enter the Admin PIN.';
+        return;
+      }
       btn.disabled = true;
       btn.textContent = 'Approving...';
       try {
@@ -2472,7 +2785,7 @@ app.get('/api/devices/approve-qr', (req, res) => {
             'Content-Type': 'application/json',
             ...(token ? { 'Authorization': 'Bearer ' + token } : {})
           },
-          body: JSON.stringify({ nodeId: '${safeNodeId}' })
+          body: JSON.stringify({ nodeId: '${safeNodeId}', adminPin: pinVal })
         });
         const data = await resp.json();
         if (data.success) {
@@ -2495,9 +2808,35 @@ app.get('/api/devices/approve-qr', (req, res) => {
 </html>`);
 });
 
-app.post('/api/devices/approve', requireAdmin, adminActionLimiter, requireBody({ nodeId: 'NODE_ID' }), async (req, res) => {
-  const { nodeId } = req.body;
+app.post('/api/devices/approve', adminActionLimiter, requireBody({ nodeId: 'NODE_ID' }), async (req, res) => {
+  const { nodeId, adminPin } = req.body;
   if (!nodeId) return res.status(400).json({ error: 'nodeId is required' });
+  
+  let authorized = false;
+  
+  // Method 1: Bearer Token Auth (standard)
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    const payload = verifyToken(token);
+    if (payload && (payload.role === 'MASTER' || payload.role === 'TERMINAL' || payload.role === 'ADMIN')) {
+      authorized = true;
+    }
+  }
+  
+  // Method 2: Admin PIN Auth (fallback for phone scanners)
+  if (!authorized && adminPin) {
+    const employees = await db.all("SELECT * FROM employees WHERE role = 'ADMIN' AND is_active = 1");
+    const matched = await verifyEmployeePin(adminPin, employees);
+    if (matched) {
+      authorized = true;
+    }
+  }
+  
+  if (!authorized) {
+    return res.status(401).json({ error: 'Unauthorized. Valid Admin token or PIN required.' });
+  }
+
   try {
     await approveDevice(nodeId);
     const token = generateToken(nodeId, 'TERMINAL');
@@ -2948,7 +3287,7 @@ app.post('/api/system/reset', checkOrigin, requireAdmin, loginLimiter, async (re
     }
 
     const employees = await db.all("SELECT * FROM employees WHERE role = 'ADMIN' AND is_active = 1");
-    const matched = employees.find(emp => verifyPin(pin, emp.auth_hash));
+    const matched = await verifyEmployeePin(pin, employees);
     if (matched) {
       authorized = true;
     }
@@ -3018,6 +3357,16 @@ app.post('/api/devices/register', loginLimiter, requireBody({ nodeId: 'NODE_ID' 
 
 // 6.a.1 Health Check — Database connectivity, sync status, license status
 app.get('/api/health', async (req, res) => {
+  let isAuthorized = false;
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    const payload = verifyToken(token);
+    if (payload && (payload.role === 'MASTER' || payload.role === 'TERMINAL' || payload.role === 'ADMIN')) {
+      isAuthorized = true;
+    }
+  }
+
   const health = {
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -3045,6 +3394,14 @@ app.get('/api/health', async (req, res) => {
     health.license = 'error';
   }
   if (health.database === 'error') health.status = 'degraded';
+
+  if (!isAuthorized) {
+    return res.status(health.status === 'ok' ? 200 : 503).json({
+      status: health.status,
+      timestamp: health.timestamp
+    });
+  }
+
   res.status(health.status === 'ok' ? 200 : 503).json(health);
 });
 
@@ -3100,7 +3457,8 @@ app.post('/api/bootstrap',
     await db.run("INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('store_name', 'STR', ?, 0, ?)", [storeName, now]);
     await db.run("INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('store_tax_rate', 'STR', ?, 0, ?)", [String(taxRate), now]);
     await db.run("INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('store_theme_palette', 'STR', ?, 0, ?)", [theme || 'Obsidian Emerald', now]);
-    await db.run("INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('sync_passphrase', 'STR', ?, 0, ?)", [syncPassphrase, now]);
+    const encryptedPassphrase = encryptPassphrase(syncPassphrase);
+    await db.run("INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('sync_passphrase', 'STR', ?, 0, ?)", [encryptedPassphrase, now]);
     await db.run("INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('shop_mode', 'STR', ?, 0, ?)", [shopMode || 'simple-retail', now]);
 
     // Set admin employee credentials
@@ -3135,33 +3493,25 @@ app.get('/api/sync/bootstrap', async (req, res) => {
   }
   const token = authHeader.split(' ')[1];
   
-  // Verify Ed25519 license signature
+  // Verify Ed25519 license signature — enforce signed pipe-delimited format only
   let payload;
   try {
-    if (token.includes('.')) {
-      const parts = token.split('.');
-      if (parts.length === 3) {
-        const payloadStr = Buffer.from(parts[1], 'base64').toString('utf8');
-        payload = JSON.parse(payloadStr);
-        if (payload.licenseKey && !payload.store_id) {
-          payload.store_id = payload.licenseKey;
-        }
-      } else {
-        return res.status(400).json({ error: 'Malformed token structure.' });
-      }
-    } else {
-      const decodedStr = Buffer.from(token, 'base64').toString('utf8');
-      const pipeIndex = decodedStr.lastIndexOf('|');
-      if (pipeIndex === -1) return res.status(400).json({ error: 'Malformed license token.' });
-      
-      const payloadStr = decodedStr.substring(0, pipeIndex);
-      const sigBase64 = decodedStr.substring(pipeIndex + 1);
-      const signature = Buffer.from(sigBase64, 'base64');
-      
-      const valid = crypto.verify(null, Buffer.from(payloadStr), PUBLIC_KEY_PEM, signature);
-      if (!valid) return res.status(401).json({ error: 'Invalid license signature.' });
-      
-      payload = JSON.parse(payloadStr);
+    const decodedStr = Buffer.from(token, 'base64').toString('utf8');
+    const pipeIndex = decodedStr.lastIndexOf('|');
+    if (pipeIndex === -1) {
+      return res.status(400).json({ error: 'Malformed token structure. Must be signed license token.' });
+    }
+    const payloadStr = decodedStr.substring(0, pipeIndex);
+    const sigBase64 = decodedStr.substring(pipeIndex + 1);
+    const signature = Buffer.from(sigBase64, 'base64');
+    
+    const valid = crypto.verify(null, Buffer.from(payloadStr), PUBLIC_KEY_PEM, signature);
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid license signature.' });
+    }
+    payload = safeJsonParse(payloadStr);
+    if (!payload) {
+      return res.status(400).json({ error: 'Failed to parse license payload.' });
     }
 
     if (payload.exp && Date.now() > payload.exp) {
@@ -3227,30 +3577,55 @@ app.get('/api/sync/bootstrap', async (req, res) => {
 // GDPR Data Export Endpoint (Requires Admin privileges)
 app.get('/api/export', requireAdmin, async (req, res) => {
   try {
-    const data = {};
-    const tableQueries = {
-      'transactions': () => db.all("SELECT * FROM transactions"),
-      'line_items': () => db.all("SELECT * FROM line_items"),
-      'inventory_catalog': () => db.all("SELECT * FROM inventory_catalog"),
-      'employees': () => db.all("SELECT * FROM employees"),
-      'customers': () => db.all("SELECT * FROM customers"),
-      'categories': () => db.all("SELECT * FROM categories"),
-      'distributors': () => db.all("SELECT * FROM distributors"),
-      'purchase_orders': () => db.all("SELECT * FROM purchase_orders"),
-      'po_line_items': () => db.all("SELECT * FROM po_line_items"),
-      'distributor_payments': () => db.all("SELECT * FROM distributor_payments"),
-      'customer_credit': () => db.all("SELECT * FROM customer_credit")
-    };
-    for (const table of Object.keys(tableQueries)) {
-      try {
-        data[table] = await tableQueries[table]();
-      } catch (err) {
-        data[table] = [];
-      }
+    const { table, limit: limitParam, offset: offsetParam } = req.query;
+    const allowedTables = [
+      'transactions',
+      'line_items',
+      'inventory_catalog',
+      'employees',
+      'customers',
+      'categories',
+      'distributors',
+      'purchase_orders',
+      'po_line_items',
+      'distributor_payments',
+      'customer_credit'
+    ];
+
+    if (!table) {
+      return res.status(400).json({
+        error: 'Missing required query parameter: table.',
+        allowedTables,
+        usage: 'GET /api/export?table=<tableName>&limit=<1-500>&offset=<non-negative-integer>'
+      });
     }
+
+    if (!allowedTables.includes(table)) {
+      return res.status(400).json({ error: `Invalid table name: ${table}. Must be one of ${allowedTables.join(', ')}` });
+    }
+
+    const limit = Math.min(Math.max(parseInt(limitParam || '100', 10), 1), 500);
+    const offset = Math.max(parseInt(offsetParam || '0', 10), 0);
+
+    if (isNaN(limit) || isNaN(offset)) {
+      return res.status(400).json({ error: 'Limit and offset must be valid integers.' });
+    }
+
+    // Direct parameter binding to prevent SQL injection
+    const rows = await db.all(`SELECT * FROM ${table} LIMIT ? OFFSET ?`, [limit, offset]);
+    const totalRow = await db.get(`SELECT COUNT(*) as count FROM ${table}`);
+    const total = totalRow ? totalRow.count : 0;
+
     res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', 'attachment; filename="valenixia_export.json"');
-    res.json(data);
+    res.setHeader('Content-Disposition', `attachment; filename="valenixia_export_${table}.json"`);
+    res.json({
+      table,
+      limit,
+      offset,
+      total,
+      hasMore: offset + limit < total,
+      data: rows
+    });
   } catch (err) {
     res.status(500).json({ error: 'Export failed: ' + err.message });
   }
@@ -3270,7 +3645,7 @@ app.post('/api/reset', requireAdmin, checkOrigin, adminActionLimiter, requireBod
 
     // Requires manager/admin PIN verification
     const employees = await db.all('SELECT * FROM employees WHERE role = "ADMIN"');
-    const matched = employees.find(emp => verifyPin(pin, emp.auth_hash));
+    const matched = await verifyEmployeePin(pin, employees);
 
     if (!matched) {
       await recordPinFailure(lockoutKey, 3, 60);
@@ -3302,14 +3677,15 @@ app.post('/api/void-transaction', checkOrigin, loginLimiter, requireBody({ trans
     const { transactionId, managerPin, voidReason } = req.body;
     if (!transactionId || !managerPin) return res.status(400).json({ error: 'transactionId and managerPin required.' });
 
-    const lockoutKey = `void:${req.ip}`;
+    const hashedPin = crypto.createHash('sha256').update(managerPin).digest('hex');
+    const lockoutKey = `void:pin:${hashedPin}`;
     const lockout = await checkPinLockout(lockoutKey);
     if (lockout.locked) {
       return res.status(429).json({ error: `Too many failed attempts. Locked out for ${lockout.minsLeft} more minutes.` });
     }
 
     const managers = await db.all("SELECT * FROM employees WHERE auth_hash IS NOT NULL AND (role='MANAGER' OR role='ADMIN') AND is_active=1");
-    const matchedMgr = managers.find(m => verifyPin(managerPin, m.auth_hash));
+    const matchedMgr = await verifyEmployeePin(managerPin, managers);
 
     if (!matchedMgr) {
       await recordPinFailure(lockoutKey, 5, 15);
@@ -3380,7 +3756,7 @@ app.post('/api/admin/release-update', requireAdmin, releaseUpdateLimiter, requir
     }
 
     const employees = await db.all("SELECT * FROM employees WHERE is_active = 1");
-    const matched = employees.find(emp => verifyPin(adminPin, emp.auth_hash));
+    const matched = await verifyEmployeePin(adminPin, employees);
     if (!matched || (matched.role !== 'ADMIN' && matched.role !== 'MANAGER')) {
       await recordPinFailure(lockoutKey, 5, 15);
       return res.status(403).json({ error: 'Access denied: Valid Manager or Admin PIN required.' });
@@ -3442,7 +3818,7 @@ app.post('/api/admin/release-rollback', requireAdmin, releaseUpdateLimiter, requ
     }
 
     const employees = await db.all("SELECT * FROM employees WHERE is_active = 1");
-    const matched = employees.find(emp => verifyPin(adminPin, emp.auth_hash));
+    const matched = await verifyEmployeePin(adminPin, employees);
     if (!matched || (matched.role !== 'ADMIN' && matched.role !== 'MANAGER')) {
       await recordPinFailure(lockoutKey, 5, 15);
       return res.status(403).json({ error: 'Access denied: Valid Manager or Admin PIN required.' });
@@ -3536,7 +3912,7 @@ app.get('/api/admin/payments/all', requireAdmin, adminActionLimiter, async (req,
     }
 
     const employees = await db.all("SELECT * FROM employees WHERE is_active = 1");
-    const matched = employees.find(emp => verifyPin(adminPin, emp.auth_hash));
+    const matched = await verifyEmployeePin(adminPin, employees);
     if (!matched || (matched.role !== 'ADMIN' && matched.role !== 'MANAGER')) {
       await recordPinFailure(lockoutKey, 5, 15);
       return res.status(403).json({ error: 'Access denied: Admin or Manager PIN required.' });
@@ -3572,7 +3948,7 @@ app.post('/api/admin/payments/decision-pin', requireAdmin, adminActionLimiter, r
     }
 
     const employees = await db.all("SELECT * FROM employees WHERE is_active = 1");
-    const matched = employees.find(emp => verifyPin(adminPin, emp.auth_hash));
+    const matched = await verifyEmployeePin(adminPin, employees);
     if (!matched || (matched.role !== 'ADMIN' && matched.role !== 'MANAGER')) {
       await recordPinFailure(lockoutKey, 5, 15);
       return res.status(403).json({ error: 'Access denied: Admin or Manager PIN required.' });

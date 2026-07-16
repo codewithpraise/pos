@@ -60,6 +60,7 @@ async function verifyJWT(token, secretKey) {
       return false; // Expired
     }
     return decodedPayload;
+  } catch (e) {
     return false;
   }
 }
@@ -93,8 +94,8 @@ export default {
         }
 
         // Simulating validation of license keys.
-        // Key format: NEXOVA-XXXX-XXXX-XXXX
-        const keyPattern = /^NEXOVA-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+        // Key format: VALENIXIA-XXXX-XXXX-XXXX
+        const keyPattern = /^VALENIXIA-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
         if (!keyPattern.test(licenseKey)) {
           return new Response(JSON.stringify({ error: "Invalid license key format." }), {
             status: 403,
@@ -103,7 +104,7 @@ export default {
         }
 
         // Hardcoded simulation for allowed/valid keys list:
-        // e.g. NEXOVA-TRAL-1234-5678, NEXOVA-PROD-ABCD-EFGH, NEXOVA-ENTP-9999-8888
+        // e.g. VALENIXIA-TRAL-1234-5678, VALENIXIA-PROD-ABCD-EFGH, VALENIXIA-ENTP-9999-8888
         let tier = "TRIAL";
         let duration = 7 * 24 * 60 * 60 * 1000; // 7 days trial
 
@@ -126,7 +127,7 @@ export default {
           activatedAt: now
         };
 
-        const token = await generateJWT(jwtPayload, env.JWT_SECRET || "nexova_jwt_secret_signature_key");
+        const token = await generateJWT(jwtPayload, env.JWT_SECRET || "valenixia_jwt_secret_signature_key");
 
         return new Response(JSON.stringify({ success: true, token, expiresAt, tier }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
@@ -144,7 +145,7 @@ export default {
           });
         }
 
-        const payload = await verifyJWT(token, env.JWT_SECRET || "nexova_jwt_secret_signature_key");
+        const payload = await verifyJWT(token, env.JWT_SECRET || "valenixia_jwt_secret_signature_key");
         if (!payload) {
           return new Response(JSON.stringify({ error: "Invalid or expired license token." }), {
             status: 403,
