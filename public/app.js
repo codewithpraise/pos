@@ -8325,7 +8325,7 @@ setHtml(card, `
     let fbrQrUrl = '';
 
     if (tx.payment_details) {
-      if (tx.payment_details.startsWith('{')) {
+      if (typeof tx.payment_details === 'string' && tx.payment_details.startsWith('{')) {
         try {
           const parsed = JSON.parse(tx.payment_details);
           if (parsed.note) text += `REF DETAILS: ${parsed.note}\n`;
@@ -8337,6 +8337,16 @@ setHtml(card, `
             fbrQrUrl = parsed.fbr_qr_url;
           }
         } catch(e) {}
+      } else if (typeof tx.payment_details === 'object') {
+        const parsed = tx.payment_details;
+        if (parsed.note) text += `REF DETAILS: ${parsed.note}\n`;
+        else if (parsed.cash_cents) text += `SPLIT: Cash Rs. ${(parsed.cash_cents/100).toFixed(2)}, Card Rs. ${(parsed.card_cents/100).toFixed(2)}\n`;
+        
+        if (parsed.fbr_invoice_number) {
+          fbrInvoiceNumber = parsed.fbr_invoice_number;
+          fbrStatus = parsed.fbr_status;
+          fbrQrUrl = parsed.fbr_qr_url;
+        }
       } else {
         text += `REF DETAILS: ${tx.payment_details}\n`;
       }
