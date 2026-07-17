@@ -172,45 +172,22 @@ async function run() {
 
   const { ws, ev, send } = await connectCDP();
 
-  log('Navigating to http://localhost:3000 for initial load...');
-  await send('Page.navigate', { url: 'http://localhost:3000' });
-  await sleep(3000);
+  log('Stopping all Service Workers via CDP...');
+  try {
+    await send('ServiceWorker.enable');
+    await send('ServiceWorker.stopAllWorkers');
+    await send('ServiceWorker.disable');
+  } catch (err) {
+    log('ServiceWorker CDP nuke failed: ' + err.message);
+  }
 
-  log('Nuking client local stores (IndexedDB + localStorage)...');
-  const clearRes = await ev(`(async () => {
-    localStorage.clear();
-    try {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      for (const reg of regs) { await reg.unregister(); }
-    } catch(e) {}
-    try {
-      const keys = await caches.keys();
-      for (const k of keys) { await caches.delete(k); }
-    } catch(e) {}
-    try {
-      if (window.ValenixiaDB && window.ValenixiaDB.db) {
-        window.ValenixiaDB.db.close();
-      }
-    } catch(e) {}
-    try {
-      if (window.syncWorker) {
-        window.syncWorker.terminate();
-      }
-    } catch(e) {}
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const req = indexedDB.deleteDatabase('valenixia_db');
-        req.onsuccess = () => resolve('CLEARED_ALL');
-        req.onerror = (e) => resolve('DB_DELETE_ERR: ' + e.target.error.message);
-        req.onblocked = () => resolve('DB_DELETE_BLOCKED');
-      }, 500);
-    });
-  })()`);
-  log('CLEARED_STATUS: ' + clearRes);
+  log('Clearing browser storage and Service Worker cache via CDP...');
+  await send('Storage.clearDataForOrigin', { origin: 'http://localhost:3000', storageTypes: 'all' });
+  await sleep(1000);
 
-  log('Re-navigating to http://localhost:3000...');
+  log('Navigating to http://localhost:3000...');
   await send('Page.navigate', { url: 'http://localhost:3000' });
-  await sleep(3000);
+  await sleep(3000); // give it time to load
 
   // ────────────────────────────────────────────────────────────────────────────
   //  SECTION 0: Wait for page to fully initialize (max 15s)

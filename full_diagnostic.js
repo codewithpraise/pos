@@ -113,36 +113,65 @@ async function getEl(ws, id_or_sel, evalId) {
   return null;
 }
 
+function devToolsRequest(path, method = 'GET') {
+  return new Promise((resolve, reject) => {
+    const port = process.env.CDP_PORT || '9222';
+    const req = http.request({
+      hostname: '127.0.0.1',
+      port: parseInt(port),
+      path: path,
+      method: method
+    }, res => {
+      let b = '';
+      res.on('data', d => b += d);
+      res.on('end', () => resolve(b));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
 async function run() {
   log('=== VALENIXIA POS COMPREHENSIVE DIAGNOSTIC ===');
   
-  // Get CDP target
-  const port = process.env.CDP_PORT || '9222';
-  const td = await new Promise((res, rej) => {
-    http.get(`http://127.0.0.1:${port}/json`, (r) => {
-      let b = ''; r.on('data', d => b += d); r.on('end', () => res(JSON.parse(b)));
-    }).on('error', rej);
-  });
-  
-  const target = td.find(t => t.url && t.url.includes('localhost:3000') && t.type === 'page') || td[0];
-  if (!target) {
-    log('❌ FATAL: No Chrome DevTools target found. Is Chrome running with --remote-debugging-port=9222?');
-    return;
+  // Spawning fresh test tab
+  let newTab;
+  try {
+    const res = await devToolsRequest('/json/new', 'PUT');
+    newTab = JSON.parse(res);
+    log(`Created fresh test tab: ${newTab.id}`);
+  } catch (e) {
+    log('❌ FATAL: Failed to create a new tab. Is Chrome running with --remote-debugging-port=9222?');
+    process.exit(1);
   }
-  
-  log(`Attached to: ${target.url}`);
-  const ws = new WebSocket(target.webSocketDebuggerUrl);
+
+  // Close all other page targets to prevent IndexedDB locks
+  try {
+    const targetsRes = await devToolsRequest('/json');
+    const targets = JSON.parse(targetsRes);
+    for (const t of targets) {
+      if (t.type === 'page' && t.id !== newTab.id) {
+        log(`Closing existing tab/target to prevent IndexedDB lock: ${t.url}`);
+        await devToolsRequest(`/json/close/${t.id}`, 'GET').catch(() => {});
+      }
+    }
+  } catch (e) {
+    log('Failed to clean up other tabs: ' + e.message);
+  }
+
+  const ws = new WebSocket(newTab.webSocketDebuggerUrl.replace('localhost', '127.0.0.1'));
   await new Promise((res, rej) => { ws.once('open', res); ws.once('error', rej); });
   
   // Enable domains
   await cdpReq(ws, 'Runtime.enable', {}, 1);
-  await cdpReq(ws, 'Log.enable', {}, 2);
-  await cdpReq(ws, 'Network.enable', {}, 3);
-  await cdpReq(ws, 'Network.setCacheDisabled', { cacheDisabled: true }, 4);
+  await cdpReq(ws, 'Page.enable', {}, 2);
+  await cdpReq(ws, 'Log.enable', {}, 3);
+  await cdpReq(ws, 'Network.enable', {}, 4);
+  await cdpReq(ws, 'Network.setCacheDisabled', { cacheDisabled: true }, 5);
 
   // Inject native mocks to support offline-first/CI headless tests safely
-  await cdpReq(ws, 'Runtime.evaluate', {
-    expression: `
+  await cdpReq(ws, 'Page.addScriptToEvaluateOnNewDocument', {
+    source: `
       window.AndroidPOS = {
         getServerUrl: () => 'http://localhost:3000',
         setAutoStartOnBoot: () => {},
@@ -153,8 +182,7 @@ async function run() {
       window.AndroidHardware = {
         printReceipt: () => {}
       };
-    `,
-    returnByValue: true
+    `
   }, 9999);
   
   // Collect errors
@@ -178,7 +206,16 @@ async function run() {
   // TEST 1: Navigate fresh, check boot state
   // ─────────────────────────────────────────────
   log('\n=== TEST 1: Fresh page load ===');
-  log('Clearing browser storage for http://localhost:3000...');
+  log('Stopping all Service Workers via CDP...');
+  try {
+    await cdpReq(ws, 'ServiceWorker.enable', {}, 10);
+    await cdpReq(ws, 'ServiceWorker.stopAllWorkers', {}, 11);
+    await cdpReq(ws, 'ServiceWorker.disable', {}, 12);
+  } catch (err) {
+    log('ServiceWorker CDP nuke failed: ' + err.message);
+  }
+
+  log('Clearing browser storage and Service Worker cache via CDP...');
   await cdpReq(ws, 'Storage.clearDataForOrigin', { origin: 'http://localhost:3000', storageTypes: 'all' }, 99);
   await sleep(1000);
   
@@ -392,6 +429,16 @@ async function run() {
   log(`All warnings collected: ${allWarnings.length}`);
   
   ws.close();
+
+  log('Closing test tab...');
+  await devToolsRequest(`/json/close/${newTab.id}`, 'GET').catch(() => {});
+  log('Test tab closed successfully!');
+  
+  if (failed > 0) {
+    process.exit(1);
+  } else {
+    process.exit(0);
+  }
 }
 
 run().catch(e => {

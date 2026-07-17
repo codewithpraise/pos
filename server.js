@@ -1009,7 +1009,7 @@ function encryptPayload(payload) {
   const json = JSON.stringify(payload);
   if (serverPassphrase) {
     try {
-      const key = deriveKey(serverPassphrase, syncSalt);
+      const key = deriveKey(serverPassphrase, 'valenixia_salt');
       const iv = crypto.randomBytes(12);
       const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
       let encrypted = cipher.update(json, 'utf8');
@@ -1066,7 +1066,7 @@ function decryptPayload(rawData) {
       const tag = buffer.subarray(buffer.length - 16);
       const ciphertext = buffer.subarray(12, buffer.length - 16);
       
-      const key = deriveKey(serverPassphrase, syncSalt);
+      const key = deriveKey(serverPassphrase, 'valenixia_salt');
       const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
       decipher.setAuthTag(tag);
       let decrypted = decipher.update(ciphertext, 'binary', 'utf8');
@@ -3470,7 +3470,7 @@ app.post('/api/bootstrap',
     await db.run("INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('shop_mode', 'STR', ?, 0, ?)", [shopMode || 'simple-retail', now]);
 
     // Set admin employee credentials
-    const hashed = hashPin(adminPin);
+    const hashed = await hashPin(adminPin);
     const admin = await db.get("SELECT * FROM employees WHERE role = 'ADMIN'");
     if (admin) {
       await db.run("UPDATE employees SET auth_hash = ?, is_active = 1 WHERE id = ?", [hashed, admin.id]);
