@@ -17,9 +17,14 @@ if (!process.env.SERVER_MASTER_KEY) {
   if (fs.existsSync(envPath)) {
     envContent = fs.readFileSync(envPath, 'utf8');
   }
-  fs.writeFileSync(envPath, envContent + `\nSERVER_MASTER_KEY=${masterKey}\n`);
+  fs.writeFileSync(envPath, envContent + `\nSERVER_MASTER_KEY=${masterKey}\n`, { mode: 0o600 });
   process.env.SERVER_MASTER_KEY = masterKey;
 }
+try {
+  if (fs.existsSync(envPath)) {
+    fs.chmodSync(envPath, 0o600);
+  }
+} catch (_) {}
 
 const express = require('express');
 const http = require('http');
@@ -1107,21 +1112,27 @@ async function requireAdminOrPin(req, res, next) {
 
 function encryptPayload(payload) {
   const json = JSON.stringify(payload);
-  if (serverPassphrase) {
-    try {
-      const key = deriveKey(serverPassphrase, syncSalt);
-      const iv = crypto.randomBytes(12);
-      const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-      let encrypted = cipher.update(json, 'utf8');
-      encrypted = Buffer.concat([encrypted, cipher.final()]);
-      const tag = cipher.getAuthTag();
-      const combined = Buffer.concat([iv, encrypted, tag]);
-      return combined.toString('base64');
-    } catch (e) {
-      console.error('[SyncHub] Encryption failed:', e.message);
+  if (!serverPassphrase) {
+    // Handshake/unauthorized messages before pairing may be sent unencrypted
+    const unencryptedTypes = new Set(['AUTH_CHALLENGE', 'unauthorized', 'device_pending', 'device_rejected', 'SYNC_ERROR']);
+    if (unencryptedTypes.has(payload.type)) {
+      return json;
     }
+    throw new Error('[SyncHub Security] Sync payload requires configured sync passphrase.');
   }
-  return json;
+  try {
+    const key = deriveKey(serverPassphrase, syncSalt);
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+    let encrypted = cipher.update(json, 'utf8');
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    const tag = cipher.getAuthTag();
+    const combined = Buffer.concat([iv, encrypted, tag]);
+    return combined.toString('base64');
+  } catch (e) {
+    console.error('[SyncHub] Encryption failed:', e.message);
+    throw e;
+  }
 }
 
 function safeJsonParse(str, fallback = null) {
@@ -1234,7 +1245,13 @@ wss.on('connection', (ws, req) => {
   console.log('[SyncHub] Connected new raw socket connection.');
 
 
+  let globalSyncQueueDepth = 0;
   ws.on('message', (message) => {
+    if (globalSyncQueueDepth > 1000) {
+      globalSyncQueue = Promise.resolve();
+      globalSyncQueueDepth = 0;
+    }
+    globalSyncQueueDepth++;
     globalSyncQueue = globalSyncQueue.then(async () => {
       try {
         let data;
@@ -1525,7 +1542,6 @@ wss.on('connection', (ws, req) => {
             'employee_shifts',
             'customers',
             'inventory_catalog',
-            'employees',
             'local_preferences',
             'categories'
           ]);
@@ -1657,6 +1673,11 @@ wss.on('connection', (ws, req) => {
         }
       } catch (err) {
         console.error('[SyncHub] Error processing socket message:', err);
+      } finally {
+        globalSyncQueueDepth = Math.max(0, globalSyncQueueDepth - 1);
+        if (globalSyncQueueDepth === 0) {
+          globalSyncQueue = Promise.resolve();
+        }
       }
     });
   });

@@ -203,7 +203,12 @@ async function initDatabase(terminalId) {
   await db.exec('PRAGMA busy_timeout = 5000;');
   await db.exec('PRAGMA journal_size_limit = 6144000;');
 
-  try { await db.exec('PRAGMA strict = ON;'); } catch(e) {} // SQLite ≥3.37 strict type enforcement
+  try { 
+    await db.exec('PRAGMA strict = ON;');
+    console.log('[Database] Strict mode enabled.');
+  } catch(e) {
+    console.warn('[Database] Strict mode not supported on this SQLite version:', e.message);
+  }
 
   console.log('[Database] Schema version:', SERVER_SCHEMA_VERSION);
   console.log('[Database] Executing SQLite index maintenance pass...');
@@ -1058,9 +1063,15 @@ async function getChangesSince(version) {
 }
 
 let dbQueue = Promise.resolve();
+let dbQueueDepth = 0;
 
 // Apply incoming delta-changes from a remote terminal node
 async function applyRemoteChanges(changes) {
+  if (dbQueueDepth > 1000) {
+    dbQueue = Promise.resolve();
+    dbQueueDepth = 0;
+  }
+  dbQueueDepth++;
   return new Promise((resolve, reject) => {
     dbQueue = dbQueue.then(async () => {
       try {
@@ -1068,6 +1079,11 @@ async function applyRemoteChanges(changes) {
         resolve(result);
       } catch (err) {
         reject(err);
+      } finally {
+        dbQueueDepth = Math.max(0, dbQueueDepth - 1);
+        if (dbQueueDepth === 0) {
+          dbQueue = Promise.resolve();
+        }
       }
     });
   });

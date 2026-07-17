@@ -41,6 +41,7 @@
       return;
     }
     try {
+      // DOMPurify sanitizes HTML input before innerHTML assignment to eliminate XSS
       const cleanHtml = typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(html, { USE_PROFILES: { html: true } }) : html;
       const tempElement = element.cloneNode(false);
       tempElement.innerHTML = cleanHtml;
@@ -219,6 +220,21 @@
     if (element) element.setAttribute('enterkeyhint', hint);
   }
   window.applyEnterKeyHint = applyEnterKeyHint;
+
+  // Dynamic Lazy Module Loader Utility — defers non-critical assets for faster first paint
+  function lazyLoadModule(scriptUrl) {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${scriptUrl}"]`)) {
+        return resolve();
+      }
+      const script = document.createElement('script');
+      script.src = scriptUrl;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error(`Failed to load module: ${scriptUrl}`));
+      document.head.appendChild(script);
+    });
+  }
+  window.lazyLoadModule = lazyLoadModule;
 
   // Modal active back-button history navigation routing
   let modalHistoryState = false;
