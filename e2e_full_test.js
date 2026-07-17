@@ -450,10 +450,11 @@ async function run() {
       await sleep(200);
 
       await ev('document.getElementById("btn-submit-product-modal")?.click()');
-      await sleep(2000);
-
-      const catContainer = await ev('document.getElementById("catalog-virtual-container")?.innerHTML || document.getElementById("catalog-grid-container")?.innerHTML || ""');
-      if (catContainer?.includes('E2E-SKU-777') || catContainer?.includes('E2E Test Widget')) {
+      const productAdded = await waitFor(ev, `(function(){
+        var html = document.getElementById("catalog-virtual-container")?.innerHTML || document.getElementById("catalog-grid-container")?.innerHTML || "";
+        return html.includes("E2E-SKU-777") || html.includes("E2E Test Widget");
+      })()`, 15000, 300);
+      if (productAdded) {
         pass('Product "E2E Test Widget" added and visible in catalog');
       } else {
         // Try searching for it
@@ -530,18 +531,22 @@ async function run() {
 
     // Complete the sale
     await ev('document.getElementById("btn-checkout-complete")?.click()');
-    await sleep(3500);
-
-    const postCartRows = await ev('document.querySelectorAll(".cart-item-row").length');
-    if (postCartRows === 0) pass('Cart cleared after completing sale');
-    else fail('Cart clear', `${postCartRows} rows still in cart`);
+    const cartCleared = await waitFor(ev, 'document.querySelectorAll(".cart-item-row").length === 0', 15000, 300);
+    if (cartCleared) pass('Cart cleared after completing sale');
+    else {
+      const postCartRows = await ev('document.querySelectorAll(".cart-item-row").length');
+      fail('Cart clear', `${postCartRows} rows still in cart after 15s`);
+    }
 
     // ─── Check history ──────────────────────────────────────────────────────
     await ev('document.querySelector(".nav-item[data-screen=\'history\']")?.click()');
-    await sleep(800);
-    const txCount = await ev('document.querySelectorAll("#history-transactions-list .tx-card").length');
-    if (txCount > 0) pass(`Transaction saved — ${txCount} record(s) in history`);
-    else fail('Transaction history', 'No records found in #history-transactions-list');
+    const historyLoaded = await waitFor(ev, 'document.querySelectorAll("#history-transactions-list .tx-card").length > 0', 10000, 300);
+    if (historyLoaded) {
+      const txCount = await ev('document.querySelectorAll("#history-transactions-list .tx-card").length');
+      pass(`Transaction saved — ${txCount} record(s) in history`);
+    } else {
+      fail('Transaction history', 'No records found in #history-transactions-list after 10s');
+    }
   } else {
     fail('Section 7 skipped', 'App was not in main mode');
   }
