@@ -562,14 +562,10 @@ setHtml(overlay, `
   let speechCoach = null;
 
   function isGraceTrialActive() {
-    let firstBoot = localStorage.getItem('valenixia_first_boot_time');
-    if (!firstBoot) {
-      firstBoot = Date.now().toString();
-      localStorage.setItem('valenixia_first_boot_time', firstBoot);
+    if (window.__vxSession && window.__vxSession.tier) {
+      return window.__vxSession.tier.toUpperCase() === 'TRIAL';
     }
-    const gracePeriodMs = 7 * 24 * 60 * 60 * 1000; // 7-day grace
-    const elapsed = Date.now() - parseInt(firstBoot, 10);
-    return elapsed < gracePeriodMs;
+    return (window.__valenixiaTier || '').toUpperCase() === 'TRIAL';
   }
 
   function updateBootProgress(percent, text) {
@@ -914,11 +910,7 @@ setHtml(overlay, `
       localStorage.removeItem('google_drive_oauth_token');
       localStorage.removeItem('valenixia_token');
 
-      localStorage.removeItem('valenixia_plan');
-      localStorage.removeItem('valenixia_trial_start');
-      localStorage.removeItem('valenixia_trial_start_ms');
-      localStorage.removeItem('sync_passphrase');
-      localStorage.removeItem('valenixia_server_url');
+      // Ensure session plan defaults to FREE unless verified by server session
       window.__valenixiaPlan = 'FREE';
       if (window.getCurrentPlan) window.getCurrentPlan();
 
@@ -1166,12 +1158,12 @@ setHtml(overlay, `
 
     // Initialize window.__vxSession and load trial start time (C-5)
     try {
-      let trialStartPref = await ValenixiaDB.get('local_preferences', 'valenixia_trial_start');
+      let trialStartPref = await ValenixiaDB.get('local_preferences', 'trial_init_timestamp');
       let trialStart = trialStartPref ? parseInt(trialStartPref.value_payload) : 0;
       if (!trialStart) {
         trialStart = Date.now();
         await ValenixiaDB.put('local_preferences', {
-          key: 'valenixia_trial_start',
+          key: 'trial_init_timestamp',
           value_type: 'STR',
           value_payload: String(trialStart),
           is_idempotent_flag: 1,

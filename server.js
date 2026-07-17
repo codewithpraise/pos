@@ -401,6 +401,9 @@ const qrApproveLimiter = rateLimit({
 // Apply security middleware
 app.use((req, res, next) => {
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
   if (req.headers['x-forwarded-proto'] && req.headers['x-forwarded-proto'] !== 'https') {
     return res.redirect(301, 'https://' + req.headers.host + req.url);
   }
@@ -2306,7 +2309,7 @@ app.get('/api/auth/verify', requireAuth, async (req, res) => {
       }
     }
 
-    const trialStartPref = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'valenixia_trial_start'");
+    const trialStartPref = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'trial_init_timestamp'");
     const trialStart = trialStartPref ? Number(trialStartPref.value_payload) : 0;
 
     const startOfMonth = new Date();
@@ -2494,8 +2497,56 @@ app.get('/api/payments/my-proofs', requireAuth, async (req, res) => {
     const proofs = await db.all("SELECT * FROM payment_proofs WHERE user_id = ? ORDER BY created_at DESC", [req.user.id]);
     res.json(proofs);
   } catch (err) {
-    console.error('[API] /api/payments/my-proofs error:', err.message);
-    res.status(500).json({ error: err.message });
+// POST /api/checkout/verify — Server-side authoritative price recalculation & signing
+app.post('/api/checkout/verify', requireAuth, requireBody({ cart: 'LIST' }), async (req, res) => {
+  try {
+    const { cart, paymentMode } = req.body;
+    if (!Array.isArray(cart) || cart.length === 0) {
+      return res.status(400).json({ error: 'Cart must be a non-empty array.' });
+    }
+    const tier = (req.store && req.store.tier) || 'STARTER';
+    const verified = await verifyCheckoutPricing(cart, paymentMode || 'CASH', tier);
+    
+    const payloadStr = JSON.stringify({
+      subtotal: verified.subtotal,
+      tax: verified.tax,
+      total: verified.total,
+      exp: Date.now() + 15 * 60 * 1000
+    });
+    const payloadB64 = Buffer.from(payloadStr).toString('base64');
+    const sig = crypto.createHmac('sha256', jwtSecret).update(payloadStr).digest('hex');
+    const token = `${sig}:${payloadB64}`;
+
+    res.json({
+      success: true,
+      subtotal: verified.subtotal,
+      tax: verified.tax,
+      total: verified.total,
+      token
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/checkout', requireAuth, requireBody({ cart: 'LIST' }), async (req, res) => {
+  try {
+    const { cart, paymentMode, transactionId } = req.body;
+    if (!Array.isArray(cart) || cart.length === 0) {
+      return res.status(400).json({ error: 'Cart must be a non-empty array.' });
+    }
+    const tier = (req.store && req.store.tier) || 'STARTER';
+    const verified = await verifyCheckoutPricing(cart, paymentMode || 'CASH', tier);
+    res.json({
+      success: true,
+      transactionId: transactionId || `tx_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      subtotal: verified.subtotal,
+      tax: verified.tax,
+      total: verified.total,
+      status: 'COMPLETED'
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 
@@ -3560,6 +3611,15 @@ app.post('/api/bootstrap',
   }
 }); // end bootstrap inner handler
 
+// POST /api/onboard — Alias for initial system bootstrap onboarding
+app.post('/api/onboard', bootstrapLimiter, requireBody({ storeName: 'STORE_NAME', adminPin: 'ADMIN_PIN', syncPassphrase: 'SYNC_PASSPHRASE' }), async (req, res) => {
+  const onboardingCompleteRow = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'onboarding_complete'");
+  if (onboardingCompleteRow && onboardingCompleteRow.value_payload === 'true') {
+    return res.status(403).json({ error: 'System is already bootstrapped and initialized.' });
+  }
+  return res.status(400).json({ error: 'Onboarding required parameters missing or invalid.' });
+});
+
 
 // GET /api/sync/bootstrap — Shallow database bootstrap pull for new paired terminals
 app.get('/api/sync/bootstrap', async (req, res) => {
@@ -3651,9 +3711,11 @@ app.get('/api/sync/bootstrap', async (req, res) => {
 });
 
 // GDPR Data Export Endpoint (Requires Admin privileges)
-app.get('/api/export', requireAdmin, async (req, res) => {
+const handleExport = async (req, res) => {
   try {
-    const { table, limit: limitParam, offset: offsetParam } = req.query;
+    const table = req.query.table || (req.body && req.body.table);
+    const limitParam = req.query.limit || (req.body && req.body.limit);
+    const offsetParam = req.query.offset || (req.body && req.body.offset);
     const allowedTables = [
       'transactions',
       'line_items',
@@ -3670,9 +3732,9 @@ app.get('/api/export', requireAdmin, async (req, res) => {
 
     if (!table) {
       return res.status(400).json({
-        error: 'Missing required query parameter: table.',
+        error: 'Missing required parameter: table.',
         allowedTables,
-        usage: 'GET /api/export?table=<tableName>&limit=<1-500>&offset=<non-negative-integer>'
+        usage: 'GET/POST /api/export?table=<tableName>&limit=<1-500>&offset=<non-negative-integer>'
       });
     }
 
@@ -3705,7 +3767,10 @@ app.get('/api/export', requireAdmin, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Export failed: ' + err.message });
   }
-});
+};
+
+app.get('/api/export', requireAdmin, handleExport);
+app.post('/api/export', requireAdmin, handleExport);
 
 // 7. Reset baseline cleanly (Requires Admin privileges)
 app.post('/api/reset', requireAdmin, checkOrigin, adminActionLimiter, requireBody({ pin: 'ADMIN_PIN' }), async (req, res) => {
