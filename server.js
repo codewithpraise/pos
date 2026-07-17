@@ -2558,7 +2558,7 @@ app.post('/api/checkout', requireAuth, requireBody({ cart: 'LIST' }), async (req
     const verified = await verifyCheckoutPricing(cart, paymentMode || 'CASH', tier);
     res.json({
       success: true,
-      transactionId: transactionId || `tx_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      transactionId: transactionId || `tx_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
       subtotal: verified.subtotal,
       tax: verified.tax,
       total: verified.total,
