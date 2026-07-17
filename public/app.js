@@ -577,8 +577,16 @@ setHtml(overlay, `
       }, 300);
     }
   }
+  function isGraceTrialActive() {
+    if (window.__vxSession && window.__vxSession.tier) {
+      return window.__vxSession.tier.toUpperCase() === 'TRIAL';
+    }
+    return (window.__valenixiaTier || '').toUpperCase() === 'TRIAL';
+  }
+
   // Expose as window global so it's callable from any scope (HTML handlers,
-  // license-engine, stale service worker code paths, etc.)
+  // license-engine, e2e test suites, etc.)
+  window.isGraceTrialActive = isGraceTrialActive;
   window.state = state;
   window.switchActiveScreen = switchActiveScreen;
   window.renderCart = renderCart;
