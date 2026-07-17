@@ -152,8 +152,11 @@ async function verifyCheckoutPricing(cart, paymentMode, tier) {
       throw new Error(`Price mismatch for SKU ${sku}: catalog price is ${basePrice}, received ${item.price}`);
     }
     const qty = parseInt(item.qty || item.quantity || 1);
-    if ((stockMap[item.sku] ?? 0) < qty) {
-      throw new Error(`Insufficient stock for SKU ${item.sku}`);
+    if (isNaN(qty) || qty <= 0) {
+      throw new Error(`Invalid item quantity for SKU ${sku}: must be a positive integer`);
+    }
+    if ((stockMap[sku] ?? 0) < qty) {
+      throw new Error(`Insufficient stock for SKU ${sku}`);
     }
     subtotal += BigInt(basePrice) * BigInt(qty);
   }
@@ -318,7 +321,7 @@ function checkOrigin(req, res, next) {
     origin.startsWith('http://localhost') ||
     origin.startsWith('http://127.0.0.1') ||
     origin.startsWith('file://') ||
-    /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(origin);
+    /^https?:\/\/(?:192\.168\.|10\.|172\.(?:1[6-9]|2[0-9]|3[01])\.)/.test(origin);
   if (!isLocalRequest) {
     return res.status(403).json({ error: 'Cross-origin requests are not permitted to this endpoint.' });
   }
@@ -408,6 +411,7 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   if (req.headers['x-forwarded-proto'] && req.headers['x-forwarded-proto'] !== 'https') {
     return res.redirect(301, 'https://' + req.headers.host + req.url);
   }
@@ -487,8 +491,8 @@ app.use(cors({
     const allowed = [
       /^https?:\/\/192\.168\./,
       /^https?:\/\/10\./,
-      /^https?:\/\/172\.(1[6-9]|2\d|3[01])\./,
-      /^https?:\/\/(.*\.)?valenixia\.com$/
+      /^https?:\/\/172\.(?:1[6-9]|2[0-9]|3[01])\./,
+      /^https?:\/\/(?:[a-zA-Z0-9-]+\.)*valenixia\.com$/
     ];
     if (!isProd) {
       allowed.push(/^https?:\/\/localhost/);
@@ -730,8 +734,9 @@ const terminalId = 'terminal_pc_master';
 const activeConnections = new Set();
 
 // WebSocket Heartbeat / Keepalive to clean up dead connections (Issue 12)
+const activeTimers = [];
 const HEARTBEAT_INTERVAL = 30000;
-setInterval(() => {
+const heartbeatTimer = setInterval(() => {
   for (const ws of activeConnections) {
     if (!ws.isAlive) {
       console.log(`[SyncHub] Terminating dead socket connection for node: ${ws.nodeId || 'anonymous'}`);
@@ -747,6 +752,7 @@ setInterval(() => {
     }
   }
 }, HEARTBEAT_INTERVAL);
+activeTimers.push(heartbeatTimer);
 
 let globalSyncQueue = Promise.resolve();
 
@@ -901,7 +907,7 @@ function verifyToken(token) {
   const [headerB64, payloadB64, signature] = parts;
   try {
     const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString('utf8'));
-    if (header.alg !== 'HS256') return null;
+    if (!header || typeof header !== 'object' || header.alg !== 'HS256' || (header.typ && header.typ !== 'JWT')) return null;
 
     const expectedSignature = crypto.createHmac('sha256', jwtSecret)
       .update(`${headerB64}.${payloadB64}`)
@@ -1017,6 +1023,7 @@ function requireAdmin(req, res, next) {
 }
 
 // Global Express Middleware for Admin and Protected API Route Authorization
+app.use('/api/auth', loginLimiter);
 app.use('/api/admin', requireAdmin);
 app.use('/api/auth/emergency-override', requireAdmin);
 app.use('/api/auth/revoke-override', requireAdmin);
@@ -1635,14 +1642,13 @@ function broadcast(payload, skipWs = null) {
 // within 24 hours of internet restoration)
 // ----------------------------------------------------------------------------
 
-// FBR Sandbox/Production endpoint — swap in your registered FBR POS credentials
-const FBR_ENDPOINT = process.env.FBR_API_URL || 'https://gw.fbr.gov.pk/imsapi/dvr/invoice-add';
+const FBR_ENDPOINT = process.env.FBR_API_URL || '';
 const FBR_TOKEN    = process.env.FBR_API_TOKEN || '';
 
 // Attempt to forward a single invoice to FBR
 async function submitToFBR(invoice) {
-  if (!FBR_TOKEN) {
-    return { success: false, reason: 'FBR_TOKEN not configured. Set FBR_API_TOKEN env variable.' };
+  if (!FBR_ENDPOINT || !FBR_TOKEN) {
+    return { success: false, reason: 'FBR_API_URL and FBR_API_TOKEN must be configured in environment.' };
   }
   try {
     const res = await fetch(FBR_ENDPOINT, {
@@ -2363,19 +2369,8 @@ app.post('/api/payments/upload-proof', requireAuth, billingLimiter, async (req, 
     return res.status(400).json({ error: 'No image data provided.' });
   }
   try {
-    const baseName = path.basename(filename || 'proof_' + Date.now() + '.png');
-    const cleanFilename = baseName.replace(/[^a-zA-Z0-9_.-]/g, '');
-    const dir = path.resolve(__dirname, 'public', 'proofs');
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    const filePath = path.resolve(dir, cleanFilename);
-    const relativePath = path.relative(dir, filePath);
-    const isSafe = relativePath && !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
-    if (!isSafe) {
-      return res.status(400).json({ error: 'Directory traversal attempt detected.' });
-    }
-    const dataBuffer = Buffer.from(base64Data.replace(/^data:image\/\w+;base64,/, ""), 'base64');
+    const rawBase64 = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
+    const dataBuffer = Buffer.from(rawBase64, 'base64');
     
     // Validate file magic bytes (signatures)
     const isPng = dataBuffer[0] === 0x89 && dataBuffer[1] === 0x50 && dataBuffer[2] === 0x4E && dataBuffer[3] === 0x47;
@@ -2384,9 +2379,22 @@ app.post('/api/payments/upload-proof', requireAuth, billingLimiter, async (req, 
       return res.status(400).json({ error: 'Only PNG and JPEG images are allowed.' });
     }
 
+    const ext = isPng ? '.png' : '.jpg';
+    const safeFilename = `proof_${Date.now()}_${crypto.randomBytes(8).toString('hex')}${ext}`;
+    const dir = path.resolve(__dirname, 'public', 'proofs');
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    const filePath = path.resolve(dir, safeFilename);
+    const relativePath = path.relative(dir, filePath);
+    const isSafe = relativePath && !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
+    if (!isSafe) {
+      return res.status(400).json({ error: 'Directory traversal attempt detected.' });
+    }
+
     fs.writeFileSync(filePath, dataBuffer);
     
-    const localUrl = `/proofs/${cleanFilename}`;
+    const localUrl = `/proofs/${safeFilename}`;
     res.json({ success: true, url: localUrl });
   } catch (err) {
     res.status(500).json({ error: 'Upload failed: ' + err.message });
@@ -2556,6 +2564,9 @@ app.post('/api/checkout', requireAuth, requireBody({ cart: 'LIST' }), async (req
     }
     const tier = (req.store && req.store.tier) || 'STARTER';
     const verified = await verifyCheckoutPricing(cart, paymentMode || 'CASH', tier);
+    if (req.body.total !== undefined && parseInt(req.body.total) !== verified.total) {
+      return res.status(400).json({ error: `Price tampering detected: client total ${req.body.total} does not match server catalog total ${verified.total}` });
+    }
     res.json({
       success: true,
       transactionId: transactionId || `tx_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
@@ -3592,9 +3603,11 @@ app.post('/api/bootstrap',
   }
 
   try {
+    await db.run("BEGIN IMMEDIATE");
     // Lock check
     const onboardingCompleteRow = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'onboarding_complete'");
     if (onboardingCompleteRow && onboardingCompleteRow.value_payload === 'true' && process.env.NODE_ENV !== 'test') {
+      await db.run("ROLLBACK").catch(() => {});
       return res.status(403).json({ error: 'System is already bootstrapped and initialized.' });
     }
 
@@ -3621,10 +3634,10 @@ app.post('/api/bootstrap',
     serverPassphrase = syncPassphrase;
     derivedKeyCache.clear();
     jwtSecret = crypto.createHash('sha256').update(serverPassphrase + syncSalt).digest('hex');
-    console.log(`[SyncHub] Server bootstrapped with new passphrase. Sync encryption ACTIVE.`);
-
+    await db.run("COMMIT");
     res.json({ success: true });
   } catch (err) {
+    await db.run("ROLLBACK").catch(() => {});
     console.error('[SyncHub] Bootstrap failed:', err);
     sendError(res, err);
   }
@@ -4231,18 +4244,19 @@ initDatabase(terminalId)
     }, 5000);
 
     const FIVE_MIN_MS = 5 * 60 * 1000;
-    setInterval(() => {
+    const cloudSyncTimer = setInterval(() => {
       pushOfflineBackupsToCloud().catch(err => {
         console.error('[CloudSync] Scheduled backup sweep failed:', err.message);
       });
     }, FIVE_MIN_MS);
+    activeTimers.push(cloudSyncTimer);
     console.log('[CloudSync] Asynchronous Supabase backup daemon scheduled.');
 
     // ── Weekly CRDT Tombstone Garbage Collection ─────────────────────────────
     // Safely prune acknowledged change records older than the current db version
     // minus a 50k-row safety buffer. Runs every 7 days.
     const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-    setInterval(async () => {
+    const gcTimer = setInterval(async () => {
       const currentVer = getDbVersion();
       const safeVersion = Math.max(0, currentVer - 50000);
       if (safeVersion > 0) {
@@ -4250,6 +4264,7 @@ initDatabase(terminalId)
         await pruneAcknowledgedChanges(safeVersion);
       }
     }, WEEK_MS);
+    activeTimers.push(gcTimer);
     console.log('[GC] Weekly CRDT tombstone garbage collector scheduled.');
 
     // ── Enforce 6-Year Data Retention Policy (Task 6-B / 7-D) ────────────────
@@ -4287,7 +4302,8 @@ initDatabase(terminalId)
 
     // Schedule run check hourly (highly robust against restarts and drift)
     const HOUR_MS = 60 * 60 * 1000;
-    setInterval(enforceDataRetentionPolicy, HOUR_MS);
+    const retentionTimer = setInterval(enforceDataRetentionPolicy, HOUR_MS);
+    activeTimers.push(retentionTimer);
     console.log('[RetentionPolicy] Hourly data retention prune scheduler active.');
   })
   .catch((err) => {
@@ -4297,6 +4313,7 @@ initDatabase(terminalId)
 
 function handleGracefulShutdown(signal) {
   console.log(`[Shutdown] Received ${signal}. Starting graceful shutdown...`);
+  activeTimers.forEach(t => clearInterval(t));
   if (server) {
     server.close(async () => {
       console.log('[Shutdown] HTTP/2 server closed.');
