@@ -41,6 +41,21 @@ async function connectCDP() {
   const target = JSON.parse(newTabRes);
   activeTabId = target.id;
   log('connectCDP: Created tab ID: ' + activeTabId);
+
+  // Close other open tabs to prevent IndexedDB locks
+  try {
+    const targetsRes = await devToolsRequest('/json');
+    const targets = JSON.parse(targetsRes);
+    for (const t of targets) {
+      if (t.type === 'page' && t.id !== activeTabId) {
+        log(`Closing existing tab/target to prevent IndexedDB lock: ${t.url}`);
+        await devToolsRequest(`/json/close/${t.id}`, 'GET').catch(() => {});
+      }
+    }
+  } catch (e) {
+    log('Failed to clean up other tabs: ' + e.message);
+  }
+
   log('connectCDP: Connecting to WebSocket: ' + target.webSocketDebuggerUrl);
 
   const ws = new WebSocket(target.webSocketDebuggerUrl.replace('localhost', '127.0.0.1'));
