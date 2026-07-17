@@ -13,6 +13,7 @@
  * Run with: node full_diagnostic.js
  */
 
+require('dotenv').config();
 const WebSocket = require('ws');
 const http = require('http');
 const fs = require('fs');
@@ -255,6 +256,7 @@ async function run() {
     log('Available inputs:', inputsResult);
     
     // Try to fill in the license key
+    const testLicenseKey = process.env.TEST_LICENSE_KEY || 'VALENIXIA-ADMIN-777';
     const fillResult = await cdpEval(ws, `(function() {
       const keyInput = document.getElementById('license-code-input');
       const phoneInput = document.getElementById('license-phone-input');
@@ -263,7 +265,7 @@ async function run() {
       if (!phoneInput) return 'NO_PHONE_INPUT';
       if (!activateBtn) return 'NO_ACTIVATE_BTN';
       
-      keyInput.value = 'VALENIXIA-ADMIN-777';
+      keyInput.value = '${testLicenseKey}';
       keyInput.dispatchEvent(new Event('input', { bubbles: true }));
       phoneInput.value = '03001234567';
       phoneInput.dispatchEvent(new Event('input', { bubbles: true }));

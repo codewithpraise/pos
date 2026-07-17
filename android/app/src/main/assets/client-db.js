@@ -355,16 +355,16 @@
   }
 
   // Simple async SHA-256 legacy utility for PIN hashing matching legacy db values
-  async function hashPinLegacy(pin) {
+  async function hashPinLegacy(pin, salt) {
     try {
       if (!crypto || !crypto.subtle) throw new Error("SubtleCrypto unavailable");
-      const msgUint8 = new TextEncoder().encode(pin);
+      const msgUint8 = new TextEncoder().encode(pin + (salt || ''));
       const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     } catch (e) {
       console.warn("SubtleCrypto digest unavailable, using JS-native fallback SHA-256");
-      const hashBytes = sha256_js(new TextEncoder().encode(pin));
+      const hashBytes = sha256_js(new TextEncoder().encode(pin + (salt || '')));
       return Array.from(hashBytes).map(b => b.toString(16).padStart(2, '0')).join('');
     }
   }
@@ -377,7 +377,7 @@
       return `${salt}:${derived}`;
     } catch (e) {
       console.warn("PBKDF2 derivation failed, falling back to simple hash:", e);
-      const hash = await hashPinLegacy(pin + salt);
+      const hash = await hashPinLegacy(pin, salt);
       return `${salt}:${hash}`;
     }
   }

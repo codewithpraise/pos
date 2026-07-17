@@ -10,16 +10,38 @@ const fs = require('fs');
 const envPath = path.join(__dirname, '.env');
 require('dotenv').config({ path: envPath });
 
+let envContent = '';
+if (fs.existsSync(envPath)) {
+  envContent = fs.readFileSync(envPath, 'utf8');
+}
+
+let envUpdated = false;
+
 if (!process.env.SERVER_MASTER_KEY) {
   const crypto = require('crypto');
   const masterKey = crypto.randomBytes(32).toString('hex');
-  let envContent = '';
-  if (fs.existsSync(envPath)) {
-    envContent = fs.readFileSync(envPath, 'utf8');
-  }
-  fs.writeFileSync(envPath, envContent + `\nSERVER_MASTER_KEY=${masterKey}\n`, { mode: 0o600 });
+  envContent += `\nSERVER_MASTER_KEY=${masterKey}\n`;
   process.env.SERVER_MASTER_KEY = masterKey;
+  envUpdated = true;
 }
+
+if (!envContent.includes('TEST_ADMIN_PIN=')) {
+  envContent += `\nTEST_ADMIN_PIN=1234\n`;
+  envUpdated = true;
+}
+if (!envContent.includes('TEST_LICENSE_KEY=')) {
+  envContent += `\nTEST_LICENSE_KEY=VALENIXIA-ADMIN-777\n`;
+  envUpdated = true;
+}
+if (!envContent.includes('TEST_PASSPHRASE=')) {
+  envContent += `\nTEST_PASSPHRASE=TestKey2024!\n`;
+  envUpdated = true;
+}
+
+if (envUpdated) {
+  fs.writeFileSync(envPath, envContent, { mode: 0o600 });
+}
+
 try {
   if (fs.existsSync(envPath)) {
     fs.chmodSync(envPath, 0o600);
@@ -492,24 +514,37 @@ app.use(helmet({
     }
   }
 }));
-app.use(cors({
-  origin: (origin, callback) => {
-    const isProd = process.env.NODE_ENV === 'production';
-    const allowed = [
-      /^https?:\/\/192\.168\./,
-      /^https?:\/\/10\./,
-      /^https?:\/\/172\.(?:1[6-9]|2[0-9]|3[01])\./,
-      /^https?:\/\/(?:[a-zA-Z0-9-]+\.)*valenixia\.com$/
-    ];
-    if (!isProd) {
-      allowed.push(/^https?:\/\/localhost/);
-      allowed.push(/^https?:\/\/127\.0\.0\.1/);
-    }
-    if (!origin || allowed.some(r => r.test(origin))) return callback(null, true);
-    callback(new Error(`CORS blocked: ${origin}`));
-  },
-  credentials: true
-}));
+const corsOptionsDelegate = function (req, callback) {
+  let corsOptions;
+  const origin = req.header('Origin');
+  let isAllowed = false;
+  if (!origin) {
+    isAllowed = true;
+  } else {
+    try {
+      const originUrl = new URL(origin);
+      const host = req.header('Host'); // e.g. "192.168.1.50:3000" or "localhost:3000"
+      
+      if (host && (originUrl.host === host || originUrl.origin === `http://${host}` || originUrl.origin === `https://${host}`)) {
+        isAllowed = true;
+      } else if (originUrl.hostname === 'localhost' || originUrl.hostname === '127.0.0.1') {
+        isAllowed = true;
+      } else if (process.env.FRONTEND_URL && originUrl.origin === new URL(process.env.FRONTEND_URL).origin) {
+        isAllowed = true;
+      } else if (/\.valenixia\.com$/.test(originUrl.hostname) || originUrl.hostname === 'valenixia.com') {
+        isAllowed = true;
+      }
+    } catch (_) {}
+  }
+  
+  if (isAllowed) {
+    corsOptions = { origin: true, credentials: true };
+  } else {
+    corsOptions = { origin: false };
+  }
+  callback(null, corsOptions);
+};
+app.use(cors(corsOptionsDelegate));
 
 app.use(compression());
 
@@ -559,37 +594,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Double-Submit Cookie CSRF Middleware
-app.use((req, res, next) => {
-  // Generate token if not exists
-  let csrfToken = req.cookies?._csrf;
-  if (!csrfToken) {
-    csrfToken = crypto.randomBytes(24).toString('hex');
-  }
-  
-  // Set the CSRF cookie on all responses (non-httpOnly so JS can read it)
-  res.cookie('_csrf', csrfToken, {
-    secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
-    sameSite: 'strict',
-    path: '/'
-  });
 
-  // Skip CSRF validation for safe methods and API routes (API routes use Bearer token authorization)
-  const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
-  if (safeMethods.includes(req.method) || req.path.startsWith('/api/') || req.headers['authorization']) {
-    return next();
-  }
-
-  const headerToken = req.headers['x-csrf-token'];
-  const cookieToken = req.cookies?._csrf;
-
-  if (!headerToken || !cookieToken || headerToken !== cookieToken) {
-    console.warn(`[CSRF] Blocked request from ${hashIp(req.ip)} to ${req.path}: token mismatch.`);
-    return res.status(403).json({ error: 'CSRF token mismatch or missing.' });
-  }
-
-  next();
-});
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
@@ -747,7 +752,7 @@ const HEARTBEAT_INTERVAL = 30000;
 const heartbeatTimer = setInterval(() => {
   for (const ws of activeConnections) {
     if (!ws.isAlive) {
-      console.log(`[SyncHub] Terminating dead socket connection for node: ${ws.nodeId || 'anonymous'}`);
+      logger.info('SyncHub', 'Terminating dead socket connection', { nodeId: ws.nodeId || 'anonymous' });
       ws.terminate();
       activeConnections.delete(ws);
       continue;
@@ -756,7 +761,7 @@ const heartbeatTimer = setInterval(() => {
     try {
       ws.ping();
     } catch (e) {
-      console.warn('[SyncHub] Failed to ping socket:', e.message);
+      logger.warn('SyncHub', 'Failed to ping socket', { error: e.message });
     }
   }
 }, HEARTBEAT_INTERVAL);
@@ -880,13 +885,14 @@ async function loadServerPassphrase() {
     if (saltRow && saltRow.value_payload) {
       syncSalt = saltRow.value_payload;
     } else {
+      syncSalt = process.env.SYNC_SALT || syncSalt || crypto.randomBytes(16).toString('hex');
       await db.run("INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('sync_salt', 'STR', ?, 1, ?)", [syncSalt, Date.now()]);
     }
 
     if (process.env.SYNC_PASSPHRASE) {
       serverPassphrase = process.env.SYNC_PASSPHRASE;
       jwtSecret = crypto.createHash('sha256').update(serverPassphrase + syncSalt).digest('hex');
-      console.debug(`[SyncHub] Server synchronization passphrase loaded from process.env successfully. JWT secret initialized.`);
+      logger.debug('SyncCrypto', 'Passphrase initialized', { source: 'env' });
     } else {
       const row = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'sync_passphrase'");
       if (row && row.value_payload) {
@@ -896,17 +902,17 @@ async function loadServerPassphrase() {
           if (!row.value_payload.startsWith('ENC1:')) {
             const encrypted = encryptPassphrase(serverPassphrase);
             await db.run("UPDATE local_preferences SET value_payload = ? WHERE key = 'sync_passphrase'", [encrypted]);
-            console.debug(`[SyncHub] Legacy sync passphrase encrypted at rest successfully.`);
+            logger.debug('SyncCrypto', 'Legacy sync passphrase encrypted at rest');
           }
           jwtSecret = crypto.createHash('sha256').update(serverPassphrase + syncSalt).digest('hex');
-          console.debug(`[SyncHub] Server synchronization passphrase loaded and decrypted successfully. JWT secret initialized.`);
+          logger.debug('SyncCrypto', 'Passphrase loaded and decrypted successfully');
         } catch (decErr) {
-          console.error('[SyncHub] Failed to decrypt sync passphrase:', decErr.message);
+          logger.error('SyncCrypto', 'Failed to decrypt sync passphrase', decErr);
         }
       }
     }
   } catch (err) {
-    console.warn('[SyncHub] Failed to load passphrase:', err.message);
+    logger.warn('SyncCrypto', 'Failed to load passphrase', { error: err.message });
   }
 }
 
@@ -1009,7 +1015,7 @@ async function requireAuth(req, res, next) {
       req.user = { id: storeRow.id, email: storeRow.email };
     }
   } catch (err) {
-    return res.status(500).json({ error: 'License validation error: ' + err.message });
+    return sendError(res, err);
   }
 
   next();
@@ -1208,7 +1214,7 @@ function recordPassphraseMismatch(ip) {
     entry.count++;
     if (entry.count >= MAX_MISMATCH_ERRORS) {
       entry.bannedUntil = now + MISMATCH_WINDOW_MS;
-      console.warn(`[SyncHub] Rate-limiting ${hashIp(ip)}: ${entry.count} passphrase mismatches — suppressing for ${MISMATCH_WINDOW_MS/1000}s`);
+      logger.warn('SyncHub', 'Rate-limiting IP due to passphrase mismatches', { ipHash: hashIp(ip), count: entry.count, windowSeconds: MISMATCH_WINDOW_MS/1000 });
     }
   }
   passphraseFailMap.set(ip, entry);
@@ -1731,7 +1737,7 @@ async function submitToFBR(invoice) {
 // POST /api/fbr/queue  — client pushes invoices generated while offline
 // Body: { invoices: [{ id, transactionId, invoiceNumber, usin, invoicePayload, totalMinor, taxMinor, createdAt }] }
 // POST /api/fbr/queue — requireAuth added: unauthenticated nodes must not submit FBR invoices
-app.post('/api/fbr/queue', requireAuth, fbrLimiter, async (req, res) => {
+app.post('/api/fbr/queue', requireAuth, fbrLimiter, requireBody({ invoices: 'LIST' }), async (req, res) => {
   const { invoices } = req.body;
   if (!Array.isArray(invoices) || invoices.length === 0) {
     return res.status(400).json({ error: 'invoices array required' });
@@ -1740,10 +1746,14 @@ app.post('/api/fbr/queue', requireAuth, fbrLimiter, async (req, res) => {
   const results = [];
   for (const inv of invoices) {
     try {
-      // Server-side sequence-based USIN generation (Task 6-A)
-      const countRow = await db.get("SELECT COUNT(*) as count FROM fbr_submissions");
-      const seq = (countRow ? countRow.count : 0) + 1;
+      // Atomic server-side sequence-based USIN generation to prevent concurrency race conditions
+      await db.run("INSERT INTO fbr_usin_seq DEFAULT VALUES");
+      const seqRow = await db.get("SELECT last_insert_rowid() as seq");
+      const seq = seqRow.seq;
       const serverUsin = `USIN-${String(seq).padStart(8, '0')}`;
+
+      // Auto-prune previous sequence rows to save disk space
+      await db.run("DELETE FROM fbr_usin_seq WHERE id < ?", [seq]);
 
       let payloadObj = {};
       try {
@@ -1819,7 +1829,7 @@ app.get('/api/fbr/status', requireAdmin, async (req, res) => {
 });
 
 // POST /api/fbr/retry — manually retry all failed submissions (admin action)
-app.post('/api/fbr/retry', requireAdmin, adminActionLimiter, async (req, res) => {
+app.post('/api/fbr/retry', requireAdmin, adminActionLimiter, requireBody({}), async (req, res) => {
   const failed = await db.all(`SELECT * FROM fbr_submissions WHERE status IN ('PENDING','FAILED') ORDER BY created_at ASC LIMIT 100`);
   const now = Date.now();
   let submitted = 0;
@@ -2016,7 +2026,7 @@ app.post('/api/license/activate', checkOrigin, billingLimiter, requireBody({ cod
 
   const TRUSTED_ACTIVATION_WHITELIST = {
     ips: ['127.0.0.1', '::1', 'localhost'],
-    hwids: ['MOCK_ADMIN_HWID', 'TEST-HWID']
+    hwids: process.env.NODE_ENV === 'production' ? [] : ['MOCK_ADMIN_HWID', 'TEST-HWID']
   };
 
   const clientIp = req.ip;
@@ -2253,7 +2263,7 @@ app.get('/api/license/check', async (req, res) => {
 });
 
 // 1. Employee Login verification (Requires approved device token)
-app.post('/api/employee/login', loginLimiter, requireAuth, async (req, res) => {
+app.post('/api/employee/login', loginLimiter, requireAuth, requireBody({ pin: 'ADMIN_PIN' }), async (req, res) => {
   const { pin } = req.body;
   if (!pin) return res.status(400).json({ error: 'PIN is required' });
 
@@ -2352,7 +2362,7 @@ app.put('/api/admin/employees/:id/pin', requireAdmin, adminActionLimiter, requir
 });
 
 // POST /api/checkout/verify — Server-side checkout verification and token signing
-app.post('/api/checkout/verify', loginLimiter, requireAuth, async (req, res) => {
+app.post('/api/checkout/verify', loginLimiter, requireAuth, requireBody({ cart: 'LIST' }), async (req, res) => {
   const { cart, paymentMode } = req.body;
   if (!cart || !Array.isArray(cart)) {
     return res.status(400).json({ error: 'Cart must be a valid list of items.' });
@@ -2485,7 +2495,7 @@ app.get('/api/auth/verify', requireAuth, async (req, res) => {
 // ── MANUAL NAYAPAY BILLING HYBRID PIPELINE ───────────────────────────────────
 
 // POST /api/payments/upload-proof — local-first base64 screenshot helper
-app.post('/api/payments/upload-proof', requireAuth, billingLimiter, async (req, res) => {
+app.post('/api/payments/upload-proof', requireAuth, billingLimiter, requireBody({ base64Data: 'STRING', filename: 'STRING' }), async (req, res) => {
   const { base64Data, filename } = req.body;
   if (!base64Data) {
     return res.status(400).json({ error: 'No image data provided.' });
@@ -2519,11 +2529,11 @@ app.post('/api/payments/upload-proof', requireAuth, billingLimiter, async (req, 
     const localUrl = `/proofs/${safeFilename}`;
     res.json({ success: true, url: localUrl });
   } catch (err) {
-    res.status(500).json({ error: 'Upload failed: ' + err.message });
+    sendError(res, err);
   }
 });
 
-app.post('/api/payments/submit-proof', billingLimiter, requireAuth, async (req, res) => {
+app.post('/api/payments/submit-proof', billingLimiter, requireAuth, requireBody({ plan_id: 'STRING', rrn_reference: 'STRING', amount: 'NUMBER' }), async (req, res) => {
   const idempotencyKey = req.headers['idempotency-key'];
   if (idempotencyKey) {
     if (!/^[a-zA-Z0-9-]{10,100}$/.test(idempotencyKey)) {
@@ -2646,37 +2656,7 @@ app.get('/api/payments/my-proofs', requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/checkout/verify — Server-side authoritative price recalculation & signing
-app.post('/api/checkout/verify', requireAuth, requireBody({ cart: 'LIST' }), async (req, res) => {
-  try {
-    const { cart, paymentMode } = req.body;
-    if (!Array.isArray(cart) || cart.length === 0) {
-      return res.status(400).json({ error: 'Cart must be a non-empty array.' });
-    }
-    const tier = (req.store && req.store.tier) || 'STARTER';
-    const verified = await verifyCheckoutPricing(cart, paymentMode || 'CASH', tier);
-    
-    const payloadStr = JSON.stringify({
-      subtotal: verified.subtotal,
-      tax: verified.tax,
-      total: verified.total,
-      exp: Date.now() + 15 * 60 * 1000
-    });
-    const payloadB64 = Buffer.from(payloadStr).toString('base64');
-    const sig = crypto.createHmac('sha256', jwtSecret).update(payloadStr).digest('hex');
-    const token = `${sig}:${payloadB64}`;
 
-    res.json({
-      success: true,
-      subtotal: verified.subtotal,
-      tax: verified.tax,
-      total: verified.total,
-      token
-    });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
 
 app.post('/api/checkout', requireAuth, requireBody({ cart: 'LIST' }), async (req, res) => {
   try {
@@ -2753,7 +2733,10 @@ app.post('/api/admin/payments/decision', requireAdmin, adminActionLimiter, requi
       }
 
       const devices = await db.all("SELECT * FROM devices WHERE store_id = ? AND is_active = 1", [proof.user_id]);
-      const hwid = devices.length > 0 ? devices[0].hardware_id : 'MOCK_ADMIN_HWID';
+      const hwid = devices.length > 0 ? devices[0].hardware_id : null;
+      if (!hwid) {
+        return res.status(400).json({ error: 'No device registered for this store.' });
+      }
 
       // 3. Mint Ed25519 license key
       const finalMode = proof.mode || 'subscription';
@@ -2863,7 +2846,7 @@ app.post('/api/auth/emergency-override', checkOrigin, requireAdmin, loginLimiter
 });
 
 // POST /api/auth/revoke-override — Revoke active emergency override (requires Admin role)
-app.post('/api/auth/revoke-override', requireAdmin, adminActionLimiter, async (req, res) => {
+app.post('/api/auth/revoke-override', requireAdmin, adminActionLimiter, requireBody({}), async (req, res) => {
   try {
     await db.run("DELETE FROM local_preferences WHERE key = 'emergency_override_until'");
     res.json({ success: true });
@@ -3222,7 +3205,7 @@ app.get('/api/admin/commissions', requireAdmin, async (req, res) => {
 });
 
 // POST /api/admin/commissions/:id/pay — Mark commission as paid
-app.post('/api/admin/commissions/:id/pay', requireAdmin, adminActionLimiter, async (req, res) => {
+app.post('/api/admin/commissions/:id/pay', requireAdmin, adminActionLimiter, requireBody({}), async (req, res) => {
   try {
     const result = await db.run(
       `UPDATE commission_earnings SET status = 'PAID', paid_at = ? WHERE id = ? AND status = 'PENDING'`,
@@ -3236,9 +3219,8 @@ app.post('/api/admin/commissions/:id/pay', requireAdmin, adminActionLimiter, asy
 });
 
 // POST /api/admin/commissions/:id/reverse — Reverse a commission (refund/cancellation)
-app.post('/api/admin/commissions/:id/reverse', requireAdmin, adminActionLimiter, async (req, res) => {
+app.post('/api/admin/commissions/:id/reverse', requireAdmin, adminActionLimiter, requireBody({ reason: 'STRING' }), async (req, res) => {
   const { reason } = req.body;
-  if (!reason) return res.status(400).json({ error: 'reason is required for reversal audit trail.' });
   try {
     const result = await db.run(
       `UPDATE commission_earnings SET status = 'REVERSED', reversed_at = ?, reversal_reason = ? WHERE id = ? AND status IN ('PENDING','PAID')`,
@@ -3252,7 +3234,7 @@ app.post('/api/admin/commissions/:id/reverse', requireAdmin, adminActionLimiter,
 });
 
 // POST /api/admin/commissions/:id/approve — Approve a review-flagged commission
-app.post('/api/admin/commissions/:id/approve', requireAdmin, adminActionLimiter, async (req, res) => {
+app.post('/api/admin/commissions/:id/approve', requireAdmin, adminActionLimiter, requireBody({ notes: 'OPTIONAL_STRING' }), async (req, res) => {
   const { notes } = req.body;
   const adminName = req.device.deviceName || 'Admin';
   try {
@@ -3268,7 +3250,7 @@ app.post('/api/admin/commissions/:id/approve', requireAdmin, adminActionLimiter,
 });
 
 // POST /api/admin/commissions/:id/flag — Manually flag a commission for audit review
-app.post('/api/admin/commissions/:id/flag', requireAdmin, adminActionLimiter, async (req, res) => {
+app.post('/api/admin/commissions/:id/flag', requireAdmin, adminActionLimiter, requireBody({ notes: 'OPTIONAL_STRING' }), async (req, res) => {
   const { notes } = req.body;
   const adminName = req.device.deviceName || 'Admin';
   try {
@@ -3284,7 +3266,7 @@ app.post('/api/admin/commissions/:id/flag', requireAdmin, adminActionLimiter, as
 });
 
 // POST /api/admin/commissions/:id/cancel — Cancel/Refund a commission (idempotent, supporting partial/full refunds)
-app.post('/api/admin/commissions/:id/cancel', requireAdmin, adminActionLimiter, async (req, res) => {
+app.post('/api/admin/commissions/:id/cancel', requireAdmin, adminActionLimiter, requireBody({ refundAmountMinor: 'OPTIONAL_NUMBER' }), async (req, res) => {
   const { refundAmountMinor } = req.body;
   const refundAmount = refundAmountMinor !== undefined ? Number(refundAmountMinor) : null;
   const id = req.params.id;
@@ -3342,7 +3324,7 @@ app.post('/api/admin/commissions/:id/cancel', requireAdmin, adminActionLimiter, 
 });
 
 // POST /api/admin/commissions/cancel — Batch/Idempotent cancellation by storeId or commissionId
-app.post('/api/admin/commissions/cancel', requireAdmin, adminActionLimiter, async (req, res) => {
+app.post('/api/admin/commissions/cancel', requireAdmin, adminActionLimiter, requireBody({ storeId: 'OPTIONAL_STRING', commissionId: 'OPTIONAL_STRING' }), async (req, res) => {
   const { storeId, commissionId } = req.body;
   if (!storeId && !commissionId) {
     return res.status(400).json({ error: 'Either storeId or commissionId is required.' });
@@ -3368,7 +3350,7 @@ app.post('/api/admin/commissions/cancel', requireAdmin, adminActionLimiter, asyn
 });
 
 // POST /api/admin/commissions/batch-action — Batch action with idempotency
-app.post('/api/admin/commissions/batch-action', requireAdmin, adminActionLimiter, async (req, res) => {
+app.post('/api/admin/commissions/batch-action', requireAdmin, adminActionLimiter, requireBody({ action: 'STRING', commissionIds: 'LIST', idempotencyKey: 'STRING', notes: 'OPTIONAL_STRING' }), async (req, res) => {
   const { action, commissionIds, idempotencyKey, notes } = req.body;
   if (!action || !commissionIds || !Array.isArray(commissionIds) || !idempotencyKey) {
     return res.status(400).json({ error: 'action, commissionIds (array), and idempotencyKey are required.' });
@@ -3565,7 +3547,7 @@ app.post('/api/system/reset', checkOrigin, requireAdmin, loginLimiter, async (re
       authorized = true;
     }
   } catch (e) {
-    console.error('[SystemReset] Error verifying admin PIN:', e);
+    logger.error('SystemReset', 'Error verifying admin PIN', e);
   }
 
   if (!authorized) {
@@ -3766,12 +3748,45 @@ app.post('/api/bootstrap',
 }); // end bootstrap inner handler
 
 // POST /api/onboard — Alias for initial system bootstrap onboarding
-app.post('/api/onboard', bootstrapLimiter, requireBody({ storeName: 'STORE_NAME', adminPin: 'ADMIN_PIN', syncPassphrase: 'SYNC_PASSPHRASE' }), async (req, res) => {
+app.post('/api/onboard', checkOrigin, bootstrapLimiter, requireBody({ storeName: 'STORE_NAME', adminPin: 'ADMIN_PIN', syncPassphrase: 'SYNC_PASSPHRASE' }), async (req, res) => {
   const onboardingCompleteRow = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'onboarding_complete'");
   if (onboardingCompleteRow && onboardingCompleteRow.value_payload === 'true') {
     return res.status(403).json({ error: 'System is already bootstrapped and initialized.' });
   }
   return res.status(400).json({ error: 'Onboarding required parameters missing or invalid.' });
+});
+
+
+// POST /api/pairing/token — Generate a short-lived pairing token (requires Admin role)
+app.post('/api/pairing/token', requireAdmin, adminActionLimiter, requireBody({}), async (req, res) => {
+  try {
+    const token = crypto.randomBytes(16).toString('hex');
+    const expiresAt = Date.now() + 60 * 1000; // 60 seconds validity
+    await db.run("INSERT INTO pairing_tokens (token, expires_at) VALUES (?, ?)", [token, expiresAt]);
+    res.json({ success: true, token });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+// POST /api/pair — Exchange pairing token for sync passphrase (public, rate-limited)
+app.post('/api/pair', loginLimiter, requireBody({ token: 'STRING' }), async (req, res) => {
+  const { token } = req.body;
+  try {
+    const row = await db.get("SELECT * FROM pairing_tokens WHERE token = ?", [token]);
+    if (!row) {
+      return res.status(400).json({ error: 'Invalid or expired pairing token.' });
+    }
+    if (row.expires_at < Date.now()) {
+      await db.run("DELETE FROM pairing_tokens WHERE token = ?", [token]);
+      return res.status(400).json({ error: 'Pairing token has expired.' });
+    }
+    // Consume token immediately (one-time use)
+    await db.run("DELETE FROM pairing_tokens WHERE token = ?", [token]);
+    res.json({ success: true, passphrase: serverPassphrase });
+  } catch (err) {
+    sendError(res, err);
+  }
 });
 
 
@@ -3919,7 +3934,7 @@ const handleExport = async (req, res) => {
       data: rows
     });
   } catch (err) {
-    res.status(500).json({ error: 'Export failed: ' + err.message });
+    sendError(res, err);
   }
 };
 
@@ -4070,7 +4085,7 @@ app.post('/api/admin/release-update', requireAdmin, releaseUpdateLimiter, requir
         await fs.promises.writeFile(backupPath, currentData, 'utf8');
       }
     } catch (backupErr) {
-      console.warn('[ReleaseManager] Backup of version.json failed:', backupErr.message);
+      logger.warn('ReleaseManager', 'Backup of version.json failed', { error: backupErr.message });
     }
 
     // 2. Write the new version details
@@ -4089,11 +4104,11 @@ app.post('/api/admin/release-update', requireAdmin, releaseUpdateLimiter, requir
       [auditId, matched.id, 'release_update', `Version updated to ${versionData.version}. Changelog: ${versionData.changelog}`, Date.now()]
     );
 
-    console.log(`[ReleaseManager] Version updated to ${versionData.version} by ${matched.role} PIN authentication.`);
+    logger.info('ReleaseManager', 'Version updated successfully', { version: versionData.version, role: matched.role });
     res.json({ success: true, version: versionData.version });
   } catch (err) {
-    console.error('[ReleaseManager] Error updating version:', err);
-    res.status(500).json({ error: 'Internal server error: ' + err.message });
+    logger.error('ReleaseManager', 'Error updating version', err);
+    sendError(res, err);
   }
 });
 
@@ -4148,11 +4163,11 @@ app.post('/api/admin/release-rollback', requireAdmin, releaseUpdateLimiter, requ
       [auditId, matched.id, 'release_rollback', `Version rolled back to ${backupObj.version}.`, Date.now()]
     );
 
-    console.log(`[ReleaseManager] Version rolled back to ${backupObj.version} by ${matched.role}`);
+    logger.info('ReleaseManager', 'Version rolled back successfully', { version: backupObj.version, role: matched.role });
     res.json({ success: true, version: backupObj.version, changelog: backupObj.changelog });
   } catch (err) {
-    console.error('[ReleaseManager] Error during rollback:', err);
-    res.status(500).json({ error: 'Internal server error: ' + err.message });
+    logger.error('ReleaseManager', 'Error during rollback', err);
+    sendError(res, err);
   }
 });
 

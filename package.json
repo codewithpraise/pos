@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "build": "node scripts/generate-sri.js && npm run test:syntax",
     "lint": "npm run test:syntax",
     "test": "node tests/unit.test.js && node tests/db.test.js && node tests/backup.test.js && node tests/modes.test.js",
     "test:e2e": "node e2e_full_test.js && node full_diagnostic.js && node cdp_mobile_e2e_full5.js",
@@ -20,13 +21,15 @@
     "argon2": "^0.44.0",
     "compression": "^1.8.1",
     "cors": "^2.8.6",
+    "dompurify": "^3.1.6",
     "dotenv": "^16.4.5",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
     "helmet": "^8.2.0",
+    "jsdom": "^24.1.1",
     "sqlite3": "^6.0.1",
     "ws": "^8.17.0",
-    "zod": "^4.4.3"
+    "zod": "^3.23.8"
   },
   "engines": {
     "node": ">=18.0.0"

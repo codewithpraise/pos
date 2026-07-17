@@ -6,6 +6,7 @@
  * Run: node tests/immaculate_e2e_suite.js
  */
 
+require('dotenv').config();
 const WebSocket = require('ws');
 const http = require('http');
 const fs = require('fs');
@@ -127,7 +128,7 @@ async function initCDP() {
   }
 }
 
-async function doLogin(pin = '1234') {
+async function doLogin(pin = process.env.TEST_ADMIN_PIN || '1234') {
   for (const d of pin.split('')) {
     await ev(`(function(){
       var btns = document.querySelectorAll('.pin-btn');
@@ -163,7 +164,7 @@ async function resetServerDatabase() {
       log(`[ServerReset] Failed to contact server for reset: ${e.message}`);
       resolve();
     });
-    req.write(JSON.stringify({ pin: '1234' }));
+    req.write(JSON.stringify({ pin: process.env.TEST_ADMIN_PIN || '1234' }));
     req.end();
   });
 }
@@ -199,12 +200,16 @@ async function main() {
 
   log('\n=== DIAGNOSTIC PHASE 2: Setup Wizard Flow ===');
   // Complete License Activation
+  const testLicenseKey = process.env.TEST_LICENSE_KEY || 'VALENIXIA-ADMIN-777';
+  const testAdminPin = process.env.TEST_ADMIN_PIN || '1234';
+  const testPassphrase = process.env.TEST_PASSPHRASE || 'testpass123';
+
   await ev(`(function(){
     var key = document.getElementById('license-code-input');
     var phone = document.getElementById('license-phone-input');
     var btn = document.getElementById('license-activate-btn');
     if (key && phone && btn) {
-      key.value = 'VALENIXIA-ADMIN-777';
+      key.value = '${testLicenseKey}';
       phone.value = '03001234567';
       btn.click();
     }
@@ -234,8 +239,8 @@ async function main() {
     var pass = document.getElementById("wizard-sync-passphrase");
     var next = document.getElementById("btn-wiz-next");
     if (pin && pass && next) {
-      pin.value = '1234';
-      pass.value = 'testpass123';
+      pin.value = '${testAdminPin}';
+      pass.value = '${testPassphrase}';
       next.click();
     }
   })()`);
@@ -269,7 +274,7 @@ async function main() {
     fail('Lock Screen Ready', 'Lock screen did not activate in time');
   }
 
-  await doLogin('1234');
+  await doLogin(testAdminPin);
   
   let loggedIn = false;
   for (let i = 0; i < 20; i++) {
@@ -299,7 +304,7 @@ async function main() {
   const screens = ['checkout', 'catalog', 'catalog-manager', 'history', 'analytics', 'staff', 'settings', 'suppliers', 'credit-book'];
   for (const s of screens) {
     // If it requires manager pin, mock it
-    await ev('window.promptManagerPIN = async function() { return "1234"; };');
+    await ev(`window.promptManagerPIN = async function() { return "${testAdminPin}"; };`);
     await ev(`switchActiveScreen("${s}");`);
     await sleep(400);
 

@@ -15,7 +15,7 @@ let currentHlc = null;
 let currentDbVersion = 0; // Incremented on each local transaction change
 
 // Schema version: increment when adding columns/tables that clients must have before syncing
-const SERVER_SCHEMA_VERSION = 11;
+const SERVER_SCHEMA_VERSION = 12;
 module.exports && Object.assign(module.exports, { SERVER_SCHEMA_VERSION });
 
 const argon2 = require('argon2');
@@ -815,6 +815,21 @@ async function initDatabase(terminalId) {
         console.log('[Database] Migrated database schema to v11 (pin_lockout_log table).');
       } catch (err) {
         console.error('[Database] Failed to migrate database schema in v11:', err.message);
+      }
+    } else if (v === 12) {
+      try {
+        await db.exec(`
+          CREATE TABLE IF NOT EXISTS pairing_tokens (
+            token TEXT PRIMARY KEY,
+            expires_at INTEGER NOT NULL
+          );
+          CREATE TABLE IF NOT EXISTS fbr_usin_seq (
+            id INTEGER PRIMARY KEY AUTOINCREMENT
+          );
+        `);
+        console.log('[Database] Migrated database schema to v12 (pairing_tokens & fbr_usin_seq).');
+      } catch (err) {
+        console.error('[Database] Failed to migrate database schema in v12:', err.message);
       }
     }
 

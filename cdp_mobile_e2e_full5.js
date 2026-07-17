@@ -1,3 +1,4 @@
+require('dotenv').config();
 const WebSocket = require('ws');
 const http = require('http');
 
@@ -198,6 +199,7 @@ let activeTabId = null;
 
       // PHASE 1: License Activation  
       console.log('\n--- PHASE 1: License Activation ---');
+      const testLicenseKey = process.env.TEST_LICENSE_KEY || 'VALENIXIA-ADMIN-777';
       let r = await cdpEval(ws, `(async () => {
         for (let i = 0; i < 80; i++) {
           const keyField = document.getElementById('license-code-input');
@@ -205,7 +207,7 @@ let activeTabId = null;
             const phoneField = document.getElementById('license-phone-input');
             const btn = document.getElementById('license-activate-btn');
             if (phoneField && btn) {
-              keyField.value = 'VALENIXIA-ADMIN-777';
+              keyField.value = '${testLicenseKey}';
               phoneField.value = '03001234567';
               window.alert = function(msg) { console.log('MOCKED ALERT:', msg); };
               btn.click();
@@ -259,14 +261,16 @@ let activeTabId = null;
       console.log('P2_STEP2:', r?.result?.value);
 
       // Step 3: Admin Credentials
+      const testAdminPin = process.env.TEST_ADMIN_PIN || '1234';
+      const testPassphrase = process.env.TEST_PASSPHRASE || 'testpass123';
       r = await cdpEval(ws, `(async () => {
         for (let i = 0; i < 50; i++) {
           const pin = document.getElementById('wizard-admin-pin');
           const pass = document.getElementById('wizard-sync-passphrase');
           const btn = document.getElementById('btn-wiz-next');
           if (pin && pass && btn && btn.offsetHeight > 0) {
-            pin.value = '1234';
-            pass.value = 'testpass123';
+            pin.value = '${testAdminPin}';
+            pass.value = '${testPassphrase}';
             btn.click();
             return 'STEP3_DONE';
           }
@@ -303,10 +307,10 @@ let activeTabId = null;
               const btn = Array.from(pad.querySelectorAll('.pin-btn')).find(b => b.getAttribute('data-digit') === String(d));
               if (btn) btn.click();
             };
-            clickDigit(1);
-            clickDigit(2);
-            clickDigit(3);
-            clickDigit(4);
+            const pinStr = '${testAdminPin}';
+            for (let c of pinStr) {
+              clickDigit(Number(c));
+            }
             const enterBtn = pad.querySelector('[data-action="enter"]');
             if (enterBtn) {
               enterBtn.click();

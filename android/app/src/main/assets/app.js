@@ -2298,6 +2298,11 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
           setTimeout(function() { window.location.reload(); }, 2000);
           break;
 
+        case 'VOID_SUCCESS':
+          showNotificationToast('Transaction voided successfully.', null, 3000);
+          syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
+          break;
+
         case 'FORCE_RELOAD':
           window.location.reload();
           break;
@@ -3225,11 +3230,11 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
           return;
         }
 
-        // Hash and save new passcode
-        const newHash = await hashPin(newVal);
         const updatedPayload = {
-          ...emp,
-          auth_hash: newHash
+          id: emp.id,
+          pin: newVal,
+          role: emp.role,
+          is_active: emp.is_active
         };
 
         syncWorker.postMessage({
@@ -3245,8 +3250,13 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
     }
 
     document.getElementById('btn-maintenance-reseed').addEventListener('click', async () => {
-      if (await showModal({ title: 'Confirm', message: '', type: 'warning', actions: [{ id: 'yes', label: 'Yes, Continue', style: 'danger' }, { id: 'no', label: 'Cancel', style: 'secondary' }] }) === 'yes') {
-        syncWorker.postMessage({ type: 'DESTRUCTIVE_RESET' });
+      if (await showModal({ title: 'Confirm', message: 'Are you sure you want to perform a factory reset? All local data will be deleted.', type: 'warning', actions: [{ id: 'yes', label: 'Yes, Continue', style: 'danger' }, { id: 'no', label: 'Cancel', style: 'secondary' }] }) === 'yes') {
+        const adminPin = window.prompt("Enter Admin PIN to confirm:");
+        if (adminPin) {
+          syncWorker.postMessage({ type: 'DESTRUCTIVE_RESET', payload: { adminPin } });
+        } else {
+          showModal({ title: 'Error', message: 'Action cancelled. Admin PIN is required.', type: 'danger' });
+        }
       }
     });
 
@@ -4152,7 +4162,7 @@ setHtml(btnNext, 'Continue <svg viewBox="0 0 24 24" width="14" height="14" fill=
           try {
             const hash = await pbkdf2(randomOtp, saltHex, 100000, 64);
             const storedHash = saltHex + ':' + hash;
-            localStorage.setItem('temp_lockout_otp_hash', storedHash);
+            sessionStorage.setItem('temp_lockout_otp_hash', storedHash);
             
             btnLockoutSendOtp.textContent = 'Sent!';
             document.getElementById('lockout-otp-row').style.display = 'block';
@@ -4183,10 +4193,10 @@ setHtml(btnNext, 'Continue <svg viewBox="0 0 24 24" width="14" height="14" fill=
         // Check if OTP input is visible and filled
         const otpRowVisible = document.getElementById('lockout-otp-row').style.display === 'block';
         if (otpRowVisible && otpInput) {
-          const storedHash = localStorage.getItem('temp_lockout_otp_hash');
+          const storedHash = sessionStorage.getItem('temp_lockout_otp_hash');
           const isMatched = await verifyPinClient(otpInput, storedHash);
           if (isMatched) {
-            localStorage.removeItem('temp_lockout_otp_hash');
+            sessionStorage.removeItem('temp_lockout_otp_hash');
             syncWorker.postMessage({
               type: 'SAVE_PREFERENCE',
               payload: { key: 'license_phone_bound', val: phoneInput }
@@ -5776,10 +5786,35 @@ setHtml(qrContainer, '<span style="font-size: 8px; color: var(--text-gray); text
           }
         }
       } catch (err) {
-        // Server offline â€” silently use window.location.hostname as fallback IP
+        // Server offline
+      }
+
+      let pairingToken = '';
+      try {
+        const serverBase = window.__valenixiaServerUrl || location.origin;
+        const tokResp = await fetch(`${serverBase}/api/pairing/token`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.deviceToken || ''}`
+          },
+          body: JSON.stringify({}),
+          signal: AbortSignal.timeout(3000)
+        });
+        if (tokResp.ok) {
+          const tokData = await tokResp.json();
+          pairingToken = tokData.token;
+        }
+      } catch (tokErr) {
+        console.error('Failed to fetch pairing token:', tokErr);
       }
       
-      const pairingUrl = `http://${serverIp}:${port}/#passphrase=${encodeURIComponent(passphrase)}`;
+      if (!pairingToken) {
+        setHtml(qrContainer, '<span style="font-size: 8px; color: var(--text-gray); text-align: center;">Pairing token error. Retry settings.</span>');
+        return;
+      }
+      
+      const pairingUrl = `http://${serverIp}:${port}/#pair=${pairingToken}`;
       
       if (typeof QRCode !== 'undefined') {
         try {
@@ -6597,7 +6632,7 @@ setHtml(overlay, `
 
   // --- ZERO-CONFIGURATION NETWORK PAIRING ENGINE ---
   const ValenixiaPairingEngine = {
-    processPairingURI(uriString) {
+    async processPairingURI(uriString) {
       try {
         console.log('[Pairing] Received pairing token (obfuscated for safety)');
         const url = new URL(uriString);
@@ -6606,16 +6641,33 @@ setHtml(overlay, `
         }
 
         const hashParams = new URLSearchParams(url.hash.substring(1));
-        const passphrase = hashParams.get('passphrase');
+        let passphrase = hashParams.get('passphrase');
+        const token = hashParams.get('pair');
+        
+        const serverUrl = `${url.protocol}//${url.host}`;
+        
+        if (!passphrase && token) {
+          // Exchange pairing token for sync passphrase
+          const resp = await fetch(`${serverUrl}/api/pair`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ token })
+          });
+          if (!resp.ok) {
+            const errData = await resp.json().catch(() => ({}));
+            throw new Error(errData.error || 'Failed to exchange pairing token.');
+          }
+          const pairData = await resp.json();
+          passphrase = pairData.passphrase;
+        }
+
         if (!passphrase) {
           throw new Error('Missing cryptographic payload token in pairing link.');
         }
 
-        const serverUrl = `${url.protocol}//${url.host}`;
-        
         // Persist parameters to local registers via SyncWorker IndexedDB
-        
-        
         syncWorker.postMessage({
           type: 'SAVE_PREFERENCE',
           payload: { key: 'valenixia_server_url', val: serverUrl }
@@ -6757,7 +6809,7 @@ setHtml(overlay, `
   function handleScannedCode(code) {
     // Intercept QR Code pairing URIs
     if (code.startsWith('http://') || code.startsWith('https://')) {
-      if (code.includes('#passphrase=')) {
+      if (code.includes('#passphrase=') || code.includes('#pair=')) {
         playAudioSignal('success');
         ValenixiaPairingEngine.processPairingURI(code);
         return;
@@ -7097,8 +7149,7 @@ setHtml(tr, `
           headers,
           body: JSON.stringify({
             cart: state.activeCart,
-            paymentMode,
-            tier: window.__valenixiaTier || 'STARTER'
+            paymentMode
           })
         });
 
@@ -7155,7 +7206,6 @@ setHtml(tr, `
           total,
           paymentMode,
           paymentDetails: finalDetails,
-          tier: window.__valenixiaTier || 'STARTER',
           fbr_integration_enabled: state.preferences['fbr_integration_enabled']
         }
       });
@@ -8066,7 +8116,6 @@ setHtml(tr, `
           type: 'SAVE_EMPLOYEE',
           payload: {
             id: emp.id,
-            auth_hash: emp.auth_hash,
             role: emp.role,
             is_active: emp.is_active === 1 ? 0 : 1
           }
@@ -8095,13 +8144,11 @@ setHtml(tr, `
       return;
     }
 
-    const hash = await hashPin(pin);
-
     syncWorker.postMessage({
       type: 'SAVE_EMPLOYEE',
       payload: {
         id: 'emp_' + id.replace(/\s+/g, '_'),
-        auth_hash: hash,
+        pin: pin,
         role: role,
         is_active: 1
       }
@@ -9010,7 +9057,7 @@ setHtml(col, `
 
       if (matched && matched.role === 'ADMIN') {
         document.getElementById('modal-reset').classList.remove('active');
-        syncWorker.postMessage({ type: 'DESTRUCTIVE_RESET' });
+        syncWorker.postMessage({ type: 'DESTRUCTIVE_RESET', payload: { adminPin: pin } });
       } else {
         errorMsg.textContent = 'Invalid administrator authentication credentials.';
         playAudioSignal('error');
@@ -12164,19 +12211,19 @@ setHtml(banner, `
           if (el && !el.disabled) draft[id] = el.value;
         });
         if (Object.values(draft).some(v => v && String(v).trim())) {
-          localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...draft, _ts: Date.now() }));
+          sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ ...draft, _ts: Date.now() }));
         }
       } catch (_) {}
     }
 
     function restoreDraft() {
       try {
-        const raw = localStorage.getItem(DRAFT_KEY);
+        const raw = sessionStorage.getItem(DRAFT_KEY);
         if (!raw) return false;
         const draft = JSON.parse(raw);
         // Only restore if draft is < 24 hours old
         if (Date.now() - (draft._ts || 0) > 86400000) {
-          localStorage.removeItem(DRAFT_KEY);
+          sessionStorage.removeItem(DRAFT_KEY);
           return false;
         }
         let restored = false;
@@ -12193,7 +12240,7 @@ setHtml(banner, `
     }
 
     function clearDraft() {
-      try { localStorage.removeItem(DRAFT_KEY); } catch (_) {}
+      try { sessionStorage.removeItem(DRAFT_KEY); } catch (_) {}
     }
 
     // Watch for modal open to attach autosave and restore

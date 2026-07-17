@@ -7,6 +7,21 @@
 "use strict";
 (function() {
 
+  let currentSession = null;
+  const loadTime = Date.now();
+  Object.defineProperty(window, '__vxSession', {
+    get: () => currentSession,
+    set: (val) => {
+      const secondsSinceLoad = (Date.now() - loadTime) / 1000;
+      if (secondsSinceLoad > 5 && currentSession && val && val.tier !== currentSession.tier) {
+        console.warn('[Security] Unauthorized tier modification blocked.');
+        return;
+      }
+      currentSession = val ? Object.freeze(val) : null;
+    },
+    configurable: false
+  });
+
 // ── Plan Definitions ─────────────────────────────────────────────────────────
 const PLANS = {
   FREE:       "free",

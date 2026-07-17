@@ -597,9 +597,37 @@ self.onmessage = async (event) => {
       }
 
       case 'CHECKOUT': {
-        const { transactionId, employeeId, cart, subtotal, tax, total, paymentMode, paymentDetails, tier, fbr_integration_enabled } = payload;
+        const { transactionId, employeeId, cart, subtotal, tax, total, paymentMode, paymentDetails, fbr_integration_enabled } = payload;
         const now = Date.now();
         const txHlc = syncClient.hlc.tick();
+
+        // Retrieve verified tier securely from database to prevent tier bypass
+        let tier = 'STARTER';
+        try {
+          const licenseRow = await ValenixiaDB.get('local_preferences', 'license_token');
+          if (licenseRow && licenseRow.value_payload) {
+            const token = licenseRow.value_payload;
+            let claims = null;
+            if (token.includes('.')) {
+              const parts = token.split('.');
+              if (parts.length === 3) {
+                const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+                claims = JSON.parse(atob(b64));
+              }
+            } else {
+              const decoded = atob(token);
+              const pipeIndex = decoded.lastIndexOf('|');
+              if (pipeIndex !== -1) {
+                claims = JSON.parse(decoded.substring(0, pipeIndex));
+              }
+            }
+            if (claims && claims.exp > Date.now()) {
+              tier = claims.tier || 'STARTER';
+            }
+          }
+        } catch (e) {
+          console.warn('[SyncWorker] Failed to decode license token for tier validation:', e.message);
+        }
 
         // Check if FBR integration is enabled for the license tier
         const isFbrEnabled = (tier === 'ENTERPRISE' || tier === 'TRIAL') && (fbr_integration_enabled === true || fbr_integration_enabled === 'true');
@@ -610,7 +638,7 @@ self.onmessage = async (event) => {
         if (isFbrEnabled) {
           // Generate FBR E-Invoicing compliant Fiscal details automatically
           fbrInvoiceNumber = `FBR-POS-${now}-${secureRandomInt(1000, 9999)}`;
-          fbrQrUrl = `https://verification.fbr.gov.pk/verify?invoiceNumber=${fbrInvoiceNumber}&total=${total}&tax=${tax}`;
+          fbrQrUrl = `https://verification.fbr.gov.pk/verify?invoiceNumber=${encodeURIComponent(fbrInvoiceNumber)}&total=${encodeURIComponent(total)}&tax=${encodeURIComponent(tax)}`;
           
           const fbrMeta = {
             fbr_invoice_number: fbrInvoiceNumber,
@@ -956,12 +984,26 @@ self.onmessage = async (event) => {
       }
 
       case 'SAVE_EMPLOYEE': {
-        const { id, auth_hash, biometric_token, role, is_active } = payload;
+        const { id, pin, biometric_token, role, is_active } = payload;
+        
+        // Reject ADMIN role creation from client
+        if (role === 'ADMIN') {
+          postMessage({ type: 'ERROR', error: 'ADMIN role can only be assigned server-side.' });
+          break;
+        }
+
         const tickHlc = syncClient.hlc.tick();
+        
+        // Load existing employee to preserve auth_hash if pin is not provided
+        const existing = await ValenixiaDB.get('employees', id);
+        let finalHash = (existing && existing.auth_hash) || '';
+        if (pin) {
+          finalHash = await hashPin(pin);
+        }
 
         const emp = {
           id,
-          auth_hash,
+          auth_hash: finalHash,
           biometric_token: biometric_token || '',
           role: role || 'CASHIER',
           is_active: is_active !== undefined ? is_active : 1,
@@ -970,7 +1012,7 @@ self.onmessage = async (event) => {
 
         await ValenixiaDB.put('employees', emp);
 
-        await logFieldChange('employees', id, 'auth_hash', auth_hash, tickHlc);
+        await logFieldChange('employees', id, 'auth_hash', finalHash, tickHlc);
         await logFieldChange('employees', id, 'role', role || 'CASHIER', tickHlc);
         await logFieldChange('employees', id, 'is_active', is_active !== undefined ? is_active : 1, tickHlc);
 
@@ -1279,12 +1321,129 @@ self.onmessage = async (event) => {
       }
 
       case 'DESTRUCTIVE_RESET': {
+        const { adminPin } = payload || {};
+        if (!adminPin) {
+          postMessage({ type: 'ERROR', error: 'Admin PIN is required for destructive reset.' });
+          break;
+        }
+
+        const employees = await ValenixiaDB.getAll('employees');
+        let authenticated = false;
+
+        for (const emp of employees) {
+          if (emp.is_active === 1 && (emp.role === 'ADMIN' || emp.role === 'MANAGER')) {
+            if (emp.auth_hash && await verifyPinClient(adminPin, emp.auth_hash)) {
+              authenticated = true;
+              break;
+            }
+          }
+        }
+
+        if (!authenticated) {
+          postMessage({ type: 'ERROR', error: 'Unauthorized: Valid Admin or Manager PIN is required for destructive reset.' });
+          break;
+        }
+
         await ValenixiaDB.destructReset();
         // Send reset notice to backend if connected
         if (syncClient.ws && syncClient.ws.readyState === WebSocket.OPEN) {
           syncClient.ws.send(JSON.stringify({ type: 'reset_trigger', nodeId }));
         }
         postMessage({ type: 'RESET_SUCCESS' });
+        break;
+      }
+
+      case 'VOID_TRANSACTION': {
+        const { transactionId, managerPin, voidReason } = payload || {};
+        if (!transactionId || !managerPin) {
+          postMessage({ type: 'ERROR', error: 'transactionId and managerPin are required.' });
+          break;
+        }
+
+        // 1. Authenticate Manager PIN
+        const employees = await ValenixiaDB.getAll('employees');
+        let authenticated = false;
+        let managerId = '';
+        for (const emp of employees) {
+          if (emp.is_active === 1 && (emp.role === 'ADMIN' || emp.role === 'MANAGER')) {
+            if (emp.auth_hash && await verifyPinClient(managerPin, emp.auth_hash)) {
+              authenticated = true;
+              managerId = emp.id;
+              break;
+            }
+          }
+        }
+
+        if (!authenticated) {
+          postMessage({ type: 'ERROR', error: 'Unauthorized: Valid Admin or Manager PIN is required to void a transaction.' });
+          break;
+        }
+
+        // 2. Fetch original transaction
+        const original = await ValenixiaDB.get('transactions', transactionId);
+        if (!original) {
+          postMessage({ type: 'ERROR', error: `Transaction ${transactionId} not found.` });
+          break;
+        }
+        if (original.status === 'VOIDED') {
+          postMessage({ type: 'ERROR', error: 'Transaction is already voided.' });
+          break;
+        }
+
+        const tickHlc = syncClient.hlc.tick();
+        const contraId = `void_${transactionId}_${Date.now()}`;
+        const now = Date.now();
+
+        // 3. Mark original as VOIDED
+        original.status = 'VOIDED';
+        original.voided_transaction_id = contraId;
+        original.void_reason = voidReason || 'Manager void';
+        original.updated_at = now;
+        original.sync_hlc = tickHlc;
+
+        await ValenixiaDB.put('transactions', original);
+
+        // Log CRDT changes for original transaction updates
+        await logFieldChange('transactions', transactionId, 'status', 'VOIDED', tickHlc);
+        await logFieldChange('transactions', transactionId, 'voided_transaction_id', contraId, tickHlc);
+        await logFieldChange('transactions', transactionId, 'void_reason', voidReason || 'Manager void', tickHlc);
+        await logFieldChange('transactions', transactionId, 'updated_at', now, tickHlc);
+
+        // 4. Create contra-entry (negative mirror)
+        const contraTx = {
+          id: contraId,
+          employee_id: managerId,
+          terminal_id: original.terminal_id,
+          subtotal_minor_units: -(original.subtotal_minor_units || 0),
+          tax_minor_units: -(original.tax_minor_units || 0),
+          total_minor_units: -(original.total_minor_units || 0),
+          status: 'VOID_CONTRA',
+          payment_mode: original.payment_mode || 'CASH',
+          payment_details: '',
+          created_at: now,
+          updated_at: now,
+          sync_hlc: tickHlc,
+          is_deleted: 0,
+          voided_transaction_id: transactionId,
+          void_reason: voidReason || 'Manager void'
+        };
+
+        await ValenixiaDB.put('transactions', contraTx);
+
+        // Log CRDT changes for new contra transaction
+        await logFieldChange('transactions', contraId, 'employee_id', managerId, tickHlc);
+        await logFieldChange('transactions', contraId, 'terminal_id', original.terminal_id, tickHlc);
+        await logFieldChange('transactions', contraId, 'subtotal_minor_units', -(original.subtotal_minor_units || 0), tickHlc);
+        await logFieldChange('transactions', contraId, 'tax_minor_units', -(original.tax_minor_units || 0), tickHlc);
+        await logFieldChange('transactions', contraId, 'total_minor_units', -(original.total_minor_units || 0), tickHlc);
+        await logFieldChange('transactions', contraId, 'status', 'VOID_CONTRA', tickHlc);
+        await logFieldChange('transactions', contraId, 'payment_mode', original.payment_mode || 'CASH', tickHlc);
+        await logFieldChange('transactions', contraId, 'created_at', now, tickHlc);
+        await logFieldChange('transactions', contraId, 'updated_at', now, tickHlc);
+        await logFieldChange('transactions', contraId, 'voided_transaction_id', transactionId, tickHlc);
+        await logFieldChange('transactions', contraId, 'void_reason', voidReason || 'Manager void', tickHlc);
+
+        postMessage({ type: 'VOID_SUCCESS', transactionId, contraId });
         break;
       }
 
