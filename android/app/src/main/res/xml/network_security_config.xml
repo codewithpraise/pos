@@ -7,15 +7,10 @@
         <domain includeSubdomains="true">10.0.2.2</domain>
     </domain-config>
 
-    <!-- Pin certificates for backend APIs to prevent Man-in-the-Middle (MitM) attacks -->
+    <!-- Allowed domains for backend APIs using standard system CA validation -->
     <domain-config>
         <domain includeSubdomains="true">gw.fbr.gov.pk</domain>
         <domain includeSubdomains="true">googleapis.com</domain>
-        <pin-set>
-            <!-- Pin digests for Let's Encrypt / DigiCert / Global roots and back-ups -->
-            <pin digest="SHA-256">C57AZG70GG7SL23ONR9SBM1713B4585B17A201C840742139E086C15B0F00A08</pin>
-            <pin digest="SHA-256">742139E086C15B0F00A08C57AZG70GG7SL23ONR9SBM1713B4585B17A201C840</pin>
-        </pin-set>
     </domain-config>
 
     <!-- Deny all other cleartext traffic globally -->

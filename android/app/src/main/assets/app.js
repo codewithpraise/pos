@@ -4,6 +4,16 @@
 // ============================================================================
 
 (function() {
+  function generateSecureRandomId(prefix, length = 8, alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789') {
+    const arr = new Uint8Array(length);
+    crypto.getRandomValues(arr);
+    let result = '';
+    for (let i = 0; i < length; i++) {
+      result += alphabet[arr[i] % alphabet.length];
+    }
+    return prefix + result;
+  }
+
   // Configure DOMPurify hook to preserve safe inline click actions
   if (typeof DOMPurify !== 'undefined') {
     DOMPurify.addHook('uponSanitizeAttribute', function(node, data) {
@@ -1100,7 +1110,7 @@ setHtml(overlay, `
       let terminalName = terminalNamePref ? terminalNamePref.value_payload : null;
       let nodeId = '';
       if (!terminalName) {
-        nodeId = 'web_client_' + Math.random().toString(36).substring(2, 9);
+        nodeId = generateSecureRandomId('web_client_', 7);
         await ValenixiaDB.put('local_preferences', {
           key: 'terminal_name',
           value_type: 'STR',
@@ -1150,24 +1160,10 @@ setHtml(overlay, `
       window.Android.setDeviceToken(state.deviceToken);
     }
 
-    // Initialize window.__vxSession and load/migrate trial start time (C-5)
+    // Initialize window.__vxSession and load trial start time (C-5)
     try {
       let trialStartPref = await ValenixiaDB.get('local_preferences', 'valenixia_trial_start');
       let trialStart = trialStartPref ? parseInt(trialStartPref.value_payload) : 0;
-      if (!trialStart) {
-        const legacyStart = localStorage.getItem("valenixia_trial_start");
-        if (legacyStart) {
-          trialStart = parseInt(legacyStart);
-          await ValenixiaDB.put('local_preferences', {
-            key: 'valenixia_trial_start',
-            value_type: 'STR',
-            value_payload: legacyStart,
-            is_idempotent_flag: 0,
-            updated_at: Date.now()
-          });
-          localStorage.removeItem("valenixia_trial_start");
-        }
-      }
 
       window.__vxSession = {
         tier: 'STARTER',
@@ -1368,7 +1364,7 @@ setHtml(toast, `
     function handleGlobalError(errorType, err) {
       const hlc = document.getElementById('hlc-clock')?.textContent || '';
       const log = {
-        id: `tl_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+        id: generateSecureRandomId(`tl_${Date.now()}_`, 4),
         nodeId: state.nodeId || 'unknown',
         errorType: errorType,
         errorMessage: err?.message || String(err),
@@ -3351,7 +3347,7 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
         showModal({ title: "Notice", message: `SMS verified! Payment matches grand total of Rs. ${expectedTotalStr}.`, type: "info" });
         document.getElementById('modal-qr-pay').classList.remove('active');
         const payload = state.pendingQrCheckout;
-        const transactionId = 'tx_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+        const transactionId = generateSecureRandomId('tx_' + Date.now() + '_', 7);
         const cashierId = state.activeCashier ? state.activeCashier.id : 'emp_cashier';
         const finalDetails = (payload.paymentDetails ? payload.paymentDetails + ' | ' : '') + 
                              `SMS Verified (Sender: ${smsSender}, Msg: ${smsBody.substring(0, 30)}...)`;
@@ -4132,7 +4128,7 @@ setHtml(btnNext, 'Continue <svg viewBox="0 0 24 24" width="14" height="14" fill=
 
         setTimeout(async () => {
           // Generate a cryptographically secure 6-digit random code
-          const randomOtp = Math.floor(100000 + Math.random() * 900000).toString();
+          const randomOtp = generateSecureRandomId('', 6, '0123456789');
           
           // Generate a random salt
           const saltBytes = new Uint8Array(16);
@@ -7067,7 +7063,7 @@ setHtml(tr, `
       return;
     }
 
-    const transactionId = 'tx_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+    const transactionId = generateSecureRandomId('tx_' + Date.now() + '_', 7);
     const cashierId = state.activeCashier ? state.activeCashier.id : 'emp_cashier';
 
     // Set button loading to prevent double-click
@@ -8819,7 +8815,7 @@ setHtml(alertsContainer, `<p class="text-muted" style="text-align: center; margi
       } else {
         // Asynchronously request PO generation through the worker thread to prevent blocking
         setTimeout(() => {
-          const newPoId = 'po_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+          const newPoId = generateSecureRandomId('po_' + Date.now() + '_', 4);
           syncWorker.postMessage({
             type: 'SAVE_PURCHASE_ORDER',
             payload: {
@@ -9054,7 +9050,7 @@ setHtml(col, `
     const formattedAmt = `Rs. ${(total / 100).toFixed(2)}`;
     document.getElementById('qr-pay-amount-label').textContent = formattedAmt;
     
-    const randomTxId = 'EP-' + Math.floor(100000 + Math.random() * 900000);
+    const randomTxId = generateSecureRandomId('EP-', 6, '0123456789');
     const smsText = `Rs. ${(total / 100).toFixed(2)} received from EasyPaisa/JazzCash wallet. Transaction ID: ${randomTxId}. Status: SUCCESS.`;
     document.getElementById('sms-sim-body').value = smsText;
     

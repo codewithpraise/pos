@@ -262,6 +262,16 @@ class SyncClient {
       console.log(`[SyncClient:${this.nodeId}] Server handshake received. Server version: ${data.dbVersion}`);
       this.hlc.merge(data.hlc);
       
+      if (data.syncSalt && globalScope.ValenixiaDB) {
+        globalScope.ValenixiaDB.put('local_preferences', {
+          key: 'sync_salt',
+          value_type: 'STR',
+          value_payload: data.syncSalt,
+          is_idempotent_flag: 1,
+          updated_at: Date.now()
+        });
+      }
+      
       // Request any server changes since our last sync
       this.requestSync();
       // Flush any queued offline changes
@@ -281,6 +291,15 @@ class SyncClient {
           is_idempotent_flag: 0,
           updated_at: Date.now()
         });
+        if (data.syncSalt) {
+          globalScope.ValenixiaDB.put('local_preferences', {
+            key: 'sync_salt',
+            value_type: 'STR',
+            value_payload: data.syncSalt,
+            is_idempotent_flag: 1,
+            updated_at: Date.now()
+          });
+        }
       }
       
       globalScope.postMessage({ type: 'DEVICE_APPROVED', token: data.token });

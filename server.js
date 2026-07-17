@@ -434,7 +434,8 @@ app.use(helmet({
       imgSrc: ["'self'", "data:", "blob:"],
       connectSrc: [
         "'self'",
-        "ws:", "wss:",
+        "ws://localhost:*", "ws://127.0.0.1:*", "ws://192.168.*", "ws://10.*", "ws://172.*",
+        "wss://localhost:*", "wss://127.0.0.1:*", "wss://192.168.*", "wss://10.*", "wss://172.*",
         "http://localhost:*", "http://127.0.0.1:*", "http://192.168.*", "http://10.*", "http://172.*",
         "https://*.supabase.co", "https://*.pages.dev",
         "https://gw.fbr.gov.pk"
@@ -448,7 +449,7 @@ app.use(helmet({
   },
   xFrameOptions: { action: 'deny' },
   xContentTypeOptions: true,
-  referrerPolicy: { policy: 'no-referrer' },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   // Enable COOP/COEP/CORP for cross-origin isolation
   crossOriginOpenerPolicy: { policy: 'same-origin' },
   crossOriginEmbedderPolicy: { policy: 'require-corp' },
@@ -625,7 +626,7 @@ function requestAuditMiddleware(req, res, next) {
       try {
         await db.run(
           'INSERT INTO request_audit_logs (timestamp, ip, method, path, status_code, response_time_ms) VALUES (?, ?, ?, ?, ?, ?)',
-          [timestamp, ip, method, path, statusCode, timeMs]
+          [timestamp, hashIp(ip), method, path, statusCode, timeMs]
         );
       } catch (err) {
         console.error('[Security] Failed to write request audit log:', err.message);
@@ -643,7 +644,14 @@ app.use((req, res, next) => {
     '/api/employee',
     '/api/license',
     '/api/bootstrap',
-    '/api/devices/approve'
+    '/api/devices',
+    '/api/void-transaction',
+    '/api/admin',
+    '/api/checkout',
+    '/api/export',
+    '/api/reset',
+    '/api/system/reset',
+    '/api/telemetry'
   ];
   if (sensitivePaths.some(p => req.path.startsWith(p))) {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -1005,11 +1013,37 @@ function requireAdmin(req, res, next) {
   });
 }
 
+async function requireAdminOrPin(req, res, next) {
+  // Method 1: Bearer Token Auth (standard)
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    const payload = verifyToken(token);
+    if (payload && (payload.role === 'MASTER' || payload.role === 'TERMINAL' || payload.role === 'ADMIN')) {
+      req.device = payload;
+      return logAdminAccess(req, res, next);
+    }
+  }
+
+  // Method 2: Admin PIN Auth (fallback for phone scanners)
+  const { adminPin } = req.body || {};
+  if (adminPin) {
+    const employees = await db.all("SELECT * FROM employees WHERE role = 'ADMIN' AND is_active = 1");
+    const matched = await verifyEmployeePin(adminPin, employees);
+    if (matched) {
+      req.device = { role: 'ADMIN', sub: 'pin_fallback' };
+      return logAdminAccess(req, res, next);
+    }
+  }
+
+  return res.status(401).json({ error: 'Unauthorized. Valid Admin token or PIN required.' });
+}
+
 function encryptPayload(payload) {
   const json = JSON.stringify(payload);
   if (serverPassphrase) {
     try {
-      const key = deriveKey(serverPassphrase, 'valenixia_salt');
+      const key = deriveKey(serverPassphrase, syncSalt || 'valenixia_salt');
       const iv = crypto.randomBytes(12);
       const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
       let encrypted = cipher.update(json, 'utf8');
@@ -1066,7 +1100,7 @@ function decryptPayload(rawData) {
       const tag = buffer.subarray(buffer.length - 16);
       const ciphertext = buffer.subarray(12, buffer.length - 16);
       
-      const key = deriveKey(serverPassphrase, 'valenixia_salt');
+      const key = deriveKey(serverPassphrase, syncSalt || 'valenixia_salt');
       const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
       decipher.setAuthTag(tag);
       let decrypted = decipher.update(ciphertext, 'binary', 'utf8');
@@ -1225,13 +1259,11 @@ wss.on('connection', (ws, req) => {
           ws.nodeId = data.nodeId;
           let status = await getDeviceStatus(data.nodeId);
           if (data.nodeId.startsWith('web_client_') || 
-              data.nodeId === terminalId || 
-              data.nodeId === 'valenixia_master_pc_01' || 
-              data.nodeId === 'cfd_tab_2') {
+              data.nodeId === terminalId) {
             status = 'APPROVED';
           }
           if (status === 'APPROVED') {
-            const role = (data.nodeId === terminalId || data.nodeId === 'valenixia_master_pc_01' || data.nodeId === 'cfd_tab_2' || data.nodeId.startsWith('web_client_')) ? 'MASTER' : 'TERMINAL';
+            const role = (data.nodeId === terminalId || data.nodeId.startsWith('web_client_')) ? 'MASTER' : 'TERMINAL';
             
             if (role === 'TERMINAL') {
               let connectedTerminals = 0;
@@ -1259,7 +1291,8 @@ wss.on('connection', (ws, req) => {
             const token = generateToken(data.nodeId, ws.deviceRole);
             ws.send(encryptPayload({
               type: 'device_approved',
-              token: token
+              token: token,
+              syncSalt: syncSalt
             }));
             console.log(`[SyncHub] Registered auto-approved node: ${data.nodeId} as ${ws.deviceRole}`);
           } else if (status === 'PENDING') {
@@ -1290,17 +1323,13 @@ wss.on('connection', (ws, req) => {
             
             let status = await getDeviceStatus(data.nodeId);
             if (data.nodeId.startsWith('web_client_') || 
-                data.nodeId === terminalId || 
-                data.nodeId === 'valenixia_master_pc_01' || 
-                data.nodeId === 'cfd_tab_2') {
+                data.nodeId === terminalId) {
               status = 'APPROVED';
             }
             if (status === 'APPROVED') {
               let role = ws.deviceRole || 'TERMINAL';
               if (ws.nodeId.startsWith('web_client_') || 
-                  ws.nodeId === terminalId || 
-                  ws.nodeId === 'valenixia_master_pc_01' || 
-                  ws.nodeId === 'cfd_tab_2') {
+                  ws.nodeId === terminalId) {
                 role = 'MASTER';
               }
               ws.deviceRole = role;
@@ -1333,7 +1362,8 @@ wss.on('connection', (ws, req) => {
                 type: 'handshake',
                 nodeId: terminalId,
                 dbVersion: getDbVersion(),
-                hlc: getHlc().toString()
+                hlc: getHlc().toString(),
+                syncSalt: syncSalt
               }));
             } else {
               ws.send(encryptPayload({ type: 'device_rejected' }));
@@ -2125,7 +2155,7 @@ app.post('/api/employee/login', loginLimiter, requireAuth, async (req, res) => {
   const { pin } = req.body;
   if (!pin) return res.status(400).json({ error: 'PIN is required' });
 
-  const lockoutKey = `emp_login:${req.ip}`;
+  const lockoutKey = `emp_login:${req.device?.sub || 'unknown'}:${hashIp(req.ip)}`;
   try {
     const lockout = await checkPinLockout(lockoutKey);
     if (lockout.locked) {
@@ -2718,11 +2748,22 @@ app.get('/api/devices', requireAdmin, async (req, res) => {
 // GET /api/devices/approve-qr — serves a secure confirmation page.
 // The page reads the admin Bearer token from IndexedDB via JS and POSTs to /api/devices/approve.
 // It also provides a secure fallback to prompt for the Admin PIN if not authenticated.
-app.get('/api/devices/approve-qr', qrApproveLimiter, (req, res) => {
+app.get('/api/devices/approve-qr', qrApproveLimiter, async (req, res) => {
   const { nodeId } = req.query;
   if (!nodeId) return res.status(400).send('<h2>Missing nodeId parameter</h2>');
   const safeNodeId = nodeId.replace(/[^a-zA-Z0-9_\-]/g, '');
   if (!safeNodeId) return res.status(400).send('<h2>Invalid nodeId</h2>');
+
+  try {
+    const pending = await getPendingDevices();
+    const isPending = pending.some(d => d.id === safeNodeId);
+    if (!isPending) {
+      return res.status(400).send('<h2>Pairing request not found, expired, or already approved.</h2>');
+    }
+  } catch (err) {
+    return res.status(500).send('<h2>Internal Database Error</h2>');
+  }
+
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -2816,7 +2857,7 @@ app.get('/api/devices/approve-qr', qrApproveLimiter, (req, res) => {
 </html>`);
 });
 
-app.post('/api/devices/approve', adminActionLimiter, requireBody({ nodeId: 'NODE_ID' }), async (req, res) => {
+app.post('/api/devices/approve', requireAdminOrPin, adminActionLimiter, requireBody({ nodeId: 'NODE_ID' }), async (req, res) => {
   const { nodeId, adminPin } = req.body;
   if (!nodeId) return res.status(400).json({ error: 'nodeId is required' });
   
@@ -3680,7 +3721,7 @@ app.post('/api/reset', requireAdmin, checkOrigin, adminActionLimiter, requireBod
 });
 
 // ── Immutable Ledger: Void Transaction (Manager PIN required) ─────────────────
-app.post('/api/void-transaction', checkOrigin, loginLimiter, requireBody({ transactionId: 'TX_ID', managerPin: 'ADMIN_PIN' }), async (req, res) => {
+app.post('/api/void-transaction', requireAuth, checkOrigin, loginLimiter, requireBody({ transactionId: 'TX_ID', managerPin: 'ADMIN_PIN' }), async (req, res) => {
   try {
     const { transactionId, managerPin, voidReason } = req.body;
     if (!transactionId || !managerPin) return res.status(400).json({ error: 'transactionId and managerPin required.' });

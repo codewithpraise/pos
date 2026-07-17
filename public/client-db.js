@@ -135,7 +135,15 @@
     async encryptSync(text, passphrase) {
       if (!passphrase) return text;
       const enc = new TextEncoder();
-      const salt = 'valenixia_salt';
+      let salt = 'valenixia_salt';
+      try {
+        if (globalScope.ValenixiaDB && typeof globalScope.ValenixiaDB.get === 'function') {
+          const saltRow = await globalScope.ValenixiaDB.get('local_preferences', 'sync_salt');
+          if (saltRow && saltRow.value_payload) {
+            salt = saltRow.value_payload;
+          }
+        }
+      } catch (e) {}
       const key = await this.deriveKey(passphrase, salt);
       const iv = crypto.getRandomValues(new Uint8Array(12));
       const encrypted = await crypto.subtle.encrypt(
@@ -163,7 +171,15 @@
         const iv = combined.slice(0, 12);
         // Everything after IV: ciphertext bytes + 16-byte auth tag (WebCrypto handles tag verification)
         const ciphertextWithTag = combined.slice(12);
-        const salt = 'valenixia_salt';
+        let salt = 'valenixia_salt';
+        try {
+          if (globalScope.ValenixiaDB && typeof globalScope.ValenixiaDB.get === 'function') {
+            const saltRow = await globalScope.ValenixiaDB.get('local_preferences', 'sync_salt');
+            if (saltRow && saltRow.value_payload) {
+              salt = saltRow.value_payload;
+            }
+          }
+        } catch (e) {}
         const key = await this.deriveKey(passphrase, salt);
 
         const decrypted = await crypto.subtle.decrypt(

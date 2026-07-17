@@ -583,6 +583,10 @@ async function initDatabase(terminalId) {
         const match = sql.match(/ALTER TABLE (\w+) ADD COLUMN (\w+)/);
         if (match) {
           const [, tbl, col] = match;
+          const allowedTables = ['transactions', 'fbr_submissions'];
+          if (!allowedTables.includes(tbl)) {
+            throw new Error(`Unauthorized table ALTER operation on ${tbl}`);
+          }
           const cols = await db.all(`PRAGMA table_info(${tbl})`);
           const exists = cols.some(c => c.name === col);
           if (exists) continue; // Column already present — skip safely

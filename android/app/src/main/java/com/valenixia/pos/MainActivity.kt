@@ -469,9 +469,18 @@ class MainActivity : AppCompatActivity() {
 
                     // Find paired printer (names typically contain thermal, pos, printer, mpt)
                     val pairedDevices = bluetoothAdapter.bondedDevices
-                    val printerDevice = pairedDevices.firstOrNull { device ->
-                        val name = device.name.lowercase()
-                        name.contains("printer") || name.contains("pos") || name.contains("thermal") || name.contains("mpt")
+                    val savedMac = prefs.getString("valenixia_printer_mac", null)
+                    val printerDevice = if (savedMac != null) {
+                        pairedDevices.firstOrNull { it.address == savedMac }
+                    } else {
+                        val firstFound = pairedDevices.firstOrNull { device ->
+                            val name = device.name.lowercase()
+                            name.contains("printer") || name.contains("pos") || name.contains("thermal") || name.contains("mpt")
+                        }
+                        if (firstFound != null) {
+                            prefs.edit().putString("valenixia_printer_mac", firstFound.address).apply()
+                        }
+                        firstFound
                     }
 
                     if (printerDevice == null) {
@@ -781,6 +790,7 @@ class MainActivity : AppCompatActivity() {
         }
         webView?.destroy()
         val wv = WebView(this)
+        wv.filterTouchesWhenObscured = true
         
         wv.overScrollMode = View.OVER_SCROLL_NEVER
         wv.isVerticalScrollBarEnabled = true
