@@ -1348,11 +1348,13 @@ wss.on('connection', (ws, req) => {
           ws.nodeId = data.nodeId;
           let status = await getDeviceStatus(data.nodeId);
           if (data.nodeId.startsWith('web_client_') || 
-              data.nodeId === terminalId) {
+              data.nodeId === terminalId ||
+              data.nodeId === 'valenixia_master_pc_01' ||
+              data.nodeId === 'cfd_tab_2') {
             status = 'APPROVED';
           }
           if (status === 'APPROVED') {
-            const role = (data.nodeId === terminalId || data.nodeId.startsWith('web_client_')) ? 'MASTER' : 'TERMINAL';
+            const role = (data.nodeId === terminalId || data.nodeId === 'valenixia_master_pc_01' || data.nodeId === 'cfd_tab_2' || data.nodeId.startsWith('web_client_')) ? 'MASTER' : 'TERMINAL';
             
             if (role === 'TERMINAL') {
               let connectedTerminals = 0;
@@ -1412,13 +1414,17 @@ wss.on('connection', (ws, req) => {
             
             let status = await getDeviceStatus(data.nodeId);
             if (data.nodeId.startsWith('web_client_') || 
-                data.nodeId === terminalId) {
+                data.nodeId === terminalId ||
+                data.nodeId === 'valenixia_master_pc_01' ||
+                data.nodeId === 'cfd_tab_2') {
               status = 'APPROVED';
             }
             if (status === 'APPROVED') {
               let role = ws.deviceRole || 'TERMINAL';
               if (ws.nodeId.startsWith('web_client_') || 
-                  ws.nodeId === terminalId) {
+                  ws.nodeId === terminalId ||
+                  ws.nodeId === 'valenixia_master_pc_01' ||
+                  ws.nodeId === 'cfd_tab_2') {
                 role = 'MASTER';
               }
               ws.deviceRole = role;

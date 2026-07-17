@@ -3825,6 +3825,32 @@ setHtml(btnNext, 'Continue <svg viewBox="0 0 24 24" width="14" height="14" fill=
               const err = await resp.json();
               throw new Error(err.error || 'Server bootstrap failed');
             }
+            // Refresh device token with the server since jwtSecret has changed
+            try {
+              const serverBase = (window.__valenixiaServerUrl || location.origin);
+              const regResp = await fetch(serverBase + '/api/devices/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nodeId: state.nodeId, deviceName: 'Web Register' })
+              });
+              if (regResp.ok) {
+                const regData = await regResp.json();
+                if (regData.status === 'APPROVED' && regData.token) {
+                  await ValenixiaDB.put('local_preferences', {
+                    key: 'device_token',
+                    value_type: 'STR',
+                    value_payload: regData.token,
+                    is_idempotent_flag: 0,
+                    updated_at: Date.now()
+                  });
+                  state.deviceToken = regData.token;
+                  console.log('[Bootstrap] Refreshed device token successfully.');
+                }
+              }
+            } catch (tokenErr) {
+              console.warn('[Bootstrap] Failed to refresh device token:', tokenErr);
+            }
+
             // Proceed with local IndexedDB bootstrap
             localStorage.setItem('onboarding_complete', 'true');
             localStorage.setItem('database_hydrated', 'true'); // Prevent hydration overlay on reload
