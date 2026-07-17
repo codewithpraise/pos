@@ -52,6 +52,10 @@ jobs:
         run: npm test
 
       - name: Run Full E2E & Diagnostic Suites with Headless Services
+        env:
+          TEST_ADMIN_PIN: ${{ secrets.TEST_ADMIN_PIN }}
+          TEST_LICENSE_KEY: ${{ secrets.TEST_LICENSE_KEY }}
+          TEST_PASSPHRASE: ${{ secrets.TEST_PASSPHRASE }}
         run: |
           # Clean up any existing database files to prevent test contamination
           rm -f valenixia.db valenixia.db-wal valenixia.db-shm nexova.db nexova.db-wal nexova.db-shm || true
@@ -60,7 +64,16 @@ jobs:
           SERVER_PID=$!
 
           # Start Headless Chrome for Chrome DevTools Protocol
-          google-chrome --headless --remote-debugging-port=9222 --disable-gpu --no-sandbox http://localhost:3000 > chrome.log 2>&1 &
+          google-chrome \
+            --headless=new \
+            --remote-debugging-port=9222 \
+            --disable-gpu \
+            --no-sandbox \
+            --disable-dev-shm-usage \
+            --disable-extensions \
+            --no-first-run \
+            --no-default-browser-check \
+            about:blank > chrome.log 2>&1 &
           CHROME_PID=$!
 
           # Wait for both services to become ready

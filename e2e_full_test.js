@@ -69,7 +69,7 @@ async function connectCDP() {
   let nId = 1;
   const pend = new Map();
   ws.on('message', d => {
-    log('connectCDP WS MSG: ' + d.toString().substring(0, 150));
+    // Suppress raw WS message noise for cleaner CI logs
     const m = JSON.parse(d.toString());
     if (m.id && pend.has(m.id)) { pend.get(m.id)(m); pend.delete(m.id); }
     if (m.method === 'Runtime.consoleAPICalled') {
