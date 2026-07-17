@@ -583,7 +583,7 @@ async function initDatabase(terminalId) {
         const match = sql.match(/ALTER TABLE (\w+) ADD COLUMN (\w+)/);
         if (match) {
           const [, tbl, col] = match;
-          const allowedTables = ['transactions', 'fbr_submissions'];
+          const allowedTables = ['transactions', 'fbr_submissions', 'inventory_catalog', 'employee_shifts', 'employees', 'customers'];
           if (!allowedTables.includes(tbl)) {
             throw new Error(`Unauthorized table ALTER operation on ${tbl}`);
           }
