@@ -128,7 +128,7 @@ async function initCDP() {
   }
 }
 
-async function doLogin(pin = process.env.TEST_ADMIN_PIN || '1234') {
+async function doLogin(pin = process.env.TEST_ADMIN_PIN) {
   for (const d of pin.split('')) {
     await ev(`(function(){
       var btns = document.querySelectorAll('.pin-btn');
@@ -164,7 +164,7 @@ async function resetServerDatabase() {
       log(`[ServerReset] Failed to contact server for reset: ${e.message}`);
       resolve();
     });
-    req.write(JSON.stringify({ pin: process.env.TEST_ADMIN_PIN || '1234' }));
+    req.write(JSON.stringify({ pin: process.env.TEST_ADMIN_PIN }));
     req.end();
   });
 }
@@ -200,9 +200,12 @@ async function main() {
 
   log('\n=== DIAGNOSTIC PHASE 2: Setup Wizard Flow ===');
   // Complete License Activation
-  const testLicenseKey = process.env.TEST_LICENSE_KEY || 'VALENIXIA-ADMIN-777';
-  const testAdminPin = process.env.TEST_ADMIN_PIN || '1234';
-  const testPassphrase = process.env.TEST_PASSPHRASE || 'testpass123';
+  const testLicenseKey = process.env.TEST_LICENSE_KEY;
+  const testAdminPin = process.env.TEST_ADMIN_PIN;
+  const testPassphrase = process.env.TEST_PASSPHRASE;
+  if (!testLicenseKey || !testAdminPin || !testPassphrase) {
+    throw new Error("Immaculate E2E suite requires TEST_LICENSE_KEY, TEST_ADMIN_PIN, and TEST_PASSPHRASE to be set in environment variables.");
+  }
 
   await ev(`(function(){
     var key = document.getElementById('license-code-input');

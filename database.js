@@ -15,7 +15,7 @@ let currentHlc = null;
 let currentDbVersion = 0; // Incremented on each local transaction change
 
 // Schema version: increment when adding columns/tables that clients must have before syncing
-const SERVER_SCHEMA_VERSION = 12;
+const SERVER_SCHEMA_VERSION = 13;
 module.exports && Object.assign(module.exports, { SERVER_SCHEMA_VERSION });
 
 const argon2 = require('argon2');
@@ -720,10 +720,15 @@ async function initDatabase(terminalId) {
         const defaultSeeds = [
           { type: 'IP', value: '127.0.0.1' },
           { type: 'IP', value: '::1' },
-          { type: 'IP', value: 'localhost' },
-          { type: 'HWID', value: 'MOCK_ADMIN_HWID' },
-          { type: 'HWID', value: 'TEST-HWID' }
+          { type: 'IP', value: 'localhost' }
         ];
+
+        if (process.env.NODE_ENV !== 'production' && process.env.TEST_HWIDS) {
+          const hwids = process.env.TEST_HWIDS.split(',');
+          for (const hwid of hwids) {
+            defaultSeeds.push({ type: 'HWID', value: hwid.trim() });
+          }
+        }
 
         for (const seed of defaultSeeds) {
           await db.run(
@@ -830,6 +835,18 @@ async function initDatabase(terminalId) {
         console.log('[Database] Migrated database schema to v12 (pairing_tokens & fbr_usin_seq).');
       } catch (err) {
         console.error('[Database] Failed to migrate database schema in v12:', err.message);
+      }
+    } else if (v === 13) {
+      try {
+        await db.exec(`
+          CREATE TABLE IF NOT EXISTS token_blacklist (
+            token TEXT PRIMARY KEY,
+            blacklisted_at INTEGER NOT NULL
+          );
+        `);
+        console.log('[Database] Migrated database schema to v13 (token_blacklist table).');
+      } catch (err) {
+        console.error('[Database] Failed to migrate database schema in v13:', err.message);
       }
     }
 

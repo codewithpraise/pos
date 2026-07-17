@@ -256,7 +256,10 @@ async function run() {
     log('Available inputs:', inputsResult);
     
     // Try to fill in the license key
-    const testLicenseKey = process.env.TEST_LICENSE_KEY || 'VALENIXIA-ADMIN-777';
+    const testLicenseKey = process.env.TEST_LICENSE_KEY;
+    if (!testLicenseKey) {
+      throw new Error("Full diagnostics suite requires TEST_LICENSE_KEY to be set in environment variables.");
+    }
     const fillResult = await cdpEval(ws, `(function() {
       const keyInput = document.getElementById('license-code-input');
       const phoneInput = document.getElementById('license-phone-input');

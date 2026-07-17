@@ -37,6 +37,10 @@ if (!envContent.includes('TEST_PASSPHRASE=')) {
   envContent += `\nTEST_PASSPHRASE=TestKey2024!\n`;
   envUpdated = true;
 }
+if (!envContent.includes('TEST_HWIDS=')) {
+  envContent += `\nTEST_HWIDS=MOCK_ADMIN_HWID,TEST-HWID\n`;
+  envUpdated = true;
+}
 
 if (envUpdated) {
   fs.writeFileSync(envPath, envContent, { mode: 0o600 });
@@ -546,7 +550,15 @@ const corsOptionsDelegate = function (req, callback) {
 };
 app.use(cors(corsOptionsDelegate));
 
-app.use(compression());
+app.use(compression({
+  filter: (req, res) => {
+    // Skip compression for API endpoints or JSON responses to mitigate BREACH attack risk
+    if (req.path.startsWith('/api/') || (res.getHeader('content-type') || '').includes('json') || (res.getHeader('Content-Type') || '').includes('json')) {
+      return false;
+    }
+    return compression.filter(req, res);
+  }
+}));
 
 // Request Correlation ID Middleware (Task 4-B)
 app.use((req, res, next) => {
@@ -983,6 +995,14 @@ async function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Missing or malformed Authorization header.' });
   }
   const token = authHeader.split(' ')[1];
+  try {
+    const isBlacklisted = await db.get("SELECT 1 FROM token_blacklist WHERE token = ?", [token]);
+    if (isBlacklisted) {
+      return res.status(401).json({ error: 'Token has been blacklisted (logged out).' });
+    }
+  } catch (err) {
+    logger.warn('Auth', 'Failed to query token blacklist', { error: err.message });
+  }
   const payload = verifyToken(token);
   if (!payload) {
     return res.status(401).json({ error: 'Invalid or expired token.' });
@@ -1405,8 +1425,19 @@ wss.on('connection', (ws, req) => {
           return;
         }
 
-        // 2. Handle Authentication
         if (data.type === 'AUTH') {
+          try {
+            const isBlacklisted = await db.get("SELECT 1 FROM token_blacklist WHERE token = ?", [data.token]);
+            if (isBlacklisted) {
+              console.warn(`[SyncHub] Authentication failed: token is blacklisted for node: ${data.nodeId}`);
+              ws.send(encryptPayload({ type: 'unauthorized', error: 'Token has been blacklisted.' }));
+              ws.close();
+              activeConnections.delete(ws);
+              return;
+            }
+          } catch (err) {
+            console.error('[SyncHub] Failed to query token blacklist:', err.message);
+          }
           const payload = verifyToken(data.token);
           if (payload && payload.sub === data.nodeId) {
             ws.nodeId = data.nodeId;
@@ -2032,7 +2063,7 @@ app.post('/api/license/activate', checkOrigin, billingLimiter, requireBody({ cod
 
   const TRUSTED_ACTIVATION_WHITELIST = {
     ips: ['127.0.0.1', '::1', 'localhost'],
-    hwids: process.env.NODE_ENV === 'production' ? [] : ['MOCK_ADMIN_HWID', 'TEST-HWID']
+    hwids: (process.env.NODE_ENV !== 'production' && process.env.TEST_HWIDS) ? process.env.TEST_HWIDS.split(',').map(s => s.trim()) : []
   };
 
   const clientIp = req.ip;
@@ -3792,6 +3823,22 @@ app.post('/api/pair', loginLimiter, requireBody({ token: 'STRING' }), async (req
     res.json({ success: true, passphrase: serverPassphrase });
   } catch (err) {
     sendError(res, err);
+  }
+});
+
+// POST /api/auth/logout — Revoke JWT token by adding it to the blacklist
+app.post('/api/auth/logout', loginLimiter, requireAuth, async (req, res) => {
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    try {
+      await db.run("INSERT OR IGNORE INTO token_blacklist (token, blacklisted_at) VALUES (?, ?)", [token, Date.now()]);
+      res.json({ success: true, message: 'Logged out successfully.' });
+    } catch (err) {
+      sendError(res, err);
+    }
+  } else {
+    res.status(400).json({ error: 'Invalid Authorization header.' });
   }
 });
 

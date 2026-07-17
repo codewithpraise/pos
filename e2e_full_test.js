@@ -171,8 +171,11 @@ async function run() {
   log(' VALENIXIA POS — COMPREHENSIVE E2E TEST SUITE v2');
   log('══════════════════════════════════════════════════════════════\n');
 
-  const testAdminPin = process.env.TEST_ADMIN_PIN || '1234';
-  const testPassphrase = process.env.TEST_PASSPHRASE || 'TestKey2024!';
+  const testAdminPin = process.env.TEST_ADMIN_PIN;
+  const testPassphrase = process.env.TEST_PASSPHRASE;
+  if (!testAdminPin || !testPassphrase) {
+    throw new Error('E2E test suite requires TEST_ADMIN_PIN and TEST_PASSPHRASE to be set in environment variables.');
+  }
 
   const { ws, ev, send } = await connectCDP();
 

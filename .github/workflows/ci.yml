@@ -53,9 +53,10 @@ jobs:
 
       - name: Run Full E2E & Diagnostic Suites with Headless Services
         env:
-          TEST_ADMIN_PIN: ${{ secrets.TEST_ADMIN_PIN }}
-          TEST_LICENSE_KEY: ${{ secrets.TEST_LICENSE_KEY }}
-          TEST_PASSPHRASE: ${{ secrets.TEST_PASSPHRASE }}
+          TEST_ADMIN_PIN: "1234"
+          TEST_LICENSE_KEY: "VALENIXIA-ADMIN-777"
+          TEST_PASSPHRASE: "TestKey2024!"
+          TEST_HWIDS: "MOCK_ADMIN_HWID,TEST-HWID"
         run: |
           # Clean up any existing database files to prevent test contamination
           rm -f valenixia.db valenixia.db-wal valenixia.db-shm nexova.db nexova.db-wal nexova.db-shm || true

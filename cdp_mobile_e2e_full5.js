@@ -199,7 +199,10 @@ let activeTabId = null;
 
       // PHASE 1: License Activation  
       console.log('\n--- PHASE 1: License Activation ---');
-      const testLicenseKey = process.env.TEST_LICENSE_KEY || 'VALENIXIA-ADMIN-777';
+      const testLicenseKey = process.env.TEST_LICENSE_KEY;
+      if (!testLicenseKey) {
+        throw new Error("Mobile E2E suite requires TEST_LICENSE_KEY to be set in environment variables.");
+      }
       let r = await cdpEval(ws, `(async () => {
         for (let i = 0; i < 80; i++) {
           const keyField = document.getElementById('license-code-input');
@@ -261,8 +264,11 @@ let activeTabId = null;
       console.log('P2_STEP2:', r?.result?.value);
 
       // Step 3: Admin Credentials
-      const testAdminPin = process.env.TEST_ADMIN_PIN || '1234';
-      const testPassphrase = process.env.TEST_PASSPHRASE || 'testpass123';
+      const testAdminPin = process.env.TEST_ADMIN_PIN;
+      const testPassphrase = process.env.TEST_PASSPHRASE;
+      if (!testAdminPin || !testPassphrase) {
+        throw new Error("Mobile E2E suite requires TEST_ADMIN_PIN and TEST_PASSPHRASE to be set in environment variables.");
+      }
       r = await cdpEval(ws, `(async () => {
         for (let i = 0; i < 50; i++) {
           const pin = document.getElementById('wizard-admin-pin');
