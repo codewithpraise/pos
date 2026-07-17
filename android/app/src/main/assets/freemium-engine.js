@@ -72,21 +72,11 @@ const TIER_TO_PLAN = {
   GROWTH: "growth", PRO: "pro", ENTERPRISE: "enterprise"
 };
 
-function getCurrentPlan() {
-  if (window.__vxSession && window.__vxSession.tier) {
-    const tier = window.__vxSession.tier.toUpperCase();
-    const mapped = TIER_TO_PLAN[tier] || PLANS.STARTER;
-    window.__valenixiaPlan = mapped;
-    return mapped;
-  }
-  const tier = (window.__valenixiaTier || "STARTER").toUpperCase();
-  const mapped = TIER_TO_PLAN[tier] || PLANS.STARTER;
-  window.__valenixiaPlan = mapped;
-  return mapped;
-}
-
 function getLimits() {
-  return PLAN_LIMITS[getCurrentPlan()] || PLAN_LIMITS[PLANS.FREE];
+  const tier = (window.__vxSession && window.__vxSession.tier ? window.__vxSession.tier : (window.__valenixiaTier || 'STARTER')).toUpperCase();
+  const planKey = TIER_TO_PLAN[tier] || PLANS.STARTER;
+  window.__valenixiaPlan = planKey;
+  return PLAN_LIMITS[planKey] || PLAN_LIMITS[PLANS.FREE];
 }
 
 function can(feature) {
@@ -207,7 +197,7 @@ function formatPKR(amount) {
 
 function showUpgradeModal(featureName) {
   document.getElementById("__vx-upgrade-modal")?.remove();
-  const current = getCurrentPlan();
+  const current = (window.__vxSession && window.__vxSession.tier ? window.__vxSession.tier : (window.__valenixiaTier || 'STARTER')).toLowerCase();
   const plans = [PLANS.STARTER, PLANS.GROWTH, PLANS.PRO, PLANS.ENTERPRISE];
 
   const planRows = plans.map(function(p) {
@@ -288,7 +278,6 @@ window.renderTrialBanner = renderTrialBanner;
 
 window.PLANS = PLANS;
 window.PLAN_LIMITS = PLAN_LIMITS;
-window.getCurrentPlan = getCurrentPlan;
 window.getLimits = getLimits;
 
 })();

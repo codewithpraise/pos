@@ -561,13 +561,6 @@ setHtml(overlay, `
   let syncWorker = null;
   let speechCoach = null;
 
-  function isGraceTrialActive() {
-    if (window.__vxSession && window.__vxSession.tier) {
-      return window.__vxSession.tier.toUpperCase() === 'TRIAL';
-    }
-    return (window.__valenixiaTier || '').toUpperCase() === 'TRIAL';
-  }
-
   function updateBootProgress(percent, text) {
     console.log(`[BootProgress] ${percent}% - ${text}`);
     const loader = document.getElementById('app-boot-loader');
@@ -586,7 +579,6 @@ setHtml(overlay, `
   }
   // Expose as window global so it's callable from any scope (HTML handlers,
   // license-engine, stale service worker code paths, etc.)
-  window.isGraceTrialActive = isGraceTrialActive;
   window.state = state;
   window.switchActiveScreen = switchActiveScreen;
   window.renderCart = renderCart;
@@ -912,7 +904,6 @@ setHtml(overlay, `
 
       // Ensure session plan defaults to FREE unless verified by server session
       window.__valenixiaPlan = 'FREE';
-      if (window.getCurrentPlan) window.getCurrentPlan();
 
       updateBootProgress(20, 'Initializing database...');
 
@@ -1199,7 +1190,6 @@ setHtml(overlay, `
           triggerLicenseLockout(data.error);
         }
       }
-      if (window.getCurrentPlan) window.getCurrentPlan();
       if (window.renderTrialBanner) window.renderTrialBanner();
     } catch (e) {
       console.warn('[App] Session initialization failed:', e);
@@ -4287,7 +4277,7 @@ setHtml(btnNext, 'Continue <svg viewBox="0 0 24 24" width="14" height="14" fill=
     let tier = window.__valenixiaTier || 'STARTER';
     
     // Grace trial or explicit TRIAL tier gets full ENTERPRISE capabilities
-    if (tier === 'TRIAL' || isGraceTrialActive()) {
+    if (tier === 'TRIAL') {
       tier = 'ENTERPRISE';
     }
 
@@ -5264,8 +5254,8 @@ setHtml(row, `
         
         if (tierVal && expiryVal && devicesVal) {
           const tier = window.__valenixiaTier || 'STARTER';
-          const isTrial = isGraceTrialActive() || tier === 'TRIAL';
-          tierVal.textContent = isTrial ? 'FREE TRIAL (ENTERPRISE FEATURES)' : tier;
+          const isTrialModeActive = tier === 'TRIAL';
+          tierVal.textContent = isTrialModeActive ? 'FREE TRIAL (ENTERPRISE FEATURES)' : tier;
           
           const token = state.licenseToken;
           if (token) {

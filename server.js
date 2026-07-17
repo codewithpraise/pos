@@ -143,9 +143,13 @@ async function verifyCheckoutPricing(cart, paymentMode, tier) {
 
   let subtotal = 0n;
   for (const item of cart) {
-    const basePrice = priceMap[item.sku];
+    const sku = item.sku || item.id;
+    const basePrice = priceMap[sku];
     if (basePrice === undefined) {
-      throw new Error(`Product not found in catalog: ${item.sku}`);
+      throw new Error(`Product not found in catalog: ${sku}`);
+    }
+    if (item.price !== undefined && parseInt(item.price) !== parseInt(basePrice)) {
+      throw new Error(`Price mismatch for SKU ${sku}: catalog price is ${basePrice}, received ${item.price}`);
     }
     const qty = parseInt(item.qty || item.quantity || 1);
     if ((stockMap[item.sku] ?? 0) < qty) {
@@ -559,15 +563,9 @@ app.use((req, res, next) => {
     path: '/'
   });
 
-  // Skip CSRF validation for safe methods
+  // Skip CSRF validation for safe methods and API routes (API routes use Bearer token authorization)
   const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
-  if (safeMethods.includes(req.method)) {
-    return next();
-  }
-
-  // Skip CSRF validation for specific initial bootstrap or device registration routes
-  const skipUrls = ['/api/devices/register', '/api/bootstrap'];
-  if (skipUrls.some(url => req.path.startsWith(url))) {
+  if (safeMethods.includes(req.method) || req.path.startsWith('/api/') || req.headers['authorization']) {
     return next();
   }
 
@@ -1017,6 +1015,22 @@ function requireAdmin(req, res, next) {
     logAdminAccess(req, res, next);
   });
 }
+
+// Global Express Middleware for Admin and Protected API Route Authorization
+app.use('/api/admin', requireAdmin);
+app.use('/api/auth/emergency-override', requireAdmin);
+app.use('/api/auth/revoke-override', requireAdmin);
+app.use('/api/system/reset', requireAdmin);
+app.use('/api/reset', requireAdmin);
+app.use('/api/export', requireAdmin);
+app.use('/api/fbr/retry', requireAdmin);
+app.use('/api/devices/reject', requireAdmin);
+app.use('/api/devices/pending', requireAdmin);
+app.use('/api/devices/approve', requireAdmin);
+app.use('/api/devices/approve-qr', requireAdmin);
+app.use('/api/void-transaction', requireAuth);
+app.use('/api/license/check', requireAuth);
+app.use('/api/fbr/status', requireAuth);
 
 async function requireAdminOrPin(req, res, next) {
   // Method 1: Bearer Token Auth (standard)
