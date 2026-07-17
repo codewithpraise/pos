@@ -494,8 +494,13 @@ class MainActivity : AppCompatActivity() {
                         return@thread
                     }
 
-                    val uuid = java.util.UUID.fromString("00001101-0000-1000-8000-00805f9b34fb") // Classic Bluetooth SPP UUID
-                    val socket = printerDevice.createRfcommSocketToServiceRecord(uuid)
+                    val uuidsList = printerDevice.uuids
+                    val targetUuid = if (uuidsList != null && uuidsList.isNotEmpty()) {
+                        uuidsList[0].uuid
+                    } else {
+                        java.util.UUID.fromString("00001101-0000-1000-8000-00805f9b34fb")
+                    }
+                    val socket = printerDevice.createRfcommSocketToServiceRecord(targetUuid)
                     socket.connect()
                     val outputStream = socket.outputStream
                     outputStream.write(data)
@@ -917,11 +922,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             override fun onGeolocationPermissionsShowPrompt(origin: String, callback: GeolocationPermissions.Callback) {
-                if (isCurrentOriginTrusted()) {
-                    callback.invoke(origin, true, false)
-                } else {
-                    callback.invoke(origin, false, false)
-                }
+                callback.invoke(origin, false, false)
             }
             override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
                 consoleMessage?.let {

@@ -915,6 +915,10 @@ setHtml(overlay, `
       localStorage.removeItem('valenixia_token');
 
       localStorage.removeItem('valenixia_plan');
+      localStorage.removeItem('valenixia_trial_start');
+      localStorage.removeItem('valenixia_trial_start_ms');
+      localStorage.removeItem('sync_passphrase');
+      localStorage.removeItem('valenixia_server_url');
       window.__valenixiaPlan = 'FREE';
       if (window.getCurrentPlan) window.getCurrentPlan();
 
@@ -1164,6 +1168,16 @@ setHtml(overlay, `
     try {
       let trialStartPref = await ValenixiaDB.get('local_preferences', 'valenixia_trial_start');
       let trialStart = trialStartPref ? parseInt(trialStartPref.value_payload) : 0;
+      if (!trialStart) {
+        trialStart = Date.now();
+        await ValenixiaDB.put('local_preferences', {
+          key: 'valenixia_trial_start',
+          value_type: 'STR',
+          value_payload: String(trialStart),
+          is_idempotent_flag: 1,
+          updated_at: Date.now()
+        });
+      }
 
       window.__vxSession = {
         tier: 'STARTER',
@@ -1471,12 +1485,7 @@ setHtml(toast, `
 
   // â”€â”€ P1.7: Trial State Machine â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function checkTrialAndEnforce() {
-    let start = localStorage.getItem('valenixia_trial_start_ms');
-    if (!start) {
-      start = String(Date.now());
-      localStorage.setItem('valenixia_trial_start_ms', start);
-    }
-    const trialStart = parseInt(start);
+    const trialStart = (window.__vxSession && window.__vxSession.trialStart) ? window.__vxSession.trialStart : Date.now();
     const elapsed = Date.now() - trialStart;
     const daysElapsed = elapsed / (24 * 60 * 60 * 1000);
     const daysLeft = Math.max(0, 14 - daysElapsed);
@@ -3836,7 +3845,6 @@ setHtml(btnNext, 'Continue <svg viewBox="0 0 24 24" width="14" height="14" fill=
 
           localStorage.setItem('onboarding_complete', 'true');
           if (serverUrl) {
-            localStorage.setItem('valenixia_server_url', serverUrl);
             if (window.AndroidPOS && typeof window.AndroidPOS.setServerUrl === 'function') {
               window.AndroidPOS.setServerUrl(serverUrl);
             }
@@ -6585,7 +6593,7 @@ setHtml(overlay, `
   const ValenixiaPairingEngine = {
     processPairingURI(uriString) {
       try {
-        console.log('[Pairing] Received pairing token:', uriString);
+        console.log('[Pairing] Received pairing token (obfuscated for safety)');
         const url = new URL(uriString);
         if (url.protocol !== 'http:' && url.protocol !== 'https:') {
           throw new Error('Invalid protocol in pairing URI.');
@@ -6599,9 +6607,8 @@ setHtml(overlay, `
 
         const serverUrl = `${url.protocol}//${url.host}`;
         
-        // Persist parameters to local registers
-        localStorage.setItem('valenixia_server_url', serverUrl);
-        localStorage.setItem('sync_passphrase', passphrase);
+        // Persist parameters to local registers via SyncWorker IndexedDB
+        
         
         syncWorker.postMessage({
           type: 'SAVE_PREFERENCE',

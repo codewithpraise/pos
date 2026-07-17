@@ -6,31 +6,31 @@
 
 const CACHE_NAME = 'valenixia-pos-cache-v11';
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/style.css',
-  '/styles/design-tokens.css',
-  '/styles/themes.css',
-  '/styles/animations.css',
-  '/styles/components.css',
-  '/app.js',
-  '/modules/ui.js',
-  '/modules/animations.js',
-  '/modules/offline.js',
-  '/modules/keyboard.js',
-  '/client-db.js',
-  '/client-audio.js',
-  '/client-speech.js',
-  '/client-sync.js',
-  '/sync-worker.js',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png',
-  '/polyfill.min.js',
-  '/NotoNastaliqUrdu-Regular.ttf',
-  '/dompurify.min.js',
-  '/jspdf.umd.min.js',
-  '/zxing.min.js'
+  { url: '/', integrity: '' },
+  { url: '/index.html', integrity: '' },
+  { url: '/style.css', integrity: '' },
+  { url: '/styles/design-tokens.css', integrity: '' },
+  { url: '/styles/themes.css', integrity: '' },
+  { url: '/styles/animations.css', integrity: '' },
+  { url: '/styles/components.css', integrity: '' },
+  { url: '/app.js', integrity: 'sha384-gcpD8tWG+8nYMtrgfk7Ovl89O7RfytNoJr/85CFVxOQW/6IsjwwiV6YDDWO5ifnO' },
+  { url: '/modules/ui.js', integrity: '' },
+  { url: '/modules/animations.js', integrity: '' },
+  { url: '/modules/offline.js', integrity: '' },
+  { url: '/modules/keyboard.js', integrity: '' },
+  { url: '/client-db.js', integrity: 'sha384-A44fcMLCzwwkcQG32yja6WNDQBv06ytcG01pJRsKG8bVaiCaHBeRJcngjTHdJN3O' },
+  { url: '/client-audio.js', integrity: '' },
+  { url: '/client-speech.js', integrity: '' },
+  { url: '/client-sync.js', integrity: '' },
+  { url: '/sync-worker.js', integrity: '' },
+  { url: '/manifest.json', integrity: '' },
+  { url: '/icon-192.png', integrity: '' },
+  { url: '/icon-512.png', integrity: '' },
+  { url: '/polyfill.min.js', integrity: 'sha384-P1J6VFE0IBOGvQjC3qf5YzjpdKWZ5EkHW4kGwsHnyLXMvhRbGJ01arDKwVqcdkUG' },
+  { url: '/NotoNastaliqUrdu-Regular.ttf', integrity: '' },
+  { url: '/dompurify.min.js', integrity: 'sha384-piCcpDdJ7qVeK4Tv8Z6Hpcr3ZBIgP16TxQTPVfsLFdZ5uDgwc3Y8Ho7oUnqf12qu' },
+  { url: '/jspdf.umd.min.js', integrity: 'sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk' },
+  { url: '/zxing.min.js', integrity: 'sha384-ET1PhbRYLe6k2AXPuFZAF+LZYXgMwkHwqrsbw4PobRULALuRP1buPYV++5ODebL5' }
 ];
 
 // Helper: build a clean offline JSON response
@@ -56,19 +56,12 @@ self.addEventListener('install', (event) => {
       console.log('[ServiceWorker] Pre-caching offline POS assets (v7)');
       // Add assets one-by-one so a single 404 doesn't abort the whole install
       return Promise.allSettled(
-        ASSETS_TO_CACHE.map(url => {
-          // Perform subresource integrity check on request to prevent cache poisoning
+        ASSETS_TO_CACHE.map(item => {
+          const url = item.url;
+          const integrity = item.integrity;
           const options = { cache: 'no-cache' };
-          const sriHashes = {
-            '/app.js': 'sha384-gcpD8tWG+8nYMtrgfk7Ovl89O7RfytNoJr/85CFVxOQW/6IsjwwiV6YDDWO5ifnO',
-            '/client-db.js': 'sha384-A44fcMLCzwwkcQG32yja6WNDQBv06ytcG01pJRsKG8bVaiCaHBeRJcngjTHdJN3O',
-            '/polyfill.min.js': 'sha384-P1J6VFE0IBOGvQjC3qf5YzjpdKWZ5EkHW4kGwsHnyLXMvhRbGJ01arDKwVqcdkUG',
-            '/dompurify.min.js': 'sha384-piCcpDdJ7qVeK4Tv8Z6Hpcr3ZBIgP16TxQTPVfsLFdZ5uDgwc3Y8Ho7oUnqf12qu',
-            '/jspdf.umd.min.js': 'sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk',
-            '/zxing.min.js': 'sha384-ET1PhbRYLe6k2AXPuFZAF+LZYXgMwkHwqrsbw4PobRULALuRP1buPYV++5ODebL5'
-          };
-          if (sriHashes[url]) {
-            options.integrity = sriHashes[url];
+          if (integrity) {
+            options.integrity = integrity;
           }
           const req = new Request(url, options);
           return cache.add(req).catch(() => {

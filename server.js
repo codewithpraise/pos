@@ -899,6 +899,8 @@ function verifyToken(token) {
   if (parts.length !== 3) return null;
   const [headerB64, payloadB64, signature] = parts;
   try {
+    const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString('utf8'));
+    if (header.alg !== 'HS256') return null;
 
     const expectedSignature = crypto.createHmac('sha256', jwtSecret)
       .update(`${headerB64}.${payloadB64}`)
@@ -1006,7 +1008,7 @@ async function logAdminAccess(req, res, next) {
 
 function requireAdmin(req, res, next) {
   requireAuth(req, res, () => {
-    if (req.device.role !== 'MASTER' && req.device.role !== 'TERMINAL' && req.device.role !== 'ADMIN') {
+    if (req.device.role !== 'MASTER' && req.device.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Access denied: Requires Admin privileges.' });
     }
     logAdminAccess(req, res, next);
@@ -1019,7 +1021,7 @@ async function requireAdminOrPin(req, res, next) {
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.split(' ')[1];
     const payload = verifyToken(token);
-    if (payload && (payload.role === 'MASTER' || payload.role === 'TERMINAL' || payload.role === 'ADMIN')) {
+    if (payload && (payload.role === 'MASTER' || payload.role === 'ADMIN')) {
       req.device = payload;
       return logAdminAccess(req, res, next);
     }
@@ -1043,7 +1045,7 @@ function encryptPayload(payload) {
   const json = JSON.stringify(payload);
   if (serverPassphrase) {
     try {
-      const key = deriveKey(serverPassphrase, syncSalt || 'valenixia_salt');
+      const key = deriveKey(serverPassphrase, syncSalt);
       const iv = crypto.randomBytes(12);
       const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
       let encrypted = cipher.update(json, 'utf8');
@@ -1100,7 +1102,7 @@ function decryptPayload(rawData) {
       const tag = buffer.subarray(buffer.length - 16);
       const ciphertext = buffer.subarray(12, buffer.length - 16);
       
-      const key = deriveKey(serverPassphrase, syncSalt || 'valenixia_salt');
+      const key = deriveKey(serverPassphrase, syncSalt);
       const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
       decipher.setAuthTag(tag);
       let decrypted = decipher.update(ciphertext, 'binary', 'utf8');
@@ -1525,9 +1527,19 @@ wss.on('connection', (ws, req) => {
                     });
                   }
                   
+                  if (cart.length === 0 && total > 0) {
+                    console.warn(`[SyncHub] Re-validation rejected on transaction ${txId}: Completed/Pending transaction has positive total but no line items could be verified.`);
+                    ws.send(encryptPayload({
+                      type: 'SYNC_ERROR',
+                      error: 'MISSING_LINE_ITEMS',
+                      transactionId: txId
+                    }));
+                    return;
+                  }
+                  
                   if (cart.length > 0) {
                     try {
-                      const tier = tx.payment_details && JSON.parse(tx.payment_details).tier || 'STARTER';
+                      const tier = (tx.payment_details && tx.payment_details.startsWith('{')) ? (JSON.parse(tx.payment_details).tier || 'STARTER') : 'STARTER';
                       const derived = await verifyCheckoutPricing(cart, tx.payment_mode || 'CASH', tier);
                       if (derived.total !== total || derived.subtotal !== subtotal || derived.tax !== tax) {
                         console.warn(`[SyncHub] Tamper detected on sync transaction ${txId}. Client total: ${total}, Server recomputed: ${derived.total}`);
@@ -1541,6 +1553,12 @@ wss.on('connection', (ws, req) => {
                       verified = true;
                     } catch (e) {
                       console.warn(`[SyncHub] Pricing verification failed for ${txId} due to error:`, e.message);
+                      ws.send(encryptPayload({
+                        type: 'SYNC_ERROR',
+                        error: `VALIDATION_FAILED: ${e.message}`,
+                        transactionId: txId
+                      }));
+                      return; // Discard sync completely to protect ledger integrity
                     }
                   }
                 }
@@ -2328,13 +2346,16 @@ app.post('/api/payments/upload-proof', requireAuth, billingLimiter, async (req, 
     return res.status(400).json({ error: 'No image data provided.' });
   }
   try {
-    const cleanFilename = String(filename || 'proof_' + Date.now() + '.png').replace(/[^a-zA-Z0-9_.-]/g, '');
+    const baseName = path.basename(filename || 'proof_' + Date.now() + '.png');
+    const cleanFilename = baseName.replace(/[^a-zA-Z0-9_.-]/g, '');
     const dir = path.resolve(__dirname, 'public', 'proofs');
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
     const filePath = path.resolve(dir, cleanFilename);
-    if (!filePath.startsWith(dir)) {
+    const relativePath = path.relative(dir, filePath);
+    const isSafe = relativePath && !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
+    if (!isSafe) {
       return res.status(400).json({ error: 'Directory traversal attempt detected.' });
     }
     const dataBuffer = Buffer.from(base64Data.replace(/^data:image\/\w+;base64,/, ""), 'base64');
@@ -2798,7 +2819,7 @@ app.get('/api/devices/approve-qr', qrApproveLimiter, async (req, res) => {
     <button id="btn-approve">Approve Device</button>
     <div id="status"></div>
   </div>
-  <script>
+  <script nonce="${res.locals.nonce || ''}">
     document.getElementById('btn-approve').addEventListener('click', async () => {
       const btn = document.getElementById('btn-approve');
       const status = document.getElementById('status');
@@ -3372,12 +3393,18 @@ app.post('/api/devices/register', loginLimiter, requireBody({ nodeId: 'NODE_ID' 
   }
 
   try {
+    const storeCountRow = await db.get("SELECT COUNT(*) as count FROM stores");
+    const onboarded = storeCountRow && storeCountRow.count > 0;
+
     let status = await getDeviceStatus(nodeId);
-    if (nodeId.startsWith('web_client_') || 
-        nodeId === terminalId || 
-        nodeId === 'valenixia_master_pc_01' || 
-        nodeId === 'cfd_tab_2') {
-      status = 'APPROVED';
+    if (status !== 'APPROVED') {
+      if (!onboarded && (nodeId.startsWith('web_client_') || nodeId === 'valenixia_master_pc_01')) {
+        status = 'APPROVED';
+      } else if (nodeId === terminalId || nodeId === 'valenixia_master_pc_01') {
+        status = 'APPROVED';
+      } else {
+        status = 'PENDING';
+      }
     }
 
     if (status === 'APPROVED') {

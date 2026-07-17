@@ -135,7 +135,7 @@
     async encryptSync(text, passphrase) {
       if (!passphrase) return text;
       const enc = new TextEncoder();
-      let salt = 'valenixia_salt';
+      let salt = '';
       try {
         if (globalScope.ValenixiaDB && typeof globalScope.ValenixiaDB.get === 'function') {
           const saltRow = await globalScope.ValenixiaDB.get('local_preferences', 'sync_salt');
@@ -144,6 +144,15 @@
           }
         }
       } catch (e) {}
+      if (!salt) {
+        const msgUint8 = enc.encode(passphrase + "_salt_deriv");
+        if (globalScope.crypto && globalScope.crypto.subtle && typeof globalScope.crypto.subtle.digest === 'function') {
+          const hashBuffer = await globalScope.crypto.subtle.digest('SHA-256', msgUint8);
+          salt = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
+        } else {
+          salt = passphrase.split('').reverse().join('').substring(0, 16);
+        }
+      }
       const key = await this.deriveKey(passphrase, salt);
       const iv = crypto.getRandomValues(new Uint8Array(12));
       const encrypted = await crypto.subtle.encrypt(
@@ -171,7 +180,7 @@
         const iv = combined.slice(0, 12);
         // Everything after IV: ciphertext bytes + 16-byte auth tag (WebCrypto handles tag verification)
         const ciphertextWithTag = combined.slice(12);
-        let salt = 'valenixia_salt';
+        let salt = '';
         try {
           if (globalScope.ValenixiaDB && typeof globalScope.ValenixiaDB.get === 'function') {
             const saltRow = await globalScope.ValenixiaDB.get('local_preferences', 'sync_salt');
@@ -180,6 +189,16 @@
             }
           }
         } catch (e) {}
+        if (!salt) {
+          const enc = new TextEncoder();
+          const msgUint8 = enc.encode(passphrase + "_salt_deriv");
+          if (globalScope.crypto && globalScope.crypto.subtle && typeof globalScope.crypto.subtle.digest === 'function') {
+            const hashBuffer = await globalScope.crypto.subtle.digest('SHA-256', msgUint8);
+            salt = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
+          } else {
+            salt = passphrase.split('').reverse().join('').substring(0, 16);
+          }
+        }
         const key = await this.deriveKey(passphrase, salt);
 
         const decrypted = await crypto.subtle.decrypt(
@@ -1034,7 +1053,7 @@
 
     async appendAuditLog({ event_type, who, what, node_id }) {
       const entry = {
-        id: `aud_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        id: `aud_${Date.now()}_${Array.from(crypto.getRandomValues(new Uint8Array(4))).map(b => b.toString(36)).join('').substring(0, 4)}`,
         event_type,
         action: event_type,
         who,

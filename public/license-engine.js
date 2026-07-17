@@ -127,7 +127,7 @@ const LicenseEngine = (() => {
           console.error('================================================');
           console.error('[LicenseEngine] FATAL DECODE CRASH DETECTED (HTTP Fallback)');
           console.error('[LicenseEngine] Error Message:', e.message);
-          console.error('[LicenseEngine] Raw Token Data:', tokenB64);
+          console.error('[LicenseEngine] Raw Token Data:', tokenB64 ? tokenB64.substring(0, 20) + '...' : 'null');
           console.error('================================================');
           
           if (typeof drawCrashConsole === 'function') {
@@ -171,7 +171,7 @@ const LicenseEngine = (() => {
       console.error('================================================');
       console.error('[LicenseEngine] FATAL DECODE CRASH DETECTED');
       console.error('[LicenseEngine] Error Message:', err.message);
-      console.error('[LicenseEngine] Raw Token Data:', tokenB64);
+      console.error('[LicenseEngine] Raw Token Data:', tokenB64 ? tokenB64.substring(0, 20) + '...' : 'null');
       console.error('================================================');
       
       if (typeof drawCrashConsole === 'function') {

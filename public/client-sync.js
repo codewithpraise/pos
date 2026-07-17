@@ -2,9 +2,24 @@
   const globalScope = typeof self !== 'undefined' ? self : window;
   const DB_SCHEMA_VERSION = 5;
 
+  function generateSecureId(prefix, length = 8) {
+    const arr = new Uint8Array(length);
+    if (globalScope.crypto && typeof globalScope.crypto.getRandomValues === 'function') {
+      globalScope.crypto.getRandomValues(arr);
+    } else {
+      for (let i = 0; i < length; i++) arr[i] = Math.floor(Math.random() * 256);
+    }
+    let res = '';
+    const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    for (let i = 0; i < length; i++) {
+      res += alphabet[arr[i] % alphabet.length];
+    }
+    return prefix + res;
+  }
+
   class BrowserHLC {
   constructor(nodeId) {
-    this.nodeId = nodeId || 'client_' + Math.random().toString(36).substring(2, 9);
+    this.nodeId = nodeId || generateSecureId('client_', 7);
     this.l = 0;
     this.c = 0;
   }
