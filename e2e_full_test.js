@@ -2,6 +2,7 @@
  * VALENIXIA — Full E2E Test Suite v2 (Robust)
  * Properly waits for app init, handles all boot states, then tests every feature
  */
+require('dotenv').config();
 const WebSocket = require('ws');
 const http = require('http');
 
@@ -147,7 +148,7 @@ async function detectBootState(ev) {
   };
 }
 
-async function doLogin(ev, pin = '1234') {
+async function doLogin(ev, pin = process.env.TEST_ADMIN_PIN || '1234') {
   const digits = pin.split('');
   for (const d of digits) {
     await ev(`(function(){
@@ -169,6 +170,9 @@ async function run() {
   log('\n══════════════════════════════════════════════════════════════');
   log(' VALENIXIA POS — COMPREHENSIVE E2E TEST SUITE v2');
   log('══════════════════════════════════════════════════════════════\n');
+
+  const testAdminPin = process.env.TEST_ADMIN_PIN || '1234';
+  const testPassphrase = process.env.TEST_PASSPHRASE || 'TestKey2024!';
 
   const { ws, ev, send } = await connectCDP();
 
@@ -302,8 +306,8 @@ async function run() {
 
     // Step 2 — PIN + Passphrase
     await ev(`(function(){
-      var p = document.getElementById("wizard-admin-pin"); if(p){p.value="1234"; p.dispatchEvent(new Event("input",{bubbles:true}));}
-      var s = document.getElementById("wizard-sync-passphrase"); if(s){s.value="TestKey2024!"; s.dispatchEvent(new Event("input",{bubbles:true}));}
+      var p = document.getElementById("wizard-admin-pin"); if(p){p.value="${testAdminPin}"; p.dispatchEvent(new Event("input",{bubbles:true}));}
+      var s = document.getElementById("wizard-sync-passphrase"); if(s){s.value="${testPassphrase}"; s.dispatchEvent(new Event("input",{bubbles:true}));}
     })()`);
     await ev('document.getElementById("btn-wiz-next")?.click()');
     await sleep(500);
@@ -338,11 +342,11 @@ async function run() {
 
   if (bootNow.authOpen || bootNow.wizardOpen) {
     log('\n=== SECTION 4b: PIN Login ===');
-    const loginOk = await doLogin(ev, '1234');
-    if (loginOk) pass('PIN 1234 login — main layout visible');
+    const loginOk = await doLogin(ev, testAdminPin);
+    if (loginOk) pass(`PIN ${testAdminPin} login — main layout visible`);
     else {
       // Try default PIN 0000
-      info('1234 failed, trying 0000...');
+      info(`${testAdminPin} failed, trying 0000...`);
       const login2 = await doLogin(ev, '0000');
       if (login2) pass('PIN 0000 login — main layout visible');
       else fail('PIN Login', 'Layout did not appear after PIN entry');

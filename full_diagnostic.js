@@ -324,12 +324,13 @@ async function run() {
     log(`PIN input: ${JSON.stringify(pinEl)}`);
     
     if (pinEl) {
-      // Try entering 4-digit PIN (owner PIN set during setup)
+      // Try entering PIN (owner PIN set during setup)
+      const testAdminPin = process.env.TEST_ADMIN_PIN || '1234';
       const pinResult = await cdpEval(ws, `(function() {
         const pinInput = document.getElementById('pin-input');
         if (!pinInput) return 'NO_PIN_INPUT';
         // Type each digit (simulating PIN pad clicks)
-        const digits = ['1','2','3','4'];
+        const digits = "${testAdminPin}".split('');
         digits.forEach(d => {
           const btn = document.querySelector('.pin-btn[data-key="' + d + '"]');
           if (btn) btn.click();
