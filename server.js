@@ -2497,6 +2497,11 @@ app.get('/api/payments/my-proofs', requireAuth, async (req, res) => {
     const proofs = await db.all("SELECT * FROM payment_proofs WHERE user_id = ? ORDER BY created_at DESC", [req.user.id]);
     res.json(proofs);
   } catch (err) {
+    console.error('[API] /api/payments/my-proofs error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/checkout/verify — Server-side authoritative price recalculation & signing
 app.post('/api/checkout/verify', requireAuth, requireBody({ cart: 'LIST' }), async (req, res) => {
   try {
