@@ -694,6 +694,7 @@ app.get(['/', '/index.html'], (req, res) => {
 app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: '1d',
   setHeaders: (res, filePath) => {
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     if (filePath.endsWith('.html')) {
       res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
     } else {
@@ -848,7 +849,7 @@ async function loadServerPassphrase() {
     if (process.env.SYNC_PASSPHRASE) {
       serverPassphrase = process.env.SYNC_PASSPHRASE;
       jwtSecret = crypto.createHash('sha256').update(serverPassphrase + syncSalt).digest('hex');
-      console.log(`[SyncHub] Server synchronization passphrase loaded from process.env successfully. JWT secret initialized.`);
+      console.debug(`[SyncHub] Server synchronization passphrase loaded from process.env successfully. JWT secret initialized.`);
     } else {
       const row = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'sync_passphrase'");
       if (row && row.value_payload) {
@@ -858,10 +859,10 @@ async function loadServerPassphrase() {
           if (!row.value_payload.startsWith('ENC1:')) {
             const encrypted = encryptPassphrase(serverPassphrase);
             await db.run("UPDATE local_preferences SET value_payload = ? WHERE key = 'sync_passphrase'", [encrypted]);
-            console.log(`[SyncHub] Legacy sync passphrase encrypted at rest successfully.`);
+            console.debug(`[SyncHub] Legacy sync passphrase encrypted at rest successfully.`);
           }
           jwtSecret = crypto.createHash('sha256').update(serverPassphrase + syncSalt).digest('hex');
-          console.log(`[SyncHub] Server synchronization passphrase loaded and decrypted successfully. JWT secret initialized.`);
+          console.debug(`[SyncHub] Server synchronization passphrase loaded and decrypted successfully. JWT secret initialized.`);
         } catch (decErr) {
           console.error('[SyncHub] Failed to decrypt sync passphrase:', decErr.message);
         }

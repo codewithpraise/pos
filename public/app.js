@@ -220,6 +220,21 @@
   }
   window.applyEnterKeyHint = applyEnterKeyHint;
 
+  // Dynamic Lazy Module Loader Utility — defers non-critical assets for faster first paint
+  function lazyLoadModule(scriptUrl) {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${scriptUrl}"]`)) {
+        return resolve();
+      }
+      const script = document.createElement('script');
+      script.src = scriptUrl;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error(`Failed to load module: ${scriptUrl}`));
+      document.head.appendChild(script);
+    });
+  }
+  window.lazyLoadModule = lazyLoadModule;
+
   // Modal active back-button history navigation routing
   let modalHistoryState = false;
   document.addEventListener('click', () => {
