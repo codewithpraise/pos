@@ -117,8 +117,9 @@ async function run() {
   log('=== VALENIXIA POS COMPREHENSIVE DIAGNOSTIC ===');
   
   // Get CDP target
+  const port = process.env.CDP_PORT || '9222';
   const td = await new Promise((res, rej) => {
-    http.get('http://localhost:9222/json', (r) => {
+    http.get(`http://127.0.0.1:${port}/json`, (r) => {
       let b = ''; r.on('data', d => b += d); r.on('end', () => res(JSON.parse(b)));
     }).on('error', rej);
   });

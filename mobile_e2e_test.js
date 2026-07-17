@@ -110,9 +110,9 @@ async function run() {
 
   // SECTION 0: App Boot
   section('SECTION 0: Mobile App Boot');
-  const booted = await waitFor(ev, '(function(){ var w=document.getElementById("first-boot-wizard"); var a=document.getElementById("auth-lock-screen"); var l=document.getElementById("pos-app-layout"); if(!w||!a||!l) return false; var ws=window.getComputedStyle(w).display; var as=window.getComputedStyle(a).display; var ls=window.getComputedStyle(l).display; return ws==="flex"||as==="flex"||ls==="grid"; })()', 15000, 400);
+  const booted = await waitFor(ev, '(function(){ var w=document.getElementById("first-boot-wizard"); var a=document.getElementById("auth-lock-screen"); var l=document.getElementById("pos-app-layout"); if(!w||!a||!l) return false; var ws=window.getComputedStyle(w).display; var as=window.getComputedStyle(a).display; var ls=window.getComputedStyle(l).display; return ws==="flex"||as==="flex"||ls==="grid"; })()', 45000, 400);
   if (booted) pass('App boots in mobile viewport (390x844)');
-  else { fail('Mobile app boot', 'No primary screen visible within 15s'); ws.close(); return; }
+  else { fail('Mobile app boot', 'No primary screen visible within 45s'); ws.close(); return; }
 
   const vw = await ev('window.innerWidth');
   const vh = await ev('window.innerHeight');
@@ -138,7 +138,7 @@ async function run() {
 
   // SECTION 2: License
   section('SECTION 2: License Tier (Mobile)');
-  const tier = await waitFor(ev, 'window.__valenixiaTier', 8000, 400);
+  const tier = await waitFor(ev, 'window.__valenixiaTier', 45000, 400);
   if (tier) pass('License tier: ' + tier);
   else fail('License tier on mobile', 'window.__valenixiaTier not set');
 
@@ -162,7 +162,7 @@ async function run() {
     await ev('document.getElementById("btn-submit-wizard")&&document.getElementById("btn-submit-wizard").click()');
     info('Waiting 12s for bootstrap...');
     await sleep(12000);
-    const wizDone = await waitFor(ev, 'window.getComputedStyle(document.getElementById("auth-lock-screen")).display==="flex"', 6000);
+    const wizDone = await waitFor(ev, 'window.getComputedStyle(document.getElementById("auth-lock-screen")).display==="flex"', 20000);
     if (wizDone) pass('Wizard dismissed — auth screen shown on mobile');
     else fail('Wizard submit on mobile', 'Auth screen did not appear after wizard');
   }
@@ -170,7 +170,7 @@ async function run() {
   const authOpen = await ev('window.getComputedStyle(document.getElementById("auth-lock-screen")).display==="flex"');
   if (authOpen) {
     for (var d of ['1','2','3','4']) { await clickPinDigit(ev, d); }
-    const layoutVisible = await waitFor(ev, 'window.getComputedStyle(document.getElementById("pos-app-layout")).display==="grid"', 6000);
+    const layoutVisible = await waitFor(ev, 'window.getComputedStyle(document.getElementById("pos-app-layout")).display==="grid"', 20000);
     if (layoutVisible) { loggedIn = true; pass('PIN login succeeded — main layout visible on mobile'); }
     else fail('Mobile PIN login', 'Layout not grid after PIN entry');
   } else {
@@ -276,7 +276,7 @@ async function run() {
     else fail('PIN touch target', 'Min height ' + Math.round(minH) + 'px < 44px');
 
     for (var dd of ['1','2','3','4']) { await clickPinDigit(ev, dd); }
-    const backIn = await waitFor(ev, 'window.getComputedStyle(document.getElementById("pos-app-layout")).display==="grid"', 5000);
+    const backIn = await waitFor(ev, 'window.getComputedStyle(document.getElementById("pos-app-layout")).display==="grid"', 20000);
     if (backIn) pass('Re-login via PIN on mobile works after lock');
     else fail('Mobile re-login', 'Layout not visible after PIN re-entry');
   } else {

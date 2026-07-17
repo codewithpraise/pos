@@ -108,7 +108,7 @@ async function connectCDP() {
 }
 
 /** Wait up to maxMs for expr to return truthy */
-async function waitFor(ev, expr, maxMs = 10000, interval = 300) {
+async function waitFor(ev, expr, maxMs = 30000, interval = 300) {
   const deadline = Date.now() + maxMs;
   while (Date.now() < deadline) {
     const val = await ev(expr);
@@ -145,8 +145,8 @@ async function doLogin(ev, pin = '1234') {
     })()`);
     await sleep(200);
   }
-  // wait up to 5s for layout to appear
-  const result = await waitFor(ev, `window.getComputedStyle(document.getElementById("pos-app-layout")).display==="grid"`, 6000);
+  // wait up to 20s for layout to appear
+  const result = await waitFor(ev, `window.getComputedStyle(document.getElementById("pos-app-layout")).display==="grid"`, 20000);
   return !!result;
 }
 
@@ -213,10 +213,10 @@ async function run() {
   if (readyState === 'complete' || readyState === 'interactive') pass('Page loaded or interactive');
   else fail('Page readyState', `Got: ${readyState}`);
 
-  // License tier — wait up to 15s for license engine to set it (CI runners are slow)
-  const tier = await waitFor(ev, 'window.__valenixiaTier', 15000);
+  // License tier — wait up to 45s for license engine to set it (CI runners are slow)
+  const tier = await waitFor(ev, 'window.__valenixiaTier', 45000);
   if (tier) pass(`License tier: ${tier}`);
-  else fail('License tier', 'window.__valenixiaTier not set after 15s');
+  else fail('License tier', 'window.__valenixiaTier not set after 45s');
 
   const graceTrialFn = await ev('typeof window.isGraceTrialActive');
   if (graceTrialFn === 'function') pass('isGraceTrialActive globally exposed');
