@@ -41,6 +41,7 @@
       return;
     }
     try {
+      // DOMPurify sanitizes HTML input before innerHTML assignment to eliminate XSS
       const cleanHtml = typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(html, { USE_PROFILES: { html: true } }) : html;
       const tempElement = element.cloneNode(false);
       tempElement.innerHTML = cleanHtml;

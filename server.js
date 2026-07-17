@@ -798,8 +798,26 @@ function sendError(res, err, defaultStatus = 500) {
   });
 }
 
+let localMasterKeyHex = null;
+
+function getMasterKeySync() {
+  if (process.env.SERVER_MASTER_KEY) {
+    if (process.env.SERVER_MASTER_KEY.length !== 64) {
+      throw new Error('SERVER_MASTER_KEY must be exactly 64 hex characters (32 bytes).');
+    }
+    return Buffer.from(process.env.SERVER_MASTER_KEY, 'hex');
+  }
+  if (localMasterKeyHex && localMasterKeyHex.length === 64) {
+    return Buffer.from(localMasterKeyHex, 'hex');
+  }
+  if (!global.__fallbackMasterKeyHex) {
+    global.__fallbackMasterKeyHex = crypto.randomBytes(32).toString('hex');
+  }
+  return Buffer.from(global.__fallbackMasterKeyHex, 'hex');
+}
+
 function encryptPassphrase(plaintext) {
-  const masterKey = Buffer.from(process.env.SERVER_MASTER_KEY, 'hex');
+  const masterKey = getMasterKeySync();
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv('aes-256-gcm', masterKey, iv);
   let encrypted = cipher.update(plaintext, 'utf8', 'hex');
@@ -816,7 +834,7 @@ function decryptPassphrase(encryptedString) {
   const iv = Buffer.from(parts[1], 'hex');
   const authTag = Buffer.from(parts[2], 'hex');
   const encrypted = Buffer.from(parts[3], 'hex');
-  const masterKey = Buffer.from(process.env.SERVER_MASTER_KEY, 'hex');
+  const masterKey = getMasterKeySync();
   const decipher = crypto.createDecipheriv('aes-256-gcm', masterKey, iv);
   decipher.setAuthTag(authTag);
   let decrypted = decipher.update(encrypted, 'hex', 'utf8');
@@ -826,6 +844,20 @@ function decryptPassphrase(encryptedString) {
 
 async function loadServerPassphrase() {
   try {
+    // Initialize or load master key from DB if env var is absent
+    if (!process.env.SERVER_MASTER_KEY) {
+      const mkRow = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'server_master_key'");
+      if (mkRow && mkRow.value_payload && mkRow.value_payload.length === 64) {
+        localMasterKeyHex = mkRow.value_payload;
+      } else {
+        localMasterKeyHex = crypto.randomBytes(32).toString('hex');
+        await db.run(
+          "INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('server_master_key', 'STR', ?, 1, ?)",
+          [localMasterKeyHex, Date.now()]
+        );
+      }
+    }
+
     // Generate secure default jwtSecret if it doesn't exist
     const jwtRow = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'jwt_secret'");
     if (jwtRow && jwtRow.value_payload) {
@@ -874,6 +906,7 @@ async function loadServerPassphrase() {
 }
 
 const derivedKeyCache = new Map();
+const MAX_DERIVED_KEY_CACHE = 10;
 
 function deriveKey(passphrase, salt) {
   if (!salt) {
@@ -885,6 +918,10 @@ function deriveKey(passphrase, salt) {
   }
   const key = crypto.pbkdf2Sync(passphrase, salt, 100000, 32, 'sha256');
   derivedKeyCache.set(cacheKey, key);
+  if (derivedKeyCache.size > MAX_DERIVED_KEY_CACHE) {
+    const firstKey = derivedKeyCache.keys().next().value;
+    derivedKeyCache.delete(firstKey);
+  }
   return key;
 }
 
@@ -1756,7 +1793,7 @@ app.get('/api/fbr/status', requireAdmin, async (req, res) => {
     );
     res.json({ stats, pending });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -1945,7 +1982,7 @@ app.post('/api/onboard', checkOrigin, loginLimiter, requireBody({ name: 'STORE_N
       throw err;
     }
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -2111,7 +2148,7 @@ app.post('/api/license/activate', checkOrigin, billingLimiter, requireBody({ cod
     res.json({ success: true, token, tier: storeRow.tier, status: storeRow.status });
   } catch (err) {
     try { await db.rollback(); } catch(e) {}
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -2190,7 +2227,7 @@ app.get('/api/license/check', async (req, res) => {
 
     res.json({ updated: false });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -2227,6 +2264,67 @@ app.post('/api/employee/login', loginLimiter, requireAuth, async (req, res) => {
       await recordPinFailure(lockoutKey, 5, 15);
       res.status(401).json({ error: 'Invalid security PIN code' });
     }
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+// GET /api/admin/employees — List all active employees (Admin only)
+app.get('/api/admin/employees', requireAdmin, async (req, res) => {
+  try {
+    const employees = await db.all("SELECT id, role, is_active FROM employees WHERE is_deleted = 0 ORDER BY id ASC");
+    res.json(employees);
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+// POST /api/admin/employees — Create new employee account (Admin only)
+app.post('/api/admin/employees', requireAdmin, adminActionLimiter, requireBody({ pin: 'ADMIN_PIN', role: 'STORE_NAME' }), async (req, res) => {
+  const { pin, role } = req.body;
+  if (!pin || !role) {
+    return res.status(400).json({ error: 'PIN and role are required.' });
+  }
+  const allowedRoles = ['ADMIN', 'MANAGER', 'CASHIER'];
+  if (!allowedRoles.includes(role.toUpperCase())) {
+    return res.status(400).json({ error: 'Invalid employee role. Must be ADMIN, MANAGER, or CASHIER.' });
+  }
+
+  try {
+    const empId = crypto.randomUUID();
+    const pinHash = await hashPin(pin);
+    const hlc = getHlc().tick();
+
+    await db.run(
+      'INSERT INTO employees (id, auth_hash, biometric_token, role, is_active, sync_hlc) VALUES (?, ?, ?, ?, 1, ?)',
+      [empId, pinHash, 'token_' + empId.substring(0, 8), role.toUpperCase(), hlc]
+    );
+
+    res.json({ success: true, employee: { id: empId, role: role.toUpperCase() } });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+// PUT /api/admin/employees/:id/pin — Update employee PIN (Admin only)
+app.put('/api/admin/employees/:id/pin', requireAdmin, adminActionLimiter, requireBody({ pin: 'ADMIN_PIN' }), async (req, res) => {
+  const { id } = req.params;
+  const { pin } = req.body;
+  if (!pin) return res.status(400).json({ error: 'New PIN is required.' });
+
+  try {
+    const existing = await db.get("SELECT * FROM employees WHERE id = ?", [id]);
+    if (!existing) return res.status(404).json({ error: 'Employee not found.' });
+
+    const pinHash = await hashPin(pin);
+    const hlc = getHlc().tick();
+
+    await db.run("UPDATE employees SET auth_hash = ?, sync_hlc = ? WHERE id = ?", [pinHash, hlc, id]);
+    
+    // Clear forced PIN change requirement if admin changed their PIN
+    await db.run("DELETE FROM local_preferences WHERE key = 'must_change_pin'");
+
+    res.json({ success: true, message: 'Employee PIN updated successfully.' });
   } catch (err) {
     sendError(res, err);
   }
@@ -2290,7 +2388,7 @@ app.get('/api/inventory', requireAuth, async (req, res) => {
     const catalog = await db.all('SELECT * FROM inventory_catalog ORDER BY name ASC');
     res.json(catalog);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -2300,7 +2398,7 @@ app.get('/api/transactions', requireAuth, async (req, res) => {
     const history = await db.all('SELECT * FROM transactions WHERE is_deleted = 0 ORDER BY created_at DESC LIMIT 50');
     res.json(history);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -2310,7 +2408,7 @@ app.get('/api/preferences', requireAuth, async (req, res) => {
     const prefs = await db.all('SELECT * FROM local_preferences');
     res.json(prefs);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -2359,7 +2457,7 @@ app.get('/api/auth/verify', requireAuth, async (req, res) => {
       invoiceCount
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -2523,7 +2621,7 @@ app.get('/api/payments/my-proofs', requireAuth, async (req, res) => {
     res.json(proofs);
   } catch (err) {
     console.error('[API] /api/payments/my-proofs error:', err.message);
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -2680,7 +2778,7 @@ app.post('/api/admin/payments/decision', requireAdmin, adminActionLimiter, requi
 
     res.status(400).json({ error: 'Invalid decision action.' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -2739,7 +2837,7 @@ app.post('/api/auth/emergency-override', checkOrigin, requireAdmin, loginLimiter
       serverTime: Date.now()
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -2749,7 +2847,7 @@ app.post('/api/auth/revoke-override', requireAdmin, adminActionLimiter, async (r
     await db.run("DELETE FROM local_preferences WHERE key = 'emergency_override_until'");
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -2767,7 +2865,7 @@ app.get('/api/admin/whitelist', requireAdmin, async (req, res) => {
     const rows = await db.all("SELECT * FROM trusted_whitelist WHERE status = 'ACTIVE' ORDER BY created_at DESC");
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -2794,7 +2892,7 @@ app.post('/api/admin/whitelist', requireAdmin, adminActionLimiter, requireBody({
     );
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -2811,7 +2909,7 @@ app.delete('/api/admin/whitelist/:id', requireAdmin, async (req, res) => {
     if (result.changes === 0) return res.status(404).json({ error: 'Entry not found or already deleted.' });
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -2827,7 +2925,7 @@ app.post('/api/speech-logs', requireAuth, loggingLimiter, requireBody({ id: 'TX_
     
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -2837,7 +2935,7 @@ app.get('/api/devices/pending', requireAdmin, async (req, res) => {
     const devices = await getPendingDevices();
     res.json(devices);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -2846,7 +2944,7 @@ app.get('/api/devices', requireAdmin, async (req, res) => {
     const devices = await getAllDevices();
     res.json(devices);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3010,7 +3108,7 @@ app.post('/api/devices/approve', requireAdminOrPin, adminActionLimiter, requireB
     broadcast({ type: 'device_whitelist_changed' });
     res.json({ success: true, token });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3030,7 +3128,7 @@ app.post('/api/devices/reject', requireAdmin, adminActionLimiter, requireBody({ 
     broadcast({ type: 'device_whitelist_changed' });
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3052,7 +3150,7 @@ app.get('/api/admin/sales-agents', requireAdmin, async (req, res) => {
     `);
     res.json(agents);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3073,7 +3171,7 @@ app.post('/api/admin/sales-agents', requireAdmin, adminActionLimiter, requireBod
     const agent = await db.get('SELECT * FROM sales_agents WHERE employee_id = ?', [employee_id]);
     res.json({ success: true, agent });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3098,7 +3196,7 @@ app.get('/api/admin/commissions', requireAdmin, async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3112,7 +3210,7 @@ app.post('/api/admin/commissions/:id/pay', requireAdmin, adminActionLimiter, asy
     if (result.changes === 0) return res.status(400).json({ error: 'Commission not found or already processed.' });
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3128,7 +3226,7 @@ app.post('/api/admin/commissions/:id/reverse', requireAdmin, adminActionLimiter,
     if (result.changes === 0) return res.status(400).json({ error: 'Commission not found or already reversed.' });
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3144,7 +3242,7 @@ app.post('/api/admin/commissions/:id/approve', requireAdmin, adminActionLimiter,
     if (result.changes === 0) return res.status(404).json({ error: 'Commission record not found.' });
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3160,7 +3258,7 @@ app.post('/api/admin/commissions/:id/flag', requireAdmin, adminActionLimiter, as
     if (result.changes === 0) return res.status(404).json({ error: 'Commission record not found.' });
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3218,7 +3316,7 @@ app.post('/api/admin/commissions/:id/cancel', requireAdmin, adminActionLimiter, 
 
     res.json({ success: true, status: newStatus, refundAmount: refundToSet });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3244,7 +3342,7 @@ app.post('/api/admin/commissions/cancel', requireAdmin, adminActionLimiter, asyn
     const result = await db.run(query, params);
     res.json({ success: true, changes: result.changes });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3325,7 +3423,7 @@ app.post('/api/admin/commissions/batch-action', requireAdmin, adminActionLimiter
 
     res.json(responsePayload);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3353,7 +3451,7 @@ app.get('/api/admin/commissions/export', requireAdmin, async (req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename="commissions.csv"');
     res.send(header + csv);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3408,7 +3506,7 @@ app.get('/api/server-info', requireAuth, (req, res) => {
     }
     res.json({ ips, port, fingerprint: getHardwareFingerprint() });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3419,7 +3517,7 @@ app.get('/api/system/status', requireAuth, async (req, res) => {
     const isInitialized = !!(row && row.value_payload === 'true');
     res.json({ isInitialized });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3511,7 +3609,7 @@ app.post('/api/devices/register', loginLimiter, requireBody({ nodeId: 'NODE_ID' 
     }
   } catch (err) {
     console.error('[DeviceRegister] HTTP register failed:', err);
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3587,7 +3685,7 @@ app.get('/api/metrics', requireAuth, async (req, res) => {
       status: "online"
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3741,7 +3839,7 @@ app.get('/api/sync/bootstrap', async (req, res) => {
     res.json({ success: true, changes: shallowChanges });
   } catch (err) {
     console.error('[Bootstrap] Hydration failed:', err);
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3843,7 +3941,7 @@ app.post('/api/reset', requireAdmin, checkOrigin, adminActionLimiter, requireBod
 
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3872,7 +3970,7 @@ app.post('/api/void-transaction', requireAuth, checkOrigin, loginLimiter, requir
     const contraId = await createVoidContraEntry(transactionId, matchedMgr.id, voidReason || 'Manager void');
     res.json({ success: true, contraId });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3884,7 +3982,7 @@ app.post('/api/telemetry', requireAuth, loggingLimiter, async (req, res) => {
     for (const log of logs) await saveTelemetryLog(log);
     res.json({ success: true, stored: logs.length });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3894,7 +3992,7 @@ app.get('/api/telemetry', requireAdmin, async (req, res) => {
     const logs = await db.all('SELECT * FROM telemetry_logs ORDER BY created_at DESC LIMIT 200');
     res.json(logs);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -3907,7 +4005,7 @@ app.post('/api/admin/gc', requireAdmin, adminActionLimiter, requireBody({ safeVe
     const pruned = await pruneAcknowledgedChanges(safeVersion);
     res.json({ success: true, prunedRows: pruned, safeVersion });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -4104,7 +4202,7 @@ app.get('/api/admin/payments/all', requireAdmin, adminActionLimiter, async (req,
     `);
     res.json({ proofs, adminRole: matched.role });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -4192,7 +4290,7 @@ app.post('/api/admin/payments/decision-pin', requireAdmin, adminActionLimiter, r
 
     res.json(responseData);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -4288,13 +4386,22 @@ initDatabase(terminalId)
         await db.run("DELETE FROM transactions WHERE created_at < ?", [cutoff]);
         await db.run("DELETE FROM line_items WHERE transaction_id NOT IN (SELECT id FROM transactions)");
         await db.run("DELETE FROM fbr_submissions WHERE created_at < ?", [cutoff]);
+        await db.run("DELETE FROM speech_analytics_logs WHERE created_at < ?", [cutoff]);
+        await db.run("DELETE FROM stock_movements WHERE created_at < ?", [cutoff]);
+        await db.run("DELETE FROM employee_shifts WHERE clock_in < ?", [cutoff]);
+
+        const currentVer = getDbVersion();
+        const safeVersion = Math.max(0, currentVer - 50000);
+        if (safeVersion > 0) {
+          await pruneAcknowledgedChanges(safeVersion);
+        }
         
         await db.run(
           "INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('last_data_retention_prune_ts', 'NUM', ?, 1, ?)",
           [String(Date.now()), Date.now()]
         );
         
-        console.log(`[RetentionPolicy] Data retention policy enforced. Removed transaction records older than 6 years.`);
+        console.log(`[RetentionPolicy] Data retention policy enforced. Cleaned records and pruned CRDT tombstones.`);
       } catch (err) {
         console.error('[RetentionPolicy] Failed to enforce data retention policy:', err);
       }

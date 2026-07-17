@@ -1189,9 +1189,9 @@ const ALLOWED_CRDT_COLUMNS = {
     'stock_additions', 'stock_subtractions', 'mode_fields', 'image_url'
   ]),
   employees: new Set([
-    // NOTE: auth_hash is intentionally excluded — PINs are only changed
-    // via the /api/admin/employees endpoint, never via CRDT sync.
-    'biometric_token', 'role', 'is_active', 'sync_hlc', 'is_deleted'
+    // NOTE: auth_hash and role are intentionally excluded — PINs and roles are only
+    // changed via the /api/admin/employees endpoint, never via CRDT sync.
+    'biometric_token', 'is_active', 'sync_hlc', 'is_deleted'
   ]),
   local_preferences: new Set([
     'value_type', 'val_type', 'value_payload', 'is_idempotent_flag', 'updated_at'
