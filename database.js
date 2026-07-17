@@ -895,8 +895,18 @@ async function seedDatabase() {
     const empAdminId = crypto.randomUUID();
     const empCashierId = crypto.randomUUID();
     
-    const adminHash = await hashPin('1234');
-    const cashierHash = await hashPin('5678');
+    const seedAdminPin = String(crypto.randomInt(1000, 9999)).padStart(4, '0');
+    const seedCashierPin = String(crypto.randomInt(1000, 9999)).padStart(4, '0');
+    const adminHash = await hashPin(seedAdminPin);
+    const cashierHash = await hashPin(seedCashierPin);
+
+    const SEPARATOR = '='.repeat(60);
+    console.log(SEPARATOR);
+    console.log('[SECURITY] FIRST-TIME SETUP — SEED CREDENTIALS GENERATED');
+    console.log(`[SECURITY] ADMIN  PIN  : ${seedAdminPin}  (change immediately)`);
+    console.log(`[SECURITY] CASHIER PIN : ${seedCashierPin}  (change immediately)`);
+    console.log('[SECURITY] These PINs will NOT be shown again.');
+    console.log(SEPARATOR);
 
     const adminHlc = currentHlc.tick();
     await db.run(
@@ -988,6 +998,9 @@ async function seedDatabase() {
     );
     await db.run('INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
       ['whitelabel_show_branding', 'STR', 'true', 0, now]
+    );
+    await db.run('INSERT OR IGNORE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
+      ['must_change_pin', 'BOOL', 'true', 0, now]
     );
     await db.run('INSERT INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES (?, ?, ?, ?, ?)',
       ['glassmorphism_enabled', 'STR', 'true', 0, now]
@@ -1155,11 +1168,81 @@ async function applyRemoteChangesInternal(changes) {
   return { applied: appliedCount, conflicts: conflictCount };
 }
 
+// ── CRDT Column Security Whitelist ──────────────────────────────────────────
+// Only these (table, column) pairs can be applied from remote sync deltas.
+// Adding a new syncable column requires explicit whitelist entry here.
+const ALLOWED_CRDT_COLUMNS = {
+  transactions: new Set([
+    'status', 'payment_mode', 'payment_details', 'subtotal_minor_units',
+    'tax_minor_units', 'total_minor_units', 'discount_minor_units',
+    'employee_id', 'terminal_id', 'void_reason', 'voided_transaction_id',
+    'created_at', 'updated_at', 'sync_hlc', 'is_dirty', 'is_deleted'
+  ]),
+  line_items: new Set([
+    'transaction_id', 'sku', 'quantity', 'unit_price_minor_units',
+    'applied_discount_minor_units', 'sync_hlc', 'is_deleted'
+  ]),
+  inventory_catalog: new Set([
+    'gtin', 'name', 'base_price_minor_units', 'stock_level', 'reserved_stock',
+    'search_vector', 'col_version', 'sync_hlc', 'category', 'emoji',
+    'cost_price_minor_units', 'is_deleted', 'low_stock_threshold',
+    'stock_additions', 'stock_subtractions', 'mode_fields', 'image_url'
+  ]),
+  employees: new Set([
+    // NOTE: auth_hash is intentionally excluded — PINs are only changed
+    // via the /api/admin/employees endpoint, never via CRDT sync.
+    'biometric_token', 'role', 'is_active', 'sync_hlc', 'is_deleted'
+  ]),
+  local_preferences: new Set([
+    'value_type', 'val_type', 'value_payload', 'is_idempotent_flag', 'updated_at'
+  ]),
+  customers: new Set([
+    'name', 'phone', 'email', 'total_spend_cents', 'visits',
+    'created_at', 'sync_hlc', 'is_deleted'
+  ]),
+  categories: new Set(['sync_hlc']),
+  stock_movements: new Set([
+    'sku', 'change_qty', 'reason', 'created_at', 'sync_hlc'
+  ]),
+  employee_shifts: new Set([
+    'employee_id', 'clock_in', 'clock_out', 'sync_hlc',
+    'declared_cash_minor_units', 'expected_cash_minor_units', 'variance_minor_units'
+  ]),
+  distributors: new Set([
+    'name', 'phone', 'email', 'address', 'credit_limit_minor',
+    'notes', 'created_at', 'sync_hlc', 'is_deleted'
+  ]),
+  purchase_orders: new Set([
+    'distributor_id', 'status', 'total_minor', 'notes', 'expected_delivery',
+    'created_at', 'updated_at', 'sync_hlc', 'is_deleted'
+  ]),
+  po_line_items: new Set([
+    'po_id', 'sku', 'product_name', 'quantity_ordered', 'quantity_received',
+    'unit_cost_minor', 'sync_hlc', 'is_deleted'
+  ]),
+  distributor_payments: new Set([
+    'distributor_id', 'po_id', 'amount_minor', 'payment_method',
+    'reference_note', 'paid_at', 'sync_hlc', 'is_deleted'
+  ]),
+  customer_credit: new Set([
+    'customer_id', 'transaction_id', 'type', 'amount_minor', 'payment_method',
+    'due_date', 'notes', 'created_at', 'sync_hlc', 'is_deleted'
+  ])
+};
+
 // Dynamically updates a single column value in the main tables based on delta CRDTs
 async function applyChangeToSchema(tableName, pk, cid, val, cl, valType = 'string') {
   // Strict sanitization of dynamic column name to prevent SQL injection
   if (cid && !/^[a-zA-Z0-9_]+$/.test(cid)) {
     throw new Error(`Security Exception: Invalid column identifier '${cid}'`);
+  }
+  // Per-table column whitelist — prevents cross-table privilege escalation
+  if (cid) {
+    const allowedCols = ALLOWED_CRDT_COLUMNS[tableName];
+    if (!allowedCols || !allowedCols.has(cid)) {
+      console.warn(`[CRDT Security] Blocked unauthorized column write: table='${tableName}' cid='${cid}'`);
+      throw new Error(`Security Exception: Column '${cid}' is not permitted in table '${tableName}' via CRDT sync.`);
+    }
   }
   if (cl === 0) {
     if (tableName === 'transactions') {
@@ -1434,15 +1517,19 @@ async function saveTelemetryLog(log) {
 async function factoryResetDatabase() {
   await db.beginImmediate();
   try {
-    const tables = [
+    const FACTORY_RESET_ALLOWED_TABLES = new Set([
       'transactions', 'line_items', 'inventory_catalog', 'employees',
       'crsql_changes', 'speech_analytics_logs', 'local_preferences',
       'customers', 'categories', 'stock_movements', 'employee_shifts',
       'approved_devices', 'distributors', 'purchase_orders', 'po_line_items',
       'distributor_payments', 'customer_credit', 'fbr_submissions',
       'aborted_sales_log', 'telemetry_logs'
-    ];
+    ]);
+    const tables = Array.from(FACTORY_RESET_ALLOWED_TABLES);
     for (const table of tables) {
+      if (!FACTORY_RESET_ALLOWED_TABLES.has(table)) {
+        throw new Error(`Factory reset blocked: unexpected table '${table}'`);
+      }
       await db.run(`DELETE FROM ${table};`);
     }
     await db.commit();

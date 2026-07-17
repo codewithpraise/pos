@@ -50,7 +50,7 @@ async function runAll() {
   const testStoreId = crypto.randomUUID();
   await db.run(
     "INSERT OR IGNORE INTO stores (id, phone, email, name, tier, mode, status, expires_at, hardware_limit) VALUES (?, ?, ?, ?, 'TRIAL', 'subscription', 'active', ?, 5)",
-    [testStoreId, '03001234567', 'test@valenixia.com', 'Test Billing Store', Date.now() + 86400000]
+    [testStoreId, '03001234567', 'codewithpraise@gmail.com', 'Test Billing Store', Date.now() + 86400000]
   );
 
   await testAsync('Payment proof insertion — records correctly to SQLite', async () => {

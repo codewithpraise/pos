@@ -1314,7 +1314,12 @@ class MainActivity : AppCompatActivity() {
                     val rawDeviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "android-device"
                     val deviceId = try {
                         val digest = java.security.MessageDigest.getInstance("SHA-256")
-                        val hash = digest.digest((rawDeviceId + "valenixia_salt").toByteArray(Charsets.UTF_8))
+                        val installSalt = prefs.getString("device_id_salt", null) ?: run {
+                            val newSalt = java.util.UUID.randomUUID().toString()
+                            prefs.edit().putString("device_id_salt", newSalt).apply()
+                            newSalt
+                        }
+                        val hash = digest.digest((rawDeviceId + installSalt).toByteArray(Charsets.UTF_8))
                         hash.joinToString("") { "%02x".format(it) }.take(16)
                     } catch (e: Exception) {
                         "hashed-device"

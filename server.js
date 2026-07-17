@@ -200,7 +200,9 @@ function verifyCheckoutToken(tokenStr, expectedSubtotal, expectedTax, expectedTo
     if (payload.exp < Date.now()) return false;
     
     const expectedSig = crypto.createHmac('sha256', jwtSecret).update(payloadStr).digest('hex');
-    if (sig !== expectedSig) return false;
+    const sigBuf = Buffer.from(sig, 'hex');
+    const expBuf = Buffer.from(expectedSig, 'hex');
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return false;
     
     if (payload.subtotal !== expectedSubtotal || payload.tax !== expectedTax || payload.total !== expectedTotal) {
       return false;
