@@ -902,13 +902,18 @@ const LicenseEngine = (() => {
     // At startup, check if the Node backend is already onboarded
     let isServerOnboarded = false;
     try {
-      const healthResp = await fetch((window.__valenixiaServerUrl || location.origin) + '/api/health', {
+      const healthResp = await fetch((window.__valenixiaServerUrl || location.origin) + `/api/health?hwid=${encodeURIComponent(hwid)}`, {
         signal: AbortSignal.timeout ? AbortSignal.timeout(2000) : null
       });
       if (healthResp.ok) {
         const healthData = await healthResp.json();
         if (healthData.onboarded) {
           isServerOnboarded = true;
+        }
+        if (healthData.trial_claimed) {
+          console.warn('[License] Device has already claimed a trial session. Blocking fresh trial assignment.');
+          mountLockoutOverlay(`A trial has already been claimed on this device.<br><br>Please enter your 6-digit activation code and registered phone number below to activate Valenixia POS.`);
+          return false;
         }
       }
     } catch (err) {

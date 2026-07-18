@@ -4005,13 +4005,26 @@ app.get('/api/health', async (req, res) => {
   } catch (_) {}
   health.onboarded = onboarded;
 
+  let trialClaimed = false;
+  const clientHwid = req.query.hwid;
+  if (clientHwid) {
+    try {
+      const devRow = await db.get("SELECT id FROM devices WHERE hardware_id = ?", [String(clientHwid).toUpperCase()]);
+      if (devRow) {
+        trialClaimed = true;
+      }
+    } catch (_) {}
+  }
+  health.trial_claimed = trialClaimed;
+
   if (health.database === 'error') health.status = 'degraded';
 
   if (!isAuthorized) {
     return res.status(health.status === 'ok' ? 200 : 503).json({
       status: health.status,
       timestamp: health.timestamp,
-      onboarded: health.onboarded
+      onboarded: health.onboarded,
+      trial_claimed: trialClaimed
     });
   }
 
