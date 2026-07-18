@@ -708,7 +708,7 @@ app.get(['/', '/index.html'], (req, res) => {
       return res.status(500).send('Error loading page');
     }
     const nonce = res.locals.nonce || '';
-    const dynamicHtml = html.replace(/nonce-placeholder/g, nonce);
+    const dynamicHtml = html.replace(/<script /g, `<script nonce="${nonce}" `);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
     res.send(dynamicHtml);
@@ -4482,6 +4482,15 @@ app.get('/api/release-notes', requireAuth, async (req, res) => {
 // Serve frontend shell entry
 app.get('/{*splat}', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Express Error Handling Middleware (ADR-001 / Security Hardening)
+app.use((err, req, res, next) => {
+  logger.error('Express', 'Unhandled request error', err, { url: req.url, method: req.method });
+  res.status(500).json({
+    error: 'Internal Server Error',
+    message: process.env.NODE_ENV === 'production' ? 'An unexpected error occurred.' : err.message
+  });
 });
 
 // Start Server

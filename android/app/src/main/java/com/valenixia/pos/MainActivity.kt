@@ -795,6 +795,9 @@ class MainActivity : AppCompatActivity() {
         }
         webView?.destroy()
         val wv = WebView(this)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
+        }
         wv.filterTouchesWhenObscured = true
         
         wv.overScrollMode = View.OVER_SCROLL_NEVER

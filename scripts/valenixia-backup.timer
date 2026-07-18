@@ -1,0 +1,14 @@
+[Unit]
+Description=Run Valenixia POS Backup Daily
+RefuseManualStart=no
+RefuseManualStop=no
+
+[Timer]
+# Run every day at 2:00 AM
+OnCalendar=*-*-* 02:00:00
+# Ensure execution isn't delayed significantly if system was powered down
+Persistent=true
+Unit=valenixia-backup.service
+
+[Install]
+WantedBy=timers.target

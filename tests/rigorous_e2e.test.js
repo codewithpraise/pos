@@ -70,7 +70,8 @@ async function run() {
   // Make sure we are in main app view, else bypass setup
   const layoutDisplay = await ev('window.getComputedStyle(document.getElementById("pos-app-layout")).display');
   if (layoutDisplay !== 'grid') {
-    const adminPin = process.env.TEST_ADMIN_PIN || '1234';
+    const adminPin = process.env.TEST_ADMIN_PIN;
+    if (!adminPin) throw new Error("Environment variable TEST_ADMIN_PIN is required for E2E testing but is not set.");
     info(`App is not logged in. Logging in with admin PIN...`);
     for (const d of adminPin.split('')) {
       await ev(`(function(){

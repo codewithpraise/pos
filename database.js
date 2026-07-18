@@ -5,11 +5,20 @@
 
 const path = require('path');
 const fs = require('fs');
-const sqlite3 = require('sqlite3').verbose();
+
+let sqlite3;
+let isSqlCipher = false;
+try {
+  sqlite3 = require('@journeyapps/sqlcipher').verbose();
+  isSqlCipher = true;
+} catch (e) {
+  sqlite3 = require('sqlite3').verbose();
+}
+
 const crypto = require('crypto');
 const { HLC, shouldApplyDelta } = require('./crdt-engine');
 
-const dbPath = path.join(__dirname, 'valenixia.db');
+const dbPath = path.join(__dirname, process.env.DB_FILE || 'valenixia.db');
 let sqliteDb = null;
 let currentHlc = null;
 let currentDbVersion = 0; // Incremented on each local transaction change
@@ -203,6 +212,25 @@ async function initDatabase(terminalId) {
   }
 
   sqliteDb = new sqlite3.Database(dbPath);
+  
+  if (isSqlCipher) {
+    const dbKey = process.env.DB_ENCRYPTION_KEY;
+    if (dbKey) {
+      const escapedKey = dbKey.replace(/'/g, "''");
+      await new Promise((resolve, reject) => {
+        sqliteDb.run(`PRAGMA key = '${escapedKey}';`, (err) => {
+          if (err) reject(err); else resolve();
+        });
+      });
+      console.log('[Database] SQLCipher encryption key applied successfully.');
+    } else if (process.env.NODE_ENV === 'production') {
+      throw new Error('Production environment requires DB_ENCRYPTION_KEY to be set for SQLCipher encryption-at-rest.');
+    } else {
+      console.warn('[Database] Running SQLCipher without DB_ENCRYPTION_KEY in development mode (database is unencrypted).');
+    }
+  } else {
+    console.log('[Database] Running on standard SQLite3 (unencrypted).');
+  }
   
   // Enable WAL + maximum durability under power failure
   await db.exec('PRAGMA journal_mode = WAL;');

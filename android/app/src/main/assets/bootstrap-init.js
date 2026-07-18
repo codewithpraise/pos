@@ -1,3 +1,18 @@
+// Gated console logging for production hardening (ADR-005)
+(function() {
+  const isLocal = window.location.hostname === 'localhost' || 
+                  window.location.hostname === '127.0.0.1' || 
+                  window.location.hostname === '10.0.2.2' ||
+                  localStorage.getItem('valenixia_debug') === 'true';
+  
+  if (!isLocal) {
+    const noop = () => {};
+    console.log = noop;
+    console.warn = noop;
+    console.info = noop;
+  }
+})();
+
 window.escapeHTML = function(str) {
     if (!str) return '';
     return String(str)
@@ -17,8 +32,11 @@ window.safeAtob = function(base64Str) {
         while (str.length % 4 !== 0) str += '=';
         return atob(str);
     } catch (e) {
-        console.error('[safeAtob] CRITICAL DECODE FAILURE:', e.message);
-        console.error('[safeAtob] Problematic String:', base64Str);
+        // Redacted for production security (leaks strings in console)
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || localStorage.getItem('valenixia_debug') === 'true') {
+            console.error('[safeAtob] CRITICAL DECODE FAILURE:', e.message);
+            console.error('[safeAtob] Problematic String:', base64Str);
+        }
         if (typeof drawCrashConsole === 'function') {
             drawCrashConsole('Base64 Decode Failure', 'safeAtob', 'Global', e);
         }
@@ -104,10 +122,15 @@ window.addEventListener('unhandledrejection', function(event) {
     if (window.location.protocol !== 'file:') {
       return window.location.origin;
     }
-    return 'http://localhost:3000';
+    throw new Error('server_url not configured');
   }
-  window.__valenixiaServerUrl = resolveServerUrl();
-  console.log('[Bootstrap] Resolved backend server URL:', window.__valenixiaServerUrl);
+  try {
+    window.__valenixiaServerUrl = resolveServerUrl();
+    console.log('[Bootstrap] Resolved backend server URL:', window.__valenixiaServerUrl);
+  } catch (err) {
+    console.error('[Bootstrap] URL Resolution Error:', err.message);
+    window.__valenixiaServerUrl = '';
+  }
 })();
 
 // ── System Theme Detection (runs before first paint to prevent FOUC) ────────

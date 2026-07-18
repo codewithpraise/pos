@@ -109,8 +109,10 @@ async function run() {
       if (btn) btn.click();
     })()`, id++);
     await sleep(800);
-    const testPin = process.env.TEST_ADMIN_PIN || '1234';
-    const testPass = process.env.TEST_PASSPHRASE || 'passphrase123';
+    const testPin = process.env.TEST_ADMIN_PIN;
+    const testPass = process.env.TEST_PASSPHRASE;
+    if (!testPin) throw new Error("Environment variable TEST_ADMIN_PIN is required for E2E testing but is not set.");
+    if (!testPass) throw new Error("Environment variable TEST_PASSPHRASE is required for E2E testing but is not set.");
     await cdpEval(ws, `(async () => {
       const pin = document.getElementById('wizard-admin-pin');
       const pass = document.getElementById('wizard-sync-passphrase');
@@ -132,7 +134,8 @@ async function run() {
   // Check if lock screen is active, and log in
   const isLockScreen = await cdpEval(ws, 'document.getElementById("auth-lock-screen")?.classList.contains("active")', id++);
   if (isLockScreen?.result?.value) {
-    const testPin = process.env.TEST_ADMIN_PIN || '1234';
+    const testPin = process.env.TEST_ADMIN_PIN;
+    if (!testPin) throw new Error("Environment variable TEST_ADMIN_PIN is required for E2E testing but is not set.");
     console.log('Logging in with admin pin...');
     await cdpEval(ws, `(async () => {
       const pad = document.getElementById('pin-pad');

@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  valenixia-pos:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: valenixia-pos
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_FILE=data/valenixia.db
+      # Secure credentials should be defined in a local .env file
+      - DB_ENCRYPTION_KEY=${DB_ENCRYPTION_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - MASTER_KEY=${MASTER_KEY}
+      - LOG_FILE_PATH=data/logs/valenixia.log
+    volumes:
+      - valenixia-data:/usr/src/app/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  valenixia-data:
+    driver: local
