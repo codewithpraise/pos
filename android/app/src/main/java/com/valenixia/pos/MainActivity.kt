@@ -996,14 +996,16 @@ class MainActivity : AppCompatActivity() {
                     return true
                 }
                 if (reqUrl.startsWith("file:///android_asset/")) return false
-                return !reqUrl.startsWith("http://${getServerHost()}")
+                val host = getServerHost()
+                if (host == "invalid" || host.isEmpty()) return true
+                return !reqUrl.startsWith("http://$host") && !reqUrl.startsWith("https://$host")
             }
             private fun getServerHost(): String {
                 return try {
                     val parsed = URL(serverUrl)
                     val port = parsed.port
                     if (port == -1) parsed.host else "${parsed.host}:$port"
-                } catch (e: Exception) { "" }
+                } catch (e: Exception) { "invalid" }
             }
         }
 
