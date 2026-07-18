@@ -8007,7 +8007,6 @@ setHtml(btn, `${preset.icon} ${preset.label}`);
     }
 
     // Verify price override limits (Issue 9)
-    const isNew = !document.getElementById('form-product-sku').disabled;
     const originalProd = state.catalog.find(p => p.sku === sku);
     if (originalProd && !isNew) {
       const oldPrice = originalProd.base_price_minor_units || 0;

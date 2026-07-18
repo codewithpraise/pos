@@ -4862,7 +4862,7 @@ initDatabase(terminalId)
         await db.run("DELETE FROM transactions WHERE created_at < ?", [cutoff]);
         await db.run("DELETE FROM line_items WHERE transaction_id NOT IN (SELECT id FROM transactions)");
         await db.run("DELETE FROM fbr_submissions WHERE created_at < ?", [cutoff]);
-        await db.run("DELETE FROM speech_analytics_logs WHERE created_at < ?", [cutoff]);
+        await db.run("DELETE FROM speech_analytics_logs WHERE transaction_id IN (SELECT id FROM transactions WHERE created_at < ?) OR transaction_id IS NULL", [cutoff]);
         await db.run("DELETE FROM stock_movements WHERE created_at < ?", [cutoff]);
         await db.run("DELETE FROM employee_shifts WHERE clock_in < ?", [cutoff]);
 

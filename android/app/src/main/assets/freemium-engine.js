@@ -168,7 +168,11 @@ function getMonthlyTransactionCount() {
 
 function incrementMonthlyTransactionCount() {
   if (window.__vxSession && window.__vxSession.invoiceCount !== undefined) {
-    window.__vxSession.invoiceCount++;
+    const updated = {
+      ...window.__vxSession,
+      invoiceCount: window.__vxSession.invoiceCount + 1
+    };
+    window.__vxSession = updated;
     return window.__vxSession.invoiceCount;
   }
   const { count, monthKey } = getMonthlyTransactionCount();

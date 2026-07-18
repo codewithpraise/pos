@@ -335,41 +335,6 @@ const LicenseEngine = (() => {
         if(window.showModal) showModal({ title: 'License', message: 'Offline verification failed: ' + dbErr.message, type: 'danger' });
       }
     });
-      if (!pin || pin === 'cancel') return;
-      
-      const serverBase = window.__valenixiaServerUrl || location.origin;
-      try {
-        const resp = await fetch(serverBase + '/api/auth/emergency-override', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pin })
-        });
-        
-        if (resp.ok) {
-          const data = await resp.json();
-          await ValenixiaDB.setSecurePref('emergency_override_until', String(data.emergency_override_until));
-          if(window.showModal) showModal({ title: 'License', message: '', type: 'warning' }); else console.warn('[License]', '');
-          location.reload();
-          return;
-        }
-      } catch (err) {
-        console.warn('[LicenseEngine] Server emergency bypass failed. Trying local DB fallback...', err.message);
-      }
-
-      try {
-        const emp = await ValenixiaDB.verifyEmployeePin(pin);
-        if (emp && (emp.role === 'MANAGER' || emp.role === 'ADMIN')) {
-          const localUntil = Date.now() + 15 * 60 * 1000;
-          await ValenixiaDB.setSecurePref('emergency_override_until', String(localUntil));
-          if(window.showModal) showModal({ title: 'License', message: '', type: 'warning' }); else console.warn('[License]', '');
-          location.reload();
-        } else {
-          if(window.showModal) showModal({ title: 'License', message: 'Access denied: Invalid Manager/Admin PIN.', type: 'warning' }); else console.warn('[License] Access denied: Invalid Manager/Admin PIN.');
-        }
-      } catch (dbErr) {
-        if(window.showModal) showModal({ title: 'License', message: 'Offline verification failed: ' + dbErr.message, type: 'danger' }); else console.warn('[License] Offline verification failed:', dbErr.message);
-      }
-    });
 
     document.getElementById('license-activate-btn').addEventListener('click', async () => {
       const phone = document.getElementById('license-phone-input').value.trim();
@@ -587,7 +552,7 @@ const LicenseEngine = (() => {
   }
 
   // â”€â”€ Staged Neo-Minimalist Trial HUD Banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  function updateTrialHUD(payload) {
+    function updateTrialHUD(payload) {
     // Check if AMC is expired for Lifetime licenses
     const amcGracePeriod = 30 * 24 * 60 * 60 * 1000; // 30-day grace period (Issue 6)
     const isAmcExpired = payload && payload.mode === 'lifetime' && 
@@ -819,23 +784,6 @@ const LicenseEngine = (() => {
           location.reload();
         } else {
           if(window.showModal) showModal({ title: 'License', message: 'Access denied: Invalid Admin PIN.', type: 'warning' }); else console.warn('[License]', 'Access denied');
-        }
-      });
-            if (resp.ok) {
-              const data = await resp.json();
-              if (data && data.employee && (data.employee.role === 'MANAGER' || data.employee.role === 'ADMIN')) {
-                matched = true;
-              }
-            }
-          } catch (e) {}
-        }
-
-        if (matched) {
-          await updateTimeAnchor();
-          if(window.showModal) showModal({ title: 'License', message: '', type: 'warning' }); else console.warn('[License]', '');
-          location.reload();
-        } else {
-          if(window.showModal) showModal({ title: 'License', message: '', type: 'warning' }); else console.warn('[License]', '');
         }
       });
       return false;
