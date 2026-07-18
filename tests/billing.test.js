@@ -58,8 +58,7 @@ async function runAll() {
     const rrn = 'RRN' + Date.now();
     
     await db.run(
-      `INSERT INTO payment_proofs (id, user_id, plan_id, rrn_reference, amount, proof_image_url, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+      'INSERT INTO payment_proofs (id, user_id, plan_id, rrn_reference, amount, proof_image_url, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, "pending", ?, ?)',
       [proofId, testStoreId, 'PRO', rrn, 50000.0, '/proofs/img.png', Date.now(), Date.now()]
     );
 
@@ -75,16 +74,14 @@ async function runAll() {
     
     // First insert
     await db.run(
-      `INSERT INTO payment_proofs (id, user_id, plan_id, rrn_reference, amount, proof_image_url, status, created_at, updated_at)
-       VALUES (?, ?, 'PRO', ?, 50000.0, '', 'pending', ?, ?)`,
+      'INSERT INTO payment_proofs (id, user_id, plan_id, rrn_reference, amount, proof_image_url, status, created_at, updated_at) VALUES (?, ?, "PRO", ?, 50000.0, "", "pending", ?, ?)',
       [crypto.randomUUID(), testStoreId, rrn, Date.now(), Date.now()]
     );
 
     // Second insert should fail unique constraint
     try {
       await db.run(
-        `INSERT INTO payment_proofs (id, user_id, plan_id, rrn_reference, amount, proof_image_url, status, created_at, updated_at)
-         VALUES (?, ?, 'PRO', ?, 50000.0, '', 'pending', ?, ?)`,
+        'INSERT INTO payment_proofs (id, user_id, plan_id, rrn_reference, amount, proof_image_url, status, created_at, updated_at) VALUES (?, ?, "PRO", ?, 50000.0, "", "pending", ?, ?)',
         [crypto.randomUUID(), testStoreId, rrn, Date.now(), Date.now()]
       );
       assert.fail('Unique constraint on rrn_reference should have failed.');

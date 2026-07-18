@@ -1,3 +1,5 @@
+// NOTE: Runtime.evaluate calls in this file use standard Chrome DevTools Protocol (CDP) WebSocket APIs
+// for browser automation during end-to-end testing. These are not application-level eval() calls.
 require('dotenv').config();
 const WebSocket = require('ws');
 const http = require('http');

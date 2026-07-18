@@ -15,6 +15,11 @@ const crypto = require('crypto');
 // --- CONFIG --------------------------------------------------------------------
 const BASE_URL = process.env.TEST_SERVER_URL || 'http://127.0.0.1:3000';
 const TIMEOUT  = 10000; // 10s per request
+const TEST_ADMIN_PIN = process.env.TEST_ADMIN_PIN;
+if (!TEST_ADMIN_PIN) {
+  throw new Error('TEST_ADMIN_PIN environment variable is required for mobile_e2e tests');
+}
+const INVALID_PIN_VECTOR = 'INVALID_TEST_PIN_VECTOR_999999';
 
 // --- TEST COUNTERS -------------------------------------------------------------
 let passed = 0, failed = 0, skipped = 0;
@@ -234,7 +239,7 @@ async function suiteOnboarding() {
       phone: testPhone,
       businessType: 'retail',
       address: '123 Test Ave, Lahore',
-      pinCode: process.env.TEST_ADMIN_PIN || '1234'
+      pinCode: TEST_ADMIN_PIN
     });
     if (r.status === 201 || r.status === 200) {
       expect(r.body).toHaveProperty('storeId');
@@ -282,7 +287,7 @@ async function suiteEmployeeAuth() {
   });
 
   await test('POST /api/employee/login rejects wrong pin', async () => {
-    const r = await request('POST', '/api/employee/login', { pin: '9999' });
+    const r = await request('POST', '/api/employee/login', { pin: INVALID_PIN_VECTOR });
     // Should 401 or 403, never 500
     expect(r.status).toBeLessThan(500);
     expect(r.status).toBeGreaterThan(399);
@@ -290,7 +295,7 @@ async function suiteEmployeeAuth() {
 
   await test('POST /api/employee/login rate limit exists (response is fast)', async () => {
     const start = Date.now();
-    await request('POST', '/api/employee/login', { pin: '0000' });
+    await request('POST', '/api/employee/login', { pin: INVALID_PIN_VECTOR });
     const elapsed = Date.now() - start;
     expect(elapsed).toBeLessThan(TIMEOUT);
   });
@@ -306,7 +311,7 @@ async function suiteAdminPayments() {
   });
 
   await test('GET /api/admin/payments/all rejects wrong PIN (403)', async () => {
-    const r = await request('GET', '/api/admin/payments/all', null, { 'x-admin-pin': '0000' });
+    const r = await request('GET', '/api/admin/payments/all', null, { 'x-admin-pin': INVALID_PIN_VECTOR });
     expect(r.status).toBeGreaterThan(399);
   });
 
@@ -322,22 +327,22 @@ async function suiteAdminPayments() {
 
   await test('POST /api/admin/payments/decision-pin rejects invalid action', async () => {
     const r = await request('POST', '/api/admin/payments/decision-pin', {
-      proof_id: 'test', action: 'invalid_action', adminPin: '9999'
+      proof_id: 'test', action: 'invalid_action', adminPin: INVALID_PIN_VECTOR
     });
     expect(r.status).toBeGreaterThan(399);
   });
 
   await test('POST /api/admin/payments/decision-pin rejects wrong admin PIN', async () => {
     const r = await request('POST', '/api/admin/payments/decision-pin', {
-      proof_id: 'test', action: 'approved', adminPin: '0000'
+      proof_id: 'test', action: 'approved', adminPin: INVALID_PIN_VECTOR
     });
     expect(r.status).toBeGreaterThan(399);
   });
 
   await test('POST /api/admin/payments/decision-pin returns proper error on non-existent proof', async () => {
-    // This verifies the route doesn't crash � status > 400 expected
+    // This verifies the route doesn't crash — status > 400 expected
     const r = await request('POST', '/api/admin/payments/decision-pin', {
-      proof_id: 'nonexistent_proof_id_xyz', action: 'approved', adminPin: '0000'
+      proof_id: 'nonexistent_proof_id_xyz', action: 'approved', adminPin: INVALID_PIN_VECTOR
     });
     // Should get auth error (403) or not-found (404), never 500
     expect(r.status).toBeLessThan(500);
@@ -569,7 +574,7 @@ async function suiteSecurity(available) {
   await test('POST /api/admin/payments/decision-pin requires action field', async () => {
     if (!available) { skipped++; log('Skipped (server offline)', 'SKIP'); return; }
     const r = await request('POST', '/api/admin/payments/decision-pin', {
-      proof_id: 'abc', adminPin: '0000'
+      proof_id: 'abc', adminPin: INVALID_PIN_VECTOR
     });
     expect(r.status).toBeGreaterThan(399);
     expect(r.body.error).toBeTruthy();

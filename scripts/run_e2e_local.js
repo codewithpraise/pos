@@ -1,8 +1,31 @@
 const { spawn } = require('child_process');
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 
 async function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function findChromePath() {
+  if (process.env.CHROME_BIN && fs.existsSync(process.env.CHROME_BIN)) {
+    return process.env.CHROME_BIN;
+  }
+  const platform = os.platform();
+  if (platform === 'win32') {
+    const candidates = [
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+      path.join(process.env.LOCALAPPDATA || '', 'Google\\Chrome\\Application\\chrome.exe')
+    ];
+    for (const c of candidates) {
+      if (c && fs.existsSync(c)) return c;
+    }
+  } else if (platform === 'darwin') {
+    return '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+  }
+  return 'google-chrome';
 }
 
 function checkCDPAvailable() {
@@ -30,13 +53,16 @@ async function main() {
     } catch (_) {}
   }
 
-  console.log('[Runner] Spawning headless Chrome on port 9222...');
-  const chrome = spawn('C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', [
+  const chromePath = findChromePath();
+  const profileDir = path.join(__dirname, '..', 'chrome-profile');
+
+  console.log(`[Runner] Spawning headless Chrome (${chromePath}) on port 9222...`);
+  const chrome = spawn(chromePath, [
     '--headless',
     '--remote-debugging-port=9222',
     '--disable-gpu',
     '--no-sandbox',
-    '--user-data-dir=c:\\Users\\DELL\\Desktop\\nexova\\chrome-profile',
+    `--user-data-dir=${profileDir}`,
     'http://localhost:3000'
   ], { detached: true, stdio: 'ignore' });
   chrome.unref();

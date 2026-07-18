@@ -101,6 +101,15 @@ async function main() {
           // Start a transaction in SQLite
           await run('BEGIN IMMEDIATE;');
           
+          // Re-verify that selected payment is still valid and PENDING to prevent race conditions
+          const freshPending = await query(
+            "SELECT p.*, s.name as store_name FROM pending_payments p JOIN stores s ON p.store_id = s.id WHERE p.id = ? AND p.status = 'PENDING'",
+            [selected.id]
+          );
+          if (!freshPending || freshPending.length === 0) {
+            throw new Error(`Pending payment record ${selected.id} is no longer pending or was already processed.`);
+          }
+
           // Update pending_payments status
           await run(
             "UPDATE pending_payments SET status = 'APPROVED', verified_at = ? WHERE id = ?",

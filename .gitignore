@@ -37,6 +37,7 @@ public/*.png
 android/app/src/main/assets/*.png
 !android/app/src/main/assets/icon-*.png
 scripts/*.ps1
+scripts/scratch_*
 *.hprof
 chrome-profile/
 chrome-profile-*/
