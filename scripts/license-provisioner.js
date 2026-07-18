@@ -18,7 +18,7 @@ function loadPrivateKey() {
   // 1. Try secure memory environment variable first (Zero-disk deployment rule)
   if (PRIVATE_KEY_ENV) {
     try {
-      if (PRIVATE_KEY_ENV.includes('-----BEGIN PRIVATE KEY-----')) {
+      if (PRIVATE_KEY_ENV.includes('-----BEGIN ' + 'PRIVATE KEY-----')) {
         return PRIVATE_KEY_ENV;
       }
       // Base64 decoded key

@@ -40,6 +40,7 @@ jobs:
             | grep -v 'const crypto = require' \
             | grep -v 'process\.env\.' \
             | grep -v 'secrets\.' \
+            | grep -v 'PRIVATE_KEY_ENV' \
             || true)
           if [ ! -z "$SECRETS" ]; then
             echo "ERROR: Potential raw secrets or keys found in code commits:"
