@@ -275,28 +275,19 @@ fun AuthScreen(onAuthSuccess: (Employee) -> Unit) {
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .background(colors.surface2, RoundedCornerShape(8.dp))
-                            .border(1.dp, colors.borderSubtle, RoundedCornerShape(8.dp))
+                            .background(androidx.compose.ui.graphics.Color(0xFFEF4444).copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                            .border(1.dp, androidx.compose.ui.graphics.Color(0xFFEF4444).copy(alpha = 0.4f), RoundedCornerShape(8.dp))
                             .padding(8.dp),
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            "🔑 Credentials Card: ",
-                            color = colors.textSecondary,
+                            "⚠️ WARNING: Change default PINs immediately in settings to secure this register.",
+                            color = androidx.compose.ui.graphics.Color(0xFFF87171),
                             fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            "Admin [1234]  ·  Cashier [5678]",
-                            color = colors.accent,
-                            fontSize = 10.sp,
-                            fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold
                         )
                     }
-                }
-            }
         }
     }
 }
@@ -4725,16 +4716,16 @@ fun EmployeesScreen(syncLogs: MutableList<String>) {
                             }
                         }
                         Column(Modifier.weight(1f)) {
-                            Text("Default PIN (4 digits)", color = colors.textSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 4.dp))
+                            Text("Default PIN (4-6 digits)", color = colors.textSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 4.dp))
                             Box(Modifier.fillMaxWidth().background(colors.surface3, RoundedCornerShape(6.dp)).border(1.dp, colors.borderDefault, RoundedCornerShape(6.dp)).padding(horizontal = 12.dp, vertical = 10.dp)) {
                                 BasicTextField(
                                     value = newPin,
-                                    onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) newPin = it },
+                                    onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) newPin = it },
                                     textStyle = TextStyle(color = colors.textPrimary, fontSize = 13.sp, letterSpacing = 8.sp),
                                     cursorBrush = SolidColor(colors.accent),
                                     modifier = Modifier.fillMaxWidth()
                                 )
-                                if (newPin.isEmpty()) Text("••••", color = colors.textMuted, fontSize = 13.sp, letterSpacing = 8.sp)
+                                if (newPin.isEmpty()) Text("••••••", color = colors.textMuted, fontSize = 13.sp, letterSpacing = 8.sp)
                             }
                         }
                     }
@@ -4742,8 +4733,8 @@ fun EmployeesScreen(syncLogs: MutableList<String>) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
                             onClick = {
-                                if (newPin.length != 4) {
-                                    statusMsg = "PIN must be exactly 4 digits"
+                                if (newPin.length !in 4..6) {
+                                    statusMsg = "PIN must be 4 to 6 digits"
                                     statusErr = true
                                     return@Button
                                 }
@@ -4895,7 +4886,7 @@ fun EmployeesScreen(syncLogs: MutableList<String>) {
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Text("Reset Staff PIN", color = colors.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                Text("Enter a new 4-digit PIN for staff member ${empId.take(8).uppercase()}.", color = colors.textSecondary, fontSize = 11.sp)
+                Text("Enter a new 4-6 digit PIN for staff member ${empId.take(8).uppercase()}.", color = colors.textSecondary, fontSize = 11.sp).uppercase()}.", color = colors.textSecondary, fontSize = 11.sp)
 
                 var changePinVisible by remember { mutableStateOf(false) }
                 Box(Modifier.fillMaxWidth().background(colors.surface3, RoundedCornerShape(6.dp)).border(1.dp, colors.borderDefault, RoundedCornerShape(6.dp)).padding(horizontal = 12.dp, vertical = 10.dp)) {
@@ -4903,13 +4894,13 @@ fun EmployeesScreen(syncLogs: MutableList<String>) {
                         Box(modifier = Modifier.weight(1f)) {
                             BasicTextField(
                                 value = changePinNewVal,
-                                onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) changePinNewVal = it },
+                                onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) changePinNewVal = it },
                                 textStyle = TextStyle(color = colors.textPrimary, fontSize = 13.sp, letterSpacing = 8.sp),
                                 visualTransformation = if (changePinVisible) VisualTransformation.None else PasswordVisualTransformation(),
                                 cursorBrush = SolidColor(colors.accent),
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            if (changePinNewVal.isEmpty()) Text("••••", color = colors.textMuted, fontSize = 13.sp, letterSpacing = 8.sp)
+                            if (changePinNewVal.isEmpty()) Text("••••••", color = colors.textMuted, fontSize = 13.sp, letterSpacing = 8.sp)
                         }
                         Spacer(Modifier.width(4.dp))
                         Text(
@@ -4935,8 +4926,8 @@ fun EmployeesScreen(syncLogs: MutableList<String>) {
 
                     Button(
                         onClick = {
-                            if (changePinNewVal.length != 4) {
-                                changePinStatusMsg = "PIN must be exactly 4 digits"
+                            if (changePinNewVal.length !in 4..6) {
+                                changePinStatusMsg = "PIN must be 4 to 6 digits"
                                 return@Button
                             }
                             scope.launch(Dispatchers.IO) {
@@ -5506,13 +5497,13 @@ fun SettingsScreen(
                                         Box(modifier = Modifier.weight(1f)) {
                                             BasicTextField(
                                                 value = currentPin,
-                                                onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) currentPin = it },
+                                                onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) currentPin = it },
                                                 textStyle = TextStyle(color = colors.textPrimary, fontSize = 12.sp, letterSpacing = 4.sp),
                                                 visualTransformation = if (currentPinVisible) VisualTransformation.None else PasswordVisualTransformation(),
                                                 modifier = Modifier.fillMaxWidth(),
                                                 cursorBrush = SolidColor(colors.accent)
                                             )
-                                            if (currentPin.isEmpty()) Text("••••", color = colors.textMuted, fontSize = 12.sp, letterSpacing = 4.sp)
+                                            if (currentPin.isEmpty()) Text("••••••", color = colors.textMuted, fontSize = 12.sp, letterSpacing = 4.sp)
                                         }
                                         Spacer(Modifier.width(4.dp))
                                         Text(
@@ -5531,13 +5522,13 @@ fun SettingsScreen(
                                         Box(modifier = Modifier.weight(1f)) {
                                             BasicTextField(
                                                 value = newPin,
-                                                onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) newPin = it },
+                                                onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) newPin = it },
                                                 textStyle = TextStyle(color = colors.textPrimary, fontSize = 12.sp, letterSpacing = 4.sp),
                                                 visualTransformation = if (newPinVisible) VisualTransformation.None else PasswordVisualTransformation(),
                                                 modifier = Modifier.fillMaxWidth(),
                                                 cursorBrush = SolidColor(colors.accent)
                                             )
-                                            if (newPin.isEmpty()) Text("••••", color = colors.textMuted, fontSize = 12.sp, letterSpacing = 4.sp)
+                                            if (newPin.isEmpty()) Text("••••••", color = colors.textMuted, fontSize = 12.sp, letterSpacing = 4.sp)
                                         }
                                         Spacer(Modifier.width(4.dp))
                                         Text(
@@ -5558,13 +5549,13 @@ fun SettingsScreen(
                                     Box(modifier = Modifier.weight(1f)) {
                                         BasicTextField(
                                             value = confirmPin,
-                                            onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) confirmPin = it },
+                                            onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) confirmPin = it },
                                             textStyle = TextStyle(color = colors.textPrimary, fontSize = 12.sp, letterSpacing = 4.sp),
                                             visualTransformation = if (confirmPinVisible) VisualTransformation.None else PasswordVisualTransformation(),
                                             modifier = Modifier.fillMaxWidth(),
                                             cursorBrush = SolidColor(colors.accent)
                                         )
-                                        if (confirmPin.isEmpty()) Text("••••", color = colors.textMuted, fontSize = 12.sp, letterSpacing = 4.sp)
+                                        if (confirmPin.isEmpty()) Text("••••••", color = colors.textMuted, fontSize = 12.sp, letterSpacing = 4.sp)
                                     }
                                     Spacer(Modifier.width(4.dp))
                                     Text(
@@ -5580,8 +5571,8 @@ fun SettingsScreen(
 
                     Button(
                         onClick = {
-                            if (newPin.length != 4 || newPin != confirmPin) {
-                                statusMsg = "PIN mismatch or not 4 digits."
+                            if (newPin.length !in 4..6 || newPin != confirmPin) {
+                                statusMsg = "PIN mismatch or not 4-6 digits."
                                 statusErr = true
                                 return@Button
                             }
@@ -5784,10 +5775,14 @@ fun SettingsScreen(
             Text("SUBSCRIPTION AND MANUAL BILLING", color = colors.textSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             Divider(color = colors.borderSubtle)
 
-            Text("Bank: NayaPay", color = colors.textPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            Text("Account Title: MUHAMMAD SOBAN ALI", color = colors.textPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            Text("Account Number: 03315133226", color = colors.textPrimary, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-            Text("IBAN: PK47NAYA1234503315133226", color = colors.textPrimary, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+            val bankName = System.getenv("VALENIXIA_BANK_NAME") ?: com.valenixia.commerce.db.Database.getPreference("billing_bank_name") ?: "NayaPay"
+            val accountTitle = System.getenv("VALENIXIA_ACCOUNT_TITLE") ?: com.valenixia.commerce.db.Database.getPreference("billing_account_title") ?: "Merchant Services"
+            val accountNumber = System.getenv("VALENIXIA_ACCOUNT_NUMBER") ?: com.valenixia.commerce.db.Database.getPreference("billing_account_number") ?: "00000000000"
+            val iban = System.getenv("VALENIXIA_IBAN") ?: com.valenixia.commerce.db.Database.getPreference("billing_iban") ?: "PK000000000000000000"
+            Text("Bank: " + bankName, color = colors.textPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text("Account Title: " + accountTitle, color = colors.textPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text("Account Number: " + accountNumber, color = colors.textPrimary, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+            Text("IBAN: " + iban, color = colors.textPrimary, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
 
             Spacer(Modifier.height(4.dp))
             Text("Select Upgrade Plan", color = colors.textSecondary, fontSize = 9.sp, fontWeight = FontWeight.Bold)

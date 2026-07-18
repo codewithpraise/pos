@@ -272,13 +272,69 @@ const LicenseEngine = (() => {
     document.getElementById('license-emergency-btn')?.addEventListener('click', async () => {
       const pin = await showModal({
         title: 'Emergency Override',
-        message: 'Enter Manager or Administrator PIN for emergency override:',
+        message: 'Enter Administrator PIN for emergency override:',
         input: { type: 'password', placeholder: 'Enter PIN' },
         actions: [
           { id: 'cancel', label: 'Cancel', style: 'secondary' },
           { id: 'submit', label: 'Submit', style: 'primary' }
         ]
       });
+      if (!pin || pin === 'cancel') return;
+      
+      const serverBase = window.__valenixiaServerUrl || location.origin;
+      try {
+        const resp = await fetch(serverBase + '/api/auth/emergency-override', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin })
+        });
+        
+        if (resp.ok) {
+          const data = await resp.json();
+          await ValenixiaDB.setSecurePref('emergency_override_until', String(data.emergency_override_until));
+          if(window.showModal) showModal({ title: 'License', message: 'Server emergency override accepted.', type: 'warning' });
+          location.reload();
+          return;
+        }
+      } catch (err) {
+        console.warn('[LicenseEngine] Server emergency bypass failed. Trying local DB fallback...', err.message);
+      }
+
+      try {
+        const emp = await ValenixiaDB.verifyEmployeePin(pin);
+        if (emp && emp.role === 'ADMIN') { // STRICTLY ADMIN
+          const lastBypassPref = await ValenixiaDB.get('local_preferences', 'last_emergency_bypass_time');
+          const lastBypass = lastBypassPref ? parseInt(lastBypassPref.value_payload, 10) : 0;
+          if (Date.now() - lastBypass < 24 * 60 * 60 * 1000) {
+            if(window.showModal) showModal({ title: 'License', message: 'Access denied: Offline emergency override can only be triggered once every 24 hours.', type: 'warning' });
+            return;
+          }
+          const localUntil = Date.now() + 15 * 60 * 1000;
+          await ValenixiaDB.setSecurePref('emergency_override_until', String(localUntil));
+          await ValenixiaDB.put('local_preferences', {
+            key: 'last_emergency_bypass_time',
+            value_type: 'STR',
+            value_payload: String(Date.now()),
+            is_idempotent_flag: 0,
+            updated_at: Date.now()
+          });
+          // Log local bypass to local audit logs table (Issue 1)
+          await ValenixiaDB.put('audit_logs', {
+            id: 'audit_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+            user_id: emp.id,
+            action: 'EMERGENCY_OFFLINE_BYPASS',
+            details: 'Emergency offline bypass accepted by ADMIN',
+            created_at: Date.now()
+          });
+          if(window.showModal) showModal({ title: 'License', message: 'System emergency override bypass accepted.', type: 'warning' });
+          location.reload();
+        } else {
+          if(window.showModal) showModal({ title: 'License', message: 'Access denied: Invalid Admin PIN.', type: 'warning' });
+        }
+      } catch (dbErr) {
+        if(window.showModal) showModal({ title: 'License', message: 'Offline verification failed: ' + dbErr.message, type: 'danger' });
+      }
+    });
       if (!pin || pin === 'cancel') return;
       
       const serverBase = window.__valenixiaServerUrl || location.origin;
@@ -533,10 +589,11 @@ const LicenseEngine = (() => {
   // â”€â”€ Staged Neo-Minimalist Trial HUD Banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function updateTrialHUD(payload) {
     // Check if AMC is expired for Lifetime licenses
+    const amcGracePeriod = 30 * 24 * 60 * 60 * 1000; // 30-day grace period (Issue 6)
     const isAmcExpired = payload && payload.mode === 'lifetime' && 
                          payload.purchased_at && 
                          (Date.now() > payload.purchased_at + 365 * 24 * 60 * 60 * 1000) && 
-                         (!payload.amc_paid_until || payload.amc_paid_until < Date.now());
+                         (!payload.amc_paid_until || (payload.amc_paid_until + amcGracePeriod < Date.now()));
     
     if (isAmcExpired) {
       document.getElementById('trial-hud-banner')?.remove();
@@ -548,9 +605,9 @@ const LicenseEngine = (() => {
         text-align: center; font-family: 'Manrope', sans-serif; font-size: 12px;
         font-weight: 700; padding: 10px 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         display: flex; align-items: center; justify-content: center; gap: 8px;
-        background-color: #ef4444; color: #060608; cursor: pointer;
+        background-color: #f59e0b; color: #060608; cursor: pointer;
       `;
-      banner.innerHTML = `âš ï¸ AMC EXPIRED: Your Annual Maintenance Contract has expired. Cloud sync and support are disabled. Click here to renew.`;
+      banner.innerHTML = `⚠️ AMC NOTICE: Your Annual Maintenance Contract has expired. Cloud sync and support are offline, but local billing continues to function. Click here to renew.`;
       document.body.appendChild(banner);
       document.body.style.paddingTop = '38px';
       
@@ -560,7 +617,7 @@ const LicenseEngine = (() => {
         }
       });
       
-      window.__amcExpired = true;
+      window.__amcExpired = false; // Optional warning: do not block core features (Issue 5)
       return;
     } else {
       window.__amcExpired = false;
@@ -708,11 +765,13 @@ const LicenseEngine = (() => {
     if (tampered) {
       mountClockTamperOverlay(lastKnown, osClock, async (pin) => {
         let matched = false;
+        let matchedEmpId = 'ADMIN';
         // Check local DB first
         try {
           const emp = await ValenixiaDB.verifyEmployeePin(pin);
-          if (emp && (emp.role === 'MANAGER' || emp.role === 'ADMIN')) {
+          if (emp && emp.role === 'ADMIN') { // STRICTLY ADMIN (Issue 2)
             matched = true;
+            matchedEmpId = emp.id;
           }
         } catch (e) {}
 
@@ -725,6 +784,43 @@ const LicenseEngine = (() => {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ pin })
             });
+            if (resp.ok) {
+              const data = await resp.json();
+              if (data && data.employee && data.employee.role === 'ADMIN') { // STRICTLY ADMIN (Issue 2)
+                matched = true;
+                matchedEmpId = data.employee.id;
+              }
+            }
+          } catch (e) {}
+        }
+
+        if (matched) {
+          try {
+            // Log local override to local audit logs table (Issue 2)
+            await ValenixiaDB.put('audit_logs', {
+              id: 'audit_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+              user_id: matchedEmpId,
+              action: 'CLOCK_ROLLBACK_OVERRIDE',
+              details: 'System clock rollback bypass override accepted by ADMIN',
+              created_at: Date.now()
+            });
+            await ValenixiaDB.put('local_preferences', {
+              key: 'clock_override_active_until',
+              value_type: 'STR',
+              value_payload: String(Date.now() + 7 * 24 * 60 * 60 * 1000),
+              is_idempotent_flag: 0,
+              updated_at: Date.now()
+            });
+          } catch (e) {
+            console.warn('[License] Failed local auditing clock override:', e.message);
+          }
+          await updateTimeAnchor();
+          if(window.showModal) showModal({ title: 'License', message: 'System clock override bypass accepted.', type: 'warning' }); else console.warn('[License]', 'Clock override accepted');
+          location.reload();
+        } else {
+          if(window.showModal) showModal({ title: 'License', message: 'Access denied: Invalid Admin PIN.', type: 'warning' }); else console.warn('[License]', 'Access denied');
+        }
+      });
             if (resp.ok) {
               const data = await resp.json();
               if (data && data.employee && (data.employee.role === 'MANAGER' || data.employee.role === 'ADMIN')) {
@@ -898,6 +994,8 @@ const LicenseEngine = (() => {
 
   function mountEmergencyHUD(until) {
     document.getElementById('emergency-hud-banner')?.remove();
+    document.getElementById('emergency-hud-watermark')?.remove();
+
     const banner = document.createElement('div');
     banner.id = 'emergency-hud-banner';
     banner.style.cssText = `
@@ -907,16 +1005,28 @@ const LicenseEngine = (() => {
       box-shadow: 0 -4px 12px rgba(0,0,0,0.3); letter-spacing: 0.05em;
     `;
     
+    const watermark = document.createElement('div');
+    watermark.id = 'emergency-hud-watermark';
+    watermark.style.cssText = `
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg);
+      font-size: 5vw; font-weight: 900; color: rgba(239, 68, 68, 0.08);
+      pointer-events: none; user-select: none; z-index: 9999; white-space: nowrap;
+      font-family: sans-serif;
+    `;
+    watermark.textContent = 'EMERGENCY MODE — SERVER UNREACHABLE';
+    document.body.appendChild(watermark);
+    
     const updateTime = () => {
       const remaining = until - Date.now();
       if (remaining <= 0) {
         banner.remove();
+        watermark.remove();
         location.reload();
       } else {
         const secs = Math.ceil(remaining / 1000);
         const mins = Math.floor(secs / 60);
         const secStr = (secs % 60).toString().padStart(2, '0');
-        banner.innerText = `âš ï¸ EMERGENCY OVERRIDE ACTIVE â€” EXPIRES IN ${mins}:${secStr} â€” PLEASE ACTIVATE LICENSE`;
+        banner.innerText = `⚠️ EMERGENCY OVERRIDE ACTIVE — EXPIRES IN ${mins}:${secStr} — PLEASE ACTIVATE LICENSE`;
       }
     };
     

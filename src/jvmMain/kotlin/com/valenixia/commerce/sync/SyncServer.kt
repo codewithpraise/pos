@@ -71,11 +71,31 @@ object SyncServer {
     private val json = Json { ignoreUnknownKeys = true }
     var serverPort: Int = 3000
 
+    @Volatile
+    private var cachedKey: ByteArray? = null
+    @Volatile
+    private var cachedPassphraseHash: Int? = null
+
     fun deriveKey(passphrase: String): ByteArray {
-        val salt = "valenixia_salt"
-        val spec = PBEKeySpec(passphrase.toCharArray(), salt.toByteArray(), 1000, 256)
-        val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
-        return factory.generateSecret(spec).encoded
+        val currentHash = passphrase.hashCode()
+        val existing = cachedKey
+        if (existing != null && cachedPassphraseHash == currentHash) {
+            return existing
+        }
+        var salt = Database.getPreference("sync_salt")
+        if (salt == null || salt.isEmpty()) {
+            val randomBytes = ByteArray(16)
+            java.security.SecureRandom().nextBytes(randomBytes)
+            salt = java.util.Base64.getEncoder().encodeToString(randomBytes)
+            Database.setPreference("sync_salt", "STR", salt)
+        }
+        val spec = javax.xml.crypto.dsig.spec.HMACParameterSpec::class // just check import if needed, otherwise use full path
+        val keySpec = javax.crypto.spec.PBEKeySpec(passphrase.toCharArray(), salt.toByteArray(), 100000, 256)
+        val factory = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+        val key = factory.generateSecret(keySpec).encoded
+        cachedKey = key
+        cachedPassphraseHash = currentHash
+        return key
     }
 
     fun decryptPayload(text: String, passphrase: String): String {
@@ -425,14 +445,12 @@ object SyncServer {
 
                         var status = Database.getDeviceStatus(nodeId)
                         if (nodeId.startsWith("web_client_") || 
-                            nodeId == Database.hlc.nodeId || 
-                            nodeId == "valenixia_master_pc_01" || 
-                            nodeId == "cfd_tab_2") {
+                            nodeId == Database.hlc.nodeId) {
                             status = "APPROVED"
                         }
 
                         if (status == "APPROVED") {
-                            val role = if (nodeId == Database.hlc.nodeId || nodeId == "valenixia_master_pc_01" || nodeId == "cfd_tab_2") "MASTER" else "TERMINAL"
+                            val role = if (nodeId == Database.hlc.nodeId) "MASTER" else "TERMINAL"
                             val token = generateToken(nodeId, role)
                             
                             if (Database.getDeviceStatus(nodeId) == null) {
@@ -454,18 +472,13 @@ object SyncServer {
 
                 // 1.f Unprotected or conditionally authenticated employee login
                 post("/api/employee/login") {
-                    val host = call.request.local.remoteHost
-                    val isLocal = host == "127.0.0.1" || host == "0:0:0:0:0:0:0:1" || host == "localhost"
-                    
-                    var authenticated = isLocal
-                    if (!authenticated) {
-                        val authHeader = call.request.headers["Authorization"]
-                        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                            val token = authHeader.substring(7)
-                            val claims = verifyJwtToken(token)
-                            if (claims != null && Database.getDeviceStatus(claims["sub"] ?: "") == "APPROVED") {
-                                authenticated = true
-                            }
+                    var authenticated = false
+                    val authHeader = call.request.headers["Authorization"]
+                    if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                        val token = authHeader.substring(7)
+                        val claims = verifyJwtToken(token)
+                        if (claims != null && Database.getDeviceStatus(claims["sub"] ?: "") == "APPROVED") {
+                            authenticated = true
                         }
                     }
                     

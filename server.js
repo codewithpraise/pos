@@ -1700,10 +1700,11 @@ wss.on('connection', (ws, req) => {
 
           // If AMC is expired, block sync
           const storeRow = await db.get("SELECT * FROM stores LIMIT 1");
+          const amcGracePeriod = 30 * 24 * 60 * 60 * 1000; // 30-day grace (Issue 6)
           const isAmcExpired = storeRow && storeRow.mode === 'lifetime' && 
                                storeRow.purchased_at && 
                                (Date.now() > storeRow.purchased_at + 365 * 24 * 60 * 60 * 1000) && 
-                               (!storeRow.amc_paid_until || storeRow.amc_paid_until < Date.now());
+                               (!storeRow.amc_paid_until || (storeRow.amc_paid_until + amcGracePeriod < Date.now()));
           if (isAmcExpired) {
             console.warn(`[SyncHub] Client ${data.nodeId} sync blocked: AMC has expired.`);
             ws.send(encryptPayload({
@@ -2119,6 +2120,14 @@ app.post('/api/onboard', checkOrigin, loginLimiter, requireBody({ name: 'STORE_N
     const existing = await db.get("SELECT * FROM stores WHERE phone = ? OR email = ?", [sanitizedPhone, sanitizedEmail]);
     if (existing) {
       return res.status(400).json({ error: 'A store with this phone or email already exists.' });
+    }
+
+    // Check device HWID uniqueness to prevent trial abuse (Issue 1)
+    if (hwid) {
+      const existingDevice = await db.get("SELECT id FROM devices WHERE hardware_id = ?", [hwid.toUpperCase()]);
+      if (existingDevice) {
+        return res.status(409).json({ error: 'A trial has already been claimed on this device.' });
+      }
     }
 
     let status = 'active';
@@ -3070,7 +3079,7 @@ app.post('/api/auth/emergency-override', checkOrigin, requireAdmin, loginLimiter
     let matchedEmp = null;
 
     for (const emp of employees) {
-      if (emp.role === 'MANAGER' || emp.role === 'ADMIN') {
+      if (emp.role === 'ADMIN') { // STRICTLY ADMIN (Issue 3)
         if (await verifyPin(pin, emp.pin_hash)) {
           matchedEmp = emp;
           break;
@@ -4362,6 +4371,20 @@ app.post('/api/void-transaction', requireAuth, checkOrigin, loginLimiter, requir
     }
 
     await clearPinLockout(lockoutKey);
+    // If it is a manual drawer open (No-Sale), record to admin_audit_log and return success directly (Issue 5)
+    if (transactionId.startsWith('no_sale_')) {
+      await db.run(
+        "INSERT INTO admin_audit_log (id, user_id, action, details, created_at) VALUES (?, ?, ?, ?, ?)",
+        [
+          crypto.randomUUID(),
+          matchedMgr.id,
+          'NO_SALE_DRAWER_KICK',
+          JSON.stringify({ reason: voidReason || 'Manual drawer open' }),
+          Date.now()
+        ]
+      );
+      return res.json({ success: true, message: 'No-Sale drawer open logged.' });
+    }
     const contraId = await createVoidContraEntry(transactionId, matchedMgr.id, voidReason || 'Manager void');
     res.json({ success: true, contraId });
   } catch (err) {

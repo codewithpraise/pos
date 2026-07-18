@@ -298,6 +298,31 @@
     document.addEventListener('DOMContentLoaded', initScrollObserver);
   }
 
+  // Idle Timeout Auto-Logout (Issue 8)
+  let idleTimer;
+  function resetIdleTimer() {
+    clearTimeout(idleTimer);
+    const isLockScreenActive = document.getElementById('auth-lock-screen')?.classList.contains('active');
+    if (state.activeCashier && !isLockScreenActive) {
+      idleTimer = setTimeout(() => {
+        console.log('[IdleDetector] Logging out cashier due to inactivity.');
+        if (typeof performLogout === 'function') {
+          performLogout();
+        } else {
+          state.activeCashier = null;
+          state.terminalRole = null;
+          state.currentPin = '';
+          document.getElementById('auth-lock-screen')?.classList.add('active');
+          const layout = document.getElementById('pos-app-layout');
+          if (layout) layout.style.display = 'none';
+        }
+      }, 5 * 60 * 1000); // 5 minutes
+    }
+  }
+  ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'].forEach(evt => {
+    document.addEventListener(evt, resetIdleTimer, { passive: true });
+  });
+
   // App state
   const state = {
     isOnline: true,
@@ -937,6 +962,20 @@ setHtml(overlay, `
           if (dbResult) {
             dbInitialized = true;
             console.log(`[App] IndexedDB initialized successfully on attempt ${attempt + 1}`);
+            try {
+              const clockOverridePref = await ValenixiaDB.get('local_preferences', 'clock_override_active_until');
+              if (clockOverridePref && parseInt(clockOverridePref.value_payload, 10) > Date.now()) {
+                if (!document.getElementById('clock-override-warning-banner')) {
+                  const banner = document.createElement('div');
+                  banner.id = 'clock-override-warning-banner';
+                  banner.style.cssText = 'background: #ef4444; color: #fff; font-weight: 800; text-align: center; padding: 10px; font-size: 13px; z-index: 99999; position: relative; letter-spacing: 0.05em;';
+                  banner.textContent = '⚠️ WARNING: CLOCK ROLLBACK OVERRIDE ACTIVE ON THIS TERMINAL.';
+                  document.body.prepend(banner);
+                }
+              }
+            } catch (e) {
+              console.warn('[App] Failed checking clock override banner status:', e.message);
+            }
             break;
           } else {
             throw new Error('IndexedDB initialization returned null (degraded boot).');
@@ -5135,6 +5174,7 @@ setHtml(row, `
         matched.clockIn = Date.now();
         state.activeCashier = matched;
         state.terminalRole = 'REGISTER';
+        resetIdleTimer();
         state.currentPin = ''; // Zero immediately
         updatePinDisplayDots(); // Update display to show empty
         document.getElementById('auth-lock-screen').classList.remove('active');
@@ -7964,6 +8004,38 @@ setHtml(btn, `${preset.icon} ${preset.label}`);
 
     if (isAuditReset && !await showModal({ title: 'Confirm', message: '', type: 'warning', actions: [{ id: 'yes', label: 'Yes, Continue', style: 'danger' }, { id: 'no', label: 'Cancel', style: 'secondary' }] }) === 'yes') {
       return;
+    }
+
+    // Verify price override limits (Issue 9)
+    const isNew = !document.getElementById('form-product-sku').disabled;
+    const originalProd = state.catalog.find(p => p.sku === sku);
+    if (originalProd && !isNew) {
+      const oldPrice = originalProd.base_price_minor_units || 0;
+      const absDiff = Math.abs(price - oldPrice);
+      const pctDiff = oldPrice > 0 ? (absDiff / oldPrice) : 0;
+      if (pctDiff > 0.10 || absDiff > 50000) { // >10% or > Rs. 500 (50,000 paise)
+        const pin = await showModal({
+          title: 'Manager Approval Required',
+          message: `Price modification for "${name}" exceeds limits (>10% or >Rs. 500). Please enter Manager/Admin PIN:`,
+          type: 'warning',
+          actions: [{ id: 'ok', label: 'Approve', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }],
+          input: { placeholder: 'Manager PIN', defaultValue: '' }
+        });
+        if (!pin || pin === 'cancel') {
+          showNotificationToast('Price change rejected — approval cancelled.', 'error', 4000);
+          return;
+        }
+        const mgr = state.employees?.find(e => (e.role === 'MANAGER' || e.role === 'ADMIN') && e.is_active === 1);
+        if (!mgr) {
+          showNotificationToast('No active manager profile found for verification.', 'error', 4000);
+          return;
+        }
+        const isAuthorized = await window.ClientDB.verifyPinClient(pin);
+        if (!isAuthorized) {
+          showNotificationToast('Invalid manager PIN — price modification denied.', 'error', 4000);
+          return;
+        }
+      }
     }
 
     syncWorker.postMessage({

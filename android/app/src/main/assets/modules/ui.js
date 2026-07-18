@@ -16,18 +16,42 @@ export function renderPremiumEmptyState(containerId, icon, title, subtitle, ctaL
   const container = document.getElementById(containerId);
   if (!container) return;
 
-  const ctaHtml = ctaLabel ? `<button class="btn-empty-cta" id="empty-cta-${containerId}">${ctaLabel}</button>` : '';
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function sanitizeIcon(rawIcon) {
+    if (!rawIcon) return '';
+    const clean = String(rawIcon).trim();
+    if (clean.startsWith('<') && typeof window !== 'undefined' && window.DOMPurify) {
+      return window.DOMPurify.sanitize(clean);
+    }
+    return escapeHtml(clean);
+  }
+
+  const escapedTitle = escapeHtml(title);
+  const escapedSubtitle = escapeHtml(subtitle);
+  const sanitizedIcon = sanitizeIcon(icon);
+  const escapedCtaLabel = escapeHtml(ctaLabel);
+
+  const ctaHtml = escapedCtaLabel ? `<button class="btn-empty-cta" id="empty-cta-${containerId}">${escapedCtaLabel}</button>` : '';
 
   container.innerHTML = `
-    <div class="pos-empty-state" role="status" aria-label="${title}">
-      <span class="pos-empty-state-icon" aria-hidden="true">${icon}</span>
-      <h3>${title}</h3>
-      <p>${subtitle}</p>
+    <div class="pos-empty-state" role="status" aria-label="${escapedTitle}">
+      <span class="pos-empty-state-icon" aria-hidden="true">${sanitizedIcon}</span>
+      <h3>${escapedTitle}</h3>
+      <p>${escapedSubtitle}</p>
       ${ctaHtml}
     </div>
   `;
 
-  if (ctaLabel && ctaFn) {
+  if (escapedCtaLabel && ctaFn) {
     const ctaEl = document.getElementById(`empty-cta-${containerId}`);
     if (ctaEl) ctaEl.addEventListener('click', ctaFn);
   }
