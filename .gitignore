@@ -45,6 +45,11 @@ chrome-profile-fresh-*/
 .nexova_hwid
 chrome_startup.log
 *results.txt
+inspect_*.js
+debug_*.js
+check_*.js
+open_pos.js
+visual_regression_check.js
 scan.js
 scan-root.js
 test.js

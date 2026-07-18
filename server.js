@@ -25,25 +25,6 @@ if (!process.env.SERVER_MASTER_KEY) {
   envUpdated = true;
 }
 
-if (process.env.NODE_ENV !== 'production') {
-  if (!envContent.includes('TEST_ADMIN_PIN=')) {
-    envContent += `\nTEST_ADMIN_PIN=1234\n`;
-    envUpdated = true;
-  }
-  if (!envContent.includes('TEST_LICENSE_KEY=')) {
-    envContent += `\nTEST_LICENSE_KEY=VALENIXIA-ADMIN-777\n`;
-    envUpdated = true;
-  }
-  if (!envContent.includes('TEST_PASSPHRASE=')) {
-    envContent += `\nTEST_PASSPHRASE=TestKey2024!\n`;
-    envUpdated = true;
-  }
-  if (!envContent.includes('TEST_HWIDS=')) {
-    envContent += `\nTEST_HWIDS=MOCK_ADMIN_HWID,TEST-HWID\n`;
-    envUpdated = true;
-  }
-}
-
 if (envUpdated) {
   fs.writeFileSync(envPath, envContent, { mode: 0o600 });
 }

@@ -8,27 +8,17 @@
 //   node license-keygen.js verify --token=<base64_token> --hwid=<fingerprint>
 // ============================================================================
 
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 const os = require('os');
 
 const DEFAULT_PRIVATE_KEY_DIR = path.join(os.homedir(), '.valenixia');
-const LEGACY_PRIVATE_KEY_PATH = path.join(__dirname, '.license-private.pem');
 const PRIVATE_KEY_PATH = process.env.LICENSE_PRIVATE_KEY_PATH ||
   path.join(DEFAULT_PRIVATE_KEY_DIR, '.license-private.pem');
 const PUBLIC_KEY_PATH  = path.join(__dirname, 'public-license-key.pem');
 
 const TIERS = ['TRIAL', 'STARTER', 'PRO', 'ENTERPRISE'];
-
-function checkKeyMigration() {
-  if (!process.env.LICENSE_PRIVATE_KEY_PATH && fs.existsSync(LEGACY_PRIVATE_KEY_PATH) && !fs.existsSync(PRIVATE_KEY_PATH)) {
-    console.warn('\n[SECURITY MIGRATION REQUIRED]');
-    console.warn(`Legacy private key found at: ${LEGACY_PRIVATE_KEY_PATH}`);
-    console.warn(`Please move it to the secure user home location: ${PRIVATE_KEY_PATH}`);
-    console.warn(`Command: mkdir -p ${DEFAULT_PRIVATE_KEY_DIR} && mv ${LEGACY_PRIVATE_KEY_PATH} ${PRIVATE_KEY_PATH}\n`);
-    // Fall back to legacy key path for compatibility if not explicitly moved yet
-    return LEGACY_PRIVATE_KEY_PATH;
-  }
-  return PRIVATE_KEY_PATH;
-}
 
 function generateKeyPair() {
   const targetPrivateKeyPath = PRIVATE_KEY_PATH;
@@ -64,7 +54,7 @@ function signLicense(hwid, tier, days) {
     console.error('[ERROR] Invalid tier. Must be one of:', TIERS.join(', '));
     process.exit(1);
   }
-  const activeKeyPath = checkKeyMigration();
+  const activeKeyPath = PRIVATE_KEY_PATH;
   if (!fs.existsSync(activeKeyPath)) {
     console.error('[ERROR] Private key not found. Run: node license-keygen.js generate');
     process.exit(1);
