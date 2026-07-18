@@ -331,14 +331,42 @@ const loginLimiter = rateLimit({
   skip: () => process.env.NODE_ENV === 'test'
 });
 
+function isOriginValid(origin, req) {
+  if (!origin) return true; // non-browser requests
+  
+  // Allow file:// for Android WebView assets
+  if (origin.startsWith('file://')) return true;
+
+  try {
+    const originUrl = new URL(origin);
+    const host = req ? req.header('Host') : null;
+    
+    // 1. Same-origin or same-host check (essential for local server network)
+    if (host && (originUrl.host === host || originUrl.origin === `http://${host}` || originUrl.origin === `https://${host}`)) {
+      return true;
+    }
+    // 2. Local loopback checks
+    if (originUrl.hostname === 'localhost' || originUrl.hostname === '127.0.0.1') {
+      return true;
+    }
+    // 3. Configured allowed frontend/origin URLs
+    if (process.env.ALLOWED_ORIGIN && originUrl.origin === new URL(process.env.ALLOWED_ORIGIN).origin) {
+      return true;
+    }
+    if (process.env.FRONTEND_URL && originUrl.origin === new URL(process.env.FRONTEND_URL).origin) {
+      return true;
+    }
+    // 4. Allowed domain whitelist
+    if (/\.valenixia\.com$/.test(originUrl.hostname) || originUrl.hostname === 'valenixia.com') {
+      return true;
+    }
+  } catch (_) {}
+  return false;
+}
+
 function checkOrigin(req, res, next) {
   const origin = req.headers['origin'] || req.headers['referer'] || '';
-  const isLocalRequest = !origin || 
-    origin.startsWith('http://localhost') ||
-    origin.startsWith('http://127.0.0.1') ||
-    origin.startsWith('file://') ||
-    /^https?:\/\/(?:192\.168\.|10\.|172\.(?:1[6-9]|2[0-9]|3[01])\.)/.test(origin);
-  if (!isLocalRequest) {
+  if (!isOriginValid(origin, req)) {
     return res.status(403).json({ error: 'Cross-origin requests are not permitted to this endpoint.' });
   }
   next();
@@ -504,25 +532,7 @@ app.use(helmet({
 const corsOptionsDelegate = function (req, callback) {
   let corsOptions;
   const origin = req.header('Origin');
-  let isAllowed = false;
-  if (!origin) {
-    isAllowed = true;
-  } else {
-    try {
-      const originUrl = new URL(origin);
-      const host = req.header('Host'); // e.g. "192.168.1.50:3000" or "localhost:3000"
-      
-      if (host && (originUrl.host === host || originUrl.origin === `http://${host}` || originUrl.origin === `https://${host}`)) {
-        isAllowed = true;
-      } else if (originUrl.hostname === 'localhost' || originUrl.hostname === '127.0.0.1') {
-        isAllowed = true;
-      } else if (process.env.FRONTEND_URL && originUrl.origin === new URL(process.env.FRONTEND_URL).origin) {
-        isAllowed = true;
-      } else if (/\.valenixia\.com$/.test(originUrl.hostname) || originUrl.hostname === 'valenixia.com') {
-        isAllowed = true;
-      }
-    } catch (_) {}
-  }
+  const isAllowed = isOriginValid(origin, req);
   
   if (isAllowed) {
     corsOptions = { origin: true, credentials: true };

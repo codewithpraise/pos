@@ -4,7 +4,9 @@
 // v7 - Hardened fetch handler: no unhandled rejections, no undefined responses
 // ============================================================================
 
-const CACHE_NAME = 'valenixia-pos-cache-v11';
+const urlParams = new URLSearchParams(self.location.search);
+const buildVersion = urlParams.get('v') || 'dev';
+const CACHE_NAME = `valenixia-pos-cache-v${buildVersion}`;
 const ASSETS_TO_CACHE = [
   { url: '/', integrity: '' },
   { url: '/index.html', integrity: '' },

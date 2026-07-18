@@ -26,6 +26,18 @@ async function runBackup() {
   }
 
   const backupPath = path.join(BACKUP_DIR, `valenixia_${timestamp()}.db`);
+  
+  // Enforce SQLite index maintenance pass as part of daily background backup instead of startup
+  console.log('[Backup] Executing SQLite index maintenance pass (REINDEX, VACUUM, ANALYZE)...');
+  try {
+    await db.exec('PRAGMA reindex;');
+    await db.exec('PRAGMA vacuum;');
+    await db.exec('PRAGMA analyze;');
+    console.log('[Backup] SQLite index maintenance pass completed.');
+  } catch (err) {
+    console.warn('[Backup] SQLite index maintenance pass bypassed:', err.message);
+  }
+
   console.log(`[Backup] Starting online backup → ${backupPath}`);
 
   try {

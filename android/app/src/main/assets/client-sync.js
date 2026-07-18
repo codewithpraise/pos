@@ -145,8 +145,15 @@ class SyncClient {
 
     // Guard: do not reconnect while passphrase is known bad — user must fix it first
     if (this.passphraseInvalid) {
-      console.warn(`[SyncClient:${this.nodeId}] connect() blocked: passphraseInvalid=true. Update passphrase in Settings first.`);
-      return;
+      const currentPassphrase = globalScope.localStorage ? globalScope.localStorage.getItem('sync_passphrase') : this.passphrase;
+      if (currentPassphrase !== this.passphrase) {
+        // Passphrase has changed! Reset the invalid flag and update local state
+        this.passphrase = currentPassphrase;
+        this.passphraseInvalid = false;
+      } else {
+        console.warn(`[SyncClient:${this.nodeId}] connect() blocked: passphraseInvalid=true. Update passphrase in Settings first.`);
+        return;
+      }
     }
 
     // Safely close existing connection only if it is still open/connecting

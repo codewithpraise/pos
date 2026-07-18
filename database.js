@@ -216,9 +216,9 @@ async function initDatabase(terminalId) {
   if (isSqlCipher) {
     const dbKey = process.env.DB_ENCRYPTION_KEY;
     if (dbKey) {
-      const escapedKey = dbKey.replace(/'/g, "''");
+      const keyHex = Buffer.from(dbKey, 'utf8').toString('hex');
       await new Promise((resolve, reject) => {
-        sqliteDb.run(`PRAGMA key = '${escapedKey}';`, (err) => {
+        sqliteDb.run(`PRAGMA key = "x'${keyHex}'";`, (err) => {
           if (err) reject(err); else resolve();
         });
       });
@@ -237,20 +237,18 @@ async function initDatabase(terminalId) {
   await db.exec('PRAGMA foreign_keys = ON;');
   await db.exec('PRAGMA synchronous = FULL;');  // Survive sudden power cuts at cost of ~10% write speed
   await db.exec('PRAGMA busy_timeout = 5000;');
-  await db.exec('PRAGMA journal_size_limit = 6144000;');
-
+  await db.exec('PRAGMA journal_size_limit = 67108864;'); // 64MB for high-volume retail performance
+  
   try { 
     await db.exec('PRAGMA strict = ON;');
     console.log('[Database] Strict mode enabled.');
   } catch(e) {
-    console.warn('[Database] Strict mode not supported on this SQLite version:', e.message);
+    throw new Error('Database strict mode is required but failed: ' + e.message);
   }
 
   console.log('[Database] Schema version:', SERVER_SCHEMA_VERSION);
   console.log('[Database] Executing SQLite index maintenance pass...');
   try {
-    await db.exec('PRAGMA reindex;');
-    await db.exec('PRAGMA vacuum;');
     await db.exec('PRAGMA analyze;');
     console.log('[Database] SQLite optimization pass completed.');
   } catch (err) {
@@ -1369,6 +1367,19 @@ const ALLOWED_CRDT_COLUMNS = {
     'node_id', 'error_type', 'error_message', 'stack_trace',
     'hlc', 'last_clicks', 'created_at', 'sync_hlc'
   ])
+  // ============================================================================
+  // INTENTIONALLY LOCAL-ONLY TABLES (EXCLUDED FROM CRDT SYNC / WHITELIST):
+  // - idempotency_keys          -> Tracks API idempotency states per node locally.
+  // - crsql_changes             -> Internal CRDT tracker holding local versioned clocks.
+  // - failed_activation_attempts-> Security logging to prevent licensing brute-forcing per node.
+  // - idempotent_actions        -> Tracks batch actions locally to deduplicate runs.
+  // - admin_audit_log           -> Audit logs generated per terminal, retained locally.
+  // - pin_lockout_log           -> Tracks brute-force PIN lockouts locally on each node.
+  // - pairing_tokens            -> Short-lived pairing challenges kept local.
+  // - token_blacklist           -> Revocation list of expired JWT tokens specific to this instance.
+  // - activation_codes          -> SMS onboarding codes verified once against license API and kept locally.
+  // - trusted_whitelist         -> Local IP/HWID rules specific to this terminal's network.
+  // ============================================================================
 };
 
 // Dynamically updates a single column value in the main tables based on delta CRDTs
