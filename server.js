@@ -3,9 +3,7 @@
 // Core runtime managing SQLite, HTTP/2 REST routes, and WebSocket telemetry
 // ============================================================================
 
-// Prototype Pollution Protection (Mitigates RCE and prototype chain hijacking)
-Object.freeze(Object.prototype);
-Object.freeze(Array.prototype);
+// Prototype Pollution Protection is handled via Express middleware below to avoid breaking third-party loaders (e.g. zod).
 
 const path = require('path');
 const fs = require('fs');
@@ -678,6 +676,28 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// Prototype Pollution Protection Middleware (Mitigates RCE and prototype chain hijacking)
+app.use((req, res, next) => {
+  function check(obj) {
+    if (!obj || typeof obj !== 'object') return false;
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+          return true;
+        }
+        if (typeof obj[key] === 'object' && obj[key] !== null) {
+          if (check(obj[key])) return true;
+        }
+      }
+    }
+    return false;
+  }
+  if (check(req.body) || check(req.query) || check(req.params)) {
+    return res.status(400).json({ error: 'Malicious request pattern detected' });
+  }
+  next();
+});
 
 // Prevent search engines from indexing API routes
 app.use('/api', (req, res, next) => {
