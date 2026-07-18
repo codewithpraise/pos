@@ -2531,6 +2531,7 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
         const email = document.getElementById('signup-email').value.trim();
         const phoneInput = document.getElementById('signup-phone');
         const phone = phoneInput ? phoneInput.value.trim() : '03001234567';
+        const hwid = await window.LicenseEngine.generateHWID();
         if (!storeName || !email) { showModal({ title: 'Notice', message: '', type: 'info' }); return; }
 
         const btn = document.getElementById('btn-in-app-signup');
@@ -2560,7 +2561,7 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
             const serverBase = window.__valenixiaServerUrl || location.origin;
             const onboardRes = await fetch(serverBase + '/api/onboard', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: storeName, email, phone, tier: 'TRIAL', mode: 'subscription' })
+                body: JSON.stringify({ name: storeName, email, phone, tier: 'TRIAL', mode: 'subscription', hwid })
             });
             const onboardData = await onboardRes.json();
             if (!onboardData.code) throw new Error(onboardData.error || 'Activation failed.');

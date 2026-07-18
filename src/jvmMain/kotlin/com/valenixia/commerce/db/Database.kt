@@ -425,8 +425,24 @@ object Database {
             val adminHlc = hlc.tick()
             val cashierHlc = hlc.tick()
 
-            insertEmployeeDirect(adminId, hashPin("1234"), "ADMIN", adminHlc)
-            insertEmployeeDirect(cashierId, hashPin("5678"), "CASHIER", cashierHlc)
+            // Generate cryptographically-random 6-digit PINs for first-boot seeding.
+            // These are NEVER stored in plaintext. They are printed once to the operator's
+            // terminal console so the admin can record them and change them via the Settings screen.
+            val secureRng = java.security.SecureRandom()
+            val adminPin  = String.format("%06d", secureRng.nextInt(1_000_000))
+            val cashierPin = String.format("%06d", secureRng.nextInt(1_000_000))
+
+            insertEmployeeDirect(adminId,   hashPin(adminPin),   "ADMIN",   adminHlc)
+            insertEmployeeDirect(cashierId, hashPin(cashierPin), "CASHIER", cashierHlc)
+
+            println("=".repeat(60))
+            println("[Database] FIRST-BOOT CREDENTIAL DISCLOSURE — RECORD THESE NOW")
+            println("[Database]   ADMIN  PIN : $adminPin")
+            println("[Database]   CASHIER PIN: $cashierPin")
+            println("[Database] These PINs are NOT stored in plaintext anywhere.")
+            println("[Database] Change them immediately via Settings > Employees.")
+            println("=".repeat(60))
+
 
             // 2. Seed Catalog with Premium realistic details (categories, emojis, cost, low stock thresholds)
             val catalog = listOf(

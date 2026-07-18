@@ -399,18 +399,18 @@ const LicenseEngine = (() => {
       try {
         const serverBase = window.__valenixiaServerUrl || location.origin;
         
+        const hwid = await generateHWID();
         // 1. Register and get 6-digit code
         const onboardRes = await fetch(serverBase + '/api/onboard', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: storeName, email, phone, tier: 'TRIAL', mode: 'subscription' })
+          body: JSON.stringify({ name: storeName, email, phone, tier: 'TRIAL', mode: 'subscription', hwid })
         });
         const onboardData = await onboardRes.json();
 
         if (!onboardData.code) throw new Error(onboardData.error || 'Failed to generate activation code.');
 
         // 2. Auto-activate the code for this mobile device
-        const hwid = await generateHWID();
         const activateRes = await fetch(serverBase + '/api/license/activate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -713,17 +713,22 @@ const LicenseEngine = (() => {
   // â”€â”€ Public API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async function init() {
 
-    // Detect HTTP context (Android WebView over LAN, localhost dev, or file:// protocol)
+    // Detect HTTP context (Android WebView over LAN, or localhost dev).
     // crypto.subtle IS available on localhost (treated as secure context by browsers), but
-    // localhost is a development/LAN deployment â€” no offline Ed25519 token required.
+    // localhost is a development/LAN deployment - no offline Ed25519 token required.
     // Server-side requireAuth middleware enforces authorization for all API calls.
+    // IMPORTANT: file:// is explicitly excluded - it is never a valid production deployment context.
     const isSecureContext = !!(crypto && crypto.subtle);
     const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-    const isHttpContext = !isSecureContext ||
-      isLocalhost ||                                                          // â† dev/LAN: always allow boot
-      (location.protocol === 'http:') ||                                      // â† any HTTP context
-      location.hostname.match(/^192\.168\.|^10\.|^172\.(1[6-9]|2[0-9]|3[01])\./) ||
-      location.protocol === 'file:';
+    const isLAN = !!(location.hostname.match(/^192\.168\.|^10\.|^172\.(1[6-9]|2[0-9]|3[01])\./));
+    const isFileProtocol = location.protocol === 'file:';
+    // file:// is never a valid context - always block and show lockout.
+    if (isFileProtocol) {
+      console.error('[License] FATAL: file:// protocol is not a valid deployment context for Valenixia POS.');
+      mountLockoutOverlay('This terminal cannot run from a local file. Please deploy via the Valenixia server or Android app.');
+      return false;
+    }
+    const isHttpContext = !isSecureContext || isLocalhost || (location.protocol === 'http:') || isLAN;
 
     // 1. Monotonic time anchor check â€” prevent clock rollback license bypass
     const { tampered, lastKnown, osClock } = await checkTimeAnchor();

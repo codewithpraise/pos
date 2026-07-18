@@ -2079,12 +2079,15 @@ async function clearActivationAttempt(attemptKey) {
 
 // POST /api/onboard — Mock Web Portal signup
 app.post('/api/onboard', checkOrigin, loginLimiter, requireBody({ name: 'STORE_NAME', email: 'EMAIL', phone: 'PHONE' }), async (req, res) => {
-  const { name, phone, email, tier, mode } = req.body;
+  const { name, phone, email, tier, mode, hwid } = req.body;
   if (!name || !phone || !email) {
     return res.status(400).json({ error: 'Missing required onboarding parameters (name, phone, email).' });
   }
 
   const selectedTier = tier || 'TRIAL';
+  if (selectedTier === 'TRIAL' && !hwid) {
+    return res.status(400).json({ error: 'Hardware ID is required for trial registration.' });
+  }
   const selectedMode = mode || 'subscription';
   
   // Validation & Sanitization

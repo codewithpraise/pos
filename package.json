@@ -29,7 +29,7 @@
     "jsdom": "^24.1.1",
     "@journeyapps/sqlcipher": "^5.0.0",
     "sqlite3": "^6.0.1",
-    "ws": "^8.17.0",
+    "ws": "^8.17.1",
     "zod": "3.23.8"
   },
   "engines": {

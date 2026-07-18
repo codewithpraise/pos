@@ -123,9 +123,14 @@ fun DashboardView() {
 fun AuthScreen(onAuthSuccess: (Employee) -> Unit) {
     var pin   by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
+    // Brute-force lockout state: persisted within the session.
+    // 5 failed attempts → 10-minute lockout. Resets on successful auth.
+    var pinAttempts     by remember { mutableStateOf(0) }
+    var pinLockedUntil  by remember { mutableStateOf(0L) }
     var pinVisible by remember { mutableStateOf(false) }
     val shakeOffset = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
+
     val colors = LocalValenixiaColors.current
 
     Box(
@@ -181,12 +186,12 @@ fun AuthScreen(onAuthSuccess: (Employee) -> Unit) {
                     )
                     Spacer(Modifier.height(20.dp))
 
-                    // PIN display (dots or text)
+                    // PIN display (dots or text) — supports 4 to 6 digit PINs
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        repeat(4) { i ->
+                        repeat(6) { i ->
                             val filled = i < pin.length
                             val char = if (filled && pinVisible) pin[i].toString() else if (filled) "•" else ""
                             Box(
@@ -234,17 +239,45 @@ fun AuthScreen(onAuthSuccess: (Employee) -> Unit) {
                                         key = key,
                                         onClick = {
                                             error = ""
+                                            // If locked out, refuse all input except backspace
+                                            val now = System.currentTimeMillis()
+                                            if (pinLockedUntil > now && key != "⌫") {
+                                                val minsLeft = ((pinLockedUntil - now) / 60_000).coerceAtLeast(1)
+                                                error = "Terminal locked — too many failed attempts. Try again in ${minsLeft}m."
+                                                AudioSynth.playScanError()
+                                                return@PinButton
+                                            }
+                                            // Reset lockout display if it has expired
+                                            if (pinLockedUntil > 0L && pinLockedUntil <= now) {
+                                                pinLockedUntil = 0L
+                                                pinAttempts = 0
+                                            }
                                             when (key) {
                                                 "⌫" -> { AudioSynth.playTick(); if (pin.isNotEmpty()) pin = pin.dropLast(1) }
                                                 "✓" -> {
+                                                    // Require at least 4 digits before submitting
+                                                    if (pin.length < 4) {
+                                                        error = "PIN must be at least 4 digits"
+                                                        return@PinButton
+                                                    }
                                                     val emp = Database.verifyEmployeePin(pin)
                                                     if (emp != null) {
                                                         AudioSynth.playDrawerOpen()
+                                                        pinAttempts = 0
+                                                        pinLockedUntil = 0L
                                                         onAuthSuccess(emp)
                                                     } else {
                                                         AudioSynth.playScanError()
-                                                        error = "Invalid PIN — access denied"
-                                                        pin   = ""
+                                                        pinAttempts++
+                                                        pin = ""
+                                                        if (pinAttempts >= 5) {
+                                                            // Lock out for 10 minutes
+                                                            pinLockedUntil = System.currentTimeMillis() + 10 * 60 * 1000
+                                                            pinAttempts = 0
+                                                            error = "Terminal locked for 10 minutes after 5 failed attempts."
+                                                        } else {
+                                                            error = "Invalid PIN — ${5 - pinAttempts} attempt(s) remaining before lockout"
+                                                        }
                                                         scope.launch {
                                                             shakeOffset.animateTo(-15f, spring(stiffness = 1000f, dampingRatio = 0.2f))
                                                             shakeOffset.animateTo(15f, spring(stiffness = 1000f, dampingRatio = 0.2f))
@@ -254,7 +287,7 @@ fun AuthScreen(onAuthSuccess: (Employee) -> Unit) {
                                                         }
                                                     }
                                                 }
-                                                else -> { AudioSynth.playTick(); if (pin.length < 4) pin += key }
+                                                else -> { AudioSynth.playTick(); if (pin.length < 6) pin += key }
                                             }
                                         }
                                     )

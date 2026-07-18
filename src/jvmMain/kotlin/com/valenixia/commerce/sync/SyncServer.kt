@@ -142,7 +142,13 @@ object SyncServer {
     fun getJwtSecret(): String {
         val passphrase = Database.getPreference("sync_passphrase")
         if (passphrase == null || passphrase.isEmpty()) {
-            return "default_valenixia_secret"
+            // Never use a predictable fallback — a missing passphrase is a misconfiguration.
+            // The server MUST be initialised with a sync passphrase before issuing JWT tokens.
+            throw IllegalStateException(
+                "[SyncServer] FATAL: sync_passphrase is not configured. " +
+                "Cannot derive a secure JWT secret. " +
+                "Run the onboarding wizard to set a sync passphrase before starting the sync server."
+            )
         }
         val digest = java.security.MessageDigest.getInstance("SHA-256")
         val hash = digest.digest(passphrase.toByteArray())
@@ -151,10 +157,12 @@ object SyncServer {
 
     fun generateToken(nodeId: String, role: String): String {
         val algorithm = Algorithm.HMAC256(getJwtSecret())
+        // 30-day token lifetime — balanced between re-auth friction and stolen-token risk.
+        // Terminals must re-register every 30 days (or on the next restart after expiry).
         return JWT.create()
             .withSubject(nodeId)
             .withClaim("role", role)
-            .withExpiresAt(java.util.Date(System.currentTimeMillis() + 365L * 24 * 60 * 60 * 1000))
+            .withExpiresAt(java.util.Date(System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000))
             .sign(algorithm)
     }
 
@@ -287,12 +295,13 @@ object SyncServer {
                                         
                                         val claims = verifyJwtToken(token)
                                         if (claims != null && claims["sub"] == wsNodeId) {
+                                            // Device approval is STRICTLY database-driven.
+                                            // No hardcoded node IDs are permitted — every device must go
+                                            // through the pending → approved workflow via the admin UI.
+                                            // The only auto-approved node is the local master node itself.
                                             var status = Database.getDeviceStatus(wsNodeId!!)
-                                            if (wsNodeId!!.startsWith("web_client_") || 
-                                                wsNodeId == Database.hlc.nodeId || 
-                                                wsNodeId == "valenixia_master_pc_01" || 
-                                                wsNodeId == "cfd_tab_2") {
-                                                status = "APPROVED"
+                                            if (wsNodeId == Database.hlc.nodeId) {
+                                                status = "APPROVED" // own node always approved
                                             }
                                             if (status == "APPROVED") {
                                                 authenticated = true
@@ -316,16 +325,18 @@ object SyncServer {
                                         val deviceName = getJsonStringField(decryptedText, "deviceName") ?: ""
                                         val userAgent = getJsonStringField(decryptedText, "userAgent") ?: ""
                                         
+                                        // Device approval is STRICTLY database-driven.
+                                        // Only the local master node is auto-approved.
+                                        // All other devices (including web clients) must be explicitly
+                                        // approved through the admin device management UI.
                                         var status = Database.getDeviceStatus(wsNodeId!!)
-                                        if (wsNodeId!!.startsWith("web_client_") || 
-                                            wsNodeId == Database.hlc.nodeId || 
-                                            wsNodeId == "valenixia_master_pc_01" || 
-                                            wsNodeId == "cfd_tab_2") {
-                                            status = "APPROVED"
+                                        if (wsNodeId == Database.hlc.nodeId) {
+                                            status = "APPROVED" // own node always approved
                                         }
                                         if (status == "APPROVED") {
                                             authenticated = true
-                                            deviceRole = if (wsNodeId == Database.hlc.nodeId || wsNodeId == "valenixia_master_pc_01" || wsNodeId == "cfd_tab_2") "MASTER" else "TERMINAL"
+                                            // Role is MASTER only for the local node itself.
+                                            deviceRole = if (wsNodeId == Database.hlc.nodeId) "MASTER" else "TERMINAL"
                                             val token = generateToken(wsNodeId!!, deviceRole)
                                             sendPayload(this, """{"type":"device_approved","token":"$token"}""")
                                             println("[SyncServer] Registered auto-approved node: $wsNodeId")
