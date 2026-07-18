@@ -134,8 +134,14 @@ object Database {
     var dbVersion: Long = 0L
 
     // PBKDF2 password hashing helpers
+    // Iterations: 600,000 per OWASP 2023 minimum for PBKDF2-HMAC-SHA256.
+    // Note: Argon2id is preferred for new installs; this is the Kotlin/JVM
+    // fallback for the offline desktop terminal where native Argon2 bindings
+    // are unavailable without platform-specific JNI.
+    private val PBKDF2_ITERATIONS = 600_000
+
     private fun hashPin(pin: String, salt: String = generateSalt()): String {
-        val spec: KeySpec = PBEKeySpec(pin.toCharArray(), salt.toByteArray(), 100000, 512)
+        val spec: KeySpec = PBEKeySpec(pin.toCharArray(), salt.toByteArray(), PBKDF2_ITERATIONS, 512)
         val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
         val hash = factory.generateSecret(spec).encoded
         val hexHash = hash.joinToString("") { "%02x".format(it) }
@@ -145,13 +151,21 @@ object Database {
     private fun verifyPin(pin: String, storedHash: String): Boolean {
         if (!storedHash.contains(":")) return false
         val parts = storedHash.split(":")
+        if (parts.size < 2) return false
         val salt = parts[0]
         val hash = parts[1]
-        
-        val spec: KeySpec = PBEKeySpec(pin.toCharArray(), salt.toByteArray(), 100000, 512)
+
+        // Always run the full PBKDF2 derivation — no short-circuits — so the
+        // per-call timing is constant regardless of salt or hash content.
+        val spec: KeySpec = PBEKeySpec(pin.toCharArray(), salt.toByteArray(), PBKDF2_ITERATIONS, 512)
         val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
         val checkHash = factory.generateSecret(spec).encoded.joinToString("") { "%02x".format(it) }
-        return java.security.MessageDigest.isEqual(hash.toByteArray(), checkHash.toByteArray())
+
+        // MessageDigest.isEqual is constant-time for equal-length inputs.
+        // Pad to 128 hex chars (512 bits) to guarantee equal length.
+        val expected = hash.padEnd(128, '0')
+        val actual   = checkHash.padEnd(128, '0')
+        return java.security.MessageDigest.isEqual(expected.toByteArray(), actual.toByteArray())
     }
 
     private fun generateSalt(): String {
@@ -600,21 +614,41 @@ object Database {
 
     @Synchronized
     fun verifyEmployeePin(pin: String): Employee? {
+        // Security: avoid early-return timing oracle.
+        // Always fetch ALL active employees and run EVERY hash comparison to completion.
+        // The matched result (if any) is stored and returned only after all iterations,
+        // so an attacker cannot infer the position of a matching record from response time.
+        val candidates = mutableListOf<Triple<String, String, String>>() // id, role, hash
         conn?.prepareStatement("SELECT id, role, auth_hash, is_active FROM employees WHERE is_active = 1")?.use { pstmt ->
             pstmt.executeQuery().use { rs ->
                 while (rs.next()) {
-                    val hash = rs.getString("auth_hash")
-                    if (verifyPin(pin, hash)) {
-                        return Employee(
-                            id = rs.getString("id"),
-                            role = rs.getString("role"),
-                            isActive = rs.getInt("is_active") == 1
-                        )
-                    }
+                    candidates.add(Triple(
+                        rs.getString("id"),
+                        rs.getString("role"),
+                        rs.getString("auth_hash") ?: ""
+                    ))
                 }
             }
         }
-        return null
+
+        // Guard: if there are no active employees, still do one dummy derivation
+        // so the response time doesn't collapse to near-zero (leaking "no employees").
+        if (candidates.isEmpty()) {
+            val dummy = generateSalt()
+            verifyPin(pin, "$dummy:0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+            return null
+        }
+
+        var matched: Employee? = null
+        for ((id, role, hash) in candidates) {
+            // Always run verifyPin — never skip or break early.
+            val ok = verifyPin(pin, hash)
+            if (ok && matched == null) {
+                // Record first match; continue running ALL remaining verifications.
+                matched = Employee(id = id, role = role, isActive = true)
+            }
+        }
+        return matched
     }
 
     @Synchronized
