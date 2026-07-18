@@ -500,16 +500,6 @@ object SyncServer {
                         "login:unauthenticated"
                     }
 
-                    // Server-side brute-force lockout check (5 attempts / 15 min)
-                    if (Database.isLockedOut(lockoutTag)) {
-                        call.respondText(
-                            """{"error":"Too many failed PIN attempts. Please wait 15 minutes before trying again."}""",
-                            io.ktor.http.ContentType.Application.Json,
-                            io.ktor.http.HttpStatusCode.TooManyRequests
-                        )
-                        return@post
-                    }
-
                     var authenticated = false
                     if (authHeader != null && authHeader.startsWith("Bearer ")) {
                         val token = authHeader.substring(7)
@@ -518,24 +508,33 @@ object SyncServer {
                             authenticated = true
                         }
                     }
-                    
+
                     if (!authenticated) {
                         call.respondText("""{"error":"Unauthorized: device token required"}""", io.ktor.http.ContentType.Application.Json, io.ktor.http.HttpStatusCode.Unauthorized)
                         return@post
                     }
-                    
+
                     try {
                         val body = call.receiveText()
                         val req = json.decodeFromString<LoginRequest>(body)
-                        val employee = Database.verifyEmployeePin(req.pin)
+                        // Pass lockoutTag as sourceTag — verifyEmployeePin now owns the full
+                        // lockout lifecycle (check → verify → record/clear).
+                        // It returns null both on bad PIN AND when already locked out.
+                        val employee = Database.verifyEmployeePin(req.pin, lockoutTag)
                         if (employee != null) {
-                            // Successful auth — clear lockout counter for this device
-                            Database.clearLockout(lockoutTag)
                             call.respondText(json.encodeToString(employee), io.ktor.http.ContentType.Application.Json)
                         } else {
-                            // Record failed attempt toward lockout threshold
-                            Database.recordFailedAttempt(lockoutTag)
-                            call.respondText("""{"error":"Invalid PIN"}""", io.ktor.http.ContentType.Application.Json, io.ktor.http.HttpStatusCode.Unauthorized)
+                            // Distinguish lockout from wrong PIN for the client message.
+                            val lockedOut = Database.isLockedOut(lockoutTag)
+                            val msg = if (lockedOut)
+                                """{"error":"Too many failed PIN attempts. Please wait 15 minutes before trying again."}"""
+                            else
+                                """{"error":"Invalid PIN"}"""
+                            val status = if (lockedOut)
+                                io.ktor.http.HttpStatusCode.TooManyRequests
+                            else
+                                io.ktor.http.HttpStatusCode.Unauthorized
+                            call.respondText(msg, io.ktor.http.ContentType.Application.Json, status)
                         }
                     } catch (e: Exception) {
                         call.respondText("""{"error":"${e.message}"}""", io.ktor.http.ContentType.Application.Json, io.ktor.http.HttpStatusCode.BadRequest)

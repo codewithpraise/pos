@@ -613,11 +613,15 @@ object Database {
     }
 
     @Synchronized
-    fun verifyEmployeePin(pin: String): Employee? {
-        // Security: avoid early-return timing oracle.
-        // Always fetch ALL active employees and run EVERY hash comparison to completion.
-        // The matched result (if any) is stored and returned only after all iterations,
-        // so an attacker cannot infer the position of a matching record from response time.
+    fun verifyEmployeePin(pin: String, sourceTag: String = "global"): Employee? {
+        // 1. Enforce lockout BEFORE doing any expensive PBKDF2 work.
+        //    This prevents brute-force even if the attacker knows the timing budget.
+        if (isLockedOut(sourceTag)) return null
+
+        // 2. Security: avoid early-return timing oracle.
+        //    Always fetch ALL active employees and run EVERY hash comparison to completion.
+        //    The matched result (if any) is stored and returned only after all iterations,
+        //    so an attacker cannot infer the position of a matching record from response time.
         val candidates = mutableListOf<Triple<String, String, String>>() // id, role, hash
         conn?.prepareStatement("SELECT id, role, auth_hash, is_active FROM employees WHERE is_active = 1")?.use { pstmt ->
             pstmt.executeQuery().use { rs ->
@@ -636,6 +640,7 @@ object Database {
         if (candidates.isEmpty()) {
             val dummy = generateSalt()
             verifyPin(pin, "$dummy:0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+            recordFailedAttempt(sourceTag)
             return null
         }
 
@@ -648,6 +653,14 @@ object Database {
                 matched = Employee(id = id, role = role, isActive = true)
             }
         }
+
+        // 3. Update the lockout log based on outcome.
+        if (matched == null) {
+            recordFailedAttempt(sourceTag)
+        } else {
+            clearLockout(sourceTag)
+        }
+
         return matched
     }
 

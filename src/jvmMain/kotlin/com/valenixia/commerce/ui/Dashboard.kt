@@ -260,7 +260,7 @@ fun AuthScreen(onAuthSuccess: (Employee) -> Unit) {
                                                         error = "PIN must be at least 4 digits"
                                                         return@PinButton
                                                     }
-                                                    val emp = Database.verifyEmployeePin(pin)
+                                                    val emp = Database.verifyEmployeePin(pin, "local:pinpad")
                                                     if (emp != null) {
                                                         AudioSynth.playDrawerOpen()
                                                         pinAttempts = 0
@@ -4114,7 +4114,7 @@ fun HistoryScreen(syncLogs: MutableList<String>) {
                     Button(
                         onClick = {
                             scope.launch(Dispatchers.IO) {
-                                val admin = Database.verifyEmployeePin(managerOverridePin)
+                                val admin = Database.verifyEmployeePin(managerOverridePin, "local:manager-override")
                                 withContext(Dispatchers.Main) {
                                     if (admin != null && admin.role == "ADMIN") {
                                         showManagerOverrideDialog = false
@@ -5738,7 +5738,7 @@ fun SettingsScreen(
                                 return@Button
                             }
                             scope.launch(Dispatchers.IO) {
-                                val verified = Database.verifyEmployeePin(currentPin)
+                                val verified = Database.verifyEmployeePin(currentPin, "local:change-pin")
                                 if (verified == null || verified.id != employee.id) {
                                     withContext(Dispatchers.Main) {
                                         statusMsg = "Invalid current PIN code."
