@@ -22,15 +22,24 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Configure CI test credentials
+      - name: Validate required CI secrets
         run: |
-          if [ -n "$SECRET_PIN" ]; then
-            echo "Using custom GitHub Actions repository secrets."
-          else
-            echo "Using automated CI test runner fallback credentials."
+          MISSING=""
+          [ -z "$TEST_ADMIN_PIN" ] && MISSING="$MISSING TEST_ADMIN_PIN"
+          [ -z "$TEST_LICENSE_KEY" ] && MISSING="$MISSING TEST_LICENSE_KEY"
+          [ -z "$TEST_PASSPHRASE" ] && MISSING="$MISSING TEST_PASSPHRASE"
+          [ -z "$TEST_HWIDS" ] && MISSING="$MISSING TEST_HWIDS"
+          if [ -n "$MISSING" ]; then
+            echo "ERROR: Required GitHub Secrets not set:$MISSING"
+            echo "Create them in Settings -> Secrets and Variables -> Actions"
+            exit 1
           fi
+          echo "All required secrets are present."
         env:
-          SECRET_PIN: ${{ secrets.TEST_ADMIN_PIN }}
+          TEST_ADMIN_PIN: ${{ secrets.TEST_ADMIN_PIN }}
+          TEST_LICENSE_KEY: ${{ secrets.TEST_LICENSE_KEY }}
+          TEST_PASSPHRASE: ${{ secrets.TEST_PASSPHRASE }}
+          TEST_HWIDS: ${{ secrets.TEST_HWIDS }}
 
       - name: Scan for committed secrets
         run: |
@@ -66,18 +75,18 @@ jobs:
 
       - name: Run Test Suite (Unit, DB, Backups)
         env:
-          TEST_ADMIN_PIN: ${{ secrets.TEST_ADMIN_PIN || '1234' }}
-          TEST_LICENSE_KEY: ${{ secrets.TEST_LICENSE_KEY || 'VALENIXIA-ADMIN-777' }}
-          TEST_PASSPHRASE: ${{ secrets.TEST_PASSPHRASE || 'TestKey2024!' }}
-          TEST_HWIDS: ${{ secrets.TEST_HWIDS || 'MOCK_ADMIN_HWID,TEST-HWID' }}
+          TEST_ADMIN_PIN: ${{ secrets.TEST_ADMIN_PIN }}
+          TEST_LICENSE_KEY: ${{ secrets.TEST_LICENSE_KEY }}
+          TEST_PASSPHRASE: ${{ secrets.TEST_PASSPHRASE }}
+          TEST_HWIDS: ${{ secrets.TEST_HWIDS }}
         run: npm test
 
       - name: Run Full E2E & Diagnostic Suites with Headless Services
         env:
-          TEST_ADMIN_PIN: ${{ secrets.TEST_ADMIN_PIN || '1234' }}
-          TEST_LICENSE_KEY: ${{ secrets.TEST_LICENSE_KEY || 'VALENIXIA-ADMIN-777' }}
-          TEST_PASSPHRASE: ${{ secrets.TEST_PASSPHRASE || 'TestKey2024!' }}
-          TEST_HWIDS: ${{ secrets.TEST_HWIDS || 'MOCK_ADMIN_HWID,TEST-HWID' }}
+          TEST_ADMIN_PIN: ${{ secrets.TEST_ADMIN_PIN }}
+          TEST_LICENSE_KEY: ${{ secrets.TEST_LICENSE_KEY }}
+          TEST_PASSPHRASE: ${{ secrets.TEST_PASSPHRASE }}
+          TEST_HWIDS: ${{ secrets.TEST_HWIDS }}
         run: |
           # Clean up any existing database files to prevent test contamination
           rm -f valenixia.db valenixia.db-wal valenixia.db-shm nexova.db nexova.db-wal nexova.db-shm || true
