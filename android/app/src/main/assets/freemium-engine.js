@@ -95,6 +95,14 @@ function getLimits() {
 }
 
 function can(feature) {
+  const status = getTrialStatus();
+  if (status.phase === "expired") {
+    // Graceful degradation: read-only lookup, cash checkouts, thermal printing.
+    // Sync, staff management, FBR integrations, and backups are disabled.
+    const basicGraceAllowed = ["product_catalog", "checkout", "receipt_print", "thermal_receipt"];
+    return basicGraceAllowed.includes(feature);
+  }
+  
   const limits = getLimits();
   const map = {
     "checkout": true, "receipt_print": true, "nayapay_qr": true, "voice_input": true,
@@ -286,6 +294,10 @@ function renderTrialBanner() {
     banner.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;background:#ef4444;color:#fff;text-align:center;font-size:12px;font-weight:700;padding:8px 16px;cursor:pointer;";
     banner.textContent = "Grace period: " + status.hoursLeft + "h remaining. App goes read-only after expiry.";
     banner.addEventListener("click", function() { showUpgradeModal("Grace period"); });
+  } else if (status.phase === "expired") {
+    banner.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;background:#b91c1c;color:#fff;text-align:center;font-size:12px;font-weight:800;padding:8px 16px;cursor:pointer;";
+    banner.textContent = "Trial / License Expired: App is running in emergency read-only/cash-only mode. Click here to renew.";
+    banner.addEventListener("click", function() { showUpgradeModal("License expired"); });
   }
   document.body.prepend(banner);
 }

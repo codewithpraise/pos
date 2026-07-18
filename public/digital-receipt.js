@@ -5,6 +5,29 @@
 "use strict";
 (function() {
 
+  // Validate receipt signature to prevent tampering (Task 14)
+  async function verifyReceiptSignature(data) {
+    if (!data || !data.signature) return; // bypass if signature not present (e.g. legacy/offline simple transactions)
+    try {
+      const payload = JSON.stringify({
+        id: data.transactionId,
+        subtotal: data.subtotal,
+        tax: data.tax,
+        total: data.total,
+        timestamp: data.timestamp
+      });
+      const encoder = new TextEncoder();
+      const dataBuf = encoder.encode(payload + '-valenixia-receipt-salt');
+      const hashBuf = await crypto.subtle.digest('SHA-256', dataBuf);
+      const expected = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+      if (data.signature !== expected) {
+        throw new Error('Receipt signature mismatch');
+      }
+    } catch (e) {
+      throw new Error('Receipt tampering detected: ' + e.message);
+    }
+  }
+
   // ── Core receipt data formatter ──────────────────────────────────────────────
   function buildReceiptLines(data) {
     const lines = [];
@@ -38,7 +61,8 @@
     lines.push({ text: "-".repeat(storeWidth), size: 9 });
     (data.items || []).forEach(function(item) {
       const name = String(item.name || "Unknown").substring(0, 22);
-      const lineTotal = ((item.unitPrice || 0) * (item.qty || 1));
+      // Integer math rounding to prevent floating point anomalies (Task 15)
+      const lineTotal = Math.round((item.unitPrice || 0) * (item.qty || 1));
       lines.push({ text: pad(name, fmt(lineTotal), storeWidth), size: 9 });
       lines.push({ text: "  Qty: " + item.qty + " x " + fmt(item.unitPrice || 0) + (item.discount ? " (-" + item.discount + "%)" : ""), size: 8, color: "#666" });
     });
@@ -54,8 +78,9 @@
     lines.push({ text: pad("Payment:", (data.paymentMode || "CASH").replace(/_/g, " "), storeWidth), size: 9 });
     if (data.amountPaid && data.amountPaid > 0) {
       lines.push({ text: pad("Paid:", fmt(data.amountPaid), storeWidth), size: 9 });
-      const change = (data.amountPaid - data.total);
-      if (change >= 0) lines.push({ text: pad("Change:", fmt(change), storeWidth), size: 9 });
+      // Guard against negative change formatting (Task 32)
+      const change = Math.max(0, (data.amountPaid || 0) - (data.total || 0));
+      lines.push({ text: pad("Change:", fmt(change), storeWidth), size: 9 });
     }
     lines.push({ text: "-".repeat(storeWidth), size: 9 });
     if (data.footerText) {
@@ -93,10 +118,24 @@
   }
 
   // ── Download PDF to device ───────────────────────────────────────────────────
-  function downloadReceiptPDF(data) {
+  async function downloadReceiptPDF(data) {
+    try {
+      await verifyReceiptSignature(data);
+    } catch (e) {
+      if (window.showModal) {
+        showModal({ title: 'Receipt Tampered', message: e.message, type: 'danger' });
+      } else {
+        alert(e.message);
+      }
+      return;
+    }
     const doc = generateReceiptPDF(data);
     if (!doc) {
-      showModal({ title: 'Error', message: 'PDF engine not available.', type: 'danger' });
+      if (window.showModal) {
+        showModal({ title: 'Error', message: 'PDF engine not available.', type: 'danger' });
+      } else {
+        alert('PDF engine not available.');
+      }
       return;
     }
     const filename = "receipt_" + (data.transactionId || Date.now()).toString().slice(-8) + ".pdf";
@@ -104,7 +143,17 @@
   }
 
   // ── Share via WhatsApp ───────────────────────────────────────────────────────
-  function shareReceiptWhatsApp(data, phone) {
+  async function shareReceiptWhatsApp(data, phone) {
+    try {
+      await verifyReceiptSignature(data);
+    } catch (e) {
+      if (window.showModal) {
+        showModal({ title: 'Receipt Tampered', message: e.message, type: 'danger' });
+      } else {
+        alert(e.message);
+      }
+      return;
+    }
     const ts = new Date(data.timestamp || Date.now());
     const totalFormatted = "Rs. " + ((data.total || 0) / 100).toLocaleString("en-PK", { minimumFractionDigits: 2 });
     const itemCount = (data.items || []).length;
@@ -128,7 +177,17 @@
   }
 
   // ── Share via email ──────────────────────────────────────────────────────────
-  function shareReceiptEmail(data, email) {
+  async function shareReceiptEmail(data, email) {
+    try {
+      await verifyReceiptSignature(data);
+    } catch (e) {
+      if (window.showModal) {
+        showModal({ title: 'Receipt Tampered', message: e.message, type: 'danger' });
+      } else {
+        alert(e.message);
+      }
+      return;
+    }
     const ts = new Date(data.timestamp || Date.now());
     const totalFormatted = "Rs. " + ((data.total || 0) / 100).toLocaleString("en-PK", { minimumFractionDigits: 2 });
     const subject = "Receipt from " + (data.storeName || "Valenixia POS") + " - " + (data.transactionId || "").slice(-8).toUpperCase();
@@ -158,6 +217,16 @@
   // ── Show share dialog ────────────────────────────────────────────────────────
   async function showDigitalReceiptDialog(receiptData) {
     if (!receiptData || !receiptData.total) return;
+    try {
+      await verifyReceiptSignature(receiptData);
+    } catch (e) {
+      if (window.showModal) {
+        showModal({ title: 'Receipt Tampered', message: e.message, type: 'danger' });
+      } else {
+        alert(e.message);
+      }
+      return;
+    }
     if ((window.__valenixiaTier || 'STARTER').toUpperCase() === 'FREE') {
       // Append branding watermark for free tier
       if (!receiptData.footerText || !receiptData.footerText.includes('Powered by Valenixia')) {

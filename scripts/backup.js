@@ -41,18 +41,45 @@ async function runBackup() {
   console.log(`[Backup] Starting online backup → ${backupPath}`);
 
   try {
-    // VACUUM INTO creates a defragmented, consistent copy while DB is live
-    await db.exec(`VACUUM INTO '${backupPath.replace(/'/g, "''")}'`);
+    const dbKey = process.env.DB_ENCRYPTION_KEY;
+    if (dbKey) {
+      const keyHex = Buffer.from(dbKey, 'utf8').toString('hex');
+      const escapedPath = backupPath.replace(/'/g, "''");
+      // ATTACH and export to guarantee encrypted backup copy
+      await db.exec(`ATTACH DATABASE '${escapedPath}' AS backup KEY "x'${keyHex}'";`);
+      await db.exec("SELECT sqlcipher_export('backup');");
+      await db.exec("DETACH DATABASE backup;");
+    } else {
+      // Fallback to standard vacuum into for plaintext SQLite databases
+      await db.exec(`VACUUM INTO '${backupPath.replace(/'/g, "''")}'`);
+    }
 
     // Verify backup integrity
     const sqlite3 = require('sqlite3').verbose();
     const backupDb = new sqlite3.Database(backupPath);
     const checkResult = await new Promise((resolve, reject) => {
-      backupDb.get('PRAGMA integrity_check', (err, row) => {
-        backupDb.close();
-        if (err) return reject(err);
-        resolve(row.integrity_check);
-      });
+      if (dbKey) {
+        const keyHex = Buffer.from(dbKey, 'utf8').toString('hex');
+        backupDb.serialize(() => {
+          backupDb.run(`PRAGMA key = "x'${keyHex}'";`, (keyErr) => {
+            if (keyErr) {
+              backupDb.close();
+              return reject(keyErr);
+            }
+            backupDb.get('PRAGMA integrity_check', (err, row) => {
+              backupDb.close();
+              if (err) return reject(err);
+              resolve(row ? row.integrity_check : 'failed');
+            });
+          });
+        });
+      } else {
+        backupDb.get('PRAGMA integrity_check', (err, row) => {
+          backupDb.close();
+          if (err) return reject(err);
+          resolve(row ? row.integrity_check : 'failed');
+        });
+      }
     });
 
     if (checkResult !== 'ok') {

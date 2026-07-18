@@ -2201,7 +2201,8 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
               taxRate: prefs.tax_rate || 0,
               total: event.data.total || 0,
               paymentMode: event.data.paymentMode || 'CASH',
-              footerText: prefs.receipt_footer || 'Thank you!'
+              footerText: prefs.receipt_footer || 'Thank you!',
+              signature: event.data.signature || ''
             };
 
             if (window.DigitalReceipt) {

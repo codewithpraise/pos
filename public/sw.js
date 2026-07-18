@@ -24,7 +24,7 @@ const ASSETS_TO_CACHE = [
   { url: '/styles/themes.css', integrity: '' },
   { url: '/styles/animations.css', integrity: '' },
   { url: '/styles/components.css', integrity: '' },
-  { url: '/app.js', integrity: 'sha384-9fln7uGc230XVeggcHwighstjQsDyUSGGZOAYHor8VRxvsAKPgkRJDRkj0oWXsqT' },
+  { url: '/app.js', integrity: 'sha384-O9TfPoBch0paCl8InK+5YoI2zJ2VnTfWcBc01r3156k+jNYxtWYemhj6uGuM1XcX' },
   { url: '/modules/ui.js', integrity: '' },
   { url: '/modules/animations.js', integrity: '' },
   { url: '/modules/offline.js', integrity: '' },

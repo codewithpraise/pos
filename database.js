@@ -371,6 +371,13 @@ async function initDatabase(terminalId) {
           PRIMARY KEY (table_name, pk, cid)
         );
 
+        CREATE TABLE IF NOT EXISTS tier_usage (
+          month_key TEXT,
+          store_id TEXT,
+          count_val INTEGER,
+          PRIMARY KEY (month_key, store_id, count_val)
+        );
+
         -- Domain 5: Speech Analytics & Fraud Logs
         CREATE TABLE IF NOT EXISTS speech_analytics_logs (
           id TEXT PRIMARY KEY,
@@ -516,7 +523,8 @@ async function initDatabase(terminalId) {
           fbr_error_details TEXT,
           created_at INTEGER NOT NULL,
           submitted_at INTEGER,
-          sync_hlc TEXT
+          sync_hlc TEXT,
+          UNIQUE(transaction_id, invoice_number)
         );
 
         CREATE TABLE IF NOT EXISTS aborted_sales_log (
@@ -905,6 +913,7 @@ async function initDatabase(terminalId) {
     CREATE INDEX IF NOT EXISTS idx_customer_credit_cust ON customer_credit(customer_id);
     CREATE INDEX IF NOT EXISTS idx_fbr_submissions_status ON fbr_submissions(status, created_at);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_fbr_submissions_usin ON fbr_submissions(usin);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_fbr_submissions_tx_inv ON fbr_submissions(transaction_id, invoice_number);
     CREATE INDEX IF NOT EXISTS idx_payments_ref ON pending_payments(transaction_reference);
     CREATE INDEX IF NOT EXISTS idx_payments_status ON pending_payments(status, created_at);
     CREATE INDEX IF NOT EXISTS idx_commission_earnings_status ON commission_earnings(status, activated_at) WHERE status = 'PENDING';

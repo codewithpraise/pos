@@ -416,19 +416,52 @@
   }
   async function verifyPinClient(pin, storedHash) {
     if (!storedHash) return false;
+    
+    let attempts = 0;
+    let lockoutUntil = 0;
+    try {
+      if (globalScope.localStorage) {
+        attempts = parseInt(globalScope.localStorage.getItem('pin_attempts') || '0', 10);
+        lockoutUntil = parseInt(globalScope.localStorage.getItem('pin_lockout') || '0', 10);
+      }
+    } catch (_) {}
+
+    if (attempts >= 5 && Date.now() < lockoutUntil) {
+      const waitMinutes = Math.ceil((lockoutUntil - Date.now()) / 60000);
+      throw new Error(`PIN verification locked due to too many failed attempts. Try again in ${waitMinutes} minute(s).`);
+    }
+
+    let match = false;
     if (storedHash.includes(':')) {
       try {
         const [salt, hash] = storedHash.split(':');
         const checkHash = await pbkdf2(pin, salt, 100000, 64);
-        return hash === checkHash;
+        match = (hash === checkHash);
       } catch (err) {
         console.error('[ClientDB] PBKDF2 verification failed:', err);
-        return false;
+        match = false;
       }
     } else {
       console.warn('[ClientDB] Legacy unsalted SHA-256 hashes are deprecated and no longer supported. Please re-assign PIN.');
-      return false;
+      match = false;
     }
+
+    try {
+      if (globalScope.localStorage) {
+        if (match) {
+          globalScope.localStorage.setItem('pin_attempts', '0');
+          globalScope.localStorage.setItem('pin_lockout', '0');
+        } else {
+          const newAttempts = attempts + 1;
+          globalScope.localStorage.setItem('pin_attempts', String(newAttempts));
+          if (newAttempts >= 5) {
+            globalScope.localStorage.setItem('pin_lockout', String(Date.now() + 15 * 60 * 1000)); // 15 minutes lockout
+          }
+        }
+      }
+    } catch (_) {}
+
+    return match;
   }
   globalScope.verifyPinClient = verifyPinClient;
   globalScope.pbkdf2 = pbkdf2;

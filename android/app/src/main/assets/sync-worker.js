@@ -667,33 +667,49 @@ self.onmessage = async (event) => {
           console.warn('[SyncWorker] Failed to decode license token for tier validation:', e.message);
         }
 
+        // Compute transaction/receipt tamper-evident signature (Task 14)
+        let signature = '';
+        try {
+          const signaturePayload = JSON.stringify({
+            id: transactionId,
+            subtotal: subtotal,
+            tax: tax,
+            total: total,
+            timestamp: now
+          });
+          const encoder = new TextEncoder();
+          const dataBuf = encoder.encode(signaturePayload + '-valenixia-receipt-salt');
+          const hashBuf = await crypto.subtle.digest('SHA-256', dataBuf);
+          signature = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch (sigErr) {
+          console.warn('[SyncWorker] Failed to compute receipt signature:', sigErr.message);
+        }
+
         // Check if FBR integration is enabled for the license tier
         const isFbrEnabled = (tier === 'ENTERPRISE' || tier === 'TRIAL') && (fbr_integration_enabled === true || fbr_integration_enabled === 'true');
         let finalPaymentDetails = paymentDetails || '';
         let fbrInvoiceNumber = '';
         let fbrQrUrl = '';
 
+        const receiptMeta = { signature };
         if (isFbrEnabled) {
           // Generate FBR E-Invoicing compliant Fiscal details automatically
           fbrInvoiceNumber = `FBR-POS-${now}-${secureRandomInt(1000, 9999)}`;
           fbrQrUrl = `https://verification.fbr.gov.pk/verify?invoiceNumber=${encodeURIComponent(fbrInvoiceNumber)}&total=${encodeURIComponent(total)}&tax=${encodeURIComponent(tax)}`;
-          
-          const fbrMeta = {
-            fbr_invoice_number: fbrInvoiceNumber,
-            fbr_qr_url: fbrQrUrl,
-            fbr_status: 'INTEGRATED_SUCCESS'
-          };
-          
-          if (finalPaymentDetails.startsWith('{')) {
-            try {
-              const parsed = JSON.parse(finalPaymentDetails);
-              finalPaymentDetails = JSON.stringify({ ...parsed, ...fbrMeta });
-            } catch(e) {
-              finalPaymentDetails = JSON.stringify({ note: finalPaymentDetails, ...fbrMeta });
-            }
-          } else {
-            finalPaymentDetails = JSON.stringify({ note: finalPaymentDetails, ...fbrMeta });
+          receiptMeta.fbr_invoice_number = fbrInvoiceNumber;
+          receiptMeta.fbr_qr_url = fbrQrUrl;
+          receiptMeta.fbr_status = 'INTEGRATED_SUCCESS';
+        }
+
+        if (finalPaymentDetails.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(finalPaymentDetails);
+            finalPaymentDetails = JSON.stringify({ ...parsed, ...receiptMeta });
+          } catch(e) {
+            finalPaymentDetails = JSON.stringify({ note: finalPaymentDetails, ...receiptMeta });
           }
+        } else {
+          finalPaymentDetails = JSON.stringify({ note: finalPaymentDetails, ...receiptMeta });
         }
 
         // Open a single atomic readwrite transaction
@@ -850,7 +866,7 @@ self.onmessage = async (event) => {
             idbTx.onabort = (e) => reject(new Error('Transaction aborted'));
           });
 
-          postMessage({ type: 'CHECKOUT_SUCCESS', transactionId, subtotal, tax, total, paymentMode });
+          postMessage({ type: 'CHECKOUT_SUCCESS', transactionId, subtotal, tax, total, paymentMode, signature });
         } catch (err) {
           console.error('[SyncWorker] Checkout transaction failed, rolling back:', err);
           try {

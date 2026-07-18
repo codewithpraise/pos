@@ -2524,6 +2524,18 @@ app.post('/api/admin/employees', requireAdmin, adminActionLimiter, requireBody({
       [empId, pinHash, 'token_' + empId.substring(0, 8), role.toUpperCase(), hlc]
     );
 
+    // Populate manager/admin action audit log (Task 10)
+    await db.run(
+      "INSERT INTO admin_audit_log (id, user_id, action, details, created_at) VALUES (?, ?, ?, ?, ?)",
+      [
+        crypto.randomUUID(),
+        req.device ? req.device.node_id : 'unknown_admin',
+        'CREATE_EMPLOYEE',
+        JSON.stringify({ employee_id: empId, role: role.toUpperCase() }),
+        Date.now()
+      ]
+    );
+
     res.json({ success: true, employee: { id: empId, role: role.toUpperCase() } });
   } catch (err) {
     sendError(res, err);
@@ -2564,20 +2576,39 @@ app.post('/api/checkout/verify', loginLimiter, requireAuth, requireBody({ cart: 
     const storeRow = await db.get("SELECT tier FROM stores LIMIT 1");
     const activeTier = storeRow ? storeRow.tier : 'STARTER';
 
-    // Enforce tier transaction limits server-side
+    // Enforce tier transaction limits server-side with atomic slot reservation
     if (activeTier === 'STARTER' || activeTier === 'FREE' || activeTier === 'TRIAL') {
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
       const startTimestamp = startOfMonth.getTime();
-      const txCountRow = await db.get(
-        "SELECT COUNT(*) as count FROM transactions WHERE created_at >= ? AND is_deleted = 0 AND status = 'COMPLETED'",
-        [startTimestamp]
-      );
-      const invoiceCount = txCountRow ? txCountRow.count : 0;
-      const limit = activeTier === 'FREE' ? 100 : (activeTier === 'TRIAL' ? 500 : 200); // FREE: 100, STARTER: 200, TRIAL: 500
-      if (invoiceCount >= limit) {
-        return res.status(403).json({ error: `Monthly transaction limit reached (${limit} transactions) for your tier.` });
+      const monthKey = `${startOfMonth.getFullYear()}-${startOfMonth.getMonth() + 1}`;
+      const storeId = (storeRow && storeRow.id) || 'default';
+      
+      await db.run("BEGIN IMMEDIATE");
+      try {
+        const txCountRow = await db.get(
+          "SELECT COUNT(*) as count FROM transactions WHERE created_at >= ? AND is_deleted = 0 AND status = 'COMPLETED'",
+          [startTimestamp]
+        );
+        const invoiceCount = txCountRow ? txCountRow.count : 0;
+        const limit = activeTier === 'FREE' ? 100 : (activeTier === 'TRIAL' ? 500 : 200); // FREE: 100, STARTER: 200, TRIAL: 500
+        if (invoiceCount >= limit) {
+          await db.run("COMMIT");
+          return res.status(403).json({ error: `Monthly transaction limit reached (${limit} transactions) for your tier.` });
+        }
+        
+        // Claim the checkout slot atomically to prevent concurrent race bypasses
+        try {
+          await db.run("INSERT INTO tier_usage (month_key, store_id, count_val) VALUES (?, ?, ?)", [monthKey, storeId, invoiceCount + 1]);
+        } catch (constrainErr) {
+          await db.run("ROLLBACK").catch(() => {});
+          return res.status(409).json({ error: 'Concurrent checkout limit validation check failed. Please retry.' });
+        }
+        await db.run("COMMIT");
+      } catch (txnErr) {
+        await db.run("ROLLBACK").catch(() => {});
+        throw txnErr;
       }
     }
 
@@ -2898,6 +2929,18 @@ app.post('/api/admin/payments/decision', requireAdmin, adminActionLimiter, requi
         [rejection_reason || 'Rejected by administrator.', now, proof_id]
       );
 
+      // Log manager action (Task 10)
+      await db.run(
+        "INSERT INTO admin_audit_log (id, user_id, action, details, created_at) VALUES (?, ?, ?, ?, ?)",
+        [
+          crypto.randomUUID(),
+          req.device ? req.device.node_id : 'unknown_admin',
+          'REJECT_TIER_UPGRADE',
+          JSON.stringify({ proof_id: proof_id, reason: rejection_reason }),
+          now
+        ]
+      );
+
       // Sync rejection to Supabase
       const { supabase } = require('./supabase-sync');
       if (supabase) {
@@ -2953,6 +2996,18 @@ app.post('/api/admin/payments/decision', requireAdmin, adminActionLimiter, requi
       await db.run(
         "UPDATE stores SET status = 'active', tier = ?, mode = ?, expires_at = ?, license_key = ?, purchased_at = ?, amc_paid_until = ? WHERE id = ?",
         [proof.plan_id, finalMode, expiresAt, token, purchasedAt, amcPaidUntil, proof.user_id]
+      );
+
+      // Log manager action (Task 10)
+      await db.run(
+        "INSERT INTO admin_audit_log (id, user_id, action, details, created_at) VALUES (?, ?, ?, ?, ?)",
+        [
+          crypto.randomUUID(),
+          req.device ? req.device.node_id : 'unknown_admin',
+          'APPROVE_TIER_UPGRADE',
+          JSON.stringify({ proof_id: proof_id, tier: proof.plan_id, store_id: proof.user_id }),
+          now
+        ]
       );
 
       // 5. Update Supabase if active
@@ -3752,6 +3807,19 @@ app.post('/api/system/reset', checkOrigin, requireAdmin, loginLimiter, async (re
 
   try {
     await clearPinLockout(lockoutKey);
+    // Populate manager/admin action audit log (Task 10)
+    try {
+      await db.run(
+        "INSERT INTO admin_audit_log (id, user_id, action, details, created_at) VALUES (?, ?, ?, ?, ?)",
+        [
+          crypto.randomUUID(),
+          matched.id || 'unknown_admin',
+          'SYSTEM_FACTORY_RESET',
+          JSON.stringify({ ip: req.ip }),
+          Date.now()
+        ]
+      );
+    } catch (_) {}
     await factoryResetDatabase();
     serverPassphrase = '';
     jwtSecret = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
@@ -4214,7 +4282,7 @@ app.post('/api/reset', requireAdmin, checkOrigin, adminActionLimiter, requireBod
     }
 
     // Requires manager/admin PIN verification
-    const employees = await db.all('SELECT * FROM employees WHERE role = "ADMIN"');
+    const employees = await db.all('SELECT * FROM employees WHERE role = "ADMIN" AND is_active = 1');
     const matched = await verifyEmployeePin(pin, employees);
 
     if (!matched) {
@@ -4225,6 +4293,17 @@ app.post('/api/reset', requireAdmin, checkOrigin, adminActionLimiter, requireBod
     await clearPinLockout(lockoutKey);
 
     await db.beginImmediate();
+    // Populate manager/admin action audit log (Task 10)
+    await db.run(
+      "INSERT INTO admin_audit_log (id, user_id, action, details, created_at) VALUES (?, ?, ?, ?, ?)",
+      [
+        crypto.randomUUID(),
+        matched.id || 'unknown_admin',
+        'DESTRUCTIVE_RESET',
+        JSON.stringify({ ip: req.ip }),
+        Date.now()
+      ]
+    );
     // Destructive baseline reset (keep catalog metadata template but clear transactional database logs)
     await db.run('DELETE FROM transactions;');
     await db.run('DELETE FROM line_items;');
@@ -4702,20 +4781,25 @@ initDatabase(terminalId)
     activeTimers.push(fbrRetryTimer);
     console.log('[FBRDaemon] Automated FBR invoice retry daemon scheduled (15m interval).');
 
-    // ── Weekly CRDT Tombstone Garbage Collection ─────────────────────────────
-    // Safely prune acknowledged change records older than the current db version
-    // minus a 50k-row safety buffer. Runs every 7 days.
-    const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+    // ── Nightly CRDT Tombstone Garbage Collection ─────────────────────────────
+    // Safely prune acknowledged change records older than the current max db version
+    // minus a 1000 safety buffer. Runs every 24 hours.
+    const DAY_MS = 24 * 60 * 60 * 1000;
     const gcTimer = setInterval(async () => {
-      const currentVer = getDbVersion();
-      const safeVersion = Math.max(0, currentVer - 50000);
-      if (safeVersion > 0) {
-        console.log(`[GC Scheduler] Running weekly CRDT pruning. Safe version: ${safeVersion}`);
-        await pruneAcknowledgedChanges(safeVersion);
+      try {
+        const maxDbVerRow = await db.get("SELECT MAX(db_version) as max_ver FROM crsql_changes");
+        const maxDbVer = maxDbVerRow ? maxDbVerRow.max_ver : 0;
+        const safeVersion = Math.max(0, maxDbVer - 1000);
+        if (safeVersion > 0) {
+          console.log(`[GC Scheduler] Running nightly CRDT pruning. Safe version limit: ${safeVersion}`);
+          await pruneAcknowledgedChanges(safeVersion);
+        }
+      } catch (gcErr) {
+        console.error('[GC Scheduler] Nightly CRDT pruning failed:', gcErr);
       }
-    }, WEEK_MS);
+    }, DAY_MS);
     activeTimers.push(gcTimer);
-    console.log('[GC] Weekly CRDT tombstone garbage collector scheduled.');
+    console.log('[GC] Nightly CRDT tombstone garbage collector scheduled (24h interval).');
 
     // ── Enforce 6-Year Data Retention Policy (Task 6-B / 7-D) ────────────────
     async function enforceDataRetentionPolicy() {
