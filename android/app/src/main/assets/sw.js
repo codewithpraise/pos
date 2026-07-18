@@ -4,6 +4,15 @@
 // v7 - Hardened fetch handler: no unhandled rejections, no undefined responses
 // ============================================================================
 
+// Console gating in production Service Worker context to block trace leaks
+if (self.location.hostname !== 'localhost' && !self.location.hostname.includes('127.0.0.1') && !self.location.hostname.startsWith('192.168.')) {
+  const noop = () => {};
+  console.log = noop;
+  console.warn = noop;
+  console.info = noop;
+  console.error = noop;
+}
+
 const urlParams = new URLSearchParams(self.location.search);
 const buildVersion = urlParams.get('v') || 'dev';
 const CACHE_NAME = `valenixia-pos-cache-v${buildVersion}`;
@@ -21,10 +30,10 @@ const ASSETS_TO_CACHE = [
   { url: '/modules/offline.js', integrity: '' },
   { url: '/modules/keyboard.js', integrity: '' },
   { url: '/client-db.js', integrity: 'sha384-A44fcMLCzwwkcQG32yja6WNDQBv06ytcG01pJRsKG8bVaiCaHBeRJcngjTHdJN3O' },
-  { url: '/client-audio.js', integrity: '' },
-  { url: '/client-speech.js', integrity: '' },
-  { url: '/client-sync.js', integrity: '' },
-  { url: '/sync-worker.js', integrity: '' },
+  { url: '/client-audio.js', integrity: 'sha384-vSkZxNpW3irRy+M++qqNgiEfTojWAuiVCd2q+cgd1Mny2htbsK82FG+mYLljIbyW' },
+  { url: '/client-speech.js', integrity: 'sha384-okOmHgmFVB+jxD+KR0d9OLQzPS3oG28FiwyjpymBRk7+0BLoaaTgBwl/cULP8hSc' },
+  { url: '/client-sync.js', integrity: 'sha384-60MfNkGeKQ4aD+IkT6mpDnFKEEr/T2LI0uLIT38wnHilQhhoR5EgCoWLHe2HgPdV' },
+  { url: '/sync-worker.js', integrity: 'sha384-n0Sb4MOFCqDnbn1LLmmJ8QuzAHdy2Br7oMguxRpOF5T0UoST7v/J9G1xtkNJ9h2j' },
   { url: '/manifest.json', integrity: '' },
   { url: '/icon-192.png', integrity: '' },
   { url: '/icon-512.png', integrity: '' },

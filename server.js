@@ -3,6 +3,10 @@
 // Core runtime managing SQLite, HTTP/2 REST routes, and WebSocket telemetry
 // ============================================================================
 
+// Prototype Pollution Protection (Mitigates RCE and prototype chain hijacking)
+Object.freeze(Object.prototype);
+Object.freeze(Array.prototype);
+
 const path = require('path');
 const fs = require('fs');
 
@@ -449,6 +453,31 @@ const qrApproveLimiter = rateLimit({
   skip: () => process.env.NODE_ENV === 'test'
 });
 
+function isHostAllowed(host) {
+  if (!host) return false;
+  const hostname = host.split(':')[0];
+  
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
+    return true;
+  }
+  if (/^(?:192\.168\.|10\.|172\.(?:1[6-9]|2[0-9]|3[01])\.)/.test(hostname)) {
+    return true;
+  }
+  if (process.env.SERVER_HOST && hostname === process.env.SERVER_HOST) {
+    return true;
+  }
+  if (process.env.FRONTEND_URL) {
+    try {
+      const allowedHostname = new URL(process.env.FRONTEND_URL).hostname;
+      if (hostname === allowedHostname) return true;
+    } catch (_) {}
+  }
+  if (/\.valenixia\.com$/.test(hostname) || hostname === 'valenixia.com') {
+    return true;
+  }
+  return false;
+}
+
 // Apply security middleware
 app.use((req, res, next) => {
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
@@ -457,7 +486,11 @@ app.use((req, res, next) => {
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   if (req.headers['x-forwarded-proto'] && req.headers['x-forwarded-proto'] !== 'https') {
-    return res.redirect(301, 'https://' + req.headers.host + req.url);
+    const host = req.headers.host || '';
+    if (!isHostAllowed(host)) {
+      return res.status(400).json({ error: 'Bad Request: Invalid Host header' });
+    }
+    return res.redirect(301, 'https://' + host + req.url);
   }
   next();
 });
@@ -581,13 +614,16 @@ app.use((req, res, next) => {
   req.cookies = parseCookies(req.headers.cookie);
   
   res.cookie = (name, val, options = {}) => {
+    const sameSite = options.sameSite || 'Strict';
+    const isSecure = options.secure !== undefined ? options.secure : (req.secure || req.headers['x-forwarded-proto'] === 'https' || process.env.NODE_ENV === 'production');
+    
     let str = `${name}=${encodeURIComponent(val)}`;
     if (options.maxAge) str += `; Max-Age=${options.maxAge}`;
     if (options.path) str += `; Path=${options.path}`;
     if (options.domain) str += `; Domain=${options.domain}`;
-    if (options.secure) str += '; Secure';
-    if (options.httpOnly) str += '; HttpOnly';
-    if (options.sameSite) str += `; SameSite=${options.sameSite}`;
+    if (isSecure) str += '; Secure';
+    if (options.httpOnly !== false) str += '; HttpOnly';
+    if (sameSite) str += `; SameSite=${sameSite}`;
     
     const existing = res.getHeader('Set-Cookie');
     if (existing) {
@@ -600,6 +636,41 @@ app.use((req, res, next) => {
       res.setHeader('Set-Cookie', str);
     }
   };
+
+  // Generate or retrieve CSRF token
+  let csrfToken = req.cookies._csrf;
+  if (!csrfToken) {
+    csrfToken = crypto.randomBytes(24).toString('hex');
+  }
+  
+  // Set the CSRF cookie securely (readable by client fetch interceptor)
+  const isSecureEnv = req.secure || req.headers['x-forwarded-proto'] === 'https' || process.env.NODE_ENV === 'production';
+  res.cookie('_csrf', csrfToken, {
+    sameSite: 'Strict',
+    secure: isSecureEnv,
+    httpOnly: false, // Must be false so client JS can read and set headers
+    path: '/'
+  });
+
+  // Validate CSRF token on all state-changing API requests
+  const method = req.method.toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+    // Exempt non-browser public endpoints
+    const isExempt = req.path === '/api/health' || req.path === '/api/pair';
+    if (!isExempt) {
+      const clientToken = req.headers['x-csrf-token'] || req.headers['X-CSRF-Token'];
+      if (!clientToken || clientToken !== csrfToken) {
+        logger.warn('CSRF', 'CSRF token mismatch or missing', {
+          method,
+          path: req.path,
+          hasClientToken: !!clientToken,
+          ip: req.ip
+        });
+        return res.status(403).json({ error: 'Security violation: CSRF token validation failed.' });
+      }
+    }
+  }
+
   next();
 });
 
@@ -3991,7 +4062,58 @@ app.get('/api/sync/bootstrap', async (req, res) => {
     // Fallback: If no Supabase connection, or if it returned no rows, query local SQLite crsql_changes
     if (changes.length === 0) {
       console.log(`[Bootstrap] Fetching local SQLite changes for bootstrap...`);
-      changes = await db.all("SELECT * FROM crsql_changes");
+      const allChanges = await db.all("SELECT * FROM crsql_changes");
+      
+      // Filter changes by tenant storeId to prevent cross-tenant IDOR leakage
+      changes = [];
+      for (const change of allChanges) {
+        let isMatch = false;
+        const { table_name, pk } = change;
+        
+        try {
+          if (table_name === 'stores') {
+            isMatch = (pk === storeId);
+          } else if (table_name === 'devices') {
+            const dev = await db.get("SELECT store_id FROM devices WHERE id = ?", [pk]);
+            isMatch = (dev && dev.store_id === storeId);
+          } else if (table_name === 'employees') {
+            const emp = await db.get("SELECT store_id FROM employees WHERE id = ?", [pk]);
+            isMatch = (emp && emp.store_id === storeId);
+          } else if (table_name === 'transactions') {
+            const tx = await db.get("SELECT employee_id FROM transactions WHERE id = ?", [pk]);
+            if (tx && tx.employee_id) {
+              const emp = await db.get("SELECT store_id FROM employees WHERE id = ?", [tx.employee_id]);
+              isMatch = (emp && emp.store_id === storeId);
+            }
+          } else if (table_name === 'line_items') {
+            const li = await db.get("SELECT transaction_id FROM line_items WHERE id = ?", [pk]);
+            if (li && li.transaction_id) {
+              const tx = await db.get("SELECT employee_id FROM transactions WHERE id = ?", [li.transaction_id]);
+              if (tx && tx.employee_id) {
+                const emp = await db.get("SELECT store_id FROM employees WHERE id = ?", [tx.employee_id]);
+                isMatch = (emp && emp.store_id === storeId);
+              }
+            }
+          } else if (table_name === 'local_preferences') {
+            isMatch = true;
+          } else {
+            const row = await db.get(`SELECT * FROM ${table_name} WHERE id = ?`, [pk]);
+            if (row) {
+              if (row.store_id !== undefined) {
+                isMatch = (row.store_id === storeId);
+              } else {
+                isMatch = true;
+              }
+            }
+          }
+        } catch (_) {
+          isMatch = true;
+        }
+        
+        if (isMatch) {
+          changes.push(change);
+        }
+      }
     }
 
     // Apply Shallow Hydration:
