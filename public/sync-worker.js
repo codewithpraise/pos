@@ -3,6 +3,19 @@
 // Offloads database I/O, CRDT delta merging, and WebSocket sync off main thread
 // ============================================================================
 
+(function() {
+  const isLocal = self.location.hostname === 'localhost' || 
+                  self.location.hostname === '127.0.0.1' || 
+                  self.location.hostname === '10.0.2.2';
+  if (!isLocal) {
+    const noop = () => {};
+    console.log = noop;
+    console.warn = noop;
+    console.info = noop;
+    console.error = noop;
+  }
+})();
+
 importScripts('client-db.js', 'client-sync.js');
 let dbReadyPromise = ValenixiaDB.init(); // Capture the init promise
 
@@ -1040,16 +1053,16 @@ self.onmessage = async (event) => {
       case 'SAVE_EMPLOYEE': {
         const { id, pin, biometric_token, role, is_active } = payload;
         
-        // Reject ADMIN role creation from client
-        if (role === 'ADMIN') {
-          postMessage({ type: 'ERROR', error: 'ADMIN role can only be assigned server-side.' });
+        // Load existing employee to preserve auth_hash if pin is not provided
+        const existing = await ValenixiaDB.get('employees', id);
+
+        // Reject ADMIN role creation or modification from client
+        if (role === 'ADMIN' || (existing && existing.role === 'ADMIN')) {
+          postMessage({ type: 'ERROR', error: 'ADMIN role can only be assigned or modified server-side.' });
           break;
         }
 
         const tickHlc = syncClient.hlc.tick();
-        
-        // Load existing employee to preserve auth_hash if pin is not provided
-        const existing = await ValenixiaDB.get('employees', id);
         let finalHash = (existing && existing.auth_hash) || '';
         if (pin) {
           finalHash = await hashPin(pin);

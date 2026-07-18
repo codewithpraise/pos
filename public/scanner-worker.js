@@ -3,7 +3,20 @@
 // Powered by ZXing multi-format decoding engine running off the main thread
 // ============================================================================
 
-importScripts('https://unpkg.com/@zxing/library@0.21.0/umd/index.min.js');
+(function() {
+  const isLocal = self.location.hostname === 'localhost' || 
+                  self.location.hostname === '127.0.0.1' || 
+                  self.location.hostname === '10.0.2.2';
+  if (!isLocal) {
+    const noop = () => {};
+    console.log = noop;
+    console.warn = noop;
+    console.info = noop;
+    console.error = noop;
+  }
+})();
+
+importScripts('zxing.min.js');
 
 let reader = null;
 
@@ -16,6 +29,10 @@ self.onmessage = function(event) {
       }
 
       const { data, width, height } = imageData;
+      if (!data || !width || !height || data.length !== width * height * 4) {
+        self.postMessage({ type: 'error', error: 'Invalid imageData dimensions' });
+        return;
+      }
       
       // Convert RGBA Uint8ClampedArray to a grayscale luminance array (width * height)
       // This matches the format expected by RGBLuminanceSource

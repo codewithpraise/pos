@@ -4,6 +4,7 @@
                   window.location.hostname === '127.0.0.1' || 
                   window.location.hostname === '10.0.2.2' ||
                   localStorage.getItem('valenixia_debug') === 'true';
+  window.__valenixiaIsLocal = isLocal;
   
   if (!isLocal) {
     const noop = () => {};
@@ -79,7 +80,9 @@ window.drawCrashConsole = drawCrashConsole;
 window.onerror = function(msg, url, lineNo, columnNo, error) {
     const logStr = `Error: ${msg} at ${lineNo}:${columnNo}`;
     window.__valenixiaLogs.push(logStr);
-    console.error(logStr, error);
+    if (window.__valenixiaIsLocal) {
+        console.error(logStr, error);
+    }
     
     // Ignore cross-origin script errors or network load failures
     const lowerMsg = String(msg || '').toLowerCase();
@@ -99,12 +102,16 @@ window.addEventListener('unhandledrejection', function(event) {
     
     // Ignore expected network / fetch connectivity errors from triggering the crash console
     if (lowerMsg.includes('failed to fetch') || lowerMsg.includes('networkerror') || lowerMsg.includes('load failed') || lowerMsg.includes('network') || lowerMsg.includes('fetch')) {
-        console.warn('[Bootstrap] Ignored network rejection:', msg);
+        if (window.__valenixiaIsLocal) {
+            console.warn('[Bootstrap] Ignored network rejection:', msg);
+        }
         return;
     }
     
     window.__valenixiaLogs.push('Unhandled Promise: ' + msg);
-    console.error('Unhandled Promise:', reason);
+    if (window.__valenixiaIsLocal) {
+        console.error('Unhandled Promise:', reason);
+    }
     drawCrashConsole(msg, 'Async Promise', 'N/A', reason);
 });
 
@@ -127,9 +134,13 @@ window.addEventListener('unhandledrejection', function(event) {
   }
   try {
     window.__valenixiaServerUrl = resolveServerUrl();
-    console.log('[Bootstrap] Resolved backend server URL:', window.__valenixiaServerUrl);
+    if (window.__valenixiaIsLocal) {
+        console.log('[Bootstrap] Resolved backend server URL:', window.__valenixiaServerUrl);
+    }
   } catch (err) {
-    console.error('[Bootstrap] URL Resolution Error:', err.message);
+    if (window.__valenixiaIsLocal) {
+        console.error('[Bootstrap] URL Resolution Error:', err.message);
+    }
     window.__valenixiaServerUrl = '';
   }
 })();
