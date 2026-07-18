@@ -82,7 +82,7 @@
       <!-- Real passcode input for native keyboard, physical keyboard, and scanner support -->
       <form id="pin-form" style="margin-bottom: 20px; display: flex; justify-content: center; position: relative; width: 100%;">
         <input type="text"  autocomplete="new-password" id="pin-input" class="secure-input pin-input-field" 
-               inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="••••"
+               inputmode="numeric" pattern="[0-9]*" maxlength="6" minlength="4" placeholder="••••••"
                autocomplete="one-time-code" aria-label="••••">
         <button type="submit" style="display: none;"></button>
       </form>
@@ -1001,15 +1001,15 @@
               <h3>Change My Security PIN</h3>
               <div class="settings-row">
                 <label>Current Security PIN:</label>
-                <input type="text"  autocomplete="new-password" id="setting-change-pin-current" class="secure-input pos-input" maxlength="4" placeholder="4-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
+                <input type="text"  autocomplete="new-password" id="setting-change-pin-current" class="secure-input pos-input" maxlength="6" minlength="4" placeholder="4 to 6-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
               </div>
               <div class="settings-row">
                 <label>New Security PIN:</label>
-                <input type="text"  autocomplete="new-password" id="setting-change-pin-new" class="secure-input pos-input" maxlength="4" placeholder="4-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
+                <input type="text"  autocomplete="new-password" id="setting-change-pin-new" class="secure-input pos-input" maxlength="6" minlength="4" placeholder="4 to 6-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
               </div>
               <div class="settings-row">
                 <label>Confirm New PIN:</label>
-                <input type="text"  autocomplete="new-password" id="setting-change-pin-confirm" class="secure-input pos-input" maxlength="4" placeholder="4-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
+                <input type="text"  autocomplete="new-password" id="setting-change-pin-confirm" class="secure-input pos-input" maxlength="6" minlength="4" placeholder="4 to 6-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
               </div>
               <button type="button" class="action-btn action-success" id="btn-change-my-pin" style="width: 100%; margin-top: 12px;">Update My Passcode</button>
             </div>
@@ -1903,7 +1903,7 @@
         <div class="settings-row">
           <label>Register Security PIN Code (Numeric):</label>
           <div class="password-wrapper">
-            <input type="text"  autocomplete="new-password" id="form-employee-pin" class="secure-input pos-input" placeholder="4-digit PIN number" maxlength="4" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN number">
+            <input type="text"  autocomplete="new-password" id="form-employee-pin" class="secure-input pos-input" placeholder="4 to 6-digit PIN number" maxlength="6" minlength="4" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN number">
             <button type="button" class="btn-toggle-password" title="Toggle visibility">
               <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -1977,7 +1977,7 @@
           <div class="settings-row">
             <label style="font-size:11px;font-weight:700;color:var(--text-gray);text-transform:uppercase;letter-spacing:0.5px;">Admin PIN</label>
             <div class="password-wrapper" style="margin-top:6px;">
-              <input type="text"  autocomplete="new-password" id="delete-confirm-pin" class="secure-input pos-input" placeholder="4-digit owner PIN" maxlength="4" inputmode="numeric" aria-label="4-digit owner PIN">
+              <input type="text"  autocomplete="new-password" id="delete-confirm-pin" class="secure-input pos-input" placeholder="4 to 6-digit owner PIN" maxlength="6" minlength="4" inputmode="numeric" aria-label="4-digit owner PIN">
               <button type="button" class="btn-toggle-password" title="Toggle"><svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button>
             </div>
           </div>
@@ -2418,9 +2418,9 @@
         <!-- STEP 4: Security -->
         <div class="wiz-panel" id="wiz-panel-4" style="display:none; flex-direction:column; gap:14px;">
           <div class="wiz-field-group">
-            <label class="wiz-label">Owner PIN <span style="color:#8f9cb5; font-weight:500; font-size:10px;">(4 digits)</span></label>
+            <label class="wiz-label">Owner PIN <span style="color:#8f9cb5; font-weight:500; font-size:10px;">(4-6 digits)</span></label>
             <div class="password-wrapper" style="margin-top:6px;">
-              <input type="text"  autocomplete="new-password" id="wizard-admin-pin" class="secure-input pos-input" placeholder="e.g. 1234" maxlength="4" inputmode="numeric" pattern="[0-9]*" aria-label="e.g. 1234">
+              <input type="text"  autocomplete="new-password" id="wizard-admin-pin" class="secure-input pos-input" placeholder="e.g. 123456" maxlength="6" minlength="4" inputmode="numeric" pattern="[0-9]*" aria-label="e.g. 1234">
               <button type="button" class="btn-toggle-password" title="Toggle visibility">
                 <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>

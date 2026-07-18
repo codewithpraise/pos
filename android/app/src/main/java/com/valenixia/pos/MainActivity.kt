@@ -416,6 +416,18 @@ class MainActivity : AppCompatActivity() {
             }
             return fresh
         }
+
+        @JavascriptInterface
+        fun setOnboardingComplete(complete: Boolean) {
+            if (!isCurrentOriginTrusted()) return
+            prefs.edit().putBoolean("onboarding_complete", complete).apply()
+        }
+
+        @JavascriptInterface
+        fun isOnboardingComplete(): Boolean {
+            if (!isCurrentOriginTrusted()) return false
+            return prefs.getBoolean("onboarding_complete", false)
+        }
     }
 
     inner class POSHardwareInterface {
@@ -808,6 +820,8 @@ class MainActivity : AppCompatActivity() {
             javaScriptEnabled = true
             domStorageEnabled = true
             databaseEnabled = true
+            val defaultUa = userAgentString
+            userAgentString = "$defaultUa ValenixiaPOS/Android"
             allowFileAccess = false
             allowContentAccess = false
             allowFileAccessFromFileURLs = false

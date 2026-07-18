@@ -336,8 +336,15 @@ const loginLimiter = rateLimit({
 function isOriginValid(origin, req) {
   if (!origin) return true; // non-browser requests
   
-  // Allow file:// for Android WebView assets
-  if (origin.startsWith('file://')) return true;
+  // Allow file:// strictly for trusted Android WebView assets
+  if (origin.startsWith('file://')) {
+    const ua = req && req.headers ? (req.headers['user-agent'] || '') : '';
+    if (ua.includes('ValenixiaPOS/Android')) {
+      return true;
+    }
+    logger.warn('CORS', 'Rejected file:// request: Untrusted user-agent');
+    return false;
+  }
 
   try {
     const originUrl = new URL(origin);
@@ -3325,7 +3332,7 @@ app.get('/api/devices/approve-qr', qrApproveLimiter, async (req, res) => {
     <h2>Approve Pairing Request</h2>
     <p>Device <code>${safeNodeId}</code> is requesting to sync with this Valenixia POS register.</p>
     <p>Enter the Administrator PIN to approve:</p>
-    <input type="password" id="pin-input" placeholder="••••" maxlength="4" />
+    <input type="password" id="pin-input" placeholder="••••••" maxlength="6" minlength="4" />
     <button id="btn-approve">Approve Device</button>
     <div id="status"></div>
   </div>

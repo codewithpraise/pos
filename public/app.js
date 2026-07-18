@@ -2412,11 +2412,11 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
     }
 
     function addDigit(d) {
-      if (!isLockActive() || state.currentPin.length >= 4) return;
+      if (!isLockActive() || state.currentPin.length >= 6) return;
       state.currentPin += String(d);
       updatePinDisplayDots();
       try { playAudioSignal('click'); } catch(e) {}
-      if (state.currentPin.length === 4) {
+      if (state.currentPin.length === 6) {
         if (pinInput) pinInput.blur();
         setTimeout(function() { verifyPinCredentials(); }, 120);
       }
@@ -2485,12 +2485,12 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
     if (pinInput) {
       pinInput.addEventListener('input', function(e) {
         var raw = (e.target.value || '').replace(/[^0-9]/g, '');
-        if (raw.length > 4) raw = raw.slice(0, 4);
+        if (raw.length > 6) raw = raw.slice(0, 4);
         state.currentPin = raw;
         if (e.target.value !== raw) {
           e.target.value = raw;
         }
-        if (raw.length === 4) {
+        if (raw.length === 6) {
           pinInput.blur();
           setTimeout(function() { verifyPinCredentials(); }, 120);
         }
@@ -5086,6 +5086,22 @@ setHtml(row, `
   async function verifyPinCredentials() {
     const errorMsg = document.getElementById('auth-error');
     if (errorMsg) errorMsg.textContent = '';
+    if (state.currentPin.length > 0 && state.currentPin.length < 4) {
+      if (errorMsg) errorMsg.textContent = 'PIN must be at least 4 digits.';
+      try { playAudioSignal('error'); } catch(e) {}
+      state.currentPin = '';
+      updatePinDisplayDots();
+      return;
+    }
+    if (errorMsg) errorMsg.textContent = '';
+    if (state.currentPin.length > 0 && state.currentPin.length < 4) {
+      if (errorMsg) errorMsg.textContent = 'PIN must be at least 4 digits.';
+      try { playAudioSignal('error'); } catch(e) {}
+      state.currentPin = '';
+      updatePinDisplayDots();
+      return;
+    }
+    if (errorMsg) errorMsg.textContent = '';
 
     const roleEl = document.getElementById('login-terminal-role');
     const selectedRole = roleEl ? roleEl.value : 'REGISTER';
@@ -5449,7 +5465,7 @@ setHtml(overlay, `
           <h3 style="font-family: var(--font-display); font-size: 14px; font-weight: 800; color: var(--text-white); margin-bottom: 4px; text-transform: uppercase;">Supervisor Auth</h3>
           <p style="font-size: 10px; color: var(--text-gray); margin-bottom: 16px;">Enter Manager or Admin PIN to authorize access.</p>
           
-          <input type="password" id="mgr-pin-input" maxlength="4" placeholder="â€¢â€¢â€¢â€¢" readonly style="width: 100%; height: 44px; background: #000; border: 1px solid var(--border-titanium); color: #fff; text-align: center; font-size: 20px; letter-spacing: 8px; outline: none; border-radius: 4px; margin-bottom: 16px;">
+          <input type="password" id="mgr-pin-input" maxlength="6" minlength="4" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢" readonly style="width: 100%; height: 44px; background: #000; border: 1px solid var(--border-titanium); color: #fff; text-align: center; font-size: 20px; letter-spacing: 8px; outline: none; border-radius: 4px; margin-bottom: 16px;">
           
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px;">
             <button class="mgr-pin-btn" type="button" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">1</button>
@@ -5480,7 +5496,7 @@ setHtml(overlay, `
       overlay.querySelectorAll('.mgr-pin-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           playAudioSignal('click');
-          if (currentPin.length < 4) {
+          if (currentPin.length < 6) {
             currentPin += btn.textContent;
             pinInput.value = currentPin;
           }
@@ -5501,6 +5517,10 @@ setHtml(overlay, `
       
       document.getElementById('btn-mgr-enter').addEventListener('click', () => {
         playAudioSignal('click');
+        if (currentPin.length < 6) {
+          alert('PIN must be at least 4 digits.');
+          return;
+        }
         overlay.remove();
         resolve(currentPin);
       });
@@ -6151,6 +6171,12 @@ setHtml(qrContainer, '<span style="font-size: 8px; color: var(--text-gray); text
             window.__valenixiaTier = res.payload.tier; // CRITICAL FIX
             window.__valenixiaPlan = null;
             applyTierRestrictions(); // Force UI to unlock features
+            try {
+              await ValenixiaDB.setSecurePref('last_server_verify_time', String(Date.now()));
+            } catch (_) {}
+            try {
+              await ValenixiaDB.setSecurePref('last_server_verify_time', String(Date.now()));
+            } catch (_) {}
             console.log(`[License] Valid ${res.payload.tier} license verified. Expires: ${new Date(res.payload.expiresAt).toLocaleDateString()}`);
             lockoutOverlay.style.display = 'none';
             if (res.payload.tier === 'TRIAL') {

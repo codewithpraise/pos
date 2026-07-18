@@ -31,6 +31,9 @@ const argon2 = require('argon2');
 
 // Secure Argon2 password hashing helper (OWASP approved)
 async function hashPin(pin) {
+  if (typeof pin !== 'string' || !/^\d{4,6}$/.test(pin)) {
+    throw new Error('Invalid PIN format. PIN must be strictly 4 to 6 numeric digits.');
+  }
   return await argon2.hash(pin, {
     type: argon2.argon2id,
     memoryCost: 65536, // 64MB
@@ -41,6 +44,7 @@ async function hashPin(pin) {
 
 // Timing-safe and secure verification supporting both Argon2 and legacy PBKDF2 formats
 async function verifyPin(pin, storedHash) {
+  if (typeof pin !== 'string' || !/^\d{4,6}$/.test(pin)) return false;
   if (!storedHash) return false;
   if (storedHash.startsWith('$argon2')) {
     try {
@@ -63,6 +67,16 @@ async function verifyPin(pin, storedHash) {
 async function verifyEmployeePin(pin, employees) {
   for (const emp of employees) {
     if (await verifyPin(pin, emp.auth_hash)) {
+      // Auto-migrate legacy PBKDF2 hash to Argon2id
+      if (emp.auth_hash && !emp.auth_hash.startsWith('$argon2')) {
+        try {
+          const freshHash = await hashPin(pin);
+          await db.run("UPDATE employees SET auth_hash = ? WHERE id = ?", [freshHash, emp.id]);
+          console.log(`[Auth] Automatically migrated legacy PIN hash to Argon2id for employee: ${emp.id}`);
+        } catch (err) {
+          console.error(`[Auth] Failed to auto-migrate legacy PIN hash to Argon2id:`, err.message);
+        }
+      }
       return emp;
     }
   }

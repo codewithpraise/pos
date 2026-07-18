@@ -356,6 +356,9 @@
 
   // Generates a fully salted PBKDF2 hash (matching the Node server/Kotlin DB backend)
   async function hashPin(pin, saltHex) {
+    if (typeof pin !== 'string' || !/^\d{4,6}$/.test(pin)) {
+      throw new Error('Invalid PIN format. PIN must be strictly 4 to 6 numeric digits.');
+    }
     const salt = saltHex || Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join('');
     try {
       const derived = await pbkdf2(pin, salt, 100000, 64);

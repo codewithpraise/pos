@@ -420,6 +420,12 @@ const LicenseEngine = (() => {
 
         if (activateData.token) {
           await ValenixiaDB.setSecurePref(STORAGE_KEY_LICENSE, activateData.token);
+          try {
+            await ValenixiaDB.setSecurePref('last_server_verify_time', String(Date.now()));
+          } catch (_) {}
+          try {
+            await ValenixiaDB.setSecurePref('last_server_verify_time', String(Date.now()));
+          } catch (_) {}
           window.__valenixiaTier = activateData.tier;
           window.__valenixiaHWID = hwid;
           if(window.showModal) showModal({ title: 'License', message: '', type: 'warning' }); else console.warn('[License]', '');
@@ -887,6 +893,18 @@ const LicenseEngine = (() => {
       console.warn('[LicenseEngine] Failed to get onboarding_complete pref', e);
     }
 
+    // Check native Android device persistent onboarding status
+    let isNativeOnboarded = false;
+    if (window.AndroidPOS && typeof window.AndroidPOS.isOnboardingComplete === 'function') {
+      isNativeOnboarded = window.AndroidPOS.isOnboardingComplete();
+    }
+
+    // Check native Android device persistent onboarding status
+    let isNativeOnboarded = false;
+    if (window.AndroidPOS && typeof window.AndroidPOS.isOnboardingComplete === 'function') {
+      isNativeOnboarded = window.AndroidPOS.isOnboardingComplete();
+    }
+
     // At startup, check if the Node backend is already onboarded
     let isServerOnboarded = false;
     try {
@@ -903,7 +921,7 @@ const LicenseEngine = (() => {
       console.warn('[LicenseEngine] Failed to query backend health status:', err.message);
     }
 
-    const isOnboardingComplete = (onboardingCompletePref && onboardingCompletePref.value_payload === 'true') || isServerOnboarded;
+    const isOnboardingComplete = (onboardingCompletePref && onboardingCompletePref.value_payload === 'true') || isServerOnboarded || isNativeOnboarded;
 
 
     // If onboarding is not complete and we have no stored token, allow boot to run wizard
@@ -938,6 +956,9 @@ const LicenseEngine = (() => {
         return;
       }
       if (!response.ok) return;
+      try {
+        await ValenixiaDB.setSecurePref('last_server_verify_time', String(Date.now()));
+      } catch (_) {}
 
       const result = await response.json();
       if (result.updated && result.token) {
