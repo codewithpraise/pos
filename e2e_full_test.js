@@ -148,7 +148,10 @@ async function detectBootState(ev) {
   };
 }
 
-async function doLogin(ev, pin = process.env.TEST_ADMIN_PIN || '1234') {
+async function doLogin(ev, pin = process.env.TEST_ADMIN_PIN) {
+  if (!pin) {
+    throw new Error('TEST_ADMIN_PIN environment variable is required for E2E tests.');
+  }
   const digits = pin.split('');
   for (const d of digits) {
     await ev(`(function(){

@@ -15,7 +15,7 @@ let currentHlc = null;
 let currentDbVersion = 0; // Incremented on each local transaction change
 
 // Schema version: increment when adding columns/tables that clients must have before syncing
-const SERVER_SCHEMA_VERSION = 13;
+const SERVER_SCHEMA_VERSION = 14;
 module.exports && Object.assign(module.exports, { SERVER_SCHEMA_VERSION });
 
 const argon2 = require('argon2');
@@ -1094,31 +1094,38 @@ async function getChangesSince(version) {
   );
 }
 
-let dbQueue = Promise.resolve();
-let dbQueueDepth = 0;
+class BoundedAsyncQueue {
+  constructor(maxDepth = 500) {
+    this._queue = Promise.resolve();
+    this._depth = 0;
+    this._maxDepth = maxDepth;
+  }
+
+  enqueue(op) {
+    if (this._depth >= this._maxDepth) {
+      return Promise.reject(new Error(
+        `[CRDT Queue] Sync queue full (depth=${this._depth}/${this._maxDepth}). ` +
+        `Peer is sending changes faster than they can be applied. Backpressure applied.`
+      ));
+    }
+    this._depth++;
+    const next = this._queue.then(async () => {
+      try {
+        return await op();
+      } finally {
+        this._depth = Math.max(0, this._depth - 1);
+      }
+    });
+    this._queue = next.catch(() => {}); // keep chain alive on error
+    return next;
+  }
+}
+
+const syncQueue = new BoundedAsyncQueue(500);
 
 // Apply incoming delta-changes from a remote terminal node
 async function applyRemoteChanges(changes) {
-  if (dbQueueDepth > 1000) {
-    dbQueue = Promise.resolve();
-    dbQueueDepth = 0;
-  }
-  dbQueueDepth++;
-  return new Promise((resolve, reject) => {
-    dbQueue = dbQueue.then(async () => {
-      try {
-        const result = await applyRemoteChangesInternal(changes);
-        resolve(result);
-      } catch (err) {
-        reject(err);
-      } finally {
-        dbQueueDepth = Math.max(0, dbQueueDepth - 1);
-        if (dbQueueDepth === 0) {
-          dbQueue = Promise.resolve();
-        }
-      }
-    });
-  });
+  return syncQueue.enqueue(() => applyRemoteChangesInternal(changes));
 }
 
 async function recalculateCachedStock(sku) {
@@ -1275,6 +1282,56 @@ const ALLOWED_CRDT_COLUMNS = {
   customer_credit: new Set([
     'customer_id', 'transaction_id', 'type', 'amount_minor', 'payment_method',
     'due_date', 'notes', 'created_at', 'sync_hlc', 'is_deleted'
+  ]),
+  stores: new Set([
+    'name', 'phone', 'email', 'tier', 'mode', 'status', 'expires_at',
+    'license_key', 'hardware_limit', 'purchased_at', 'amc_paid_until',
+    'fbr_enabled', 'fbr_integrator', 'sync_hlc', 'is_deleted'
+  ]),
+  devices: new Set([
+    'store_id', 'hardware_id', 'device_name', 'is_active', 'sync_hlc', 'is_deleted'
+  ]),
+  fbr_submissions: new Set([
+    'transaction_id', 'invoice_number', 'usin', 'invoice_payload',
+    'total_minor', 'tax_minor', 'status', 'retry_count', 'fbr_response',
+    'fbr_response_code', 'fbr_error_details', 'created_at', 'submitted_at', 'sync_hlc'
+  ]),
+  fbr_usin_seq: new Set(['sync_hlc']),
+  commission_earnings: new Set([
+    'agent_id', 'activation_code', 'store_id', 'tier', 'gross_amount_minor',
+    'commission_minor_units', 'status', 'fingerprint_hash', 'activated_at',
+    'paid_at', 'reversed_at', 'reversal_reason', 'device_id', 'requires_review',
+    'review_notes', 'reviewed_by', 'reviewed_at', 'refund_amount_paisa',
+    'created_at', 'sync_hlc'
+  ]),
+  payment_proofs: new Set([
+    'user_id', 'plan_id', 'mode', 'rrn_reference', 'amount', 'status',
+    'rejection_reason', 'created_at', 'updated_at', 'sync_hlc'
+  ]),
+  sales_agents: new Set([
+    'employee_id', 'commission_rate_bps', 'is_active', 'created_at', 'sync_hlc'
+  ]),
+  aborted_sales_log: new Set([
+    'cashier_id', 'manager_id', 'items_json', 'total_minor', 'void_reason',
+    'created_at', 'sync_hlc'
+  ]),
+  approved_devices: new Set([
+    'device_name', 'user_agent', 'approved_at', 'status', 'sync_hlc'
+  ]),
+  license_store: new Set(['value', 'updated_at', 'sync_hlc']),
+  pending_payments: new Set([
+    'store_id', 'tier', 'mode', 'amount_paid_minor_units', 'gateway',
+    'transaction_reference', 'status', 'verification_notes',
+    'created_at', 'verified_at', 'sync_hlc'
+  ]),
+  speech_analytics_logs: new Set([
+    'transaction_id', 'utterance_duration_ms', 'speaker_diarization_tag',
+    'filler_word_count', 'sentiment_score', 'flagged_fraud_risk',
+    'disfluency_markers', 'sync_hlc'
+  ]),
+  telemetry_logs: new Set([
+    'node_id', 'error_type', 'error_message', 'stack_trace',
+    'hlc', 'last_clicks', 'created_at', 'sync_hlc'
   ])
 };
 
@@ -1315,6 +1372,22 @@ async function applyChangeToSchema(tableName, pk, cid, val, cl, valType = 'strin
       await db.run('UPDATE distributor_payments SET is_deleted = 1 WHERE id = ?', [pk]);
     } else if (tableName === 'customer_credit') {
       await db.run('UPDATE customer_credit SET is_deleted = 1 WHERE id = ?', [pk]);
+    } else if (tableName === 'stores') {
+      await db.run("UPDATE stores SET status = 'suspended', is_deleted = 1 WHERE id = ?", [pk]);
+    } else if (tableName === 'devices') {
+      await db.run('UPDATE devices SET is_active = 0, is_deleted = 1 WHERE id = ?', [pk]);
+    } else if (tableName === 'fbr_submissions') {
+      console.warn('[CRDT] Attempted soft-delete of immutable fbr_submissions record:', pk);
+    } else if (tableName === 'payment_proofs') {
+      await db.run("UPDATE payment_proofs SET status = 'cancelled' WHERE id = ?", [pk]);
+    } else if (tableName === 'sales_agents') {
+      await db.run('UPDATE sales_agents SET is_active = 0 WHERE id = ?', [pk]);
+    } else if (tableName === 'aborted_sales_log') {
+      console.warn('[CRDT] Attempted soft-delete of immutable aborted_sales_log record:', pk);
+    } else if (tableName === 'approved_devices') {
+      await db.run("UPDATE approved_devices SET status = 'REJECTED' WHERE node_id = ?", [pk]);
+    } else if (tableName === 'telemetry_logs') {
+      console.warn('[CRDT] Attempted soft-delete of immutable telemetry_logs record:', pk);
     }
     return;
   }
@@ -1452,6 +1525,110 @@ async function applyChangeToSchema(tableName, pk, cid, val, cl, valType = 'strin
       await db.run('INSERT INTO customer_credit (id, customer_id, amount_minor, created_at, is_deleted) VALUES (?, "unknown", 0, ?, 0)', [pk, Date.now()]);
     }
     await db.run(`UPDATE customer_credit SET ${cid} = ? WHERE id = ?`, [parsedVal, pk]);
+  }
+
+  else if (tableName === 'stores') {
+    const exists = await db.get('SELECT 1 FROM stores WHERE id = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO stores (id, name, created_at, status) VALUES (?, ?, ?, "active")', [pk, pk, Date.now()]);
+    }
+    await db.run(`UPDATE stores SET ${cid} = ? WHERE id = ?`, [parsedVal, pk]);
+  }
+
+  else if (tableName === 'devices') {
+    const exists = await db.get('SELECT 1 FROM devices WHERE id = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO devices (id, store_id, hardware_id, device_name, is_active) VALUES (?, "default", ?, ?, 1)', [pk, pk, pk]);
+    }
+    await db.run(`UPDATE devices SET ${cid} = ? WHERE id = ?`, [parsedVal, pk]);
+  }
+
+  else if (tableName === 'fbr_submissions') {
+    const exists = await db.get('SELECT 1 FROM fbr_submissions WHERE id = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO fbr_submissions (id, transaction_id, invoice_number, total_minor, tax_minor, created_at) VALUES (?, ?, ?, 0, 0, ?)', [pk, pk, pk, Date.now()]);
+    }
+    await db.run(`UPDATE fbr_submissions SET ${cid} = ? WHERE id = ?`, [parsedVal, pk]);
+  }
+
+  else if (tableName === 'fbr_usin_seq') {
+    const exists = await db.get('SELECT 1 FROM fbr_usin_seq WHERE id = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO fbr_usin_seq (id) VALUES (?)', [pk]);
+    }
+    await db.run(`UPDATE fbr_usin_seq SET ${cid} = ? WHERE id = ?`, [parsedVal, pk]);
+  }
+
+  else if (tableName === 'commission_earnings') {
+    const exists = await db.get('SELECT 1 FROM commission_earnings WHERE id = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO commission_earnings (id, agent_id, activation_code, store_id, tier, gross_amount_minor, commission_minor_units, activated_at, created_at) VALUES (?, "unknown", "unknown", "unknown", "STARTER", 0, 0, ?, ?)', [pk, Date.now(), Date.now()]);
+    }
+    await db.run(`UPDATE commission_earnings SET ${cid} = ? WHERE id = ?`, [parsedVal, pk]);
+  }
+
+  else if (tableName === 'payment_proofs') {
+    const exists = await db.get('SELECT 1 FROM payment_proofs WHERE id = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO payment_proofs (id, user_id, plan_id, mode, rrn_reference, amount) VALUES (?, "unknown", "STARTER", "subscription", ?, 0)', [pk, pk]);
+    }
+    await db.run(`UPDATE payment_proofs SET ${cid} = ?, updated_at = ? WHERE id = ?`, [parsedVal, Date.now(), pk]);
+  }
+
+  else if (tableName === 'sales_agents') {
+    const exists = await db.get('SELECT 1 FROM sales_agents WHERE id = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO sales_agents (id, employee_id, commission_rate_bps, created_at) VALUES (?, ?, 500, ?)', [pk, pk, Date.now()]);
+    }
+    await db.run(`UPDATE sales_agents SET ${cid} = ? WHERE id = ?`, [parsedVal, pk]);
+  }
+
+  else if (tableName === 'aborted_sales_log') {
+    const exists = await db.get('SELECT 1 FROM aborted_sales_log WHERE id = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO aborted_sales_log (id, created_at) VALUES (?, ?)', [pk, Date.now()]);
+    }
+    await db.run(`UPDATE aborted_sales_log SET ${cid} = ? WHERE id = ?`, [parsedVal, pk]);
+  }
+
+  else if (tableName === 'approved_devices') {
+    const exists = await db.get('SELECT 1 FROM approved_devices WHERE node_id = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO approved_devices (node_id, device_name, user_agent, approved_at, status) VALUES (?, ?, "unknown", ?, "APPROVED")', [pk, pk, Date.now()]);
+    }
+    await db.run(`UPDATE approved_devices SET ${cid} = ? WHERE node_id = ?`, [parsedVal, pk]);
+  }
+
+  else if (tableName === 'license_store') {
+    const exists = await db.get('SELECT 1 FROM license_store WHERE key = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO license_store (key, value, updated_at) VALUES (?, "", ?)', [pk, Date.now()]);
+    }
+    await db.run(`UPDATE license_store SET ${cid} = ?, updated_at = ? WHERE key = ?`, [parsedVal, Date.now(), pk]);
+  }
+
+  else if (tableName === 'pending_payments') {
+    const exists = await db.get('SELECT 1 FROM pending_payments WHERE id = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO pending_payments (id, tier, mode, amount_paid_minor_units, gateway, transaction_reference) VALUES (?, "STARTER", "subscription", 0, "manual", ?)', [pk, pk]);
+    }
+    await db.run(`UPDATE pending_payments SET ${cid} = ? WHERE id = ?`, [parsedVal, pk]);
+  }
+
+  else if (tableName === 'speech_analytics_logs') {
+    const exists = await db.get('SELECT 1 FROM speech_analytics_logs WHERE id = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO speech_analytics_logs (id, transaction_id) VALUES (?, ?)', [pk, pk]);
+    }
+    await db.run(`UPDATE speech_analytics_logs SET ${cid} = ? WHERE id = ?`, [parsedVal, pk]);
+  }
+
+  else if (tableName === 'telemetry_logs') {
+    const exists = await db.get('SELECT 1 FROM telemetry_logs WHERE id = ?', [pk]);
+    if (!exists) {
+      await db.run('INSERT INTO telemetry_logs (id, node_id, created_at) VALUES (?, ?, ?)', [pk, pk, Date.now()]);
+    }
+    await db.run(`UPDATE telemetry_logs SET ${cid} = ? WHERE id = ?`, [parsedVal, pk]);
   }
 }
 

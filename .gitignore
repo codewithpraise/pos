@@ -1,5 +1,8 @@
 .env
 *.pem
+!public-license-key.pem
+.license-private.pem
+.license-*
 private.pem
 nexova.db
 nexova.db-wal
@@ -44,3 +47,4 @@ chrome_startup.log
 scan.js
 scan-root.js
 test.js
+

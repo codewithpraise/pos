@@ -8,29 +8,48 @@
 //   node license-keygen.js verify --token=<base64_token> --hwid=<fingerprint>
 // ============================================================================
 
-const crypto = require('crypto');
-const fs = require('fs');
-const path = require('path');
+const os = require('os');
 
-const PRIVATE_KEY_PATH = path.join(__dirname, '.license-private.pem');
+const DEFAULT_PRIVATE_KEY_DIR = path.join(os.homedir(), '.valenixia');
+const LEGACY_PRIVATE_KEY_PATH = path.join(__dirname, '.license-private.pem');
+const PRIVATE_KEY_PATH = process.env.LICENSE_PRIVATE_KEY_PATH ||
+  path.join(DEFAULT_PRIVATE_KEY_DIR, '.license-private.pem');
 const PUBLIC_KEY_PATH  = path.join(__dirname, 'public-license-key.pem');
 
 const TIERS = ['TRIAL', 'STARTER', 'PRO', 'ENTERPRISE'];
 
+function checkKeyMigration() {
+  if (!process.env.LICENSE_PRIVATE_KEY_PATH && fs.existsSync(LEGACY_PRIVATE_KEY_PATH) && !fs.existsSync(PRIVATE_KEY_PATH)) {
+    console.warn('\n[SECURITY MIGRATION REQUIRED]');
+    console.warn(`Legacy private key found at: ${LEGACY_PRIVATE_KEY_PATH}`);
+    console.warn(`Please move it to the secure user home location: ${PRIVATE_KEY_PATH}`);
+    console.warn(`Command: mkdir -p ${DEFAULT_PRIVATE_KEY_DIR} && mv ${LEGACY_PRIVATE_KEY_PATH} ${PRIVATE_KEY_PATH}\n`);
+    // Fall back to legacy key path for compatibility if not explicitly moved yet
+    return LEGACY_PRIVATE_KEY_PATH;
+  }
+  return PRIVATE_KEY_PATH;
+}
+
 function generateKeyPair() {
-  if (fs.existsSync(PRIVATE_KEY_PATH)) {
-    console.error('[ERROR] Private key already exists at', PRIVATE_KEY_PATH);
+  const targetPrivateKeyPath = PRIVATE_KEY_PATH;
+  if (fs.existsSync(targetPrivateKeyPath)) {
+    console.error('[ERROR] Private key already exists at', targetPrivateKeyPath);
     console.error('        Delete it manually to regenerate (destructive action).');
     process.exit(1);
   }
+  const targetDir = path.dirname(targetPrivateKeyPath);
+  if (!fs.existsSync(targetDir)) {
+    fs.mkdirSync(targetDir, { recursive: true, mode: 0o700 });
+  }
+
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519', {
     publicKeyEncoding:  { type: 'spki',  format: 'pem' },
     privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
   });
-  fs.writeFileSync(PRIVATE_KEY_PATH, privateKey, { mode: 0o600 });
+  fs.writeFileSync(targetPrivateKeyPath, privateKey, { mode: 0o600 });
   fs.writeFileSync(PUBLIC_KEY_PATH,  publicKey);
   console.log('[OK] Ed25519 key pair generated.');
-  console.log('     Private key (KEEP SECRET, OFFLINE):', PRIVATE_KEY_PATH);
+  console.log('     Private key (KEEP SECRET, OFFLINE):', targetPrivateKeyPath);
   console.log('     Public key (embed in POS source):',   PUBLIC_KEY_PATH);
   console.log('\n=== PUBLIC KEY (paste into license-engine.js) ===');
   console.log(publicKey);
@@ -45,12 +64,13 @@ function signLicense(hwid, tier, days) {
     console.error('[ERROR] Invalid tier. Must be one of:', TIERS.join(', '));
     process.exit(1);
   }
-  if (!fs.existsSync(PRIVATE_KEY_PATH)) {
+  const activeKeyPath = checkKeyMigration();
+  if (!fs.existsSync(activeKeyPath)) {
     console.error('[ERROR] Private key not found. Run: node license-keygen.js generate');
     process.exit(1);
   }
 
-  const privateKey = fs.readFileSync(PRIVATE_KEY_PATH, 'utf8');
+  const privateKey = fs.readFileSync(activeKeyPath, 'utf8');
   const exp = Date.now() + (parseInt(days) * 24 * 60 * 60 * 1000);
   const issuedAt = Date.now();
 

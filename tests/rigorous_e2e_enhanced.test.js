@@ -83,8 +83,9 @@ async function run() {
   // Check login status, login if needed
   const layoutDisplay = await ev('window.getComputedStyle(document.getElementById("pos-app-layout")).display');
   if (layoutDisplay !== 'grid') {
+    const adminPin = process.env.TEST_ADMIN_PIN || '1234';
     console.log('Lock screen active. Logging in with Admin PIN...');
-    for (const d of '1234'.split('')) {
+    for (const d of adminPin.split('')) {
       await ev(`(function(){
         var btns = document.querySelectorAll('.pin-btn');
         for (var b of btns) {

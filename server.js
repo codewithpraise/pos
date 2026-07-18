@@ -25,21 +25,23 @@ if (!process.env.SERVER_MASTER_KEY) {
   envUpdated = true;
 }
 
-if (!envContent.includes('TEST_ADMIN_PIN=')) {
-  envContent += `\nTEST_ADMIN_PIN=1234\n`;
-  envUpdated = true;
-}
-if (!envContent.includes('TEST_LICENSE_KEY=')) {
-  envContent += `\nTEST_LICENSE_KEY=VALENIXIA-ADMIN-777\n`;
-  envUpdated = true;
-}
-if (!envContent.includes('TEST_PASSPHRASE=')) {
-  envContent += `\nTEST_PASSPHRASE=TestKey2024!\n`;
-  envUpdated = true;
-}
-if (!envContent.includes('TEST_HWIDS=')) {
-  envContent += `\nTEST_HWIDS=MOCK_ADMIN_HWID,TEST-HWID\n`;
-  envUpdated = true;
+if (process.env.NODE_ENV !== 'production') {
+  if (!envContent.includes('TEST_ADMIN_PIN=')) {
+    envContent += `\nTEST_ADMIN_PIN=1234\n`;
+    envUpdated = true;
+  }
+  if (!envContent.includes('TEST_LICENSE_KEY=')) {
+    envContent += `\nTEST_LICENSE_KEY=VALENIXIA-ADMIN-777\n`;
+    envUpdated = true;
+  }
+  if (!envContent.includes('TEST_PASSPHRASE=')) {
+    envContent += `\nTEST_PASSPHRASE=TestKey2024!\n`;
+    envUpdated = true;
+  }
+  if (!envContent.includes('TEST_HWIDS=')) {
+    envContent += `\nTEST_HWIDS=MOCK_ADMIN_HWID,TEST-HWID\n`;
+    envUpdated = true;
+  }
 }
 
 if (envUpdated) {
@@ -545,6 +547,10 @@ const corsOptionsDelegate = function (req, callback) {
     corsOptions = { origin: true, credentials: true };
   } else {
     corsOptions = { origin: false };
+    logger.warn('CORS', 'Rejected cross-origin request', {
+      origin: origin ? origin.substring(0, 80) : 'none',
+      host: req.header('Host')
+    });
   }
   callback(null, corsOptions);
 };
@@ -637,6 +643,21 @@ async function initRequestAuditLogsTable() {
   }
 }
 initRequestAuditLogsTable();
+
+async function initPairingTokensTable() {
+  try {
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS pairing_tokens (
+        token TEXT PRIMARY KEY,
+        expires_at INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (err) {
+    console.error('[Security] Failed to create pairing_tokens table:', err.message);
+  }
+}
+initPairingTokensTable();
 
 function requestAuditMiddleware(req, res, next) {
   const start = process.hrtime();
@@ -779,7 +800,52 @@ const heartbeatTimer = setInterval(() => {
 }, HEARTBEAT_INTERVAL);
 activeTimers.push(heartbeatTimer);
 
-let globalSyncQueue = Promise.resolve();
+const RETENTION_DAYS = Number(process.env.DATA_RETENTION_DAYS) || 90;
+const retentionTimer = setInterval(async () => {
+  const cutoffMs = Date.now() - (RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  const cutoffIso = new Date(cutoffMs).toISOString();
+  try {
+    await db.run('DELETE FROM request_audit_logs WHERE created_at < ?', [cutoffIso]);
+    await db.run('DELETE FROM admin_audit_logs WHERE created_at < ?', [cutoffIso]);
+    await db.run('DELETE FROM telemetry_logs WHERE created_at < ?', [cutoffMs]);
+    await db.run('DELETE FROM rate_limits WHERE reset_time < ?', [Date.now()]);
+    await db.run('DELETE FROM idempotency_keys WHERE created_at < ?', [cutoffMs]);
+    await db.run('DELETE FROM pairing_tokens WHERE expires_at < ?', [Date.now()]);
+    await db.run('DELETE FROM token_blacklist WHERE blacklisted_at < ?', [cutoffMs]);
+    logger.info('GC', 'Data retention garbage collection completed', { retentionDays: RETENTION_DAYS });
+  } catch (err) {
+    logger.error('GC', 'Data retention garbage collection failed', err);
+  }
+}, 24 * 60 * 60 * 1000);
+activeTimers.push(retentionTimer);
+
+class BoundedAsyncQueue {
+  constructor(maxDepth = 500) {
+    this._queue = Promise.resolve();
+    this._depth = 0;
+    this._maxDepth = maxDepth;
+  }
+
+  enqueue(op) {
+    if (this._depth >= this._maxDepth) {
+      return Promise.reject(new Error(
+        `[SyncHub Queue] Server sync queue full (depth=${this._depth}/${this._maxDepth}). Backpressure applied.`
+      ));
+    }
+    this._depth++;
+    const next = this._queue.then(async () => {
+      try {
+        return await op();
+      } finally {
+        this._depth = Math.max(0, this._depth - 1);
+      }
+    });
+    this._queue = next.catch(() => {});
+    return next;
+  }
+}
+
+const globalSyncQueue = new BoundedAsyncQueue(500);
 
 // Modular helpers for encryption wrapping
 let serverPassphrase = '';
@@ -1064,7 +1130,8 @@ initAdminAuditLogsTable();
 async function logAdminAccess(req, res, next) {
   const timestamp = new Date().toISOString();
   const ip = req.ip || req.connection.remoteAddress || 'unknown';
-  const userAgent = req.headers['user-agent'] || 'unknown';
+  const rawUserAgent = req.headers['user-agent'] || 'unknown';
+  const userAgent = rawUserAgent.slice(0, 100);
   const path = req.path;
   const method = req.method;
   const authHeader = req.headers.authorization || '';
@@ -1076,7 +1143,7 @@ async function logAdminAccess(req, res, next) {
   try {
     await db.run(
       'INSERT INTO admin_audit_logs (timestamp, ip, method, path, user_agent, device_token) VALUES (?, ?, ?, ?, ?, ?)',
-      [timestamp, ip, method, path, userAgent, hashedToken]
+      [timestamp, hashIp(ip), method, path, userAgent, hashedToken]
     );
   } catch (e) {
     console.error('[AdminSecurity] Failed to write admin audit log:', e.message);
@@ -1106,6 +1173,8 @@ app.use('/api/devices/reject', requireAdmin);
 app.use('/api/devices/pending', requireAdmin);
 app.use('/api/devices/approve', requireAdmin);
 app.use('/api/devices/approve-qr', requireAdmin);
+app.use('/api/devices/issue-pairing-token', requireAdmin);
+app.use('/api/devices/redeem-pairing-token', requireAuth);
 app.use('/api/void-transaction', requireAuth);
 app.use('/api/license/check', requireAuth);
 app.use('/api/fbr/status', requireAuth);
@@ -1271,14 +1340,8 @@ wss.on('connection', (ws, req) => {
   console.log('[SyncHub] Connected new raw socket connection.');
 
 
-  let globalSyncQueueDepth = 0;
   ws.on('message', (message) => {
-    if (globalSyncQueueDepth > 1000) {
-      globalSyncQueue = Promise.resolve();
-      globalSyncQueueDepth = 0;
-    }
-    globalSyncQueueDepth++;
-    globalSyncQueue = globalSyncQueue.then(async () => {
+    globalSyncQueue.enqueue(async () => {
       try {
         let data;
         // Try encrypted payload first, fall back to plaintext JSON
@@ -2332,6 +2395,37 @@ app.post('/api/employee/login', loginLimiter, requireAuth, requireBody({ pin: 'A
       await recordPinFailure(lockoutKey, 5, 15);
       res.status(401).json({ error: 'Invalid security PIN code' });
     }
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+// POST /api/devices/issue-pairing-token — Issue short-lived pairing token for QR generation (Admin only)
+app.post('/api/devices/issue-pairing-token', requireAdmin, qrApproveLimiter, async (req, res) => {
+  try {
+    const pairingToken = crypto.randomUUID();
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes TTL
+    await db.run('INSERT INTO pairing_tokens (token, expires_at) VALUES (?, ?)', [pairingToken, expiresAt]);
+    res.json({ pairingToken, expiresAt });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+// POST /api/devices/redeem-pairing-token — Redeem pairing token for sync configuration
+app.post('/api/devices/redeem-pairing-token', requireAuth, requireBody({ pairingToken: 'STRING', nodeId: 'NODE_ID' }), async (req, res) => {
+  try {
+    const { pairingToken, nodeId } = req.body;
+    const row = await db.get('SELECT * FROM pairing_tokens WHERE token = ? AND expires_at > ?', [pairingToken, Date.now()]);
+    if (!row) {
+      return res.status(401).json({ error: 'Invalid or expired pairing token.' });
+    }
+    await db.run('DELETE FROM pairing_tokens WHERE token = ?', [pairingToken]);
+    res.json({
+      success: true,
+      syncPassphrase: serverPassphrase,
+      syncSalt
+    });
   } catch (err) {
     sendError(res, err);
   }

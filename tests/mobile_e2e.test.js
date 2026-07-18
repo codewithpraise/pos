@@ -234,7 +234,7 @@ async function suiteOnboarding() {
       phone: testPhone,
       businessType: 'retail',
       address: '123 Test Ave, Lahore',
-      pinCode: '1234'
+      pinCode: process.env.TEST_ADMIN_PIN || '1234'
     });
     if (r.status === 201 || r.status === 200) {
       expect(r.body).toHaveProperty('storeId');

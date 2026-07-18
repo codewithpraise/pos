@@ -109,12 +109,14 @@ async function run() {
       if (btn) btn.click();
     })()`, id++);
     await sleep(800);
+    const testPin = process.env.TEST_ADMIN_PIN || '1234';
+    const testPass = process.env.TEST_PASSPHRASE || 'passphrase123';
     await cdpEval(ws, `(async () => {
       const pin = document.getElementById('wizard-admin-pin');
       const pass = document.getElementById('wizard-sync-passphrase');
       const btn = document.getElementById('btn-wiz-next');
-      if (pin) pin.value = '1234';
-      if (pass) pass.value = 'passphrase123';
+      if (pin) pin.value = '${testPin}';
+      if (pass) pass.value = '${testPass}';
       if (btn) btn.click();
     })()`, id++);
     await sleep(800);
@@ -130,17 +132,17 @@ async function run() {
   // Check if lock screen is active, and log in
   const isLockScreen = await cdpEval(ws, 'document.getElementById("auth-lock-screen")?.classList.contains("active")', id++);
   if (isLockScreen?.result?.value) {
-    console.log('Logging in with admin pin 1234...');
+    const testPin = process.env.TEST_ADMIN_PIN || '1234';
+    console.log('Logging in with admin pin...');
     await cdpEval(ws, `(async () => {
       const pad = document.getElementById('pin-pad');
       const clickDigit = (d) => {
         const btn = Array.from(pad.querySelectorAll('.pin-btn')).find(b => b.getAttribute('data-digit') === String(d));
         if (btn) btn.click();
       };
-      clickDigit(1);
-      clickDigit(2);
-      clickDigit(3);
-      clickDigit(4);
+      for (const d of '${testPin}'.split('')) {
+        clickDigit(d);
+      }
       const ent = pad.querySelector('[data-action="enter"]');
       if (ent) ent.click();
     })()`, id++);

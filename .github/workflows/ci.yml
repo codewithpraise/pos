@@ -22,10 +22,34 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      - name: Validate required CI secrets
+        run: |
+          MISSING=""
+          [ -z "$TEST_ADMIN_PIN" ] && MISSING="$MISSING TEST_ADMIN_PIN"
+          [ -z "$TEST_LICENSE_KEY" ] && MISSING="$MISSING TEST_LICENSE_KEY"
+          [ -z "$TEST_PASSPHRASE" ] && MISSING="$MISSING TEST_PASSPHRASE"
+          [ -z "$TEST_HWIDS" ] && MISSING="$MISSING TEST_HWIDS"
+          if [ -n "$MISSING" ]; then
+            echo "ERROR: Required GitHub Secrets not set:$MISSING"
+            echo "Create them in Settings -> Secrets and Variables -> Actions"
+            exit 1
+          fi
+          echo "All required secrets are present."
+        env:
+          TEST_ADMIN_PIN: ${{ secrets.TEST_ADMIN_PIN }}
+          TEST_LICENSE_KEY: ${{ secrets.TEST_LICENSE_KEY }}
+          TEST_PASSPHRASE: ${{ secrets.TEST_PASSPHRASE }}
+          TEST_HWIDS: ${{ secrets.TEST_HWIDS }}
+
       - name: Scan for committed secrets
         run: |
           echo "=== Scanning codebase for raw API keys, passwords, and private keys ==="
-          SECRETS=$(git grep -E "((jwt_secret|jwtSecret|password|passphrase|private_key|privateKey|api_key|apiKey)\s*[:=]\s*['\"][a-zA-Z0-9_-]{16,}['\"]|-----BEGIN [A-Z ]*PRIVATE KEY-----)" -- ':(exclude).env.example' ':(exclude)package-lock.json' ':(exclude)scripts/license-provisioner.js' ':(exclude)tests/' || true)
+          SECRETS=$(git grep -E "((jwt_secret|jwtSecret|password|passphrase|private_key|privateKey|api_key|apiKey)\s*[:=]\s*['\"][a-zA-Z0-9_-]{16,}['\"]|-----BEGIN [A-Z ]*PRIVATE KEY-----)" -- ':(exclude).env.example' ':(exclude)package-lock.json' \
+            | grep -v 'PUBLIC_KEY_B64' \
+            | grep -v 'const crypto = require' \
+            | grep -v 'process\.env\.' \
+            | grep -v 'secrets\.' \
+            || true)
           if [ ! -z "$SECRETS" ]; then
             echo "ERROR: Potential raw secrets or keys found in code commits:"
             echo "$SECRETS"
@@ -49,14 +73,19 @@ jobs:
         run: npm audit --audit-level=moderate --production
 
       - name: Run Test Suite (Unit, DB, Backups)
+        env:
+          TEST_ADMIN_PIN: ${{ secrets.TEST_ADMIN_PIN }}
+          TEST_LICENSE_KEY: ${{ secrets.TEST_LICENSE_KEY }}
+          TEST_PASSPHRASE: ${{ secrets.TEST_PASSPHRASE }}
+          TEST_HWIDS: ${{ secrets.TEST_HWIDS }}
         run: npm test
 
       - name: Run Full E2E & Diagnostic Suites with Headless Services
         env:
-          TEST_ADMIN_PIN: "1234"
-          TEST_LICENSE_KEY: "VALENIXIA-ADMIN-777"
-          TEST_PASSPHRASE: "TestKey2024!"
-          TEST_HWIDS: "MOCK_ADMIN_HWID,TEST-HWID"
+          TEST_ADMIN_PIN: ${{ secrets.TEST_ADMIN_PIN }}
+          TEST_LICENSE_KEY: ${{ secrets.TEST_LICENSE_KEY }}
+          TEST_PASSPHRASE: ${{ secrets.TEST_PASSPHRASE }}
+          TEST_HWIDS: ${{ secrets.TEST_HWIDS }}
         run: |
           # Clean up any existing database files to prevent test contamination
           rm -f valenixia.db valenixia.db-wal valenixia.db-shm nexova.db nexova.db-wal nexova.db-shm || true
@@ -108,6 +137,13 @@ jobs:
 
           exit $TEST_EXIT_CODE
 
+      - name: Sanitize artifacts before upload
+        if: failure()
+        run: |
+          rm -rf public/proofs/ && mkdir -p public/proofs/.gitkeep
+          find . -name '.env' -not -path './.env.example' -delete || true
+          echo "Artifact sanitization complete."
+
       - name: Upload Logs on Failure
         if: failure()
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
@@ -116,7 +152,6 @@ jobs:
           path: |
             server.log
             chrome.log
-            public/proofs/
             tests/results/
           if-no-files-found: ignore
 

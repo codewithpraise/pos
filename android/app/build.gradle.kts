@@ -18,8 +18,13 @@ android {
         versionCode = 1
         versionName = "1.0.0"
 
-        val integrityProjectNumber = System.getenv("PLAY_INTEGRITY_PROJECT_NUMBER") ?: "823749823749"
-        buildConfigField("long", "PLAY_INTEGRITY_PROJECT_NUMBER", "${integrityProjectNumber}L")
+        val isReleaseBuild = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
+        val integrityProjectNumber = System.getenv("PLAY_INTEGRITY_PROJECT_NUMBER")
+        if (isReleaseBuild && (integrityProjectNumber == null || integrityProjectNumber.isBlank())) {
+            throw GradleException("PLAY_INTEGRITY_PROJECT_NUMBER environment variable is required for release builds.")
+        }
+        val safeProjectNumber = integrityProjectNumber ?: "0"
+        buildConfigField("long", "PLAY_INTEGRITY_PROJECT_NUMBER", "${safeProjectNumber}L")
     }
 
     signingConfigs {

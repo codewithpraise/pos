@@ -70,15 +70,24 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
+    const allowedOrigin = env.ALLOWED_ORIGIN || "*";
+
     // CORS headers
     const corsHeaders = {
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": allowedOrigin,
       "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
     };
 
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders });
+    }
+
+    if (!env || !env.JWT_SECRET) {
+      return new Response(JSON.stringify({ error: "Worker misconfigured: JWT_SECRET environment variable is required." }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
     }
 
     try {
@@ -93,7 +102,7 @@ export default {
           });
         }
 
-        // Simulating validation of license keys.
+        // Validation of license keys.
         // Key format: VALENIXIA-XXXX-XXXX-XXXX
         const keyPattern = /^VALENIXIA-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
         if (!keyPattern.test(licenseKey)) {
@@ -103,17 +112,27 @@ export default {
           });
         }
 
-        // Hardcoded simulation for allowed/valid keys list:
-        // e.g. VALENIXIA-TRAL-1234-5678, VALENIXIA-PROD-ABCD-EFGH, VALENIXIA-ENTP-9999-8888
+        // Exact prefix tier matching (prevents substring bypass)
         let tier = "TRIAL";
         let duration = 7 * 24 * 60 * 60 * 1000; // 7 days trial
 
-        if (licenseKey.includes("PRO")) {
+        const parts = licenseKey.split("-");
+        const prefix = parts[1]; // e.g. TRAL, PROD, ENTP
+
+        if (prefix === "PROD" || prefix === "PROP") {
           tier = "PRO";
           duration = 365 * 24 * 60 * 60 * 1000; // 1 year PRO
-        } else if (licenseKey.includes("ENT")) {
+        } else if (prefix === "ENTP" || prefix === "ENTR") {
           tier = "ENTERPRISE";
           duration = 10 * 365 * 24 * 60 * 60 * 1000; // 10 years Enterprise
+        } else if (prefix === "TRAL") {
+          tier = "TRIAL";
+          duration = 7 * 24 * 60 * 60 * 1000;
+        } else {
+          return new Response(JSON.stringify({ error: "Unrecognized license tier prefix." }), {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
         }
 
         const now = Date.now();
@@ -127,7 +146,7 @@ export default {
           activatedAt: now
         };
 
-        const token = await generateJWT(jwtPayload, env.JWT_SECRET || "valenixia_jwt_secret_signature_key");
+        const token = await generateJWT(jwtPayload, env.JWT_SECRET);
 
         return new Response(JSON.stringify({ success: true, token, expiresAt, tier }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
@@ -145,7 +164,7 @@ export default {
           });
         }
 
-        const payload = await verifyJWT(token, env.JWT_SECRET || "valenixia_jwt_secret_signature_key");
+        const payload = await verifyJWT(token, env.JWT_SECRET);
         if (!payload) {
           return new Response(JSON.stringify({ error: "Invalid or expired license token." }), {
             status: 403,

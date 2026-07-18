@@ -70,8 +70,9 @@ async function run() {
   // Make sure we are in main app view, else bypass setup
   const layoutDisplay = await ev('window.getComputedStyle(document.getElementById("pos-app-layout")).display');
   if (layoutDisplay !== 'grid') {
-    info('App is not logged in. Logging in with 1234...');
-    for (const d of '1234'.split('')) {
+    const adminPin = process.env.TEST_ADMIN_PIN || '1234';
+    info(`App is not logged in. Logging in with admin PIN...`);
+    for (const d of adminPin.split('')) {
       await ev(`(function(){
         var btns = document.querySelectorAll('.pin-btn');
         for (var b of btns) {
