@@ -536,7 +536,7 @@
               return;
             }
             const oldDb = e.target.result;
-            console.log('[IndexedDB] Found old nexova_db database. Beginning migration to valenixia_db...');
+            console.log('[IndexedDB] Found legacy nexova_db. Migrating data to valenixia_db...');
             
             try {
               const storesToMigrate = Array.from(oldDb.objectStoreNames);
@@ -584,7 +584,7 @@
               newDb.close();
               oldDb.close();
               
-              console.log('[IndexedDB] Migration complete. Deleting old nexova_db...');
+              console.log('[IndexedDB] Legacy nexova_db migration complete. Deleting old database...');
               indexedDB.deleteDatabase(oldDbName);
             } catch (err) {
               console.error('[IndexedDB] Database migration failed:', err);

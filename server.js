@@ -2456,6 +2456,50 @@ app.get('/api/license/check', async (req, res) => {
   }
 });
 
+// POST /api/license/verify — Handshake to verify license signature & validate payload locally
+app.post('/api/license/verify', billingLimiter, requireBody({ token: 'STRING', nodeId: 'NODE_ID' }), async (req, res) => {
+  const { token, nodeId } = req.body;
+  if (!token || !nodeId) {
+    return res.status(400).json({ error: 'token and nodeId are required' });
+  }
+  try {
+    const decodedStr = Buffer.from(token, 'base64').toString('utf8');
+    const pipeIndex = decodedStr.lastIndexOf('|');
+    if (pipeIndex === -1) {
+      return res.status(400).json({ error: 'Malformed token structure. Must be signed license token.' });
+    }
+    const payloadStr = decodedStr.substring(0, pipeIndex);
+    const sigBase64 = decodedStr.substring(pipeIndex + 1);
+    const signature = Buffer.from(sigBase64, 'base64');
+
+    const valid = crypto.verify(null, Buffer.from(payloadStr), PUBLIC_KEY_PEM, signature);
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid license signature.' });
+    }
+    const payload = safeJsonParse(payloadStr);
+    if (!payload) {
+      return res.status(400).json({ error: 'Failed to parse license payload.' });
+    }
+    if (payload.hwid !== nodeId) {
+      return res.status(403).json({ error: 'License is locked to a different device fingerprint.' });
+    }
+    if (payload.exp && Date.now() > payload.exp) {
+      return res.status(401).json({ error: 'License token has expired.' });
+    }
+
+    // Stamp last successful server verification time for offline grace period tracking
+    await db.run(
+      "INSERT OR REPLACE INTO local_preferences (key, value_payload, val_type, updated_at) VALUES ('last_server_verify_time', ?, 'STR', ?)",
+      [String(Date.now()), Date.now()]
+    );
+
+    res.json({ success: true, payload });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+
 // 1. Employee Login verification (Requires approved device token)
 app.post('/api/employee/login', loginLimiter, requireAuth, requireBody({ pin: 'ADMIN_PIN' }), async (req, res) => {
   const { pin } = req.body;
@@ -3947,12 +3991,20 @@ app.get('/api/health', async (req, res) => {
   } catch (_) {
     health.license = 'error';
   }
+  let onboarded = false;
+  try {
+    const onboardingCompleteRow = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'onboarding_complete'");
+    onboarded = onboardingCompleteRow && onboardingCompleteRow.value_payload === 'true';
+  } catch (_) {}
+  health.onboarded = onboarded;
+
   if (health.database === 'error') health.status = 'degraded';
 
   if (!isAuthorized) {
     return res.status(health.status === 'ok' ? 200 : 503).json({
       status: health.status,
-      timestamp: health.timestamp
+      timestamp: health.timestamp,
+      onboarded: health.onboarded
     });
   }
 

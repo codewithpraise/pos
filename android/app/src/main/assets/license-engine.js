@@ -886,7 +886,25 @@ const LicenseEngine = (() => {
     } catch (e) {
       console.warn('[LicenseEngine] Failed to get onboarding_complete pref', e);
     }
-    const isOnboardingComplete = onboardingCompletePref && onboardingCompletePref.value_payload === 'true';
+
+    // At startup, check if the Node backend is already onboarded
+    let isServerOnboarded = false;
+    try {
+      const healthResp = await fetch((window.__valenixiaServerUrl || location.origin) + '/api/health', {
+        signal: AbortSignal.timeout ? AbortSignal.timeout(2000) : null
+      });
+      if (healthResp.ok) {
+        const healthData = await healthResp.json();
+        if (healthData.onboarded) {
+          isServerOnboarded = true;
+        }
+      }
+    } catch (err) {
+      console.warn('[LicenseEngine] Failed to query backend health status:', err.message);
+    }
+
+    const isOnboardingComplete = (onboardingCompletePref && onboardingCompletePref.value_payload === 'true') || isServerOnboarded;
+
 
     // If onboarding is not complete and we have no stored token, allow boot to run wizard
     if (!stored && !isOnboardingComplete) {

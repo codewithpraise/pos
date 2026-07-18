@@ -6165,38 +6165,52 @@ setHtml(qrContainer, '<span style="font-size: 8px; color: var(--text-gray); text
           }
         }
       } catch (err) {
-        console.warn('[License] Offline verification backup fallback - checking claims...');
-        // Offline JWT decode/signature check fallback if internet is down
+        // Offline fallback: server unreachable. Allow a maximum 48-hour grace
+        // period from the last successful server verification. After that the
+        // terminal must reconnect to re-validate — this prevents stolen tokens
+        // from being used offline indefinitely.
+        const OFFLINE_GRACE_MS = 48 * 60 * 60 * 1000; // 48 hours
         try {
-          let claims = null;
-          if (licenseToken.includes('.')) {
-            const parts = licenseToken.split('.');
-            if (parts.length === 3) {
-              claims = JSON.parse(window.safeAtob(parts[1]));
-            }
-          } else {
-            const decoded = window.safeAtob(licenseToken);
-            const pipeIndex = decoded.lastIndexOf('|');
-            if (pipeIndex !== -1) {
-              claims = JSON.parse(decoded.substring(0, pipeIndex));
-            }
-          }
+          // Read last successful server verification timestamp
+          const anchorPref = await ValenixiaDB.getSecurePref('last_server_verify_time');
+          const lastVerified = anchorPref ? Number(anchorPref) : 0;
+          const offlineDuration = Date.now() - lastVerified;
 
-          if (claims && claims.hwid === deviceFingerprint && claims.exp > Date.now()) {
-            window.__valenixiaTier = claims.tier; // CRITICAL FIX
-            window.__valenixiaPlan = null;
-            applyTierRestrictions(); // Force UI to unlock features
-            console.log(`[License] Offline verify success. Tier: ${claims.tier}`);
-            lockoutOverlay.style.display = 'none';
-            if (claims.tier === 'TRIAL') {
-              const expires = claims.exp ? claims.exp : Date.now();
-              const remainingMs = expires - Date.now();
-              const remainingDays = Math.max(0, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)));
-              showTrialBadge(remainingDays);
+          if (!lastVerified || offlineDuration > OFFLINE_GRACE_MS) {
+            console.warn(`[License] Offline grace period exceeded (${Math.round(offlineDuration/3600000)}h > 48h). Terminal must reconnect to validate license.`);
+            // Do NOT grant access — fall through to lockout
+          } else {
+            // Within 48-hour grace: decode token and verify HWID + expiry
+            let claims = null;
+            if (licenseToken.includes('.')) {
+              const parts = licenseToken.split('.');
+              if (parts.length === 3) {
+                claims = JSON.parse(window.safeAtob(parts[1]));
+              }
             } else {
-              document.getElementById('trial-countdown-badge')?.remove();
+              const decoded = window.safeAtob(licenseToken);
+              const pipeIndex = decoded.lastIndexOf('|');
+              if (pipeIndex !== -1) {
+                claims = JSON.parse(decoded.substring(0, pipeIndex));
+              }
             }
-            return;
+
+            if (claims && claims.hwid === deviceFingerprint && claims.exp > Date.now()) {
+              window.__valenixiaTier = claims.tier;
+              window.__valenixiaPlan = null;
+              applyTierRestrictions();
+              console.log(`[License] Offline verify success (within 48h grace). Tier: ${claims.tier}`);
+              lockoutOverlay.style.display = 'none';
+              if (claims.tier === 'TRIAL') {
+                const expires = claims.exp ? claims.exp : Date.now();
+                const remainingMs = expires - Date.now();
+                const remainingDays = Math.max(0, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)));
+                showTrialBadge(remainingDays);
+              } else {
+                document.getElementById('trial-countdown-badge')?.remove();
+              }
+              return;
+            }
           }
         } catch (e) {
           console.error('[App.js License Check] Offline decode failed:', e.message);
