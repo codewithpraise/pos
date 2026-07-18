@@ -899,12 +899,6 @@ const LicenseEngine = (() => {
       isNativeOnboarded = window.AndroidPOS.isOnboardingComplete();
     }
 
-    // Check native Android device persistent onboarding status
-    let isNativeOnboarded = false;
-    if (window.AndroidPOS && typeof window.AndroidPOS.isOnboardingComplete === 'function') {
-      isNativeOnboarded = window.AndroidPOS.isOnboardingComplete();
-    }
-
     // At startup, check if the Node backend is already onboarded
     let isServerOnboarded = false;
     try {

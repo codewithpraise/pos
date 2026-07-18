@@ -2269,7 +2269,11 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
           })();
 
           // ── Component F: Update monotonic time anchor ──────────────────────
-          LicenseEngine.updateTimeAnchor().catch(() => {});
+          if (typeof LicenseEngine !== 'undefined' && typeof LicenseEngine.updateTimeAnchor === 'function') {
+            LicenseEngine.updateTimeAnchor().catch(() => {});
+          } else if (typeof window.LicenseEngine !== 'undefined' && typeof window.LicenseEngine.updateTimeAnchor === 'function') {
+            window.LicenseEngine.updateTimeAnchor().catch(() => {});
+          }
 
           // ── Component C: Print receipt + kick drawer ──────────────────────
           {
@@ -2416,9 +2420,8 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
       state.currentPin += String(d);
       updatePinDisplayDots();
       try { playAudioSignal('click'); } catch(e) {}
-      if (state.currentPin.length === 6) {
-        if (pinInput) pinInput.blur();
-        setTimeout(function() { verifyPinCredentials(); }, 120);
+      if (state.currentPin.length >= 4) {
+        setTimeout(function() { verifyPinCredentials(state.currentPin.length === 6); }, 120);
       }
     }
 
@@ -2485,14 +2488,13 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
     if (pinInput) {
       pinInput.addEventListener('input', function(e) {
         var raw = (e.target.value || '').replace(/[^0-9]/g, '');
-        if (raw.length > 6) raw = raw.slice(0, 4);
+        if (raw.length > 6) raw = raw.slice(0, 6);
         state.currentPin = raw;
         if (e.target.value !== raw) {
           e.target.value = raw;
         }
-        if (raw.length === 6) {
-          pinInput.blur();
-          setTimeout(function() { verifyPinCredentials(); }, 120);
+        if (raw.length >= 4) {
+          setTimeout(function() { verifyPinCredentials(raw.length === 6); }, 120);
         }
       });
     }
@@ -4990,7 +4992,7 @@ setHtml(row, `
       btnExport.addEventListener('click', async () => {
         playAudioSignal('click');
         try {
-          const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/export', {
+const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/export', {
             headers: { 'Authorization': `Bearer ${state.deviceToken || ''}` }
           });
           if (resp.ok) {
@@ -5082,26 +5084,21 @@ setHtml(row, `
     }
   }
 
-  // Verify Security Pin pad login â€” dual-path: local IndexedDB first, server fallback
-  async function verifyPinCredentials() {
+  // Verify Security Pin pad login — dual-path: local IndexedDB first, server fallback
+  async function verifyPinCredentials(isFinal = true) {
     const errorMsg = document.getElementById('auth-error');
     if (errorMsg) errorMsg.textContent = '';
-    if (state.currentPin.length > 0 && state.currentPin.length < 4) {
-      if (errorMsg) errorMsg.textContent = 'PIN must be at least 4 digits.';
-      try { playAudioSignal('error'); } catch(e) {}
-      state.currentPin = '';
-      updatePinDisplayDots();
+    
+    // If it's a background validation check and not a final submit, don't verify yet if it's less than 4 digits
+    if (state.currentPin.length < 4) {
+      if (isFinal) {
+        if (errorMsg) errorMsg.textContent = 'PIN must be at least 4 digits.';
+        try { playAudioSignal('error'); } catch(e) {}
+        state.currentPin = '';
+        updatePinDisplayDots();
+      }
       return;
     }
-    if (errorMsg) errorMsg.textContent = '';
-    if (state.currentPin.length > 0 && state.currentPin.length < 4) {
-      if (errorMsg) errorMsg.textContent = 'PIN must be at least 4 digits.';
-      try { playAudioSignal('error'); } catch(e) {}
-      state.currentPin = '';
-      updatePinDisplayDots();
-      return;
-    }
-    if (errorMsg) errorMsg.textContent = '';
 
     const roleEl = document.getElementById('login-terminal-role');
     const selectedRole = roleEl ? roleEl.value : 'REGISTER';
@@ -5134,13 +5131,13 @@ setHtml(row, `
     }
 
     if (state.currentPin.length === 0) {
-      if (errorMsg) errorMsg.textContent = 'Please enter security PIN';
+      if (isFinal && errorMsg) errorMsg.textContent = 'Please enter security PIN';
       return;
     }
 
     // Show subtle loading state on the input
     const pinInput = document.getElementById('pin-input');
-    if (pinInput) {
+    if (pinInput && isFinal) {
       pinInput.style.opacity = '0.5';
       pinInput.disabled = true;
     }
@@ -5154,9 +5151,8 @@ setHtml(row, `
         console.warn('[Auth] Local PIN verify threw:', localErr.message);
       }
 
-      // STEP 2: Server fallback â€” handles fresh installs where local DB has no employees yet
+      // STEP 2: Server fallback — handles fresh installs where local DB has no employees yet
       if (!matched) {
-        console.log('[Auth] No local match â€” trying server /api/employee/login');
         try {
           const serverBase = (window.__valenixiaServerUrl || location.origin);
           const resp = await fetch(serverBase + '/api/employee/login', {
@@ -5171,9 +5167,6 @@ setHtml(row, `
             const data = await resp.json();
             if (data) {
               matched = data.employee || (data.id ? data : null);
-              if (matched) {
-                console.log('[Auth] Server PIN match for:', matched.id);
-              }
             }
           }
         } catch (serverErr) {
@@ -5205,6 +5198,9 @@ setHtml(row, `
         applyRoleNavigationLimits(matched.role);
         try { playAudioSignal('login'); } catch(e) {}
       } else {
+        if (!isFinal && state.currentPin.length < 6) {
+          return;
+        }
         state.pin_attempts = (state.pin_attempts || 0) + 1;
         if (state.pin_attempts >= 3) {
           state.pin_lockout_until = Date.now() + 30 * 1000;
