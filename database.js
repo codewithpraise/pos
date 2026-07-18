@@ -101,14 +101,22 @@ async function clearPinLockout(attemptKey) {
 }
 
 
-// Strict in-process Write Queue to serialize database writes & prevent interleaved transactions in WAL mode
+const MAX_DB_WRITE_QUEUE_DEPTH = 500;
+let pendingWriteCount = 0;
+
+// Strict in-process Bounded Write Queue to serialize database writes & enforce backpressure
 const writeQueue = {
   queue: Promise.resolve(),
   enqueue(op) {
-    // Create chain link that returns the result of the operation
+    if (pendingWriteCount >= MAX_DB_WRITE_QUEUE_DEPTH) {
+      return Promise.reject(new Error(`[Database Backpressure] Write queue depth exceeded maximum limit (${MAX_DB_WRITE_QUEUE_DEPTH}).`));
+    }
+    pendingWriteCount++;
     const nextLink = this.queue.then(() => op());
-    // Keep the queue moving even if this operation failed
     this.queue = nextLink.catch(() => {});
+    nextLink.finally(() => {
+      pendingWriteCount = Math.max(0, pendingWriteCount - 1);
+    });
     return nextLink;
   }
 };
