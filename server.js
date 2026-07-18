@@ -4526,6 +4526,50 @@ initDatabase(terminalId)
     activeTimers.push(cloudSyncTimer);
     console.log('[CloudSync] Asynchronous Supabase backup daemon scheduled.');
 
+    // ── Component FBR: Automated FBR Invoice Resubmission Daemon ─────────────
+    // Scans database for failed FBR invoice submissions and retries them automatically.
+    async function runAutomatedFbrRetry() {
+      try {
+        const failed = await db.all(`SELECT * FROM fbr_submissions WHERE status IN ('PENDING','FAILED') ORDER BY created_at ASC LIMIT 50`);
+        if (failed.length === 0) return;
+        
+        console.log(`[FBRDaemon] Retrying ${failed.length} pending/failed FBR submissions...`);
+        const now = Date.now();
+        for (const inv of failed) {
+          const fbrResult = await submitToFBR(inv);
+          const newStatus = fbrResult.success ? 'SUBMITTED' : 'FAILED';
+          
+          let fbrResponseCode = null;
+          let fbrErrorDetails = null;
+          if (fbrResult.body) {
+            try {
+              const parsedBody = JSON.parse(fbrResult.body);
+              fbrResponseCode = parsedBody.ResponseCode || parsedBody.Code || null;
+              fbrErrorDetails = parsedBody.Message || (parsedBody.Errors ? JSON.stringify(parsedBody.Errors) : null);
+            } catch (e) {
+              fbrErrorDetails = fbrResult.body;
+            }
+          } else if (fbrResult.reason) {
+            fbrErrorDetails = fbrResult.reason;
+          }
+          
+          await db.run(
+            `UPDATE fbr_submissions SET status = ?, fbr_response = ?, fbr_response_code = ?, fbr_error_details = ?, submitted_at = ?, retry_count = retry_count + 1 WHERE id = ?`,
+            [newStatus, JSON.stringify(fbrResult), fbrResponseCode, fbrErrorDetails, now, inv.id]
+          );
+        }
+        console.log(`[FBRDaemon] Completed resubmission pass.`);
+      } catch (err) {
+        console.error('[FBRDaemon] Error during automatic FBR retry run:', err);
+      }
+    }
+    
+    setTimeout(runAutomatedFbrRetry, 10000);
+    const FIFTEEN_MIN_MS = 15 * 60 * 1000;
+    const fbrRetryTimer = setInterval(runAutomatedFbrRetry, FIFTEEN_MIN_MS);
+    activeTimers.push(fbrRetryTimer);
+    console.log('[FBRDaemon] Automated FBR invoice retry daemon scheduled (15m interval).');
+
     // ── Weekly CRDT Tombstone Garbage Collection ─────────────────────────────
     // Safely prune acknowledged change records older than the current db version
     // minus a 50k-row safety buffer. Runs every 7 days.

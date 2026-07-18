@@ -10,6 +10,7 @@
     console.log = noop;
     console.warn = noop;
     console.info = noop;
+    console.error = noop;
   }
 })();
 
