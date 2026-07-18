@@ -3679,6 +3679,13 @@ fun HistoryScreen(syncLogs: MutableList<String>) {
     var showRefundDialog by remember { mutableStateOf(false) }
     val refundQtys = remember { mutableStateMapOf<String, Int>() }
 
+    // Manager override PIN dialog — gates VOID and refund of transactions
+    var showManagerOverrideDialog by remember { mutableStateOf(false) }
+    var managerOverridePin by remember { mutableStateOf("") }
+    var managerOverridePinError by remember { mutableStateOf("") }
+    // Action to run once the manager override is verified
+    var pendingManagerAction: (() -> Unit)? by remember { mutableStateOf(null) }
+
     val scope = rememberCoroutineScope()
     val colors = LocalValenixiaColors.current
 
@@ -4007,9 +4014,15 @@ fun HistoryScreen(syncLogs: MutableList<String>) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(
                                 onClick = {
-                                    refundQtys.clear()
-                                    selectedLines.forEach { line -> refundQtys[line.sku] = 0 }
-                                    showRefundDialog = true
+                                    // Refund also requires manager override
+                                    pendingManagerAction = {
+                                        refundQtys.clear()
+                                        selectedLines.forEach { line -> refundQtys[line.sku] = 0 }
+                                        showRefundDialog = true
+                                    }
+                                    managerOverridePin = ""
+                                    managerOverridePinError = ""
+                                    showManagerOverrideDialog = true
                                 },
                                 colors = ButtonDefaults.buttonColors(backgroundColor = colors.warningDim, contentColor = colors.warning),
                                 modifier = Modifier.weight(1f).height(34.dp),
@@ -4022,17 +4035,22 @@ fun HistoryScreen(syncLogs: MutableList<String>) {
 
                             Button(
                                 onClick = {
-                                    scope.launch(Dispatchers.IO) {
-                                        val ok = Database.voidTransaction(tx.id)
-                                        if (ok) {
-                                            withContext(Dispatchers.Main) {
-                                                AudioSynth.playScanError()
-                                                syncLogs.add("[TX] Voided Transaction: ${tx.id.take(8)}")
-                                                loadTransactions()
-                                                selected = null
+                                    pendingManagerAction = {
+                                        scope.launch(Dispatchers.IO) {
+                                            val ok = Database.voidTransaction(tx.id)
+                                            if (ok) {
+                                                withContext(Dispatchers.Main) {
+                                                    AudioSynth.playScanError()
+                                                    syncLogs.add("[TX] Voided Transaction: ${tx.id.take(8)}")
+                                                    loadTransactions()
+                                                    selected = null
+                                                }
                                             }
                                         }
                                     }
+                                    managerOverridePin = ""
+                                    managerOverridePinError = ""
+                                    showManagerOverrideDialog = true
                                 },
                                 colors = ButtonDefaults.buttonColors(backgroundColor = colors.errorDim, contentColor = colors.error),
                                 modifier = Modifier.weight(1f).height(34.dp),
@@ -4044,6 +4062,80 @@ fun HistoryScreen(syncLogs: MutableList<String>) {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // Manager Override PIN Dialog — gates VOID and REFUND actions
+    if (showManagerOverrideDialog) {
+        DialogOverlay {
+            Column(
+                modifier = Modifier
+                    .width(360.dp)
+                    .background(colors.surface2, RoundedCornerShape(16.dp))
+                    .border(1.dp, colors.error.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("🔐", fontSize = 22.sp)
+                    Column {
+                        Text("Manager Override Required", color = colors.error, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text("Enter an ADMIN PIN to authorise this action", color = colors.textMuted, fontSize = 11.sp)
+                    }
+                }
+                OutlinedTextField(
+                    value = managerOverridePin,
+                    onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) { managerOverridePin = it; managerOverridePinError = "" } },
+                    label = { Text("Admin PIN", color = colors.textMuted, fontSize = 11.sp) },
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
+                    singleLine = true,
+                    colors = outlinedTextFieldColors(colors),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (managerOverridePinError.isNotEmpty()) {
+                    Text(managerOverridePinError, color = colors.error, fontSize = 11.sp)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            showManagerOverrideDialog = false
+                            pendingManagerAction = null
+                            managerOverridePin = ""
+                        },
+                        colors = ButtonDefaults.buttonColors(backgroundColor = colors.surface3, contentColor = colors.textMuted),
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        elevation = ButtonDefaults.elevation(0.dp)
+                    ) { Text("Cancel", fontSize = 12.sp) }
+
+                    Button(
+                        onClick = {
+                            scope.launch(Dispatchers.IO) {
+                                val admin = Database.verifyEmployeePin(managerOverridePin)
+                                withContext(Dispatchers.Main) {
+                                    if (admin != null && admin.role == "ADMIN") {
+                                        showManagerOverrideDialog = false
+                                        val action = pendingManagerAction
+                                        pendingManagerAction = null
+                                        managerOverridePin = ""
+                                        action?.invoke()
+                                    } else {
+                                        managerOverridePinError = "Invalid or non-admin PIN. Try again."
+                                        managerOverridePin = ""
+                                    }
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(backgroundColor = colors.errorDim, contentColor = colors.error),
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        elevation = ButtonDefaults.elevation(0.dp),
+                        border = BorderStroke(1.dp, colors.error.copy(alpha = 0.4f)),
+                        enabled = managerOverridePin.length >= 4
+                    ) { Text("Authorise", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
                 }
             }
         }
@@ -5300,7 +5392,10 @@ fun SettingsScreen(
                             Database.setPreference("whitelabel_show_branding", "TEXT", showBranding.toString())
                             Database.setPreference("glassmorphism_enabled", "TEXT", glassmorphismEnabled.toString())
                             Database.setPreference("store_theme_palette", "TEXT", currentTheme)
-                            Database.setPreference("sync_passphrase", "TEXT", syncPassphrase)
+                            // Encrypt passphrase before storing to prevent plaintext exposure in the .db file
+                            if (syncPassphrase.isNotEmpty()) {
+                                Database.setPreferenceEncrypted("sync_passphrase", syncPassphrase)
+                            }
                             withContext(Dispatchers.Main) {
                                 onBrandingRefresh()
                                 statusMsg = "Store parameters saved successfully."
@@ -5432,27 +5527,33 @@ fun SettingsScreen(
                         }
                     }
 
+                    // Pairing token state — one-time token generated on-demand
+                    var pairingToken by remember { mutableStateOf("") }
+                    var pairingTokenLoading by remember { mutableStateOf(false) }
+                    var pairingTokenError by remember { mutableStateOf("") }
+
                     Spacer(Modifier.height(4.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (syncPassphrase.isNotEmpty()) {
+                        // QR code encodes a short-lived pairing token URL — NOT the passphrase
+                        if (pairingToken.isNotEmpty()) {
+                            val pairingUrl = "http://$selectedIp:3000/api/pairing/consume?token=$pairingToken"
                             Canvas(modifier = Modifier.size(100.dp).background(Color.White, RoundedCornerShape(4.dp)).padding(6.dp)) {
                                 val qrSize = 21
                                 val cellSize = size.width / qrSize
-                                val pairingUrl = "http://$selectedIp:3000/#passphrase=${java.net.URLEncoder.encode(syncPassphrase, "UTF-8")}"
                                 val seed = pairingUrl.hashCode().toLong()
                                 val rand = java.util.Random(seed)
-                                
+
                                 for (row in 0 until qrSize) {
                                     for (col in 0 until qrSize) {
-                                        val isFinderPattern = 
+                                        val isFinderPattern =
                                             (row < 7 && col < 7) ||
                                             (row < 7 && col >= qrSize - 7) ||
                                             (row >= qrSize - 7 && col < 7)
-                                        
+
                                         val drawBlack = if (isFinderPattern) {
                                             val r = if (row < 7) row else qrSize - 1 - row
                                             val c = if (col < 7) col else qrSize - 1 - col
@@ -5463,7 +5564,7 @@ fun SettingsScreen(
                                         } else {
                                             rand.nextBoolean()
                                         }
-                                        
+
                                         if (drawBlack) {
                                             drawRect(
                                                 color = Color.Black,
@@ -5479,31 +5580,58 @@ fun SettingsScreen(
                                 modifier = Modifier.size(100.dp).background(colors.surface3, RoundedCornerShape(4.dp)).border(1.dp, colors.borderDefault, RoundedCornerShape(4.dp)).padding(8.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    text = "Set passphrase to show pairing QR",
-                                    color = colors.textMuted,
-                                    fontSize = 9.sp,
-                                    textAlign = TextAlign.Center,
-                                    lineHeight = 12.sp
-                                )
+                                if (pairingTokenLoading) {
+                                    Text("Generating\u2026", color = colors.textMuted, fontSize = 9.sp, textAlign = TextAlign.Center, lineHeight = 12.sp)
+                                } else {
+                                    Text(
+                                        text = if (pairingTokenError.isNotEmpty()) pairingTokenError else "Press \"Generate\" to create a secure pairing code",
+                                        color = if (pairingTokenError.isNotEmpty()) colors.error else colors.textMuted,
+                                        fontSize = 9.sp,
+                                        textAlign = TextAlign.Center,
+                                        lineHeight = 12.sp
+                                    )
+                                }
                             }
                         }
 
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
-                            Text("Sync Connection URL", color = colors.textMuted, fontSize = 9.sp)
-                            SelectionContainer {
-                                val urlStr = if (syncPassphrase.isNotEmpty()) {
-                                    "http://$selectedIp:3000/#passphrase=${java.net.URLEncoder.encode(syncPassphrase, "UTF-8")}"
-                                } else {
-                                    "ws://$selectedIp:3000"
-                                }
-                                Text(urlStr, color = colors.accent, fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-                            }
+                            Text("Secure Pairing Token (5-min TTL)", color = colors.textMuted, fontSize = 9.sp)
+                            Text(
+                                text = "Token-based pairing — passphrase is never exposed in QR code.",
+                                color = colors.textMuted,
+                                fontSize = 9.sp,
+                                lineHeight = 12.sp
+                            )
                             Spacer(Modifier.height(4.dp))
-                            Text("REST Gateway IP", color = colors.textMuted, fontSize = 9.sp)
-                            SelectionContainer {
-                                Text("http://$selectedIp:3000", color = colors.textPrimary, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                            Button(
+                                onClick = {
+                                    pairingTokenLoading = true
+                                    pairingTokenError = ""
+                                    pairingToken = ""
+                                    scope.launch(Dispatchers.IO) {
+                                        try {
+                                            val token = Database.generatePairingToken()
+                                            withContext(Dispatchers.Main) {
+                                                pairingToken = token
+                                                pairingTokenLoading = false
+                                            }
+                                        } catch (e: Exception) {
+                                            withContext(Dispatchers.Main) {
+                                                pairingTokenError = "Failed: ${e.message?.take(40)}"
+                                                pairingTokenLoading = false
+                                            }
+                                        }
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(backgroundColor = colors.accentDim, contentColor = colors.accent),
+                                shape = RoundedCornerShape(8.dp),
+                                elevation = ButtonDefaults.elevation(0.dp),
+                                border = BorderStroke(1.dp, colors.accent.copy(alpha = 0.3f)),
+                                modifier = Modifier.fillMaxWidth().height(36.dp)
+                            ) {
+                                Text("Generate Pairing Code", fontWeight = FontWeight.Bold, fontSize = 11.sp)
                             }
+                            Text("Scan with mobile register app", color = colors.textMuted, fontSize = 9.sp)
                         }
                     }
                 }

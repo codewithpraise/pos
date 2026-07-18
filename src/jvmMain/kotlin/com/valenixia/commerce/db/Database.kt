@@ -187,7 +187,9 @@ object Database {
         createSchemas()
         loadDbVersion()
 
-        // Auto-approve Master PC
+        // Auto-approve only the dynamic terminalId of this JVM instance.
+        // No hardcoded node IDs (e.g. 'valenixia_master_pc_01') are permitted.
+        // All other devices must go through the admin pending→approved workflow.
         conn?.prepareStatement("""
             INSERT OR REPLACE INTO approved_devices (node_id, device_name, user_agent, approved_at, status)
             VALUES (?, ?, ?, ?, ?)
@@ -195,19 +197,6 @@ object Database {
             pstmt.setString(1, terminalId)
             pstmt.setString(2, "Master Register PC")
             pstmt.setString(3, "JVM Runtime")
-            pstmt.setLong(4, System.currentTimeMillis())
-            pstmt.setString(5, "APPROVED")
-            pstmt.executeUpdate()
-        }
-
-        // Auto-approve Master PC (Web Node ID)
-        conn?.prepareStatement("""
-            INSERT OR REPLACE INTO approved_devices (node_id, device_name, user_agent, approved_at, status)
-            VALUES (?, ?, ?, ?, ?)
-        """)?.use { pstmt ->
-            pstmt.setString(1, "valenixia_master_pc_01")
-            pstmt.setString(2, "Master Register PC (Web UI)")
-            pstmt.setString(3, "Browser UI")
             pstmt.setLong(4, System.currentTimeMillis())
             pstmt.setString(5, "APPROVED")
             pstmt.executeUpdate()
@@ -373,6 +362,26 @@ object Database {
                     user_agent TEXT,
                     approved_at INTEGER,
                     status TEXT
+                );
+            """)
+
+            // Brute-force PIN lockout registry
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS pin_lockout_log (
+                    id TEXT PRIMARY KEY,
+                    attempt_at INTEGER NOT NULL,
+                    source_tag TEXT
+                );
+            """)
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_lockout_tag ON pin_lockout_log(source_tag, attempt_at);")
+
+            // QR-code-based device pairing tokens
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS pairing_tokens (
+                    token TEXT PRIMARY KEY,
+                    created_at INTEGER NOT NULL,
+                    expires_at INTEGER NOT NULL,
+                    consumed INTEGER NOT NULL DEFAULT 0
                 );
             """)
 
@@ -679,13 +688,21 @@ object Database {
                 logLocalChange("line_items", lineId, "quantity", item.qty.toString(), 1L, 1, lineHlc)
                 logLocalChange("line_items", lineId, "unit_price_minor_units", item.basePriceMinorUnits.toString(), 1L, 1, lineHlc)
 
-                // Decrement Stock
-                conn?.prepareStatement("SELECT stock_level, col_version FROM inventory_catalog WHERE sku = ?")?.use { pstmt ->
+                // Decrement Stock — fail the entire transaction if stock is insufficient (prevent overselling)
+                conn?.prepareStatement("SELECT stock_level, col_version FROM inventory_catalog WHERE sku = ? FOR UPDATE")?.use { pstmt ->
                     pstmt.setString(1, item.sku)
                     pstmt.executeQuery().use { rs ->
                         if (rs.next()) {
                             val oldStock = rs.getInt("stock_level")
-                            val newStock = max(0, oldStock - item.qty)
+                            if (oldStock < item.qty) {
+                                // Oversell guard: abort the transaction immediately
+                                conn?.rollback()
+                                conn?.autoCommit = true
+                                throw IllegalStateException(
+                                    "Insufficient stock for SKU '${item.sku}': requested ${item.qty}, available $oldStock."
+                                )
+                            }
+                            val newStock = oldStock - item.qty
                             val newVer = rs.getLong("col_version") + 1
                             val stockHlc = hlc.tick()
 
@@ -698,6 +715,11 @@ object Database {
                             }
                             logLocalChange("inventory_catalog", item.sku, "stock_level", newStock.toString(), newVer, 1, stockHlc)
                             addStockMovement(item.sku, -item.qty, "SALE (Tx: $txId)")
+                        } else {
+                            // SKU not found in catalog — abort transaction
+                            conn?.rollback()
+                            conn?.autoCommit = true
+                            throw IllegalStateException("SKU '${item.sku}' not found in inventory catalog.")
                         }
                     }
                 }
@@ -1561,6 +1583,152 @@ object Database {
         logLocalChange("local_preferences", key, "value_payload", value, dbVersion + 1, 1, hlcStr)
     }
 
+    // ── Sensitive preference helpers — AES-GCM encrypted at rest ─────────────
+    // The encryption key is derived from a machine-specific secret combined with
+    // a per-database salt stored alongside the ciphertext.  This means a stolen
+    // .db file without access to the JVM process environment cannot recover the
+    // plaintext passphrase.
+
+    private fun machineSecret(): ByteArray {
+        // Stable per-installation secret — combine hostname + OS username.
+        // Not a perfect HSM, but significantly better than plaintext storage.
+        val raw = "${System.getProperty("user.name", "valenixia")}:${java.net.InetAddress.getLocalHost().hostName}"
+        return java.security.MessageDigest.getInstance("SHA-256").digest(raw.toByteArray(Charsets.UTF_8))
+    }
+
+    @Synchronized
+    fun setPreferenceEncrypted(key: String, plaintext: String) {
+        // Derive a 256-bit AES key from the machine secret + a random per-value salt
+        val salt = ByteArray(16).also { java.security.SecureRandom().nextBytes(it) }
+        val keySpec = javax.crypto.spec.PBEKeySpec(String(machineSecret().map { it.toChar() }.toCharArray()), salt, 100_000, 256)
+        val aesKey = javax.crypto.spec.SecretKeySpec(
+            javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(keySpec).encoded,
+            "AES"
+        )
+        val iv = ByteArray(12).also { java.security.SecureRandom().nextBytes(it) }
+        val cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(javax.crypto.Cipher.ENCRYPT_MODE, aesKey, javax.crypto.spec.GCMParameterSpec(128, iv))
+        val ciphertext = cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8))
+
+        // Encode: base64(salt || iv || ciphertext)
+        val combined = ByteArray(salt.size + iv.size + ciphertext.size)
+        System.arraycopy(salt, 0, combined, 0, salt.size)
+        System.arraycopy(iv, 0, combined, salt.size, iv.size)
+        System.arraycopy(ciphertext, 0, combined, salt.size + iv.size, ciphertext.size)
+        val encoded = "ENC:" + java.util.Base64.getEncoder().encodeToString(combined)
+        setPreference(key, "ENC_STR", encoded)
+    }
+
+    @Synchronized
+    fun getPreferenceEncrypted(key: String): String? {
+        val stored = getPreference(key) ?: return null
+        if (!stored.startsWith("ENC:")) return stored // legacy plaintext — return as-is
+        val combined = java.util.Base64.getDecoder().decode(stored.removePrefix("ENC:"))
+        if (combined.size < 16 + 12 + 16) return null // too short to be valid
+        val salt = combined.copyOfRange(0, 16)
+        val iv = combined.copyOfRange(16, 28)
+        val ciphertext = combined.copyOfRange(28, combined.size)
+        return try {
+            val keySpec = javax.crypto.spec.PBEKeySpec(String(machineSecret().map { it.toChar() }.toCharArray()), salt, 100_000, 256)
+            val aesKey = javax.crypto.spec.SecretKeySpec(
+                javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(keySpec).encoded,
+                "AES"
+            )
+            val cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(javax.crypto.Cipher.DECRYPT_MODE, aesKey, javax.crypto.spec.GCMParameterSpec(128, iv))
+            String(cipher.doFinal(ciphertext), Charsets.UTF_8)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    // ── PIN brute-force lockout ────────────────────────────────────────────────
+    private val MAX_PIN_ATTEMPTS = 5
+    private val LOCKOUT_WINDOW_MS = 15L * 60 * 1000  // 15 minutes
+
+    @Synchronized
+    fun isLockedOut(sourceTag: String = "global"): Boolean {
+        val windowStart = System.currentTimeMillis() - LOCKOUT_WINDOW_MS
+        var count = 0
+        conn?.prepareStatement(
+            "SELECT COUNT(*) FROM pin_lockout_log WHERE source_tag = ? AND attempt_at >= ?"
+        )?.use { pstmt ->
+            pstmt.setString(1, sourceTag)
+            pstmt.setLong(2, windowStart)
+            pstmt.executeQuery().use { rs -> if (rs.next()) count = rs.getInt(1) }
+        }
+        return count >= MAX_PIN_ATTEMPTS
+    }
+
+    @Synchronized
+    fun recordFailedAttempt(sourceTag: String = "global") {
+        conn?.prepareStatement(
+            "INSERT INTO pin_lockout_log (id, attempt_at, source_tag) VALUES (?, ?, ?)"
+        )?.use { pstmt ->
+            pstmt.setString(1, UUID.randomUUID().toString())
+            pstmt.setLong(2, System.currentTimeMillis())
+            pstmt.setString(3, sourceTag)
+            pstmt.executeUpdate()
+        }
+    }
+
+    @Synchronized
+    fun clearLockout(sourceTag: String = "global") {
+        conn?.prepareStatement("DELETE FROM pin_lockout_log WHERE source_tag = ?")?.use { pstmt ->
+            pstmt.setString(1, sourceTag)
+            pstmt.executeUpdate()
+        }
+    }
+
+    // ── QR-code pairing token helpers ─────────────────────────────────────────
+    private val PAIRING_TOKEN_TTL_MS = 5L * 60 * 1000  // 5-minute window
+
+    @Synchronized
+    fun generatePairingToken(): String {
+        // Clean up expired tokens first
+        conn?.prepareStatement("DELETE FROM pairing_tokens WHERE expires_at < ?")?.use { pstmt ->
+            pstmt.setLong(1, System.currentTimeMillis())
+            pstmt.executeUpdate()
+        }
+        val token = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString(ByteArray(32).also { java.security.SecureRandom().nextBytes(it) })
+        val now = System.currentTimeMillis()
+        conn?.prepareStatement(
+            "INSERT INTO pairing_tokens (token, created_at, expires_at, consumed) VALUES (?, ?, ?, 0)"
+        )?.use { pstmt ->
+            pstmt.setString(1, token)
+            pstmt.setLong(2, now)
+            pstmt.setLong(3, now + PAIRING_TOKEN_TTL_MS)
+            pstmt.executeUpdate()
+        }
+        return token
+    }
+
+    @Synchronized
+    fun consumePairingToken(token: String): Boolean {
+        val now = System.currentTimeMillis()
+        var valid = false
+        conn?.prepareStatement(
+            "SELECT consumed, expires_at FROM pairing_tokens WHERE token = ?"
+        )?.use { pstmt ->
+            pstmt.setString(1, token)
+            pstmt.executeQuery().use { rs ->
+                if (rs.next()) {
+                    val consumed = rs.getInt("consumed")
+                    val expiresAt = rs.getLong("expires_at")
+                    valid = consumed == 0 && expiresAt > now
+                }
+            }
+        }
+        if (valid) {
+            conn?.prepareStatement("UPDATE pairing_tokens SET consumed = 1 WHERE token = ?")?.use { pstmt ->
+                pstmt.setString(1, token)
+                pstmt.executeUpdate()
+            }
+        }
+        return valid
+    }
+
     @Synchronized
     fun getCustomers(): List<Customer> {
         val list = mutableListOf<Customer>()
@@ -1967,7 +2135,8 @@ object Database {
             setPreference("store_name", "STR", storeName)
             setPreference("store_tax_rate", "STR", taxRate.toString())
             setPreference("store_theme_palette", "STR", theme ?: "Obsidian Emerald")
-            setPreference("sync_passphrase", "STR", syncPassphrase)
+            // Store passphrase AES-GCM encrypted — never in plaintext
+            setPreferenceEncrypted("sync_passphrase", syncPassphrase)
 
             // Set admin employee credentials
             val hashed = hashPin(adminPin)

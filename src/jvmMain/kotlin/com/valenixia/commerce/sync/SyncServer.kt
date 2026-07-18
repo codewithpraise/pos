@@ -140,7 +140,9 @@ object SyncServer {
     }
 
     fun getJwtSecret(): String {
-        val passphrase = Database.getPreference("sync_passphrase")
+        // Read the passphrase via the AES-GCM encrypted getter — falls back to
+        // legacy plaintext only when the ENC: prefix is absent (migration path).
+        val passphrase = Database.getPreferenceEncrypted("sync_passphrase")
         if (passphrase == null || passphrase.isEmpty()) {
             // Never use a predictable fallback — a missing passphrase is a misconfiguration.
             // The server MUST be initialised with a sync passphrase before issuing JWT tokens.
@@ -274,7 +276,8 @@ object SyncServer {
                             if (frame is Frame.Text) {
                                 val text = frame.readText()
                                 
-                                val passphrase = Database.getPreference("sync_passphrase")
+                                // Use encrypted getter — handles ENC: prefix and legacy plaintext
+                                val passphrase = Database.getPreferenceEncrypted("sync_passphrase")
                                 val decryptedText = try {
                                     if (passphrase != null && passphrase.isNotEmpty()) {
                                         decryptPayload(text, passphrase)
@@ -455,8 +458,13 @@ object SyncServer {
                         }
 
                         var status = Database.getDeviceStatus(nodeId)
-                        if (nodeId.startsWith("web_client_") || 
-                            nodeId == Database.hlc.nodeId) {
+                        // Only the local master node (matching Database.hlc.nodeId) is
+                        // auto-approved.  ALL other clients — including web clients whose
+                        // nodeId starts with 'web_client_' — must go through the admin
+                        // pending → approved workflow.  Removing this bypass was
+                        // security-critical: previously ANY device could claim a
+                        // 'web_client_' prefix and receive an unconditional JWT.
+                        if (nodeId == Database.hlc.nodeId) {
                             status = "APPROVED"
                         }
 
@@ -481,10 +489,28 @@ object SyncServer {
                     }
                 }
 
-                // 1.f Unprotected or conditionally authenticated employee login
+                // 1.f Employee login — requires valid device JWT + enforces server-side PIN lockout
                 post("/api/employee/login") {
-                    var authenticated = false
+                    // Derive a per-device lockout tag from the Authorization header so
+                    // different approved devices have independent lockout counters.
                     val authHeader = call.request.headers["Authorization"]
+                    val lockoutTag = if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                        "login:${authHeader.substring(7).take(32)}"
+                    } else {
+                        "login:unauthenticated"
+                    }
+
+                    // Server-side brute-force lockout check (5 attempts / 15 min)
+                    if (Database.isLockedOut(lockoutTag)) {
+                        call.respondText(
+                            """{"error":"Too many failed PIN attempts. Please wait 15 minutes before trying again."}""",
+                            io.ktor.http.ContentType.Application.Json,
+                            io.ktor.http.HttpStatusCode.TooManyRequests
+                        )
+                        return@post
+                    }
+
+                    var authenticated = false
                     if (authHeader != null && authHeader.startsWith("Bearer ")) {
                         val token = authHeader.substring(7)
                         val claims = verifyJwtToken(token)
@@ -503,12 +529,90 @@ object SyncServer {
                         val req = json.decodeFromString<LoginRequest>(body)
                         val employee = Database.verifyEmployeePin(req.pin)
                         if (employee != null) {
+                            // Successful auth — clear lockout counter for this device
+                            Database.clearLockout(lockoutTag)
                             call.respondText(json.encodeToString(employee), io.ktor.http.ContentType.Application.Json)
                         } else {
+                            // Record failed attempt toward lockout threshold
+                            Database.recordFailedAttempt(lockoutTag)
                             call.respondText("""{"error":"Invalid PIN"}""", io.ktor.http.ContentType.Application.Json, io.ktor.http.HttpStatusCode.Unauthorized)
                         }
                     } catch (e: Exception) {
                         call.respondText("""{"error":"${e.message}"}""", io.ktor.http.ContentType.Application.Json, io.ktor.http.HttpStatusCode.BadRequest)
+                    }
+                }
+
+                // 1.f END
+
+                // 1.g Pairing token endpoints
+                // POST /api/pairing/generate — authenticated MASTER only, issues a one-time
+                // 5-minute QR-code token that a new device can redeem to auto-approve itself.
+                authenticate("auth-jwt") {
+                    post("/api/pairing/generate") {
+                        val principal = call.principal<JWTPrincipal>()
+                        val role = principal?.payload?.getClaim("role")?.asString()
+                        if (role != "MASTER" && role != "ADMIN") {
+                            call.respondText(
+                                """{"error":"Forbidden: only MASTER or ADMIN may generate pairing tokens"}""",
+                                io.ktor.http.ContentType.Application.Json,
+                                io.ktor.http.HttpStatusCode.Forbidden
+                            )
+                            return@post
+                        }
+                        try {
+                            val token = Database.generatePairingToken()
+                            call.respondText(
+                                """{"token":"$token","expiresInMs":300000}""",
+                                io.ktor.http.ContentType.Application.Json
+                            )
+                        } catch (e: Exception) {
+                            call.respondText("""{"error":"${e.message}"}""", io.ktor.http.ContentType.Application.Json, io.ktor.http.HttpStatusCode.InternalServerError)
+                        }
+                    }
+                }
+
+                // POST /api/pairing/consume — public endpoint (no JWT required).
+                // A new device presents the one-time token and receives an approved JWT.
+                post("/api/pairing/consume") {
+                    try {
+                        val body = call.receiveText()
+                        val token = getJsonStringField(body, "token") ?: ""
+                        val nodeId = getJsonStringField(body, "nodeId") ?: ""
+                        val deviceName = getJsonStringField(body, "deviceName") ?: "Paired Device"
+                        val userAgent = call.request.headers["User-Agent"] ?: "Unknown"
+
+                        if (token.isEmpty() || nodeId.isEmpty()) {
+                            call.respondText(
+                                """{"error":"token and nodeId are required"}""",
+                                io.ktor.http.ContentType.Application.Json,
+                                io.ktor.http.HttpStatusCode.BadRequest
+                            )
+                            return@post
+                        }
+
+                        val valid = Database.consumePairingToken(token)
+                        if (!valid) {
+                            call.respondText(
+                                """{"error":"Invalid, expired, or already-used pairing token"}""",
+                                io.ktor.http.ContentType.Application.Json,
+                                io.ktor.http.HttpStatusCode.Forbidden
+                            )
+                            return@post
+                        }
+
+                        // Register and auto-approve the device
+                        if (Database.getDeviceStatus(nodeId) == null) {
+                            Database.addPendingDevice(nodeId, deviceName, userAgent)
+                        }
+                        Database.approveDevice(nodeId)
+                        val jwtToken = generateToken(nodeId, "TERMINAL")
+                        broadcast("""{"type":"device_whitelist_changed"}""")
+                        call.respondText(
+                            """{"status":"APPROVED","token":"$jwtToken"}""",
+                            io.ktor.http.ContentType.Application.Json
+                        )
+                    } catch (e: Exception) {
+                        call.respondText("""{"error":"${e.message}"}""", io.ktor.http.ContentType.Application.Json, io.ktor.http.HttpStatusCode.InternalServerError)
                     }
                 }
 
@@ -708,7 +812,8 @@ object SyncServer {
     }
 
     suspend fun sendPayload(session: DefaultWebSocketServerSession, message: String) {
-        val passphrase = Database.getPreference("sync_passphrase")
+        // Use the encrypted passphrase getter — handles both legacy plaintext and ENC: prefix
+        val passphrase = Database.getPreferenceEncrypted("sync_passphrase")
         val payload = encryptPayload(message, passphrase)
         session.send(Frame.Text(payload))
     }
