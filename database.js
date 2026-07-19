@@ -24,7 +24,7 @@ let currentHlc = null;
 let currentDbVersion = 0; // Incremented on each local transaction change
 
 // Schema version: increment when adding columns/tables that clients must have before syncing
-const SERVER_SCHEMA_VERSION = 15;
+const SERVER_SCHEMA_VERSION = 16;
 module.exports && Object.assign(module.exports, { SERVER_SCHEMA_VERSION });
 
 const argon2 = require('argon2');
@@ -922,7 +922,23 @@ async function initDatabase(terminalId) {
         console.error('[Database] Failed to migrate database schema in v14:', err.message);
       }
     } else if (v === 15) {
-      console.log('[Database] Migrated database schema to v15.');
+      // v15→v16: Ensure admin_audit_log has ip and user_agent columns.
+      // These were added as part of v14 migration, but some databases that already
+      // ran a partial v14 may be missing them. This migration guarantees they exist.
+      try {
+        const columns = await db.all("PRAGMA table_info(admin_audit_log)");
+        if (!columns.some(col => col.name === 'ip')) {
+          await db.run("ALTER TABLE admin_audit_log ADD COLUMN ip TEXT;");
+          console.log('[Database] v16 migration: Added missing ip column to admin_audit_log.');
+        }
+        if (!columns.some(col => col.name === 'user_agent')) {
+          await db.run("ALTER TABLE admin_audit_log ADD COLUMN user_agent TEXT;");
+          console.log('[Database] v16 migration: Added missing user_agent column to admin_audit_log.');
+        }
+        console.log('[Database] Migrated database schema to v16 (admin_audit_log column guard).');
+      } catch (err) {
+        console.error('[Database] Failed to apply v16 migration:', err.message);
+      }
     }
 
     // Atomically write new schema version
@@ -1837,7 +1853,7 @@ async function factoryResetDatabase() {
       'customers', 'categories', 'stock_movements', 'employee_shifts',
       'approved_devices', 'distributors', 'purchase_orders', 'po_line_items',
       'distributor_payments', 'customer_credit', 'fbr_submissions',
-      'aborted_sales_log', 'telemetry_logs'
+      'aborted_sales_log', 'telemetry_logs', 'tier_usage'
     ]);
     const tables = Array.from(FACTORY_RESET_ALLOWED_TABLES);
     for (const table of tables) {

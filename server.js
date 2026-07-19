@@ -4427,6 +4427,7 @@ app.post('/api/reset', requireAdmin, checkOrigin, adminActionLimiter, requireBod
     await db.run('DELETE FROM line_items;');
     await db.run('DELETE FROM speech_analytics_logs;');
     await db.run('DELETE FROM crsql_changes;');
+    await db.run('DELETE FROM tier_usage;');
     await db.commit();
 
     console.log('[SyncHub] Database reset successfully.');
