@@ -895,7 +895,7 @@ const retentionTimer = setInterval(async () => {
   const cutoffIso = new Date(cutoffMs).toISOString();
   try {
     await db.run('DELETE FROM request_audit_logs WHERE created_at < ?', [cutoffIso]);
-    await db.run('DELETE FROM admin_audit_logs WHERE created_at < ?', [cutoffIso]);
+    await db.run('DELETE FROM admin_audit_log WHERE created_at < ?', [cutoffMs]);
     await db.run('DELETE FROM telemetry_logs WHERE created_at < ?', [cutoffMs]);
     await db.run('DELETE FROM rate_limits WHERE reset_time < ?', [Date.now()]);
     await db.run('DELETE FROM idempotency_keys WHERE created_at < ?', [cutoffMs]);
@@ -1196,28 +1196,7 @@ async function requireAuth(req, res, next) {
   next();
 }
 
-async function initAdminAuditLogsTable() {
-  try {
-    await db.run(`
-      CREATE TABLE IF NOT EXISTS admin_audit_logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        timestamp TEXT NOT NULL,
-        ip TEXT,
-        method TEXT,
-        path TEXT,
-        user_agent TEXT,
-        device_token TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-  } catch (err) {
-    console.error('[AdminSecurity] Failed to create admin_audit_logs table:', err.message);
-  }
-}
-initAdminAuditLogsTable();
-
 async function logAdminAccess(req, res, next) {
-  const timestamp = new Date().toISOString();
   const ip = req.ip || req.connection.remoteAddress || 'unknown';
   const rawUserAgent = req.headers['user-agent'] || 'unknown';
   const userAgent = rawUserAgent.slice(0, 100);
@@ -1227,12 +1206,20 @@ async function logAdminAccess(req, res, next) {
   const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : '';
   const hashedToken = token ? crypto.createHash('sha256').update(token).digest('hex') : '';
 
-  console.log(`[AdminAudit] ${timestamp} | ${hashIp(ip)} | ${method} ${path} | UA: ${userAgent.slice(0, 50)}...`);
+  console.log(`[AdminAudit] ${new Date().toISOString()} | ${hashIp(ip)} | ${method} ${path} | UA: ${userAgent.slice(0, 50)}...`);
 
   try {
     await db.run(
-      'INSERT INTO admin_audit_logs (timestamp, ip, method, path, user_agent, device_token) VALUES (?, ?, ?, ?, ?, ?)',
-      [timestamp, hashIp(ip), method, path, userAgent, hashedToken]
+      'INSERT INTO admin_audit_log (id, user_id, action, details, ip, user_agent, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        crypto.randomUUID(),
+        req.device ? (req.device.node_id || req.device.sub) : 'unknown_admin',
+        'ADMIN_HTTP_REQUEST',
+        JSON.stringify({ method, path, device_token: hashedToken }),
+        hashIp(ip),
+        userAgent,
+        Date.now()
+      ]
     );
   } catch (e) {
     console.error('[AdminSecurity] Failed to write admin audit log:', e.message);

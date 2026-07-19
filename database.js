@@ -24,7 +24,7 @@ let currentHlc = null;
 let currentDbVersion = 0; // Incremented on each local transaction change
 
 // Schema version: increment when adding columns/tables that clients must have before syncing
-const SERVER_SCHEMA_VERSION = 14;
+const SERVER_SCHEMA_VERSION = 15;
 module.exports && Object.assign(module.exports, { SERVER_SCHEMA_VERSION });
 
 const argon2 = require('argon2');
@@ -904,6 +904,25 @@ async function initDatabase(terminalId) {
       } catch (err) {
         console.error('[Database] Failed to migrate database schema in v13:', err.message);
       }
+    } else if (v === 14) {
+      try {
+        // Drop legacy plural table
+        await db.exec(`DROP TABLE IF EXISTS admin_audit_logs;`);
+        
+        // Add columns if they do not exist
+        const columns = await db.all("PRAGMA table_info(admin_audit_log)");
+        if (!columns.some(col => col.name === 'ip')) {
+          await db.exec("ALTER TABLE admin_audit_log ADD COLUMN ip TEXT;");
+        }
+        if (!columns.some(col => col.name === 'user_agent')) {
+          await db.exec("ALTER TABLE admin_audit_log ADD COLUMN user_agent TEXT;");
+        }
+        console.log('[Database] Migrated database schema to v14 (unified admin_audit_log with ip and user_agent).');
+      } catch (err) {
+        console.error('[Database] Failed to migrate database schema in v14:', err.message);
+      }
+    } else if (v === 15) {
+      console.log('[Database] Migrated database schema to v15.');
     }
 
     // Atomically write new schema version

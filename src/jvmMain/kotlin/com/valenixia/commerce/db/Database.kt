@@ -399,6 +399,20 @@ object Database {
                 );
             """)
 
+            // Manager/Admin Audit Trail
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS admin_audit_log (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT,
+                    action TEXT NOT NULL,
+                    details TEXT,
+                    ip TEXT,
+                    user_agent TEXT,
+                    created_at INTEGER NOT NULL
+                );
+            """)
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_admin_audit_log_action ON admin_audit_log(action);")
+
             // Apply migrations (ALTER TABLE try-catches)
             try { stmt.execute("ALTER TABLE inventory_catalog ADD COLUMN category TEXT DEFAULT 'Uncategorized';") } catch (e: Exception) {}
             try { stmt.execute("ALTER TABLE inventory_catalog ADD COLUMN emoji TEXT DEFAULT '';") } catch (e: Exception) {}
