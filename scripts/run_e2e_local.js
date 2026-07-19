@@ -98,7 +98,8 @@ async function main() {
     console.log(`==================================================`);
 
     const result = await new Promise((resolve) => {
-      const child = spawn('node', [test.file], { stdio: 'inherit' });
+      const testPath = path.join(__dirname, 'debug', test.file);
+      const child = spawn('node', [testPath], { stdio: 'inherit' });
       child.on('close', (code) => {
         resolve(code === 0);
       });
