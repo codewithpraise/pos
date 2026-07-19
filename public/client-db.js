@@ -573,10 +573,15 @@
                 });
                 
                 if (allRecords.length > 0) {
+                  // Determine keyPath for this store (must match what was created above)
+                  const keyPathField = (storeName === 'line_items' || storeName === 'error_logs' || storeName === 'crsql_changes') ? 'id' : 'key';
                   const newTx = newDb.transaction(storeName, 'readwrite');
                   const newStore = newTx.objectStore(storeName);
                   for (const rec of allRecords) {
-                    newStore.put(rec);
+                    // Skip records that don't have the required keyPath field to avoid DataError
+                    if (rec === null || rec === undefined || typeof rec !== 'object') continue;
+                    if (!(keyPathField in rec) || rec[keyPathField] === undefined || rec[keyPathField] === null) continue;
+                    try { newStore.put(rec); } catch (putErr) { /* skip bad record */ }
                   }
                   await new Promise((res) => {
                     newTx.oncomplete = res;
@@ -1084,8 +1089,11 @@
         timestamp: Date.now()
       };
       try {
+        // Guard: the audit_logs store may not exist if the DB hasn't been upgraded yet
+        if (!this.db || !this.db.objectStoreNames.contains('audit_logs')) {
+          return;
+        }
         await this.put('audit_logs', entry);
-        console.log('[AuditLog]', entry);
       } catch (err) {
         console.warn('[AuditLog] Failed to write to IndexedDB:', err);
       }

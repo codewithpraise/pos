@@ -519,7 +519,6 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       // No unsafe-inline or unsafe-eval — inline scripts extracted to static files
-      // Removed https://unpkg.com — jsPDF and QRCode are vendored locally in public/
       scriptSrc: ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
@@ -527,26 +526,30 @@ app.use(helmet({
       imgSrc: ["'self'", "data:", "blob:"],
       connectSrc: [
         "'self'",
-        "ws://localhost:*", "ws://127.0.0.1:*", "ws://192.168.*", "ws://10.*", "ws://172.*",
-        "wss://localhost:*", "wss://127.0.0.1:*", "wss://192.168.*", "wss://10.*", "wss://172.*",
-        "http://localhost:*", "http://127.0.0.1:*", "http://192.168.*", "http://10.*", "http://172.*",
+        // WebSocket connections for sync hub (localhost)
+        "ws://localhost:*", "ws://127.0.0.1:*",
+        "wss://localhost:*", "wss://127.0.0.1:*",
+        // HTTP API calls (localhost + LAN)
+        "http://localhost:*", "http://127.0.0.1:*",
+        // Note: IP range wildcards (192.168.*, 10.*, 172.*) are not valid CSP syntax.
+        // LAN IP access is handled at the network level; CSP cannot express CIDR ranges.
         "https://*.supabase.co", "https://*.pages.dev",
+        "https://fonts.googleapis.com",
         "https://gw.fbr.gov.pk"
       ],
       objectSrc: ["'none'"],
       // Prevent <base> tag injection attacks
-      baseUri: ["'self'"],
-      // Force all insecure URLs to HTTPS
-      upgradeInsecureRequests: []
+      baseUri: ["'self'"]
     }
   },
   xFrameOptions: { action: 'deny' },
   xContentTypeOptions: true,
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
-  // Enable COOP/COEP/CORP for cross-origin isolation
+  // COOP for click-jacking protection; COEP set to unsafe-none so external
+  // CDN resources (Google Fonts) are not blocked in development
   crossOriginOpenerPolicy: { policy: 'same-origin' },
-  crossOriginEmbedderPolicy: { policy: 'require-corp' },
-  crossOriginResourcePolicy: { policy: 'same-origin' },
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
   dnsPrefetchControl: { allow: false },
   hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
   permissionsPolicy: {
