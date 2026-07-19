@@ -64,7 +64,7 @@ data class SpeechLogRequest(
 )
 
 @Serializable
-data class ResetRequest(val pin: String)
+data class ResetRequest(val pin: String, val confirm: Boolean? = false)
 
 object SyncServer {
     private val sessions = Collections.newSetFromMap(ConcurrentHashMap<DefaultWebSocketServerSession, Boolean>())
@@ -759,7 +759,11 @@ object SyncServer {
                         try {
                             val body = call.receiveText()
                             val req = json.decodeFromString<ResetRequest>(body)
-                            val success = Database.destructReset(req.pin)
+                            if (req.confirm != true) {
+                                call.respondText("""{"error":"Confirmation required. Set confirm=true."}""", io.ktor.http.ContentType.Application.Json, io.ktor.http.HttpStatusCode.BadRequest)
+                                return@post
+                            }
+                            val success = Database.destructReset(req.pin, true)
                             if (success) {
                                 broadcast("""{"type":"reset_trigger"}""")
                                 call.respondText("""{"success":true}""", io.ktor.http.ContentType.Application.Json)

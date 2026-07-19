@@ -427,43 +427,7 @@ self.onmessage = async (event) => {
         }
         break;
 
-      case 'VOID_TRANSACTION': {
-        const { transactionId, managerId, voidReason } = payload || {};
-        try {
-          const isFile = location.protocol === 'file:' || location.origin === 'null';
-          const base = self.serverUrl || (isFile ? 'http://127.0.0.1:3000' : location.origin);
-          const voidUrl = base.startsWith('http') ? (base + '/api/void-transaction') : '/api/void-transaction';
-          
-          const deviceTokenPref = await ValenixiaDB.get('local_preferences', 'device_token');
-          const token = deviceTokenPref ? deviceTokenPref.value_payload : null;
 
-          const response = await fetchWithTimeout(voidUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-            },
-            body: JSON.stringify({ transactionId, managerId, voidReason })
-          }, 10000);
-
-          const result = await response.json();
-          if (!response.ok) {
-            throw new Error(result.error || 'Void transaction request failed');
-          }
-
-          const tickHlc = syncClient && syncClient.hlc ? syncClient.hlc.tick().toString() : String(Date.now());
-          await ValenixiaDB.applyChangeToSchema('transactions', transactionId, 'status', 'VOIDED', 1, 'string');
-          await ValenixiaDB.logFieldChange('transactions', transactionId, 'status', 'VOIDED', tickHlc, 1, 1);
-          await ValenixiaDB.applyChangeToSchema('transactions', transactionId, 'void_reason', voidReason || 'Voided by manager', 1, 'string');
-          await ValenixiaDB.logFieldChange('transactions', transactionId, 'void_reason', voidReason || 'Voided by manager', tickHlc, 1, 1);
-
-          postMessage({ type: 'VOID_TRANSACTION_SUCCESS', transactionId, result });
-        } catch (err) {
-          console.error('[SyncWorker] VOID_TRANSACTION failed:', err.message);
-          postMessage({ type: 'VOID_TRANSACTION_ERROR', transactionId, error: err.message });
-        }
-        break;
-      }
 
       case 'HYDRATE_DATABASE': {
         const { licenseToken } = payload;

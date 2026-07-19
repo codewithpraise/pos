@@ -38,11 +38,18 @@ class HLC(val nodeId: String = UUID.randomUUID().toString().substring(0, 8)) {
     fun merge(remoteHlcStr: String): String {
         val physical = System.currentTimeMillis()
         val remote = parse(remoteHlcStr)
-        val maxL = max(max(l, remote.l), physical)
+        val driftLimitMs = 300000L
+        val adjustedRemoteL = if (remote.l - physical > driftLimitMs) {
+            System.err.println("[HLC] WARNING: Clamping remote clock timestamp $remoteHlcStr due to future drift (>5m)")
+            physical
+        } else {
+            remote.l
+        }
+        val maxL = max(max(l, adjustedRemoteL), physical)
 
-        if (maxL == l && maxL == remote.l) {
+        if (maxL == l && maxL == adjustedRemoteL) {
             c = max(c, remote.c) + 1
-        } else if (maxL == remote.l) {
+        } else if (maxL == adjustedRemoteL) {
             c = remote.c + 1
         } else if (maxL == l) {
             c += 1

@@ -4376,7 +4376,7 @@ fun AnalyticsScreen() {
                                     AudioSynth.playDrawerOpen()
                                 }
                             } catch (e: Exception) {
-                                e.printStackTrace()
+                                System.err.println("[Export Error] Failed to export CSV report: ${e.message}")
                             }
                         }
                     },

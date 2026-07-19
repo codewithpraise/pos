@@ -1763,6 +1763,33 @@ wss.on('connection', (ws, req) => {
             
             for (const txId of Object.keys(txMap)) {
               const tx = txMap[txId];
+              if (tx.status === 'VOID_CONTRA') {
+                const managerId = tx.employee_id || await (async () => {
+                  try {
+                    const row = await db.get("SELECT employee_id FROM transactions WHERE id = ?", [txId]);
+                    return row ? row.employee_id : null;
+                  } catch (_) { return null; }
+                })();
+                if (!managerId) {
+                  console.warn(`[SyncHub] Void contra transaction ${txId} rejected: missing manager employee ID.`);
+                  ws.send(encryptPayload({
+                    type: 'SYNC_ERROR',
+                    error: 'VOID_MISSING_MANAGER',
+                    transactionId: txId
+                  }));
+                  return;
+                }
+                const emp = await db.get("SELECT role, is_active FROM employees WHERE id = ?", [managerId]);
+                if (!emp || emp.is_active !== 1 || (emp.role !== 'MANAGER' && emp.role !== 'ADMIN')) {
+                  console.warn(`[SyncHub] Void contra transaction ${txId} rejected: unauthorized employee ID ${managerId}.`);
+                  ws.send(encryptPayload({
+                    type: 'SYNC_ERROR',
+                    error: 'VOID_UNAUTHORIZED',
+                    transactionId: txId
+                  }));
+                  return;
+                }
+              }
               if (tx.status === 'PENDING' || tx.status === 'COMPLETED') {
                 const total = parseInt(tx.total_minor_units || 0);
                 const subtotal = parseInt(tx.subtotal_minor_units || 0);

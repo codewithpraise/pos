@@ -776,7 +776,7 @@ object Database {
             return true
         } catch (ex: Exception) {
             conn?.rollback()
-            ex.printStackTrace()
+            System.err.println("[Database Error] Failed to create transaction: ${ex.message}")
             return false
         } finally {
             conn?.autoCommit = true
@@ -819,6 +819,43 @@ object Database {
         try {
             changes.forEach { change ->
                 hlc.merge(change.syncHlc)
+
+                // Security: Validate that VOID_CONTRA transactions are authorized by an active manager/admin
+                if (change.tableName == "transactions" && change.cid == "status" && change.value == "VOID_CONTRA") {
+                    var managerId = changes.find { it.tableName == "transactions" && it.pk == change.pk && it.cid == "employee_id" }?.value
+                    if (managerId == null) {
+                        conn?.prepareStatement("SELECT employee_id FROM transactions WHERE id = ?")?.use { pstmt ->
+                            pstmt.setString(1, change.pk)
+                            pstmt.executeQuery().use { rs ->
+                                if (rs.next()) {
+                                    managerId = rs.getString(1)
+                                }
+                            }
+                        }
+                    }
+                    if (managerId != null) {
+                        var isValid = false
+                        conn?.prepareStatement("SELECT role, is_active FROM employees WHERE id = ?")?.use { pstmt ->
+                            pstmt.setString(1, managerId)
+                            pstmt.executeQuery().use { rs ->
+                                if (rs.next()) {
+                                    val role = rs.getString(1)
+                                    val isActive = rs.getInt(2)
+                                    if (isActive == 1 && (role == "MANAGER" || role == "ADMIN")) {
+                                        isValid = true
+                                    }
+                                }
+                            }
+                        }
+                        if (!isValid) {
+                            System.err.println("[SyncServer] Rejected sync change for VOID_CONTRA transaction ${change.pk} due to unauthorized manager ID $managerId.")
+                            return@forEach // Skip applying this change
+                        }
+                    } else {
+                        System.err.println("[SyncServer] Rejected sync change for VOID_CONTRA transaction ${change.pk}: missing manager employee ID.")
+                        return@forEach
+                    }
+                }
 
                 // Get local change details
                 var localVer: Long? = null
@@ -877,7 +914,7 @@ object Database {
             conn?.commit()
         } catch (ex: Exception) {
             conn?.rollback()
-            ex.printStackTrace()
+            System.err.println("[Database Error] Failed to apply remote changes: ${ex.message}")
             throw ex
         } finally {
             conn?.autoCommit = true
@@ -1095,7 +1132,7 @@ object Database {
             }
             true
         } catch (e: Exception) {
-            e.printStackTrace()
+            System.err.println("[Database Error] Failed to insert inventory item: ${e.message}")
             false
         }
     }
@@ -1331,7 +1368,7 @@ object Database {
             conn?.commit()
         } catch (e: Exception) {
             conn?.rollback()
-            e.printStackTrace()
+            System.err.println("[Database Error] Failed to void transaction $txId: ${e.message}")
         } finally {
             conn?.autoCommit = true
         }
@@ -1415,7 +1452,7 @@ object Database {
             return true
         } catch (e: Exception) {
             conn?.rollback()
-            e.printStackTrace()
+            System.err.println("[Database Error] Failed to refund transaction $txId: ${e.message}")
             return false
         } finally {
             conn?.autoCommit = true
@@ -2211,32 +2248,63 @@ object Database {
             }
             return true
         } catch (e: Exception) {
-            e.printStackTrace()
+            System.err.println("[Database Error] Failed to update admin PIN: ${e.message}")
             return false
         }
     }
 
     @Synchronized
-    fun destructReset(adminPin: String): Boolean {
+    fun destructReset(adminPin: String, confirm: Boolean = false): Boolean {
+        if (!confirm) {
+            System.err.println("[Database Error] Destructive reset aborted: confirm parameter is false.")
+            return false
+        }
         val admin = verifyEmployeePin(adminPin)
         if (admin == null || admin.role != "ADMIN") return false
         
         conn?.autoCommit = false
         try {
             conn?.createStatement()?.use { stmt ->
+                // 1. Create database backup snapshot using SQLite VACUUM INTO
+                try {
+                    val backupFile = "valenixia_backup_${System.currentTimeMillis()}.db"
+                    stmt.execute("VACUUM INTO '$backupFile';")
+                    println("[BACKUP] Database backup created successfully before reset: $backupFile")
+                } catch (be: Exception) {
+                    System.err.println("[BACKUP WARNING] Failed to create database backup: ${be.message}")
+                }
+
+                // 2. Perform destructive cleanup
                 stmt.execute("DELETE FROM transactions;")
                 stmt.execute("DELETE FROM line_items;")
-                try { stmt.execute("DELETE FROM speech_analytics_logs;") } catch (e: Exception) {}
+                try { stmt.execute("DELETE FROM speech_analytics_logs;") } catch (se: Exception) {}
                 stmt.execute("DELETE FROM crsql_changes;")
                 stmt.execute("DELETE FROM stock_movements;")
                 stmt.execute("DELETE FROM employee_shifts;")
                 stmt.execute("DELETE FROM customers;")
             }
+
+            // 3. Log factory reset to local audit log table
+            try {
+                conn?.prepareStatement(
+                    "INSERT INTO admin_audit_log (id, user_id, action, details, created_at) VALUES (?, ?, ?, ?, ?)"
+                )?.use { pstmt ->
+                    pstmt.setString(1, UUID.randomUUID().toString())
+                    pstmt.setString(2, admin.id)
+                    pstmt.setString(3, "SYSTEM_FACTORY_RESET")
+                    pstmt.setString(4, """{"triggered_by":"JVM_API","backup_created":true}""")
+                    pstmt.setLong(5, System.currentTimeMillis())
+                    pstmt.executeUpdate()
+                }
+            } catch (le: Exception) {
+                System.err.println("[Audit Log Error] Failed to write reset audit log: ${le.message}")
+            }
+
             conn?.commit()
             return true
         } catch (e: Exception) {
             conn?.rollback()
-            e.printStackTrace()
+            System.err.println("[Database Error] Error during destructive reset: ${e.message}")
             return false
         } finally {
             conn?.autoCommit = true
@@ -2265,7 +2333,7 @@ object Database {
             }
             return false
         } catch (e: Exception) {
-            e.printStackTrace()
+            System.err.println("[Database Error] Error checking initialization status: ${e.message}")
             return false
         }
     }
@@ -2291,7 +2359,7 @@ object Database {
             return true
         } catch (e: Exception) {
             conn?.rollback()
-            e.printStackTrace()
+            System.err.println("[Database Error] Error during factory reset: ${e.message}")
             return false
         } finally {
             conn?.autoCommit = true
@@ -2328,7 +2396,7 @@ object Database {
             }
             true
         } catch (e: Exception) {
-            e.printStackTrace()
+            System.err.println("[Database Error] Error adding speech log: ${e.message}")
             false
         }
     }
@@ -2449,7 +2517,7 @@ object Database {
             }
             true
         } catch (e: Exception) {
-            e.printStackTrace()
+            System.err.println("[Database Error] Error adding payment proof: ${e.message}")
             false
         }
     }

@@ -44,11 +44,13 @@ class HLC {
   merge(remoteHlcStr) {
     const physical = Date.now();
     const remote = HLC.parse(remoteHlcStr);
-    const maxL = Math.max(this.l, remote.l, physical);
+    const DRIFT_LIMIT_MS = 300000;
+    const adjustedRemoteL = (remote.l - physical > DRIFT_LIMIT_MS) ? physical : remote.l;
+    const maxL = Math.max(this.l, adjustedRemoteL, physical);
 
-    if (maxL === this.l && maxL === remote.l) {
+    if (maxL === this.l && maxL === adjustedRemoteL) {
       this.c = Math.max(this.c, remote.c) + 1;
-    } else if (maxL === remote.l) {
+    } else if (maxL === adjustedRemoteL) {
       this.c = remote.c + 1;
     } else if (maxL === this.l) {
       this.c += 1;
