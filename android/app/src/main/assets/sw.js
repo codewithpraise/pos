@@ -15,7 +15,7 @@ if (self.location.hostname !== 'localhost' && !self.location.hostname.includes('
 
 const urlParams = new URLSearchParams(self.location.search);
 const buildVersion = urlParams.get('v') || 'dev';
-const CACHE_NAME = `valenixia-pos-cache-v11`;
+const CACHE_NAME = `valenixia-pos-cache-v16`;
 const ASSETS_TO_CACHE = [
   { url: '/', integrity: '' },
   { url: '/index.html', integrity: '' },
@@ -24,12 +24,12 @@ const ASSETS_TO_CACHE = [
   { url: '/styles/themes.css', integrity: '' },
   { url: '/styles/animations.css', integrity: '' },
   { url: '/styles/components.css', integrity: '' },
-  { url: '/app.js', integrity: 'sha384-E8pDuA0QzaOrWZYKvJhhgb4HaNHO6HBcCKjMD59a9N5Aff/mLXdlxpTY3NGZJRrH' },
+  { url: '/app.js', integrity: 'sha384-n/aLyDE9LWyzWCiWX8TaKEXZtEC6cUBE7JuNn5ndKJ1R+bGUZ6kObSqyK1yZCIDg' },
   { url: '/modules/ui.js', integrity: '' },
   { url: '/modules/animations.js', integrity: '' },
   { url: '/modules/offline.js', integrity: '' },
   { url: '/modules/keyboard.js', integrity: '' },
-  { url: '/client-db.js', integrity: 'sha384-jB02mijGSgXgFvkBA47r3MB6K5FqjqloeP432WlRyh7gKMRdEYhnqbWj4KgEcsG9' },
+  { url: '/client-db.js', integrity: 'sha384-K6dGA1mCQb+UAxBiniuszIsh/XyBt5yEI/qsjBOdIbvfHtD2Ax8hZSVAR8weoQo8' },
   { url: '/client-audio.js', integrity: 'sha384-vSkZxNpW3irRy+M++qqNgiEfTojWAuiVCd2q+cgd1Mny2htbsK82FG+mYLljIbyW' },
   { url: '/client-speech.js', integrity: 'sha384-okOmHgmFVB+jxD+KR0d9OLQzPS3oG28FiwyjpymBRk7+0BLoaaTgBwl/cULP8hSc' },
   { url: '/client-sync.js', integrity: 'sha384-rxOVMTB6ojoX+KTXQvxuO4cVUAShoWfca8sG6ZQHw5L8bHmGBT/bPNmq8fL9Rbq6' },
@@ -54,7 +54,7 @@ function offlineJsonResponse(msg, status) {
 
 // Helper: build a clean offline HTML response for navigation misses
 function offlineHtmlResponse() {
-  return new Response('<html><body><h2>Valenixia POS – Offline</h2><p>Please connect to your local server.</p></body></html>', {
+  return new Response('<html><body><h2>Valenixia POS ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ Offline</h2><p>Please connect to your local server.</p></body></html>', {
     status: 503,
     headers: { 'Content-Type': 'text/html' }
   });
@@ -64,7 +64,7 @@ function offlineHtmlResponse() {
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[ServiceWorker] Pre-caching offline POS assets (v11)');
+      console.log('[ServiceWorker] Pre-caching offline POS assets (v16)');
       // Add assets one-by-one so a single 404 doesn't abort the whole install
       return Promise.allSettled(
         ASSETS_TO_CACHE.map(item => {
@@ -100,7 +100,7 @@ self.addEventListener('activate', (event) => {
           }
         })
       )
-    // clients.claim() is only valid inside activate — calling it elsewhere
+    // clients.claim() is only valid inside activate ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â calling it elsewhere
     // throws InvalidStateError: Only the active worker can claim clients.
     ).then(() => self.clients.claim())
   );
@@ -108,20 +108,20 @@ self.addEventListener('activate', (event) => {
 
 // Fetch Interceptor
 // - WebSocket upgrade requests: never intercept (let browser handle natively)
-// - API routes + version.json: network-only, offline → 503 JSON (no unhandled rejections)
+// - API routes + version.json: network-only, offline ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ 503 JSON (no unhandled rejections)
 // - Static assets: network-first, fall back to cache, then 503
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // 1. WebSocket upgrade requests — these arrive as http(s):// but with
+  // 1. WebSocket upgrade requests ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â these arrive as http(s):// but with
   //    mode 'websocket'. The browser handles them natively; never call
   //    event.respondWith() or fetch() on them.
   if (request.mode === 'websocket') {
     return; // Let browser handle WebSocket upgrades natively
   }
 
-  // 2. Cross-origin requests (Google Fonts, Supabase, etc.) — never intercept.
+  // 2. Cross-origin requests (Google Fonts, Supabase, etc.) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â never intercept.
   //    Attempting to fetch() external URLs that are blocked by CSP produces
   //    a 503 in the console. Let the browser handle these directly.
   if (url.origin !== self.location.origin) {
@@ -137,14 +137,14 @@ self.addEventListener('fetch', (event) => {
   if (isDynamic) {
     event.respondWith(
       fetch(request).catch((err) => {
-        console.warn('[ServiceWorker] Offline – dynamic request failed:', url.pathname, err.message);
+        console.warn('[ServiceWorker] Offline ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ dynamic request failed:', url.pathname, err.message);
         return offlineJsonResponse('Server offline: ' + err.message, 503);
       })
     );
     return;
   }
 
-  // 3. Static assets: network-first → cache → offline fallback
+  // 3. Static assets: network-first ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ cache ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ offline fallback
   event.respondWith(
     fetch(request)
       .then((networkResponse) => {
@@ -171,18 +171,18 @@ self.addEventListener('fetch', (event) => {
       .catch(() =>
         caches.match(request).then((cached) => {
           if (cached) return cached;
-          // Navigation fallback → serve shell
+          // Navigation fallback ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ serve shell
           if (request.mode === 'navigate') {
             return caches.match('/index.html').then(r => r || offlineHtmlResponse());
           }
-          // All other misses → 503
+          // All other misses ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ 503
           return offlineJsonResponse('Asset unavailable offline', 503);
         })
       )
   );
 });
 
-// Message handler — clients can send control messages to the SW
+// Message handler ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â clients can send control messages to the SW
 self.addEventListener('message', (event) => {
   const { type } = event.data || {};
 
@@ -190,7 +190,7 @@ self.addEventListener('message', (event) => {
   // this SW holds an old version connection open. Signal all clients to close
   // their IndexedDB connections so the upgrade can proceed.
   if (type === 'IDB_CLOSE_FOR_UPGRADE') {
-    console.warn('[ServiceWorker] Received IDB_CLOSE_FOR_UPGRADE — broadcasting to all clients to close IDB connections.');
+    console.warn('[ServiceWorker] Received IDB_CLOSE_FOR_UPGRADE ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â broadcasting to all clients to close IDB connections.');
     self.clients.matchAll({ includeUncontrolled: true }).then(clients => {
       clients.forEach(client => {
         client.postMessage({ type: 'IDB_CLOSE_AND_RELOAD' });

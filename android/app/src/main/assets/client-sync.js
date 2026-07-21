@@ -256,8 +256,10 @@ class SyncClient {
       }
     };
 
-    this.ws.onerror = (err) => {
-      console.error('[SyncClient] WebSocket error:', err);
+    this.ws.onerror = () => {
+      // Browser WebSocket error events carry no diagnostic payload (by design, for security).
+      // The connection close is handled by onclose above which manages reconnect backoff.
+      console.warn(`[SyncClient:${this.nodeId}] Connection interrupted — reconnect will be attempted automatically.`);
     };
   }
 
@@ -355,8 +357,36 @@ class SyncClient {
     
     else if (data.type === 'SYNC_ERROR') {
       console.error(`[SyncClient:${this.nodeId}] Sync error: ${data.error}`);
-      if (data.error === 'PASSPHRASE_MISMATCH' || data.error === 'LICENSE_EXPIRED' || data.error === 'LICENSE_INACTIVE' || data.error.includes('Connection limit reached')) {
-        // Halt reconnection loop — user must fix key or activate license
+      if (data.error === 'PASSPHRASE_MISMATCH') {
+        // Server could not decrypt our message — this means our stored passphrase
+        // doesn't match what the server has (or server has no passphrase after a reset).
+        // Auto-recovery: clear our passphrase and reconnect in plaintext mode.
+        // If the server actually requires a passphrase, it will respond accordingly.
+        if (!this._passphraseAutoCleared && this.passphrase) {
+          this._passphraseAutoCleared = true;
+          console.warn(`[SyncClient:${this.nodeId}] Server rejected our passphrase. Auto-clearing and retrying in plaintext mode...`);
+          this.passphrase = null;
+          // Persist the clear to IndexedDB so next boot doesn't re-load the stale passphrase
+          if (globalScope.ValenixiaDB) {
+            globalScope.ValenixiaDB.delete('local_preferences', 'sync_passphrase').catch(() => {});
+          }
+          // Brief delay then reconnect without passphrase
+          setTimeout(() => {
+            this.passphraseInvalid = false;
+            this.connect();
+          }, 2000);
+        } else {
+          // Already tried auto-clear and still failing — escalate to user
+          if (!this.passphraseInvalid) {
+            this.passphraseInvalid = true;
+            console.warn(`[SyncClient:${this.nodeId}] PASSPHRASE_MISMATCH even in plaintext mode — halting reconnect.`);
+            globalScope.postMessage({ type: 'SYNC_ERROR', error: data.error });
+            if (this.ws) this.ws.close();
+          }
+        }
+        return;
+      }
+      if (data.error === 'LICENSE_EXPIRED' || data.error === 'LICENSE_INACTIVE' || data.error.includes('Connection limit reached')) {
         if (!this.passphraseInvalid) {
           this.passphraseInvalid = true;
           console.warn(`[SyncClient:${this.nodeId}] ${data.error} — halting auto-reconnect.`);

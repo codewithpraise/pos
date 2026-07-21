@@ -435,7 +435,12 @@
     }
 
     let match = false;
-    if (storedHash.includes(':')) {
+    let isArgon2 = false;
+    if (storedHash && storedHash.startsWith('$argon2')) {
+      isArgon2 = true;
+      console.info('[ClientDB] Server-side Argon2id hash detected. Delegating verification to secure backend API...');
+      match = false;
+    } else if (storedHash && storedHash.includes(':')) {
       try {
         const [salt, hash] = storedHash.split(':');
         const checkHash = await pbkdf2(pin, salt, 100000, 64);
@@ -454,7 +459,7 @@
         if (match) {
           globalScope.localStorage.setItem('pin_attempts', '0');
           globalScope.localStorage.setItem('pin_lockout', '0');
-        } else {
+        } else if (!isArgon2) {
           const newAttempts = attempts + 1;
           globalScope.localStorage.setItem('pin_attempts', String(newAttempts));
           if (newAttempts >= 5) {
@@ -557,7 +562,12 @@
                   const db = evt.target.result;
                   storesToMigrate.forEach(s => {
                     if (!db.objectStoreNames.contains(s)) {
-                      db.createObjectStore(s, { keyPath: s === 'line_items' || s === 'error_logs' || s === 'crsql_changes' ? 'id' : 'key' });
+                      let kp = 'id';
+                      if (s === 'inventory_catalog') kp = 'sku';
+                      else if (s === 'categories') kp = 'name';
+                      else if (s === 'crsql_changes') kp = ['table_name', 'pk', 'cid'];
+                      else if (s === 'local_preferences') kp = 'key';
+                      db.createObjectStore(s, { keyPath: kp });
                     }
                   });
                 };
@@ -573,10 +583,28 @@
                 });
                 
                 if (allRecords.length > 0) {
+                  // Determine keyPath for this store (must match what was created above)
+                  let kp = 'id';
+                  if (storeName === 'inventory_catalog') kp = 'sku';
+                  else if (storeName === 'categories') kp = 'name';
+                  else if (storeName === 'crsql_changes') kp = ['table_name', 'pk', 'cid'];
+                  else if (storeName === 'local_preferences') kp = 'key';
+
                   const newTx = newDb.transaction(storeName, 'readwrite');
                   const newStore = newTx.objectStore(storeName);
                   for (const rec of allRecords) {
-                    newStore.put(rec);
+                    if (rec === null || rec === undefined || typeof rec !== 'object') continue;
+                    
+                    // Validate that the record contains the keyPath properties
+                    let hasKey = true;
+                    if (Array.isArray(kp)) {
+                      hasKey = kp.every(k => rec[k] !== undefined && rec[k] !== null);
+                    } else {
+                      hasKey = rec[kp] !== undefined && rec[kp] !== null;
+                    }
+                    if (!hasKey) continue;
+
+                    try { newStore.put(rec); } catch (putErr) { /* skip bad record */ }
                   }
                   await new Promise((res) => {
                     newTx.oncomplete = res;
@@ -762,7 +790,22 @@
 
         request.onsuccess = async (event) => {
           if (typeof window !== 'undefined' && typeof window.debugLog === 'function') window.debugLog('IndexedDB open onsuccess triggered');
-          this.db = event.target.result;
+          const tempDb = event.target.result;
+
+          // Check if crsql_changes has the wrong keyPath (corrupted due to legacy migration bug)
+          if (tempDb.objectStoreNames.contains('crsql_changes')) {
+            const tx = tempDb.transaction(['crsql_changes'], 'readonly');
+            const store = tx.objectStore('crsql_changes');
+            const kp = store.keyPath;
+            if (!Array.isArray(kp) || kp.length !== 3 || kp[0] !== 'table_name') {
+              console.error('[IndexedDB] Detected corrupted schema keyPath for crsql_changes. Rejecting init to trigger recovery.');
+              tempDb.close();
+              settle(reject, new Error('CORRUPTED_SCHEMA'));
+              return;
+            }
+          }
+
+          this.db = tempDb;
           console.log('[IndexedDB] DB initialized successfully.');
 
           // Yield this connection when a newer version needs to open
@@ -1084,8 +1127,11 @@
         timestamp: Date.now()
       };
       try {
+        // Guard: the audit_logs store may not exist if the DB hasn't been upgraded yet
+        if (!this.db || !this.db.objectStoreNames.contains('audit_logs')) {
+          return;
+        }
         await this.put('audit_logs', entry);
-        console.log('[AuditLog]', entry);
       } catch (err) {
         console.warn('[AuditLog] Failed to write to IndexedDB:', err);
       }

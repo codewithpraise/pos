@@ -157,13 +157,26 @@ async function doLogin(ev, pin = process.env.TEST_ADMIN_PIN) {
     await ev(`(function(){
       var btns = document.querySelectorAll('.pin-btn');
       for (var b of btns) {
-        if (b.textContent.trim() === '${d}' && !b.classList.contains('pin-del')) {
+        if ((b.getAttribute('data-digit') === '${d}' || b.textContent.trim() === '${d}') && !b.classList.contains('pin-del')) {
           b.click(); return;
         }
       }
     })()`);
     await sleep(200);
   }
+  // Click ENT / Enter button to submit PIN
+  await ev(`(function(){
+    var pad = document.getElementById('pin-pad') || document;
+    var enterBtn = pad.querySelector('[data-action="enter"]');
+    if (enterBtn) { enterBtn.click(); return; }
+    var btns = pad.querySelectorAll('.pin-btn');
+    for (var b of btns) {
+      var txt = b.textContent.trim().toUpperCase();
+      if (txt === 'ENT' || txt === 'ENTER' || b.getAttribute('data-action') === 'enter') {
+        b.click(); return;
+      }
+    }
+  })()`);
   // wait up to 20s for layout to appear
   const result = await waitFor(ev, `window.getComputedStyle(document.getElementById("pos-app-layout")).display==="grid"`, 20000);
   return !!result;

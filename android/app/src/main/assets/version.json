@@ -1,7 +1,7 @@
 {
-  "version": "1.0.0",
-  "updated_at": "2026-07-08",
-  "changelog": "Valenixia POS initial production release with full local-first architecture, Ed25519 license verification, CRDT multi-device sync, and SaaS billing portal.",
+  "version": "1.0.4",
+  "updated_at": "2026-07-19",
+  "changelog": "Mobile checkout tab navigation, PIN keypad ENT-only submission, cart overflow fixes, and responsive layout improvements.",
   "changes": [
     "Local-first SQLite architecture with full offline capability",
     "Ed25519 asymmetric license verification with 48-hour grace period",
@@ -12,6 +12,9 @@
     "FBR Tier-1 Tax compliance modes for retail and food domains",
     "ESC/POS thermal receipt printing support",
     "PWA installable — works on mobile and desktop",
-    "Emergency override bypass for offline Manager/Admin access"
+    "Emergency override bypass for offline Manager/Admin access",
+    "Mobile checkout tab navigation (Catalog / Cart / Payment)",
+    "PIN keypad now requires ENT button to submit — no more auto-submit on 4th digit",
+    "Cart item overflow fixed on narrow viewports"
   ]
 }
