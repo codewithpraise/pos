@@ -283,6 +283,9 @@ async function initializeSyncEngine(serverUrl) {
       deviceToken: deviceTokenPref ? deviceTokenPref.value_payload : null
     });
 
+    // Replay any messages that arrived before the engine was ready
+    replayPreBootQueue();
+
   } catch (err) {
     console.error('[SyncWorker] Init failed:', err);
     isBootstrapped = false;
@@ -291,6 +294,23 @@ async function initializeSyncEngine(serverUrl) {
   }
   })();
   return bootstrapPromise;
+}
+
+// Queue for messages received before the sync engine is bootstrapped
+const _preBootQueue = [];
+
+// Replay queued messages after bootstrap completes
+async function replayPreBootQueue() {
+  if (_preBootQueue.length === 0) return;
+  console.log(`[SyncWorker] Replaying ${_preBootQueue.length} queued pre-boot message(s)...`);
+  const queued = _preBootQueue.splice(0);
+  for (const msg of queued) {
+    try {
+      self.onmessage({ data: msg });
+    } catch (e) {
+      console.warn('[SyncWorker] Failed to replay queued message:', msg.type, e.message);
+    }
+  }
 }
 
 // Global listener for UI thread events
@@ -322,7 +342,14 @@ self.onmessage = async (event) => {
   }
 
   // Guard: Reject non-INIT messages if not bootstrapped
+  // Exception: queue SAVE_PREFERENCE and GET_PREFERENCE for replay after boot
   if (type !== 'INIT' && !isBootstrapped) {
+    const canQueue = type === 'SAVE_PREFERENCE' || type === 'GET_PREFERENCE' || type === 'SET_ONLINE_STATE';
+    if (canQueue) {
+      _preBootQueue.push(event.data);
+      console.log(`[SyncWorker] Queued "${type}" for replay after engine bootstrap.`);
+      return;
+    }
     console.warn(`[SyncWorker] Rejected message type "${type}" — engine not bootstrapped yet`);
     postMessage({
       type: 'ERROR',

@@ -550,6 +550,18 @@ button:not(:disabled):active {
   overflow: hidden;
 }
 
+/* On mobile, checkout view must be a flex column so tab-bar + split share height */
+@media (max-width: 1024px) {
+  #view-checkout {
+    display: none;
+    flex-direction: column;
+  }
+  #view-checkout.active {
+    display: flex !important;
+  }
+}
+
+
 
 /* ============================================================================
    CHECKOUT SCREEN SPECIFIC STYLES
@@ -594,86 +606,170 @@ button:not(:disabled):active {
   position: relative;
 }
 
-.cart-table {
+/* ─── Cart list (replaces old cart-table) ──────────────────────────────── */
+.cart-list {
   width: 100%;
-  border-collapse: collapse;
 }
 
-.cart-table th {
-  text-align: left;
-  padding: 10px 12px;
+/* Desktop column header row */
+.cart-list-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.6px;
   text-transform: uppercase;
   color: var(--text-dim);
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  gap: 12px;
 }
+.clh-product  { flex: 1 1 0; min-width: 0; }
+.clh-price    { width: 90px; text-align: right; }
+.clh-qty      { width: 108px; text-align: center; }
+.clh-total    { width: 90px; text-align: right; }
+.clh-remove   { width: 36px; }
 
-.cart-table td {
-  padding: 12px;
+/* Each cart row */
+.cart-item-row {
+  position: relative;
+  overflow: hidden;
   border-bottom: 1px solid rgba(255,255,255,0.025);
-  vertical-align: middle;
 }
 
-.cart-product-cell {
+/* Swipe delete background (revealed behind the fg panel on swipe) */
+.cart-swipe-bg {
+  position: absolute;
+  inset: 0;
+  background: var(--alert-coral);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 20px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Foreground panel (the actual content) */
+.cart-swipe-fg {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: transparent;
+  will-change: transform;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* Product name + SKU column — takes remaining space */
+.cart-swipe-fg .cart-product-cell {
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
 }
-
 .cart-product-title {
   color: var(--text-white);
   font-weight: 700;
   font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-
 .cart-product-sku {
   color: var(--text-gray);
   font-size: 10px;
   font-family: monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+/* Unit price column */
+.cart-swipe-fg .cart-item-price {
+  width: 90px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-gray);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Qty ─/+/value controls */
 .qty-controls {
+  width: 108px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
+  flex-shrink: 0;
 }
-
 .qty-btn {
   background: var(--panel-graphite-light);
   border: 1px solid var(--border-titanium);
   color: var(--text-white);
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 700;
+  font-size: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+  flex-shrink: 0;
 }
-
 .qty-btn:hover {
   background: var(--accent-emerald-glow);
   border-color: var(--accent-emerald);
 }
-
 .qty-val {
   font-weight: 700;
   color: var(--text-white);
-  min-width: 20px;
+  min-width: 22px;
   text-align: center;
+  font-size: 14px;
 }
 
+/* Line total column */
+.cart-swipe-fg .cart-item-total {
+  width: 90px;
+  text-align: right;
+  font-weight: 800;
+  font-size: 13px;
+  color: var(--text-white);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Remove button */
 .btn-remove-item {
+  width: 36px;
+  flex-shrink: 0;
   color: var(--alert-coral);
   background: transparent;
   border: none;
   cursor: pointer;
   font-size: 16px;
   padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+  transition: opacity 0.15s;
 }
+.btn-remove-item:hover { opacity: 1; }
 
 .cart-empty-state {
   display: flex;
@@ -684,22 +780,21 @@ button:not(:disabled):active {
   color: var(--text-gray);
   text-align: center;
 }
-
 .empty-cart-icon {
   font-size: 48px;
   margin-bottom: 16px;
   opacity: 0.4;
 }
-
 .cart-empty-state p {
   font-weight: 700;
   color: var(--text-white);
   margin-bottom: 4px;
 }
-
 .cart-empty-state span {
   font-size: 11px;
 }
+
+
 
 .ledger-footer {
   background: linear-gradient(180deg, rgba(8,8,16,0) 0%, rgba(8,8,16,0.6) 100%);
@@ -2094,7 +2189,8 @@ button:not(:disabled):active {
 
   .checkout-split {
     grid-template-columns: 1fr !important;
-    height: calc(100vh - 180px) !important;
+    /* Fill remaining height after the tab bar */
+    height: calc(100% - 57px) !important;
     overflow: hidden !important;
   }
 
@@ -2109,9 +2205,17 @@ button:not(:disabled):active {
 
   .checkout-split.tab-cart-active .checkout-cart {
     display: flex !important;
+    flex-direction: column !important;
     max-height: none !important;
     height: 100% !important;
     border-right: none !important;
+    overflow: hidden !important;
+  }
+  /* Make ledger-body scrollable inside the cart tab */
+  .checkout-split.tab-cart-active .checkout-cart .ledger-body {
+    flex: 1 1 0;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
   }
   .checkout-split.tab-cart-active .checkout-quick-catalog,
   .checkout-split.tab-cart-active .checkout-actions {
@@ -2227,83 +2331,84 @@ button:not(:disabled):active {
     display: flex; /* Show FAB on mobile viewports */
   }
 
-  /* --- Mobile Cart Swipe-to-Delete styling --- */
-  .cart-table, .cart-table thead, .cart-table tbody, .cart-table tr, .cart-table td {
-    display: block;
-  }
-  .cart-table thead {
-    display: none;
-  }
-  .cart-table tbody {
+  /* --- Mobile Cart: card-based layout ─────────────────────────────── */
+  /* Hide the desktop header row */
+  .cart-list-header { display: none !important; }
+
+  /* Cart list becomes a padded column of cards */
+  .cart-list {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 8px 0;
+    padding: 10px 12px;
   }
-  .cart-table tr {
-    position: relative;
-    overflow: hidden;
+
+  /* Each cart item is a fixed-height card */
+  .cart-item-row {
     border-radius: 12px;
     border: 1px solid var(--border-titanium);
     background: var(--bg-obsidian);
-    height: 80px;
-    padding: 0;
-    margin-bottom: 0;
+    height: 68px;
+    border-bottom: 1px solid var(--border-titanium);
+    overflow: hidden;
   }
-  .cart-swipe-bg {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: var(--alert-coral);
-    z-index: 1;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    padding-right: 24px;
-    color: var(--text-white);
-    font-size: 20px;
-    pointer-events: none;
-  }
+
+  /* Mobile swipe-fg: absolutely positioned over the card */
   .cart-swipe-fg {
-    position: absolute;
-    top: 0;
-    left: 0;
+    position: absolute !important;
+    inset: 0;
     width: 100%;
     height: 100%;
+    padding: 0 12px !important;
+    gap: 8px !important;
     background: var(--panel-graphite);
-    z-index: 2;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 16px;
-    box-sizing: border-box;
+    justify-content: flex-start;
+    overflow: hidden;
   }
-  .cart-table td {
-    border-bottom: none;
-    padding: 0;
-  }
+
+  /* Product cell fills remaining space */
   .cart-swipe-fg .cart-product-cell {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    max-width: 50%;
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
   }
-  .cart-swipe-fg .cart-price-qty-total {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+
+  /* Hide the unit price column on mobile — total covers it */
+  .cart-swipe-fg .cart-item-price {
+    display: none !important;
   }
+
+  /* Compact qty controls */
+  .cart-swipe-fg .qty-controls {
+    width: auto !important;
+    gap: 4px !important;
+    flex-shrink: 0;
+  }
+  .cart-swipe-fg .qty-btn {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 16px !important;
+  }
+  .cart-swipe-fg .qty-val {
+    font-size: 13px !important;
+    min-width: 18px !important;
+  }
+
+  /* Total */
   .cart-swipe-fg .cart-item-total {
-    font-weight: 800;
-    color: var(--text-white);
-    min-width: 60px;
-    text-align: right;
+    width: auto !important;
+    font-size: 13px !important;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
-  .cart-swipe-fg td:last-child {
-    display: none; /* Hide delete cell inside the swipe container */
+
+  /* Remove button */
+  .cart-swipe-fg .btn-remove-item {
+    width: 28px !important;
+    font-size: 16px !important;
+    flex-shrink: 0;
   }
+
+
 
   /* Mobile Bottom Navigation Styles */
   .pos-bottom-nav {
@@ -2350,6 +2455,41 @@ button:not(:disabled):active {
   .pos-bottom-nav .nav-btn .nav-icon {
     font-size: 18px;
   }
+
+  /* Telemetry Status Dots / Compact Topbar on Mobile/Tablet */
+  @media (max-width: 768px) {
+    .clock-badge {
+      display: none !important;
+    }
+    .storage-lock-badge, .network-badge {
+      padding: 6px !important;
+      width: 28px !important;
+      height: 28px !important;
+      justify-content: center !important;
+      border-radius: 50% !important;
+      gap: 0 !important;
+    }
+    .lock-text, .badge-text {
+      display: none !important;
+    }
+    .topbar-right {
+      gap: 6px !important;
+    }
+    #lang-toggle-btn {
+      width: 50px !important;
+      height: 28px !important;
+      font-size: 10px !important;
+      margin-right: 4px !important;
+    }
+    #theme-toggle-btn {
+      width: 28px !important;
+      height: 28px !important;
+    }
+    #theme-toggle-btn svg {
+      width: 14px !important;
+      height: 14px !important;
+    }
+  }
 }
 
 /* --- Desktop defaults for Swipe-to-Delete structure --- */
@@ -2357,7 +2497,7 @@ button:not(:disabled):active {
   display: none;
 }
 .cart-swipe-fg {
-  display: contents;
+  display: flex !important;
 }
 
 /* --- Mobile Offline Glow Pill --- */
@@ -2688,13 +2828,22 @@ button:not(:disabled):active {
 @media (max-width: 1024px) {
   .checkout-split {
     grid-template-columns: 1fr;
-    overflow-y: auto;
+    /* Height is managed by the flex parent; do not hard-set */
+    overflow: hidden;
   }
-  .checkout-cart {
+  /* All panels hidden by default on mobile — tab classes reveal them */
+  .checkout-split .checkout-cart,
+  .checkout-split .checkout-quick-catalog,
+  .checkout-split .checkout-actions {
+    display: none !important;
+  }
+  .checkout-split .checkout-cart {
     border-right: none;
-    border-bottom: 1px solid var(--border-titanium);
-    max-height: 380px;
+    border-bottom: none;
+    max-height: none;
+    height: 100%;
   }
+  /* Tab-active visibility rules already defined above in the @media (max-width: 1024px) block */
 }
 
 /* Quick Catalog Components */

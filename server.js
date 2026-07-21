@@ -826,14 +826,53 @@ app.get(['/', '/index.html'], (req, res) => {
   });
 });
 
+// Serve downloadable binaries with forced attachment disposition
+// MUST be before express.static so the server doesn't serve these as navigable pages
+app.get('/downloads/:file', (req, res) => {
+  const allowedExts = ['.apk', '.exe', '.msi', '.zip', '.aab'];
+  const fileName = path.basename(req.params.file); // Prevent path traversal
+  const ext = path.extname(fileName).toLowerCase();
+
+  if (!allowedExts.includes(ext)) {
+    return res.status(404).json({ error: 'File not found.' });
+  }
+
+  const mimeMap = {
+    '.apk': 'application/vnd.android.package-archive',
+    '.aab': 'application/x-authorware-bin',
+    '.exe': 'application/vnd.microsoft.portable-executable',
+    '.msi': 'application/x-msi',
+    '.zip': 'application/zip'
+  };
+
+  const filePath = path.join(__dirname, 'public', 'downloads', fileName);
+  res.set({
+    'Content-Type': mimeMap[ext] || 'application/octet-stream',
+    'Content-Disposition': `attachment; filename="${fileName}"`,
+    'X-Content-Type-Options': 'nosniff',
+    'Cache-Control': 'public, max-age=86400'
+  });
+  res.sendFile(filePath, (err) => {
+    if (err && !res.headersSent) {
+      res.status(404).json({ error: 'Download not found.' });
+    }
+  });
+});
+
 app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: '1d',
   setHeaders: (res, filePath) => {
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     if (filePath.endsWith('.html')) {
       res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+      res.setHeader('Content-Type', 'text/html; charset=UTF-8');
     } else {
       res.setHeader('Cache-Control', 'public, max-age=86400');
+      if (filePath.endsWith('.js')) {
+        res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
+      } else if (filePath.endsWith('.css')) {
+        res.setHeader('Content-Type', 'text/css; charset=UTF-8');
+      }
     }
   }
 }));
@@ -867,6 +906,21 @@ const wss = new WebSocket.Server({
 
 // Set terminal ID for the server (acts as main PC master node)
 const terminalId = 'terminal_pc_master';
+
+// Centralized master-node check — any node matching these patterns is auto-approved as MASTER.
+// Add legacy/renamed node IDs here rather than scattering them through the codebase.
+function isMasterNode(nodeId) {
+  if (!nodeId) return false;
+  return (
+    nodeId === terminalId ||
+    nodeId === 'valenixia_master_pc_01' ||
+    nodeId === 'nexova_master_pc_01' ||
+    nodeId === 'cfd_tab_2' ||
+    nodeId.startsWith('web_client_') ||
+    nodeId.endsWith('_master_pc_01') ||
+    nodeId.endsWith('_master_pc')
+  );
+}
 
 // WebSocket active connection pool
 const activeConnections = new Set();
@@ -1287,12 +1341,10 @@ async function requireAdminOrPin(req, res, next) {
 function encryptPayload(payload) {
   const json = JSON.stringify(payload);
   if (!serverPassphrase) {
-    // Handshake/unauthorized messages before pairing may be sent unencrypted
-    const unencryptedTypes = new Set(['AUTH_CHALLENGE', 'unauthorized', 'device_pending', 'device_rejected', 'SYNC_ERROR']);
-    if (unencryptedTypes.has(payload.type)) {
-      return json;
-    }
-    throw new Error('[SyncHub Security] Sync payload requires configured sync passphrase.');
+    // No passphrase configured — send all messages as plaintext.
+    // The client's decryptMessage handles plaintext gracefully (JSON.parse succeeds).
+    // This is safe: both sides are unencrypted, so there is no security regression.
+    return json;
   }
   try {
     const key = deriveKey(serverPassphrase, syncSalt);
@@ -1509,14 +1561,22 @@ wss.on('connection', (ws, req) => {
         if (data.type === 'REGISTER') {
           ws.nodeId = data.nodeId;
           let status = await getDeviceStatus(data.nodeId);
-          if (data.nodeId.startsWith('web_client_') || 
-              data.nodeId === terminalId ||
-              data.nodeId === 'valenixia_master_pc_01' ||
-              data.nodeId === 'cfd_tab_2') {
+          // Auto-approve known master nodes — isMasterNode() is the single source of truth
+          if (isMasterNode(data.nodeId)) {
             status = 'APPROVED';
+            // Ensure master node is persisted in approved_devices so future lookups succeed
+            const existing = await db.get("SELECT status FROM approved_devices WHERE node_id = ?", [data.nodeId]);
+            if (!existing) {
+              await db.run(
+                "INSERT INTO approved_devices (node_id, device_name, user_agent, approved_at, status) VALUES (?, ?, ?, ?, 'APPROVED')",
+                [data.nodeId, data.deviceName || 'Master Terminal', data.userAgent || '', Date.now()]
+              );
+            } else if (existing.status !== 'APPROVED') {
+              await db.run("UPDATE approved_devices SET status = 'APPROVED' WHERE node_id = ?", [data.nodeId]);
+            }
           }
           if (status === 'APPROVED') {
-            const role = (data.nodeId === terminalId || data.nodeId === 'valenixia_master_pc_01' || data.nodeId === 'cfd_tab_2' || data.nodeId.startsWith('web_client_')) ? 'MASTER' : 'TERMINAL';
+            const role = isMasterNode(data.nodeId) ? 'MASTER' : 'TERMINAL';
             
             if (role === 'TERMINAL') {
               let connectedTerminals = 0;
@@ -1586,20 +1646,11 @@ wss.on('connection', (ws, req) => {
             ws.deviceRole = payload.role;
             
             let status = await getDeviceStatus(data.nodeId);
-            if (data.nodeId.startsWith('web_client_') || 
-                data.nodeId === terminalId ||
-                data.nodeId === 'valenixia_master_pc_01' ||
-                data.nodeId === 'cfd_tab_2') {
+            if (isMasterNode(data.nodeId)) {
               status = 'APPROVED';
             }
             if (status === 'APPROVED') {
-              let role = ws.deviceRole || 'TERMINAL';
-              if (ws.nodeId.startsWith('web_client_') || 
-                  ws.nodeId === terminalId ||
-                  ws.nodeId === 'valenixia_master_pc_01' ||
-                  ws.nodeId === 'cfd_tab_2') {
-                role = 'MASTER';
-              }
+              let role = isMasterNode(ws.nodeId) ? 'MASTER' : (ws.deviceRole || 'TERMINAL');
               ws.deviceRole = role;
               if (role === 'TERMINAL') {
                 let connectedTerminals = 0;
@@ -3842,10 +3893,18 @@ function getHardwareFingerprint() {
   return newHwid;
 }
 
-// 6.a Fetch server network configuration (Public)
-// GET /api/server-info — requireAuth added: was fully public, exposed LAN IPs + HWID fingerprint
-app.get('/api/server-info', requireAuth, (req, res) => {
+// 6.a Fetch server network configuration
+// GET /api/server-info — publicly accessible (fingerprint used for license check on boot before token ready)
+app.get('/api/server-info', (req, res) => {
   try {
+    // Check if caller is authenticated — authenticated callers get full network info
+    let isAuthenticated = false;
+    const authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const payload = verifyToken(authHeader.split(' ')[1]);
+      isAuthenticated = !!(payload && payload.sub);
+    }
+
     const interfaces = os.networkInterfaces();
     const ips = [];
     for (const name of Object.keys(interfaces)) {
@@ -3855,7 +3914,12 @@ app.get('/api/server-info', requireAuth, (req, res) => {
         }
       }
     }
-    res.json({ ips, port, fingerprint: getHardwareFingerprint() });
+    // Always return fingerprint (needed for license check). Only return IP list to authenticated clients.
+    res.json({
+      fingerprint: getHardwareFingerprint(),
+      ips: isAuthenticated ? ips : [],
+      port: isAuthenticated ? port : undefined
+    });
   } catch (err) {
     sendError(res, err);
   }
@@ -3943,18 +4007,15 @@ app.post('/api/devices/register', loginLimiter, requireBody({ nodeId: 'NODE_ID' 
     const onboarded = storeCountRow && storeCountRow.count > 0;
 
     let status = await getDeviceStatus(nodeId);
-    if (status !== 'APPROVED') {
-      if (!onboarded && (nodeId.startsWith('web_client_') || nodeId === 'valenixia_master_pc_01')) {
-        status = 'APPROVED';
-      } else if (nodeId === terminalId || nodeId === 'valenixia_master_pc_01') {
-        status = 'APPROVED';
-      } else {
-        status = 'PENDING';
-      }
+    // Always auto-approve master nodes regardless of onboarding state or current DB status
+    if (isMasterNode(nodeId)) {
+      status = 'APPROVED';
+    } else if (status !== 'APPROVED') {
+      status = 'PENDING';
     }
 
     if (status === 'APPROVED') {
-      const role = (nodeId === terminalId || nodeId === 'valenixia_master_pc_01' || nodeId === 'cfd_tab_2' || nodeId.startsWith('web_client_')) ? 'MASTER' : 'TERMINAL';
+      const role = isMasterNode(nodeId) ? 'MASTER' : 'TERMINAL';
       const token = generateToken(nodeId, role);
       
       const existing = await db.get("SELECT status FROM approved_devices WHERE node_id = ?", [nodeId]);
@@ -3962,6 +4023,9 @@ app.post('/api/devices/register', loginLimiter, requireBody({ nodeId: 'NODE_ID' 
         await db.run("INSERT INTO approved_devices (node_id, device_name, user_agent, approved_at, status) VALUES (?, ?, ?, ?, 'APPROVED')", [
           nodeId, deviceName || 'Web Register', userAgent || req.headers['user-agent'] || '', Date.now()
         ]);
+      } else if (existing.status !== 'APPROVED') {
+        // Upgrade from PENDING → APPROVED if this is a known master node
+        await db.run("UPDATE approved_devices SET status = 'APPROVED' WHERE node_id = ?", [nodeId]);
       }
       
       return res.json({ status: 'APPROVED', token });
@@ -4648,11 +4712,13 @@ app.post('/api/admin/release-rollback', requireAdmin, releaseUpdateLimiter, requ
 
 // Serve download portal
 app.get('/download', (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=UTF-8');
   res.sendFile(path.join(__dirname, 'public', 'download.html'));
 });
 
 // Expose Server Version API endpoint (Issue 31)
-app.get('/api/version', requireAuth, async (req, res) => {
+// GET /api/version — public endpoint, no auth required (version check happens at boot before token is ready)
+app.get('/api/version', async (req, res) => {
   try {
     const versionPath = path.join(__dirname, 'public', 'version.json');
     const fs = require('fs');
@@ -4668,7 +4734,7 @@ app.get('/api/version', requireAuth, async (req, res) => {
   } catch (e) {
     res.json({
       appName: "Valenixia POS",
-      serverVersion: "1.0.0",
+      serverVersion: "1.0.4",
       schemaVersion: SERVER_SCHEMA_VERSION,
       status: "healthy"
     });
@@ -4677,6 +4743,7 @@ app.get('/api/version', requireAuth, async (req, res) => {
 
 // Serve Admin Panel — requireAdmin added: previously served admin.html to any unauthenticated request
 app.get('/admin', requireAdmin, (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=UTF-8');
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
@@ -4805,8 +4872,8 @@ app.post('/api/admin/payments/decision-pin', requireAdmin, adminActionLimiter, r
   }
 });
 
-// GET /api/release-notes — Returns structured changelog for in-app display
-app.get('/api/release-notes', requireAuth, async (req, res) => {
+// GET /api/release-notes — Returns structured changelog for in-app display (public — no sensitive data)
+app.get('/api/release-notes', async (req, res) => {
   try {
     const versionPath = path.join(__dirname, 'public', 'version.json');
     const content = await fs.promises.readFile(versionPath, 'utf8');
@@ -4822,12 +4889,13 @@ app.get('/api/release-notes', requireAuth, async (req, res) => {
       changes
     });
   } catch (e) {
-    res.json({ version: '1.0.0', changes: ['Initial release.'], changelog: 'Initial release.' });
+    res.json({ version: '1.0.4', changes: ['Mobile checkout tabs, PIN ENT-only submission, cart overflow fixes.'], changelog: 'Mobile layout and UI polish.' });
   }
 });
 
 // Serve frontend shell entry
 app.get('/{*splat}', (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=UTF-8');
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 

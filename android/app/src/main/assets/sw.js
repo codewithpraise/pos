@@ -1,7 +1,7 @@
 // ============================================================================
 // VALENIXIA COMMERCE ECOSYSTEM - OFFLINE PWA SERVICE WORKER
 // Caches core application assets for local-first operations
-// v8 - Hardened fetch handler: no unhandled rejections, no undefined responses
+// v9 - PASSPHRASE_MISMATCH auto-recovery, SAVE_PREFERENCE queue, token validation fix
 // ============================================================================
 
 // Console gating in production Service Worker context to block trace leaks
@@ -15,7 +15,7 @@ if (self.location.hostname !== 'localhost' && !self.location.hostname.includes('
 
 const urlParams = new URLSearchParams(self.location.search);
 const buildVersion = urlParams.get('v') || 'dev';
-const CACHE_NAME = `valenixia-pos-cache-v8`;
+const CACHE_NAME = `valenixia-pos-cache-v11`;
 const ASSETS_TO_CACHE = [
   { url: '/', integrity: '' },
   { url: '/index.html', integrity: '' },
@@ -24,7 +24,7 @@ const ASSETS_TO_CACHE = [
   { url: '/styles/themes.css', integrity: '' },
   { url: '/styles/animations.css', integrity: '' },
   { url: '/styles/components.css', integrity: '' },
-  { url: '/app.js', integrity: 'sha384-AaW8kjecmcO9Og4Ji50jlgtfGEL+whOd+pdFu4sJai9A0UNUb0trwIJHUAxW2eRO' },
+  { url: '/app.js', integrity: 'sha384-E8pDuA0QzaOrWZYKvJhhgb4HaNHO6HBcCKjMD59a9N5Aff/mLXdlxpTY3NGZJRrH' },
   { url: '/modules/ui.js', integrity: '' },
   { url: '/modules/animations.js', integrity: '' },
   { url: '/modules/offline.js', integrity: '' },
@@ -32,8 +32,8 @@ const ASSETS_TO_CACHE = [
   { url: '/client-db.js', integrity: 'sha384-jB02mijGSgXgFvkBA47r3MB6K5FqjqloeP432WlRyh7gKMRdEYhnqbWj4KgEcsG9' },
   { url: '/client-audio.js', integrity: 'sha384-vSkZxNpW3irRy+M++qqNgiEfTojWAuiVCd2q+cgd1Mny2htbsK82FG+mYLljIbyW' },
   { url: '/client-speech.js', integrity: 'sha384-okOmHgmFVB+jxD+KR0d9OLQzPS3oG28FiwyjpymBRk7+0BLoaaTgBwl/cULP8hSc' },
-  { url: '/client-sync.js', integrity: 'sha384-60MfNkGeKQ4aD+IkT6mpDnFKEEr/T2LI0uLIT38wnHilQhhoR5EgCoWLHe2HgPdV' },
-  { url: '/sync-worker.js', integrity: 'sha384-qrlAwOmt6dn20fP0VOGj3R/2T4Rs4N7Aow6BG3Y9qubYeATnf5jk/uv4ie3yvb+c' },
+  { url: '/client-sync.js', integrity: 'sha384-rxOVMTB6ojoX+KTXQvxuO4cVUAShoWfca8sG6ZQHw5L8bHmGBT/bPNmq8fL9Rbq6' },
+  { url: '/sync-worker.js', integrity: 'sha384-TErQz2dTUX4l4Qaob+YlzZ8yB8fc0rSdR4KlhiIdmzBAvJNHBcCdtstr+MC53uhh' },
   { url: '/manifest.json', integrity: '' },
   { url: '/icon-192.png', integrity: '' },
   { url: '/icon-512.png', integrity: '' },
@@ -64,7 +64,7 @@ function offlineHtmlResponse() {
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[ServiceWorker] Pre-caching offline POS assets (v7)');
+      console.log('[ServiceWorker] Pre-caching offline POS assets (v11)');
       // Add assets one-by-one so a single 404 doesn't abort the whole install
       return Promise.allSettled(
         ASSETS_TO_CACHE.map(item => {

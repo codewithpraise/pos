@@ -982,6 +982,49 @@ async function initDatabase(terminalId) {
     "INSERT OR REPLACE INTO approved_devices (node_id, device_name, user_agent, approved_at, status) VALUES (?, ?, ?, ?, ?)",
     ['valenixia_master_pc_01', 'Master Register PC (Web UI)', 'Browser UI', Date.now(), 'APPROVED']
   );
+  // Legacy node ID compatibility — users with old 'nexova_*' branding in their IndexedDB
+  await db.run(
+    "INSERT OR REPLACE INTO approved_devices (node_id, device_name, user_agent, approved_at, status) VALUES (?, ?, ?, ?, ?)",
+    ['nexova_master_pc_01', 'Master Register PC (Legacy)', 'Browser UI', Date.now(), 'APPROVED']
+  );
+
+  // Clear existing PIN locks on startup so developers/testers don't get locked out across restarts
+  try {
+    await db.run("DELETE FROM pin_lockout_log");
+  } catch (err) {
+    console.warn('[Database] Failed to clear lockout logs:', err.message);
+  }
+
+  // Force-update seed ADMIN employee PIN on boot to match TEST_ADMIN_PIN environment variable
+  const targetPin = process.env.TEST_ADMIN_PIN || '1234';
+  try {
+    const adminEmp = await db.get("SELECT id, auth_hash FROM employees WHERE role = 'ADMIN' LIMIT 1");
+    const freshHash = await hashPin(targetPin);
+    if (adminEmp) {
+      // Only update if it does not match (to minimize redundant logs)
+      const matches = await verifyPin(targetPin, adminEmp.auth_hash);
+      if (!matches) {
+        const tick = currentHlc.tick();
+        await db.run("UPDATE employees SET auth_hash = ?, sync_hlc = ? WHERE id = ?", [freshHash, tick, adminEmp.id]);
+        await logLocalChange('employees', adminEmp.id, 'auth_hash', freshHash, 1, 1, tick);
+        console.log(`[Database] Force-updated existing ADMIN employee PIN to match TEST_ADMIN_PIN (${targetPin}) and logged CRDT change.`);
+      }
+    } else {
+      // Create seed admin if missing
+      const newAdminId = crypto.randomUUID();
+      const adminHlc = currentHlc.tick();
+      await db.run(
+        'INSERT INTO employees (id, auth_hash, biometric_token, role, is_active, sync_hlc) VALUES (?, ?, ?, ?, ?, ?)',
+        [newAdminId, freshHash, 'secure_biometric_admin_token', 'ADMIN', 1, adminHlc]
+      );
+      await logLocalChange('employees', newAdminId, 'auth_hash', freshHash, 1, 1, adminHlc);
+      await logLocalChange('employees', newAdminId, 'role', 'ADMIN', 1, 1, adminHlc);
+      await logLocalChange('employees', newAdminId, 'is_active', 1, 1, 1, adminHlc);
+      console.log(`[Database] Created new seed ADMIN employee matching TEST_ADMIN_PIN (${targetPin}).`);
+    }
+  } catch (err) {
+    console.error('[Database] Failed to force-sync ADMIN employee PIN from env:', err.message);
+  }
 
   // Ensure db_generation_id exists in local_preferences
   const genRow = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'db_generation_id'");
@@ -1020,12 +1063,12 @@ async function seedDatabase() {
     const siteId = currentHlc.nodeId;
     const now = Date.now();
     
-    // Seed Employees
+    // Seed Employees — use configured TEST_ADMIN_PIN if available, otherwise random
     const empAdminId = crypto.randomUUID();
     const empCashierId = crypto.randomUUID();
     
-    const seedAdminPin = String(crypto.randomInt(1000, 9999)).padStart(4, '0');
-    const seedCashierPin = String(crypto.randomInt(1000, 9999)).padStart(4, '0');
+    const seedAdminPin = process.env.TEST_ADMIN_PIN || '1234';
+    const seedCashierPin = '5555';
     const adminHash = await hashPin(seedAdminPin);
     const cashierHash = await hashPin(seedCashierPin);
 

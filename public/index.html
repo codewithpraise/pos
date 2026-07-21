@@ -301,19 +301,19 @@
               </div>
               
               <div class="ledger-body">
-                <table class="cart-table">
-                  <thead>
-                    <tr>
-                      <th style="width: 45%;">Product</th>
-                      <th style="width: 15%; text-align: right;">Price</th>
-                      <th style="width: 20%; text-align: center;">Qty</th>
-                      <th style="width: 20%; text-align: right;">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody id="cart-items-tbody">
-                    <!-- Inserted dynamically -->
-                  </tbody>
-                </table>
+                <!-- Desktop column headers -->
+                <div class="cart-list-header">
+                  <span class="clh-product">Product</span>
+                  <span class="clh-price">Unit Price</span>
+                  <span class="clh-qty">Qty</span>
+                  <span class="clh-total">Total</span>
+                  <span class="clh-remove"></span>
+                </div>
+                <!-- Cart item list — items appended here by JS -->
+                <div class="cart-list" id="cart-items-tbody">
+                  <!-- Inserted dynamically -->
+                </div>
+
                 
                 <div class="cart-empty-state" id="cart-empty-msg">
                   <div class="empty-cart-icon" style="color: var(--text-gray); display: flex; justify-content: center; margin-bottom: 12px;">
@@ -425,11 +425,11 @@
                 <!-- Hidden split details form -->
                 <div class="split-pay-panel" id="checkout-split-fields" style="display: none;">
                   <div class="split-row">
-                    <label>Cash portion ($):</label>
+                    <label for="split-cash-amount">Cash portion ($):</label>
                     <input type="number" id="split-cash-amount" class="pos-input" min="0" step="0.01" value="0.00" inputmode="decimal" aria-label="Split Cash Amount">
                   </div>
                   <div class="split-row">
-                    <label>Card portion ($):</label>
+                    <label for="split-card-amount">Card portion ($):</label>
                     <input type="number" id="split-card-amount" class="pos-input" min="0" step="0.01" value="0.00" inputmode="decimal" aria-label="Split Card Amount">
                   </div>
                 </div>
@@ -865,15 +865,15 @@
             <div class="settings-section">
               <h3>Store Information</h3>
               <div class="settings-row">
-                <label>Boutique Store Name:</label>
+                <label for="setting-store-name">Boutique Store Name:</label>
                 <input type="text" id="setting-store-name" class="pos-input" aria-label="Setting Store Name">
               </div>
               <div class="settings-row">
-                <label>Tax Percentage (%):</label>
+                <label for="setting-tax-rate">Tax Percentage (%):</label>
                 <input type="number" id="setting-tax-rate" class="pos-input" min="0" max="100" step="0.1" aria-label="Setting Tax Rate">
               </div>
               <div class="settings-row">
-                <label>Tax Rule Mode:</label>
+                <label for="setting-tax-mode">Tax Rule Mode:</label>
                 <select id="setting-tax-mode" class="pos-input" aria-label="Setting Tax Mode">
                   <option value="FLAT">Standard Flat Tax</option>
                   <option value="FBR_FOOD">FBR Tier-1 Food (5% Card / 15% Cash)</option>
@@ -881,11 +881,11 @@
                 </select>
               </div>
               <div class="settings-row">
-                <label>Print Tagline footer:</label>
+                <label for="setting-receipt-tagline">Print Tagline footer:</label>
                 <input type="text" id="setting-receipt-tagline" class="pos-input" aria-label="Setting Receipt Tagline">
               </div>
               <div class="settings-row">
-                <label>JazzCash/EasyPaisa Wallet Phone #:</label>
+                <label for="setting-wallet-phone">JazzCash/EasyPaisa Wallet Phone #:</label>
                 <input type="text" id="setting-wallet-phone" class="pos-input" placeholder="e.g. +923001234567" aria-label="e.g. +923001234567">
               </div>
             </div>
@@ -893,7 +893,7 @@
             <div class="settings-section">
               <h3>Network Encryption & Pair</h3>
               <div class="settings-row">
-                <label>P2P Sync Encryption Key:</label>
+                <label for="setting-sync-passphrase">P2P Sync Encryption Key:</label>
                 <div class="password-wrapper">
                   <input type="text"  autocomplete="new-password" id="setting-sync-passphrase" class="secure-input pos-input" placeholder="Encryption Passphrase" aria-label="Encryption Passphrase">
                   <button type="button" class="btn-toggle-password" title="Toggle visibility">
@@ -913,7 +913,7 @@
             <div class="settings-section">
               <h3>UI & Branding Layout</h3>
               <div class="settings-row">
-                <label>Boutique Theme Palette:</label>
+                <label for="setting-theme-palette">Boutique Theme Palette:</label>
                 <select id="setting-theme-palette" class="pos-input" aria-label="Setting Theme Palette">
                   <option value="Obsidian Emerald">Obsidian Emerald</option>
                   <option value="Midnight Sapphire">Midnight Sapphire</option>
@@ -924,7 +924,7 @@
                 </select>
               </div>
               <div class="settings-row">
-                <label>POS Shop Business Domain:</label>
+                <label for="setting-shop-mode">POS Shop Business Domain:</label>
                 <select id="setting-shop-mode" class="pos-input" aria-label="POS Shop Business Domain">
                   <option value="simple-retail">Simple Retail Mode</option>
                   <option value="clothing-fashion">Clothing & Fashion apparel</option>
@@ -935,21 +935,21 @@
                 </select>
               </div>
               <div class="settings-row">
-                <label>Language:</label>
+                <label for="setting-ui-lang">Language:</label>
                 <select id="setting-ui-lang" class="pos-input" aria-label="Language">
                   <option value="en">English / Roman English</option>
                   <option value="ur">Urdu (اردو رسم الخط)</option>
                 </select>
               </div>
               <div class="settings-row">
-                <label>Terminology Style:</label>
+                <label for="setting-ui-jargon">Terminology Style:</label>
                 <select id="setting-ui-jargon" class="pos-input" aria-label="Terminology Style">
                   <option value="informal">Bazaar Style (Maal, Khata, Gullak)</option>
                   <option value="formal">Corporate Style (Inventory, Ledger, Cash Drawer)</option>
                 </select>
               </div>
               <div class="settings-row">
-                <label>Receipt Column Width (Chars):</label>
+                <label for="setting-receipt-width">Receipt Column Width (Chars):</label>
                 <select id="setting-receipt-width" class="pos-input" aria-label="Setting Receipt Width">
                   <option value="42">42 Columns (Wide standard)</option>
                   <option value="32">32 Columns (Narrow/Compact)</option>
@@ -992,7 +992,7 @@
                 <input type="checkbox" id="setting-auto-start" class="pos-checkbox">
               </div>
               <div class="settings-row">
-                <label>HID Scanner Timing Threshold (ms):</label>
+                <label for="setting-scan-threshold">HID Scanner Timing Threshold (ms):</label>
                 <input type="number" id="setting-scan-threshold" class="pos-input" min="20" max="500" value="80" aria-label="Setting Scan Threshold">
               </div>
             </div>
@@ -1000,15 +1000,15 @@
             <div class="settings-section">
               <h3>Change My Security PIN</h3>
               <div class="settings-row">
-                <label>Current Security PIN:</label>
+                <label for="setting-change-pin-current">Current Security PIN:</label>
                 <input type="text"  autocomplete="new-password" id="setting-change-pin-current" class="secure-input pos-input" maxlength="6" minlength="4" placeholder="4 to 6-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
               </div>
               <div class="settings-row">
-                <label>New Security PIN:</label>
+                <label for="setting-change-pin-new">New Security PIN:</label>
                 <input type="text"  autocomplete="new-password" id="setting-change-pin-new" class="secure-input pos-input" maxlength="6" minlength="4" placeholder="4 to 6-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
               </div>
               <div class="settings-row">
-                <label>Confirm New PIN:</label>
+                <label for="setting-change-pin-confirm">Confirm New PIN:</label>
                 <input type="text"  autocomplete="new-password" id="setting-change-pin-confirm" class="secure-input pos-input" maxlength="6" minlength="4" placeholder="4 to 6-digit PIN" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN">
               </div>
               <button type="button" class="action-btn action-success" id="btn-change-my-pin" style="width: 100%; margin-top: 12px;">Update My Passcode</button>
@@ -1485,16 +1485,16 @@
                   <input type="hidden" id="form-billing-selected-tier">
                   <div style="display: flex; gap: 12px; flex-wrap: wrap;">
                     <div style="flex: 1; min-width: 150px;">
-                      <label style="font-size: 10px; color: var(--text-gray); display: block; margin-bottom: 4px;">Amount (PKR):</label>
+                      <label for="form-billing-amount" style="font-size: 10px; color: var(--text-gray); display: block; margin-bottom: 4px;">Amount (PKR):</label>
                       <input type="number" id="form-billing-amount" class="pos-input" readonly style="opacity: 0.8; background: rgba(0,0,0,0.2);" aria-label="Amount in PKR">
                     </div>
                     <div style="flex: 1; min-width: 150px;">
-                      <label style="font-size: 10px; color: var(--text-gray); display: block; margin-bottom: 4px;">NayaPay Unique Reference (RRN):</label>
+                      <label for="form-billing-rrn" style="font-size: 10px; color: var(--text-gray); display: block; margin-bottom: 4px;">NayaPay Unique Reference (RRN):</label>
                       <input type="text" id="form-billing-rrn" class="pos-input" placeholder="e.g. 123456789012" maxlength="30" autocomplete="off" required aria-label="NayaPay Unique Reference (RRN)">
                     </div>
                   </div>
                   <div>
-                    <label style="font-size: 10px; color: var(--text-gray); display: block; margin-bottom: 4px;">Screenshot Proof of Transfer:</label>
+                    <label for="form-billing-file" style="font-size: 10px; color: var(--text-gray); display: block; margin-bottom: 4px;">Screenshot Proof of Transfer:</label>
                     <div style="display: flex; gap: 12px; align-items: center;">
                       <label class="action-btn dm-btn-secondary" for="form-billing-file" style="cursor: pointer; margin: 0; min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Choose Image file
@@ -1763,21 +1763,21 @@
         <!-- ⚡ Quick Preset Bar — filled dynamically for new products -->
         <div id="form-product-presets-container" style="margin-bottom: 16px; padding: 12px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 8px; display: none;"></div>
         <div class="settings-row">
-          <label>Product SKU (Unique Key):</label>
+          <label for="form-product-sku">Product SKU (Unique Key):</label>
           <input type="text" id="form-product-sku" class="pos-input" placeholder="e.g. COFFEE-CAP" aria-label="e.g. COFFEE-CAP">
         </div>
 
         <div class="settings-row">
-          <label>Product GTIN Barcode:</label>
+          <label for="form-product-gtin">Product GTIN Barcode:</label>
           <input type="text" id="form-product-gtin" class="pos-input" placeholder="13-digit barcode number" aria-label="13-digit barcode number">
         </div>
         <input type="hidden" id="form-product-emoji" value="">
         <div class="settings-row">
-          <label>Product Name Label:</label>
+          <label for="form-product-name">Product Name Label:</label>
           <input type="text" id="form-product-name" class="pos-input" placeholder="Display product name" aria-label="Display product name">
         </div>
         <div class="settings-row">
-          <label>Visual Category:</label>
+          <label for="form-product-category">Visual Category:</label>
           <select id="form-product-category" class="pos-input" aria-label="Form Product Category">
             <option value="Drinks">Drinks</option>
             <option value="Pastries">Pastries</option>
@@ -1787,19 +1787,19 @@
           </select>
         </div>
         <div class="settings-row">
-          <label>Retail Price (in cents):</label>
+          <label for="form-product-price">Retail Price (in cents):</label>
           <input type="number" id="form-product-price" class="pos-input" placeholder="e.g. 350 for $3.50" aria-label="e.g. 350 for $3.50">
         </div>
         <div class="settings-row">
-          <label>Supplier Cost (in cents):</label>
+          <label for="form-product-cost">Supplier Cost (in cents):</label>
           <input type="number" id="form-product-cost" class="pos-input" placeholder="e.g. 100 for $1.00" aria-label="e.g. 100 for $1.00">
         </div>
         <div class="settings-row">
-          <label>Stock Level inventory count:</label>
+          <label for="form-product-stock">Stock Level inventory count:</label>
           <input type="number" id="form-product-stock" class="pos-input" placeholder="Initial stock units count" aria-label="Initial stock units count">
         </div>
         <div class="settings-row">
-          <label>Low-Stock Alert Threshold:</label>
+          <label for="form-product-threshold">Low-Stock Alert Threshold:</label>
           <input type="number" id="form-product-threshold" class="pos-input" placeholder="Alert threshold (default: 10)" value="10" aria-label="Alert threshold (default: 10)">
         </div>
         <div class="settings-row flex-row" id="form-product-audit-row" style="margin-top: 10px;">
