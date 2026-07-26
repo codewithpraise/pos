@@ -4421,7 +4421,7 @@ body.is-offline .modal-overlay {
     box-sizing: content-box !important;
   }
 
-  /* SIDEBAR becomes two-row bottom nav on mobile */
+  /* ===== BOTTOM NAVBAR ===== */
   .pos-sidebar {
     display: flex !important;
     position: fixed !important;
@@ -4431,16 +4431,13 @@ body.is-offline .modal-overlay {
     top: auto !important;
     width: 100vw !important;
     height: auto !important;
-    min-height: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
-    padding: 4px 4px calc(env(safe-area-inset-bottom, 0px)) 4px !important;
+    min-height: 120px !important; /* Two rows + safe area */
+    padding: 0 0 env(safe-area-inset-bottom, 0px) 0 !important;
     z-index: 99999 !important;
     background: var(--panel-graphite) !important;
     border-top: 1px solid var(--border-titanium) !important;
     border-right: none !important;
-    backdrop-filter: blur(20px) !important;
-    -webkit-backdrop-filter: blur(20px) !important;
     flex-direction: column !important;
-    justify-content: flex-start !important;
     overflow: hidden !important;
   }
 
@@ -4454,8 +4451,8 @@ body.is-offline .modal-overlay {
     flex-direction: column !important;
     width: 100% !important;
     padding: 0 !important;
-    overflow: hidden !important;
     gap: 0 !important;
+    overflow: hidden !important;
   }
 
   /* FREE TIER ROW */
@@ -4467,12 +4464,11 @@ body.is-offline .modal-overlay {
     -webkit-overflow-scrolling: touch !important;
     scrollbar-width: none !important;
     gap: 2px !important;
-    padding: 4px 8px !important;
-    border-bottom: 1px solid rgba(255,255,255,0.04) !important;
+    padding: 6px 8px 4px 8px !important;
+    border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+    justify-content: space-around !important;
   }
-  .nav-row-free::-webkit-scrollbar {
-    display: none !important;
-  }
+  .nav-row-free::-webkit-scrollbar { display: none !important; }
 
   /* PAID TIER ROW */
   .nav-row-paid {
@@ -4483,25 +4479,24 @@ body.is-offline .modal-overlay {
     -webkit-overflow-scrolling: touch !important;
     scrollbar-width: none !important;
     gap: 2px !important;
-    padding: 4px 8px 6px 8px !important;
-    background: rgba(255,215,0,0.03) !important;
+    padding: 4px 8px 8px 8px !important;
+    background: rgba(255,215,0,0.04) !important;
+    justify-content: space-around !important;
   }
-  .nav-row-paid::-webkit-scrollbar {
-    display: none !important;
-  }
+  .nav-row-paid::-webkit-scrollbar { display: none !important; }
 
-  /* NAV PILLS */
+  /* NAV ITEMS */
   .sidebar-nav .nav-item {
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 3px !important;
-    padding: 6px 8px !important;
-    min-width: 56px !important;
-    max-width: 68px !important;
-    height: 48px !important;
-    border-radius: 8px !important;
+    gap: 2px !important;
+    padding: 5px 6px !important;
+    min-width: 52px !important;
+    max-width: 64px !important;
+    height: 46px !important;
+    border-radius: 10px !important;
     white-space: nowrap !important;
     flex-shrink: 0 !important;
     font-size: 9px !important;
@@ -4511,19 +4506,14 @@ body.is-offline .modal-overlay {
     border: none !important;
     width: auto !important;
     text-align: center !important;
+    position: relative !important;
+    -webkit-tap-highlight-color: transparent !important;
+    touch-action: manipulation !important;
   }
 
-  .sidebar-nav .nav-item .nav-icon {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    width: auto !important;
-    font-size: 16px !important;
-  }
-
-  .sidebar-nav .nav-item .nav-label {
-    font-size: 9px !important;
-    font-weight: 600 !important;
+  .sidebar-nav .nav-item:active {
+    background: rgba(255,255,255,0.08) !important;
+    transform: scale(0.94) !important;
   }
 
   .sidebar-nav .nav-item.active {
@@ -4532,19 +4522,64 @@ body.is-offline .modal-overlay {
     font-weight: 700 !important;
   }
 
-  /* Content padding to clear navbar */
+  .sidebar-nav .nav-item.premium {
+    color: #c4a832 !important;
+  }
+  .sidebar-nav .nav-item.premium.active {
+    color: #ffd700 !important;
+    background: rgba(255, 215, 0, 0.15) !important;
+  }
+  .sidebar-nav .nav-item.premium.locked {
+    opacity: 0.35 !important;
+    filter: grayscale(1) !important;
+    pointer-events: none !important;
+  }
+  .sidebar-nav .nav-item.premium.locked::after {
+    content: '🔒' !important;
+    position: absolute !important;
+    top: 1px !important;
+    right: 2px !important;
+    font-size: 8px !important;
+  }
+
+  .nav-icon {
+    font-size: 18px !important;
+    line-height: 1 !important;
+  }
+
+  .nav-label {
+    font-size: 9px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+  }
+
+  /* Content padding to clear two-row navbar */
   .pos-main-container,
   .content-view,
   main,
   .checkout-main,
-  #checkout-view {
+  #checkout-view,
+  .page-container {
     padding-bottom: calc(130px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
-  #app-root, .main-stage, .pos-main-container, .pos-content-pane {
-    height: 100dvh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+  /* Body scroll */
+  html, body {
+    height: 100dvh !important;
+    overflow: hidden !important;
+    width: 100vw !important;
+  }
+  #app-root, .pos-app-layout {
+    height: 100dvh !important;
+    overflow: hidden !important;
+  }
+  .pos-main-container {
+    height: calc(100dvh - 60px) !important; /* minus topbar */
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    overflow-x: hidden !important;
   }
 
 /* FIX #13: PIN lock screen centered 3x4 keypad */

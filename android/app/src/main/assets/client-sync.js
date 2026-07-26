@@ -156,6 +156,18 @@ class SyncClient {
       }
     }
 
+    // MOBILE FIX: Blob workers on file:// have empty location.host — skip WebSocket
+    const isBlobWorker = typeof globalScope !== 'undefined' && globalScope.location && globalScope.location.protocol === 'blob:';
+    const wsHost = (typeof window !== 'undefined' && window.location && window.location.host) 
+                || (typeof globalScope !== 'undefined' && globalScope.location && globalScope.location.host);
+
+    if (!globalScope.serverUrl && (!wsHost || isBlobWorker)) {
+      console.log(`[SyncClient:${this.nodeId}] Blob worker / offline mode detected — WebSocket sync disabled.`);
+      this.isConnected = false;
+      if (typeof this.onConnectionChange === 'function') this.onConnectionChange(false);
+      return;
+    }
+
     // Safely close existing connection only if it is still open/connecting
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
       this.ws.close();
