@@ -4684,17 +4684,19 @@ nav.sidebar-nav ~ nav.sidebar-nav {
 }
 
 /* FIX #11: Lock body scroll on mobile; use inner panels */
-body {
-  overflow: hidden;
-  height: 100vh;
-  position: fixed;
-  width: 100%;
-  overscroll-behavior: none;
-}
-#app-root, .main-stage, .pos-main-container, .pos-content-pane {
-  height: 100vh;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+@media (max-width: 1024px) {
+  body {
+    overflow: hidden;
+    height: 100vh;
+    position: fixed;
+    width: 100%;
+    overscroll-behavior: none;
+  }
+  #app-root, .main-stage, .pos-main-container, .pos-content-pane {
+    height: 100vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 /* FIX #13: PIN lock screen centered 3x4 keypad */

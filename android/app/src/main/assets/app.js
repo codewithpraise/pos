@@ -2968,7 +2968,7 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
     var globalPinDebounceTime = 0;
     window.__handlePinDigit = function(digit) {
       var now = Date.now();
-      if (now - globalPinDebounceTime < 280) return;
+      if (now - globalPinDebounceTime < 80) return;
       globalPinDebounceTime = now;
       if (digit !== undefined && digit !== null && isLockActive()) {
         addDigit(String(digit));
@@ -8232,9 +8232,9 @@ setHtml(tr, `
 
     if (window.__amcExpired) {
       playAudioSignal('error');
-      const msg = '';
-      if (window.alert && (window.alert.toString().includes('alertMsg') || !window.alert.toString().includes('[native code]'))) {
-        window['al' + 'ert'](msg);
+      const msg = 'AMC EXPIRED: Annual Maintenance Contract has expired. Please renew license.';
+      if (window.alert) {
+        window.alert(msg);
       }
       showModal({ title: 'AMC Expired', message: msg, type: 'danger' });
       return;
