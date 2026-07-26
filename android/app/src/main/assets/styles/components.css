@@ -1316,6 +1316,7 @@ button:not(:disabled):active {
 }
 
 .catalog-table tbody tr {
+  transition: background 0.15s ease;
 }
 
 .catalog-table tbody tr:hover {
@@ -4012,6 +4013,7 @@ html {
 /* ── Enhanced view transition animation ─────────────────────────────────── */
 
 .content-view.active {
+  display: block;
 }
 
 /* ── Premium Empty States ────────────────────────────────────────────────── */
@@ -4102,6 +4104,7 @@ html {
 
 
 .cart-item-row.adding {
+  animation: slide-in-fade 0.2s var(--ease-out);
 }
 
 .cart-item-row.removing {
@@ -4109,6 +4112,7 @@ html {
 }
 
 .qty-val.bump {
+  animation: pulse-ring 0.3s var(--ease-out);
 }
 
 /* ── Button Scale Micro-interaction ─────────────────────────────────────── */
@@ -4281,6 +4285,7 @@ body.theme-monochrome-ivory .skeleton-card {
 
 /* ── Product Card Premium Hover (Catalog) ────────────────────────────────── */
 .quick-product-card {
+  transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
 }
 
 .quick-product-card:hover {
@@ -4375,8 +4380,6 @@ body.is-offline .modal-overlay {
 /* MOBILE RESPONSIVE ENGINE & SECURE INPUTS */
 .secure-input {
   -webkit-text-security: disc;
-  text-security: disc; /* Standard property fallback */
-  /* We skip custom font fallback as -webkit-text-security covers >95% of target mobile/desktop */
 }
 
 @media (max-width: 1024px) {
