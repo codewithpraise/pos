@@ -71,8 +71,29 @@
         ua: navigator.userAgent,
         screen: {w:window.innerWidth, h:window.innerHeight, dpr:window.devicePixelRatio},
         storage: {idb:!!window.indexedDB, ls:!!window.localStorage},
+        ui: typeof window.dumpUIDiagnostics === 'function' ? window.dumpUIDiagnostics() : {},
         logs: window.__VALENIXIA_DIAG.logs
       };
+
+    window.dumpUIDiagnostics = function() {
+      const offenders = [];
+      document.querySelectorAll('*').forEach(el => {
+        if (el.scrollWidth > window.innerWidth + 2) {
+          offenders.push({ tag: el.tagName, class: el.className, id: el.id, scrollWidth: el.scrollWidth });
+        }
+      });
+      const visibleViews = Array.from(document.querySelectorAll('.content-view')).filter(v => {
+        const s = window.getComputedStyle(v);
+        return s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0';
+      });
+      return {
+        viewport: `${window.innerWidth}x${window.innerHeight}`,
+        dpr: window.devicePixelRatio,
+        overflowCount: offenders.length,
+        activeViewsCount: visibleViews.length,
+        activeViews: visibleViews.map(v => v.id)
+      };
+    };
       const text = JSON.stringify(payload, null, 2);
       try{
         await navigator.clipboard.writeText(text);

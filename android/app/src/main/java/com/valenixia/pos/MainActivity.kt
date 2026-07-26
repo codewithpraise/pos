@@ -117,6 +117,26 @@ class MainActivity : AppCompatActivity() {
     fun printBluetoothNative(base64Payload: String) {
         POSHardwareInterface().printReceipt(base64Payload)
     }
+
+    fun consumeFreshStartFlagNative(): Boolean {
+        return try {
+            val fresh = prefs.getBoolean("fresh_start", false)
+            if (fresh) {
+                prefs.edit().putBoolean("fresh_start", false).apply()
+            }
+            fresh
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    fun getAutoStartOnBootNative(): Boolean {
+        return try {
+            prefs.getBoolean("auto_start_on_boot", false)
+        } catch (e: Exception) {
+            false
+        }
+    }
     private lateinit var prefs: SharedPreferences
     private var serverUrl: String = ""
     private var uploadMessage: ValueCallback<Array<Uri>>? = null
@@ -282,16 +302,25 @@ class MainActivity : AppCompatActivity() {
 
         // PBKDF2-SHA256: mirrors Node.js crypto.pbkdf2 and client-db.js verifyPinClient.
         @JavascriptInterface
-        fun pbkdf2(password: String, saltHex: String, iterations: Int, keyLen: Int): String {
+        fun pbkdf2(password: String, saltHexOrBase64: String, iterations: Int, keyLen: Int): String {
             if (!isCurrentOriginTrusted()) {
                 Log.w("AndroidPOSBridge", "pbkdf2 call rejected: untrusted origin.")
                 return ""
             }
+            if (password.isEmpty() || saltHexOrBase64.isEmpty()) return ""
             return try {
-                val saltBytes = ByteArray(saltHex.length / 2)
-                for (i in saltBytes.indices) {
-                    saltBytes[i] = saltHex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
+                val saltBytes = try {
+                    if (saltHexOrBase64.matches(Regex("^[0-9a-fA-F]+$")) && saltHexOrBase64.length % 2 == 0) {
+                        ByteArray(saltHexOrBase64.length / 2) { i ->
+                            saltHexOrBase64.substring(i * 2, i * 2 + 2).toInt(16).toByte()
+                        }
+                    } else {
+                        Base64.decode(saltHexOrBase64, Base64.NO_WRAP)
+                    }
+                } catch (e: Exception) {
+                    saltHexOrBase64.toByteArray(Charsets.UTF_8)
                 }
+
                 val spec = PBEKeySpec(password.toCharArray(), saltBytes, iterations, keyLen * 8)
                 val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
                 val hash = factory.generateSecret(spec).encoded
@@ -822,10 +851,10 @@ class MainActivity : AppCompatActivity() {
             databaseEnabled = true
             val defaultUa = userAgentString
             userAgentString = "$defaultUa ValenixiaPOS/Android"
-            allowFileAccess = false
-            allowContentAccess = false
-            allowFileAccessFromFileURLs = false
-            allowUniversalAccessFromFileURLs = false
+            allowFileAccess = true
+            allowContentAccess = true
+            allowFileAccessFromFileURLs = true
+            allowUniversalAccessFromFileURLs = true
             mediaPlaybackRequiresUserGesture = false
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             cacheMode = WebSettings.LOAD_DEFAULT
@@ -992,9 +1021,8 @@ class MainActivity : AppCompatActivity() {
             }
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                runOnUiThread {
-                    setContentView(wv)
-                }
+                // CRITICAL FIX: Do NOT call setContentView(wv) inside onPageFinished.
+                // It resets the Activity layout on client-side navigation.
             }
             override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                 if (request?.isForMainFrame == true) {
@@ -1023,6 +1051,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        setContentView(wv)
         webView = wv
         wv.loadUrl(url)
     }

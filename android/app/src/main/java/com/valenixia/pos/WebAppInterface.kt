@@ -11,4 +11,14 @@ class WebAppInterface(private val activity: MainActivity) {
         }
         activity.printBluetoothNative(payload)
     }
+
+    @JavascriptInterface
+    fun consumeFreshStartFlag(): Boolean {
+        return activity.consumeFreshStartFlagNative()
+    }
+
+    @JavascriptInterface
+    fun getAutoStartOnBoot(): Boolean {
+        return activity.getAutoStartOnBootNative()
+    }
 }
