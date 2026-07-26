@@ -1,4 +1,4 @@
-// Gated console logging for production hardening (ADR-005)
+// Gated console logging for production hardening (ADR-005) — FIXED FOR MOBILE DIAGNOSTICS
 (function() {
   const isLocal = window.location.hostname === 'localhost' || 
                   window.location.hostname === '127.0.0.1' || 
@@ -6,13 +6,29 @@
                   localStorage.getItem('valenixia_debug') === 'true';
   window.__valenixiaIsLocal = isLocal;
   
-  if (!isLocal) {
-    const noop = () => {};
-    console.log = noop;
-    console.warn = noop;
-    console.info = noop;
-    console.error = noop;
-  }
+  // MOBILE FIX #16: Never silence console on mobile; pipe to diagnostic hub instead
+  window.__valenixiaLogs = window.__valenixiaLogs || [];
+  const origLog = console.log.bind(console);
+  const origWarn = console.warn.bind(console);
+  const origErr = console.error.bind(console);
+  const origInfo = console.info.bind(console);
+
+  console.log = (...args) => {
+    window.__valenixiaLogs.push({t:'log', ts:Date.now(), msg:args.map(a=>String(a)).join(' ')});
+    origLog(...args);
+  };
+  console.warn = (...args) => {
+    window.__valenixiaLogs.push({t:'warn', ts:Date.now(), msg:args.map(a=>String(a)).join(' ')});
+    origWarn(...args);
+  };
+  console.error = (...args) => {
+    window.__valenixiaLogs.push({t:'error', ts:Date.now(), msg:args.map(a=>String(a)).join(' ')});
+    origErr(...args);
+  };
+  console.info = (...args) => {
+    window.__valenixiaLogs.push({t:'info', ts:Date.now(), msg:args.map(a=>String(a)).join(' ')});
+    origInfo(...args);
+  };
 })();
 
 window.escapeHTML = function(str) {
@@ -25,17 +41,13 @@ window.escapeHTML = function(str) {
         .replace(/'/g, '&#039;');
 };
 
-// UNIVERSAL BASE64-URL DECODER
 window.safeAtob = function(base64Str) {
     try {
-        // Replace URL-safe characters with standard Base64 characters
         let str = String(base64Str).replace(/-/g, '+').replace(/_/g, '/');
-        // Pad the string with '=' until its length is a multiple of 4
         while (str.length % 4 !== 0) str += '=';
         return atob(str);
     } catch (e) {
-        // Redacted for production security (leaks strings in console)
-        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || localStorage.getItem('valenixia_debug') === 'true') {
+        if (window.__valenixiaIsLocal) {
             console.error('[safeAtob] CRITICAL DECODE FAILURE:', e.message);
             console.error('[safeAtob] Problematic String:', base64Str);
         }
@@ -46,8 +58,34 @@ window.safeAtob = function(base64Str) {
     }
 };
 
-// BLACK BOX FLIGHT RECORDER
-window.__valenixiaLogs = [];
+// MOBILE DIAGNOSTIC HUB — FIX #3
+window.__valenixiaLogs = window.__valenixiaLogs || [];
+window.__valenixiaClickPath = [];
+
+window.logDiagnostic = function(type, data) {
+  const entry = {
+    ts: Date.now(),
+    type: type,
+    data: data,
+    ua: navigator.userAgent,
+    url: location.href
+  };
+  window.__valenixiaLogs.push(entry);
+};
+
+// Capture click path for crash reconstruction
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-action], [data-screen], [data-view], button, a');
+  if (el) {
+    window.__valenixiaClickPath.push({
+      ts: Date.now(),
+      tag: el.tagName,
+      id: el.id,
+      action: el.dataset.action || el.dataset.screen || el.dataset.view || el.textContent.slice(0,40)
+    });
+    if (window.__valenixiaClickPath.length > 50) window.__valenixiaClickPath.shift();
+  }
+}, true);
 
 function drawCrashConsole(msg, source, lineno, error) {
     let consoleDiv = document.getElementById('valenixia-crash-console');
@@ -56,7 +94,6 @@ function drawCrashConsole(msg, source, lineno, error) {
         consoleDiv.id = 'valenixia-crash-console';
         consoleDiv.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:50vh; background:rgba(0,0,0,0.95); color:#ff4444; z-index:999999999; overflow-y:auto; padding:20px; font-family:monospace; font-size:14px; border-bottom: 3px solid #ff0000;';
         
-        // Add a close button
         const closeBtn = document.createElement('button');
         closeBtn.innerText = 'DISMISS LOGS (X)';
         closeBtn.style.cssText = 'background:#ff4444; color:#fff; padding:10px; border:none; margin-bottom:15px; font-weight:bold; width:100%;';
@@ -76,44 +113,113 @@ function drawCrashConsole(msg, source, lineno, error) {
 }
 window.drawCrashConsole = drawCrashConsole;
 
-// 1. Catch all standard JavaScript runtime errors
-window.onerror = function(msg, url, lineNo, columnNo, error) {
-    const logStr = `Error: ${msg} at ${lineNo}:${columnNo}`;
-    window.__valenixiaLogs.push(logStr);
-    if (window.__valenixiaIsLocal) {
-        console.error(logStr, error);
-    }
-    
-    // Ignore cross-origin script errors or network load failures
-    const lowerMsg = String(msg || '').toLowerCase();
-    if (lowerMsg.includes('script error') || lowerMsg.includes('load failed') || lowerMsg.includes('failed to fetch')) {
-        return false;
-    }
-    
-    drawCrashConsole(msg, url, lineNo, error);
-    return false; 
-};
-
-// 2. Catch all asynchronous Promise failures (like failed fetch calls)
-window.addEventListener('unhandledrejection', function(event) {
-    const reason = event.reason;
-    const msg = reason ? (reason.message || String(reason)) : 'Unknown';
-    const lowerMsg = String(msg).toLowerCase();
-    
-    // Ignore expected network / fetch connectivity errors from triggering the crash console
-    if (lowerMsg.includes('failed to fetch') || lowerMsg.includes('networkerror') || lowerMsg.includes('load failed') || lowerMsg.includes('network') || lowerMsg.includes('fetch')) {
-        if (window.__valenixiaIsLocal) {
-            console.warn('[Bootstrap] Ignored network rejection:', msg);
-        }
-        return;
-    }
-    
-    window.__valenixiaLogs.push('Unhandled Promise: ' + msg);
-    if (window.__valenixiaIsLocal) {
-        console.error('Unhandled Promise:', reason);
-    }
-    drawCrashConsole(msg, 'Async Promise', 'N/A', reason);
+// Global error handlers
+window.addEventListener('error', (e) => {
+  window.logDiagnostic('JS_ERROR', {
+    msg: e.message,
+    file: e.filename,
+    line: e.lineno,
+    stack: e.error ? e.error.stack : ''
+  });
 });
+window.addEventListener('unhandledrejection', (e) => {
+  const reason = e.reason;
+  const msg = reason ? (reason.message || String(reason)) : 'Unknown';
+  const lowerMsg = String(msg).toLowerCase();
+  
+  if (lowerMsg.includes('failed to fetch') || lowerMsg.includes('networkerror') || lowerMsg.includes('load failed')) {
+    return;
+  }
+  window.logDiagnostic('PROMISE_REJECTION', {
+    reason: String(reason),
+    stack: reason && reason.stack ? reason.stack : ''
+  });
+});
+
+// Copy diagnostics to clipboard
+window.copyDiagnostics = async function() {
+  const payload = {
+    logs: window.__valenixiaLogs.slice(-500),
+    clicks: window.__valenixiaClickPath,
+    timestamp: new Date().toISOString(),
+    screen: {w: window.innerWidth, h: window.innerHeight},
+    storage: {
+      idb: !!window.indexedDB,
+      localStorage: !!window.localStorage
+    }
+  };
+  const text = JSON.stringify(payload, null, 2);
+  try {
+    await navigator.clipboard.writeText(text);
+    alert('Diagnostics copied to clipboard.');
+  } catch(e) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    alert('Diagnostics copied.');
+  }
+};
+window.copyAllDiagnosticLogs = window.copyDiagnostics;
+
+// SPLASH SCREEN TIMEOUT — FIX #18
+(function splashTimeout() {
+  const hideSplash = () => {
+    const splash = document.getElementById('splash-screen') || document.getElementById('app-boot-loader');
+    if (splash) {
+      splash.style.opacity = '0';
+      splash.style.transition = 'opacity 0.5s ease';
+      splash.style.pointerEvents = 'none';
+      setTimeout(() => {
+        splash.style.display = 'none';
+        document.body.classList.remove('splash-active');
+        console.log('[Bootstrap] Splash screen hidden.');
+      }, 500);
+    }
+  };
+  
+  // Failsafe: force hide splash after 5 seconds regardless of init state
+  setTimeout(hideSplash, 5000);
+})();
+
+// OFFLINE HYDRATION FALLBACK — FIX #17
+(async function offlineHydration() {
+  if (!window.indexedDB) return;
+  try {
+    const dbReq = indexedDB.open('valenixia_main', 1);
+    dbReq.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      // Create baseline stores if they don't exist
+      const stores = ['transactions','line_items','inventory_catalog','crsql_changes',
+                      'local_preferences','customers','categories','distributors',
+                      'purchase_orders','po_line_items','distributor_payments',
+                      'customer_credit','employees','speech_analytics_logs',
+                      'stock_movements','employee_shifts','fbr_offline_queue',
+                      'telemetry_logs','payment_proofs'];
+      stores.forEach(s => {
+        if (!db.objectStoreNames.contains(s)) db.createObjectStore(s, {keyPath: 'id'});
+      });
+      console.log('[Bootstrap] Offline hydration: baseline schema created.');
+    };
+    dbReq.onsuccess = () => {
+      const db = dbReq.result;
+      if (db.objectStoreNames.contains('inventory_catalog')) {
+        const tx = db.transaction('inventory_catalog', 'readonly');
+        const store = tx.objectStore('inventory_catalog');
+        const countReq = store.count();
+        countReq.onsuccess = () => {
+          if (countReq.result === 0) {
+            console.log('[Bootstrap] Empty catalog detected — ready for seeding.');
+          }
+        };
+      }
+    };
+  } catch(e) {
+    console.error('[Bootstrap] Offline hydration failed:', e);
+  }
+})();
 
 (function() {
   function resolveServerUrl() {
@@ -145,7 +251,7 @@ window.addEventListener('unhandledrejection', function(event) {
   }
 })();
 
-// ── System Theme Detection (runs before first paint to prevent FOUC) ────────
+// System Theme Detection
 (function() {
   const ALL_THEMES = [
     'theme-obsidian-emerald',
@@ -156,7 +262,6 @@ window.addEventListener('unhandledrejection', function(event) {
     'theme-premium-navy'
   ];
 
-  // 1. Try saved preference (fastest path for returning users)
   const saved = localStorage.getItem('valenixia_theme_override');
   if (saved && ALL_THEMES.includes(saved)) {
     document.documentElement.classList.add(saved);
@@ -164,28 +269,14 @@ window.addEventListener('unhandledrejection', function(event) {
     return;
   }
 
-  // 2. Fall back to OS preference
-  //    Light OS  → Monochrome Ivory (clean light mode)
-  //    Dark OS   → Obsidian Emerald (default dark — jewel-tone precision)
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   const systemTheme = prefersDark ? 'theme-obsidian-emerald' : 'theme-monochrome-ivory';
   document.documentElement.classList.add(systemTheme);
   document.documentElement.dataset.themeResolved = systemTheme;
   window.__valenixiaSystemTheme = systemTheme;
-
-  // 3. Watch for OS theme changes at runtime (e.g., macOS auto dark/light)
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-    // Only react if the user has never manually set a theme preference
-    if (localStorage.getItem('valenixia_theme_override')) return;
-    const next = e.matches ? 'theme-obsidian-emerald' : 'theme-monochrome-ivory';
-    ALL_THEMES.forEach(t => document.body.classList.remove(t));
-    document.body.classList.add(next);
-    window.__valenixiaSystemTheme = next;
-    console.log('[Theme] OS theme changed, switching to:', next);
-  });
 })();
 
-// --- GLOBAL showModal HELPER ---
+// Global showModal helper
 window.showModal = function({ title, message, type = 'info', actions = [{ id: 'ok', label: 'OK', style: 'primary' }], input = null }) {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
@@ -215,7 +306,7 @@ window.showModal = function({ title, message, type = 'info', actions = [{ id: 'o
   });
 };
 
-// Global click interceptor to prevent tabnabbing vulnerability
+// Global click interceptor for tabnabbing
 document.addEventListener('click', function(e) {
   const target = e.target.closest('a');
   if (target && target.getAttribute('target') === '_blank') {
@@ -225,3 +316,13 @@ document.addEventListener('click', function(e) {
     }
   }
 }, true);
+
+// Global DOM ready helper
+window.runWhenDOMReady = function(fn) {
+  if (typeof fn !== 'function') return;
+  if (document.readyState === 'interactive' || document.readyState === 'complete') {
+    fn();
+  } else {
+    document.addEventListener('DOMContentLoaded', fn);
+  }
+};

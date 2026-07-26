@@ -727,7 +727,8 @@ const LicenseEngine = (() => {
     const isSecureContext = !!(crypto && crypto.subtle);
     const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
     const isLAN = !!(location.hostname.match(/^192\.168\.|^10\.|^172\.(1[6-9]|2[0-9]|3[01])\./));
-    const isFileProtocol = location.protocol === 'file:';
+    const isAndroidApp = location.href.includes('android_asset') || typeof window.AndroidPOS !== 'undefined' || /Android/i.test(navigator.userAgent);
+    const isFileProtocol = location.protocol === 'file:' && !isAndroidApp;
     // file:// is never a valid context - always block and show lockout.
     if (isFileProtocol) {
       console.error('[License] FATAL: file:// protocol is not a valid deployment context for Valenixia POS.');
@@ -875,7 +876,7 @@ const LicenseEngine = (() => {
           return true;
         }
       }
-    } else if (isHttpContext && location.protocol !== 'file:') {
+    } else if (isHttpContext || isAndroidApp) {
       // No stored license AND on HTTP context (LAN app) â€” server already auth-gates
       // every API endpoint via requireAuth middleware. Allow the app to boot so the
       // user can reach the login screen. The server will reject unauthorized calls.

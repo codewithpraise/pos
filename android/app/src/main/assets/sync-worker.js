@@ -3,16 +3,33 @@
 // Offloads database I/O, CRDT delta merging, and WebSocket sync off main thread
 // ============================================================================
 
+// MOBILE DIAGNOSTIC HUB: Redirect all console output to diagnostic buffer instead of silencing
 (function() {
-  const isLocal = self.location.hostname === 'localhost' || 
-                  self.location.hostname === '127.0.0.1' || 
-                  self.location.hostname === '10.0.2.2';
+  const isLocal = self.location.hostname === 'localhost' ||
+                   self.location.hostname === '127.0.0.1' ||
+                   self.location.hostname === '10.0.2.2';
+  self.__valenixiaIsLocal = isLocal;
+  
   if (!isLocal) {
-    const noop = () => {};
-    console.log = noop;
-    console.warn = noop;
-    console.info = noop;
-    console.error = noop;
+    const origLog = console.log.bind(console);
+    const origWarn = console.warn.bind(console);
+    const origErr = console.error.bind(console);
+    
+    console.log = (...args) => {
+      self.__valenixiaLogs = self.__valenixiaLogs || [];
+      self.__valenixiaLogs.push({t:'log', ts:Date.now(), msg:args.map(a=>String(a)).join(' ')});
+      origLog(...args);
+    };
+    console.warn = (...args) => {
+      self.__valenixiaLogs = self.__valenixiaLogs || [];
+      self.__valenixiaLogs.push({t:'warn', ts:Date.now(), msg:args.map(a=>String(a)).join(' ')});
+      origWarn(...args);
+    };
+    console.error = (...args) => {
+      self.__valenixiaLogs = self.__valenixiaLogs || [];
+      self.__valenixiaLogs.push({t:'error', ts:Date.now(), msg:args.map(a=>String(a)).join(' ')});
+      origErr(...args);
+    };
   }
 })();
 
@@ -176,6 +193,11 @@ async function initializeSyncEngine(serverUrl) {
       ];
       
       const idbTx = ValenixiaDB.db.transaction(stores, 'readwrite');
+      const txDone = new Promise((resolve, reject) => {
+        idbTx.oncomplete = () => resolve();
+        idbTx.onerror = (e) => reject(e.target.error);
+        idbTx.onabort = () => reject(new Error('Sync transaction aborted'));
+      });
 
       try {
         for (const change of changes) {
@@ -218,12 +240,7 @@ async function initializeSyncEngine(serverUrl) {
             conflicts++;
           }
         }
-
-        await new Promise((resolve, reject) => {
-          idbTx.oncomplete = () => resolve();
-          idbTx.onerror = (e) => reject(e.target.error);
-          idbTx.onabort = () => reject(new Error('Sync transaction aborted'));
-        });
+        await txDone;
       } catch (err) {
         console.error('[SyncWorker] Sync apply failed, rolling back:', err);
         try { idbTx.abort(); } catch (_) {}
@@ -722,6 +739,13 @@ self.onmessage = async (event) => {
           'readwrite'
         );
 
+        // MOBILE FIX: Create transaction completion promise IMMEDIATELY before any await yields control
+        const txDone = new Promise((resolve, reject) => {
+          idbTx.oncomplete = () => resolve();
+          idbTx.onerror = (e) => reject(e.target.error);
+          idbTx.onabort = () => reject(new Error('Transaction aborted'));
+        });
+
         try {
           // 1. Write transaction to IndexedDB
           const txRecord = {
@@ -731,7 +755,7 @@ self.onmessage = async (event) => {
             subtotal_minor_units: subtotal,
             tax_minor_units: tax,
             total_minor_units: total,
-            status: 'PENDING',
+            status: 'COMPLETED',
             payment_mode: paymentMode || 'CASH',
             payment_details: finalPaymentDetails,
             created_at: now,
@@ -748,7 +772,7 @@ self.onmessage = async (event) => {
           await logFieldChange('transactions', transactionId, 'subtotal_minor_units', subtotal, txHlc, 1, 1, idbTx);
           await logFieldChange('transactions', transactionId, 'tax_minor_units', tax, txHlc, 1, 1, idbTx);
           await logFieldChange('transactions', transactionId, 'total_minor_units', total, txHlc, 1, 1, idbTx);
-          await logFieldChange('transactions', transactionId, 'status', 'PENDING', txHlc, 1, 1, idbTx);
+          await logFieldChange('transactions', transactionId, 'status', 'COMPLETED', txHlc, 1, 1, idbTx);
           await logFieldChange('transactions', transactionId, 'payment_mode', paymentMode || 'CASH', txHlc, 1, 1, idbTx);
           await logFieldChange('transactions', transactionId, 'payment_details', finalPaymentDetails, txHlc, 1, 1, idbTx);
 
@@ -864,12 +888,7 @@ self.onmessage = async (event) => {
             }
           }
 
-          await new Promise((resolve, reject) => {
-            idbTx.oncomplete = () => resolve();
-            idbTx.onerror = (e) => reject(e.target.error);
-            idbTx.onabort = (e) => reject(new Error('Transaction aborted'));
-          });
-
+          await txDone;
           postMessage({ type: 'CHECKOUT_SUCCESS', transactionId, subtotal, tax, total, paymentMode, signature });
         } catch (err) {
           console.error('[SyncWorker] Checkout transaction failed, rolling back:', err);
@@ -1028,6 +1047,9 @@ self.onmessage = async (event) => {
         await logFieldChange('customers', id, 'visits', visits || 0, tickHlc);
 
         postMessage({ type: 'MUTATION_SUCCESS' });
+        // MOBILE FIX: Immediately re-fetch customers so UI re-renders with persisted data
+        const customers = await ValenixiaDB.getAll('customers');
+        postMessage({ type: 'CUSTOMERS_DATA', customers });
         break;
       }
 
