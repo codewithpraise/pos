@@ -2908,7 +2908,7 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
     function addDigit(d) {
       if (!isLockActive() || state.currentPin.length >= 6) return;
       var now = Date.now();
-      if (now - lastDigitInputTime < 220) return; // Strict debounce to prevent double-entry on mobile
+      if (now - lastDigitInputTime < 60) return;
       lastDigitInputTime = now;
       state.currentPin += String(d);
       updatePinDisplayDots();
@@ -2918,7 +2918,7 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
     function doBackspace() {
       if (!isLockActive() || state.currentPin.length === 0) return;
       var now = Date.now();
-      if (now - lastDigitInputTime < 180) return;
+      if (now - lastDigitInputTime < 60) return;
       lastDigitInputTime = now;
       state.currentPin = state.currentPin.slice(0, -1);
       updatePinDisplayDots();
@@ -2927,7 +2927,7 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
 
     function doClear() {
       var now = Date.now();
-      if (now - lastDigitInputTime < 180) return;
+      if (now - lastDigitInputTime < 60) return;
       lastDigitInputTime = now;
       state.currentPin = '';
       updatePinDisplayDots();
