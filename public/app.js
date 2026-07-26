@@ -2261,6 +2261,32 @@ setHtml(overlay, `
     const serverUrl = window.__valenixiaServerUrl || location.origin;
     syncWorker.postMessage({ type: 'INIT', payload: { serverUrl } });
 
+    async function checkRawCatalog() {
+      try {
+        const req = indexedDB.open('valenixia_main');
+        req.onsuccess = (e) => {
+          const db = e.target.result;
+          console.log('[BootTrace] Raw IDB stores:', Array.from(db.objectStoreNames));
+          if (!db.objectStoreNames.contains('inventory_catalog')) {
+            console.error('[BootTrace] CRITICAL: inventory_catalog store missing!');
+            return;
+          }
+          const tx = db.transaction('inventory_catalog', 'readonly');
+          const store = tx.objectStore('inventory_catalog');
+          const countReq = store.count();
+          countReq.onsuccess = () => {
+            console.log('[BootTrace] Raw IDB inventory_catalog count:', countReq.result);
+          };
+          const allReq = store.getAll();
+          allReq.onsuccess = () => {
+            console.log('[BootTrace] Raw IDB inventory_catalog items:', (allReq.result || []).map(i => i.sku));
+          };
+        };
+      } catch(e) {
+        console.error('[BootTrace] Raw IDB check failed:', e);
+      }
+    }
+
     // Handle incoming messages from worker thread
     syncWorker.onmessage = async (event) => {
       const { type, nodeId, hlc, appliedCount, conflictCount, catalog, customers, employees, prefs, transactions, change, transactionId, error, isPaired, onboardingComplete } = event.data;
@@ -2272,6 +2298,8 @@ setHtml(overlay, `
       switch (type) {
         case 'INIT_SUCCESS':
           console.log(`[App] Worker sync engine fully initialized for node: ${nodeId}`);
+          console.log('[BootTrace] Worker init success. Requesting catalog...');
+          checkRawCatalog();
           const hlcEl1 = document.getElementById('hlc-clock');
           if (hlcEl1) hlcEl1.textContent = hlc;
           state.nodeId = nodeId;
@@ -2502,6 +2530,7 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
           break;
 
         case 'CATALOG_DATA':
+          console.log('[BootTrace] Catalog received:', (catalog || []).length, 'items');
           state.catalog = catalog;
           state.catalogLoaded = true;
           renderCatalogScreen();
@@ -2546,8 +2575,46 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
           }
           break;
 
+    function applyTierLocks(currentTier) {
+      const tier = currentTier || window.__valenixiaTier || 'STARTER';
+      const isFree = !tier || tier === 'STARTER' || tier === 'FREE';
+      const paidItems = document.querySelectorAll('.nav-item.premium');
+      
+      paidItems.forEach(item => {
+        const view = item.dataset.screen || item.dataset.view;
+        if (isFree) {
+          item.classList.add('locked');
+          if (!item.__paywallBound) {
+            item.__paywallBound = true;
+            item.addEventListener('click', (e) => {
+              if (item.classList.contains('locked')) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (typeof showPaywallModal === 'function') {
+                  showPaywallModal(view);
+                } else if (typeof showModal === 'function') {
+                  showModal({
+                    title: '💎 Premium Feature Locked',
+                    message: `The ${view || 'selected'} view requires a Paid Pro or Enterprise tier subscription. Upgrade to unlock.`,
+                    type: 'info'
+                  });
+                }
+              }
+            }, true);
+          }
+        } else {
+          item.classList.remove('locked');
+        }
+      });
+      
+      console.log('[TierLock] Applied. Tier:', tier, 'Free mode:', isFree, 'Paid items locked:', isFree ? paidItems.length : 0);
+    }
+    window.applyTierLocks = applyTierLocks;
+
         case 'PREFERENCES_DATA':
           mapPreferences(prefs);
+          const tierPref = Array.isArray(prefs) ? prefs.find(p => p.key === 'license_tier') : null;
+          applyTierLocks(tierPref ? tierPref.value_payload : (state.currentTier || window.__valenixiaTier));
           if (typeof renderNavbarByTier === 'function') {
             renderNavbarByTier(state.currentTier || window.__valenixiaTier);
           }
@@ -2988,47 +3055,52 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
     window.handlePinClear = window.__handlePinClear;
     window.handlePinEnter = window.__handlePinEnter;
 
-    // Global password visibility toggle handler for all .btn-toggle-password buttons
-    // Supports both mouse click and touch (for Android WebView compatibility)
-    function handlePasswordToggle(e) {
-      if (!e || !e.target) return;
-      var targetEl = (e.target.nodeType === 3) ? e.target.parentElement : e.target;
-      if (!targetEl || typeof targetEl.closest !== 'function') return;
-      var btn = targetEl.closest('.btn-toggle-password');
-      if (!btn) return;
-      
-      var now = Date.now();
-      if (btn.__lastToggle && (now - btn.__lastToggle < 350)) {
-        if (e.cancelable) e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
-      btn.__lastToggle = now;
-
-      if (e.cancelable) e.preventDefault();
-      e.stopPropagation();
-
-      // Find the sibling input — look in .password-wrapper, then up to parent div
-      var container = btn.closest('.password-wrapper') || btn.parentElement;
-      if (!container) return;
-      var input = container.querySelector('input[type="password"], input[type="text"], input.secure-input');
-      if (!input) return;
-      var svgEye = btn.querySelector('.svg-eye');
-      var svgEyeOff = btn.querySelector('.svg-eye-off');
-      var isShowing = (input.type === 'text');
-      if (!isShowing) {
-        input.type = 'text';
-        btn.classList.add('showing');
-        if (svgEye) svgEye.style.display = 'none';
-        if (svgEyeOff) svgEyeOff.style.display = 'block';
-      } else {
-        input.type = 'password';
-        btn.classList.remove('showing');
-        if (svgEye) svgEye.style.display = 'block';
-        if (svgEyeOff) svgEyeOff.style.display = 'none';
-      }
+    function initPasswordToggles() {
+      document.querySelectorAll('.password-toggle-btn, .btn-toggle-password, .eye-toggle, [data-action="toggle-password"]').forEach(btn => {
+        const clone = btn.cloneNode(true);
+        if (btn.parentNode) {
+          btn.parentNode.replaceChild(clone, btn);
+        }
+        
+        clone.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          const container = clone.closest('.password-wrapper') || clone.parentElement || document;
+          const input = container.querySelector('input[type="password"], input[type="text"]') 
+                     || (clone.dataset && clone.dataset.target ? document.getElementById(clone.dataset.target) : null);
+          if (!input) {
+            console.warn('[PasswordToggle] No input found for button', clone);
+            return;
+          }
+          
+          const isHidden = input.type === 'password';
+          input.type = isHidden ? 'text' : 'password';
+          clone.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
+          
+          const svgEye = clone.querySelector('.svg-eye');
+          const svgEyeOff = clone.querySelector('.svg-eye-off');
+          if (svgEye && svgEyeOff) {
+            svgEye.style.display = isHidden ? 'none' : 'block';
+            svgEyeOff.style.display = isHidden ? 'block' : 'none';
+          }
+          
+          console.log('[PasswordToggle] Toggled input', input.id || input.name, 'to', input.type);
+        }, {passive: false});
+      });
     }
-    document.addEventListener('click', handlePasswordToggle, true);
+    window.initPasswordToggles = initPasswordToggles;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initPasswordToggles();
+    });
+
+    const origShowModal = window.showModal;
+    window.showModal = function(...args) {
+      const res = origShowModal ? origShowModal.apply(this, args) : undefined;
+      setTimeout(initPasswordToggles, 100);
+      return res;
+    };
 
 
 // ----------------------------------------------------------------------------
@@ -6247,6 +6319,28 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
     state.activeScreen = screenName;
     try { updateDownloadAppVisibility(); } catch (e) {}
 
+    async function loadSubscriptionPage() {
+      const container = document.getElementById('subscription-container');
+      if (!container || container.dataset.loaded === 'true') return;
+      
+      try {
+        const res = await fetch('subscription.html');
+        const html = await res.text();
+        const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+        container.innerHTML = bodyMatch ? bodyMatch[1] : html;
+        container.dataset.loaded = 'true';
+        console.log('[Subscription] Loaded inline');
+      } catch(e) {
+        console.error('[Subscription] Failed to load:', e);
+        container.innerHTML = '<p style="padding:20px;color:#ff4444;">Failed to load subscription page. Check connection.</p>';
+      }
+    }
+    window.loadSubscriptionPage = loadSubscriptionPage;
+
+    if (screenName === 'subscription') {
+      loadSubscriptionPage();
+    }
+
     // Toggle active classes on nav item nodes
     document.querySelectorAll('.nav-item').forEach(item => {
       if (item.getAttribute('data-screen') === screenName) {
@@ -8453,6 +8547,50 @@ setHtml(tr, `
       } else {
         finalDetails = JSON.stringify({ note: finalDetails || '', ...meta });
       }
+
+      const traceId = 'chk_' + Date.now();
+      console.log(`[CheckoutTrace:${traceId}] START`);
+      console.log(`[CheckoutTrace:${traceId}] Payload built`, {
+        txId: transactionId,
+        items: (state.activeCart || []).length,
+        total
+      });
+
+      const timeoutMs = 10000;
+      let responded = false;
+      
+      const timeoutId = setTimeout(() => {
+        if (!responded) {
+          console.error(`[CheckoutTrace:${traceId}] TIMEOUT — no response from sync worker after ${timeoutMs}ms. Likely IndexedDB deadlock.`);
+          state.isCheckingOut = false;
+          window.__isSubmitting = false;
+          setButtonLoading('btn-checkout-complete', false, '', 'Complete Order');
+          showToast('Payment timed out. Please restart the app.', 'error');
+        }
+      }, timeoutMs);
+
+      const checkoutResponseHandler = (e) => {
+        const msg = e.data;
+        if (!msg) return;
+        if (msg.transactionId === transactionId || msg.type === 'CHECKOUT_SUCCESS' || (msg.type === 'ERROR' && msg.error && msg.error.includes('Checkout'))) {
+          console.log(`[CheckoutTrace:${traceId}] Worker response type: ${msg.type}`, msg);
+          if (msg.type === 'CHECKOUT_SUCCESS') {
+            responded = true;
+            clearTimeout(timeoutId);
+            console.log(`[CheckoutTrace:${traceId}] SUCCESS — clearing cart, recording history`);
+            syncWorker.removeEventListener('message', checkoutResponseHandler);
+          } else if (msg.type === 'ERROR' && msg.error && msg.error.includes('Checkout')) {
+            responded = true;
+            clearTimeout(timeoutId);
+            console.error(`[CheckoutTrace:${traceId}] WORKER ERROR:`, msg.error);
+            showToast('Payment failed: ' + msg.error, 'error');
+            syncWorker.removeEventListener('message', checkoutResponseHandler);
+          }
+        }
+      };
+
+      syncWorker.addEventListener('message', checkoutResponseHandler);
+      console.log(`[CheckoutTrace:${traceId}] Sending to worker...`);
 
       // Dispatch payload to background Web Worker to write to IndexedDB and trigger P2P sync
       syncWorker.postMessage({

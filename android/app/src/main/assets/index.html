@@ -1,6 +1,93 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script>
+  /* ===== VALENIXIA MOBILE DIAGNOSTIC HARNESS v2 ===== */
+  (function(){
+    window.__VALENIXIA_DIAG = {
+      logs: [],
+      max: 500,
+      push(lvl, src, msg, meta){
+        const entry = {t:Date.now(), lvl, src, msg, meta, ua:navigator.userAgent};
+        this.logs.push(entry);
+        if(this.logs.length > this.max) this.logs.shift();
+        const overlay = document.getElementById('valenixia-live-log');
+        if(overlay){
+          const line = document.createElement('div');
+          line.style.cssText = 'font-size:11px;font-family:monospace;padding:2px 4px;border-bottom:1px solid #333;';
+          line.style.color = lvl==='error'?'#ff4444':lvl==='warn'?'#ffaa00':'#ccc';
+          line.textContent = `[${new Date(entry.t).toLocaleTimeString()}] [${lvl}] ${src}: ${msg}`;
+          overlay.appendChild(line);
+          overlay.scrollTop = overlay.scrollHeight;
+        }
+      }
+    };
+
+    ['log','warn','error','info','debug'].forEach(lvl => {
+      const orig = console[lvl].bind(console);
+      console[lvl] = function(...args){
+        const msg = args.map(a => {
+          try { return typeof a === 'object' ? JSON.stringify(a) : String(a); }
+          catch(e){ return '[unserializable]'; }
+        }).join(' ');
+        window.__VALENIXIA_DIAG.push(lvl, 'console', msg, {raw:args});
+        orig(...args);
+      };
+    });
+
+    window.addEventListener('error', e => {
+      window.__VALENIXIA_DIAG.push('error', 'window.onerror', e.message, {
+        file: e.filename, line: e.lineno, col: e.colno,
+        stack: e.error && e.error.stack ? e.error.stack : null
+      });
+    });
+    window.addEventListener('unhandledrejection', e => {
+      window.__VALENIXIA_DIAG.push('error', 'unhandledrejection', String(e.reason), {
+        stack: e.reason && e.reason.stack ? e.reason.stack : null
+      });
+    });
+
+    const origWorker = window.Worker;
+    window.Worker = function(url, opts){
+      const w = new origWorker(url, opts);
+      w.addEventListener('error', e => {
+        window.__VALENIXIA_DIAG.push('error', 'Worker', e.message, {filename:e.filename, lineno:e.lineno});
+      });
+      w.addEventListener('messageerror', e => {
+        window.__VALENIXIA_DIAG.push('error', 'Worker.messageerror', 'Message deserialization failed', {});
+      });
+      const origPost = w.postMessage.bind(w);
+      w.postMessage = function(msg, transfer){
+        window.__VALENIXIA_DIAG.push('debug', 'Worker→SW', (msg && msg.type) || String(msg).slice(0,80), {});
+        return origPost(msg, transfer);
+      };
+      return w;
+    };
+
+    window.copyValenixiaLogs = async function(){
+      const payload = {
+        dumpVersion: 2,
+        url: location.href,
+        ua: navigator.userAgent,
+        screen: {w:window.innerWidth, h:window.innerHeight, dpr:window.devicePixelRatio},
+        storage: {idb:!!window.indexedDB, ls:!!window.localStorage},
+        logs: window.__VALENIXIA_DIAG.logs
+      };
+      const text = JSON.stringify(payload, null, 2);
+      try{
+        await navigator.clipboard.writeText(text);
+        alert('Diagnostic log copied (' + payload.logs.length + ' entries)');
+      }catch(e){
+        const ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta);
+        ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+        alert('Diagnostic log copied (' + payload.logs.length + ' entries)');
+      }
+    };
+
+    console.log('[DiagnosticHarness] Injected. Ready.');
+  })();
+  </script>
   <!-- Placeholder for dynamically injected nonce value for CSP compliance: <script></script> -->
   <!-- CDN dependencies with Subresource Integrity (SRI) checks: -->
   <!-- <script src="https://unpkg.com/react@18/umd/react.production.min.js" integrity="sha384-placeholder" crossorigin="anonymous"></script> -->
@@ -30,6 +117,28 @@
   <script src="theme-transfer.js"></script>
 </head>
 <body>
+  <!-- Live diagnostic overlay -->
+  <div id="valenixia-live-log" style="display:none;position:fixed;top:0;left:0;right:0;bottom:120px;background:rgba(0,0,0,0.92);z-index:99999;overflow-y:auto;padding:8px;font-family:monospace;font-size:11px;color:#ccc;"></div>
+
+  <!-- Copy FAB — positioned to NOT overlap navbar -->
+  <button id="diag-copy-btn" onclick="copyValenixiaLogs()" style="display:none;position:fixed;top:12px;right:12px;z-index:100001;background:#ef4444;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.4);cursor:pointer;">
+    📋 COPY LOGS
+  </button>
+
+  <!-- Toggle log overlay -->
+  <button id="diag-toggle-btn" onclick="document.getElementById('valenixia-live-log').style.display=document.getElementById('valenixia-live-log').style.display==='none'?'block':'none'" style="display:none;position:fixed;top:12px;right:120px;z-index:100001;background:#27272a;color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;">
+    🐞 LOGS
+  </button>
+
+  <script>
+    if(/Android|iPhone|iPad|iPod|wv|WebView/i.test(navigator.userAgent) || location.protocol==='file:'){
+      const btnCopy = document.getElementById('diag-copy-btn');
+      const btnToggle = document.getElementById('diag-toggle-btn');
+      if(btnCopy) btnCopy.style.display='block';
+      if(btnToggle) btnToggle.style.display='block';
+    }
+  </script>
+
   <!-- HTML APP BOOT LOADER OVERLAY -->
   <div id="app-boot-loader" style="position:fixed;inset:0;z-index:99999999;background:#060609;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;font-family:'Manrope',sans-serif;">
     <div style="font-family:'Outfit',sans-serif;font-size:26px;font-weight:900;background:linear-gradient(135deg,#00d68f,#10b981);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:4px;">Valenixia POS</div>
@@ -127,79 +236,86 @@
         </div>
       </div>
       
-      <nav class="sidebar-nav">
-        <button class="nav-item active" data-screen="checkout">
-          <span class="nav-icon">
-            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-          </span>
-          <span class="nav-label">Checkout</span>
-        </button>
-        <button class="nav-item" data-screen="catalog">
-          <span class="nav-icon">
-            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-          </span>
-          <span class="nav-label">Catalog</span>
-        </button>
-        <button class="nav-item" data-screen="catalog-manager" id="nav-catalog-manager">
-          <span class="nav-icon">
-            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-          </span>
-          <span class="nav-label">Inventory Ledger</span>
-        </button>
-        <button class="nav-item" data-screen="history">
-          <span class="nav-icon">
-            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          </span>
-          <span class="nav-label">History</span>
-        </button>
-        <button class="nav-item" data-screen="analytics">
-          <span class="nav-icon">
-            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
-          </span>
-          <span class="nav-label">Analytics</span>
-        </button>
-        <button class="nav-item" data-screen="customers">
-          <span class="nav-icon">
-            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          </span>
-          <span class="nav-label">Customers</span>
-        </button>
-        <button class="nav-item" data-screen="suppliers">
-          <span class="nav-icon">
-            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v4"/><path d="M14 2v6h6"/><path d="M20 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/><path d="M12 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/><path d="M20 18h2v-4a2 2 0 0 0-2-2h-3"/><path d="M14 18h-2"/></svg>
-          </span>
-          <span class="nav-label">Suppliers</span>
-        </button>
-        <button class="nav-item" data-screen="credit-book">
-          <span class="nav-icon">
-            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z"/><path d="M6 6h10M6 10h10"/></svg>
-          </span>
-          <span class="nav-label">Credit Book</span>
-        </button>
-        <button class="nav-item" data-screen="staff">
-          <span class="nav-icon">
-            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><circle cx="19" cy="11" r="2"/></svg>
-          </span>
-          <span class="nav-label">Staff</span>
-        </button>
-        <button class="nav-item" data-screen="logs" id="nav-logs">
-          <span class="nav-icon">
-            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          </span>
-          <span class="nav-label">📋 Logs &amp; Diagnostics</span>
-        </button>
-        <button class="nav-item" data-screen="subscription" id="nav-subscription">
-          <span class="nav-icon">
-            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-          </span>
-          <span class="nav-label">Subscription</span>
-        </button>
-        <button class="nav-item" data-screen="settings">
-          <span class="nav-icon">
-            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          </span>
-          <span class="nav-label">Settings</span>
-        </button>
+      <nav class="sidebar-nav" id="main-navbar">
+        <!-- FREE TIER ROW -->
+        <div class="nav-row nav-row-free">
+          <button class="nav-item active" data-screen="checkout">
+            <span class="nav-icon">
+              <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            </span>
+            <span class="nav-label">Checkout</span>
+          </button>
+          <button class="nav-item" data-screen="catalog">
+            <span class="nav-icon">
+              <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </span>
+            <span class="nav-label">Catalog</span>
+          </button>
+          <button class="nav-item" data-screen="catalog-manager" id="nav-catalog-manager">
+            <span class="nav-icon">
+              <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            </span>
+            <span class="nav-label">Inventory</span>
+          </button>
+          <button class="nav-item" data-screen="history">
+            <span class="nav-icon">
+              <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </span>
+            <span class="nav-label">History</span>
+          </button>
+          <button class="nav-item" data-screen="customers">
+            <span class="nav-icon">
+              <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </span>
+            <span class="nav-label">Customers</span>
+          </button>
+          <button class="nav-item" data-screen="settings">
+            <span class="nav-icon">
+              <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </span>
+            <span class="nav-label">Settings</span>
+          </button>
+        </div>
+
+        <!-- PAID TIER ROW -->
+        <div class="nav-row nav-row-paid" id="paid-nav-row">
+          <button class="nav-item premium" data-screen="analytics">
+            <span class="nav-icon">
+              <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+            </span>
+            <span class="nav-label">Analytics</span>
+          </button>
+          <button class="nav-item premium" data-screen="suppliers">
+            <span class="nav-icon">
+              <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v4"/><path d="M14 2v6h6"/><path d="M20 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/><path d="M12 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/><path d="M20 18h2v-4a2 2 0 0 0-2-2h-3"/><path d="M14 18h-2"/></svg>
+            </span>
+            <span class="nav-label">Suppliers</span>
+          </button>
+          <button class="nav-item premium" data-screen="credit-book">
+            <span class="nav-icon">
+              <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z"/><path d="M6 6h10M6 10h10"/></svg>
+            </span>
+            <span class="nav-label">Credit</span>
+          </button>
+          <button class="nav-item premium" data-screen="staff">
+            <span class="nav-icon">
+              <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><circle cx="19" cy="11" r="2"/></svg>
+            </span>
+            <span class="nav-label">Staff</span>
+          </button>
+          <button class="nav-item premium" data-screen="logs" id="nav-logs">
+            <span class="nav-icon">
+              <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </span>
+            <span class="nav-label">Logs</span>
+          </button>
+          <button class="nav-item premium" data-screen="subscription" id="nav-subscription">
+            <span class="nav-icon">
+              <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            </span>
+            <span class="nav-label">Subscribe</span>
+          </button>
+        </div>
         <button class="nav-item" data-screen="fbr-fiscal" id="nav-fbr-fiscal" style="display: none;">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -1719,8 +1835,10 @@
         </section>
 
         <!-- View: Subscription Page -->
-        <section class="content-view" id="view-subscription">
-          <iframe id="subscription-iframe" src="subscription.html" style="width: 100%; height: calc(100vh - 120px); min-height: 550px; border: none; border-radius: 12px; background: var(--bg-obsidian);"></iframe>
+        <section class="content-view" id="view-subscription" style="display:none; overflow-y:auto; -webkit-overflow-scrolling:touch; height:100vh; padding-bottom:80px;">
+          <div id="subscription-container" style="max-width:100%; overflow-x:hidden;">
+            <!-- Content loaded via fetch + innerHTML instead of iframe -->
+          </div>
         </section>
 
         <!-- View 11: Suppliers (Distributors & Purchase Ledger) -->

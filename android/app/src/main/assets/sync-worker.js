@@ -738,6 +738,7 @@ self.onmessage = async (event) => {
           ['transactions', 'line_items', 'inventory_catalog', 'crsql_changes', 'stock_movements', 'customer_credit', 'fbr_offline_queue', 'purchase_orders', 'po_line_items', 'distributors', 'local_preferences'],
           'readwrite'
         );
+        console.log(`[SyncWorker:Checkout] Transaction opened. Stores:`, idbTx.objectStoreNames);
 
         // MOBILE FIX: Create transaction completion promise IMMEDIATELY before any await yields control
         const txDone = new Promise((resolve, reject) => {
@@ -888,10 +889,12 @@ self.onmessage = async (event) => {
             }
           }
 
+          console.log(`[SyncWorker:Checkout] All DB ops queued. Waiting for transaction commit...`);
           await txDone;
+          console.log(`[SyncWorker:Checkout] Transaction committed. Emitting CHECKOUT_SUCCESS.`);
           postMessage({ type: 'CHECKOUT_SUCCESS', transactionId, subtotal, tax, total, paymentMode, signature });
         } catch (err) {
-          console.error('[SyncWorker] Checkout transaction failed, rolling back:', err);
+          console.error(`[SyncWorker:Checkout] FATAL:`, err.message, err.stack);
           try {
             idbTx.abort();
           } catch (abortErr) {}
@@ -999,6 +1002,15 @@ self.onmessage = async (event) => {
           await logFieldChange('stock_movements', mvId, 'change_qty', stock - exists.stock_level, tickHlc);
           await logFieldChange('stock_movements', mvId, 'reason', isAuditReset ? 'AUDIT_RESET' : 'MANUAL_EDIT', tickHlc);
         }
+
+        // Verify write succeeded
+        const verify = await ValenixiaDB.get('inventory_catalog', sku);
+        if (!verify) {
+          console.error(`[SyncWorker:SAVE_PRODUCT] CRITICAL: Write verification failed for SKU ${sku}`);
+          postMessage({ type: 'ERROR', error: `Product save verification failed for ${sku}` });
+          return;
+        }
+        console.log(`[SyncWorker:SAVE_PRODUCT] Verified write for SKU ${sku}:`, verify.name);
 
         postMessage({ type: 'MUTATION_SUCCESS' });
         break;
