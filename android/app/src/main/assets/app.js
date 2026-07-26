@@ -4713,6 +4713,12 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
 
           // ── Bootstrap helper: sends to worker AND has direct fallback ───────
           const doLocalBootstrap = async () => {
+            if (window.__valenixiaBootstrapDone) {
+              console.log('[Bootstrap] Already bootstrapped — skipping duplicate');
+              return;
+            }
+            window.__valenixiaBootstrapDone = true;
+
             console.log('[Bootstrap] Initializing local store bootstrap...');
             localStorage.setItem('onboarding_complete', 'true');
             localStorage.setItem('database_hydrated', 'true');
@@ -4721,37 +4727,19 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
               showNotificationToast('Building local database... Please wait.', 'info', 4000);
             }
 
-            if (window.__workerIsStub) {
-              // Worker unavailable — run bootstrap directly on the main thread
-              console.log('[Bootstrap] Worker is stub — running direct main-thread bootstrap...');
-              try {
-                await ValenixiaDB.bootstrapStore(storeName, taxRate, hashedPin, syncPassphrase, theme, shopMode);
-                await ValenixiaDB.put('local_preferences', {
-                  key: 'database_hydrated', value_type: 'BOOL', value_payload: 'true',
-                  is_idempotent_flag: 1, updated_at: Date.now()
-                });
-                await ValenixiaDB.put('local_preferences', {
-                  key: 'onboarding_complete', value_type: 'BOOL', value_payload: 'true',
-                  is_idempotent_flag: 1, updated_at: Date.now()
-                });
-                // Simulate the BOOTSTRAP_SUCCESS message directly
-                const wizOverlay  = document.getElementById('first-boot-wizard');
-                const lScreen     = document.getElementById('auth-lock-screen');
-                const posLayout   = document.getElementById('pos-app-layout');
-                if (wizOverlay) wizOverlay.style.display = 'none';
-                if (lScreen)    lScreen.classList.add('active');
-                if (posLayout)  posLayout.style.display = 'none';
-                if (typeof showNotificationToast === 'function') {
-                  showNotificationToast('Terminal Ready. Please enter your PIN.', 'success', 3000);
-                }
-                if (typeof playAudioSignal === 'function') playAudioSignal('success');
-                console.log('[Bootstrap] Direct main-thread bootstrap complete.');
-              } catch (bootstrapErr) {
-                console.error('[Bootstrap] Direct bootstrap failed:', bootstrapErr);
-                if (typeof showModal === 'function') {
-                  showModal({ title: 'Setup Failed', message: 'Could not initialize the database: ' + (bootstrapErr.message || bootstrapErr), type: 'info' });
-                }
-              }
+            // MOBILE FIX: If app.js has created the real inline worker, never run direct main-thread bootstrap
+            const hasRealWorker = typeof window !== 'undefined' && 
+              window.syncWorker && 
+              window.syncWorker.postMessage &&
+              window.syncWorker.postMessage.toString().indexOf('native') === -1 &&
+              window.syncWorker.postMessage.toString() !== 'function () {}';
+
+            if (hasRealWorker) {
+              console.log('[Bootstrap] Real worker detected — delegating store bootstrap to worker');
+              syncWorker.postMessage({
+                type: 'BOOTSTRAP_STORE',
+                payload: { storeName, taxRate, adminPin: hashedPin, syncPassphrase, theme, shopMode }
+              });
               return;
             }
 

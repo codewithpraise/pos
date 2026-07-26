@@ -4288,6 +4288,196 @@ body.theme-monochrome-ivory .skeleton-card {
   transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
 }
 
+@media (max-width: 1024px) {
+  /* Layout reset */
+  .pos-app-layout {
+    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  .pos-topbar {
+    padding-top: max(env(safe-area-inset-top, 24px), 24px) !important;
+  }
+
+  .auth-overlay {
+    padding-top: max(env(safe-area-inset-top, 24px), 24px) !important;
+  }
+
+  .pos-bottom-nav {
+    display: none !important;
+  }
+
+  /* ===== SINGLE-ROW HORIZONTALLY SCROLLABLE BOTTOM NAVBAR ===== */
+  .pos-sidebar {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    width: 100vw !important;
+    height: auto !important;
+    min-height: 64px !important;
+    padding: 4px 6px calc(4px + env(safe-area-inset-bottom, 0px)) 6px !important;
+    z-index: 99999 !important;
+    background: var(--panel-graphite, #0f0f1a) !important;
+    border-top: 1px solid rgba(255,255,255,0.08) !important;
+    border-right: none !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+  }
+  .pos-sidebar::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .sidebar-brand,
+  .sidebar-footer {
+    display: none !important;
+  }
+
+  .sidebar-nav {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    width: auto !important;
+    padding: 0 !important;
+    gap: 4px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+  }
+  .sidebar-nav::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .nav-row-free,
+  .nav-row-paid,
+  .nav-row {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 4px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    overflow: visible !important;
+  }
+
+  /* NAV ITEMS — SINGLE ROW SCROLLABLE PILLS */
+  .sidebar-nav .nav-item,
+  .nav-item {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 2px !important;
+    padding: 6px 10px !important;
+    min-width: 60px !important;
+    height: 50px !important;
+    border-radius: 10px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    font-size: 9px !important;
+    font-weight: 600 !important;
+    color: #888 !important;
+    background: transparent !important;
+    border: none !important;
+    width: auto !important;
+    text-align: center !important;
+    position: relative !important;
+    -webkit-tap-highlight-color: transparent !important;
+    touch-action: manipulation !important;
+  }
+
+  .sidebar-nav .nav-item:active,
+  .nav-item:active {
+    background: rgba(255,255,255,0.08) !important;
+    transform: scale(0.94) !important;
+  }
+
+  .sidebar-nav .nav-item.active,
+  .nav-item.active {
+    color: #00e5a0 !important;
+    background: rgba(0, 229, 160, 0.12) !important;
+    font-weight: 700 !important;
+  }
+
+  .sidebar-nav .nav-item.premium,
+  .nav-item.premium { color: #c4a832 !important; }
+  .sidebar-nav .nav-item.premium.active,
+  .nav-item.premium.active {
+    color: #ffd700 !important;
+    background: rgba(255, 215, 0, 0.15) !important;
+  }
+  .sidebar-nav .nav-item.premium.locked,
+  .nav-item.premium.locked {
+    opacity: 0.35 !important;
+    filter: grayscale(1) !important;
+    pointer-events: none !important;
+  }
+  .sidebar-nav .nav-item.premium.locked::after,
+  .nav-item.premium.locked::after {
+    content: '🔒' !important;
+    position: absolute !important;
+    top: 1px !important;
+    right: 2px !important;
+    font-size: 8px !important;
+  }
+
+  .nav-icon { font-size: 18px !important; line-height: 1 !important; }
+  .nav-label {
+    font-size: 9px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+  }
+
+  /* Content clears single-row navbar */
+  .pos-main-container,
+  .content-view,
+  main,
+  .checkout-main,
+  #checkout-view,
+  .page-container {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* Scroll handling */
+  html, body {
+    height: 100dvh !important;
+    overflow: hidden !important;
+    width: 100vw !important;
+  }
+  #app-root, .pos-app-layout {
+    height: 100dvh !important;
+    overflow: hidden !important;
+  }
+  .pos-main-container {
+    height: calc(100dvh - 60px) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    overflow-x: hidden !important;
+  }
+}
+
+/* Subscription page scrolling reset */
+#view-subscription {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  height: 100vh !important;
+  padding-bottom: 120px !important;
+}
+
 .quick-product-card:hover {
   transform: translateY(-3px) scale(1.01) !important;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--accent-emerald-mid) !important;
@@ -4382,98 +4572,6 @@ body.is-offline .modal-overlay {
   -webkit-text-security: disc;
 }
 
-@media (max-width: 1024px) {
-  .pos-app-layout {
-    grid-template-columns: 1fr;
-    display: flex;
-    flex-direction: column;
-    min-height: 100dvh;
-    overflow-x: hidden;
-  }
-
-  /* Safe Area Offset for Mobile Status Bar (Time / Wifi / Battery) */
-  .pos-topbar {
-    padding-top: max(env(safe-area-inset-top, 24px), 24px) !important;
-    box-sizing: content-box !important;
-  }
-
-  .auth-overlay {
-    padding-top: max(env(safe-area-inset-top, 24px), 24px) !important;
-  }
-
-  /* Remove secondary 4-button nav */
-  .pos-bottom-nav {
-    display: none !important;
-  }
-
-  /* RESTORE OG SIDEBAR NAV BAR ON MOBILE: Fixed bottom bar containing ALL pages */
-  /* Mobile Viewport Container Layout */
-  .pos-app-layout {
-    grid-template-columns: 1fr;
-    display: flex;
-    flex-direction: column;
-    min-height: 100dvh;
-    overflow-x: hidden;
-  }
-
-  .pos-topbar {
-    padding-top: max(env(safe-area-inset-top, 24px), 24px) !important;
-    box-sizing: content-box !important;
-  }
-
-  /* ===== BOTTOM NAVBAR ===== */
-  .pos-sidebar {
-    display: flex !important;
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    top: auto !important;
-    width: 100vw !important;
-    height: auto !important;
-    min-height: 120px !important; /* Two rows + safe area */
-    padding: 0 0 env(safe-area-inset-bottom, 0px) 0 !important;
-    z-index: 99999 !important;
-    background: var(--panel-graphite) !important;
-    border-top: 1px solid var(--border-titanium) !important;
-    border-right: none !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
-  }
-
-  .sidebar-brand,
-  .sidebar-footer {
-    display: none !important;
-  }
-
-  .sidebar-nav {
-    display: flex !important;
-    flex-direction: column !important;
-    width: 100% !important;
-    padding: 0 !important;
-    gap: 0 !important;
-    overflow: hidden !important;
-  }
-
-  /* FREE TIER ROW */
-  .nav-row-free {
-    display: flex !important;
-    flex-direction: row !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    -webkit-overflow-scrolling: touch !important;
-    scrollbar-width: none !important;
-    gap: 2px !important;
-    padding: 6px 8px 4px 8px !important;
-    border-bottom: 1px solid rgba(255,255,255,0.06) !important;
-    justify-content: space-around !important;
-  }
-  .nav-row-free::-webkit-scrollbar { display: none !important; }
-
-  /* PAID TIER ROW */
-  .nav-row-paid {
-    display: flex !important;
-    flex-direction: row !important;
     overflow-x: auto !important;
     overflow-y: hidden !important;
     -webkit-overflow-scrolling: touch !important;

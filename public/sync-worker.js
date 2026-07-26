@@ -287,7 +287,12 @@ async function initializeSyncEngine(serverUrl) {
       syncClient.deviceName = deviceNamePref.value_payload;
     }
 
-    syncClient.connect();
+    // MOBILE FIX: WebSocket fails on blob workers with empty host — don't let it kill init
+    try {
+      syncClient.connect();
+    } catch (wsErr) {
+      console.warn('[SyncWorker] WebSocket unavailable, continuing in offline mode:', wsErr.message);
+    }
 
     isBootstrapped = true;
 
