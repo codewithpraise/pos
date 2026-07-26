@@ -383,8 +383,12 @@
   async function pbkdf2(password, saltHex, iterations, keyLen) {
     // Use Native Android Bridge if WebCrypto is blocked by Chromium
     if (globalScope.AndroidPOS && typeof globalScope.AndroidPOS.pbkdf2 === 'function') {
-      const res = globalScope.AndroidPOS.pbkdf2(password, saltHex, iterations, keyLen);
-      if (res) return res;
+      try {
+        const res = globalScope.AndroidPOS.pbkdf2(password, saltHex, iterations, keyLen);
+        if (res) return res;
+      } catch (nativeErr) {
+        console.warn("[Crypto] Native AndroidPOS pbkdf2 bridge failed, falling back to WebCrypto:", nativeErr.message);
+      }
     }
 
     try {

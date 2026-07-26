@@ -1835,9 +1835,34 @@
         </section>
 
         <!-- View: Subscription Page -->
-        <section class="content-view" id="view-subscription" style="display:none; overflow-y:auto; -webkit-overflow-scrolling:touch; height:100vh; padding-bottom:80px;">
-          <div id="subscription-container" style="max-width:100%; overflow-x:hidden;">
-            <!-- Content loaded via fetch + innerHTML instead of iframe -->
+        <section class="content-view" id="view-subscription" style="display:none; overflow-y:auto; -webkit-overflow-scrolling:touch; height:100%; padding:20px; padding-bottom:160px;">
+          <div style="max-width:400px; margin:0 auto;">
+            <h2 style="text-align:center; margin-bottom:24px; font-family:var(--font-display);">💎 Valenixia Pro</h2>
+            
+            <div style="background:rgba(255,255,255,0.05); border-radius:16px; padding:20px; margin-bottom:16px; text-align:center; border:1px solid rgba(255,255,255,0.08);">
+              <h3 style="color:var(--text-white); margin-bottom:4px;">Starter</h3>
+              <p style="font-size:28px; font-weight:900; color:var(--accent-emerald); margin-bottom:12px;">Free</p>
+              <ul style="list-style:none; padding:0; text-align:left; line-height:2; color:var(--text-gray); font-size:12px;">
+                <li>✓ Checkout &amp; Sales</li>
+                <li>✓ Product Catalog</li>
+                <li>✓ Customer Management</li>
+                <li>✓ Basic History</li>
+              </ul>
+              <button class="action-btn" disabled style="opacity:0.5; width:100%; margin-top:12px;">Current Plan</button>
+            </div>
+            
+            <div style="background:rgba(255,215,0,0.06); border:1px solid rgba(255,215,0,0.2); border-radius:16px; padding:20px; margin-bottom:16px; text-align:center;">
+              <h3 style="color:#ffd700; margin-bottom:4px;">Professional</h3>
+              <p style="font-size:28px; font-weight:900; color:#ffd700; margin-bottom:12px;">$9/mo</p>
+              <ul style="list-style:none; padding:0; text-align:left; line-height:2; color:var(--text-gray); font-size:12px;">
+                <li>✓ Everything in Starter</li>
+                <li>✓ Analytics &amp; Reports</li>
+                <li>✓ Supplier Management</li>
+                <li>✓ Credit Book</li>
+                <li>✓ Staff Management</li>
+              </ul>
+              <button class="action-btn action-success" style="width:100%; margin-top:12px;" onclick="alert('Subscription upgrade flow active')">Upgrade Now</button>
+            </div>
           </div>
         </section>
 
@@ -2979,6 +3004,7 @@
   <script src="command-palette.js"></script>
   <script src="strings.js"></script>
   <script src="dompurify.min.js" integrity="sha384-piCcpDdJ7qVeK4Tv8Z6Hpcr3ZBIgP16TxQTPVfsLFdZ5uDgwc3Y8Ho7oUnqf12qu" crossorigin="anonymous"></script>
+  <script src="worker-inline.js"></script>
   <script src="app.js"></script>
 
   <script src="sw-loader.js"></script>

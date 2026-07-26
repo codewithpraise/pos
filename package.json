@@ -14,7 +14,8 @@
     "test:backup": "node tests/backup.test.js",
     "test:syntax": "node --check server.js && node --check database.js && node --check supabase-sync.js && node --check lib/logger.js && node --check lib/validator.js && node --check scripts/backup.js && echo Syntax OK",
     "backup": "node scripts/backup.js",
-    "sync:android": "node scripts/sync_assets.js"
+    "build:worker": "node scripts/inline-worker.js",
+    "sync:android": "npm run build:worker && node scripts/sync_assets.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",

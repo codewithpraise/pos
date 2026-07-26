@@ -2113,65 +2113,46 @@ setHtml(overlay, `
   }
 
   function createSafeWebWorker(scriptPath) {
-    // ── Strategy 1: Standard same-origin Worker (works on localhost) ─────────
+    // Strategy 1: Standard same-origin Worker (works on desktop/http)
     try {
-      return new Worker(scriptPath);
+      const w = new Worker(scriptPath);
+      console.log(`[Worker] Standard worker '${scriptPath}' loaded successfully.`);
+      return w;
     } catch (e) {
-      console.warn(`[WorkerFallback] new Worker('${scriptPath}') blocked: ${e.message}. Trying inline blob...`);
+      console.warn(`[Worker] Standard worker '${scriptPath}' failed: ${e.message}. Trying inline blob worker...`);
     }
 
-    // ── Strategy 2: Inline-blob Worker ──────────────────────────────────────
-    // On file:// (Android WebView), importScripts() from a blob: worker resolves
-    // relative paths against blob: origin (not file://), so they 404.
-    // Fix: fetch the worker script AND its importScripts dependencies via XHR,
-    // then concatenate them all into a single self-contained blob.
-    try {
-      var workerSrc = xhrFetchSync(scriptPath);
-      if (workerSrc !== null) {
-        // Strip the importScripts(...) call from the worker source
-        var cleanedSrc = workerSrc.replace(
-          /importScripts\s*\([^)]+\)\s*;?/g,
-          '/* importScripts inlined below */'
-        );
-
-        // Fetch the dependency scripts the worker needs
-        var clientDbSrc   = xhrFetchSync('client-db.js')   || '';
-        var clientSyncSrc = xhrFetchSync('client-sync.js') || '';
-
-        // Assemble inline worker: deps first, then the worker logic
-        var inlineSrc = [
-          '/* --- client-db.js (inlined) --- */',
-          clientDbSrc,
-          '/* --- client-sync.js (inlined) --- */',
-          clientSyncSrc,
-          '/* --- sync-worker.js (inlined) --- */',
-          cleanedSrc
-        ].join('\n');
-
-        var blob    = new Blob([inlineSrc], { type: 'application/javascript' });
-        var blobUrl = URL.createObjectURL(blob);
-        var w       = new Worker(blobUrl);
-        URL.revokeObjectURL(blobUrl); // free memory after worker has parsed it
-        console.log('[WorkerFallback] Inline blob worker created successfully.');
-        return w;
+    // Strategy 2: Pre-inlined blob worker (works on mobile APK file:// protocol)
+    if (typeof window.createInlineWorker === 'function') {
+      try {
+        const w = window.createInlineWorker();
+        if (w) {
+          console.log('[Worker] Pre-inlined blob worker created successfully.');
+          return w;
+        }
+      } catch (inlineErr) {
+        console.error('[Worker] Pre-inlined blob worker failed:', inlineErr.message);
       }
-    } catch (blobErr) {
-      console.error('[WorkerFallback] Inline blob worker failed:', blobErr.message);
     }
 
-    // ── Strategy 3: Silent stub (absolute last resort) ───────────────────────
-    // DB operations will fall through to direct ValenixiaDB calls on main thread.
-    console.warn('[WorkerFallback] All worker strategies failed. Using silent stub — DB ops go direct.');
-    window.__workerIsStub = true;
-    return {
-      postMessage:          function() {},
-      terminate:            function() {},
-      addEventListener:     function() {},
-      removeEventListener:  function() {},
-      onmessage:            null,
-      onerror:              null
-    };
+    // Strategy 3: FATAL — show user-visible error (NO SILENT STUB)
+    console.error('[Worker] CRITICAL: No worker available. App cannot process background database ops.');
+    alert('System Error: Background engine failed to load. Please reinstall the app.');
+    return null;
   }
+
+  function safeWorkerPost(msg) {
+    if (!syncWorker || typeof syncWorker.postMessage !== 'function') {
+      console.error('[Worker] Cannot send message — worker engine is dead:', msg ? msg.type : 'N/A');
+      if (typeof showToast === 'function') {
+        showToast('System Error: Background database engine is offline.', 'error');
+      }
+      return false;
+    }
+    syncWorker.postMessage(msg);
+    return true;
+  }
+  window.safeWorkerPost = safeWorkerPost;
 
 
   // Setup communication channel with off-thread Web Worker

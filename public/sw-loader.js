@@ -1,4 +1,4 @@
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => {
     fetch('/version.json?cb=' + Date.now())
       .then(res => res.json())
