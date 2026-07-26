@@ -1544,8 +1544,9 @@
     },
 
     async recalculateCachedStock(sku, tx = null) {
+      const inv = await this.get('inventory_catalog', sku, tx);
       const baseStockRow = await this.get('crsql_changes', ['inventory_catalog', sku, 'stock_level'], tx);
-      const baseStock = baseStockRow ? Number(baseStockRow.val) : 0;
+      const baseStock = baseStockRow ? Number(baseStockRow.val) : (inv && typeof inv.stock_level === 'number' ? Number(inv.stock_level) : 0);
       const baseHlc = baseStockRow ? baseStockRow.sync_hlc : '0000000000000:000000:seed';
 
       // Query IndexedDB using a bounded range on the compound primary key to avoid unbounded getAll()
@@ -1580,10 +1581,10 @@
 
       const finalStock = Math.max(0, baseStock + totalDelta);
       
-      const inv = await this.get('inventory_catalog', sku, tx);
-      if (inv) {
-        inv.stock_level = finalStock;
-        await this.put('inventory_catalog', inv, tx);
+      const targetInv = inv || await this.get('inventory_catalog', sku, tx);
+      if (targetInv) {
+        targetInv.stock_level = finalStock;
+        await this.put('inventory_catalog', targetInv, tx);
       }
       console.log(`[ClientDB] Recalculated stock for ${sku}: base=${baseStock} (${baseHlc}), delta=${totalDelta}, final=${finalStock}`);
       return finalStock;

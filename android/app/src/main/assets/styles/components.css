@@ -4404,11 +4404,28 @@ body.theme-monochrome-ivory .skeleton-card {
     transform: scale(0.94) !important;
   }
 
+  /* ACTIVE NAV ITEM EXPANDS TO SHOW FULL TITLE */
   .sidebar-nav .nav-item.active,
   .nav-item.active {
     color: #00e5a0 !important;
-    background: rgba(0, 229, 160, 0.12) !important;
-    font-weight: 700 !important;
+    background: rgba(0, 229, 160, 0.16) !important;
+    border: 1px solid rgba(0, 229, 160, 0.3) !important;
+    font-weight: 800 !important;
+    min-width: max-content !important;
+    max-width: none !important;
+    padding: 6px 14px !important;
+    border-radius: 12px !important;
+    box-shadow: 0 2px 10px rgba(0, 229, 160, 0.2) !important;
+  }
+  .sidebar-nav .nav-item.active .nav-label,
+  .nav-item.active .nav-label {
+    max-width: none !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    color: #00e5a0 !important;
   }
 
   .sidebar-nav .nav-item.premium,
@@ -4416,8 +4433,23 @@ body.theme-monochrome-ivory .skeleton-card {
   .sidebar-nav .nav-item.premium.active,
   .nav-item.premium.active {
     color: #ffd700 !important;
-    background: rgba(255, 215, 0, 0.15) !important;
+    background: rgba(255, 215, 0, 0.18) !important;
+    border: 1px solid rgba(255, 215, 0, 0.4) !important;
+    min-width: max-content !important;
+    max-width: none !important;
+    padding: 6px 14px !important;
   }
+  .sidebar-nav .nav-item.premium.active .nav-label,
+  .nav-item.premium.active .nav-label {
+    max-width: none !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    color: #ffd700 !important;
+  }
+
   .sidebar-nav .nav-item.premium.locked,
   .nav-item.premium.locked {
     opacity: 0.35 !important;
@@ -4440,6 +4472,24 @@ body.theme-monochrome-ivory .skeleton-card {
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     max-width: 100% !important;
+  }
+
+  /* MOBILE HORIZONTAL SCROLL & ANTI-CONGESTION WRAPPERS */
+  .catalog-table-wrapper,
+  .transactions-table-wrapper,
+  .data-table-container,
+  .report-table-wrapper,
+  .table-responsive,
+  .suppliers-split-grid {
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .data-table td,
+  .data-table th,
+  .report-table td,
+  .report-table th {
+    white-space: nowrap !important;
   }
 
   /* Content clears single-row navbar */

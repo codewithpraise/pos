@@ -6289,20 +6289,11 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
     try { updateDownloadAppVisibility(); } catch (e) {}
 
     async function loadSubscriptionPage() {
-      const container = document.getElementById('subscription-container');
-      if (!container || container.dataset.loaded === 'true') return;
-      
-      try {
-        const res = await fetch('subscription.html');
-        const html = await res.text();
-        const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-        container.innerHTML = bodyMatch ? bodyMatch[1] : html;
-        container.dataset.loaded = 'true';
-        console.log('[Subscription] Loaded inline');
-      } catch(e) {
-        console.error('[Subscription] Failed to load:', e);
-        container.innerHTML = '<p style="padding:20px;color:#ff4444;">Failed to load subscription page. Check connection.</p>';
+      const viewSub = document.getElementById('view-subscription');
+      if (viewSub) {
+        viewSub.style.display = 'block';
       }
+      console.log('[Subscription] Inline view active');
     }
     window.loadSubscriptionPage = loadSubscriptionPage;
 
