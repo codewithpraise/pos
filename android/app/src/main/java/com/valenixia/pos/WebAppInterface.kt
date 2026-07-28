@@ -31,4 +31,18 @@ class WebAppInterface(private val activity: MainActivity) {
             false
         }
     }
+
+    @JavascriptInterface
+    fun pbkdf2(passphrase: String, saltBase64: String, iterations: Int, keyLen: Int): String {
+        return try {
+            val salt = android.util.Base64.decode(saltBase64, android.util.Base64.NO_WRAP)
+            val spec = javax.crypto.spec.PBEKeySpec(passphrase.toCharArray(), salt, iterations, if (keyLen <= 64) keyLen * 8 else keyLen)
+            val factory = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+            val secretKey = factory.generateSecret(spec)
+            android.util.Base64.encodeToString(secretKey.encoded, android.util.Base64.NO_WRAP)
+        } catch (e: Exception) {
+            android.util.Log.e("WebAppInterface", "pbkdf2 error: ${e.message}")
+            ""
+        }
+    }
 }

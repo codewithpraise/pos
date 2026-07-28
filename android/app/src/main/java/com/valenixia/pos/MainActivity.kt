@@ -986,6 +986,9 @@ class MainActivity : AppCompatActivity() {
             override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
                 consoleMessage?.let {
                     val msg = "${it.message()} -- From line ${it.lineNumber()} of ${it.sourceId()}"
+                    if (it.message()?.contains("[UI-DIAGNOSTIC]") == true) {
+                        Log.e("ValenixiaUI", msg)
+                    }
                     when (it.messageLevel()) {
                         ConsoleMessage.MessageLevel.ERROR -> Log.e("ValenixiaJS", msg)
                         ConsoleMessage.MessageLevel.WARNING -> Log.w("ValenixiaJS", msg)
