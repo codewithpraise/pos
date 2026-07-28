@@ -276,17 +276,18 @@ function showUpgradeModal(featureName) {
     }
   });
   document.getElementById("__vx-upgrade-notify").addEventListener("click", async function() {
+    overlay.remove();
     const phone = await showModal({
-      title: "Get Early Access",
-      message: "Enter your WhatsApp number. Early subscribers get 30% off launch pricing.",
+      title: "Fast-Track WhatsApp Activation",
+      message: "Enter your WhatsApp phone number to connect with support (03315133226) for fast-track activation:",
       type: "info",
-      actions: [{ id: "ok", label: "Notify Me", style: "primary" }, { id: "cancel", label: "Skip", style: "secondary" }],
+      actions: [{ id: "ok", label: "Open WhatsApp", style: "primary" }, { id: "cancel", label: "Cancel", style: "secondary" }],
       input: { placeholder: "03001234567", defaultValue: "" }
     });
-    if (phone && phone !== "cancel" && phone !== "ok" && phone.length > 5) {
+    if (phone && phone !== "cancel" && phone !== "ok" && phone.length >= 7) {
       localStorage.setItem("vx_beta_notify_phone", phone);
-      overlay.remove();
-      if (window.showNotificationToast) showNotificationToast("Saved! We will notify you on WhatsApp when plans launch.", null, 4000);
+      window.open(`https://wa.me/923315133226?text=Hi%20Valenixia%20Team!%20My%20WhatsApp%20number%20is%20${encodeURIComponent(phone)}.%20I%20would%20like%20to%20fast-track%20my%20subscription%20activation.`, '_blank');
+      if (window.showNotificationToast) showNotificationToast("Opening WhatsApp chat with support...", "success", 4000);
     }
   });
 }

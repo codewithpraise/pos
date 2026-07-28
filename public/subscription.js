@@ -137,13 +137,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (btnTrial) {
     btnTrial.addEventListener('click', async () => {
       window.__valenixiaTier = 'TRIAL';
+      if (window.parent && window.parent !== window) {
+        window.parent.__valenixiaTier = 'TRIAL';
+      }
       localStorage.setItem('valenixia_override_tier', 'TRIAL');
-      if (window.showNotificationToast) {
-        showNotificationToast('7-Day Free Pro Trial activated! Redirecting to POS...', 'success', 3000);
+      if (window.parent && typeof window.parent.showNotificationToast === 'function') {
+        window.parent.showNotificationToast('✨ 7-Day Free Pro Trial activated! Access unlocked.', 'success', 4000);
+      } else if (window.showNotificationToast) {
+        showNotificationToast('7-Day Free Pro Trial activated!', 'success', 3000);
       }
       setTimeout(() => {
-        window.location.href = 'index.html';
-      }, 800);
+        if (window.self !== window.top && window.parent && typeof window.parent.switchActiveScreen === 'function') {
+          window.parent.switchActiveScreen('checkout');
+        } else {
+          window.location.href = 'index.html';
+        }
+      }, 500);
     });
   }
 });

@@ -2780,13 +2780,22 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
             const posLayout = document.getElementById('pos-app-layout');
 
             // 1. Hide the Setup Wizard
-            if (wizOverlay) wizOverlay.style.display = 'none';
+            if (wizOverlay) {
+              wizOverlay.style.display = 'none';
+              wizOverlay.classList.remove('active');
+            }
             
             // 2. Bring up the PIN pad to unlock the terminal
-            if (lScreen) lScreen.classList.add('active');
+            if (lScreen) {
+              lScreen.style.display = 'flex';
+              lScreen.classList.add('active');
+            }
             
             // 3. Keep the terminal hidden until the PIN is entered
-            if (posLayout) posLayout.style.display = 'none';
+            if (posLayout) {
+              posLayout.style.display = 'none';
+              posLayout.classList.remove('active');
+            }
 
             // Force the layout to reset/re-calculate
             window.dispatchEvent(new Event('resize'));
@@ -6434,15 +6443,28 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
         
         // Hide all lock screens, pairing overlays, and bootstrapping wizards
         const lockScreen = document.getElementById('auth-lock-screen');
-        if (lockScreen) lockScreen.classList.remove('active');
+        if (lockScreen) {
+          lockScreen.classList.remove('active');
+          lockScreen.style.display = 'none';
+        }
         const wizOverlay = document.getElementById('first-boot-wizard');
-        if (wizOverlay) wizOverlay.style.display = 'none';
+        if (wizOverlay) {
+          wizOverlay.classList.remove('active');
+          wizOverlay.style.display = 'none';
+        }
         const pairOverlay = document.getElementById('device-pairing-overlay');
-        if (pairOverlay) pairOverlay.style.display = 'none';
+        if (pairOverlay) {
+          pairOverlay.classList.remove('active');
+          pairOverlay.style.display = 'none';
+        }
 
         const vCfd = document.getElementById('view-cfd'); if (vCfd) vCfd.style.display = 'none';
         const vKds = document.getElementById('view-kds'); if (vKds) vKds.style.display = 'none';
-        const pLayout = document.getElementById('pos-app-layout'); if (pLayout) pLayout.style.display = 'grid';
+        const pLayout = document.getElementById('pos-app-layout');
+        if (pLayout) {
+          pLayout.classList.add('active');
+          pLayout.style.display = '';
+        }
         
         if (wasDevPin) {
           window.__valenixiaTier = 'ENTERPRISE';
