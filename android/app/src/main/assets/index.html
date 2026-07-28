@@ -81,7 +81,7 @@
         // Context check: Is this button in an inactive view or closed modal?
         const parentView = el.closest('.content-view');
         const parentModal = el.closest('.modal-overlay, #auth-lock-screen');
-        const isParentViewInactive = parentView && !parentView.classList.contains('active') && style.display === 'none';
+        const isParentViewInactive = parentView && (!parentView.classList.contains('active') || window.getComputedStyle(parentView).display === 'none');
         const isParentModalClosed = parentModal && (window.getComputedStyle(parentModal).display === 'none' || parentModal.style.display === 'none');
 
         if (isParentViewInactive || isParentModalClosed) {
@@ -121,13 +121,14 @@
           status = 'FAIL';
         }
 
-        // 4. Check Touch Obstruction via elementFromPoint
+        // 4. Check Touch Obstruction via elementFromPoint (ignoring dev diagnostic harness buttons)
         if (isVisible) {
           const centerX = rect.left + rect.width / 2;
           const centerY = rect.top + rect.height / 2;
           if (centerX >= 0 && centerX <= window.innerWidth && centerY >= 0 && centerY <= window.innerHeight) {
             const topEl = document.elementFromPoint(centerX, centerY);
-            if (topEl && topEl !== el && !el.contains(topEl) && !topEl.contains(el)) {
+            const isDiagEl = topEl && (topEl.id === 'diag-copy-btn' || topEl.id === 'diag-toggle-btn' || topEl.id === 'valenixia-live-log' || topEl.id === 'app-boot-loader');
+            if (topEl && !isDiagEl && topEl !== el && !el.contains(topEl) && !topEl.contains(el)) {
               issues.push(`Obstructed by overlay element <${topEl.tagName.toLowerCase()} class="${topEl.className}"> at (${Math.round(centerX)},${Math.round(centerY)})`);
               status = 'FAIL';
             }
@@ -263,13 +264,13 @@
   <!-- Live diagnostic overlay -->
   <div id="valenixia-live-log" style="display:none;position:fixed;top:0;left:0;right:0;bottom:120px;background:rgba(0,0,0,0.92);z-index:99999;overflow-y:auto;padding:8px;font-family:monospace;font-size:11px;color:#ccc;"></div>
 
-  <!-- Copy FAB — positioned to NOT overlap navbar -->
-  <button id="diag-copy-btn" onclick="copyValenixiaLogs()" style="display:none;position:fixed;top:12px;right:12px;z-index:100001;background:#ef4444;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.4);cursor:pointer;">
+  <!-- Copy FAB — positioned at bottom-right above nav bar to avoid topbar/banner overlap -->
+  <button id="diag-copy-btn" onclick="copyValenixiaLogs()" style="display:none;position:fixed;bottom:75px;right:12px;z-index:100001;background:#ef4444;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.4);cursor:pointer;">
     📋 COPY LOGS
   </button>
 
   <!-- Toggle log overlay -->
-  <button id="diag-toggle-btn" onclick="document.getElementById('valenixia-live-log').style.display=document.getElementById('valenixia-live-log').style.display==='none'?'block':'none'" style="display:none;position:fixed;top:12px;right:120px;z-index:100001;background:#27272a;color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;">
+  <button id="diag-toggle-btn" onclick="document.getElementById('valenixia-live-log').style.display=document.getElementById('valenixia-live-log').style.display==='none'?'block':'none'" style="display:none;position:fixed;bottom:75px;right:130px;z-index:100001;background:#27272a;color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;">
     🐞 LOGS
   </button>
 
