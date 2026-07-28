@@ -304,12 +304,12 @@ class MainActivity : AppCompatActivity() {
 
         // PBKDF2-SHA256: mirrors Node.js crypto.pbkdf2 and client-db.js verifyPinClient.
         @JavascriptInterface
-        fun pbkdf2(password: String, saltHexOrBase64: String, iterations: Int, keyLen: Int): String {
+        fun pbkdf2(password: String?, saltHexOrBase64: String?, iterations: Int, keyLen: Int): String {
             if (!isCurrentOriginTrusted()) {
                 Log.w("AndroidPOSBridge", "pbkdf2 call rejected: untrusted origin.")
                 return ""
             }
-            if (password.isEmpty() || saltHexOrBase64.isEmpty()) return ""
+            if (password.isNullOrEmpty() || saltHexOrBase64.isNullOrEmpty()) return ""
             return try {
                 val saltBytes = try {
                     if (saltHexOrBase64.matches(Regex("^[0-9a-fA-F]+$")) && saltHexOrBase64.length % 2 == 0) {
@@ -323,7 +323,9 @@ class MainActivity : AppCompatActivity() {
                     saltHexOrBase64.toByteArray(Charsets.UTF_8)
                 }
 
-                val spec = PBEKeySpec(password.toCharArray(), saltBytes, iterations, keyLen * 8)
+                val keyBitLen = if (keyLen <= 64) keyLen * 8 else keyLen
+                val iter = if (iterations > 0) iterations else 100000
+                val spec = PBEKeySpec(password.toCharArray(), saltBytes, iter, keyBitLen)
                 val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
                 val hash = factory.generateSecret(spec).encoded
                 hash.joinToString("") { "%02x".format(it) }
