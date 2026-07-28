@@ -382,45 +382,60 @@ window.__VALENIXIA_WORKER_CODE = `// ===========================================
 
   // Web Crypto PBKDF2 SHA-256 matching the Node/Java implementations
   async function pbkdf2(password, saltHex, iterations, keyLen) {
-    // Use Native Android Bridge if WebCrypto is blocked by Chromium
-    const nativeBridge = globalScope.AndroidPOS || globalScope.Android;
+    const iter = iterations || 100000;
+    const len = keyLen || 64;
+    const salt = String(saltHex || '');
+    
+    // 1. Primary Strategy: WebCrypto subtle API (Native C++ off-thread derivation, ~2ms)
+    try {
+      const cryptoObj = typeof crypto !== 'undefined' ? crypto : (typeof self !== 'undefined' ? self.crypto : null);
+      if (cryptoObj && cryptoObj.subtle && typeof cryptoObj.subtle.importKey === 'function') {
+        const encoder = new TextEncoder();
+        const baseKey = await cryptoObj.subtle.importKey(
+          'raw',
+          encoder.encode(password),
+          'PBKDF2',
+          false,
+          ['deriveBits']
+        );
+        const saltMatches = salt.match(/.{1,2}/g);
+        const saltBytes = saltMatches ? new Uint8Array(saltMatches.map(byte => parseInt(byte, 16))) : encoder.encode(salt);
+        const derivedBits = await cryptoObj.subtle.deriveBits(
+          {
+            name: 'PBKDF2',
+            salt: saltBytes,
+            iterations: iter,
+            hash: 'SHA-256'
+          },
+          baseKey,
+          len * 8
+        );
+        const derivedBytes = new Uint8Array(derivedBits);
+        return Array.from(derivedBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+      }
+    } catch (e) {
+      // SubtleCrypto failed, fallback below
+    }
+
+    // 2. Secondary Strategy: Native Android Bridge
+    const nativeBridge = typeof globalScope !== 'undefined' ? (globalScope.AndroidPOS || globalScope.Android) : null;
     if (nativeBridge && typeof nativeBridge.pbkdf2 === 'function') {
       try {
-        const res = nativeBridge.pbkdf2(password, saltHex, iterations, keyLen);
-        if (res) return res;
+        const res = nativeBridge.pbkdf2(password, salt, iter, len);
+        if (res && typeof res === 'string') return res;
       } catch (nativeErr) {
-        console.warn("[Crypto] Native AndroidPOS pbkdf2 bridge failed, falling back to WebCrypto:", nativeErr.message);
+        console.warn("[Crypto] Native AndroidPOS pbkdf2 bridge failed:", nativeErr.message);
       }
     }
 
+    // 3. Fallback Strategy: Pure JS PBKDF2 SHA-256
     try {
-      if (!crypto || !crypto.subtle) throw new Error("SubtleCrypto unavailable");
-      const encoder = new TextEncoder();
-      const baseKey = await crypto.subtle.importKey(
-        'raw',
-        encoder.encode(password),
-        'PBKDF2',
-        false,
-        ['deriveBits']
-      );
-      const saltBytes = new Uint8Array(saltHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
-      const derivedBits = await crypto.subtle.deriveBits(
-        {
-          name: 'PBKDF2',
-          salt: saltBytes,
-          iterations: iterations,
-          hash: 'SHA-256'
-        },
-        baseKey,
-        keyLen * 8
-      );
-      const derivedBytes = new Uint8Array(derivedBits);
+      const saltMatches = salt.match(/.{1,2}/g);
+      const saltBytes = saltMatches ? new Uint8Array(saltMatches.map(byte => parseInt(byte, 16))) : new TextEncoder().encode(salt);
+      const derivedBytes = pbkdf2_sha256_js(password, saltBytes, iter, len);
       return Array.from(derivedBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-    } catch (e) {
-      console.warn("SubtleCrypto pbkdf2 unavailable, using JS-native fallback PBKDF2");
-      const saltBytes = new Uint8Array(saltHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
-      const derivedBytes = pbkdf2_sha256_js(password, saltBytes, iterations, keyLen);
-      return Array.from(derivedBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (_) {
+      return '';
     }
   }
   async function verifyPinClient(pin, storedHash) {
