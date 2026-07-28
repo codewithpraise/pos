@@ -260,12 +260,21 @@ function showUpgradeModal(featureName) {
     + "<div style='font-size:10px;font-weight:700;color:#64748b;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em;'>Available Add-Ons</div>"
     + addonRows + "</div>"
     + "<div style='display:flex;flex-direction:column;gap:10px;'>"
-    + "<button id='__vx-upgrade-notify' style='height:44px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:#10b981;font-size:13px;font-weight:700;border-radius:8px;cursor:pointer;font-family:inherit;'>&#x1F4F1; Notify Me When Plans Launch</button>"
-    + "<button id='__vx-upgrade-close' style='height:40px;background:transparent;border:1px solid rgba(255,255,255,0.06);color:#64748b;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;font-family:inherit;'>Continue with Current Plan</button>"
+    + "<button id='__vx-upgrade-vault' style='height:44px;background:linear-gradient(135deg,#00d68f 0%,#10b981 100%);border:none;color:#080810;font-size:13px;font-weight:800;border-radius:8px;cursor:pointer;font-family:inherit;'>💎 Open Subscription & Billing Vault</button>"
+    + "<button id='__vx-upgrade-notify' style='height:40px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:#10b981;font-size:12px;font-weight:700;border-radius:8px;cursor:pointer;font-family:inherit;'>📲 Fast-Track Activation via WhatsApp</button>"
+    + "<button id='__vx-upgrade-close' style='height:36px;background:transparent;border:1px solid rgba(255,255,255,0.06);color:#64748b;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;font-family:inherit;'>Continue with Current Plan</button>"
     + "</div></div>";
 
   document.body.appendChild(overlay);
   document.getElementById("__vx-upgrade-close").addEventListener("click", function() { overlay.remove(); });
+  document.getElementById("__vx-upgrade-vault").addEventListener("click", function() {
+    overlay.remove();
+    if (typeof window.switchActiveScreen === 'function') {
+      window.switchActiveScreen('subscription');
+    } else {
+      window.location.href = 'subscription.html';
+    }
+  });
   document.getElementById("__vx-upgrade-notify").addEventListener("click", async function() {
     const phone = await showModal({
       title: "Get Early Access",

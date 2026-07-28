@@ -30,7 +30,14 @@
           try { return typeof a === 'object' ? JSON.stringify(a) : String(a); }
           catch(e){ return '[unserializable]'; }
         }).join(' ');
-        window.__VALENIXIA_DIAG.push(lvl, 'console', msg, {raw:args});
+        
+        // Error-specific logging filter: Only log errors, warnings, and autotest insights
+        const isErrorOrInsight = lvl === 'error' || lvl === 'warn' || 
+          msg.includes('[AUTOTEST') || msg.includes('CRITICAL') || msg.includes('FATAL') || msg.includes('FAIL');
+        
+        if (isErrorOrInsight) {
+          window.__VALENIXIA_DIAG.push(lvl, 'console', msg, {raw:args});
+        }
         orig(...args);
       };
     });
@@ -58,7 +65,9 @@
       });
       const origPost = w.postMessage.bind(w);
       w.postMessage = function(msg, transfer){
-        window.__VALENIXIA_DIAG.push('debug', 'Worker→SW', (msg && msg.type) || String(msg).slice(0,80), {});
+        if (msg && (msg.type === 'ERROR' || msg.error)) {
+          window.__VALENIXIA_DIAG.push('error', 'Worker→SW', msg.error || msg.type, {});
+        }
         return origPost(msg, transfer);
       };
       return w;
@@ -106,7 +115,7 @@
         }
 
         // 2. Check Touch Target Sizing (Mobile recommended min 36px)
-        if (isVisible && (rect.width < 36 || rect.height < 36)) {
+        if (isVisible && (Math.floor(rect.width) < 36 || Math.floor(rect.height) < 36)) {
           issues.push(`Small touch target (${Math.round(rect.width)}x${Math.round(rect.height)}px < 36px minimum threshold)`);
           if (status !== 'FAIL') status = 'WARN';
         }
@@ -121,13 +130,14 @@
           status = 'FAIL';
         }
 
-        // 4. Check Touch Obstruction via elementFromPoint (ignoring dev diagnostic harness buttons)
+        // 4. Check Touch Obstruction via elementFromPoint (ignoring dev diagnostic harness buttons & live log overlay)
         if (isVisible) {
           const centerX = rect.left + rect.width / 2;
           const centerY = rect.top + rect.height / 2;
           if (centerX >= 0 && centerX <= window.innerWidth && centerY >= 0 && centerY <= window.innerHeight) {
             const topEl = document.elementFromPoint(centerX, centerY);
-            const isDiagEl = topEl && (topEl.id === 'diag-copy-btn' || topEl.id === 'diag-toggle-btn' || topEl.id === 'valenixia-live-log' || topEl.id === 'app-boot-loader');
+            const diagOverlay = topEl && topEl.closest('#valenixia-live-log, #app-boot-loader, #diag-copy-btn, #diag-toggle-btn');
+            const isDiagEl = !!diagOverlay || (topEl && (topEl.id === 'diag-copy-btn' || topEl.id === 'diag-toggle-btn' || topEl.id === 'valenixia-live-log' || topEl.id === 'app-boot-loader'));
             if (topEl && !isDiagEl && topEl !== el && !el.contains(topEl) && !topEl.contains(el)) {
               issues.push(`Obstructed by overlay element <${topEl.tagName.toLowerCase()} class="${topEl.className}"> at (${Math.round(centerX)},${Math.round(centerY)})`);
               status = 'FAIL';
@@ -1979,76 +1989,8 @@
         </section>
 
         <!-- View: Subscription Page -->
-        <section class="content-view" id="view-subscription">
-          <div style="max-width:680px; margin:0 auto; display:flex; flex-direction:column; gap:24px;">
-            <div style="text-align:center;">
-              <span style="background:rgba(255,215,0,0.12); color:#ffd700; border:1px solid rgba(255,215,0,0.3); font-size:10px; font-weight:800; padding:4px 12px; border-radius:20px; text-transform:uppercase; letter-spacing:1px;">Valenixia License Hub</span>
-              <h2 style="margin-top:10px; font-size:24px; font-weight:900; font-family:var(--font-display); color:var(--text-white);">💎 Subscription & Tier Management</h2>
-              <p style="font-size:12px; color:var(--text-gray); margin-top:4px;">Manage your system license, unlock premium modules, and activate pro keys.</p>
-            </div>
-
-            <!-- License Activation Box -->
-            <div style="background:var(--panel-graphite); border:1px solid rgba(0,229,160,0.25); border-radius:16px; padding:20px; box-shadow:0 8px 32px rgba(0,0,0,0.4);">
-              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-                <h3 style="font-size:14px; font-weight:800; color:var(--accent-emerald);">🔑 Activate License Code</h3>
-                <span id="current-tier-badge" style="font-size:10px; font-weight:700; background:rgba(0,229,160,0.15); color:var(--accent-emerald); padding:3px 8px; border-radius:6px;">Current: Standard</span>
-              </div>
-              <div style="display:flex; gap:8px;">
-                <input type="text" id="license-code-input" class="pos-input" placeholder="Enter license key (e.g. VLNX-PRO-2026-X9A)" style="flex-grow:1; font-family:monospace; text-transform:uppercase; letter-spacing:1px;" aria-label="Enter license key">
-                <button class="action-btn action-success" id="btn-activate-license" style="min-width:120px; font-weight:800;" onclick="if(window.LicenseEngine && typeof LicenseEngine.activateKey==='function'){LicenseEngine.activateKey(document.getElementById('license-code-input').value);}else{alert('License Key Saved. Systems ready.');}">Activate Key</button>
-              </div>
-            </div>
-
-            <!-- Pricing Tier Cards Grid -->
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px;">
-              <!-- Starter Card -->
-              <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:20px; display:flex; flex-direction:column; justify-content:space-between; text-align:center;">
-                <div>
-                  <h3 style="color:var(--text-white); font-size:16px; margin-bottom:4px;">Starter</h3>
-                  <p style="font-size:24px; font-weight:900; color:var(--accent-emerald); margin-bottom:12px;">Free</p>
-                  <ul style="list-style:none; padding:0; text-align:left; line-height:2; color:var(--text-gray); font-size:11px;">
-                    <li>✓ Full POS Checkout</li>
-                    <li>✓ Unlimited Inventory</li>
-                    <li>✓ Offline IndexedDB Engine</li>
-                    <li>✓ Basic Receipts</li>
-                  </ul>
-                </div>
-                <button class="action-btn" disabled style="opacity:0.5; width:100%; margin-top:16px; font-size:11px;">Current Active</button>
-              </div>
-
-              <!-- Professional Card -->
-              <div style="background:linear-gradient(145deg, rgba(255,215,0,0.08), rgba(15,15,26,0.9)); border:1px solid rgba(255,215,0,0.3); border-radius:16px; padding:20px; display:flex; flex-direction:column; justify-content:space-between; text-align:center; position:relative; box-shadow:0 8px 24px rgba(255,215,0,0.1);">
-                <span style="position:absolute; top:-10px; right:16px; background:#ffd700; color:#0f0f1a; font-size:9px; font-weight:900; padding:2px 8px; border-radius:10px; text-transform:uppercase;">POPULAR</span>
-                <div>
-                  <h3 style="color:#ffd700; font-size:16px; margin-bottom:4px;">Professional</h3>
-                  <p style="font-size:24px; font-weight:900; color:#ffd700; margin-bottom:12px;">$9 <span style="font-size:12px; font-weight:500; color:var(--text-gray);">/ mo</span></p>
-                  <ul style="list-style:none; padding:0; text-align:left; line-height:2; color:var(--text-white); font-size:11px;">
-                    <li>✓ Everything in Starter</li>
-                    <li>✓ Advanced Analytics</li>
-                    <li>✓ Supplier &amp; PO Ledger</li>
-                    <li>✓ Customer Credit Book</li>
-                    <li>✓ FBR Fiscal E-Invoicing</li>
-                  </ul>
-                </div>
-                <button class="action-btn action-success" style="width:100%; margin-top:16px; font-weight:800; font-size:11px; background:linear-gradient(135deg, #ffd700, #c4a832); color:#060d0d;" onclick="alert('Contact support or enter your Pro License Key above to upgrade instantly.')">Unlock Professional</button>
-              </div>
-
-              <!-- Enterprise Card -->
-              <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:20px; display:flex; flex-direction:column; justify-content:space-between; text-align:center;">
-                <div>
-                  <h3 style="color:#60a5fa; font-size:16px; margin-bottom:4px;">Enterprise</h3>
-                  <p style="font-size:24px; font-weight:900; color:#60a5fa; margin-bottom:12px;">$29 <span style="font-size:12px; font-weight:500; color:var(--text-gray);">/ mo</span></p>
-                  <ul style="list-style:none; padding:0; text-align:left; line-height:2; color:var(--text-gray); font-size:11px;">
-                    <li>✓ Everything in Pro</li>
-                    <li>✓ Multi-Terminal CRDT Sync</li>
-                    <li>✓ Custom SQL Migrations</li>
-                    <li>✓ Multi-Branch Inventory</li>
-                  </ul>
-                </div>
-                <button class="action-btn" style="width:100%; margin-top:16px; font-size:11px;" onclick="alert('Contact Valenixia Enterprise sales for multi-branch deployment keys.')">Contact Sales</button>
-              </div>
-            </div>
-          </div>
+        <section class="content-view" id="view-subscription" style="padding: 0; height: calc(100vh - 64px); overflow: hidden;">
+          <iframe id="subscription-iframe" src="subscription.html" style="width: 100%; height: 100%; border: none; background: var(--bg-obsidian, #080810);" title="Subscription & Billing Vault"></iframe>
         </section>
 
         <!-- View 11: Suppliers (Distributors & Purchase Ledger) -->
@@ -2179,11 +2121,11 @@
         </div>
         <div class="settings-row">
           <label for="form-product-price">Retail Price (in cents):</label>
-          <input type="number" id="form-product-price" class="pos-input" placeholder="e.g. 350 for $3.50" aria-label="e.g. 350 for $3.50">
+          <input type="number" id="form-product-price" class="pos-input" placeholder="e.g. 35000 for Rs. 350.00" aria-label="e.g. 35000 for Rs. 350.00">
         </div>
         <div class="settings-row">
           <label for="form-product-cost">Supplier Cost (in cents):</label>
-          <input type="number" id="form-product-cost" class="pos-input" placeholder="e.g. 100 for $1.00" aria-label="e.g. 100 for $1.00">
+          <input type="number" id="form-product-cost" class="pos-input" placeholder="e.g. 10000 for Rs. 100.00" aria-label="e.g. 10000 for Rs. 100.00">
         </div>
         <div class="settings-row">
           <label for="form-product-stock">Stock Level inventory count:</label>
@@ -2481,7 +2423,7 @@
       </div>
       <div class="modal-body" style="text-align: center; display: flex; flex-direction: column; align-items: center; gap: 16px;">
         <span style="font-size: 12px; color: var(--text-gray);">Please scan the QR code to send payment of:</span>
-        <span style="font-size: 28px; font-weight: 800; color: var(--accent-emerald);" id="qr-pay-amount-label">$0.00</span>
+        <span style="font-size: 28px; font-weight: 800; color: var(--accent-emerald);" id="qr-pay-amount-label">Rs. 0.00</span>
         
         <!-- Beautiful QR Display Canvas Container -->
         <div id="qr-pay-canvas-container" style="width: 200px; height: 200px; padding: 12px; background: white; border-radius: 4px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px rgba(0,0,0,0.4);"></div>

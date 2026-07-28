@@ -326,3 +326,43 @@ window.runWhenDOMReady = function(fn) {
     document.addEventListener('DOMContentLoaded', fn);
   }
 };
+
+// Delegated password & passcode eye toggle for bootstrap & setup wizard phase
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.password-toggle-btn, .btn-toggle-password, .eye-toggle, [data-action="toggle-password"]');
+  if (!btn) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  const container = btn.closest('.password-wrapper') || btn.parentElement;
+  const targetInput = container ? container.querySelector('input') : (btn.dataset && btn.dataset.target ? document.getElementById(btn.dataset.target) : null);
+
+  if (!targetInput) return;
+
+  const isTypePassword = targetInput.type === 'password';
+  const isSecuredCss = !targetInput.classList.contains('revealed') && 
+    (targetInput.classList.contains('secure-input') || window.getComputedStyle(targetInput).webkitTextSecurity === 'disc');
+  const isCurrentlyMasked = isTypePassword || isSecuredCss;
+
+  if (isCurrentlyMasked) {
+    targetInput.type = 'text';
+    targetInput.classList.add('revealed');
+    targetInput.style.webkitTextSecurity = 'none';
+    btn.setAttribute('aria-label', 'Hide password');
+    btn.classList.add('active');
+  } else {
+    targetInput.type = 'password';
+    targetInput.classList.remove('revealed');
+    targetInput.style.webkitTextSecurity = 'disc';
+    btn.setAttribute('aria-label', 'Show password');
+    btn.classList.remove('active');
+  }
+
+  const svgEye = btn.querySelector('.svg-eye');
+  const svgEyeOff = btn.querySelector('.svg-eye-off');
+  if (svgEye && svgEyeOff) {
+    svgEye.style.display = isCurrentlyMasked ? 'none' : 'block';
+    svgEyeOff.style.display = isCurrentlyMasked ? 'block' : 'none';
+  }
+}, true);

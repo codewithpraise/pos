@@ -163,7 +163,7 @@
 
   <!-- Navigation Header -->
   <header class="sub-header">
-    <a href="index.html" class="sub-brand">
+    <a href="index.html" class="sub-brand" onclick="if(window.self !== window.top && window.parent && typeof window.parent.switchActiveScreen==='function'){ window.parent.switchActiveScreen('checkout'); return false; }">
       <div class="sub-brand-logo">V</div>
       <div>
         <div class="sub-brand-title">Valenixia POS</div>
@@ -175,7 +175,7 @@
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         <span>Download Apps</span>
       </a>
-      <a href="index.html" class="btn-back-pos">
+      <a href="index.html" class="btn-back-pos" onclick="if(window.self !== window.top && window.parent && typeof window.parent.switchActiveScreen==='function'){ window.parent.switchActiveScreen('checkout'); return false; }">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
         <span>Return to Register</span>
       </a>
