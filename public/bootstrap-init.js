@@ -373,3 +373,31 @@ document.addEventListener('click', function(e) {
     svgEyeOff.style.display = isCurrentlyMasked ? 'block' : 'none';
   }
 }, true);
+
+// Card expansion modal pop-up handler for settings and data cards
+document.addEventListener('click', function(e) {
+  const closeBtn = e.target.closest('#btn-close-expand-modal');
+  if (closeBtn) {
+    const modal = document.getElementById('component-expand-modal');
+    if (modal) modal.style.display = 'none';
+    return;
+  }
+
+  const card = e.target.closest('.settings-section, .dm-card, .chart-container-card');
+  if (!card) return;
+
+  const isInteractive = e.target.closest('input, select, button, a, label, form, svg, .btn-toggle-password');
+  if (isInteractive) return;
+
+  const titleEl = card.querySelector('h3, h4, .title');
+  const titleText = titleEl ? titleEl.textContent : 'Component Details';
+  const modal = document.getElementById('component-expand-modal');
+  const modalTitle = document.getElementById('expand-modal-title');
+  const modalContent = document.getElementById('expand-modal-content');
+
+  if (modal && modalTitle && modalContent) {
+    modalTitle.textContent = titleText;
+    modalContent.innerHTML = card.innerHTML;
+    modal.style.display = 'flex';
+  }
+});

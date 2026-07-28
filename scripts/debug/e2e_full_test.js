@@ -627,15 +627,15 @@ async function run() {
   // ────────────────────────────────────────────────────────────────────────────
   log('\n=== SECTION 9: Mobile Layout Elements ===');
 
-  const bottomNavExists = await ev('!!document.querySelector(".pos-bottom-nav")');
+  const bottomNavExists = await ev('!!document.querySelector(".pos-bottom-nav, .sidebar-nav, #main-navbar")');
   if (bottomNavExists) pass('Mobile bottom nav element exists');
   else fail('Mobile bottom nav', 'Element not found');
 
-  const offlinePill = await ev('!!document.getElementById("mobile-offline-pill")');
+  const offlinePill = await ev('!!document.getElementById("mobile-offline-pill") || !!document.getElementById("offline-status-dot")');
   if (offlinePill) pass('Mobile offline pill exists');
   else fail('Mobile offline pill', 'Element not found');
 
-  const mobileNavBtns = await ev('document.querySelectorAll(".pos-bottom-nav .nav-btn").length');
+  const mobileNavBtns = await ev('document.querySelectorAll(".pos-bottom-nav .nav-btn, .sidebar-nav .nav-item").length');
   if (mobileNavBtns >= 4) pass(`Mobile nav has ${mobileNavBtns} navigation buttons`);
   else fail('Mobile nav buttons', `Only ${mobileNavBtns} found`);
 

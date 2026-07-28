@@ -6903,7 +6903,13 @@ setHtml(overlay, `
       }
       if (txt) txt.textContent = 'ONLINE';
       if (pill) pill.classList.remove('active');
-      if (banner) banner.style.display = 'none';
+      if (banner) {
+        banner.style.opacity = '0';
+        banner.style.display = 'none';
+      }
+      const dot = document.getElementById('offline-status-dot');
+      if (dot) dot.style.display = 'none';
+      if (window.__offlineAppBannerTimeout) clearTimeout(window.__offlineAppBannerTimeout);
 
       // Re-enable server-dependent features
       const btnSwitchStore = document.getElementById('btn-switch-store-context');
@@ -6934,8 +6940,26 @@ setHtml(overlay, `
         badge.title = 'Sync Status: Offline';
       }
       if (txt) txt.textContent = 'OFFLINE';
-      if (pill) pill.classList.add('active');
-      if (banner) banner.style.display = 'flex';
+      if (pill) pill.classList.remove('active');
+
+      const dot = document.getElementById('offline-status-dot');
+      if (dot) {
+        dot.style.display = 'block';
+        dot.onclick = () => updateNetworkBadge(false);
+      }
+
+      if (window.__offlineAppBannerTimeout) clearTimeout(window.__offlineAppBannerTimeout);
+      if (banner) {
+        banner.style.display = 'flex';
+        banner.style.opacity = '1';
+        banner.style.transition = 'opacity 0.5s ease';
+        window.__offlineAppBannerTimeout = setTimeout(() => {
+          if (banner) {
+            banner.style.opacity = '0';
+            setTimeout(() => { if (banner) banner.style.display = 'none'; }, 500);
+          }
+        }, 2000);
+      }
 
       // Disable server-dependent features
       const btnSwitchStore = document.getElementById('btn-switch-store-context');

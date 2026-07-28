@@ -10,18 +10,40 @@
 export function updateOfflineBanner(isOnline) {
   const banner = document.getElementById('offline-banner');
   const pill   = document.getElementById('mobile-offline-pill');
+  const dot    = document.getElementById('offline-status-dot');
   const body   = document.body;
 
+  if (window.__offlineBannerTimeout) clearTimeout(window.__offlineBannerTimeout);
+
   if (!isOnline) {
-    if (banner) banner.style.display = 'flex';
-    if (pill)   pill.style.display   = 'flex';
-    body.classList.add('is-offline');
+    if (dot) dot.style.display = 'block';
+    if (banner) {
+      banner.style.display = 'flex';
+      banner.style.opacity = '1';
+      banner.style.transition = 'opacity 0.5s ease';
+    }
+    if (pill) pill.style.display = 'none';
+
+    // Show for 2 seconds, then fade out and leave yellow status dot
+    window.__offlineBannerTimeout = setTimeout(() => {
+      if (banner) {
+        banner.style.opacity = '0';
+        setTimeout(() => {
+          if (banner) banner.style.display = 'none';
+        }, 500);
+      }
+    }, 2000);
+
     if (typeof window.announceToScreenReader === 'function') {
       window.announceToScreenReader('You are offline. Sales are being saved locally.');
     }
   } else {
-    if (banner) banner.style.display = 'none';
-    if (pill)   pill.style.display   = 'none';
+    if (banner) {
+      banner.style.opacity = '0';
+      banner.style.display = 'none';
+    }
+    if (pill) pill.style.display = 'none';
+    if (dot)  dot.style.display  = 'none';
     body.classList.remove('is-offline');
     if (typeof window.announceToScreenReader === 'function') {
       window.announceToScreenReader('Connection restored. Syncing your data.');
