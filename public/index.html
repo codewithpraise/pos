@@ -68,7 +68,7 @@
       const selectors = 'button, .btn, a[role="button"], input[type="button"], input[type="submit"], [data-screen], [data-view], .nav-item, .icon-btn, .pin-key';
       const elements = Array.from(document.querySelectorAll(selectors));
       const auditResults = [];
-      let totalPassed = 0, totalWarnings = 0, totalFailed = 0;
+      let activePassed = 0, activeWarnings = 0, activeFailed = 0, inactiveCount = 0;
 
       elements.forEach((el, index) => {
         const id = el.id || `btn_${index}`;
@@ -78,10 +78,30 @@
         const issues = [];
         let status = 'PASS';
 
-        // 1. Check DOM Visibility
+        // Context check: Is this button in an inactive view or closed modal?
+        const parentView = el.closest('.content-view');
+        const parentModal = el.closest('.modal-overlay, #auth-lock-screen');
+        const isParentViewInactive = parentView && !parentView.classList.contains('active') && style.display === 'none';
+        const isParentModalClosed = parentModal && (window.getComputedStyle(parentModal).display === 'none' || parentModal.style.display === 'none');
+
+        if (isParentViewInactive || isParentModalClosed) {
+          inactiveCount++;
+          auditResults.push({
+            id,
+            text: text || '<empty>',
+            tag: el.tagName.toLowerCase(),
+            class: el.className,
+            status: isParentModalClosed ? 'MODAL_CLOSED' : 'INACTIVE_SCREEN',
+            rect: '0x0 (hidden view)',
+            diagnosis: isParentModalClosed ? 'Modal is currently closed (expected hidden)' : `Screen '${parentView ? parentView.id : 'unselected'}' is currently inactive`
+          });
+          return;
+        }
+
+        // 1. Check DOM Visibility for active screen buttons
         const isVisible = rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
         if (!isVisible) {
-          issues.push('Hidden in DOM (display:none, visibility:hidden, opacity:0, or 0x0 rect)');
+          issues.push('Hidden in active DOM (display:none, visibility:hidden, opacity:0, or 0x0 rect)');
           status = 'FAIL';
         }
 
@@ -107,7 +127,7 @@
           const centerY = rect.top + rect.height / 2;
           if (centerX >= 0 && centerX <= window.innerWidth && centerY >= 0 && centerY <= window.innerHeight) {
             const topEl = document.elementFromPoint(centerX, centerY);
-            if (topEl && topEl !== el && !el.contains(topEl)) {
+            if (topEl && topEl !== el && !el.contains(topEl) && !topEl.contains(el)) {
               issues.push(`Obstructed by overlay element <${topEl.tagName.toLowerCase()} class="${topEl.className}"> at (${Math.round(centerX)},${Math.round(centerY)})`);
               status = 'FAIL';
             }
@@ -124,9 +144,9 @@
           }
         }
 
-        if (status === 'PASS') totalPassed++;
-        else if (status === 'WARN') totalWarnings++;
-        else totalFailed++;
+        if (status === 'PASS') activePassed++;
+        else if (status === 'WARN') activeWarnings++;
+        else activeFailed++;
 
         auditResults.push({
           id,
@@ -135,16 +155,18 @@
           class: el.className,
           status,
           rect: `${Math.round(rect.width)}x${Math.round(rect.height)} @ (${Math.round(rect.left)},${Math.round(rect.top)})`,
-          diagnosis: issues.length ? issues.join(' | ') : 'Working properly'
+          diagnosis: issues.length ? issues.join(' | ') : 'Working properly & interactive'
         });
       });
 
       const auditSummary = {
         timestamp: new Date().toISOString(),
-        totalTested: elements.length,
-        passed: totalPassed,
-        warnings: totalWarnings,
-        failed: totalFailed,
+        totalElements: elements.length,
+        activeScreenTested: activePassed + activeWarnings + activeFailed,
+        activePassed,
+        activeWarnings,
+        activeFailed,
+        inactiveScreenElements: inactiveCount,
         results: auditResults
       };
 
@@ -153,12 +175,12 @@
           t: Date.now(),
           lvl: 'log',
           src: 'ButtonAudit',
-          msg: `[ButtonAudit] ${elements.length} tested (${totalPassed} PASS, ${totalWarnings} WARN, ${totalFailed} FAIL)`,
+          msg: `[ButtonAudit] ${elements.length} scanned (${activePassed} PASS, ${activeWarnings} WARN, ${activeFailed} FAIL, ${inactiveCount} INACTIVE)`,
           meta: auditSummary
         });
       }
 
-      console.log(`[ButtonAudit] Complete. ${elements.length} tested (${totalPassed} PASS, ${totalWarnings} WARN, ${totalFailed} FAIL)`, auditSummary);
+      console.log(`[ButtonAudit] Complete. Scanned: ${elements.length} | Active PASS: ${activePassed} | Active WARN: ${activeWarnings} | Active FAIL: ${activeFailed} | Inactive: ${inactiveCount}`, auditSummary);
       return auditSummary;
     };
 
@@ -284,7 +306,7 @@
   <div class="offline-banner" id="offline-banner" style="display:none;" role="alert" aria-live="assertive" aria-label="Offline mode active">
     <span class="offline-dot" aria-hidden="true"></span>
     <span>⚡ You're offline &mdash; Sales are saved locally and will sync when reconnected</span>
-    <button type="button" id="btn-close-offline-banner" aria-label="Dismiss offline banner" style="background:none; border:none; color:inherit; font-size:18px; cursor:pointer; margin-left:auto; font-weight:bold; min-height:unset; min-width:unset; padding:0 8px; line-height:1;">&times;</button>
+    <button type="button" id="btn-close-offline-banner" aria-label="Dismiss offline banner" style="background:none; border:none; color:inherit; font-size:20px; cursor:pointer; margin-left:auto; font-weight:bold; min-height:44px; min-width:44px; display:inline-flex; align-items:center; justify-content:center; padding:8px; line-height:1;">&times;</button>
   </div>
 
   <!-- ARIA Live Region for screen-reader announcements -->
