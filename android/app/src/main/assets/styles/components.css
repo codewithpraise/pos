@@ -5067,14 +5067,22 @@ table.report-table * {
 }
 
 /* ===== UNIVERSAL CENTERED POPUP MODALS & FORMS ===== */
-.modal-overlay,
-.pos-modal-backdrop,
-.auth-overlay {
+.modal-overlay.active,
+.pos-modal-backdrop.active,
+.auth-overlay.active {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   padding: 16px !important;
   box-sizing: border-box !important;
+}
+
+.modal-overlay,
+.pos-modal-backdrop,
+.auth-overlay {
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .modal-card,
