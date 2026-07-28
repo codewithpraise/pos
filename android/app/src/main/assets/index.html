@@ -2993,6 +2993,82 @@
       </div>
     </div>
   </div>
+  <!-- DIALOG MODAL: CREATE CUSTOMER PROFILE -->
+  <div class="modal-overlay" id="modal-create-customer" style="display: none; z-index: 10500;">
+    <div class="modal-card" style="max-width: 500px; width: 92%;">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0; color: var(--text-white);">Create Customer Profile</h3>
+        <button type="button" class="btn-close-modal" id="btn-close-customer-modal" style="background: none; border: none; color: var(--text-white); font-size: 24px; cursor: pointer;">&times;</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px; margin-top: 16px;">
+        <div class="wiz-field-group">
+          <label class="wiz-label" for="form-customer-name" style="display: block; margin-bottom: 6px; font-weight: 600;">Customer Full Name *</label>
+          <input type="text" id="form-customer-name" class="pos-input" placeholder="e.g. Soban Ali" required aria-label="Customer Full Name" style="width: 100%; min-height: 44px;">
+        </div>
+        <div class="wiz-field-group">
+          <label class="wiz-label" for="form-customer-phone" style="display: block; margin-bottom: 6px; font-weight: 600;">Phone Number *</label>
+          <input type="tel" id="form-customer-phone" class="pos-input" placeholder="e.g. 03315133226" required aria-label="Phone Number" style="width: 100%; min-height: 44px;">
+        </div>
+        <div class="wiz-field-group">
+          <label class="wiz-label" for="form-customer-email" style="display: block; margin-bottom: 6px; font-weight: 600;">Email Address</label>
+          <input type="email" id="form-customer-email" class="pos-input" placeholder="e.g. customer@example.com" aria-label="Email Address" style="width: 100%; min-height: 44px;">
+        </div>
+        <div class="wiz-field-group">
+          <label class="wiz-label" for="form-customer-address" style="display: block; margin-bottom: 6px; font-weight: 600;">Address / Location</label>
+          <input type="text" id="form-customer-address" class="pos-input" placeholder="e.g. Lahore, Pakistan" aria-label="Address" style="width: 100%; min-height: 44px;">
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; gap: 12px; margin-top: 20px; justify-content: flex-end;">
+        <button type="button" class="action-btn" id="btn-cancel-customer-modal" style="padding: 10px 20px;">Cancel</button>
+        <button type="button" class="action-btn action-success" id="btn-submit-customer-modal" style="padding: 10px 20px;">Save Profile</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIALOG MODAL: ADD PRODUCT TO CATALOG -->
+  <div class="modal-overlay" id="modal-create-product" style="display: none; z-index: 10500;">
+    <div class="modal-card" style="max-width: 520px; width: 92%;">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0; color: var(--text-white);">Add New Product to Inventory</h3>
+        <button type="button" class="btn-close-modal" id="btn-close-product-modal" style="background: none; border: none; color: var(--text-white); font-size: 24px; cursor: pointer;">&times;</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px; margin-top: 16px;">
+        <div class="wiz-field-group">
+          <label class="wiz-label" for="form-product-sku" style="display: block; margin-bottom: 6px; font-weight: 600;">SKU Code / Barcode *</label>
+          <input type="text" id="form-product-sku" class="pos-input" placeholder="e.g. SKU-1001 or scan barcode" required aria-label="SKU Code" style="width: 100%; min-height: 44px;">
+        </div>
+        <div class="wiz-field-group">
+          <label class="wiz-label" for="form-product-name" style="display: block; margin-bottom: 6px; font-weight: 600;">Product Display Name *</label>
+          <input type="text" id="form-product-name" class="pos-input" placeholder="e.g. Mineral Water 1.5L" required aria-label="Product Display Name" style="width: 100%; min-height: 44px;">
+        </div>
+        <div style="display: flex; gap: 12px;">
+          <div class="wiz-field-group" style="flex: 1;">
+            <label class="wiz-label" for="form-product-price" style="display: block; margin-bottom: 6px; font-weight: 600;">Retail Price (PKR) *</label>
+            <input type="number" id="form-product-price" class="pos-input" placeholder="0.00" step="0.01" required aria-label="Retail Price" style="width: 100%; min-height: 44px;">
+          </div>
+          <div class="wiz-field-group" style="flex: 1;">
+            <label class="wiz-label" for="form-product-stock" style="display: block; margin-bottom: 6px; font-weight: 600;">Initial Stock Qty *</label>
+            <input type="number" id="form-product-stock" class="pos-input" placeholder="0" required aria-label="Initial Stock Qty" style="width: 100%; min-height: 44px;">
+          </div>
+        </div>
+        <div style="display: flex; gap: 12px;">
+          <div class="wiz-field-group" style="flex: 1;">
+            <label class="wiz-label" for="form-product-category" style="display: block; margin-bottom: 6px; font-weight: 600;">Category *</label>
+            <input type="text" id="form-product-category" class="pos-input" placeholder="e.g. Drinks" required aria-label="Category" style="width: 100%; min-height: 44px;">
+          </div>
+          <div class="wiz-field-group" style="flex: 1;">
+            <label class="wiz-label" for="form-product-emoji" style="display: block; margin-bottom: 6px; font-weight: 600;">Icon Emoji</label>
+            <input type="text" id="form-product-emoji" class="pos-input" placeholder="e.g. 🥤" maxlength="4" aria-label="Icon Emoji" style="width: 100%; min-height: 44px;">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; gap: 12px; margin-top: 20px; justify-content: flex-end;">
+        <button type="button" class="action-btn" id="btn-cancel-product-modal" style="padding: 10px 20px;">Cancel</button>
+        <button type="button" class="action-btn action-success" id="btn-submit-product-modal" style="padding: 10px 20px;">Save Product</button>
+      </div>
+    </div>
+  </div>
+
   <!-- MOBILE SCANNER FAB — shown on checkout screen (mobile only), controlled by app.js -->
   <button
     id="btn-mobile-scanner-fab"
@@ -3001,16 +3077,7 @@
     style="display:none; position:fixed; bottom:80px; right:16px; width:56px; height:56px; border-radius:50%; background:var(--accent-emerald,#10b981); border:none; z-index:1000; cursor:pointer; touch-action:manipulation; align-items:center; justify-content:center; box-shadow:0 4px 16px rgba(16,185,129,0.4); transition:transform 0.15s, box-shadow 0.15s;"
     onmouseenter="this.style.transform='scale(1.08)'"
     onmouseleave="this.style.transform='scale(1)'"
-  >
-    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-  <!-- EXPANDABLE COMPONENT POPUP MODAL -->
-  <div class="modal-overlay" id="component-expand-modal" style="display: none; z-index: 11000;" role="dialog" aria-modal="true">
-    <div class="modal-card" style="max-width: 600px; width: 90%; max-height: 85vh; overflow-y: auto; position: relative; padding: 24px; background: var(--panel-slate, #0f172a); border: 1px solid var(--border-titanium); border-radius: 16px;">
-      <button type="button" class="btn-close-modal" id="btn-close-expand-modal" aria-label="Close modal" style="position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.1); border: none; color: var(--text-white); font-size: 20px; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold;">&times;</button>
-      <div id="expand-modal-title" style="font-size: 18px; font-weight: 800; color: var(--accent-emerald); margin-bottom: 12px; padding-right: 40px;">Card Details</div>
-      <div id="expand-modal-content" style="font-size: 13px; color: var(--text-white); line-height: 1.6;"></div>
-    </div>
-  </div>
+  </button>
   <button id="diag-fab" onclick="if(window.copyDiagnostics)window.copyDiagnostics();" title="Copy Diagnostics" style="display:none;" aria-label="Copy Diagnostics">
     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
   </button>

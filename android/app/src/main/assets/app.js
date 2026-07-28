@@ -2760,9 +2760,25 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
               window.__bootstrapTimeoutId = null;
             }
             console.log('[Worker] Database initialization safely completed.');
+
+            const wizOverlay  = document.getElementById('first-boot-wizard');
+            const lScreen     = document.getElementById('auth-lock-screen');
+            const posLayout   = document.getElementById('pos-app-layout');
+            if (wizOverlay) {
+              wizOverlay.style.display = 'none';
+              wizOverlay.classList.remove('active');
+            }
+            if (lScreen) {
+              lScreen.style.display = 'flex';
+              lScreen.classList.add('active');
+            }
+            if (posLayout) {
+              posLayout.style.display = 'none';
+              posLayout.classList.remove('active');
+            }
             
             if (typeof showNotificationToast === 'function') {
-                showNotificationToast('Terminal Ready. Please enter your PIN.');
+                showNotificationToast('Terminal Ready. Please enter your PIN.', 'success', 3000);
             }
             if (typeof playAudioSignal === 'function') {
                 playAudioSignal('success');
@@ -2773,30 +2789,6 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
             syncWorker.postMessage({ type: 'GET_CATALOG' });
             syncWorker.postMessage({ type: 'GET_EMPLOYEES' });
             syncWorker.postMessage({ type: 'GET_CUSTOMERS' });
-
-            // CRITICAL FIX: Do NOT reload the WebView. Transition the DOM natively.
-            const wizOverlay = document.getElementById('first-boot-wizard');
-            const lScreen = document.getElementById('auth-lock-screen');
-            const posLayout = document.getElementById('pos-app-layout');
-
-            // 1. Hide the Setup Wizard
-            if (wizOverlay) {
-              wizOverlay.style.display = 'none';
-              wizOverlay.classList.remove('active');
-            }
-            
-            // 2. Bring up the PIN pad to unlock the terminal
-            if (lScreen) {
-              lScreen.style.display = 'flex';
-              lScreen.classList.add('active');
-            }
-            
-            // 3. Keep the terminal hidden until the PIN is entered
-            if (posLayout) {
-              posLayout.style.display = 'none';
-              posLayout.classList.remove('active');
-            }
-
             // Force the layout to reset/re-calculate
             window.dispatchEvent(new Event('resize'));
             break;
@@ -3332,6 +3324,124 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
       const banner = document.getElementById('offline-banner');
       if (banner) banner.style.display = 'none';
       document.body.classList.remove('is-offline');
+    });
+
+    // Customer profile creation modal handlers
+    document.getElementById('btn-customers-create')?.addEventListener('click', () => {
+      const modal = document.getElementById('modal-create-customer');
+      if (modal) {
+        modal.style.display = 'flex';
+        modal.classList.add('active');
+      }
+    });
+
+    const closeCustModal = () => {
+      const modal = document.getElementById('modal-create-customer');
+      if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('active');
+      }
+    };
+    document.getElementById('btn-close-customer-modal')?.addEventListener('click', closeCustModal);
+    document.getElementById('btn-cancel-customer-modal')?.addEventListener('click', closeCustModal);
+
+    document.getElementById('btn-submit-customer-modal')?.addEventListener('click', async () => {
+      const name = document.getElementById('form-customer-name')?.value.trim();
+      const phone = document.getElementById('form-customer-phone')?.value.trim();
+      const email = document.getElementById('form-customer-email')?.value.trim() || '';
+      const address = document.getElementById('form-customer-address')?.value.trim() || '';
+
+      if (!name || !phone) {
+        if (typeof showModal === 'function') {
+          showModal({ title: 'Validation Error', message: 'Customer name and phone number are required.', type: 'info' });
+        }
+        return;
+      }
+
+      const newCustomer = {
+        id: 'CUST_' + Date.now(),
+        name,
+        phone,
+        email,
+        address,
+        total_spent: 0,
+        visit_count: 0,
+        loyalty_points: 0,
+        updated_at: Date.now()
+      };
+
+      try {
+        await ValenixiaDB.put('customers', newCustomer);
+        if (!state.customers) state.customers = [];
+        state.customers.unshift(newCustomer);
+        if (typeof renderCustomersScreen === 'function') renderCustomersScreen();
+        if (typeof showNotificationToast === 'function') {
+          showNotificationToast(`✓ Customer profile "${name}" created!`, 'success', 3000);
+        }
+        closeCustModal();
+      } catch (err) {
+        console.error('[App] Failed to save customer profile:', err);
+      }
+    });
+
+    // Product creation modal handlers
+    document.getElementById('btn-catalog-create-product')?.addEventListener('click', () => {
+      const modal = document.getElementById('modal-create-product');
+      if (modal) {
+        modal.style.display = 'flex';
+        modal.classList.add('active');
+      }
+    });
+
+    const closeProdModal = () => {
+      const modal = document.getElementById('modal-create-product');
+      if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('active');
+      }
+    };
+    document.getElementById('btn-close-product-modal')?.addEventListener('click', closeProdModal);
+    document.getElementById('btn-cancel-product-modal')?.addEventListener('click', closeProdModal);
+
+    document.getElementById('btn-submit-product-modal')?.addEventListener('click', async () => {
+      const sku = document.getElementById('form-product-sku')?.value.trim();
+      const name = document.getElementById('form-product-name')?.value.trim();
+      const price = parseFloat(document.getElementById('form-product-price')?.value) || 0;
+      const stock = parseInt(document.getElementById('form-product-stock')?.value) || 0;
+      const category = document.getElementById('form-product-category')?.value.trim() || 'General';
+      const emoji = document.getElementById('form-product-emoji')?.value.trim() || '📦';
+
+      if (!sku || !name || price <= 0) {
+        if (typeof showModal === 'function') {
+          showModal({ title: 'Validation Error', message: 'Product SKU, Name, and valid Retail Price are required.', type: 'info' });
+        }
+        return;
+      }
+
+      const newProd = {
+        id: 'PROD_' + Date.now(),
+        sku,
+        name,
+        price,
+        stock_qty: stock,
+        category_name: category,
+        emoji,
+        updated_at: Date.now()
+      };
+
+      try {
+        await ValenixiaDB.put('inventory_catalog', newProd);
+        if (!state.catalog) state.catalog = [];
+        state.catalog.unshift(newProd);
+        if (typeof renderCatalogScreen === 'function') renderCatalogScreen();
+        if (typeof renderQuickCatalog === 'function') renderQuickCatalog();
+        if (typeof showNotificationToast === 'function') {
+          showNotificationToast(`✓ Product "${name}" added to inventory!`, 'success', 3000);
+        }
+        closeProdModal();
+      } catch (err) {
+        console.error('[App] Failed to save product:', err);
+      }
     });
 
 // ----------------------------------------------------------------------------

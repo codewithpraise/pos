@@ -5343,9 +5343,100 @@ body.has-top-banner .pos-content-pane {
   padding-top: 48px !important;
 }
 
-.offline-banner {
-  z-index: 10000 !important;
-  height: 44px !important;
+/* ===== IMMACULATE CENTERED FORM MODALS & LAYOUT CONTAINMENT ===== */
+.modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(0, 0, 0, 0.78) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  z-index: 10500 !important;
+  display: none;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.modal-overlay.active,
+.modal-overlay[style*="display: flex"] {
+  display: flex !important;
+}
+
+.modal-card {
+  width: 92% !important;
+  max-width: 540px !important;
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
+  padding: 24px !important;
+  border-radius: 16px !important;
+  background: var(--panel-slate, #0f172a) !important;
+  border: 1px solid var(--border-titanium, rgba(255,255,255,0.12)) !important;
+  margin: auto !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6) !important;
+}
+
+.modal-body {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.modal-body input,
+.modal-body select,
+.modal-body textarea {
+  width: 100% !important;
+  display: block !important;
+  min-height: 44px !important;
+  box-sizing: border-box !important;
+}
+
+/* Page View Layout ocupar 100% screen width without squishing */
+.pos-app-layout,
+.pos-main-container,
+.pos-content-pane,
+.content-view {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Container overflow containment */
+.settings-section,
+.settings-row,
+.dm-card,
+.catalog-table-wrapper,
+.chart-container-card {
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/* Kamai & Summary Sales Histogram Chart Scrollable */
+#analytics-histogram-bars,
+.bar-chart-visual {
+  display: flex !important;
+  align-items: flex-end !important;
+  gap: 12px !important;
+  min-width: 650px !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  padding-bottom: 8px !important;
+}
+
+/* Phone Camera Notch Safe-Area Offset */
+.pos-topbar {
+  padding-top: max(env(safe-area-inset-top, 32px), 32px) !important;
+  min-height: 76px !important;
+}
+
+.offline-status-dot,
+.mobile-offline-pill {
+  top: max(env(safe-area-inset-top, 32px), 32px) !important;
 }
 
 
