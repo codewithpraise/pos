@@ -2295,8 +2295,24 @@ class SyncClient {
   }
 })();
 
-/* importScripts inlined below */
-let dbReadyPromise = ValenixiaDB.init(); // Capture the init promise
+// CRITICAL: Self-diagnostic error boundary
+self.onerror = function(e, source, lineno, colno, error) {
+  console.error('[SyncWorker] FATAL:', e, 'at', source, 'line', lineno);
+  try {
+    self.postMessage({ type: 'WORKER_FATAL', error: String(e), line: lineno });
+  } catch (_) {}
+};
+
+let dbReadyPromise;
+try {
+  /* importScripts inlined below */
+  dbReadyPromise = ValenixiaDB.init(); // Capture the init promise
+} catch (e) {
+  console.error('[SyncWorker] Initialization error:', e);
+  try {
+    self.postMessage({ type: 'WORKER_FATAL', error: String(e), stack: e ? e.stack : '' });
+  } catch (_) {}
+}
 
 function secureRandomInt(min, max) {
   const range = max - min + 1;

@@ -1972,7 +1972,9 @@ button:not(:disabled):active {
 }
 
 .auth-overlay.active {
-  display: flex;
+  display: flex !important;
+  opacity: 1;
+  visibility: visible;
 }
 
 /* Ensure auth card never overflows on tiny screens */

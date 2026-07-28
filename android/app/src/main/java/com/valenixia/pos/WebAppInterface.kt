@@ -14,11 +14,21 @@ class WebAppInterface(private val activity: MainActivity) {
 
     @JavascriptInterface
     fun consumeFreshStartFlag(): Boolean {
-        return activity.consumeFreshStartFlagNative()
+        return try {
+            activity.consumeFreshStartFlagNative()
+        } catch (e: Exception) {
+            android.util.Log.e("WebAppInterface", "consumeFreshStartFlag error: ${e.message}")
+            false
+        }
     }
 
     @JavascriptInterface
     fun getAutoStartOnBoot(): Boolean {
-        return activity.getAutoStartOnBootNative()
+        return try {
+            activity.getAutoStartOnBootNative()
+        } catch (e: Exception) {
+            android.util.Log.e("WebAppInterface", "getAutoStartOnBoot error: ${e.message}")
+            false
+        }
     }
 }

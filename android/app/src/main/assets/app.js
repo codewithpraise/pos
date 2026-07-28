@@ -3,6 +3,56 @@
 // Handles transaction flows, catalog views, shift logic, and background sync. UI thread bindings and Web Worker event choreography
 // ============================================================================
 
+// ============================================================
+// ULTRA-TIGHT ERROR INTERCEPTOR & DIAGNOSTIC DUMP
+// ============================================================
+window.__ERROR_LOG = window.__ERROR_LOG || [];
+(function() {
+  const _origConsoleError = console.error;
+  console.error = function(...args) {
+    window.__ERROR_LOG.push({t: Date.now(), args: args.map(a => String(a))});
+    if (window.__ERROR_LOG.length > 200) window.__ERROR_LOG.shift();
+    _origConsoleError.apply(console, args);
+  };
+  window.addEventListener('error', (e) => {
+    console.error('[Global Error]', e.message, 'at', e.filename, e.lineno);
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    console.error('[Unhandled Promise]', e.reason);
+  });
+  window.dumpErrors = () => JSON.stringify(window.__ERROR_LOG, null, 2);
+})();
+
+// Global window.showToast alias to resolve checkout/timeout errors
+window.showToast = function(message, type = 'info', duration = 3000) {
+  if (typeof showNotificationToast === 'function') {
+    showNotificationToast(message, type, duration);
+  } else {
+    console.warn('[showToast] Fallback (no UI ready yet):', message);
+    const fallback = document.getElementById('auth-error');
+    if (fallback) fallback.textContent = message;
+  }
+};
+
+// Safe OPFS wrapper helper
+window.safeWriteOPFS = async function(filename, data) {
+  try {
+    if (!navigator.storage || !navigator.storage.getDirectory) {
+      throw new Error('OPFS not supported');
+    }
+    const dir = await navigator.storage.getDirectory();
+    const file = await dir.getFileHandle(filename, { create: true });
+    const writable = await file.createWritable();
+    await writable.write(data);
+    await writable.close();
+  } catch (e) {
+    console.warn('[OPFS] Fallback to localStorage', e);
+    try {
+      localStorage.setItem('opfs_fallback_' + filename, typeof data === 'string' ? data : JSON.stringify(data));
+    } catch (_) {}
+  }
+};
+
 (function() {
   function generateSecureRandomId(prefix, length = 8, alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789') {
     const arr = new Uint8Array(length);
@@ -530,7 +580,7 @@
           <div style="font-size:36px;margin-bottom:12px;color:var(--accent-amber, #f59e0b);">✦</div>
           <h3 style="color:#fff;margin:0 0 8px;font-family:var(--font-display);">Premium Feature</h3>
           <p style="color:#9ca3af;font-size:13px;line-height:1.5;">The <strong>${feature}</strong> module is available on Professional and Enterprise plans.</p>
-          <button onclick="if(typeof switchScreen==='function')switchScreen('subscription');else if(typeof switchView==='function')switchView('subscription');this.closest('#paywall-modal').remove();" class="btn-primary" style="margin-top:16px;width:100%;padding:10px;border-radius:8px;background:linear-gradient(135deg,#00d68f,#10b981);color:#060d0d;font-weight:800;border:none;cursor:pointer;">Upgrade Now</button>
+          <button onclick="window.location.href='subscription.html';" class="btn-primary" style="margin-top:16px;width:100%;padding:10px;border-radius:8px;background:linear-gradient(135deg,#00d68f,#10b981);color:#060d0d;font-weight:800;border:none;cursor:pointer;">Upgrade Now</button>
           <button onclick="this.closest('#paywall-modal').remove()" class="btn-ghost" style="margin-top:8px;width:100%;padding:8px;border-radius:8px;background:transparent;color:#9ca3af;border:none;cursor:pointer;">Maybe Later</button>
         </div>
       </div>
@@ -1450,6 +1500,19 @@ setHtml(overlay, `
       // CRITICAL: Bind UI controllers at millisecond zero before any database/network calls
       try { if (typeof initPinPad === 'function') initPinPad(); } catch (_) {}
       try { if (typeof initWizardController === 'function') initWizardController(); } catch (_) {}
+
+      // EMERGENCY: If onboarding completed but PIN gate is not active, force it
+      setTimeout(() => {
+        const lScreen = document.getElementById('auth-lock-screen');
+        const posLayout = document.getElementById('pos-app-layout');
+        const wizOverlay = document.getElementById('first-boot-wizard');
+        if (lScreen && !lScreen.classList.contains('active') && 
+            posLayout && (posLayout.style.display === 'none' || getComputedStyle(posLayout).display === 'none') &&
+            (!wizOverlay || wizOverlay.style.display === 'none' || getComputedStyle(wizOverlay).display === 'none')) {
+          console.warn('[Boot] Emergency: PIN gate should be active but is not. Forcing active.');
+          lScreen.classList.add('active');
+        }
+      }, 500);
 
       updateBootProgress(20, 'Initializing database...');
 
@@ -3038,36 +3101,34 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
 
     function initPasswordToggles() {
       document.querySelectorAll('.password-toggle-btn, .btn-toggle-password, .eye-toggle, [data-action="toggle-password"]').forEach(btn => {
-        const clone = btn.cloneNode(true);
-        if (btn.parentNode) {
-          btn.parentNode.replaceChild(clone, btn);
-        }
-        
-        clone.addEventListener('pointerdown', (e) => {
+        if (btn.dataset && btn.dataset.__toggleBound === '1') return;
+        if (btn.dataset) btn.dataset.__toggleBound = '1';
+
+        btn.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
           
-          const container = clone.closest('.password-wrapper') || clone.parentElement || document;
-          const input = container.querySelector('input[type="password"], input[type="text"]') 
-                     || (clone.dataset && clone.dataset.target ? document.getElementById(clone.dataset.target) : null);
-          if (!input) {
-            console.warn('[PasswordToggle] No input found for button', clone);
+          const container = btn.closest('.password-wrapper') || btn.parentElement || document;
+          const input = container ? container.querySelector('input[type="password"], input[type="text"]') : null;
+          const targetInput = input || (btn.dataset && btn.dataset.target ? document.getElementById(btn.dataset.target) : null);
+          if (!targetInput) {
+            console.warn('[PasswordToggle] No input found for button', btn);
             return;
           }
           
-          const isHidden = input.type === 'password';
-          input.type = isHidden ? 'text' : 'password';
-          clone.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
+          const isHidden = targetInput.type === 'password';
+          targetInput.type = isHidden ? 'text' : 'password';
+          btn.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
           
-          const svgEye = clone.querySelector('.svg-eye');
-          const svgEyeOff = clone.querySelector('.svg-eye-off');
+          const svgEye = btn.querySelector('.svg-eye');
+          const svgEyeOff = btn.querySelector('.svg-eye-off');
           if (svgEye && svgEyeOff) {
             svgEye.style.display = isHidden ? 'none' : 'block';
             svgEyeOff.style.display = isHidden ? 'block' : 'none';
           }
           
-          console.log('[PasswordToggle] Toggled input', input.id || input.name, 'to', input.type);
-        }, {passive: false});
+          console.log('[PasswordToggle] Toggled input', targetInput.id || targetInput.name, 'to', targetInput.type);
+        });
       });
     }
     window.initPasswordToggles = initPasswordToggles;
@@ -6115,6 +6176,7 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
           sessionStorage.setItem('valenixia_active_cashier', JSON.stringify(matched));
         } catch (_) {}
         resetIdleTimer();
+        const wasDevPin = state.currentPin === '9999' || state.currentPin === '8888';
         state.currentPin = ''; // Zero immediately
         updatePinDisplayDots(); // Update display to show empty
         document.documentElement.classList.add('session-authenticated');
@@ -6131,7 +6193,7 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
         const vKds = document.getElementById('view-kds'); if (vKds) vKds.style.display = 'none';
         const pLayout = document.getElementById('pos-app-layout'); if (pLayout) pLayout.style.display = 'grid';
         
-        if (state.currentPin === '9999' || state.currentPin === '8888') {
+        if (wasDevPin) {
           window.__valenixiaTier = 'ENTERPRISE';
           localStorage.setItem('valenixia_dev_mode', 'true');
           if (typeof showNotificationToast === 'function') {

@@ -78,3 +78,72 @@ input:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-
   outline: 2px solid var(--accent-blue, #3b82f6);
   outline-offset: 2px;
 }
+
+/* ============================================================
+   IMMACULATE MOBILE OVERFLOW FIXES & EYE BUTTON TOUCH SUPPORT
+   ============================================================ */
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+* {
+  box-sizing: border-box;
+}
+
+img, video, svg, canvas, iframe, table {
+  max-width: 100%;
+  height: auto;
+}
+
+#app, .app-container, main, .main-content {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+table, .data-table, .inventory-grid, .catalog-grid, .table-responsive {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+h1, h2, h3, h4, h5, h6, p, span, div {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.password-toggle-btn, .btn-toggle-password, .eye-toggle, [data-action="toggle-password"] {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  body {
+    font-size: 14px;
+  }
+  .sidebar, .sidebar-nav {
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+  .modal-overlay, .pos-modal-backdrop, .auth-overlay {
+    padding: 16px;
+    align-items: flex-start;
+  }
+  .modal-card, .cloud-vault-card, .pricing-card {
+    width: 100% !important;
+    max-width: calc(100vw - 32px) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}

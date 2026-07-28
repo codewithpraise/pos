@@ -120,12 +120,13 @@ class MainActivity : AppCompatActivity() {
 
     fun consumeFreshStartFlagNative(): Boolean {
         return try {
-            val fresh = prefs.getBoolean("fresh_start", false)
+            val fresh = prefs.getBoolean("fresh_start_flag", false) || prefs.getBoolean("fresh_start", false)
             if (fresh) {
-                prefs.edit().putBoolean("fresh_start", false).apply()
+                prefs.edit().putBoolean("fresh_start_flag", false).putBoolean("fresh_start", false).apply()
             }
             fresh
         } catch (e: Exception) {
+            Log.e("MainActivity", "consumeFreshStartFlagNative error: ${e.message}")
             false
         }
     }
@@ -134,6 +135,7 @@ class MainActivity : AppCompatActivity() {
         return try {
             prefs.getBoolean("auto_start_on_boot", false)
         } catch (e: Exception) {
+            Log.e("MainActivity", "getAutoStartOnBootNative error: ${e.message}")
             false
         }
     }
@@ -426,24 +428,34 @@ class MainActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun getAutoStartOnBoot(): Boolean {
-            if (!isCurrentOriginTrusted()) {
-                Log.w("AndroidPOSBridge", "getAutoStartOnBoot call rejected: untrusted origin.")
-                return false
+            return try {
+                if (!isCurrentOriginTrusted()) {
+                    Log.w("AndroidPOSBridge", "getAutoStartOnBoot call rejected: untrusted origin.")
+                    return false
+                }
+                prefs.getBoolean("auto_start_on_boot", false)
+            } catch (e: Exception) {
+                Log.e("AndroidPOSBridge", "getAutoStartOnBoot error: ${e.message}")
+                false
             }
-            return prefs.getBoolean("auto_start_on_boot", false)
         }
 
         @JavascriptInterface
         fun consumeFreshStartFlag(): Boolean {
-            if (!isCurrentOriginTrusted()) {
-                Log.w("AndroidPOSBridge", "consumeFreshStartFlag call rejected: untrusted origin.")
-                return false
+            return try {
+                if (!isCurrentOriginTrusted()) {
+                    Log.w("AndroidPOSBridge", "consumeFreshStartFlag call rejected: untrusted origin.")
+                    return false
+                }
+                val fresh = prefs.getBoolean("fresh_start_flag", false) || prefs.getBoolean("fresh_start", false)
+                if (fresh) {
+                    prefs.edit().putBoolean("fresh_start_flag", false).putBoolean("fresh_start", false).apply()
+                }
+                fresh
+            } catch (e: Exception) {
+                Log.e("AndroidPOSBridge", "consumeFreshStartFlag error: ${e.message}")
+                false
             }
-            val fresh = prefs.getBoolean("fresh_start", false)
-            if (fresh) {
-                prefs.edit().putBoolean("fresh_start", false).apply()
-            }
-            return fresh
         }
 
         @JavascriptInterface
@@ -863,6 +875,7 @@ class MainActivity : AppCompatActivity() {
             displayZoomControls = false
             useWideViewPort = true
             loadWithOverviewMode = true
+            javaScriptCanOpenWindowsAutomatically = true
         }
 
         // Enable Google Safe Browsing on Android 8.0+ (API 26+)
