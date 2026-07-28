@@ -345,18 +345,25 @@ document.addEventListener('click', function(e) {
     (targetInput.classList.contains('secure-input') || window.getComputedStyle(targetInput).webkitTextSecurity === 'disc');
   const isCurrentlyMasked = isTypePassword || isSecuredCss;
 
+  const eyeSvg = btn.querySelector('.svg-eye');
+  const eyeOffSvg = btn.querySelector('.svg-eye-off');
+
   if (isCurrentlyMasked) {
     targetInput.type = 'text';
     targetInput.classList.add('revealed');
-    targetInput.style.webkitTextSecurity = 'none';
+    targetInput.style.setProperty('-webkit-text-security', 'none', 'important');
     btn.setAttribute('aria-label', 'Hide password');
     btn.classList.add('active');
+    if (eyeSvg) eyeSvg.style.display = 'none';
+    if (eyeOffSvg) eyeOffSvg.style.display = 'inline-block';
   } else {
     targetInput.type = 'password';
     targetInput.classList.remove('revealed');
-    targetInput.style.webkitTextSecurity = 'disc';
+    targetInput.style.setProperty('-webkit-text-security', 'disc', 'important');
     btn.setAttribute('aria-label', 'Show password');
     btn.classList.remove('active');
+    if (eyeSvg) eyeSvg.style.display = 'inline-block';
+    if (eyeOffSvg) eyeOffSvg.style.display = 'none';
   }
 
   const svgEye = btn.querySelector('.svg-eye');
