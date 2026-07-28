@@ -174,17 +174,36 @@ class SyncClient {
     }
 
     let wsUrl;
-    if (globalScope.serverUrl) {
-      const url = new URL(globalScope.serverUrl);
-      const wsProtocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-      wsUrl = `${wsProtocol}//${url.host}`;
-    } else {
-      const protocol = globalScope.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      wsUrl = `${protocol}//${globalScope.location.host}`;
+    try {
+      if (globalScope.serverUrl) {
+        const url = new URL(globalScope.serverUrl);
+        const wsProtocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+        wsUrl = `${wsProtocol}//${url.host}`;
+      } else {
+        const protocol = (globalScope.location && globalScope.location.protocol === 'https:') ? 'wss:' : 'ws:';
+        const host = (globalScope.location && globalScope.location.host) || '';
+        wsUrl = host ? `${protocol}//${host}` : '';
+      }
+    } catch (_) {
+      wsUrl = '';
     }
-    
+
+    if (!wsUrl || wsUrl === 'ws://' || wsUrl === 'wss://' || wsUrl.endsWith('://') || wsUrl.endsWith('://:')) {
+      console.log(`[SyncClient:${this.nodeId}] Offline/Local context detected (Invalid WS URL '${wsUrl}') — WebSocket sync disabled.`);
+      this.isConnected = false;
+      if (typeof this.onConnectionChange === 'function') this.onConnectionChange(false);
+      return;
+    }
+
     console.log(`[SyncClient:${this.nodeId}] Connecting to ${wsUrl}`);
-    this.ws = new WebSocket(wsUrl);
+    try {
+      this.ws = new WebSocket(wsUrl);
+    } catch (wsErr) {
+      console.warn(`[SyncClient:${this.nodeId}] Could not construct WebSocket (${wsErr.message}) — running offline.`);
+      this.isConnected = false;
+      if (typeof this.onConnectionChange === 'function') this.onConnectionChange(false);
+      return;
+    }
 
     this.ws.onopen = async () => {
       this.isConnected = true;

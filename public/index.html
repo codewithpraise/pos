@@ -64,16 +64,103 @@
       return w;
     };
 
-    window.copyValenixiaLogs = async function(){
-      const payload = {
-        dumpVersion: 2,
-        url: location.href,
-        ua: navigator.userAgent,
-        screen: {w:window.innerWidth, h:window.innerHeight, dpr:window.devicePixelRatio},
-        storage: {idb:!!window.indexedDB, ls:!!window.localStorage},
-        ui: typeof window.dumpUIDiagnostics === 'function' ? window.dumpUIDiagnostics() : {},
-        logs: window.__VALENIXIA_DIAG.logs
+    window.runButtonAudit = function() {
+      const selectors = 'button, .btn, a[role="button"], input[type="button"], input[type="submit"], [data-screen], [data-view], .nav-item, .icon-btn, .pin-key';
+      const elements = Array.from(document.querySelectorAll(selectors));
+      const auditResults = [];
+      let totalPassed = 0, totalWarnings = 0, totalFailed = 0;
+
+      elements.forEach((el, index) => {
+        const id = el.id || `btn_${index}`;
+        const text = (el.innerText || el.textContent || el.value || el.title || el.getAttribute('aria-label') || '').trim().substring(0, 30);
+        const rect = el.getBoundingClientRect();
+        const style = window.getComputedStyle(el);
+        const issues = [];
+        let status = 'PASS';
+
+        // 1. Check DOM Visibility
+        const isVisible = rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+        if (!isVisible) {
+          issues.push('Hidden in DOM (display:none, visibility:hidden, opacity:0, or 0x0 rect)');
+          status = 'FAIL';
+        }
+
+        // 2. Check Touch Target Sizing (Mobile recommended min 36px)
+        if (isVisible && (rect.width < 36 || rect.height < 36)) {
+          issues.push(`Small touch target (${Math.round(rect.width)}x${Math.round(rect.height)}px < 36px minimum threshold)`);
+          if (status !== 'FAIL') status = 'WARN';
+        }
+
+        // 3. Check Disablement & Pointer-Events
+        if (el.disabled || el.getAttribute('aria-disabled') === 'true') {
+          issues.push('Disabled via attribute (disabled or aria-disabled=true)');
+          if (status !== 'FAIL') status = 'WARN';
+        }
+        if (style.pointerEvents === 'none') {
+          issues.push('CSS pointer-events: none (clicks will pass through)');
+          status = 'FAIL';
+        }
+
+        // 4. Check Touch Obstruction via elementFromPoint
+        if (isVisible) {
+          const centerX = rect.left + rect.width / 2;
+          const centerY = rect.top + rect.height / 2;
+          if (centerX >= 0 && centerX <= window.innerWidth && centerY >= 0 && centerY <= window.innerHeight) {
+            const topEl = document.elementFromPoint(centerX, centerY);
+            if (topEl && topEl !== el && !el.contains(topEl)) {
+              issues.push(`Obstructed by overlay element <${topEl.tagName.toLowerCase()} class="${topEl.className}"> at (${Math.round(centerX)},${Math.round(centerY)})`);
+              status = 'FAIL';
+            }
+          }
+        }
+
+        // 5. Check Navigation Target View Existence
+        const targetViewId = el.getAttribute('data-screen') || el.getAttribute('data-view') || (el.getAttribute('href') || '').replace('#', '');
+        if (targetViewId && !targetViewId.startsWith('http') && !targetViewId.startsWith('javascript:')) {
+          const targetEl = document.getElementById(targetViewId) || document.getElementById(`view-${targetViewId}`);
+          if (!targetEl) {
+            issues.push(`Target view '#${targetViewId}' does not exist in DOM`);
+            status = 'FAIL';
+          }
+        }
+
+        if (status === 'PASS') totalPassed++;
+        else if (status === 'WARN') totalWarnings++;
+        else totalFailed++;
+
+        auditResults.push({
+          id,
+          text: text || '<empty>',
+          tag: el.tagName.toLowerCase(),
+          class: el.className,
+          status,
+          rect: `${Math.round(rect.width)}x${Math.round(rect.height)} @ (${Math.round(rect.left)},${Math.round(rect.top)})`,
+          diagnosis: issues.length ? issues.join(' | ') : 'Working properly'
+        });
+      });
+
+      const auditSummary = {
+        timestamp: new Date().toISOString(),
+        totalTested: elements.length,
+        passed: totalPassed,
+        warnings: totalWarnings,
+        failed: totalFailed,
+        results: auditResults
       };
+
+      if (window.__VALENIXIA_DIAG && Array.isArray(window.__VALENIXIA_DIAG.logs)) {
+        window.__VALENIXIA_DIAG.logs.push({
+          t: Date.now(),
+          lvl: 'log',
+          src: 'ButtonAudit',
+          msg: `[ButtonAudit] ${elements.length} tested (${totalPassed} PASS, ${totalWarnings} WARN, ${totalFailed} FAIL)`,
+          meta: auditSummary
+        });
+      }
+
+      console.log(`[ButtonAudit] Complete. ${elements.length} tested (${totalPassed} PASS, ${totalWarnings} WARN, ${totalFailed} FAIL)`, auditSummary);
+      return auditSummary;
+    };
 
     window.dumpUIDiagnostics = function() {
       const offenders = [];
@@ -91,9 +178,22 @@
         dpr: window.devicePixelRatio,
         overflowCount: offenders.length,
         activeViewsCount: visibleViews.length,
-        activeViews: visibleViews.map(v => v.id)
+        activeViews: visibleViews.map(v => v.id),
+        buttonAuditSummary: typeof window.runButtonAudit === 'function' ? window.runButtonAudit() : null
       };
     };
+
+    window.copyValenixiaLogs = async function(){
+      const payload = {
+        dumpVersion: 2,
+        url: location.href,
+        ua: navigator.userAgent,
+        screen: {w:window.innerWidth, h:window.innerHeight, dpr:window.devicePixelRatio},
+        storage: {idb:!!window.indexedDB, ls:!!window.localStorage},
+        ui: typeof window.dumpUIDiagnostics === 'function' ? window.dumpUIDiagnostics() : {},
+        logs: window.__VALENIXIA_DIAG.logs
+      };
+
       const text = JSON.stringify(payload, null, 2);
       try{
         await navigator.clipboard.writeText(text);
