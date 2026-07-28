@@ -41,6 +41,19 @@ self.onerror = function(e, source, lineno, colno, error) {
   } catch (_) {}
 };
 
+self.addEventListener('unhandledrejection', (e) => {
+  console.error('[Worker] Unhandled promise rejection:', e.reason);
+  try {
+    postMessage({
+      type: 'WORKER_ERROR',
+      error: e.reason && e.reason.message ? e.reason.message : String(e.reason),
+      stack: e.reason && e.reason.stack ? e.reason.stack : null,
+      ts: Date.now()
+    });
+  } catch (_) {}
+  e.preventDefault();
+});
+
 let dbReadyPromise;
 try {
   importScripts('client-db.js', 'client-sync.js');
@@ -768,6 +781,13 @@ self.onmessage = async (event) => {
           idbTx.onabort = () => reject(new Error('Transaction aborted'));
         });
 
+        txDone.catch((err) => {
+          console.error(`[SyncWorker:Checkout] txDone rejected:`, err && err.message ? err.message : err);
+          try {
+            postMessage({ type: 'CHECKOUT_ERROR', transactionId, error: (err && err.message) ? err.message : String(err) });
+          } catch (_) {}
+        });
+
         try {
           // 1. Write transaction to IndexedDB
           const txRecord = {
@@ -915,11 +935,12 @@ self.onmessage = async (event) => {
           console.log(`[SyncWorker:Checkout] Transaction committed. Emitting CHECKOUT_SUCCESS.`);
           postMessage({ type: 'CHECKOUT_SUCCESS', transactionId, subtotal, tax, total, paymentMode, signature });
         } catch (err) {
-          console.error(`[SyncWorker:Checkout] FATAL:`, err.message, err.stack);
+          console.error(`[SyncWorker:Checkout] FATAL:`, err && err.message ? err.message : err, err ? err.stack : '');
           try {
             idbTx.abort();
           } catch (abortErr) {}
-          postMessage({ type: 'ERROR', error: `Checkout transaction failed: ${err.message}` });
+          postMessage({ type: 'CHECKOUT_ERROR', transactionId, error: err && err.message ? err.message : String(err) });
+          postMessage({ type: 'ERROR', error: `Checkout transaction failed: ${err && err.message ? err.message : err}` });
         }
         break;
       }

@@ -1040,7 +1040,10 @@ window.__VALENIXIA_WORKER_CODE = `// ===========================================
     async put(storeName, item, tx = null) {
       let passphrase = '';
       if (storeName === 'customers' || storeName === 'transactions') {
-        passphrase = await this.getSyncPassphrase(tx);
+        if (this._passphraseCache === undefined) {
+          this._passphraseCache = await this.getSyncPassphrase(tx);
+        }
+        passphrase = this._passphraseCache || '';
       }
       const encryptedItem = await encryptItem(storeName, item, passphrase);
       return new Promise((resolve, reject) => {
@@ -1063,7 +1066,10 @@ window.__VALENIXIA_WORKER_CODE = `// ===========================================
             reject(err);
           };
         } catch (err) {
-          if (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || err.code === 22) {
+          if (err && err.name === 'TransactionInactiveError') {
+            return reject(new Error('IDB transaction went inactive before write (mobile deadlock). Aborting.'));
+          }
+          if (err && (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || err.code === 22)) {
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new CustomEvent('CRITICAL_STORAGE_ERROR', { detail: 'Device storage is full. Please free up space immediately.' }));
             }
@@ -1175,7 +1181,7 @@ window.__VALENIXIA_WORKER_CODE = `// ===========================================
           console.log('[OPFS] createWritable not available on fileHandle, skipping active file write.');
         }
       } catch (err) {
-        console.error('[OPFS] Failed to write to OPFS:', err);
+        console.error('[OPFS] Failed to write to OPFS:', err && err.name ? err.name : '', err && err.message ? err.message : '', err);
       }
     },
 
@@ -2303,6 +2309,19 @@ self.onerror = function(e, source, lineno, colno, error) {
   } catch (_) {}
 };
 
+self.addEventListener('unhandledrejection', (e) => {
+  console.error('[Worker] Unhandled promise rejection:', e.reason);
+  try {
+    postMessage({
+      type: 'WORKER_ERROR',
+      error: e.reason && e.reason.message ? e.reason.message : String(e.reason),
+      stack: e.reason && e.reason.stack ? e.reason.stack : null,
+      ts: Date.now()
+    });
+  } catch (_) {}
+  e.preventDefault();
+});
+
 let dbReadyPromise;
 try {
   /* importScripts inlined below */
@@ -3030,6 +3049,13 @@ self.onmessage = async (event) => {
           idbTx.onabort = () => reject(new Error('Transaction aborted'));
         });
 
+        txDone.catch((err) => {
+          console.error(\`[SyncWorker:Checkout] txDone rejected:\`, err && err.message ? err.message : err);
+          try {
+            postMessage({ type: 'CHECKOUT_ERROR', transactionId, error: (err && err.message) ? err.message : String(err) });
+          } catch (_) {}
+        });
+
         try {
           // 1. Write transaction to IndexedDB
           const txRecord = {
@@ -3177,11 +3203,12 @@ self.onmessage = async (event) => {
           console.log(\`[SyncWorker:Checkout] Transaction committed. Emitting CHECKOUT_SUCCESS.\`);
           postMessage({ type: 'CHECKOUT_SUCCESS', transactionId, subtotal, tax, total, paymentMode, signature });
         } catch (err) {
-          console.error(\`[SyncWorker:Checkout] FATAL:\`, err.message, err.stack);
+          console.error(\`[SyncWorker:Checkout] FATAL:\`, err && err.message ? err.message : err, err ? err.stack : '');
           try {
             idbTx.abort();
           } catch (abortErr) {}
-          postMessage({ type: 'ERROR', error: \`Checkout transaction failed: \${err.message}\` });
+          postMessage({ type: 'CHECKOUT_ERROR', transactionId, error: err && err.message ? err.message : String(err) });
+          postMessage({ type: 'ERROR', error: \`Checkout transaction failed: \${err && err.message ? err.message : err}\` });
         }
         break;
       }

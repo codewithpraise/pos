@@ -3133,9 +3133,35 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
     }
     window.initPasswordToggles = initPasswordToggles;
 
-    document.addEventListener('DOMContentLoaded', () => {
+    function initPasswordTogglesWithObserver() {
       initPasswordToggles();
+      if (typeof MutationObserver !== 'undefined' && !window.__pwToggleObserver) {
+        window.__pwToggleObserver = new MutationObserver((mutations) => {
+          let needsInit = false;
+          for (const m of mutations) {
+            for (const node of m.addedNodes) {
+              if (node.nodeType !== 1) continue;
+              if (node.matches && (node.matches('.password-wrapper') || node.matches('.password-toggle-btn') || node.querySelector?.('.password-wrapper, .password-toggle-btn'))) {
+                needsInit = true;
+                break;
+              }
+            }
+            if (needsInit) break;
+          }
+          if (needsInit) initPasswordToggles();
+        });
+        if (document.body) {
+          window.__pwToggleObserver.observe(document.body, { childList: true, subtree: true });
+        }
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initPasswordTogglesWithObserver();
     });
+    if (document.readyState === 'interactive' || document.readyState === 'complete') {
+      initPasswordTogglesWithObserver();
+    }
 
     const origShowModal = window.showModal;
     window.showModal = function(...args) {
@@ -6353,7 +6379,8 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
     async function loadSubscriptionPage() {
       const viewSub = document.getElementById('view-subscription');
       if (viewSub) {
-        viewSub.style.display = 'block';
+        viewSub.removeAttribute('hidden');
+        viewSub.classList.add('active');
       }
       console.log('[Subscription] Inline view active');
     }
@@ -6380,8 +6407,9 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
       }
     });
 
-    // Show active container panel
+    // Show active container panel & normalize inline styles to prevent page-leaks
     document.querySelectorAll('.content-view').forEach(view => {
+      if (view.style.display) view.style.removeProperty('display');
       if (view.id === 'view-' + screenName) {
         view.classList.add('active');
       } else {
@@ -8594,18 +8622,23 @@ setHtml(tr, `
       const checkoutResponseHandler = (e) => {
         const msg = e.data;
         if (!msg) return;
-        if (msg.transactionId === transactionId || msg.type === 'CHECKOUT_SUCCESS' || (msg.type === 'ERROR' && msg.error && msg.error.includes('Checkout'))) {
+        if (msg.transactionId === transactionId || msg.type === 'CHECKOUT_SUCCESS' || msg.type === 'CHECKOUT_ERROR' || (msg.type === 'ERROR' && msg.error && msg.error.includes('Checkout'))) {
           console.log(`[CheckoutTrace:${traceId}] Worker response type: ${msg.type}`, msg);
           if (msg.type === 'CHECKOUT_SUCCESS') {
             responded = true;
             clearTimeout(timeoutId);
             console.log(`[CheckoutTrace:${traceId}] SUCCESS — clearing cart, recording history`);
             syncWorker.removeEventListener('message', checkoutResponseHandler);
-          } else if (msg.type === 'ERROR' && msg.error && msg.error.includes('Checkout')) {
+          } else if (msg.type === 'CHECKOUT_ERROR' || (msg.type === 'ERROR' && msg.error && msg.error.includes('Checkout'))) {
             responded = true;
             clearTimeout(timeoutId);
-            console.error(`[CheckoutTrace:${traceId}] WORKER ERROR:`, msg.error);
-            showToast('Payment failed: ' + msg.error, 'error');
+            console.error(`[CheckoutTrace:${traceId}] WORKER ERROR:`, msg.error || msg);
+            state.isCheckingOut = false;
+            window.__isSubmitting = false;
+            if (typeof setButtonLoading === 'function') {
+              setButtonLoading('btn-checkout-complete', false, '', 'Complete Order');
+            }
+            showToast('Payment failed: ' + (msg.error || 'Transaction aborted'), 'error');
             syncWorker.removeEventListener('message', checkoutResponseHandler);
           }
         }
@@ -15565,6 +15598,34 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     initGoogleOAuth();
     initRegisterLocking();
   });
+
+  // Layer 2 & 3 Diagnostics: Render Assertion & Overflow Monitoring
+  function _assertViewRendered(viewId, minContentHeight = 100) {
+    requestAnimationFrame(() => {
+      const v = document.getElementById(viewId);
+      if (!v) return;
+      if (!v.classList.contains('active')) return;
+      const h = v.getBoundingClientRect().height;
+      if (h < minContentHeight) {
+        console.warn(`[RenderAssert] #${viewId} is active but only ${Math.round(h)}px tall (expected >= ${minContentHeight}). Check layout.`);
+      }
+    });
+  }
+  window._assertViewRendered = _assertViewRendered;
+
+  function _setupOverflowWatch() {
+    setInterval(() => {
+      const active = document.querySelector('.content-view.active');
+      if (!active) return;
+      const scrollH = active.scrollHeight;
+      const clientH = active.clientHeight;
+      const overflow = scrollH - clientH;
+      if (overflow > 0 && document.body.scrollHeight > window.innerHeight + 10) {
+        console.warn(`[OverflowWatch] Active view "${active.id}" has ${overflow}px hidden overflow AND body has root scroll (${document.body.scrollHeight}px > ${window.innerHeight}px). Layout constraint needed.`);
+      }
+    }, 3000);
+  }
+  _setupOverflowWatch();
 
   window.__staticallyUnbindAllRegistryListeners = typeof staticallyUnbindAllRegistryListeners !== 'undefined' ? staticallyUnbindAllRegistryListeners : function() {};
 })();

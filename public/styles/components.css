@@ -534,16 +534,36 @@ button:not(:disabled):active {
   flex-direction: column;
 }
 
+:root {
+  --bottom-nav-h: 64px;
+}
+
+@media (max-width: 1024px) {
+  :root {
+    --bottom-nav-h: 72px;
+  }
+}
+
 .content-view {
   display: none;
   width: 100%;
-  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   box-sizing: border-box;
+  padding-bottom: calc(var(--bottom-nav-h) + 24px);
 }
 
 .content-view.active {
-  display: block;
+  display: block !important;
+}
+
+#view-subscription {
+  padding: 20px;
+  padding-bottom: calc(var(--bottom-nav-h) + 40px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 #view-checkout, #view-history {
