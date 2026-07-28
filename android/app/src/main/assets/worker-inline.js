@@ -1159,6 +1159,10 @@ window.__VALENIXIA_WORKER_CODE = `// ===========================================
     },
 
     async writeToOPFS(backupDataText, passphrase) {
+      if (typeof location !== 'undefined' && location.protocol === 'file:') {
+        console.info('[OPFS] Skipped on file:// protocol (secure origin required). Standard IndexedDB active.');
+        return;
+      }
       if (!navigator.storage || !navigator.storage.getDirectory) {
         console.warn('[OPFS] Origin Private File System not supported in this browser.');
         return;
@@ -1181,7 +1185,11 @@ window.__VALENIXIA_WORKER_CODE = `// ===========================================
           console.log('[OPFS] createWritable not available on fileHandle, skipping active file write.');
         }
       } catch (err) {
-        console.error('[OPFS] Failed to write to OPFS:', err && err.name ? err.name : '', err && err.message ? err.message : '', err);
+        if (err && (err.name === 'SecurityError' || err.name === 'NotAllowedError')) {
+          console.info('[OPFS] Access restricted on current origin (SecurityError). Standard IndexedDB active.');
+          return;
+        }
+        console.warn('[OPFS] Note: OPFS write unavailable on this platform:', err && err.name ? err.name : '', err && err.message ? err.message : err);
       }
     },
 

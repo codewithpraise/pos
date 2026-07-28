@@ -2176,6 +2176,20 @@ setHtml(overlay, `
   }
 
   function createSafeWebWorker(scriptPath) {
+    const isFileProtocol = window.location.protocol === 'file:' || !!window.AndroidPOS || !!window.Android;
+    // Mobile APK / file:// Strategy: Prefer pre-inlined blob worker to avoid importScripts CORS/file restrictions
+    if (isFileProtocol && typeof window.createInlineWorker === 'function') {
+      try {
+        const w = window.createInlineWorker();
+        if (w) {
+          console.log('[Worker] Android file:// protocol detected — pre-inlined blob worker loaded successfully.');
+          return w;
+        }
+      } catch (inlineErr) {
+        console.warn('[Worker] Pre-inlined blob worker failed, attempting standard Worker:', inlineErr.message);
+      }
+    }
+
     // Strategy 1: Standard same-origin Worker (works on desktop/http)
     try {
       const w = new Worker(scriptPath);
