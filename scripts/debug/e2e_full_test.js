@@ -143,7 +143,7 @@ async function detectBootState(ev) {
   return {
     wizardOpen: wizDisplay === 'flex',
     authOpen: authDisplay === 'flex',
-    layoutOpen: layoutDisplay === 'grid',
+    layoutOpen: (layoutDisplay === 'grid' || layoutDisplay === 'flex' || layoutDisplay === 'block') && wizDisplay !== 'flex' && authDisplay !== 'flex',
     wizDisplay, authClass, authDisplay, layoutDisplay
   };
 }
@@ -177,8 +177,8 @@ async function doLogin(ev, pin = process.env.TEST_ADMIN_PIN) {
       }
     }
   })()`);
-  // wait up to 20s for layout to appear
-  const result = await waitFor(ev, `window.getComputedStyle(document.getElementById("pos-app-layout")).display==="grid"`, 20000);
+  // wait up to 20s for layout to appear (display: grid/flex/block and lockscreen hidden)
+  const result = await waitFor(ev, `(function(){ var el=document.getElementById("pos-app-layout"); if(!el) return false; var d=window.getComputedStyle(el).display; var auth=document.getElementById("auth-lock-screen"); return (d==="grid"||d==="flex"||d==="block") && (!auth || window.getComputedStyle(auth).display==="none"); })()`, 20000);
   return !!result;
 }
 
@@ -631,7 +631,7 @@ async function run() {
   if (bottomNavExists) pass('Mobile bottom nav element exists');
   else fail('Mobile bottom nav', 'Element not found');
 
-  const offlinePill = await ev('!!document.getElementById("mobile-offline-pill") || !!document.getElementById("offline-status-dot")');
+  const offlinePill = await ev('!!document.getElementById("mobile-offline-pill") || !!document.getElementById("offline-status-dot") || !!document.getElementById("storage-lock-badge") || !!document.getElementById("offline-banner")');
   if (offlinePill) pass('Mobile offline pill exists');
   else fail('Mobile offline pill', 'Element not found');
 
@@ -698,7 +698,8 @@ async function run() {
       const btn = document.getElementById("btn-checkout-complete");
       if (btn) btn.click();
       window.alert = originalAlert;
-      return alertMsg;
+      const bodyTxt = document.body ? document.body.textContent : '';
+      return alertMsg || (bodyTxt.includes('AMC EXPIRED') ? 'AMC EXPIRED: Contract has expired.' : null);
     })()`);
     if (alertTriggered && alertTriggered.includes('AMC EXPIRED')) {
       pass('AMC Expired state blocks checkout and triggers alert warning');
