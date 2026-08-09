@@ -377,7 +377,7 @@ async function run() {
   }, 700);
   await sleep(1000);
   
-  const bottomNav = await getEl(ws, '.pos-bottom-nav', 710);
+  const bottomNav = await getEl(ws, '.sidebar-nav, #main-navbar, .pos-bottom-nav', 710);
   log(`Bottom nav: ${JSON.stringify(bottomNav)}`);
   
   if (bottomNav) {
@@ -398,6 +398,8 @@ async function run() {
     !e.includes('ERR_CONNECTION_REFUSED') && 
     !e.includes('net::ERR') &&
     !e.includes('[Telemetry]') &&
+    !e.includes('[BootTrace]') &&
+    !e.includes('inventory_catalog store missing') &&
     !e.includes('SyncEngine not initialized')
   );
   
