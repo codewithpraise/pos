@@ -3215,15 +3215,25 @@ app.post('/api/admin/payments/decision', requireAdmin, adminActionLimiter, requi
       const { supabase } = require('./supabase-sync');
       if (supabase) {
         try {
-          await supabase.from('payment_proofs').update({ status: 'approved' }).eq('id', proof_id);
-          
-          await supabase.from('stores').update({
+          const { error: proofErr } = await supabase.from('payment_proofs').update({ status: 'approved' }).eq('id', proof_id);
+          if (proofErr) {
+            console.error('[SubscriptionAdmin] Supabase payment_proof update failed:', proofErr.message, { proof_id });
+          }
+
+          const { error: storeErr } = await supabase.from('stores').update({
             tier: proof.plan_id,
             status: 'active',
             expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
             license_key: token
           }).eq('id', proof.user_id);
-        } catch (_) {}
+          if (storeErr) {
+            console.error('[SubscriptionAdmin] Supabase stores tier update failed:', storeErr.message, { user_id: proof.user_id, plan_id: proof.plan_id });
+          }
+        } catch (supabaseErr) {
+          // Log but don't block the response — local DB is source of truth.
+          // Cloud sync may be retried via push backup job.
+          console.error('[SubscriptionAdmin] Supabase sync threw during approval:', supabaseErr.message || supabaseErr, { proof_id, user_id: proof.user_id });
+        }
       }
 
       return res.status(200).json({ success: true, message: 'Payment approved and license minted securely.', license_key: token });

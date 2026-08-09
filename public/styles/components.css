@@ -5583,18 +5583,14 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
   }
 }
 
-/* ===== UI SIZE SCALE ENGINE ===== */
-html {
-  font-size: calc(15px * var(--size-scale, 1)) !important;
-}
-
-body.app-scaled #pos-app-layout {
-  transform-origin: top left !important;
-  transform: scale(var(--size-scale, 1)) !important;
-  width: calc(100vw / var(--size-scale, 1)) !important;
-  height: calc(100vh / var(--size-scale, 1)) !important;
-  overflow: hidden !important;
-}
+/* ===== UI SIZE SCALE ENGINE =====
+   Scaling is achieved purely via root font-size so all rem-based dimensions
+   scale proportionally. The transform: scale() approach is intentionally
+   NOT used here because CSS transforms create a new containing block for
+   position:fixed descendants, breaking modals, toasts, and receipt dialogs.
+   The canonical font-size rule lives in design-tokens.css:
+     html { font-size: calc(15px * var(--size-scale, 1)) !important; }
+*/
 
 /* ===== ANALYTICS VIEW CONTAINMENT ===== */
 #view-analytics {

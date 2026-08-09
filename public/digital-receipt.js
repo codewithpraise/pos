@@ -295,9 +295,21 @@
       infoEl.textContent = amountStr + " · " + itemCount + " item(s)";
     }
 
+    // CRITICAL: Always release the checkout lock regardless of which button was pressed.
+    // closeModalSafe MUST be called before any async/navigation logic so the
+    // isCheckingOut / __isSubmitting flags are reset even if the app cannot
+    // send the receipt (no app installed, network error, user cancels prompt, etc.)
+    var closeModalSafe = function() {
+      var m = document.getElementById("__vx-receipt-share-modal");
+      if (m) m.remove();
+      if (window.state) { window.state.isCheckingOut = false; }
+      window.__isSubmitting = false;
+    };
+
     document.getElementById("__vx-rcpt-whatsapp").addEventListener("click", async function() {
       try { if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); } catch(_) {}
-      modal.remove();
+      // Release checkout lock FIRST — before any async prompts or navigation
+      closeModalSafe();
 
       let phone = customerPhone || storePhone;
       if (!phone && window.showModal) {
@@ -333,7 +345,8 @@
 
     document.getElementById("__vx-rcpt-email").addEventListener("click", async function() {
       try { if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); } catch(_) {}
-      modal.remove();
+      // Release checkout lock FIRST — before any async prompts or navigation
+      closeModalSafe();
 
       let email = customerEmail;
       if (!email && window.showModal) {
@@ -369,15 +382,10 @@
 
     document.getElementById("__vx-rcpt-pdf").addEventListener("click", function() {
       try { if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); } catch(_) {}
-      modal.remove();
+      // Release checkout lock FIRST — before download
+      closeModalSafe();
       downloadReceiptPDF(receiptData);
     });
-
-    const closeModalSafe = function() {
-      modal.remove();
-      if (window.state) { window.state.isCheckingOut = false; }
-      window.__isSubmitting = false;
-    };
 
     document.getElementById("__vx-rcpt-close").addEventListener("click", closeModalSafe);
     modal.addEventListener("click", function(e) { if (e.target === modal) closeModalSafe(); });
