@@ -130,8 +130,8 @@
     } catch (e) {
       if (window.showModal) {
         showModal({ title: 'Receipt Tampered', message: e.message, type: 'danger' });
-      } else {
-        alert(e.message);
+      } else if (window.showNotificationToast) {
+        showNotificationToast(e.message, 'error');
       }
       return;
     }
@@ -139,8 +139,8 @@
     if (!doc) {
       if (window.showModal) {
         showModal({ title: 'Error', message: 'PDF engine not available.', type: 'danger' });
-      } else {
-        alert('PDF engine not available.');
+      } else if (window.showNotificationToast) {
+        showNotificationToast('PDF engine not available.', 'error');
       }
       return;
     }
@@ -176,10 +176,23 @@
     ].join("\n");
     const encoded = encodeURIComponent(msg);
     const cleanPhone = (phone || "").replace(/\D/g, "");
-    const url = cleanPhone
-      ? "https://wa.me/" + (cleanPhone.startsWith("92") ? cleanPhone : "92" + cleanPhone.replace(/^0/, "")) + "?text=" + encoded
+    const formattedPhone = cleanPhone ? (cleanPhone.startsWith("92") ? cleanPhone : (cleanPhone.startsWith("0") ? "92" + cleanPhone.slice(1) : "92" + cleanPhone)) : "";
+    const url = formattedPhone
+      ? "https://wa.me/" + formattedPhone + "?text=" + encoded
       : "https://wa.me/?text=" + encoded;
-    window.open(url, "_blank", "noopener,noreferrer");
+    
+    // Safely trigger navigation without breaking parent WebView window focus
+    try {
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => a.remove(), 100);
+    } catch (_) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
   }
 
   // ── Share via email ──────────────────────────────────────────────────────────
@@ -217,7 +230,16 @@
       (data.footerText || "Thank you for your business!")
     ].join("\n");
     const mailto = "mailto:" + (email || "") + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
-    window.location.href = mailto;
+    
+    try {
+      const a = document.createElement('a');
+      a.href = mailto;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => a.remove(), 100);
+    } catch (_) {
+      window.location.href = mailto;
+    }
   }
 
   // ── Show share dialog ────────────────────────────────────────────────────────
@@ -239,9 +261,15 @@
         receiptData.footerText = (receiptData.footerText || '') + '\nPowered by Valenixia POS\nvalenixia.com';
       }
     }
+    try { if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); } catch(_) {}
+    const existing = document.getElementById("__vx-receipt-share-modal");
+    if (existing) existing.remove();
+
     const prefs = window.__valenixiaState?.preferences || {};
     const storePhone = prefs.store_phone || "";
     const customerPhone = receiptData.customerPhone || "";
+    const customerEmail = receiptData.customerEmail || "";
+
     const modal = document.createElement("div");
     modal.id = "__vx-receipt-share-modal";
     modal.style.cssText = "position:fixed;inset:0;z-index:2147483645;background:rgba(5,5,8,0.92);display:flex;align-items:flex-end;justify-content:center;padding:16px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);";
@@ -249,46 +277,110 @@
       + '<div style="text-align:center;margin-bottom:20px;">'
       + '<div style="font-size:32px;margin-bottom:8px;">🧾</div>'
       + '<h2 style="font-size:16px;font-weight:800;color:#fff;margin:0 0 4px;">Send Digital Receipt</h2>'
-      // NOTE: receipt amount and item count are set via textContent below — not concatenated into innerHTML
       + '<p id="__vx-rcpt-info" style="font-size:12px;color:#64748b;margin:0;"></p>'
       + '</div>'
       + '<div style="display:grid;gap:10px;margin-bottom:16px;">'
-      + '<button id="__vx-rcpt-whatsapp" style="height:52px;background:rgba(37,211,102,0.15);border:1px solid rgba(37,211,102,0.4);color:#25d366;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;">&#x1F4F1; Send on WhatsApp</button>'
-      + '<button id="__vx-rcpt-email" style="height:52px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;">&#x2709;&#xFE0F; Send via Email</button>'
-      + '<button id="__vx-rcpt-pdf" style="height:52px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#f87171;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;">&#x1F4BE; Download PDF</button>'
+      + '<button id="__vx-rcpt-whatsapp" style="height:52px;background:rgba(37,211,102,0.15);border:1px solid rgba(37,211,102,0.4);color:#25d366;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;">📱 Send on WhatsApp</button>'
+      + '<button id="__vx-rcpt-email" style="height:52px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;">✉️ Send via Email</button>'
+      + '<button id="__vx-rcpt-pdf" style="height:52px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#f87171;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;">💾 Download PDF</button>'
       + '</div>'
-      + '<button id="__vx-rcpt-close" style="width:100%;height:40px;background:transparent;border:1px solid rgba(255,255,255,0.06);color:#64748b;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;font-family:inherit;">No Thanks</button>'
+      + '<button id="__vx-rcpt-close" style="width:100%;height:40px;background:transparent;border:1px solid rgba(255,255,255,0.06);color:#64748b;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;font-family:inherit;">Close</button>'
       + '</div>';
     document.body.appendChild(modal);
 
-    // Set receipt info via textContent (safe, never treats value as HTML)
     var infoEl = document.getElementById("__vx-rcpt-info");
     if (infoEl) {
       var amountStr = "Rs. " + ((receiptData.total || 0) / 100).toLocaleString("en-PK", { minimumFractionDigits: 2 });
       var itemCount = (receiptData.items || []).length;
-      infoEl.textContent = amountStr + " \u00B7 " + itemCount + " item(s)";
+      infoEl.textContent = amountStr + " · " + itemCount + " item(s)";
     }
 
-
     document.getElementById("__vx-rcpt-whatsapp").addEventListener("click", async function() {
+      try { if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); } catch(_) {}
+      modal.remove();
+
       let phone = customerPhone || storePhone;
-      if (!phone) {
-        phone = await (window.showModal ? showModal({ title: "WhatsApp Number", message: "Enter customer WhatsApp number (e.g. 03001234567):", type: "info", actions: [{ id: "ok", label: "Send", style: "primary" }, { id: "cancel", label: "Skip", style: "secondary" }], input: { placeholder: "03001234567", defaultValue: "" } }) : Promise.resolve(""));
+      if (!phone && window.showModal) {
+        const res = await showModal({
+          title: "WhatsApp Number",
+          message: "Enter customer WhatsApp number to send receipt:",
+          type: "info",
+          actions: [{ id: "ok", label: "Send Receipt", style: "primary" }, { id: "cancel", label: "Cancel", style: "secondary" }],
+          input: { placeholder: "03001234567", defaultValue: "" }
+        });
+        if (!res || res === "cancel" || res === false) return;
+        phone = (typeof res === "string" && res !== "ok") ? res.trim() : "";
       }
-      if (phone && phone !== "cancel") shareReceiptWhatsApp(receiptData, phone);
-      modal.remove();
+      if (!phone) {
+        if (window.showModal) {
+          const act = await showModal({
+            title: "No Phone Number Found",
+            message: "No phone number was provided. Would you like to configure customer contacts or store phone in Settings?",
+            type: "warning",
+            actions: [
+              { id: "settings", label: "Open Settings", style: "primary" },
+              { id: "cancel", label: "Dismiss", style: "secondary" }
+            ]
+          });
+          if (act === "settings" && typeof window.switchActiveScreen === 'function') {
+            window.switchActiveScreen('settings');
+          }
+        }
+        return;
+      }
+      shareReceiptWhatsApp(receiptData, phone);
     });
+
     document.getElementById("__vx-rcpt-email").addEventListener("click", async function() {
-      const email = await (window.showModal ? showModal({ title: "Email Address", message: "Enter customer email address:", type: "info", actions: [{ id: "ok", label: "Send", style: "primary" }, { id: "cancel", label: "Skip", style: "secondary" }], input: { placeholder: "customer@email.com", defaultValue: "" } }) : Promise.resolve(""));
-      if (email && email !== "cancel") shareReceiptEmail(receiptData, email);
+      try { if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); } catch(_) {}
       modal.remove();
+
+      let email = customerEmail;
+      if (!email && window.showModal) {
+        const res = await showModal({
+          title: "Customer Email Address",
+          message: "Enter customer email address to send receipt:",
+          type: "info",
+          actions: [{ id: "ok", label: "Send Email", style: "primary" }, { id: "cancel", label: "Cancel", style: "secondary" }],
+          input: { placeholder: "customer@email.com", defaultValue: "" }
+        });
+        if (!res || res === "cancel" || res === false) return;
+        email = (typeof res === "string" && res !== "ok") ? res.trim() : "";
+      }
+      if (!email) {
+        if (window.showModal) {
+          const act = await showModal({
+            title: "No Email Address Found",
+            message: "No email address was provided. Would you like to configure customer contacts or store details in Settings?",
+            type: "warning",
+            actions: [
+              { id: "settings", label: "Open Settings", style: "primary" },
+              { id: "cancel", label: "Dismiss", style: "secondary" }
+            ]
+          });
+          if (act === "settings" && typeof window.switchActiveScreen === 'function') {
+            window.switchActiveScreen('settings');
+          }
+        }
+        return;
+      }
+      shareReceiptEmail(receiptData, email);
     });
+
     document.getElementById("__vx-rcpt-pdf").addEventListener("click", function() {
-      downloadReceiptPDF(receiptData);
+      try { if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); } catch(_) {}
       modal.remove();
+      downloadReceiptPDF(receiptData);
     });
-    document.getElementById("__vx-rcpt-close").addEventListener("click", function() { modal.remove(); });
-    modal.addEventListener("click", function(e) { if (e.target === modal) modal.remove(); });
+
+    const closeModalSafe = function() {
+      modal.remove();
+      if (window.state) { window.state.isCheckingOut = false; }
+      window.__isSubmitting = false;
+    };
+
+    document.getElementById("__vx-rcpt-close").addEventListener("click", closeModalSafe);
+    modal.addEventListener("click", function(e) { if (e.target === modal) closeModalSafe(); });
   }
 
   // Expose API

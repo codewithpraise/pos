@@ -13,7 +13,18 @@ body.performance-solid-mode .modal-card {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+/* Prevent accidental text selection on interactive UI elements only */
+button, .nav-item, .nav-btn, .action-btn, .icon-btn,
+.quick-product-card, .history-filter-pill, .analytics-range-btn,
+.wiz-dot, .wiz-panel label[for] {
   user-select: none;
+  -webkit-user-select: none;
+}
+/* Ensure inputs and text areas can receive selection and focus */
+input, textarea, [contenteditable] {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 html, body {
@@ -45,12 +56,35 @@ body {
   will-change: transform;
 }
 
-/* Scroll locking during active modal overlays */
+/* Scroll locking during active modal overlays.
+   CRITICAL: Do NOT use position:fixed on body — it breaks Android WebView touch routing.
+   Use overflow:hidden only; the fixed overlay handles its own positioning. */
 .scroll-lock {
   overflow: hidden !important;
-  position: fixed;
+  /* position:fixed removed — causes WebView touch event displacement on Android */
   width: 100%;
   height: 100%;
+}
+/* During wizard / onboarding overlay, ensure full touch passthrough */
+body.wiz-active {
+  overflow: hidden;
+  touch-action: auto;
+}
+/* All wizard step buttons must fire immediately on touch */
+.wiz-panel button,
+#btn-wiz-choose-new,
+#btn-wiz-choose-join,
+#btn-wiz-next,
+#btn-wiz-back,
+#btn-wizard-scan-qr-direct,
+#btn-wizard-open-templates {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(0,214,143,0.15);
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
 }
 
 /* Prevent auto-zoom on mobile device input focus */
@@ -58,22 +92,66 @@ input, textarea, select {
   font-size: 16px !important;
 }
 
-/* ── Component K: Button micro-interactions ─────────────────────────────── */
-button:not(:disabled) {
+/* Safe pointer-event pass-through: ONLY direct non-interactive leaf children of buttons.
+   NEVER use 'button *' or '.action-btn *' — those break nested buttons via specificity.
+   Direct-child selector (>) only affects immediate children, not nested buttons. */
+button > span, button > svg, button > i, button > em, button > small,
+button > img, button > strong, button > b,
+.nav-item > span, .nav-item > svg, .nav-item > i,
+.nav-btn > span, .nav-btn > svg, .nav-btn > i,
+.pin-btn > span, .pin-btn > svg,
+.action-btn > span, .action-btn > svg, .action-btn > i,
+.wiz-choice-btn > span, .wiz-choice-btn > svg, .wiz-choice-btn > i,
+#valenixia-global-copy-logs > span {
+  pointer-events: none;
+}
+
+/* ── Component K: Universal Button micro-interactions & Mobile Touch ─────────── */
+button,
+[role="button"],
+a.nav-btn,
+.action-btn,
+.pin-btn,
+.cat-pill,
+.shop-mode-card,
+.quick-product-card,
+.history-filter-pill,
+.analytics-range-btn,
+.eye-toggle,
+.password-toggle-btn,
+#valenixia-global-copy-logs {
+  touch-action: manipulation !important;
+  -webkit-tap-highlight-color: rgba(0, 214, 143, 0.25) !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+button:not(:disabled),
+[role="button"]:not(:disabled),
+.action-btn:not(:disabled),
+.pin-btn:not(:disabled) {
   cursor: pointer;
-  transition: transform var(--transition-speed, 0.2s) var(--ease-spring, ease),
-              box-shadow var(--transition-speed, 0.2s) var(--ease-spring, ease);
+  transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.12s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.12s ease !important;
 }
-button:not(:disabled):active {
-  transform: scale(0.97);
-  opacity: 0.85;
+
+button:not(:disabled):active,
+[role="button"]:not(:disabled):active,
+.action-btn:not(:disabled):active,
+.pin-btn:not(:disabled):active,
+.shop-mode-card:active,
+.quick-product-card:active {
+  transform: scale(0.95) !important;
+  opacity: 0.8 !important;
+  filter: brightness(1.1) !important;
 }
+
 .action-btn:not(:disabled):hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-}
-.action-btn:not(:disabled):active {
-  transform: translateY(0) scale(0.97);
 }
 
 /* Product grid cards spring-in on hover */
@@ -1631,13 +1709,14 @@ button:not(:disabled):active {
   background: var(--panel-graphite-mid);
   border: 1px solid rgba(255,255,255,0.055);
   border-radius: var(--radius-md);
-  padding: 18px 20px;
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   position: relative;
   overflow: hidden;
   box-shadow: var(--shadow-sm);
+  min-height: 90px;
 }
 
 .kpi-card:hover {
@@ -1995,6 +2074,16 @@ button:not(:disabled):active {
   display: flex !important;
   opacity: 1;
   visibility: visible;
+  pointer-events: auto !important;
+}
+
+.auth-overlay:not(.active),
+.modal-overlay:not(.active),
+.wizard-overlay:not(.active),
+.license-overlay:not(.active) {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
 }
 
 /* Ensure auth card never overflows on tiny screens */
@@ -3500,8 +3589,8 @@ body.theme-monochrome-ivory .pos-topbar {
   background: rgba(247,246,243,0.92);
   border-bottom-color: rgba(0,0,0,0.09);
 }
-body.theme-monochrome-ivory .pos-main { background: var(--bg-obsidian); }
-body.theme-monochrome-ivory .content-view { background: var(--bg-obsidian); }
+body.theme-monochrome-ivory .pos-main { background: var(--bg-obsidian, #f7f6f3); }
+body.theme-monochrome-ivory .content-view { background: var(--bg-obsidian, #f7f6f3); }
 
 /* Sidebar Nav Items */
 body.theme-monochrome-ivory .nav-item { color: #333; }
@@ -4520,9 +4609,10 @@ body.theme-monochrome-ivory .skeleton-card {
 
   .sidebar-nav .nav-item.premium.locked,
   .nav-item.premium.locked {
-    opacity: 0.35 !important;
-    filter: grayscale(1) !important;
-    pointer-events: none !important;
+    opacity: 0.55 !important;
+    filter: grayscale(0.8) !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
   }
   .sidebar-nav .nav-item.premium.locked::after,
   .nav-item.premium.locked::after {
@@ -4978,7 +5068,7 @@ table, .data-table, .report-table {
   margin-bottom: 12px;
 }
 
-/* Ensure tables preserve min-width to scroll smoothly instead of squishing text */
+/* Ensure tables and catalog grid tables preserve min-width to scroll smoothly instead of squishing text */
 .table-responsive table,
 .pos-table-wrapper table,
 .catalog-table-wrapper table,
@@ -4991,11 +5081,22 @@ table, .data-table, .report-table {
 #device-list-container table,
 table.pos-table,
 table.data-table,
-table.report-table {
-  display: table !important;
-  width: 100% !important;
-  min-width: 600px !important;
+table.report-table,
+.catalog-grid-table {
+  min-width: 1050px !important;
   max-width: none !important;
+}
+
+.catalog-table-wrapper::-webkit-scrollbar {
+  height: 8px !important;
+}
+.catalog-table-wrapper::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6) !important;
+  border-radius: 4px !important;
+}
+.catalog-table-wrapper::-webkit-scrollbar-thumb {
+  background: var(--accent-emerald) !important;
+  border-radius: 4px !important;
 }
 
 /* Override blanket max-width constraint for table cells to allow intrinsic width & horizontal scrolling */
@@ -5317,33 +5418,67 @@ input, textarea, select, [contenteditable="true"] {
   padding-bottom: 8px !important;
 }
 
-.settings-row {
+/* ===== IMMACULATE FORM FIELD & VERTICAL STACK OVERHAUL ===== */
+.form-group, .pos-form-group, .form-field, .settings-row {
   display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  gap: 6px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  margin-bottom: 14px !important;
+  overflow: visible !important;
+}
+
+.settings-row.flex-row, .form-group.flex-row {
+  flex-direction: row !important;
   align-items: center !important;
   justify-content: space-between !important;
   gap: 12px !important;
+}
+
+.form-group label, .pos-form-group label, .form-field label, .settings-row label {
+  display: block !important;
+  font-family: var(--font-display, inherit) !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  color: #e2e8f0 !important;
+  letter-spacing: 0.4px !important;
+  text-transform: uppercase !important;
+  margin: 0 !important;
+  text-align: left !important;
+}
+
+.form-group input, .form-group select, .form-group textarea,
+.pos-form-group input, .pos-form-group select, .pos-form-group textarea,
+.form-field input, .form-field select, .form-field textarea,
+.settings-row input:not(.pos-checkbox), .settings-row select, .settings-row textarea,
+.pos-input, .pos-select, .pos-textarea {
   width: 100% !important;
+  max-width: 100% !important;
+  min-height: 42px !important;
   box-sizing: border-box !important;
-  overflow-x: auto !important;
-  -webkit-overflow-scrolling: touch !important;
+  padding: 10px 14px !important;
+  background: rgba(14, 18, 30, 0.9) !important;
+  border: 1px solid var(--border-titanium, rgba(255, 255, 255, 0.14)) !important;
+  border-radius: 8px !important;
+  color: #ffffff !important;
+  font-size: 13px !important;
+  font-family: inherit !important;
+  outline: none !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
 }
 
-@media (max-width: 768px) {
-  .settings-row {
-    flex-wrap: wrap !important;
-    align-items: stretch !important;
-  }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus,
+.pos-form-group input:focus, .pos-form-group select:focus, .pos-form-group textarea:focus,
+.settings-row input:focus, .settings-row select:focus, .settings-row textarea:focus,
+.pos-input:focus, .pos-select:focus, .pos-textarea:focus {
+  border-color: var(--accent-emerald, #00d68f) !important;
+  box-shadow: 0 0 0 3px rgba(0, 214, 143, 0.25) !important;
 }
 
-/* ===== OFFLINE BANNER TOPBAR & CONTENT OFFSET ===== */
-body.is-offline .pos-topbar,
-body.has-top-banner .pos-topbar,
-body.is-offline .pos-content-pane,
-body.has-top-banner .pos-content-pane {
-  padding-top: 48px !important;
-}
-
-/* ===== IMMACULATE CENTERED FORM MODALS & LAYOUT CONTAINMENT ===== */
+/* ===== IMMACULATE CENTERED FORM MODALS & CONTAINMENT ===== */
 .modal-overlay {
   position: fixed !important;
   top: 0 !important;
@@ -5352,13 +5487,15 @@ body.has-top-banner .pos-content-pane {
   bottom: 0 !important;
   width: 100vw !important;
   height: 100vh !important;
-  background: rgba(0, 0, 0, 0.78) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
+  background: rgba(4, 6, 12, 0.85) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
   z-index: 10500 !important;
   display: none;
   align-items: center !important;
   justify-content: center !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
 }
 
 .modal-overlay.active,
@@ -5367,77 +5504,121 @@ body.has-top-banner .pos-content-pane {
 }
 
 .modal-card {
-  width: 92% !important;
-  max-width: 540px !important;
-  max-height: 90vh !important;
-  overflow-y: auto !important;
-  box-sizing: border-box !important;
-  padding: 24px !important;
+  width: 100% !important;
+  max-width: 520px !important;
+  max-height: 88vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background: linear-gradient(165deg, #161b2c 0%, #0d111c 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
   border-radius: 16px !important;
-  background: var(--panel-slate, #0f172a) !important;
-  border: 1px solid var(--border-titanium, rgba(255,255,255,0.12)) !important;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+  overflow: hidden !important;
   margin: auto !important;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6) !important;
+}
+
+.modal-header {
+  padding: 16px 22px !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-shrink: 0 !important;
+}
+
+.modal-header h3 {
+  font-family: var(--font-display, inherit) !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  color: var(--text-white, #ffffff) !important;
+  margin: 0 !important;
 }
 
 .modal-body {
+  padding: 20px 22px !important;
+  overflow-y: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  flex-grow: 1 !important;
+  box-sizing: border-box !important;
+}
+
+.modal-footer {
+  padding: 14px 22px !important;
+  background: rgba(0, 0, 0, 0.3) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 12px !important;
+  flex-shrink: 0 !important;
+}
+
+/* 2-Column Form Grid inside Modals */
+.form-grid-2col {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 14px !important;
   width: 100% !important;
   box-sizing: border-box !important;
 }
 
-.modal-body input,
-.modal-body select,
-.modal-body textarea {
-  width: 100% !important;
-  display: block !important;
-  min-height: 44px !important;
-  box-sizing: border-box !important;
+@media (max-width: 580px) {
+  .form-grid-2col {
+    grid-template-columns: 1fr !important;
+  }
 }
 
-/* Page View Layout ocupar 100% screen width without squishing */
-.pos-app-layout,
-.pos-main-container,
-.pos-content-pane,
-.content-view {
+/* ===== UI SIZE SCALE ENGINE ===== */
+html {
+  font-size: calc(15px * var(--size-scale, 1)) !important;
+}
+
+body.app-scaled #pos-app-layout {
+  transform-origin: top left !important;
+  transform: scale(var(--size-scale, 1)) !important;
+  width: calc(100vw / var(--size-scale, 1)) !important;
+  height: calc(100vh / var(--size-scale, 1)) !important;
+  overflow: hidden !important;
+}
+
+/* ===== ANALYTICS VIEW CONTAINMENT ===== */
+#view-analytics {
   width: 100% !important;
   max-width: 100% !important;
   box-sizing: border-box !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
 }
 
-/* Container overflow containment */
-.settings-section,
-.settings-row,
-.dm-card,
-.catalog-table-wrapper,
-.chart-container-card {
+#view-analytics .kpi-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+  gap: 16px !important;
+  width: 100% !important;
   box-sizing: border-box !important;
-  max-width: 100% !important;
-  overflow-x: auto !important;
-  -webkit-overflow-scrolling: touch !important;
 }
 
-/* Kamai & Summary Sales Histogram Chart Scrollable */
-#analytics-histogram-bars,
-.bar-chart-visual {
+#view-analytics .analytics-grid-row {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)) !important;
+  gap: 20px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+#analytics-histogram-bars, .bar-chart-visual {
   display: flex !important;
   align-items: flex-end !important;
   gap: 12px !important;
-  min-width: 650px !important;
+  min-width: 600px !important;
   overflow-x: auto !important;
   -webkit-overflow-scrolling: touch !important;
   padding-bottom: 8px !important;
 }
 
-/* Phone Camera Notch Safe-Area Offset */
-.pos-topbar {
-  padding-top: max(env(safe-area-inset-top, 32px), 32px) !important;
-  min-height: 76px !important;
-}
-
-.offline-status-dot,
-.mobile-offline-pill {
-  top: max(env(safe-area-inset-top, 32px), 32px) !important;
-}
 
 
 

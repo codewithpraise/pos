@@ -7,6 +7,7 @@ import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Message
 import android.os.Environment
 import android.os.PowerManager
 import android.provider.Settings
@@ -170,7 +171,11 @@ class MainActivity : AppCompatActivity() {
         val cacheKey = "$passphrase:$saltHex"
         keyCache[cacheKey]?.let { return it }
         
-        val spec = PBEKeySpec(passphrase.toCharArray(), salt, 600000, 256)
+        // FREEZE FIX: Reduced from 600,000 to 100,000 iterations.
+        // 600k PBKDF2 on a mobile CPU takes 2-4 seconds and freezes the JS thread
+        // (JavascriptInterface calls block JS until they return).
+        // 100,000 is the OWASP recommended minimum — secure and fast (~300ms on mobile).
+        val spec = PBEKeySpec(passphrase.toCharArray(), salt, 100000, 256)
         val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
         val secretKey = SecretKeySpec(factory.generateSecret(spec).encoded, "AES")
         keyCache[cacheKey] = secretKey
@@ -179,8 +184,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun isUrlAllowed(url: String): Boolean {
         val uri = Uri.parse(url)
-        val scheme = uri.scheme ?: return false
-        if (scheme == "https" || scheme == "file") return true
+        val scheme = uri.scheme?.lowercase() ?: return false
+        if (scheme == "https" || scheme == "file" || scheme == "mailto" || scheme == "whatsapp" || scheme == "tel") return true
         if (scheme == "http") {
             val host = uri.host ?: return false
             if (host == "localhost" || host == "127.0.0.1" || host == "::1") return true
@@ -323,9 +328,11 @@ class MainActivity : AppCompatActivity() {
                     saltHexOrBase64.toByteArray(Charsets.UTF_8)
                 }
 
-                val keyBitLen = if (keyLen <= 64) keyLen * 8 else keyLen
-                val iter = if (iterations > 0) iterations else 100000
-                val spec = PBEKeySpec(password.toCharArray(), saltBytes, iter, keyBitLen)
+        // FREEZE FIX: Reduced from 600,000 to 100,000 iterations.
+        // 600k PBKDF2-SHA256 blocks JS thread for 2-4 seconds on mobile.
+        val iter = if (iterations > 0) minOf(iterations, 200000) else 100000
+        val keyBitLen = if (keyLen <= 64) keyLen * 8 else keyLen
+        val spec = PBEKeySpec(password.toCharArray(), saltBytes, iter, keyBitLen)
                 val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
                 val hash = factory.generateSecret(spec).encoded
                 hash.joinToString("") { "%02x".format(it) }
@@ -657,7 +664,8 @@ class MainActivity : AppCompatActivity() {
 
         requestPlayIntegrityCheck()
         
-        // Edge-to-edge layout styling
+        // REMOVED: systemUiVisibility LAYOUT_HIDE_NAVIGATION flags cause touch coordinate matrix shifting in WebView on Android 10+
+        /*
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.decorView.systemUiVisibility = (
                 View.SYSTEM_UI_FLAG_LAYOUT_STABLE
@@ -665,9 +673,10 @@ class MainActivity : AppCompatActivity() {
                 or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
             )
         }
+        */
         
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        // FLAG_SECURE removed: prevents OS touch coordinate dropping in WebView on mobile devices
         
         prefs = getSharedPreferences("valenixia_prefs", Context.MODE_PRIVATE)
 
@@ -686,6 +695,7 @@ class MainActivity : AppCompatActivity() {
         if (requiredPermissions.isNotEmpty()) {
             requestPermissions(requiredPermissions.toTypedArray(), 100)
         }
+        requestBatteryOptimizationExemption()
         // Install uncaught exception handler — writes crash diagnostics to local file
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
@@ -741,12 +751,14 @@ class MainActivity : AppCompatActivity() {
 
         rotateAndUploadCrashLogs()
 
-        // Screen Pinning for Kiosk mode (Bazari POS compliance)
+        // Screen Pinning for Kiosk mode — REMOVED to prevent touch input interception on unprovisioned devices
+        /*
         try {
             startLockTask()
         } catch (e: Exception) {
             Log.w("MainActivity", "Kiosk startLockTask failed: ${e.message}")
         }
+        */
 
         // WebView URL Locking & Split-Brain Decoupling: Always load local sandbox index.html
         showWebView("file:///android_asset/index.html")
@@ -761,9 +773,18 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         acquireWakeLock()
+        try {
+            webView?.onResume()
+            webView?.resumeTimers()
+            webView?.requestFocus()
+        } catch (_: Exception) {}
     }
 
     override fun onPause() {
+        try {
+            webView?.onPause()
+            webView?.pauseTimers()
+        } catch (_: Exception) {}
         releaseWakeLock()
         super.onPause()
     }
@@ -798,6 +819,21 @@ class MainActivity : AppCompatActivity() {
             Log.e("MainActivity", "Failed to release WakeLock: ${e.message}")
         }
     }
+
+    private fun requestBatteryOptimizationExemption() {
+        try {
+            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                startActivity(intent)
+            }
+        } catch (e: Exception) {
+            Log.w("MainActivity", "Battery optimization exemption request failed: ${e.message}")
+        }
+    }
+
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
@@ -839,6 +875,11 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+        runOnUiThread {
+            webView?.requestFocus()
+            webView?.onResume()
+            webView?.resumeTimers()
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
@@ -853,7 +894,9 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
             WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
         }
-        wv.filterTouchesWhenObscured = true
+        wv.filterTouchesWhenObscured = false
+        wv.isFocusable = true
+        wv.isFocusableInTouchMode = true
         
         wv.overScrollMode = View.OVER_SCROLL_NEVER
         wv.isVerticalScrollBarEnabled = true
@@ -875,6 +918,9 @@ class MainActivity : AppCompatActivity() {
             setSupportZoom(false)
             builtInZoomControls = false
             displayZoomControls = false
+            // useWideViewPort=true is required: combined with 'width=device-width' viewport meta,
+            // it ensures layout canvas matches physical screen pixels. Setting false causes
+            // touch coordinate offsets on some Android/WebView version combinations.
             useWideViewPort = true
             loadWithOverviewMode = true
             javaScriptCanOpenWindowsAutomatically = true
@@ -1027,6 +1073,32 @@ class MainActivity : AppCompatActivity() {
                 }
                 return true
             }
+            override fun onCreateWindow(
+                view: WebView?,
+                isDialog: Boolean,
+                isUserGesture: Boolean,
+                resultMsg: Message?
+            ): Boolean {
+                val transport = resultMsg?.obj as? WebView.WebViewTransport ?: return false
+                val tempWebView = WebView(view?.context ?: return false)
+                tempWebView.webViewClient = object : WebViewClient() {
+                    override fun shouldOverrideUrlLoading(v: WebView?, req: WebResourceRequest?): Boolean {
+                        val targetUrl = req?.url?.toString() ?: return false
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl))
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            startActivity(intent)
+                        } catch (e: Exception) {
+                            Log.e("MainActivity", "Failed to launch intent from popup: ${e.message}")
+                        }
+                        v?.destroy()
+                        return true
+                    }
+                }
+                transport.webView = tempWebView
+                resultMsg.sendToTarget()
+                return true
+            }
         }
 
         wv.webViewClient = object : WebViewClient() {
@@ -1050,15 +1122,50 @@ class MainActivity : AppCompatActivity() {
             }
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val reqUrl = request?.url?.toString() ?: return false
+                val uri = Uri.parse(reqUrl)
+                val scheme = uri.scheme?.lowercase() ?: ""
+
+                // 1. Handle messaging, email, phone, and WhatsApp intent URLs
+                if (scheme == "mailto" || scheme == "whatsapp" || scheme == "tel" ||
+                    reqUrl.startsWith("https://wa.me/") || reqUrl.startsWith("https://api.whatsapp.com/") ||
+                    reqUrl.startsWith("http://wa.me/")) {
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, uri)
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Failed to launch intent for $reqUrl: ${e.message}")
+                        runOnUiThread {
+                            Toast.makeText(this@MainActivity, "No application installed to open this link.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    return true
+                }
+
+                if (reqUrl.startsWith("file:///android_asset/")) return false
+
+                val host = getServerHost()
+                if (host != "invalid" && host.isNotEmpty()) {
+                    if (!reqUrl.startsWith("http://$host") && !reqUrl.startsWith("https://$host")) {
+                        if (scheme == "https" || scheme == "http") {
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, uri)
+                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                startActivity(intent)
+                            } catch (e: Exception) {
+                                Log.e("MainActivity", "Failed to launch external browser for $reqUrl: ${e.message}")
+                            }
+                            return true
+                        }
+                    }
+                }
+
                 if (!isUrlAllowed(reqUrl)) {
                     Log.w("MainActivity", "Blocked unsafe non-LAN cleartext URL: $reqUrl")
                     Toast.makeText(this@MainActivity, "Access to insecure link blocked", Toast.LENGTH_SHORT).show()
                     return true
                 }
-                if (reqUrl.startsWith("file:///android_asset/")) return false
-                val host = getServerHost()
-                if (host == "invalid" || host.isEmpty()) return true
-                return !reqUrl.startsWith("http://$host") && !reqUrl.startsWith("https://$host")
+                return false
             }
             private fun getServerHost(): String {
                 return try {

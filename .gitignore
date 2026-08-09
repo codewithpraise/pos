@@ -45,6 +45,8 @@ chrome-profile-fresh-*/
 .nexova_hwid
 chrome_startup.log
 *results.txt
+build_log.txt
+debug_build_log.txt
 inspect_*.js
 debug_*.js
 check_*.js

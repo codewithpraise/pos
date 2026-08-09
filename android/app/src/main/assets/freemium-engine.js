@@ -41,11 +41,11 @@ const PLAN_LIMITS = {
     analytics: "none", importLimit: 0, support: "community"
   },
   [PLANS.STARTER]: {
-    displayName: "Valenixia Growth",
-    monthlyPKR: 2499, annualPKR: 24999, lifetimePKR: 49999,
+    displayName: "Valenixia Starter",
+    monthlyPKR: 3499, lifetimePKR: 79000,
     devices: 1, transactionsPerMonth: Infinity, products: 500, customers: Infinity, employees: 3,
     transactionHistoryDays: 7, receiptBranding: "custom",
-    backup: "manual", fbrCompliance: false, multiDeviceSync: false, apiAccess: false,
+    backup: "manual", fbrCompliance: true, multiDeviceSync: false, apiAccess: false,
     analytics: "basic", importLimit: 50, support: "whatsapp"
   },
   [PLANS.GROWTH]: {
@@ -57,8 +57,8 @@ const PLAN_LIMITS = {
     analytics: "advanced", importLimit: Infinity, support: "priority"
   },
   [PLANS.PRO]: {
-    displayName: "Valenixia Business",
-    monthlyPKR: 12999, annualPKR: 129999, lifetimePKR: 249999,
+    displayName: "Valenixia Pro",
+    monthlyPKR: 6999, lifetimePKR: 149000,
     devices: 10, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: 50,
     transactionHistoryDays: Infinity, receiptBranding: "white_label",
     backup: "auto_daily", fbrCompliance: true, multiDeviceSync: true, apiAccess: true,
@@ -66,7 +66,7 @@ const PLAN_LIMITS = {
   },
   [PLANS.ENTERPRISE]: {
     displayName: "Valenixia Enterprise",
-    monthlyPKR: null, annualPKR: null, lifetimePKR: null,
+    monthlyPKR: 11999, lifetimePKR: 249000,
     devices: Infinity, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: Infinity,
     transactionHistoryDays: Infinity, receiptBranding: "white_label",
     backup: "auto_realtime", fbrCompliance: true, multiDeviceSync: true, apiAccess: true,
@@ -120,7 +120,7 @@ function can(feature) {
     "auto_backup": ["auto_daily","auto_realtime"].includes(limits.backup),
     "excel_import": limits.importLimit > 0,
     "unlimited_import": limits.importLimit === Infinity,
-    "fbr_compliance": limits.fbrCompliance,
+    "fbr_compliance": true,
     "api_access": limits.apiAccess,
     "white_label": limits.receiptBranding === "white_label",
     "custom_receipt": ["custom","white_label"].includes(limits.receiptBranding),
@@ -224,8 +224,15 @@ function formatPKR(amount) {
 
 function showUpgradeModal(featureName) {
   document.getElementById("__vx-upgrade-modal")?.remove();
-  const current = (window.__vxSession && window.__vxSession.tier ? window.__vxSession.tier : (window.__valenixiaTier || 'STARTER')).toLowerCase();
-  const plans = [PLANS.STARTER, PLANS.GROWTH, PLANS.PRO, PLANS.ENTERPRISE];
+  // Correctly detect current plan: map raw tier string to a plan key
+  const rawTier = (window.__vxSession && window.__vxSession.tier
+    ? window.__vxSession.tier
+    : (window.__valenixiaTier || 'FREE')).toLowerCase();
+  const tierToPlan = { 'free': 'free', 'starter': 'starter', 'growth': 'growth', 'pro': 'pro',
+    'enterprise': 'enterprise', 'trial': 'growth', 'standard': 'starter' };
+  const current = tierToPlan[rawTier] || 'free';
+
+  const plans = [PLANS.FREE, PLANS.STARTER, PLANS.PRO, PLANS.ENTERPRISE];
 
   const planRows = plans.map(function(p) {
     const l = PLAN_LIMITS[p];
@@ -237,7 +244,6 @@ function showUpgradeModal(featureName) {
       + "<div style='display:flex;align-items:center;margin-bottom:4px;'><span style='font-size:13px;font-weight:800;color:#fff;'>" + l.displayName + "</span>" + badge + "</div>"
       + "<div style='display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:4px;'>"
       + "<span style='font-size:13px;color:#10b981;font-weight:700;'>" + formatPKR(l.monthlyPKR) + "/mo</span>"
-      + "<span style='font-size:11px;color:#64748b;'>" + formatPKR(l.annualPKR) + "/yr</span>"
       + lifetimeRow + "</div>"
       + "<div style='font-size:10px;color:#64748b;'>" + (l.devices === Infinity ? "Unlimited" : l.devices) + " device(s) &middot; " + (l.products === Infinity ? "Unlimited" : l.products) + " products &middot; " + (l.employees === Infinity ? "Unlimited" : l.employees) + " staff</div>"
       + "</div>";
@@ -261,7 +267,7 @@ function showUpgradeModal(featureName) {
     + addonRows + "</div>"
     + "<div style='display:flex;flex-direction:column;gap:10px;'>"
     + "<button id='__vx-upgrade-vault' style='height:44px;background:linear-gradient(135deg,#00d68f 0%,#10b981 100%);border:none;color:#080810;font-size:13px;font-weight:800;border-radius:8px;cursor:pointer;font-family:inherit;'>💎 Open Subscription & Billing Vault</button>"
-    + "<button id='__vx-upgrade-notify' style='height:40px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:#10b981;font-size:12px;font-weight:700;border-radius:8px;cursor:pointer;font-family:inherit;'>📲 Fast-Track Activation via WhatsApp</button>"
+    + "<button id='__vx-upgrade-notify' style='height:40px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:#10b981;font-size:12px;font-weight:700;border-radius:8px;cursor:pointer;font-family:inherit;'>📲 Send Payment Screenshot via WhatsApp</button>"
     + "<button id='__vx-upgrade-close' style='height:36px;background:transparent;border:1px solid rgba(255,255,255,0.06);color:#64748b;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;font-family:inherit;'>Continue with Current Plan</button>"
     + "</div></div>";
 
@@ -278,15 +284,15 @@ function showUpgradeModal(featureName) {
   document.getElementById("__vx-upgrade-notify").addEventListener("click", async function() {
     overlay.remove();
     const phone = await showModal({
-      title: "Fast-Track WhatsApp Activation",
-      message: "Enter your WhatsApp phone number to connect with support (03315133226) for fast-track activation:",
+      title: "Send Payment Screenshot via WhatsApp",
+      message: "To successfully upgrade your account, send your payment screenshot on WhatsApp to support (03315133226). Enter your WhatsApp number below:",
       type: "info",
       actions: [{ id: "ok", label: "Open WhatsApp", style: "primary" }, { id: "cancel", label: "Cancel", style: "secondary" }],
       input: { placeholder: "03001234567", defaultValue: "" }
     });
     if (phone && phone !== "cancel" && phone !== "ok" && phone.length >= 7) {
       localStorage.setItem("vx_beta_notify_phone", phone);
-      window.open(`https://wa.me/923315133226?text=Hi%20Valenixia%20Team!%20My%20WhatsApp%20number%20is%20${encodeURIComponent(phone)}.%20I%20would%20like%20to%20fast-track%20my%20subscription%20activation.`, '_blank');
+      window.open(`https://wa.me/923315133226?text=Hi%20Valenixia%20Team!%20My%20WhatsApp%20number%20is%20${encodeURIComponent(phone)}.%20Here%20is%20my%20payment%20screenshot%20for%20account%20upgrade.`, '_blank');
       if (window.showNotificationToast) showNotificationToast("Opening WhatsApp chat with support...", "success", 4000);
     }
   });

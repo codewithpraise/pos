@@ -72,6 +72,7 @@ const {
   updateSecureTimeAnchor,
   saveTelemetryLog,
   factoryResetDatabase,
+  recalculateCachedStock,
   SERVER_SCHEMA_VERSION
 } = require('./database');
 const { pushOfflineBackupsToCloud } = require('./supabase-sync');
@@ -2798,7 +2799,56 @@ app.get('/api/inventory', requireAuth, async (req, res) => {
   }
 });
 
-// 4. Retrieve History (Requires approved device token)
+// POST /api/inventory/adjust — CRDT-safe stock adjustment (Item 23)
+// Body: { sku: string, delta: signed-int, reason: string, force?: bool }
+// delta > 0 = stock received; delta < 0 = reduction (shrinkage/void/write-off)
+app.post('/api/inventory/adjust', requireAuth, async (req, res) => {
+  try {
+    const { sku, delta, reason, force } = req.body;
+    if (!sku || typeof delta !== 'number' || delta === 0) {
+      return res.status(400).json({ error: 'sku and non-zero numeric delta are required.' });
+    }
+    const intDelta = Math.trunc(delta);
+    const prod = await db.get('SELECT sku, stock_level FROM inventory_catalog WHERE sku = ?', [sku]);
+    if (!prod) return res.status(404).json({ error: `Product SKU '${sku}' not found.` });
+
+    if (!force && intDelta < 0 && (prod.stock_level + intDelta) < 0) {
+      return res.status(409).json({
+        error: `Adjustment would drive stock below 0 (current: ${prod.stock_level}, delta: ${intDelta}). Pass force:true for shrinkage write-offs.`
+      });
+    }
+
+    const hlc = await getHlc();
+    const movementId = 'SM_' + Date.now().toString(36).toUpperCase();
+    const newStock = Math.max(0, prod.stock_level + intDelta);
+
+    await db.beginImmediate();
+    try {
+      // 1. Write to physical stock_movements audit log
+      await db.run(
+        `INSERT INTO stock_movements (id, sku, change_qty, reason, created_at, sync_hlc) VALUES (?, ?, ?, ?, ?, ?)`,
+        [movementId, sku, intDelta, reason || 'manual_adjustment', Date.now(), hlc]
+      );
+      // 2. Update cached stock level on inventory_catalog
+      await db.run('UPDATE inventory_catalog SET stock_level = ? WHERE sku = ?', [newStock, sku]);
+      // 3. Log the stock_level change into crsql_changes so CRDT peers pick it up
+      await logLocalChange('inventory_catalog', sku, 'stock_level', newStock, 'integer');
+      await db.commit();
+    } catch (txErr) {
+      await db.rollback();
+      throw txErr;
+    }
+
+    // Broadcast updated stock to all connected sync peers
+    broadcastToClients({ type: 'STOCK_ADJUSTED', payload: { sku, delta: intDelta, newStock, reason: reason || 'manual_adjustment', movementId, hlc } });
+
+    res.json({ success: true, sku, delta: intDelta, newStock });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+
 app.get('/api/transactions', requireAuth, async (req, res) => {
   try {
     const history = await db.all('SELECT * FROM transactions WHERE is_deleted = 0 ORDER BY created_at DESC LIMIT 50');
@@ -4193,14 +4243,6 @@ app.post('/api/bootstrap',
   }
 }); // end bootstrap inner handler
 
-// POST /api/onboard — Alias for initial system bootstrap onboarding
-app.post('/api/onboard', checkOrigin, bootstrapLimiter, requireBody({ storeName: 'STORE_NAME', adminPin: 'ADMIN_PIN', syncPassphrase: 'SYNC_PASSPHRASE' }), async (req, res) => {
-  const onboardingCompleteRow = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'onboarding_complete'");
-  if (onboardingCompleteRow && onboardingCompleteRow.value_payload === 'true') {
-    return res.status(403).json({ error: 'System is already bootstrapped and initialized.' });
-  }
-  return res.status(400).json({ error: 'Onboarding required parameters missing or invalid.' });
-});
 
 
 // POST /api/pairing/token — Generate a short-lived pairing token (requires Admin role)

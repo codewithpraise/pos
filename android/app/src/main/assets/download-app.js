@@ -185,13 +185,18 @@
   }
 
   // ── 7. DOM Ready Initializer ──────────────────────────────────────────────
-  document.addEventListener('DOMContentLoaded', () => {
+  const onReady = () => {
     highlightRecommendedPlatform();
     initParticleCanvas();
     initScrollAnimations();
     initQRCode();
     initGuideTabs();
     initCopyButtons();
-  });
+  };
+  if (document.readyState === 'interactive' || document.readyState === 'complete') {
+    onReady();
+  } else {
+    document.addEventListener('DOMContentLoaded', onReady);
+  }
 
 })();

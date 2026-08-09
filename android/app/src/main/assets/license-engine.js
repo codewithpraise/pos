@@ -1,7 +1,7 @@
 // ============================================================================
-// VALENIXIA LICENSE ENGINE â€” CLIENT-SIDE ASYMMETRIC VERIFICATION
+// VALENIXIA LICENSE ENGINE — CLIENT-SIDE ASYMMETRIC VERIFICATION
 // Runs before any app logic. Blocks execution if unlicensed/expired/tampered.
-// Uses Ed25519 via SubtleCrypto. No network calls â€” fully offline.
+// Uses Ed25519 via SubtleCrypto. No network calls — fully offline.
 // ============================================================================
 
 'use strict';
@@ -43,14 +43,17 @@ const LicenseEngine = (() => {
     try {
       if (crypto && crypto.subtle) {
         const encoded = new TextEncoder().encode(components);
-        const hashBuf = await crypto.subtle.digest('SHA-256', encoded);
+        const hashBuf = await Promise.race([
+          crypto.subtle.digest('SHA-256', encoded),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('SubtleCrypto timeout')), 1000))
+        ]);
         const hashArr = Array.from(new Uint8Array(hashBuf));
         return hashArr.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase().slice(0, 32);
       }
     } catch (e) {
-      console.warn('[License] crypto.subtle unavailable (HTTP context), using JS fallback HWID.');
+      console.warn('[License] crypto.subtle unavailable or timed out, using JS fallback HWID.');
     }
-    // Pure-JS fallback: djb2 hash â€” deterministic, no crypto API needed
+    // Pure-JS fallback: djb2 hash — deterministic, no crypto API needed
     let h = 5381;
     for (let i = 0; i < components.length; i++) {
       h = ((h << 5) + h) ^ components.charCodeAt(i);
@@ -89,7 +92,7 @@ const LicenseEngine = (() => {
             payload.store_id = payload.licenseKey;
           }
           
-          console.warn('[License] Standard JWT detected â€” parsing claims.');
+          console.warn('[License] Standard JWT detected — parsing claims.');
           if (payload.exp && payload.exp < Date.now()) {
             return { valid: false, reason: 'JWT has expired.' };
           }
@@ -106,7 +109,7 @@ const LicenseEngine = (() => {
       // cryptographic verification. The server already validated the device token
       // via requireAuth middleware. Client-side Ed25519 is supplemental only.
       if (!crypto || !crypto.subtle) {
-        console.warn('[License] crypto.subtle unavailable â€” skipping Ed25519 client verification (HTTP context).');
+        console.warn('[License] crypto.subtle unavailable — skipping Ed25519 client verification (HTTP context).');
         // Still parse and check expiry using basic safeAtob
         try {
           const decoded = window.safeAtob(tokenB64);
@@ -121,7 +124,7 @@ const LicenseEngine = (() => {
             }
             return { valid: false, reason: `License expired on ${new Date(payload.exp).toLocaleDateString()}.` };
           }
-          // HWID check skipped on HTTP â€” server enforces terminal binding
+          // HWID check skipped on HTTP — server enforces terminal binding
           return { valid: true, payload };
         } catch (e) {
           console.error('================================================');
@@ -190,7 +193,10 @@ const LicenseEngine = (() => {
   // ——————————————————————————————————————————————————————————————————————————
   async function checkTimeAnchor() {
     try {
-      const pref = await ValenixiaDB.get('local_preferences', STORAGE_KEY_ANCHOR);
+      const pref = await Promise.race([
+        ValenixiaDB.get('local_preferences', STORAGE_KEY_ANCHOR),
+        new Promise(r => setTimeout(() => r(null), 2000))
+      ]);
       if (!pref || !pref.value_payload) return { tampered: false };
       const lastKnown = parseInt(pref.value_payload);
       if (isNaN(lastKnown)) return { tampered: false };
@@ -202,8 +208,19 @@ const LicenseEngine = (() => {
     return { tampered: false };
   }
 
+  function dismissBootLoader() {
+    try {
+      if (typeof window.updateBootProgress === 'function') {
+        window.updateBootProgress(100, 'Ready');
+      }
+      const loader = document.getElementById('app-boot-loader');
+      if (loader) { loader.style.display = 'none'; loader.remove(); }
+    } catch (_) {}
+  }
+
   // â”€â”€ Hard lockout overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function mountLockoutOverlay(message) {
+    dismissBootLoader();
     document.getElementById('license-lockout-overlay')?.remove();
     const overlay = document.createElement('div');
     overlay.id = 'license-lockout-overlay';
@@ -220,7 +237,7 @@ const LicenseEngine = (() => {
           <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
         </svg>
         <div style="font-size: clamp(18px,3vw,24px); font-weight: 800; color: #f8fafc; letter-spacing: -0.02em; margin-bottom: 12px;">
-          VALENIXIA POS â€” ACCESS RESTRICTED
+          VALENIXIA POS — ACCESS RESTRICTED
         </div>
         <div id="license-message" style="font-size: 13px; color: #94a3b8; line-height: 1.6; margin-bottom: 24px; border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 16px; background: rgba(239,68,68,0.05);">
           ${message}
@@ -444,6 +461,7 @@ const LicenseEngine = (() => {
 
   // â”€â”€ Pending payment verification overlay with auto-polling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function mountPendingPaymentOverlay(message, token, hwid) {
+    dismissBootLoader();
     document.getElementById('license-lockout-overlay')?.remove();
     const overlay = document.createElement('div');
     overlay.id = 'license-lockout-overlay';
@@ -502,6 +520,7 @@ const LicenseEngine = (() => {
   };
 
   function mountClockTamperOverlay(lastKnown, osClock, onBypass) {
+    dismissBootLoader();
     document.getElementById('license-lockout-overlay')?.remove();
     const overlay = document.createElement('div');
     overlay.id = 'license-lockout-overlay';
@@ -737,7 +756,7 @@ const LicenseEngine = (() => {
     }
     const isHttpContext = !isSecureContext || isLocalhost || (location.protocol === 'http:') || isLAN;
 
-    // 1. Monotonic time anchor check â€” prevent clock rollback license bypass
+    // 1. Monotonic time anchor check — prevent clock rollback license bypass
     const { tampered, lastKnown, osClock } = await checkTimeAnchor();
     if (tampered) {
       mountClockTamperOverlay(lastKnown, osClock, async (pin) => {
@@ -841,7 +860,7 @@ const LicenseEngine = (() => {
           return false;
         }
 
-        console.log(`[License] Valid â€” Tier: ${result.payload.tier}, Expires: ${new Date(result.payload.exp).toLocaleDateString()}`);
+        console.log(`[License] Valid — Tier: ${result.payload.tier}, Expires: ${new Date(result.payload.exp).toLocaleDateString()}`);
         window.__valenixiaTier = result.payload.tier;
         window.__valenixiaHWID = hwid;
 
@@ -868,20 +887,19 @@ const LicenseEngine = (() => {
       } else {
         console.warn('[License] Stored token invalid:', result.reason);
         // On HTTP context: if token is present but just can't be crypto-verified,
-        // still allow boot â€” server middleware already enforces authorization.
+        // still allow boot — server middleware already enforces authorization.
         if (isHttpContext && result.reason && result.reason.includes('Verification error')) {
-          console.warn('[License] HTTP context: crypto verification failed but token present â€” allowing boot.');
-          window.__valenixiaTier = 'STANDARD';
+          console.warn('[License] HTTP context: crypto verification failed but token present — defaulting to FREE tier.');
+          window.__valenixiaTier = 'FREE';
           window.__valenixiaHWID = hwid;
           return true;
         }
       }
     } else if (isHttpContext || isAndroidApp) {
-      // No stored license AND on HTTP context (LAN app) â€” server already auth-gates
-      // every API endpoint via requireAuth middleware. Allow the app to boot so the
-      // user can reach the login screen. The server will reject unauthorized calls.
-      console.warn('[License] HTTP context without local token â€” server-side auth is enforcing access. Allowing boot.');
-      window.__valenixiaTier = 'STANDARD';
+      // No stored license AND on HTTP context — server auth is enforcing access.
+      // Default initial tier to FREE so paid modules are locked until subscribed.
+      console.warn('[License] HTTP/Android context without local token — defaulting initial tier to FREE.');
+      window.__valenixiaTier = 'FREE';
       window.__valenixiaHWID = hwid;
       return true;
     }
@@ -900,12 +918,17 @@ const LicenseEngine = (() => {
       isNativeOnboarded = window.AndroidPOS.isOnboardingComplete();
     }
 
+    function fetchWithTimeout(url, options = {}, timeoutMs = 1500) {
+      return Promise.race([
+        fetch(url, options),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Fetch timeout')), timeoutMs))
+      ]);
+    }
+
     // At startup, check if the Node backend is already onboarded
     let isServerOnboarded = false;
     try {
-      const healthResp = await fetch((window.__valenixiaServerUrl || location.origin) + `/api/health?hwid=${encodeURIComponent(hwid)}`, {
-        signal: AbortSignal.timeout ? AbortSignal.timeout(2000) : null
-      });
+      const healthResp = await fetchWithTimeout((window.__valenixiaServerUrl || location.origin) + `/api/health?hwid=${encodeURIComponent(hwid)}`, {}, 1500);
       if (healthResp.ok) {
         const healthData = await healthResp.json();
         if (healthData.onboarded) {
@@ -932,7 +955,7 @@ const LicenseEngine = (() => {
       return true;
     }
 
-    // 4. No valid license on HTTPS â€” mount lockout overlay
+    // 4. No valid license on HTTPS — mount lockout overlay
     mountLockoutOverlay(
       stored
         ? `Your license is invalid or expired.<br><br>Please enter your 6-digit activation code and registered phone number below to reactivate your terminal.`
@@ -1056,7 +1079,7 @@ const LicenseEngine = (() => {
   // â”€â”€ Public: Returns ms remaining in the grace period after expiry â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async function getGraceRemainingMs() {
     const expiryMs = await getExpiryMs();
-    if (expiryMs === null) return null; // lifetime â€” no grace needed
+    if (expiryMs === null) return null; // lifetime — no grace needed
     if (expiryMs > 0) return 0; // Not yet expired
     const overdue = -expiryMs;
     const graceRemaining = GRACE_PERIOD_MS - overdue;

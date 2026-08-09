@@ -93,4 +93,21 @@
   --color-warning: var(--warning);
   --color-error: var(--alert-coral);
   --color-accent: var(--accent-emerald);
+
+  /* === UI Scale (Accessibility) ===
+     Controls the root rem base. Adjustable from Settings → Display.
+     0.85 = Compact  |  1.0 = Default  |  1.1 = Large  |  1.2 = X-Large
+     JS reads/writes: document.documentElement.style.setProperty('--size-scale', value) */
+  --size-scale: 1;
+}
+
+/* Apply scale to root font-size so all UI elements scale cleanly without layout breaking */
+html {
+  font-size: calc(15px * var(--size-scale, 1)) !important;
+}
+
+body {
+  width: 100% !important;
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
 }

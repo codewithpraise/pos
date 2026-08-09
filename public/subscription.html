@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Subscriptions &amp; Billing — Valenixia POS</title>
+  <script>
+    if (window.self !== window.top) {
+      document.documentElement.classList.add('in-iframe');
+    }
+  </script>
   
   <!-- Core Design System CSS -->
   <link rel="stylesheet" href="styles/design-tokens.css">
@@ -38,6 +43,10 @@
       align-items: center;
       justify-content: space-between;
       gap: 16px;
+    }
+
+    html.in-iframe .sub-header {
+      display: none !important;
     }
     
     .sub-brand {
@@ -327,8 +336,8 @@
           <div style="margin-top:14px; background:rgba(0,214,143,0.08); border:1px dashed rgba(0,214,143,0.35); border-radius:12px; padding:12px 14px; display:flex; align-items:center; gap:12px;">
             <div style="font-size:22px; flex-shrink:0;">📲</div>
             <div style="font-size:11px; color:var(--text-white); line-height:1.5;">
-              <strong style="color:var(--accent-emerald); font-size:12px; display:block; margin-bottom:2px;">Fast-Track Activation via WhatsApp</strong>
-              Kindly send your payment screenshot on WhatsApp to <a href="https://wa.me/923315133226" target="_blank" style="color:#25D366; font-weight:800; text-decoration:underline; font-family:var(--font-mono);">03315133226</a> to avoid any delay. Your account will be verified and upgraded within 24 hours. Thank you!
+              <strong style="color:var(--accent-emerald); font-size:12px; display:block; margin-bottom:2px;">Account Upgrade via WhatsApp Payment Screenshot</strong>
+              If you want your account to be successfully upgraded, kindly send your payment screenshot on WhatsApp to <a href="https://wa.me/923315133226" target="_blank" style="color:#25D366; font-weight:800; text-decoration:underline; font-family:var(--font-mono);">03315133226</a>. Your transaction reference will be verified and your account will be unlocked promptly. Thank you!
             </div>
           </div>
         </div>

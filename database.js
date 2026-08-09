@@ -967,6 +967,8 @@ async function initDatabase(terminalId) {
     CREATE INDEX IF NOT EXISTS idx_payments_status ON pending_payments(status, created_at);
     CREATE INDEX IF NOT EXISTS idx_commission_earnings_status ON commission_earnings(status, activated_at) WHERE status = 'PENDING';
     CREATE INDEX IF NOT EXISTS idx_sales_agents_employee ON sales_agents(employee_id);
+    CREATE INDEX IF NOT EXISTS idx_crsql_changes_version ON crsql_changes(db_version);
+    CREATE INDEX IF NOT EXISTS idx_crsql_changes_counter_lookup ON crsql_changes(table_name, cid, pk, sync_hlc);
   `);
 
   // Load the current db_version from crsql_changes to resume correctly

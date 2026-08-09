@@ -2,7 +2,7 @@
    VALENIXIA COMMERCE ECOSYSTEM — SUBSCRIPTION & BILLING ENGINE
    ============================================================================ */
 
-document.addEventListener('DOMContentLoaded', async () => {
+const initSubscriptionPage = async () => {
   // ── 1. Theme Synchronization ────────────────────────────────────────────────
   const savedTheme = localStorage.getItem('valenixia_theme') || 'theme-dark';
   document.documentElement.className = savedTheme.includes('light') ? 'light' : 'dark';
@@ -155,4 +155,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       }, 500);
     });
   }
-});
+};
+
+if (document.readyState === 'interactive' || document.readyState === 'complete') {
+  initSubscriptionPage();
+} else {
+  document.addEventListener('DOMContentLoaded', initSubscriptionPage);
+}

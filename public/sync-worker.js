@@ -1659,6 +1659,209 @@ self.onmessage = async (event) => {
         };
         break;
       }
+
+      // ── DEALS ENGINE ─────────────────────────────────────────────────────────
+      // All deals are persisted in local_preferences as a single JSON blob keyed
+      // 'valenixia_deals', and also broadcast via CRDT so other terminals stay in sync.
+      // Strategy mirrors Square's atomic write + event fan-out approach.
+
+      case 'SAVE_DEALS': {
+        const { deals } = payload;
+        if (!Array.isArray(deals)) break;
+        const tickHlc = syncClient.hlc.tick();
+        const dealsJson = JSON.stringify(deals);
+
+        // Persist to IndexedDB preferences store (durable across crashes/reloads)
+        await ValenixiaDB.put('local_preferences', {
+          key: 'valenixia_deals',
+          value_type: 'JSON',
+          value_payload: dealsJson,
+          is_idempotent_flag: 0,
+          updated_at: Date.now()
+        });
+
+        // Broadcast via CRDT so other terminals receive the deal catalogue update
+        await logFieldChange('local_preferences', 'valenixia_deals', 'value_payload', dealsJson, tickHlc);
+
+        postMessage({ type: 'MUTATION_SUCCESS' });
+        break;
+      }
+
+      case 'GET_DEALS': {
+        const dealsPref = await ValenixiaDB.get('local_preferences', 'valenixia_deals');
+        let deals = [];
+        if (dealsPref && dealsPref.value_payload) {
+          try { deals = JSON.parse(dealsPref.value_payload); } catch(_) { deals = []; }
+        }
+        postMessage({ type: 'DEALS_DATA', deals });
+        break;
+      }
+
+      case 'DELETE_DEAL': {
+        const { dealId } = payload;
+        const tickHlc = syncClient.hlc.tick();
+        const dealsPref = await ValenixiaDB.get('local_preferences', 'valenixia_deals');
+        let deals = [];
+        if (dealsPref && dealsPref.value_payload) {
+          try { deals = JSON.parse(dealsPref.value_payload); } catch(_) {}
+        }
+        // Soft-delete: mark is_deleted=1 so other terminals receive the tombstone via CRDT
+        const idx = deals.findIndex(d => d.id === dealId);
+        if (idx !== -1) {
+          deals[idx].is_deleted = 1;
+          deals[idx].updated_at = new Date().toISOString();
+          const dealsJson = JSON.stringify(deals);
+          await ValenixiaDB.put('local_preferences', {
+            key: 'valenixia_deals',
+            value_type: 'JSON',
+            value_payload: dealsJson,
+            is_idempotent_flag: 0,
+            updated_at: Date.now()
+          });
+          await logFieldChange('local_preferences', 'valenixia_deals', 'value_payload', dealsJson, tickHlc);
+        }
+        postMessage({ type: 'MUTATION_SUCCESS' });
+        break;
+      }
+
+      // ── TERMINAL PRESENCE HEARTBEAT ──────────────────────────────────────────
+      // Broadcasts a lightweight ephemeral ping to let other terminals know this
+      // register is alive and what screen it's currently on. Mimics Square's
+      // presence protocol for multi-terminal awareness.
+      case 'SEND_HEARTBEAT': {
+        const { screen, terminalLabel } = payload;
+        if (syncClient && syncClient.isConnected) {
+          await syncClient.broadcastEphemeral('TERMINAL_HEARTBEAT', {
+            nodeId,
+            screen: screen || 'unknown',
+            label: terminalLabel || nodeId,
+            ts: Date.now()
+          });
+        }
+        break;
+      }
+
+      // ── CLOUD RELAY URL UPDATE ────────────────────────────────────────────────
+      // Allows the operator to configure a custom cloud relay (e.g. wss://relay.mystore.com)
+      // enabling multi-terminal sync over the internet between branches.
+      case 'UPDATE_CLOUD_RELAY': {
+        const { relayUrl, syncPassphrase } = payload;
+        if (relayUrl) {
+          self.serverUrl = relayUrl;
+          await ValenixiaDB.put('local_preferences', {
+            key: 'valenixia_server_url',
+            value_type: 'STR',
+            value_payload: relayUrl,
+            is_idempotent_flag: 0,
+            updated_at: Date.now()
+          });
+        }
+        if (syncPassphrase && syncClient) {
+          syncClient.passphrase = syncPassphrase;
+          syncClient.passphraseInvalid = false;
+          await ValenixiaDB.put('local_preferences', {
+            key: 'sync_passphrase',
+            value_type: 'STR',
+            value_payload: syncPassphrase,
+            is_idempotent_flag: 0,
+            updated_at: Date.now()
+          });
+        }
+        if (syncClient) {
+          syncClient.backoffTime = 1000;
+          syncClient._reconnectFailures = 0;
+          syncClient.passphraseInvalid = false;
+          syncClient.connect();
+        }
+        postMessage({ type: 'MUTATION_SUCCESS' });
+        postMessage({ type: 'RELAY_UPDATED', relayUrl });
+        break;
+      }
+
+      // ── DURABLE OUTBOX: restore offline queue from IndexedDB on worker restart ─
+      // Unlike a RAM queue (which vanishes on crash), this restores any deltas that
+      // were written to IndexedDB but not yet flushed to the server — implementing
+      // the industry-standard Outbox Pattern used by Shopify POS.
+      case 'RESTORE_DURABLE_OUTBOX': {
+        try {
+          const outboxPref = await ValenixiaDB.get('local_preferences', '__durable_outbox__');
+          if (outboxPref && outboxPref.value_payload) {
+            const queued = JSON.parse(outboxPref.value_payload);
+            if (Array.isArray(queued) && queued.length > 0 && syncClient) {
+              syncClient.offlineQueue = queued;
+              console.log(`[SyncWorker:DurableOutbox] Restored ${queued.length} pending deltas from IndexedDB.`);
+              postMessage({ type: 'OFFLINE_QUEUE_UPDATE', count: queued.length });
+              // Try immediate flush if connected
+              if (syncClient.isConnected) {
+                await syncClient.flushOfflineQueue();
+                // Clear the durable store after successful flush
+                await ValenixiaDB.put('local_preferences', {
+                  key: '__durable_outbox__',
+                  value_type: 'JSON',
+                  value_payload: '[]',
+                  is_idempotent_flag: 1,
+                  updated_at: Date.now()
+                });
+              }
+            }
+          }
+        } catch(e) {
+          console.warn('[SyncWorker:DurableOutbox] Restore failed (non-fatal):', e.message);
+        }
+        break;
+      }
+
+      // ── PERSIST DURABLE OUTBOX ───────────────────────────────────────────────
+      // Called periodically (every 10s) to snapshot the in-RAM offline queue to
+      // IndexedDB so it survives app crashes and Android WebView kills.
+      case 'PERSIST_DURABLE_OUTBOX': {
+        try {
+          if (syncClient && syncClient.offlineQueue && syncClient.offlineQueue.length > 0) {
+            await ValenixiaDB.put('local_preferences', {
+              key: '__durable_outbox__',
+              value_type: 'JSON',
+              value_payload: JSON.stringify(syncClient.offlineQueue),
+              is_idempotent_flag: 1,
+              updated_at: Date.now()
+            });
+          }
+        } catch(e) { /* non-fatal */ }
+        break;
+      }
+
+      // ── INVENTORY ATOMIC DELTA ───────────────────────────────────────────────
+      // Applies a PN-Counter delta to inventory. Like Square's atomic decrement,
+      // this adds/subtracts from the *current* stock rather than overwriting it,
+      // preventing race conditions when two terminals sell the same item.
+      case 'INVENTORY_DELTA': {
+        const { sku: deltaSku, delta, reason } = payload;
+        if (!deltaSku || delta === undefined || delta === 0) break;
+        const tickHlc = syncClient.hlc.tick();
+
+        // Apply the PN-Counter delta (per-node, per-item)
+        const localDelta = await ValenixiaDB.get('crsql_changes', ['inventory_catalog_counters', `${deltaSku}/${nodeId}`, 'delta']);
+        const currentDelta = localDelta ? Number(localDelta.val || 0) : 0;
+        const newDelta = currentDelta + delta;
+
+        await logFieldChange('inventory_catalog_counters', `${deltaSku}/${nodeId}`, 'delta', newDelta, tickHlc);
+        await ValenixiaDB.recalculateCachedStock(deltaSku);
+        await checkStockAlert(deltaSku, tickHlc);
+
+        // Log stock movement audit trail
+        if (reason) {
+          const mvId = `mv_${Date.now()}_${deltaSku}`;
+          await ValenixiaDB.put('stock_movements', {
+            id: mvId, sku: deltaSku, change_qty: delta,
+            reason, created_at: Date.now(), sync_hlc: tickHlc
+          });
+          await logFieldChange('stock_movements', mvId, 'change_qty', delta, tickHlc);
+          await logFieldChange('stock_movements', mvId, 'reason', reason, tickHlc);
+        }
+
+        const updated = await ValenixiaDB.get('inventory_catalog', deltaSku);
+        postMessage({ type: 'INVENTORY_DELTA_APPLIED', sku: deltaSku, newStock: updated ? updated.stock_level : 0 });
+        break;
+      }
     }
   } catch (err) {
     console.error('[SyncWorker] Task execution failed:', err);
@@ -1953,3 +2156,36 @@ setInterval(async () => {
   }
 }, 60000);
 
+// ── DURABLE OUTBOX: Snapshot RAM queue to IndexedDB every 10 seconds ────────
+// If the Android WebView is killed while the app is offline, the RAM queue
+// (syncClient.offlineQueue) would be lost. This interval snapshots it to IDB
+// so the next boot can restore it via RESTORE_DURABLE_OUTBOX.
+setInterval(async () => {
+  try {
+    if (typeof syncClient !== 'undefined' && syncClient && syncClient.offlineQueue && syncClient.offlineQueue.length > 0) {
+      if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.db) {
+        await ValenixiaDB.put('local_preferences', {
+          key: '__durable_outbox__',
+          value_type: 'JSON',
+          value_payload: JSON.stringify(syncClient.offlineQueue),
+          is_idempotent_flag: 1,
+          updated_at: Date.now()
+        });
+      }
+    }
+  } catch(e) { /* non-fatal — gracefully skip */ }
+}, 10000);
+
+// ── TERMINAL HEARTBEAT: Broadcast presence every 30 seconds ──────────────────
+// Lets other connected terminals in the same store know this register is alive.
+// Only broadcasts when actively connected to the WebSocket relay.
+setInterval(async () => {
+  try {
+    if (typeof syncClient !== 'undefined' && syncClient && syncClient.isConnected) {
+      await syncClient.broadcastEphemeral('TERMINAL_HEARTBEAT', {
+        nodeId,
+        ts: Date.now()
+      });
+    }
+  } catch(e) { /* non-fatal */ }
+}, 30000);
