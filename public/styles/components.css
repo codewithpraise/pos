@@ -5462,14 +5462,24 @@ input, textarea, select, [contenteditable="true"] {
   min-height: 42px !important;
   box-sizing: border-box !important;
   padding: 10px 14px !important;
-  background: rgba(14, 18, 30, 0.9) !important;
+  background: var(--panel-graphite-mid, rgba(14, 18, 30, 0.9)) !important;
   border: 1px solid var(--border-titanium, rgba(255, 255, 255, 0.14)) !important;
   border-radius: 8px !important;
-  color: #ffffff !important;
+  color: var(--text-white, #ffffff) !important;
   font-size: 13px !important;
   font-family: inherit !important;
   outline: none !important;
   transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+body.theme-monochrome-ivory .pos-input,
+body.theme-monochrome-ivory select.pos-input,
+body.theme-monochrome-ivory textarea.pos-textarea,
+body.theme-monochrome-ivory .form-group input,
+body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
+  color: #111111 !important;
+  background: #ffffff !important;
+  border-color: rgba(0,0,0,0.18) !important;
 }
 
 .form-group input:focus, .form-group select:focus, .form-group textarea:focus,
