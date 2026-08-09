@@ -4748,6 +4748,8 @@ body.has-top-banner {
   padding-top: calc(env(safe-area-inset-top, 0px) + 44px) !important;
 }
 
+body.is-offline .pos-topbar,
+body.has-top-banner .pos-topbar,
 body.is-offline .pos-content-pane,
 body.has-top-banner .pos-content-pane,
 body.is-offline .content-view,

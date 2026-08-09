@@ -71,7 +71,7 @@ jobs:
         run: npm run test:syntax
 
       - name: Security Audit
-        run: npm audit --audit-level=moderate --production
+        run: npm audit --audit-level=moderate --omit=dev
 
       - name: Run Test Suite (Unit, DB, Backups)
         env:
