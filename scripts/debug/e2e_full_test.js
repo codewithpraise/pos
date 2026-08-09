@@ -398,8 +398,8 @@ async function run() {
   }
 
   if (appIsOpen) {
-    // Only test non-manager-gated screens to avoid PIN prompt dialogs
-    const testScreens = ['checkout', 'catalog', 'history', 'analytics'];
+    // Only test non-paid screens to avoid paywall modal dialogs
+    const testScreens = ['checkout', 'catalog', 'history'];
     for (const scr of testScreens) {
       await ev(`(function(){ var el=document.querySelector(".nav-item[data-screen='${scr}']"); if(el) el.click(); })()`);
       await sleep(500);
@@ -596,7 +596,7 @@ async function run() {
       pass(`Sidebar bg in ivory: ${sidebarBg}`);
 
       // Check input colors
-      const inputColor = await ev('window.getComputedStyle(document.querySelector(".pos-input"))?.color');
+      const inputColor = await ev('window.getComputedStyle(document.querySelector("#pos-app-layout .pos-input, #checkout-search-input, .pos-input"))?.color');
       pass(`Input text color in ivory: ${inputColor}`);
 
       // Check input has dark text (low red value)

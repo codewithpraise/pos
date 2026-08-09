@@ -2496,7 +2496,7 @@ setHtml(overlay, `
   }
 
   function createSafeWebWorker(scriptPath) {
-    const isFileProtocol = window.location.protocol === 'file:' || !!window.AndroidPOS || !!window.Android;
+    const isFileProtocol = window.location.protocol === 'file:';
     // Mobile APK / file:// Strategy: Prefer pre-inlined blob worker to avoid importScripts CORS/file restrictions
     if (isFileProtocol && typeof window.createInlineWorker === 'function') {
       try {
