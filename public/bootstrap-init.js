@@ -975,9 +975,12 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
           if (layout) layout.style.display = 'none';
         }
 
-        // SAFETY NET: If nothing is visible after 4s, force the lock screen or wizard to show
+        window.appInitialized = true;
+
+        // SAFETY NET: If nothing is visible after 4s and app not authenticated, force view
         setTimeout(function() {
           try {
+            if (window.__valenixiaAuthenticated) return;
             const layoutDisp = layout ? (layout.style.display || window.getComputedStyle(layout).display) : 'none';
             const isLayoutVis = layoutDisp !== 'none';
             const anyVisible = (
@@ -985,7 +988,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
               (lock && (lock.classList.contains('active') || lock.style.display === 'flex')) ||
               isLayoutVis
             );
-            if (!anyVisible) {
+            if (!anyVisible && !window.__valenixiaAuthenticated) {
               console.warn('[Bootstrap] Safety net: nothing visible after 4s. Forcing correct view.');
               if (localStorage.getItem('onboarding_complete') === 'true') {
                 const lk = document.getElementById('auth-lock-screen');

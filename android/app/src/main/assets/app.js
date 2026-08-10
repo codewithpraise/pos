@@ -5040,9 +5040,9 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
       const pill = e.target.closest('.cat-pill');
       if (!pill) return;
       playAudioSignal('click');
-      document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('#catalog-category-list .cat-pill').forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
-      state.selectedCategory = pill.getAttribute('data-cat');
+      state.catalogManagerCategory = pill.getAttribute('data-cat');
       renderCatalogScreen();
     });
 
@@ -9840,24 +9840,26 @@ setHtml(tr, `
       });
     }
 
-    const filter = state.selectedCategory;
-    const query = document.getElementById('catalog-search-input').value.toLowerCase().trim();
+    const filter = state.catalogManagerCategory || 'ALL';
+    const searchEl = document.getElementById('catalog-search-input');
+    const query = searchEl ? (searchEl.value || '').toLowerCase().trim() : '';
 
-    const items = state.catalog.filter(p => {
+    const items = (Array.isArray(state.catalog) ? state.catalog : []).filter(p => {
       let matchesCat = false;
-      if (filter === 'ALL') {
+      if (!filter || filter === 'ALL') {
         matchesCat = true;
-      } else if (filter === '⚠️ LOW STOCK') {
+      } else if (filter === '⚠️ LOW STOCK' || filter === 'LOW STOCK') {
         const threshold = p.low_stock_threshold !== undefined ? p.low_stock_threshold : 10;
-        matchesCat = p.stock_level <= threshold;
+        const stockVal = (p.stock_level !== undefined && p.stock_level !== null) ? p.stock_level : (p.stock || 0);
+        matchesCat = stockVal <= threshold;
       } else {
         matchesCat = (p.category === filter);
       }
 
       const matchesQuery = !query || (
-        p.sku.toLowerCase().includes(query) ||
-        p.name.toLowerCase().includes(query) ||
-        (p.gtin && String(p.gtin).includes(query))
+        (p.sku && String(p.sku).toLowerCase().includes(query)) ||
+        (p.name && String(p.name).toLowerCase().includes(query)) ||
+        (p.gtin && String(p.gtin).toLowerCase().includes(query))
       );
       return matchesCat && matchesQuery;
     });
@@ -10027,10 +10029,11 @@ setHtml(card, `
     const allCats = [...new Set([...presetCats, ...catalogCats])];
 
     const fragment = document.createDocumentFragment();
+    const activeCat = state.catalogManagerCategory || 'ALL';
     allCats.forEach(cat => {
       const button = document.createElement('button');
       button.className = 'cat-pill';
-      if (cat === state.selectedCategory) button.classList.add('active');
+      if (cat === activeCat) button.classList.add('active');
       button.setAttribute('data-cat', cat);
       button.textContent = cat;
       fragment.appendChild(button);

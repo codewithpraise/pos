@@ -6018,7 +6018,7 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
     display: flex !important;
     flex-direction: column !important;
     overflow: hidden !important;
-    padding-bottom: 64px !important; /* Space for bottom navbar */
+    padding-bottom: 0 !important; /* Fixed: eliminates 134px double padding gap above bottom navbar */
     box-sizing: border-box !important;
   }
   #checkout-split-layout {
