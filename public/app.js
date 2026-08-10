@@ -7466,7 +7466,16 @@ I am attaching my payment proof screenshot below. Please verify and upgrade my a
           try {
             const serverBase = (window.__valenixiaServerUrl || location.origin);
             const devTok = state.deviceToken || localStorage.getItem('valenixia_device_token') || '';
-            const authHeader = devTok ? { 'Authorization': `Bearer ${devTok}` } : {};
+            if (!devTok || devTok.startsWith('mock_') || devTok.startsWith('dev_')) {
+              const statusEl = document.getElementById('fbr-status-val');
+              if (statusEl) statusEl.textContent = 'ACTIVE (LOCAL)';
+              const integratedEl = document.getElementById('fbr-integrated-count');
+              if (integratedEl) integratedEl.textContent = '0';
+              const pendingEl = document.getElementById('fbr-pending-count');
+              if (pendingEl) pendingEl.textContent = '0 Invoices';
+              return;
+            }
+            const authHeader = { 'Authorization': `Bearer ${devTok}` };
             // Fetch FBR status
             const statusRes = await fetch(`${serverBase}/api/fbr/status`, { headers: authHeader }).catch(() => null);
             if (statusRes && statusRes.ok) {
