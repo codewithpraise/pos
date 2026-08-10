@@ -2,9 +2,13 @@ node_modules
 android
 .git
 .gradle
+build
+chrome-profile*
 dist
 scratch
 tests
+docs
+coverage
 *.db
 *.sqlite
 public/downloads/*.exe
