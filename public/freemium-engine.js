@@ -94,7 +94,7 @@ const VALID_TIERS = ['FREE', 'STARTER', 'GROWTH', 'PRO', 'ENTERPRISE'];
 function getActiveTier() {
   // Priority 1: Use dynamically synced online tier if available
   if (window.__valenixiaTier && VALID_TIERS.includes(window.__valenixiaTier)) {
-    window.__valenixiaPlan = PLANS[window.__valenixiaTier] || PLANS.STARTER;
+    window.__valenixiaPlan = PLANS[window.__valenixiaTier] || PLANS.FREE;
     return window.__valenixiaTier;
   }
 
@@ -103,25 +103,23 @@ function getActiveTier() {
     const tokenTier = String(window.__valenixiaLicensePayload.tier).toUpperCase();
     if (VALID_TIERS.includes(tokenTier)) {
       window.__valenixiaTier = tokenTier;
-      window.__valenixiaPlan = PLANS[tokenTier] || PLANS.STARTER;
+      window.__valenixiaPlan = PLANS[tokenTier] || PLANS.FREE;
       return tokenTier;
     }
   }
 
-  // Priority 3: Fallback to stored tier (defaults to ENTERPRISE for registered terminals)
+  // Priority 3: Fallback to stored tier (MUST default to FREE for new devices per policy)
   const rawStored = (localStorage.getItem('valenixia_tier') || '').toUpperCase();
-  const isAndroidOrLocal = typeof window.AndroidPOS !== 'undefined' || location.protocol === 'file:';
-  const defaultFallback = isAndroidOrLocal ? 'ENTERPRISE' : 'STARTER';
-  const storedTier = (VALID_TIERS.includes(rawStored) && rawStored !== 'FREE') ? rawStored : defaultFallback;
+  const storedTier = VALID_TIERS.includes(rawStored) ? rawStored : 'FREE';
   window.__valenixiaTier = storedTier;
-  window.__valenixiaPlan = PLANS[storedTier] || PLANS.ENTERPRISE;
+  window.__valenixiaPlan = PLANS[storedTier] || PLANS.FREE;
   return storedTier;
 }
 
 function getLimits() {
   const tier = getActiveTier();
-  const planKey = PLANS[tier] || PLANS.STARTER;
-  return PLAN_LIMITS[planKey] || PLAN_LIMITS[PLANS.STARTER];
+  const planKey = PLANS[tier] || PLANS.FREE;
+  return PLAN_LIMITS[planKey] || PLAN_LIMITS[PLANS.FREE];
 }
 window.getLimits = getLimits;
 
@@ -164,7 +162,7 @@ function can(feature) {
   }
 
   const currentTier = getActiveTier();
-  const currentRank = TIER_HIERARCHY[currentTier] ?? 1;
+  const currentRank = TIER_HIERARCHY[currentTier] ?? 0;
   const reqRank = TIER_HIERARCHY[reqTier] ?? 0;
   return currentRank >= reqRank;
 }
@@ -195,12 +193,11 @@ async function syncOnlineSubscriptionTier() {
     }
 
     // Direct Supabase REST Cloud fallback if local server is unreachable or on Android file://
-    if (!data || !data.tier) {
+    if ((!data || !data.tier) && hwid) {
       try {
         const supaUrl = 'https://wzvwyfyefbdrqscxhwsf.supabase.co';
         const supaKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6dnd5ZnllZmJkcnFzY3hod3NmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MzU3ODUsImV4cCI6MjA5ODQxMTc4NX0.W9O6U4tqETM6BcEjX7evt3LunpIZOC5c7wcZht2ajuk';
-        const targetHwid = hwid || 'BE4DAD7445FC1AE5BCEA630460A4312D';
-        const supaResp = await fetch(`${supaUrl}/rest/v1/stores?id=eq.${encodeURIComponent(targetHwid)}`, {
+        const supaResp = await fetch(`${supaUrl}/rest/v1/stores?id=eq.${encodeURIComponent(hwid)}`, {
           headers: {
             'apikey': supaKey,
             'Authorization': `Bearer ${supaKey}`
@@ -210,7 +207,7 @@ async function syncOnlineSubscriptionTier() {
           const rows = await supaResp.json();
           if (rows && rows.length > 0) {
             data = {
-              tier: String(rows[0].plan || rows[0].tier || 'enterprise').toUpperCase(),
+              tier: String(rows[0].plan || rows[0].tier || 'FREE').toUpperCase(),
               created_at: rows[0].created_at || rows[0].updated_at
             };
           }
@@ -218,45 +215,47 @@ async function syncOnlineSubscriptionTier() {
       } catch (_) {}
     }
 
-    if (data && data.tier) {
-      const fetchedTier = String(data.tier).toUpperCase();
-      if (VALID_TIERS.includes(fetchedTier)) {
-        window.__valenixiaTier = fetchedTier;
-        window.__valenixiaPlan = PLANS[fetchedTier] || PLANS.ENTERPRISE;
-        const prevTier = window.__lastSyncedTier || localStorage.getItem('valenixia_tier') || '';
-        window.__lastSyncedTier = fetchedTier;
-        const tierChanged = prevTier && prevTier !== fetchedTier;
+    const fetchedTier = data && data.tier ? String(data.tier).toUpperCase() : (localStorage.getItem('valenixia_tier') || 'FREE').toUpperCase();
+    if (VALID_TIERS.includes(fetchedTier)) {
+      window.__valenixiaTier = fetchedTier;
+      window.__valenixiaPlan = PLANS[fetchedTier] || PLANS.FREE;
+      const prevTier = window.__lastSyncedTier || localStorage.getItem('valenixia_tier') || fetchedTier;
+      const tierChanged = window.__lastSyncedTier && window.__lastSyncedTier !== fetchedTier;
+      window.__lastSyncedTier = fetchedTier;
 
-        try {
-          localStorage.setItem('valenixia_tier', fetchedTier);
-          const serverStartIso = data.subscription_start_time || data.start_time || data.created_at;
-          const serverStartMs = serverStartIso ? Date.parse(serverStartIso) : NaN;
-          
-          let existingStartMs = parseInt(localStorage.getItem('valenixia_subscription_start_time'), 10);
-          if (isNaN(existingStartMs) || existingStartMs <= 0 || (!isNaN(serverStartMs) && serverStartMs > 0 && serverStartMs < existingStartMs)) {
-            existingStartMs = (!isNaN(serverStartMs) && serverStartMs > 0) ? serverStartMs : Date.now();
-            localStorage.setItem('valenixia_subscription_start_time', String(existingStartMs));
-            if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
-              ValenixiaDB.put('local_preferences', {
-                key: 'valenixia_subscription_start_time',
-                value_type: 'STR',
-                value_payload: String(existingStartMs),
-                is_idempotent_flag: 0,
-                updated_at: Date.now()
-              }).catch(() => {});
-            }
+      try {
+        localStorage.setItem('valenixia_tier', fetchedTier);
+        const serverStartIso = data?.subscription_start_time || data?.start_time || data?.created_at;
+        const serverStartMs = serverStartIso ? Date.parse(serverStartIso) : NaN;
+        
+        let existingStartMs = parseInt(localStorage.getItem('valenixia_subscription_start_time'), 10);
+        // Only initialize start time if missing. NEVER reset existing countdown timer for established devices!
+        if (isNaN(existingStartMs) || existingStartMs <= 0) {
+          existingStartMs = (!isNaN(serverStartMs) && serverStartMs > 0) ? serverStartMs : Date.now();
+          localStorage.setItem('valenixia_subscription_start_time', String(existingStartMs));
+          if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
+            ValenixiaDB.put('local_preferences', {
+              key: 'valenixia_subscription_start_time',
+              value_type: 'STR',
+              value_payload: String(existingStartMs),
+              is_idempotent_flag: 0,
+              updated_at: Date.now()
+            }).catch(() => {});
           }
-        } catch(_) {}
+        } else if (!isNaN(serverStartMs) && serverStartMs > 0 && serverStartMs < existingStartMs) {
+          existingStartMs = serverStartMs;
+          localStorage.setItem('valenixia_subscription_start_time', String(existingStartMs));
+        }
+      } catch(_) {}
 
-        if (typeof applyTierLocks === 'function') applyTierLocks(fetchedTier);
-        if (typeof renderNavbarByTier === 'function') renderNavbarByTier(fetchedTier);
-        if (typeof applyTierRestrictions === 'function') applyTierRestrictions();
-        if (typeof renderLicenseInfoCard === 'function') renderLicenseInfoCard();
+      if (typeof applyTierLocks === 'function') applyTierLocks(fetchedTier);
+      if (typeof renderNavbarByTier === 'function') renderNavbarByTier(fetchedTier);
+      if (typeof applyTierRestrictions === 'function') applyTierRestrictions();
+      if (typeof renderLicenseInfoCard === 'function') renderLicenseInfoCard();
 
-        if (tierChanged && prevTier !== 'TRIAL') {
-          if (typeof showNotificationToast === 'function') {
-            showNotificationToast(`🚀 Subscription License Changed to ${fetchedTier}! Timer reset to 30 Days.`, 'success', 5000);
-          }
+      if (tierChanged && prevTier !== 'TRIAL') {
+        if (typeof showNotificationToast === 'function') {
+          showNotificationToast(`🚀 Subscription License Sync: Active Plan is ${fetchedTier}.`, 'info', 4000);
         }
       }
     }

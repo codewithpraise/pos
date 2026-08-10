@@ -7468,7 +7468,8 @@ I am attaching my payment proof screenshot below. Please verify and upgrade my a
             const authHeader = { 'Authorization': `Bearer ${state.deviceToken || ''}` };
             // Fetch FBR status
             const statusRes = await fetch(`${serverBase}/api/fbr/status`, { headers: authHeader });
-            if (statusRes.ok) {
+            const statusType = statusRes.headers.get('content-type') || '';
+            if (statusRes.ok && statusType.includes('application/json')) {
               const statusData = await statusRes.json();
               const statusEl = document.getElementById('fbr-status-val');
               if (statusEl) statusEl.textContent = statusData.status || 'UNKNOWN';
@@ -7477,7 +7478,8 @@ I am attaching my payment proof screenshot below. Please verify and upgrade my a
             }
             // Fetch pending queue
             const queueRes = await fetch(`${serverBase}/api/fbr/queue`, { headers: authHeader });
-            if (queueRes.ok) {
+            const queueType = queueRes.headers.get('content-type') || '';
+            if (queueRes.ok && queueType.includes('application/json')) {
               const queueData = await queueRes.json();
               const pendingEl = document.getElementById('fbr-pending-count');
               const tbody = document.getElementById('fbr-queue-tbody');
