@@ -5545,8 +5545,10 @@ table.report-table * {
   #checkout-split-layout {
     display: flex !important;
     flex-direction: column !important;
-    height: auto !important;
-    gap: 12px !important;
+    flex: 1 1 0px !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    gap: 0 !important;
   }
 }
 
@@ -5671,8 +5673,10 @@ button, .action-btn, .nav-item, .quick-product-card, .billing-cycle-btn, .pricin
   #checkout-split-layout {
     display: flex !important;
     flex-direction: column !important;
-    height: auto !important;
-    gap: 12px !important;
+    flex: 1 1 0px !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    gap: 0 !important;
   }
 }
 
@@ -6115,7 +6119,7 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
     display: grid !important;
     grid-template-columns: minmax(340px, 1.4fr) minmax(240px, 1fr) minmax(260px, 320px) !important;
     flex: 1 1 0px !important;
-    height: auto !important;
+    height: 100% !important;
     min-height: 0 !important;
     overflow: hidden !important;
     gap: 0 !important;
@@ -6140,7 +6144,7 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
     display: flex !important;
     flex-direction: column !important;
     flex: 1 1 0px !important;
-    height: auto !important;
+    height: 100% !important;
     min-height: 0 !important;
     overflow: hidden !important;
     gap: 0 !important;
