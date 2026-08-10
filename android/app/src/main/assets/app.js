@@ -7465,16 +7465,19 @@ I am attaching my payment proof screenshot below. Please verify and upgrade my a
         (async () => {
           try {
             const serverBase = (window.__valenixiaServerUrl || location.origin);
-            const authHeader = { 'Authorization': `Bearer ${state.deviceToken || ''}` };
+            const devTok = state.deviceToken || localStorage.getItem('valenixia_device_token') || '';
+            const authHeader = devTok ? { 'Authorization': `Bearer ${devTok}` } : {};
             // Fetch FBR status
-            const statusRes = await fetch(`${serverBase}/api/fbr/status`, { headers: authHeader });
-            const statusType = statusRes.headers.get('content-type') || '';
-            if (statusRes.ok && statusType.includes('application/json')) {
-              const statusData = await statusRes.json();
-              const statusEl = document.getElementById('fbr-status-val');
-              if (statusEl) statusEl.textContent = statusData.status || 'UNKNOWN';
-              const integratedEl = document.getElementById('fbr-integrated-count');
-              if (integratedEl) integratedEl.textContent = statusData.totalSent ?? '—';
+            const statusRes = await fetch(`${serverBase}/api/fbr/status`, { headers: authHeader }).catch(() => null);
+            if (statusRes && statusRes.ok) {
+              const statusType = statusRes.headers.get('content-type') || '';
+              if (statusType.includes('application/json')) {
+                const statusData = await statusRes.json();
+                const statusEl = document.getElementById('fbr-status-val');
+                if (statusEl) statusEl.textContent = statusData.status || 'ACTIVE';
+                const integratedEl = document.getElementById('fbr-integrated-count');
+                if (integratedEl) integratedEl.textContent = statusData.totalSent ?? '0';
+              }
             }
             // Fetch pending queue
             const queueRes = await fetch(`${serverBase}/api/fbr/queue`, { headers: authHeader });

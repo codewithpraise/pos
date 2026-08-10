@@ -2409,7 +2409,7 @@ button:not(:disabled):active,
 }
 
 /* TABLET AND DESKTOP VIEWS */
-@media (min-width: 769px) {
+@media (min-width: 900px) {
   /* Prevent scrolling layout glitches */
   body {
     height: 100dvh;
@@ -2420,8 +2420,8 @@ button:not(:disabled):active,
   display: none;
 }
 
-/* MOBILE VIEW (Screen max width 768px) */
-@media (max-width: 768px) {
+/* MOBILE AND NARROW RESPONSIVE VIEW (Screen max width 899px) */
+@media (max-width: 899px) {
   .pos-main-container {
     padding-bottom: 70px !important;
   }
@@ -5960,6 +5960,41 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
   #view-fbr-fiscal,
   #view-multi-store {
     padding-bottom: 24px !important;
+  }
+}
+
+/* Single Scrollbar Enforcement for Catalog Manager Table Container */
+#view-catalog-manager #catalog-virtual-container {
+  height: auto !important;
+  max-height: none !important;
+  overflow-y: visible !important;
+}
+
+/* Desktop & Resized Window Checkout Cart Flush Layout */
+@media (min-width: 900px) {
+  #view-checkout.active {
+    height: 100% !important;
+    display: block !important;
+    overflow: hidden !important;
+  }
+  .checkout-split {
+    height: calc(100vh - 80px) !important;
+    min-height: 0 !important;
+  }
+  .checkout-cart {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    justify-content: space-between !important;
+  }
+  .checkout-cart .ledger-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+  }
+  .checkout-cart .ledger-footer {
+    margin-top: auto !important;
+    flex-shrink: 0 !important;
   }
 }
 

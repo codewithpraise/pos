@@ -1036,19 +1036,17 @@ const LicenseEngine = (() => {
     const isOnboardingComplete = (onboardingCompletePref && onboardingCompletePref.value_payload === 'true') || isServerOnboarded || isNativeOnboarded;
 
 
-    // If onboarding is not complete and we have no stored token, allow boot to run wizard
-    if (!stored && !isOnboardingComplete) {
-      console.log('[License] Fresh install detected: Onboarding not complete. Allowing boot to run wizard.');
-      window.__valenixiaTier = 'TRIAL';
+    // Default to FREE tier for web/unregistered terminals — no lockout overlay mounted
+    if (!stored) {
+      console.log('[License] Free tier default active. Allowing boot without lockout overlay.');
+      window.__valenixiaTier = window.__valenixiaTier || 'FREE';
       window.__valenixiaHWID = hwid;
       return true;
     }
 
-    // 4. No valid license on HTTPS — mount lockout overlay
+    // 4. Invalid stored license token — mount lockout overlay
     mountLockoutOverlay(
-      stored
-        ? `Your license is invalid or expired.<br><br>Please enter your 6-digit activation code and registered phone number below to reactivate your terminal.`
-        : `No license found for this device.<br><br>Please enter your 6-digit activation code and registered phone number below to activate Valenixia POS.`
+      `Your license is invalid or expired.<br><br>Please enter your 6-digit activation code and registered phone number below to reactivate your terminal.`
     );
     return false; // Block app
   }
