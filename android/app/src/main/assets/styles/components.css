@@ -6087,8 +6087,8 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
 
 #checkout-split-layout {
   display: flex !important;
-  flex: 1 1 auto !important;
-  height: 100% !important;
+  flex: 1 1 0px !important;
+  height: auto !important;
   min-height: 0 !important;
   overflow: hidden !important;
   gap: 0 !important;
@@ -6100,7 +6100,7 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
 .checkout-cart {
   display: flex !important;
   flex-direction: column !important;
-  flex: 1 1 auto !important;
+  flex: 1 1 0px !important;
   height: 100% !important;
   min-height: 0 !important;
   justify-content: space-between !important;
@@ -6115,7 +6115,8 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
 }
 
 .checkout-cart .ledger-body {
-  flex: 1 1 auto !important;
+  flex: 1 1 0px !important;
+  height: auto !important;
   min-height: 0 !important;
   overflow-y: auto !important;
   -webkit-overflow-scrolling: touch !important;
@@ -6125,7 +6126,7 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
   flex-shrink: 0 !important;
   margin-top: auto !important;
   margin-bottom: 0 !important;
-  padding: 8px 16px 10px 16px !important;
+  padding: 8px 16px 8px 16px !important;
   box-sizing: border-box !important;
   width: 100% !important;
 }

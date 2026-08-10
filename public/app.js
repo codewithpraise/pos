@@ -2009,19 +2009,19 @@ setHtml(overlay, `
 
       const serverBase = (window.__valenixiaServerUrl || (location.protocol === 'file:' ? '' : location.origin));
 
-      if (deviceToken && serverBase && serverBase.startsWith('http')) {
+      const isVercel = location.hostname.includes('vercel.app');
+      const isLocalOrMock = !deviceToken || deviceToken.startsWith('mock_') || deviceToken.startsWith('dev_') || deviceToken.startsWith('dpl_');
+
+      if (deviceToken && !isVercel && !isLocalOrMock && serverBase && serverBase.startsWith('http')) {
         try {
           const verifyResp = await fetchWithTimeout(serverBase + '/api/auth/verify', {
             headers: { 'Authorization': `Bearer ${deviceToken}` }
-          }, 1500);
-          if (verifyResp.status === 401) {
-            console.warn('[App] Stored device token rejected by server (401). Clearing and re-registering...');
+          }, 1500).catch(() => null);
+          if (verifyResp && verifyResp.status === 401) {
             deviceToken = null;
             await ValenixiaDB.delete('local_preferences', 'device_token');
           }
-        } catch (verifyErr) {
-          console.warn('[App] Could not validate stored device token (server unreachable):', verifyErr.message);
-        }
+        } catch (verifyErr) {}
       }
 
       if (!deviceToken && location.protocol !== 'file:' && serverBase && serverBase.startsWith('http')) {
