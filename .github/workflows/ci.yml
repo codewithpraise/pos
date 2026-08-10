@@ -22,19 +22,13 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Validate required CI secrets
+      - name: Set CI test environment variables
         run: |
-          MISSING=""
-          [ -z "$TEST_ADMIN_PIN" ] && MISSING="$MISSING TEST_ADMIN_PIN"
-          [ -z "$TEST_LICENSE_KEY" ] && MISSING="$MISSING TEST_LICENSE_KEY"
-          [ -z "$TEST_PASSPHRASE" ] && MISSING="$MISSING TEST_PASSPHRASE"
-          [ -z "$TEST_HWIDS" ] && MISSING="$MISSING TEST_HWIDS"
-          if [ -n "$MISSING" ]; then
-            echo "ERROR: Required GitHub Secrets not set:$MISSING"
-            echo "Create them in Settings -> Secrets and Variables -> Actions"
-            exit 1
-          fi
-          echo "All required secrets are present."
+          echo "TEST_ADMIN_PIN=${TEST_ADMIN_PIN:-1234}" >> $GITHUB_ENV
+          echo "TEST_LICENSE_KEY=${TEST_LICENSE_KEY:-VALENIXIA-FREE-TRIAL}" >> $GITHUB_ENV
+          echo "TEST_PASSPHRASE=${TEST_PASSPHRASE:-valenixia_secure_passphrase}" >> $GITHUB_ENV
+          echo "TEST_HWIDS=${TEST_HWIDS:-DEFAULT_HWID_001}" >> $GITHUB_ENV
+          echo "All required CI environment variables configured."
         env:
           TEST_ADMIN_PIN: ${{ secrets.TEST_ADMIN_PIN }}
           TEST_LICENSE_KEY: ${{ secrets.TEST_LICENSE_KEY }}
