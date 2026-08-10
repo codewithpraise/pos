@@ -75,6 +75,11 @@ jobs:
           TEST_HWIDS: ${{ secrets.TEST_HWIDS }}
         run: npm test
 
+      - name: Setup Chrome Browser
+        uses: browser-actions/setup-chrome@v1
+        with:
+          install-chromedriver: false
+
       - name: Run Full E2E & Diagnostic Suites with Headless Services
         env:
           TEST_ADMIN_PIN: ${{ secrets.TEST_ADMIN_PIN }}
@@ -89,7 +94,8 @@ jobs:
           SERVER_PID=$!
 
           # Start Headless Chrome for Chrome DevTools Protocol
-          google-chrome \
+          CHROME_BIN=$(which google-chrome || which chromium-browser || which chromium || echo "google-chrome")
+          $CHROME_BIN \
             --headless=new \
             --remote-debugging-port=9222 \
             --disable-gpu \
