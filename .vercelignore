@@ -1,0 +1,9 @@
+node_modules
+android
+.git
+.gradle
+dist
+scratch
+tests
+*.db
+*.sqlite
