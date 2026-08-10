@@ -1,3 +1,4 @@
+var exports = exports || (typeof window !== 'undefined' ? window : {});
 /* ============================================================================
    VALENIXIA POS — ANIMATIONS & HAPTICS MODULE
    Wraps device vibration, cart additions, quantity pulses, and error shakes.
@@ -97,9 +98,11 @@ export function shakeElement(elOrId) {
 }
 
 // Expose globally for backward compatibility
-window.haptic = haptic;
-window.animateCartItemAdd = animateCartItemAdd;
-window.animateCartItemRemove = animateCartItemRemove;
-window.pulseQtyDisplay = pulseQtyDisplay;
-window.flashPaymentSuccess = flashPaymentSuccess;
-window.shakeElement = shakeElement;
+if (typeof window !== 'undefined') {
+  window.haptic = haptic;
+  window.animateCartItemAdd = animateCartItemAdd;
+  window.animateCartItemRemove = animateCartItemRemove;
+  window.pulseQtyDisplay = pulseQtyDisplay;
+  window.flashPaymentSuccess = flashPaymentSuccess;
+  window.shakeElement = shakeElement;
+}

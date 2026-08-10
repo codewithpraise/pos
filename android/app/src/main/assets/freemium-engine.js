@@ -34,9 +34,9 @@ const PLANS = {
 
 const PLAN_LIMITS = {
   [PLANS.FREE]: {
-    displayName: "Valenixia Basic",
+    displayName: "Valenixia Free Basic",
     monthlyPKR: 0, annualPKR: 0, lifetimePKR: null,
-    devices: 1, transactionsPerMonth: 100, products: 50, customers: 50, employees: 1,
+    devices: 1, transactionsPerMonth: 100, products: 25, customers: 50, employees: 1,
     transactionHistoryDays: 1, receiptBranding: "valenixia",
     backup: false, fbrCompliance: false, multiDeviceSync: false, apiAccess: false,
     analytics: "none", importLimit: 0, support: "community"
@@ -50,9 +50,9 @@ const PLAN_LIMITS = {
     analytics: "basic", importLimit: 50, support: "whatsapp"
   },
   [PLANS.GROWTH]: {
-    displayName: "Valenixia Pro",
+    displayName: "Valenixia Growth",
     monthlyPKR: 5999, annualPKR: 59999, lifetimePKR: 119999,
-    devices: 3, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: 10,
+    devices: 2, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: 10,
     transactionHistoryDays: Infinity, receiptBranding: "custom",
     backup: "auto_daily", fbrCompliance: true, multiDeviceSync: true, apiAccess: false,
     analytics: "advanced", importLimit: Infinity, support: "priority"
@@ -60,7 +60,7 @@ const PLAN_LIMITS = {
   [PLANS.PRO]: {
     displayName: "Valenixia Pro",
     monthlyPKR: 6999, lifetimePKR: 149000,
-    devices: 10, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: 50,
+    devices: 3, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: 50,
     transactionHistoryDays: Infinity, receiptBranding: "white_label",
     backup: "auto_daily", fbrCompliance: true, multiDeviceSync: true, apiAccess: true,
     analytics: "full", importLimit: Infinity, support: "phone"
@@ -68,7 +68,7 @@ const PLAN_LIMITS = {
   [PLANS.ENTERPRISE]: {
     displayName: "Valenixia Enterprise",
     monthlyPKR: 11999, lifetimePKR: 249000,
-    devices: Infinity, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: Infinity,
+    devices: 5, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: Infinity,
     transactionHistoryDays: Infinity, receiptBranding: "white_label",
     backup: "auto_realtime", fbrCompliance: true, multiDeviceSync: true, apiAccess: true,
     analytics: "full", importLimit: Infinity, support: "dedicated"

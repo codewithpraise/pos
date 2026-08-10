@@ -1,3 +1,4 @@
+var exports = exports || (typeof window !== 'undefined' ? window : {});
 /* ============================================================================
    VALENIXIA POS — KEYBOARD & SHORTCUTS MODULE
    Binds Ctrl+K, Ctrl+Shift+P, and Esc to core navigation/modal events.

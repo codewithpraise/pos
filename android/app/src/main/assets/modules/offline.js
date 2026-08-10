@@ -1,3 +1,4 @@
+var exports = exports || (typeof window !== 'undefined' ? window : {});
 /* ============================================================================
    VALENIXIA POS — OFFLINE CONNECTIVITY & STATUS BADGE MODULE
    Choreographs sync indicators and fixed top alert bars.
@@ -95,9 +96,8 @@ export function initOfflineListeners() {
   }
 }
 
-// Auto-initialization removed — app.js manages online/offline listeners centrally
-// to prevent triple-conflict flicker. Call initOfflineListeners() explicitly if needed.
-
 // Expose globally for backward compatibility
-window.updateOfflineBanner = updateOfflineBanner;
-window.updateSyncStatusBadge = updateSyncStatusBadge;
+if (typeof window !== 'undefined') {
+  window.updateOfflineBanner = updateOfflineBanner;
+  window.updateSyncStatusBadge = updateSyncStatusBadge;
+}

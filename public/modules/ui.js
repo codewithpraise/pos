@@ -1,9 +1,8 @@
+var exports = exports || (typeof window !== 'undefined' ? window : {});
 /* ============================================================================
    VALENIXIA POS — UI MODULE
    Renders skeleton loaders and empty states.
    ============================================================================ */
-if (typeof exports === 'undefined') var exports = (typeof window !== 'undefined' ? (window.exports = window.exports || {}) : {});
-
 
 /**
  * Inject a premium animated empty state into a container.
@@ -87,5 +86,7 @@ export function renderSkeletonLoader(containerId, count = 8, type = 'row') {
 }
 
 // Expose globally for backward compatibility
-window.renderPremiumEmptyState = renderPremiumEmptyState;
-window.renderSkeletonLoader = renderSkeletonLoader;
+if (typeof window !== 'undefined') {
+  window.renderPremiumEmptyState = renderPremiumEmptyState;
+  window.renderSkeletonLoader = renderSkeletonLoader;
+}
