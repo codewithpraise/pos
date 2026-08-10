@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "name": "valenixia",
   "builds": [
     {
       "src": "server.js",
@@ -9,23 +8,8 @@
   ],
   "routes": [
     {
-      "src": "/downloads/(.*)",
-      "dest": "/server.js"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "/server.js"
-    },
-    {
-      "src": "/ws",
-      "dest": "/server.js"
-    },
-    {
-      "handle": "filesystem"
-    },
-    {
       "src": "/(.*)",
-      "dest": "/public/$1"
+      "dest": "/server.js"
     }
   ],
   "headers": [
