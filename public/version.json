@@ -1,6 +1,6 @@
 {
-  "version": "1.0.4",
-  "updated_at": "2026-07-19",
+  "version": "1.0.5",
+  "updated_at": "2026-08-10",
   "changelog": "Mobile checkout tab navigation, PIN keypad ENT-only submission, cart overflow fixes, and responsive layout improvements.",
   "changes": [
     "Local-first SQLite architecture with full offline capability",

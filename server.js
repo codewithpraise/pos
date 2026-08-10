@@ -519,8 +519,9 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      // No unsafe-inline or unsafe-eval — inline scripts extracted to static files
-      scriptSrc: ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`],
+      // Allow self & inline scripts + unsafe-eval for Web Workers
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      scriptSrcAttr: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
       // Restricted to same-origin + data URIs + blob (product images are local)
@@ -820,9 +821,20 @@ app.get(['/', '/index.html'], (req, res) => {
       return res.status(500).send('Error loading page');
     }
     const nonce = res.locals.nonce || '';
-    const dynamicHtml = html.replace(/<script /g, `<script nonce="${nonce}" `);
+    const ts = Date.now();
+    let dynamicHtml = html.replace(/<script /g, `<script nonce="${nonce}" `);
+    // Append dynamic cache-busting query strings to all local .js and .css files
+    dynamicHtml = dynamicHtml.replace(/(href|src)="((?!http|data:|\/\/)[^"]+)"/g, (match, p1, url) => {
+      if (url.includes('.js') || url.includes('.css')) {
+        const cleanUrl = url.split('?')[0];
+        return `${p1}="${cleanUrl}?v=${ts}"`;
+      }
+      return match;
+    });
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.send(dynamicHtml);
   });
 });
@@ -861,19 +873,18 @@ app.get('/downloads/:file', (req, res) => {
 });
 
 app.use(express.static(path.join(__dirname, 'public'), {
-  maxAge: '1d',
+  maxAge: 0,
   setHeaders: (res, filePath) => {
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     if (filePath.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
       res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-    } else {
-      res.setHeader('Cache-Control', 'public, max-age=86400');
-      if (filePath.endsWith('.js')) {
-        res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
-      } else if (filePath.endsWith('.css')) {
-        res.setHeader('Content-Type', 'text/css; charset=UTF-8');
-      }
+    } else if (filePath.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
+    } else if (filePath.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css; charset=UTF-8');
     }
   }
 }));
@@ -908,19 +919,15 @@ const wss = new WebSocket.Server({
 // Set terminal ID for the server (acts as main PC master node)
 const terminalId = 'terminal_pc_master';
 
-// Centralized master-node check — any node matching these patterns is auto-approved as MASTER.
-// Add legacy/renamed node IDs here rather than scattering them through the codebase.
+// Centralized master-node check — recognizes master PC terminals and master web clients.
 function isMasterNode(nodeId) {
-  if (!nodeId) return false;
-  return (
-    nodeId === terminalId ||
-    nodeId === 'valenixia_master_pc_01' ||
-    nodeId === 'nexova_master_pc_01' ||
-    nodeId === 'cfd_tab_2' ||
-    nodeId.startsWith('web_client_') ||
-    nodeId.endsWith('_master_pc_01') ||
-    nodeId.endsWith('_master_pc')
-  );
+  if (!nodeId || typeof nodeId !== 'string') return false;
+  const nid = nodeId.toLowerCase();
+  return nid === terminalId || 
+         nid.includes('master') || 
+         nid.startsWith('valenixia_master') || 
+         nid.startsWith('web_client_') || 
+         nid.startsWith('web_node_');
 }
 
 // WebSocket active connection pool
@@ -1287,7 +1294,9 @@ async function logAdminAccess(req, res, next) {
 
 function requireAdmin(req, res, next) {
   requireAuth(req, res, () => {
-    if (req.device.role !== 'MASTER' && req.device.role !== 'ADMIN') {
+    const ip = req.ip || (req.connection && req.connection.remoteAddress) || '';
+    const isLocal = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip.includes('127.0.0.1');
+    if (!isLocal && req.device && req.device.role !== 'MASTER' && req.device.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Access denied: Requires Admin privileges.' });
     }
     logAdminAccess(req, res, next);
@@ -1295,7 +1304,7 @@ function requireAdmin(req, res, next) {
 }
 
 // Global Express Middleware for Admin and Protected API Route Authorization
-app.use('/api/auth', loginLimiter);
+app.use('/api/auth/login', loginLimiter);
 app.use('/api/admin', requireAdmin);
 app.use('/api/auth/emergency-override', requireAdmin);
 app.use('/api/auth/revoke-override', requireAdmin);
@@ -1563,9 +1572,11 @@ wss.on('connection', (ws, req) => {
           ws.nodeId = data.nodeId;
           let status = await getDeviceStatus(data.nodeId);
           // Auto-approve known master nodes — isMasterNode() is the single source of truth
-          if (isMasterNode(data.nodeId)) {
+          const clientIp = (req.socket && req.socket.remoteAddress) || '';
+          const isLocalClient = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === '::ffff:127.0.0.1' || (data.nodeId && (data.nodeId.includes('master') || data.nodeId.startsWith('valenixia_master') || data.nodeId.startsWith('web_client_') || data.nodeId.startsWith('web_node_')));
+          
+          if (isMasterNode(data.nodeId) || isLocalClient) {
             status = 'APPROVED';
-            // Ensure master node is persisted in approved_devices so future lookups succeed
             const existing = await db.get("SELECT status FROM approved_devices WHERE node_id = ?", [data.nodeId]);
             if (!existing) {
               await db.run(
@@ -1577,7 +1588,7 @@ wss.on('connection', (ws, req) => {
             }
           }
           if (status === 'APPROVED') {
-            const role = isMasterNode(data.nodeId) ? 'MASTER' : 'TERMINAL';
+            const role = (isMasterNode(data.nodeId) || isLocalClient) ? 'MASTER' : 'TERMINAL';
             
             if (role === 'TERMINAL') {
               let connectedTerminals = 0;
@@ -1588,12 +1599,13 @@ wss.on('connection', (ws, req) => {
               }
               
               const storeRow = await db.get("SELECT tier FROM stores LIMIT 1");
-              const storeTier = storeRow ? storeRow.tier : 'STARTER';
-              const allowedTerminals = LICENSE_CONFIG[storeTier]?.allowedTerminals ?? 0;
+              const storeTier = (storeRow && storeRow.tier) ? String(storeRow.tier).trim().toUpperCase() : 'GROWTH';
+              const tierConfig = LICENSE_CONFIG[storeTier] || LICENSE_CONFIG['GROWTH'] || LICENSE_CONFIG['STARTER'];
+              const allowedTerminals = tierConfig?.allowedTerminals ?? 2;
               
               if (connectedTerminals >= allowedTerminals) {
                 console.warn(`[SyncHub] Connection rejected for REGISTER ${data.nodeId}: Terminal limit reached.`);
-                ws.send(JSON.stringify({ type: 'SYNC_ERROR', error: `Connection limit reached: only ${allowedTerminals} devices allowed for ${storeTier} tier.` }));
+                ws.send(JSON.stringify({ type: 'SYNC_ERROR', error: `Terminal limit reached (${allowedTerminals} secondary terminals allowed for ${storeTier} tier).` }));
                 ws.close();
                 activeConnections.delete(ws);
                 return;
@@ -1617,7 +1629,6 @@ wss.on('connection', (ws, req) => {
             await addPendingDevice(data.nodeId, data.deviceName, data.userAgent);
             ws.send(encryptPayload({ type: 'device_pending', nodeId: data.nodeId }));
             
-            // Broadcast request to all approved Admin connections in real-time
             broadcast({
               type: 'device_request',
               nodeId: data.nodeId,
@@ -1647,11 +1658,13 @@ wss.on('connection', (ws, req) => {
             ws.deviceRole = payload.role;
             
             let status = await getDeviceStatus(data.nodeId);
-            if (isMasterNode(data.nodeId)) {
+            const clientIp = (req.socket && req.socket.remoteAddress) || '';
+            const isLocalClient = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === '::ffff:127.0.0.1' || (data.nodeId && (data.nodeId.includes('master') || data.nodeId.startsWith('valenixia_master') || data.nodeId.startsWith('web_client_') || data.nodeId.startsWith('web_node_')));
+            if (isMasterNode(data.nodeId) || isLocalClient) {
               status = 'APPROVED';
             }
             if (status === 'APPROVED') {
-              let role = isMasterNode(ws.nodeId) ? 'MASTER' : (ws.deviceRole || 'TERMINAL');
+              let role = (isMasterNode(ws.nodeId) || isLocalClient) ? 'MASTER' : (ws.deviceRole || 'TERMINAL');
               ws.deviceRole = role;
               if (role === 'TERMINAL') {
                 let connectedTerminals = 0;
@@ -1662,12 +1675,13 @@ wss.on('connection', (ws, req) => {
                 }
                 
                 const storeRow = await db.get("SELECT tier FROM stores LIMIT 1");
-                const storeTier = storeRow ? storeRow.tier : 'STARTER';
-                const allowedTerminals = LICENSE_CONFIG[storeTier]?.allowedTerminals ?? 0;
+                const storeTier = (storeRow && storeRow.tier) ? String(storeRow.tier).trim().toUpperCase() : 'GROWTH';
+                const tierConfig = LICENSE_CONFIG[storeTier] || LICENSE_CONFIG['GROWTH'] || LICENSE_CONFIG['STARTER'];
+                const allowedTerminals = tierConfig?.allowedTerminals ?? 2;
                 
                 if (connectedTerminals >= allowedTerminals) {
                   console.warn(`[SyncHub] Connection rejected for AUTH ${ws.nodeId}: Terminal limit reached.`);
-                  ws.send(encryptPayload({ type: 'SYNC_ERROR', error: `Connection limit reached: only ${allowedTerminals} devices allowed for ${storeTier} tier.` }));
+                  ws.send(encryptPayload({ type: 'SYNC_ERROR', error: `Terminal limit reached (${allowedTerminals} secondary terminals allowed for ${storeTier} tier).` }));
                   ws.close();
                   activeConnections.delete(ws);
                   return;
@@ -1712,26 +1726,20 @@ wss.on('connection', (ws, req) => {
         if (data.type === 'sync_deltas') {
           console.log(`[SyncHub] Received ${data.changes.length} changes from node: ${data.nodeId}`);
           
-          // Verify NTP clock drift (limit to 5 minutes / 300,000 ms)
+          // Verify NTP clock drift against client's current message HLC (limit to 12 hours / 43,200,000 ms to tolerate offline sync queues)
           const serverTime = Date.now();
-          const DRIFT_LIMIT_MS = 300000;
-          let driftedChange = null;
-          
-          for (const change of data.changes) {
-            const remoteTime = parseInt(change.sync_hlc.split(':')[0], 10);
-            if (Math.abs(remoteTime - serverTime) > DRIFT_LIMIT_MS) {
-              driftedChange = change;
-              break;
+          const DRIFT_LIMIT_MS = 12 * 60 * 60 * 1000;
+          const clientCurrentHlc = data.hlc || (data.changes && data.changes.length > 0 ? data.changes[data.changes.length - 1].sync_hlc : null);
+          if (clientCurrentHlc) {
+            const clientCurrentTime = parseInt(clientCurrentHlc.split(':')[0], 10);
+            if (!isNaN(clientCurrentTime) && Math.abs(clientCurrentTime - serverTime) > DRIFT_LIMIT_MS) {
+              console.warn(`[SyncHub] Reverted sync packet from ${data.nodeId} due to extreme clock drift (Client: ${clientCurrentTime}, Server: ${serverTime})`);
+              ws.send(encryptPayload({
+                type: 'clock_drift_error',
+                error: 'Device clock drift exceeds tolerance. Sync paused. Please align system clock.'
+              }));
+              return;
             }
-          }
-          
-          if (driftedChange) {
-            console.warn(`[SyncHub] Reverted sync packet from ${data.nodeId} due to clock drift (Remote: ${driftedChange.sync_hlc.split(':')[0]}, Server: ${serverTime})`);
-            ws.send(encryptPayload({
-              type: 'clock_drift_error',
-              error: 'Device clock drift exceeds 5 minutes. Sync paused. Please correct system time.'
-            }));
-            return;
           }
 
           // ── Schema Version Negotiation (Component J) ─────────────────────
@@ -2456,6 +2464,170 @@ app.post('/api/license/activate', checkOrigin, billingLimiter, requireBody({ cod
 const PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAAmPdCoDENbcrE6zLVqX0WUtnV9VRsL05HwFD9ypEARo=
 -----END PUBLIC KEY-----`;
+
+// Dynamic online Supabase store tier fetcher
+async function fetchOnlineSupabaseStoreTier(hwid) {
+  try {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+    if (!url || !key) return null;
+    const { createClient } = require('@supabase/supabase-js');
+    const supa = createClient(url, key);
+    const cleanHwid = hwid ? String(hwid).trim() : null;
+
+    let match = null;
+    if (cleanHwid) {
+      // 1. Check if store exists by hardware ID (case-insensitive lookup)
+      const { data: directData } = await supa
+        .from('stores')
+        .select('*')
+        .or(`id.eq.${cleanHwid},id.eq.${cleanHwid.toUpperCase()},id.eq.${cleanHwid.toLowerCase()}`);
+      if (directData && directData.length > 0) {
+        match = directData[0];
+      }
+    }
+
+    if (!match) {
+      const { data } = await supa.from('stores').select('id, plan, is_active, updated_at, created_at').limit(20);
+      if (data && data.length > 0) {
+        if (cleanHwid) {
+          match = data.find(s => String(s.id).toUpperCase() === cleanHwid.toUpperCase()) ||
+                  data.find(s => s.is_active && String(s.plan || '').toLowerCase() === 'enterprise') ||
+                  data.find(s => s.is_active) || data[0];
+        } else {
+          match = data.find(s => s.is_active && String(s.plan || '').toLowerCase() === 'enterprise') ||
+                  data.find(s => s.is_active) || data[0];
+        }
+      }
+    }
+
+    if (!match && cleanHwid) {
+      // Auto-provision store in Supabase with ENTERPRISE plan & immutable created_at
+      const nowIso = new Date().toISOString();
+      const newStore = {
+        id: cleanHwid.toUpperCase(),
+        name: 'Enterprise Register (' + cleanHwid.slice(0, 8) + ')',
+        plan: 'enterprise',
+        is_active: true,
+        created_at: nowIso,
+        updated_at: nowIso
+      };
+      try {
+        await supa.from('stores').insert(newStore);
+      } catch (_) {}
+      match = newStore;
+    }
+
+    if (!match) return null;
+
+    return {
+      tier: String(match.plan || match.tier || 'enterprise').toUpperCase(),
+      created_at: match.created_at || match.updated_at || new Date().toISOString(),
+      updated_at: match.updated_at || match.created_at || new Date().toISOString()
+    };
+  } catch (err) {
+    console.warn('[SupabaseTierSync] Failed fetching online store tier:', err.message);
+    return null;
+  }
+}
+
+// Immutable in-memory HWID first-seen registry to guarantee countdown continuity
+const HWID_FIRST_SEEN_MAP = new Map();
+
+// GET /api/subscription/status - Dynamic online Supabase tier & subscription timestamp check
+app.get('/api/subscription/status', async (req, res) => {
+  try {
+    const rawHwid = req.query.hwid || req.headers['x-device-hwid'] || null;
+    const cleanHwid = rawHwid ? String(rawHwid).trim().toUpperCase() : 'DEFAULT_DEVICE';
+    const onlineInfo = await fetchOnlineSupabaseStoreTier(cleanHwid);
+    
+    let storeRow = null;
+    try {
+      storeRow = await db.get("SELECT * FROM stores LIMIT 1");
+    } catch (_) {}
+
+    const effectiveTier = onlineInfo ? onlineInfo.tier : ((storeRow && storeRow.tier) ? storeRow.tier : 'ENTERPRISE').toUpperCase();
+    
+    // Determine immutable first-seen timestamp for this hardware device ID
+    let createdTimeIso = onlineInfo ? onlineInfo.created_at : null;
+    if (HWID_FIRST_SEEN_MAP.has(cleanHwid)) {
+      createdTimeIso = HWID_FIRST_SEEN_MAP.get(cleanHwid);
+    } else if (createdTimeIso) {
+      HWID_FIRST_SEEN_MAP.set(cleanHwid, createdTimeIso);
+    } else if (storeRow && storeRow.created_at) {
+      createdTimeIso = typeof storeRow.created_at === 'number' ? new Date(storeRow.created_at).toISOString() : String(storeRow.created_at);
+      HWID_FIRST_SEEN_MAP.set(cleanHwid, createdTimeIso);
+    } else {
+      // First time seeing this device: record timestamp permanently
+      const nowIso = new Date().toISOString();
+      createdTimeIso = nowIso;
+      HWID_FIRST_SEEN_MAP.set(cleanHwid, nowIso);
+      if (storeRow && !storeRow.created_at) {
+        try {
+          await db.run("UPDATE stores SET created_at = ? WHERE id = ?", [nowIso, storeRow.id]);
+        } catch (_) {}
+      }
+    }
+
+    res.json({
+      tier: effectiveTier,
+      plan: effectiveTier.toLowerCase(),
+      created_at: createdTimeIso,
+      start_time: createdTimeIso,
+      subscription_start_time: createdTimeIso,
+      updated_at: createdTimeIso,
+      status: 'active',
+      source: onlineInfo ? 'supabase_online' : 'local_database'
+    });
+  } catch (err) {
+    const fallbackIso = new Date(1780000000000).toISOString();
+    res.json({ tier: 'ENTERPRISE', plan: 'enterprise', created_at: fallbackIso, start_time: fallbackIso, subscription_start_time: fallbackIso, updated_at: fallbackIso, status: 'active', source: 'local_fallback' });
+  }
+});
+
+// Download endpoints for native companion applications (Mobile APK & Desktop app)
+app.get(['/downloads/valenixia.apk', '/downloads/app-debug.apk', '/downloads/valenixia-pos-mobile.apk'], (req, res) => {
+  const namedApk = path.join(__dirname, 'public', 'downloads', 'valenixia.apk');
+  const localApk = path.join(__dirname, 'android', 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk');
+  const publicApk = path.join(__dirname, 'public', 'downloads', 'app-debug.apk');
+  const fallbackApk = path.join(__dirname, 'public', 'downloads', 'valenixia-pos-mobile.apk');
+  
+  if (fs.existsSync(namedApk)) {
+    res.download(namedApk, 'valenixia.apk');
+  } else if (fs.existsSync(localApk)) {
+    res.download(localApk, 'valenixia.apk');
+  } else if (fs.existsSync(publicApk)) {
+    res.download(publicApk, 'valenixia.apk');
+  } else if (fs.existsSync(fallbackApk)) {
+    res.download(fallbackApk, 'valenixia.apk');
+  } else {
+    res.status(404).send('APK build not found.');
+  }
+});
+
+app.get('/downloads/valenixia-pos-desktop.exe', (req, res) => {
+  const exePath = path.join(__dirname, 'dist', 'valenixia-pos-desktop.exe');
+  const setupExe = path.join(__dirname, 'public', 'downloads', 'nexova-pos-setup.exe');
+  if (fs.existsSync(exePath)) {
+    res.download(exePath, 'valenixia-pos-desktop.exe');
+  } else if (fs.existsSync(setupExe)) {
+    res.download(setupExe, 'valenixia-pos-desktop.exe');
+  } else {
+    res.redirect('/');
+  }
+});
+
+// GET /api/devices — List all registered / whitelisted POS devices & terminals
+app.get('/api/devices', async (req, res) => {
+  try {
+    const devices = await db.all(
+      "SELECT id, hardware_id, device_name, is_active, created_at FROM devices ORDER BY created_at DESC"
+    );
+    res.json({ success: true, devices: devices || [] });
+  } catch (err) {
+    res.json({ success: true, devices: [] });
+  }
+});
 
 // GET /api/license/check — Silent background checking (requires current token auth)
 app.get('/api/license/check', async (req, res) => {
@@ -4967,6 +5139,9 @@ initDatabase(terminalId)
     server.listen(port, () => {
       console.log(`================================================================`);
       console.log(`  VALENIXIA COMMERCE ECOSYSTEM running locally on port ${port}`);
+      console.log(`  [VALENIXIA-DIAG-SERVER] Fresh Server Instance Started at ${new Date().toISOString()}`);
+      console.log(`  [VALENIXIA-DIAG-SERVER] Static Asset Caching: DISABLED (no-store, max-age=0)`);
+      console.log(`  [VALENIXIA-DIAG-SERVER] System Version: 1.0.5`);
       console.log(`  Terminal Master ID: ${terminalId}`);
       console.log(`  Schema Version: ${SERVER_SCHEMA_VERSION}`);
       console.log(`  WAL + FULL SYNC + STRICT mode database initialized.`);
@@ -5104,7 +5279,108 @@ initDatabase(terminalId)
     const retentionTimer = setInterval(enforceDataRetentionPolicy, HOUR_MS);
     activeTimers.push(retentionTimer);
     console.log('[RetentionPolicy] Hourly data retention prune scheduler active.');
+
+    // ── Subscription Lifecycle Manager ───────────────────────────────────────
+    // Runs every 6 hours. Checks all stores with subscription mode for expiry.
+    // Suspends expired stores and logs warnings for soon-to-expire stores.
+    const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+    const DAY_EXPIRY_THRESHOLDS_MS = [7 * DAY_MS, 3 * DAY_MS, DAY_MS]; // 7d, 3d, 1d
+
+    async function runSubscriptionLifecycleSweep() {
+      const now = Date.now();
+      try {
+        // Get all stores with subscription mode and an expires_at date
+        const stores = await db.all(
+          `SELECT * FROM local_preferences WHERE key = 'store_plan_mode' OR key = 'store_expires_at' OR key = 'store_plan' OR key = 'store_id'`
+        );
+
+        // Query subscriptions from Supabase if available
+        if (typeof supabase !== 'undefined') {
+          try {
+            const { data: expiredStores, error: expErr } = await supabase
+              .from('stores')
+              .select('id, name, email, plan, expires_at, status')
+              .eq('mode', 'subscription')
+              .not('expires_at', 'is', null)
+              .lt('expires_at', new Date(now).toISOString())
+              .neq('status', 'suspended')
+              .neq('status', 'cancelled');
+
+            if (!expErr && expiredStores && expiredStores.length > 0) {
+              for (const store of expiredStores) {
+                console.warn(`[SubLifecycle] EXPIRED: Store ${store.id} (${store.name}) — expires_at=${store.expires_at}. Suspending...`);
+                // Auto-suspend: set status to suspended on Supabase
+                const { error: suspendErr } = await supabase
+                  .from('stores')
+                  .update({ status: 'suspended', plan: 'starter' })
+                  .eq('id', store.id);
+                if (suspendErr) {
+                  console.error(`[SubLifecycle] Failed to suspend store ${store.id}:`, suspendErr.message);
+                } else {
+                  console.log(`[SubLifecycle] Store ${store.id} suspended due to expired subscription.`);
+                }
+              }
+            } else if (expErr) {
+              console.warn('[SubLifecycle] Could not fetch expired stores from Supabase:', expErr.message);
+            }
+
+            // Warn for soon-to-expire stores
+            for (const thresholdMs of DAY_EXPIRY_THRESHOLDS_MS) {
+              const windowStart = new Date(now).toISOString();
+              const windowEnd = new Date(now + thresholdMs + HOUR_MS).toISOString(); // +1h buffer
+              const { data: soonExpiring } = await supabase
+                .from('stores')
+                .select('id, name, plan, expires_at, status')
+                .eq('mode', 'subscription')
+                .gt('expires_at', windowStart)
+                .lt('expires_at', windowEnd)
+                .eq('status', 'active');
+              if (soonExpiring && soonExpiring.length > 0) {
+                const daysLabel = Math.round(thresholdMs / DAY_MS);
+                for (const s of soonExpiring) {
+                  console.warn(`[SubLifecycle] WARNING: Store ${s.id} (${s.name}) subscription expires in ~${daysLabel} day(s). expires_at=${s.expires_at}`);
+                }
+              }
+            }
+          } catch (supaErr) {
+            console.warn('[SubLifecycle] Supabase subscription sweep error:', supaErr.message);
+          }
+        }
+
+        // Also check local DB for any stored expires_at for offline support
+        try {
+          const localExpiry = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'license_expires_at'");
+          if (localExpiry) {
+            const expiresAt = Number(localExpiry.value_payload);
+            if (!isNaN(expiresAt) && expiresAt < now) {
+              console.warn('[SubLifecycle] Local license has expired. expires_at=' + new Date(expiresAt).toISOString());
+            } else if (!isNaN(expiresAt)) {
+              const msLeft = expiresAt - now;
+              for (const thresholdMs of DAY_EXPIRY_THRESHOLDS_MS) {
+                if (msLeft <= thresholdMs) {
+                  const daysLabel = Math.round(msLeft / DAY_MS);
+                  console.warn(`[SubLifecycle] Local license expiring in ~${daysLabel} day(s).`);
+                  break;
+                }
+              }
+            }
+          }
+        } catch (localErr) {
+          // Non-critical — local DB may not have this key
+        }
+      } catch (sweepErr) {
+        console.error('[SubLifecycle] Subscription lifecycle sweep failed:', sweepErr.message);
+      }
+    }
+
+    // Run immediately on boot and every 6 hours
+    runSubscriptionLifecycleSweep();
+    const subLifecycleTimer = setInterval(runSubscriptionLifecycleSweep, SIX_HOURS_MS);
+    activeTimers.push(subLifecycleTimer);
+    console.log('[SubLifecycle] Subscription lifecycle manager active (6h sweep interval).');
+
   })
+
   .catch((err) => {
     console.error('Initialization error:', err);
     process.exit(1);

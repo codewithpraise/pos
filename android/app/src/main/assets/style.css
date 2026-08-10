@@ -3,10 +3,12 @@
    Splits styles into modular files. Loaded dynamically via CSS @import.
    ============================================================================ */
 
-@import url('styles/design-tokens.css');
-@import url('styles/themes.css');
-@import url('styles/animations.css');
-@import url('styles/components.css');
+@import url('styles/design-tokens.css?v=1.0.5');
+@import url('styles/themes.css?v=1.0.5');
+@import url('styles/animations.css?v=1.0.5');
+@import url('styles/components.css?v=1.0.5');
+@import url('styles/mobile-scale.css?v=1.0.5');
+
 
 :root {
   --sat: env(safe-area-inset-top, 0px);

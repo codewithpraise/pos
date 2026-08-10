@@ -1,247 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script>
-  /* ===== VALENIXIA MOBILE DIAGNOSTIC HARNESS v2 ===== */
-  (function(){
-    window.__VALENIXIA_DIAG = {
-      logs: [],
-      max: 500,
-      push(lvl, src, msg, meta){
-        const entry = {t:Date.now(), lvl, src, msg, meta, ua:navigator.userAgent};
-        this.logs.push(entry);
-        if(this.logs.length > this.max) this.logs.shift();
-        const overlay = document.getElementById('valenixia-live-log');
-        if(overlay){
-          const line = document.createElement('div');
-          line.style.cssText = 'font-size:11px;font-family:monospace;padding:2px 4px;border-bottom:1px solid #333;';
-          line.style.color = lvl==='error'?'#ff4444':lvl==='warn'?'#ffaa00':'#ccc';
-          line.textContent = `[${new Date(entry.t).toLocaleTimeString()}] [${lvl}] ${src}: ${msg}`;
-          overlay.appendChild(line);
-          overlay.scrollTop = overlay.scrollHeight;
-        }
-      }
-    };
-
-    ['log','warn','error','info','debug'].forEach(lvl => {
-      const orig = console[lvl].bind(console);
-      console[lvl] = function(...args){
-        const msg = args.map(a => {
-          try { return typeof a === 'object' ? JSON.stringify(a) : String(a); }
-          catch(e){ return '[unserializable]'; }
-        }).join(' ');
-        
-        // Error-specific logging filter: Only log errors, warnings, and autotest insights
-        const isErrorOrInsight = lvl === 'error' || lvl === 'warn' || 
-          msg.includes('[AUTOTEST') || msg.includes('CRITICAL') || msg.includes('FATAL') || msg.includes('FAIL');
-        
-        if (isErrorOrInsight) {
-          window.__VALENIXIA_DIAG.push(lvl, 'console', msg, {raw:args});
-        }
-        orig(...args);
-      };
-    });
-
-    window.addEventListener('error', e => {
-      window.__VALENIXIA_DIAG.push('error', 'window.onerror', e.message, {
-        file: e.filename, line: e.lineno, col: e.colno,
-        stack: e.error && e.error.stack ? e.error.stack : null
-      });
-    });
-    window.addEventListener('unhandledrejection', e => {
-      window.__VALENIXIA_DIAG.push('error', 'unhandledrejection', String(e.reason), {
-        stack: e.reason && e.reason.stack ? e.reason.stack : null
-      });
-    });
-
-    const origWorker = window.Worker;
-    window.Worker = function(url, opts){
-      const w = new origWorker(url, opts);
-      w.addEventListener('error', e => {
-        window.__VALENIXIA_DIAG.push('error', 'Worker', e.message, {filename:e.filename, lineno:e.lineno});
-      });
-      w.addEventListener('messageerror', e => {
-        window.__VALENIXIA_DIAG.push('error', 'Worker.messageerror', 'Message deserialization failed', {});
-      });
-      const origPost = w.postMessage.bind(w);
-      w.postMessage = function(msg, transfer){
-        if (msg && (msg.type === 'ERROR' || msg.error)) {
-          window.__VALENIXIA_DIAG.push('error', 'Worker→SW', msg.error || msg.type, {});
-        }
-        return origPost(msg, transfer);
-      };
-      return w;
-    };
-
-    window.runButtonAudit = function() {
-      const selectors = 'button, .btn, a[role="button"], input[type="button"], input[type="submit"], [data-screen], [data-view], .nav-item, .icon-btn, .pin-key';
-      const elements = Array.from(document.querySelectorAll(selectors));
-      const auditResults = [];
-      let activePassed = 0, activeWarnings = 0, activeFailed = 0, inactiveCount = 0;
-
-      elements.forEach((el, index) => {
-        const id = el.id || `btn_${index}`;
-        const text = (el.innerText || el.textContent || el.value || el.title || el.getAttribute('aria-label') || '').trim().substring(0, 30);
-        const rect = el.getBoundingClientRect();
-        const style = window.getComputedStyle(el);
-        const issues = [];
-        let status = 'PASS';
-
-        // Context check: Is this button in an inactive view or closed modal?
-        const parentView = el.closest('.content-view');
-        const parentModal = el.closest('.modal-overlay, #auth-lock-screen');
-        const isParentViewInactive = parentView && (!parentView.classList.contains('active') || window.getComputedStyle(parentView).display === 'none');
-        const isParentModalClosed = parentModal && (window.getComputedStyle(parentModal).display === 'none' || parentModal.style.display === 'none');
-
-        if (isParentViewInactive || isParentModalClosed) {
-          inactiveCount++;
-          auditResults.push({
-            id,
-            text: text || '<empty>',
-            tag: el.tagName.toLowerCase(),
-            class: el.className,
-            status: isParentModalClosed ? 'MODAL_CLOSED' : 'INACTIVE_SCREEN',
-            rect: '0x0 (hidden view)',
-            diagnosis: isParentModalClosed ? 'Modal is currently closed (expected hidden)' : `Screen '${parentView ? parentView.id : 'unselected'}' is currently inactive`
-          });
-          return;
-        }
-
-        // 1. Check DOM Visibility for active screen buttons
-        const isVisible = rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
-        if (!isVisible) {
-          issues.push('Hidden in active DOM (display:none, visibility:hidden, opacity:0, or 0x0 rect)');
-          status = 'FAIL';
-        }
-
-        // 2. Check Touch Target Sizing (Mobile recommended min 36px)
-        if (isVisible && (Math.floor(rect.width) < 36 || Math.floor(rect.height) < 36)) {
-          issues.push(`Small touch target (${Math.round(rect.width)}x${Math.round(rect.height)}px < 36px minimum threshold)`);
-          if (status !== 'FAIL') status = 'WARN';
-        }
-
-        // 3. Check Disablement & Pointer-Events
-        if (el.disabled || el.getAttribute('aria-disabled') === 'true') {
-          issues.push('Disabled via attribute (disabled or aria-disabled=true)');
-          if (status !== 'FAIL') status = 'WARN';
-        }
-        if (style.pointerEvents === 'none') {
-          issues.push('CSS pointer-events: none (clicks will pass through)');
-          status = 'FAIL';
-        }
-
-        // 4. Check Touch Obstruction via elementFromPoint (ignoring dev diagnostic harness buttons & live log overlay)
-        if (isVisible) {
-          const centerX = rect.left + rect.width / 2;
-          const centerY = rect.top + rect.height / 2;
-          if (centerX >= 0 && centerX <= window.innerWidth && centerY >= 0 && centerY <= window.innerHeight) {
-            const topEl = document.elementFromPoint(centerX, centerY);
-            const diagOverlay = topEl && topEl.closest('#valenixia-live-log, #app-boot-loader, #diag-copy-btn, #diag-toggle-btn');
-            const isDiagEl = !!diagOverlay || (topEl && (topEl.id === 'diag-copy-btn' || topEl.id === 'diag-toggle-btn' || topEl.id === 'valenixia-live-log' || topEl.id === 'app-boot-loader'));
-            if (topEl && !isDiagEl && topEl !== el && !el.contains(topEl) && !topEl.contains(el)) {
-              issues.push(`Obstructed by overlay element <${topEl.tagName.toLowerCase()} class="${topEl.className}"> at (${Math.round(centerX)},${Math.round(centerY)})`);
-              status = 'FAIL';
-            }
-          }
-        }
-
-        // 5. Check Navigation Target View Existence
-        const targetViewId = el.getAttribute('data-screen') || el.getAttribute('data-view') || (el.getAttribute('href') || '').replace('#', '');
-        if (targetViewId && !targetViewId.startsWith('http') && !targetViewId.startsWith('javascript:')) {
-          const targetEl = document.getElementById(targetViewId) || document.getElementById(`view-${targetViewId}`);
-          if (!targetEl) {
-            issues.push(`Target view '#${targetViewId}' does not exist in DOM`);
-            status = 'FAIL';
-          }
-        }
-
-        if (status === 'PASS') activePassed++;
-        else if (status === 'WARN') activeWarnings++;
-        else activeFailed++;
-
-        auditResults.push({
-          id,
-          text: text || '<empty>',
-          tag: el.tagName.toLowerCase(),
-          class: el.className,
-          status,
-          rect: `${Math.round(rect.width)}x${Math.round(rect.height)} @ (${Math.round(rect.left)},${Math.round(rect.top)})`,
-          diagnosis: issues.length ? issues.join(' | ') : 'Working properly & interactive'
-        });
-      });
-
-      const auditSummary = {
-        timestamp: new Date().toISOString(),
-        totalElements: elements.length,
-        activeScreenTested: activePassed + activeWarnings + activeFailed,
-        activePassed,
-        activeWarnings,
-        activeFailed,
-        inactiveScreenElements: inactiveCount,
-        results: auditResults
-      };
-
-      if (window.__VALENIXIA_DIAG && Array.isArray(window.__VALENIXIA_DIAG.logs)) {
-        window.__VALENIXIA_DIAG.logs.push({
-          t: Date.now(),
-          lvl: 'log',
-          src: 'ButtonAudit',
-          msg: `[ButtonAudit] ${elements.length} scanned (${activePassed} PASS, ${activeWarnings} WARN, ${activeFailed} FAIL, ${inactiveCount} INACTIVE)`,
-          meta: auditSummary
-        });
-      }
-
-      console.log(`[ButtonAudit] Complete. Scanned: ${elements.length} | Active PASS: ${activePassed} | Active WARN: ${activeWarnings} | Active FAIL: ${activeFailed} | Inactive: ${inactiveCount}`, auditSummary);
-      return auditSummary;
-    };
-
-    window.dumpUIDiagnostics = function() {
-      const offenders = [];
-      document.querySelectorAll('*').forEach(el => {
-        if (el.scrollWidth > window.innerWidth + 2) {
-          offenders.push({ tag: el.tagName, class: el.className, id: el.id, scrollWidth: el.scrollWidth });
-        }
-      });
-      const visibleViews = Array.from(document.querySelectorAll('.content-view')).filter(v => {
-        const s = window.getComputedStyle(v);
-        return s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0';
-      });
-      return {
-        viewport: `${window.innerWidth}x${window.innerHeight}`,
-        dpr: window.devicePixelRatio,
-        overflowCount: offenders.length,
-        activeViewsCount: visibleViews.length,
-        activeViews: visibleViews.map(v => v.id),
-        buttonAuditSummary: typeof window.runButtonAudit === 'function' ? window.runButtonAudit() : null
-      };
-    };
-
-    window.copyValenixiaLogs = async function(){
-      const payload = {
-        dumpVersion: 2,
-        url: location.href,
-        ua: navigator.userAgent,
-        screen: {w:window.innerWidth, h:window.innerHeight, dpr:window.devicePixelRatio},
-        storage: {idb:!!window.indexedDB, ls:!!window.localStorage},
-        ui: typeof window.dumpUIDiagnostics === 'function' ? window.dumpUIDiagnostics() : {},
-        logs: window.__VALENIXIA_DIAG.logs
-      };
-
-      const text = JSON.stringify(payload, null, 2);
-      try{
-        await navigator.clipboard.writeText(text);
-        alert('Diagnostic log copied (' + payload.logs.length + ' entries)');
-      }catch(e){
-        const ta = document.createElement('textarea');
-        ta.value = text; document.body.appendChild(ta);
-        ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-        alert('Diagnostic log copied (' + payload.logs.length + ' entries)');
-      }
-    };
-
-    console.log('[DiagnosticHarness] Injected. Ready.');
-  })();
-  </script>
+  <script src="/mobile-diag.js"></script>
   <!-- Placeholder for dynamically injected nonce value for CSP compliance: <script></script> -->
   <!-- CDN dependencies with Subresource Integrity (SRI) checks: -->
   <!-- <script src="https://unpkg.com/react@18/umd/react.production.min.js" integrity="sha384-placeholder" crossorigin="anonymous"></script> -->
@@ -267,16 +27,15 @@
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Manrope:wght@200..800&family=Outfit:wght@100..900&family=JetBrains+Mono:wght@400;500;700&display=swap">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Manrope:wght@200..800&family=Outfit:wght@100..900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <script src="polyfill.min.js"></script>
-  <link rel="stylesheet" href="style.css">
-  <script src="theme-transfer.js"></script>
+  <link rel="stylesheet" href="styles/design-tokens.css?v=1.0.5">
+  <link rel="stylesheet" href="styles/themes.css?v=1.0.5">
+  <link rel="stylesheet" href="styles/animations.css?v=1.0.5">
+  <link rel="stylesheet" href="styles/components.css?v=1.0.5">
+  <link rel="stylesheet" href="styles/mobile-scale.css?v=1.0.5">
+  <link rel="stylesheet" href="style.css?v=1.0.5">
+  <script src="theme-transfer.js?v=1.0.5"></script>
 </head>
 <body>
-  <!-- ALWAYS-ON GLOBAL PERSISTENT DIAGNOSTIC COPY LOGS BUTTON (BOTTOM RIGHT) -->
-  <button id="valenixia-global-copy-logs" type="button" 
-    onclick="if(window.copyDiagnostics)window.copyDiagnostics();"
-    style="position: fixed; bottom: 24px; right: 16px; z-index: 99999999; background: rgba(0, 214, 143, 0.95); color: #060d0d; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 30px; padding: 10px 18px; font-family: 'Manrope', sans-serif; font-size: 12px; font-weight: 900; cursor: pointer; box-shadow: 0 8px 24px rgba(0,214,143,0.4), 0 4px 12px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 8px; pointer-events: auto !important; touch-action: manipulation !important;">
-    📋 COPY DIAGNOSTIC LOGS
-  </button>
 
   <!-- ELEGANT BOOTSTRAPPING SPLASH OVERLAY WITH DIAGNOSTIC TERMINAL -->
   <div id="app-boot-loader" style="position:fixed;inset:0;z-index:99999;background:#060609;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-family:'Manrope',sans-serif;transition:opacity 0.3s ease, visibility 0.3s ease;padding:20px;box-sizing:border-box;">
@@ -286,18 +45,10 @@
       <div id="app-boot-loader-progress" style="width:30%;height:100%;background:linear-gradient(90deg,#00d68f,#10b981);border-radius:99px;transition:width 0.3s ease;"></div>
     </div>
 
-    <!-- Real-Time Boot Diagnostic Terminal Box -->
-    <div id="boot-log-terminal" style="width: 100%; max-width: 440px; height: 120px; background: rgba(0,0,0,0.85); border: 1px solid rgba(0,214,143,0.25); border-radius: 8px; padding: 8px 12px; font-family: monospace; font-size: 10px; color: #a3e635; overflow-y: auto; text-align: left; box-sizing: border-box; margin-top: 8px; -webkit-overflow-scrolling: touch; pointer-events: auto !important;">
-      <div>[System] Diagnostic terminal online...</div>
-    </div>
-
-    <!-- Diagnostic Copy & App Bypass Actions -->
-    <div style="display: flex; gap: 8px; margin-top: 4px; z-index: 100000; pointer-events: auto !important;">
-      <button type="button" id="btn-copy-boot-logs" onclick="if(window.copyDiagnostics)window.copyDiagnostics();" style="background: rgba(0,214,143,0.2); color: #00d68f; border: 1px solid rgba(0,214,143,0.4); border-radius: 6px; padding: 8px 14px; font-size: 11px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-        📋 COPY LOGS
-      </button>
-      <button type="button" id="btn-force-open-app" onclick="if(window.updateBootProgress)window.updateBootProgress(100,'Ready');" style="background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid rgba(245,158,11,0.4); border-radius: 6px; padding: 8px 14px; font-size: 11px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-        ⚡ FORCE OPEN APP
+    <!-- Diagnostic App Bypass Action -->
+    <div style="display: flex; gap: 8px; margin-top: 12px; z-index: 100000; pointer-events: auto !important;">
+      <button type="button" id="btn-force-open-app" onclick="if(window.updateBootProgress)window.updateBootProgress(100,'Ready');" style="background: rgba(255,255,255,0.04); color: var(--text-gray); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 6px 12px; font-size: 10px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+        ⚡ Skip Loading
       </button>
     </div>
   </div>
@@ -323,9 +74,9 @@
 
       <!-- Real passcode input for native keyboard, physical keyboard, and scanner support -->
       <form id="pin-form" style="margin-bottom: 20px; display: flex; justify-content: center; position: relative; width: 100%;">
-        <input type="text"  autocomplete="new-password" id="pin-input" class="secure-input pin-input-field" 
+        <input type="password" autocomplete="off" id="pin-input" class="secure-input pin-input-field" 
                inputmode="numeric" pattern="[0-9]*" maxlength="6" minlength="4" placeholder="••••••"
-               autocomplete="one-time-code" aria-label="••••">
+               value="" aria-label="••••">
         <button type="submit" style="display: none;"></button>
       </form>
 
@@ -417,6 +168,12 @@
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
           </span>
           <span class="nav-label">Subscription</span>
+        </button>
+        <button class="nav-item" data-screen="apps-download" id="nav-item-apps-download">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </span>
+          <span class="nav-label">Get Apps</span>
         </button>
 
         <button class="nav-item premium" data-screen="analytics">
@@ -516,8 +273,12 @@
             <span class="badge-val" id="hlc-clock">0000000000000:000000:web_node</span>
           </div>
           
-           <button class="theme-toggle-btn" id="lang-toggle-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 36px; border-radius: 4px; border: 1px solid var(--border-titanium); background: transparent; color: var(--text-white); cursor: pointer; font-size: 11px; font-weight: 700; margin-right: 8px;" title="Toggle Language (English / اردو)">
+           <button class="theme-toggle-btn" id="lang-toggle-btn" onclick="if(window.toggleAppLanguage)window.toggleAppLanguage();" style="display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 36px; border-radius: 4px; border: 1px solid var(--border-titanium); background: transparent; color: var(--text-white); cursor: pointer; font-size: 11px; font-weight: 700; margin-right: 8px;" title="Toggle Language (English / اردو)">
              اردو
+           </button>
+           <button class="topbar-btn web-only-btn" id="btn-topbar-apps-download" data-screen="apps-download" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 12px; height: 36px; border-radius: 4px; border: 1px solid var(--accent-emerald); background: rgba(0, 214, 143, 0.12); color: var(--accent-emerald); cursor: pointer; font-size: 11px; font-weight: 800; text-transform: uppercase; margin-right: 8px;" title="Download Native Apps">
+             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+             Get Apps
            </button>
            <button class="theme-toggle-btn" id="theme-toggle-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 4px; border: 1px solid var(--border-titanium); background: transparent; color: var(--text-white); cursor: pointer;" title="Toggle Theme">
              <svg class="svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M12 2a10 10 0 0 0 0 20Z" fill="currentColor"/></svg>
@@ -556,13 +317,10 @@
               </div>
               
               <div class="ledger-body">
-                <!-- Desktop column headers -->
+                <!-- Cart list header -->
                 <div class="cart-list-header">
-                  <span class="clh-product">Product</span>
-                  <span class="clh-price">Unit Price</span>
-                  <span class="clh-qty">Qty</span>
-                  <span class="clh-total">Total</span>
-                  <span class="clh-remove"></span>
+                  <span class="clh-product">Product &amp; Details</span>
+                  <span class="clh-total">Line Total</span>
                 </div>
                 <!-- Cart item list — items appended here by JS -->
                 <div class="cart-list" id="cart-items-tbody">
@@ -738,6 +496,86 @@
           </div>
         </section>
 
+        <!-- View Apps & Companion Downloads (Web App Specific) -->
+        <section class="content-view" id="view-apps-download">
+          <div style="max-width: 900px; margin: 0 auto; padding: 24px 16px; display: flex; flex-direction: column; gap: 24px;">
+            <div class="view-header" style="display:flex; flex-direction:column; gap:4px; border-bottom: 1px solid var(--border-titanium); padding-bottom: 16px;">
+              <h2 style="font-size: 22px; font-weight: 800; color: var(--text-white); margin: 0; display: flex; align-items: center; gap: 10px;">
+                <svg class="svg-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--accent-emerald)" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Valenixia Apps &amp; Companion Downloads
+              </h2>
+              <span style="font-size: 13px; color: var(--text-gray);">Download official native mobile and desktop applications. Both Web &amp; Apps stay 100% real-time synchronized with 1 unified account.</span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+              
+              <!-- Android Mobile App Card -->
+              <div class="settings-section" style="padding: 24px; border-radius: 14px; background: var(--panel-graphite); border: 1px solid var(--border-titanium); display: flex; flex-direction: column; justify-content: space-between; gap: 16px;">
+                <div>
+                  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                    <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); display: flex; align-items: center; justify-content: center;">
+                      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                    </div>
+                    <div>
+                      <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: var(--text-white);">Android Mobile POS App</h3>
+                      <span style="font-size: 11px; color: var(--accent-emerald); font-weight: 700;">Native APK • v1.0.5</span>
+                    </div>
+                  </div>
+                  <p style="font-size: 12.5px; color: var(--text-gray); line-height: 1.5; margin-bottom: 16px;">
+                    Features native offline SQLite storage, Bluetooth thermal receipt printer support, camera barcode scanning, and instant background sync.
+                  </p>
+                  <ul style="font-size: 11.5px; color: var(--text-gray); padding-left: 18px; margin-bottom: 16px; line-height: 1.6;">
+                    <li>Zero internet dependency for sales</li>
+                    <li>Instant Bluetooth / USB thermal printer integration</li>
+                    <li>Unified Real-Time Sync with Web Register</li>
+                  </ul>
+                </div>
+                <a href="/downloads/app-debug.apk" download="valenixia-pos-mobile.apk" class="action-btn action-success" style="display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; padding: 12px 20px; font-weight: 800; border-radius: 10px;">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  DOWNLOAD ANDROID APK
+                </a>
+              </div>
+
+              <!-- Desktop Windows App Card -->
+              <div class="settings-section" style="padding: 24px; border-radius: 14px; background: var(--panel-graphite); border: 1px solid var(--border-titanium); display: flex; flex-direction: column; justify-content: space-between; gap: 16px;">
+                <div>
+                  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                    <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(59, 130, 246, 0.15); color: #3b82f6; display: flex; align-items: center; justify-content: center;">
+                      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    </div>
+                    <div>
+                      <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: var(--text-white);">Desktop Windows Application</h3>
+                      <span style="font-size: 11px; color: #3b82f6; font-weight: 700;">Windows x64 Executable</span>
+                    </div>
+                  </div>
+                  <p style="font-size: 12.5px; color: var(--text-gray); line-height: 1.5; margin-bottom: 16px;">
+                    High-performance desktop edition with WAL-mode local server, multi-terminal cashier hub, and direct USB ESC/POS cash drawer hardware control.
+                  </p>
+                  <ul style="font-size: 11.5px; color: var(--text-gray); padding-left: 18px; margin-bottom: 16px; line-height: 1.6;">
+                    <li>Master terminal server capability</li>
+                    <li>Direct ESC/POS serial &amp; USB hardware support</li>
+                    <li>Seamless auto-discovery for mobile terminals</li>
+                  </ul>
+                </div>
+                <a href="/downloads/valenixia-pos-desktop.exe" download="valenixia-pos-desktop.exe" class="action-btn" style="background: #3b82f6; color: #ffffff; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; padding: 12px 20px; font-weight: 800; border-radius: 10px;">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  DOWNLOAD DESKTOP APP
+                </a>
+              </div>
+
+            </div>
+
+            <!-- Unified Realtime Sync Architecture Banner -->
+            <div style="padding: 20px; border-radius: 12px; background: rgba(0, 214, 143, 0.06); border: 1px solid rgba(0, 214, 143, 0.2); display: flex; align-items: center; gap: 16px;">
+              <div style="font-size: 24px;">🔄</div>
+              <div>
+                <strong style="color: var(--accent-emerald); font-size: 13px; display: block; margin-bottom: 2px;">Unified Single Account &amp; Multi-Device Sync Active</strong>
+                <span style="font-size: 11.5px; color: var(--text-gray);">Whether you use the Web App, Mobile App, or Desktop App on the same device or store network, all transactions, inventory changes, and sales records sync in real-time via WebSocket SyncHub. There are zero duplicate accounts or split ledgers.</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- View 2: Quick-Access Catalog (For Mobile) -->
         <section class="content-view" id="view-catalog">
           <div class="quick-catalog-mobile-view" style="padding: 20px; display: flex; flex-direction: column; gap: 16px; height: 100%; overflow: hidden;">
@@ -777,8 +615,8 @@
               <input type="text" id="catalog-search-input" class="pos-input" placeholder="Search catalog items..." aria-label="Search catalog items...">
             </div>
             
-            <div class="catalog-grid-table" style="min-width:1000px; width:100%;">
-              <div class="catalog-grid-header" style="display:grid; grid-template-columns: 110px 130px minmax(240px, 2fr) 130px 110px 110px 130px; gap:8px; padding:10px 12px; font-weight:700; font-size:11px; background:var(--panel-graphite); border-bottom:1px solid var(--border-titanium);">
+            <div class="catalog-grid-table" style="min-width:1060px; width:100%;">
+              <div class="catalog-grid-header" style="display:grid; grid-template-columns: 110px 130px minmax(220px, 2fr) 130px 110px 110px 150px; gap:8px; padding:10px 12px; font-weight:700; font-size:11px; background:var(--panel-graphite); border-bottom:1px solid var(--border-titanium);">
                 <div style="text-align: left;">SKU</div>
                 <div style="text-align: left;">GTIN</div>
                 <div style="text-align: left;">Product Name</div>
@@ -787,7 +625,7 @@
                 <div style="text-align: right;">Stock Level</div>
                 <div style="text-align: center;">Actions</div>
               </div>
-              <div id="catalog-virtual-container" style="height: calc(100vh - 280px); overflow-y: auto; min-width:1000px;">
+              <div id="catalog-virtual-container" style="height: calc(100vh - 280px); overflow-y: auto; min-width:1060px;">
                 <!-- VirtualList will append spacer and row items dynamically here -->
               </div>
             </div>
@@ -982,31 +820,36 @@
 
         <!-- View 5: Customer Directory -->
         <section class="content-view" id="view-customers">
-          <div class="view-header">
-            <h2>Loyalty Customer Database</h2>
-            <button class="action-btn action-success" id="btn-customers-create">+ Create Profile</button>
+          <div class="view-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 18px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+            <div>
+              <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Customer &amp; Khata Directory</h2>
+              <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Loyalty profiles, purchase history, and customer credit ledger</p>
+            </div>
+            <button class="action-btn action-primary" id="btn-customers-create" style="padding: 10px 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; border-radius: 10px; background: linear-gradient(135deg, #00d68f 0%, #00a876 100%); color: #060d0d; border: none; box-shadow: 0 4px 14px rgba(0,214,143,0.3); cursor: pointer; transition: all 0.2s;">+ Create Customer Profile</button>
           </div>
           
-          <div class="customers-table-wrapper">
-            <div class="search-bar-row">
-              <input type="text" id="customers-search-input" class="pos-input" placeholder="Search profiles by name, phone or email..." aria-label="Search profiles by name, phone or email...">
+          <div class="customers-table-wrapper" style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+            <div class="search-bar-row" style="margin-bottom: 16px;">
+              <input type="text" id="customers-search-input" class="pos-input" placeholder="🔍 Search customers by name, phone, or email..." style="min-height: 42px; font-size: 12px; padding: 10px 16px; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);" aria-label="Search profiles by name, phone or email...">
             </div>
             
-            <table class="catalog-table">
-              <thead>
-                <tr>
-                  <th style="width: 30%;">Customer Name</th>
-                  <th style="width: 20%;">Phone Number</th>
-                  <th style="width: 25%;">Email Address</th>
-                  <th style="width: 10%; text-align: center;">Visits</th>
-                  <th style="width: 15%; text-align: right;">Total Spend</th>
-                  <th style="width: 10%; text-align: center;">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="customers-table-tbody">
-                <!-- dynamic rows -->
-              </tbody>
-            </table>
+            <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+              <table class="catalog-table" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; color: var(--text-gray);">
+                    <th style="padding: 12px; text-align: left;">Customer Profile</th>
+                    <th style="padding: 12px; text-align: left;">Phone Number</th>
+                    <th style="padding: 12px; text-align: left;">Email</th>
+                    <th style="padding: 12px; text-align: center;">Visits</th>
+                    <th style="padding: 12px; text-align: right;">Total Spend</th>
+                    <th style="padding: 12px; text-align: center;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="customers-table-tbody">
+                  <!-- dynamic rows inserted by app.js -->
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
 
@@ -1036,82 +879,65 @@
         </section>
 
         <!-- View 7: CRDT Sync Stream & System Health Logs -->
+        <!-- View 8: System Health & Logs -->
         <section class="content-view" id="view-logs">
-          <div class="view-header" style="border-bottom: 1px solid var(--border-titanium); padding-bottom: 16px; margin-bottom: 20px;">
-            <h2>System Health &amp; Logs</h2>
-            <div style="display: flex; gap: 8px;" id="logs-tabs-nav">
-              <button class="action-btn active" id="btn-tab-sync-logs" style="padding: 6px 16px; font-size: 11px; border-radius: 6px; text-transform: uppercase; font-weight: 800;">Sync Stream</button>
-              <button class="action-btn" id="btn-tab-health-logs" style="padding: 6px 16px; font-size: 11px; border-radius: 6px; text-transform: uppercase; font-weight: 800;">Diagnostics &amp; Health</button>
-              <button class="action-btn action-primary" id="btn-tab-diag-logs" style="padding: 6px 16px; font-size: 11px; border-radius: 6px; text-transform: uppercase; font-weight: 800; background: linear-gradient(135deg, #00d68f 0%, #00a876 100%); color: #060d0d;">📋 Copy System Logs</button>
+          <div class="view-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 18px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+            <div>
+              <h2 style="margin:0; font-size: 20px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">System Health &amp; Logs</h2>
+              <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Real-time CRDT replication stream &amp; local database diagnostics</p>
+            </div>
+            
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;" id="logs-tabs-nav">
+              <div style="display: inline-flex; gap: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 4px; border-radius: 12px; flex-shrink: 0;">
+                <button class="action-btn active" id="btn-tab-sync-logs" style="padding: 8px 18px; font-size: 11px; border-radius: 8px; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; border: 1px solid rgba(0,214,143,0.3); background: linear-gradient(135deg, rgba(0,214,143,0.2) 0%, rgba(6,182,212,0.1) 100%); color: var(--accent-emerald); transition: all 0.2s; white-space: nowrap;">Live Stream</button>
+                <button class="action-btn" id="btn-tab-health-logs" style="padding: 8px 18px; font-size: 11px; border-radius: 8px; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; border: 1px solid transparent; background: transparent; color: var(--text-gray); transition: all 0.2s; white-space: nowrap;">Diagnostics &amp; Health</button>
+              </div>
+              <button class="action-btn action-primary" id="btn-tab-diag-logs" style="padding: 9px 18px; font-size: 11px; border-radius: 10px; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; background: linear-gradient(135deg, #00d68f 0%, #00a876 100%); color: #060d0d; border: none; box-shadow: 0 4px 14px rgba(0,214,143,0.3); cursor: pointer; transition: transform 0.15s ease; white-space: nowrap; flex-shrink: 0;">📋 Copy System Logs</button>
             </div>
           </div>
           
           <!-- Tab 1: Sync Logs Stream -->
           <div id="logs-tab-sync" class="logs-tab-content">
-            <div class="view-header" style="margin-bottom: 12px;">
-              <span class="text-muted" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Live CRDT Broadcast Feed</span>
-              <button class="action-btn" id="btn-clear-logs-feed">Clear Stream Logs</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 10px 16px; border-radius: 10px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent-emerald); box-shadow: 0 0 8px var(--accent-emerald);"></span>
+                <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-white);">CRDT Broadcast Stream</span>
+              </div>
+              <button class="action-btn" id="btn-clear-logs-feed" style="padding: 6px 14px; font-size: 11px; font-weight: 700; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: var(--text-gray); cursor: pointer; transition: all 0.2s;">Clear Stream</button>
             </div>
-            <div class="sync-logs-feed" id="sync-logs-feed-container" style="max-height: 480px; overflow-y: auto;">
+            <div class="sync-logs-feed" id="sync-logs-feed-container" style="max-height: 520px; min-height: 360px; overflow-y: auto; background: rgba(6,6,12,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 16px; font-family: var(--font-mono); font-size: 11px; box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);">
               <!-- filled by WebSocket/IndexedDB updates -->
             </div>
           </div>
 
           <!-- Tab 2: Diagnostics & Health Panel -->
           <div id="logs-tab-health" class="logs-tab-content" style="display: none;">
-            <div class="settings-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+            <div class="settings-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
               <!-- IDB Card -->
-              <div class="settings-section" style="padding: 16px; border: 1px solid var(--border-titanium); border-radius: 8px;">
-                <h3 style="margin-top:0;">Database Status (IndexedDB)</h3>
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;">
-                  <span>Connection:</span>
-                  <span id="health-db-status" style="color:var(--accent-emerald); font-weight:bold;">CONNECTED</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;">
-                  <span>Schema Version:</span>
-                  <span id="health-db-version" style="font-weight:bold;">5</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;">
-                  <span>Total Records:</span>
-                  <span id="health-db-records" style="font-weight:bold;">Loading...</span>
-                </div>
-                <button class="action-btn" id="btn-health-db-vacuum" style="width:100%; min-height:32px; font-size:11px; margin-top:8px;">OPTIMIZE / DEFRAG DATABASE</button>
+              <div class="settings-section" style="padding: 20px; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; background: rgba(255,255,255,0.02);">
+                <h3 style="margin-top:0; font-size: 14px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Database Status (IndexedDB)</h3>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;"><span style="color:var(--text-gray);">Connection:</span><span id="health-db-status" style="color:var(--accent-emerald); font-weight:bold;">CONNECTED</span></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;"><span style="color:var(--text-gray);">Schema Version:</span><span id="health-db-version" style="font-weight:bold;">5</span></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-size:12px;"><span style="color:var(--text-gray);">Total Records:</span><span id="health-db-records" style="font-weight:bold;">Loading...</span></div>
+                <button class="action-btn" id="btn-health-db-vacuum" style="width:100%; min-height:36px; font-size:11px; font-weight:800; border-radius:10px; background:rgba(0,214,143,0.1); border:1px solid rgba(0,214,143,0.3); color:var(--accent-emerald); cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.2s;">OPTIMIZE DATABASE</button>
               </div>
 
               <!-- Sync Engine Card -->
-              <div class="settings-section" style="padding: 16px; border: 1px solid var(--border-titanium); border-radius: 8px;">
-                <h3 style="margin-top:0;">Sync Engine &amp; P2P Connection</h3>
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;">
-                  <span>Network Sync Status:</span>
-                  <span id="health-sync-status" style="color:var(--text-gray); font-weight:bold;">DISCONNECTED</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;">
-                  <span>Circuit Breaker:</span>
-                  <span id="health-sync-breaker" style="color:var(--accent-emerald); font-weight:bold;">CLOSED (OK)</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;">
-                  <span>Client HWID:</span>
-                  <span id="health-sync-hwid" style="font-family:var(--font-mono); font-size:10px; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Loading...</span>
-                </div>
-                <button class="action-btn" id="btn-health-sync-reconnect" style="width:100%; min-height:32px; font-size:11px; margin-top:8px;">FORCE RECONNECT SYNC</button>
+              <div class="settings-section" style="padding: 20px; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; background: rgba(255,255,255,0.02);">
+                <h3 style="margin-top:0; font-size: 14px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Sync Engine &amp; Connection</h3>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;"><span style="color:var(--text-gray);">Network Sync Status:</span><span id="health-sync-status" style="color:var(--text-gray); font-weight:bold;">DISCONNECTED</span></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;"><span style="color:var(--text-gray);">Circuit Breaker:</span><span id="health-sync-breaker" style="color:var(--accent-emerald); font-weight:bold;">CLOSED (OK)</span></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-size:12px;"><span style="color:var(--text-gray);">Client HWID:</span><span id="health-sync-hwid" style="font-family:var(--font-mono); font-size:10px; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Loading...</span></div>
+                <button class="action-btn" id="btn-health-sync-reconnect" style="width:100%; min-height:36px; font-size:11px; font-weight:800; border-radius:10px; background:rgba(6,182,212,0.1); border:1px solid rgba(6,182,212,0.3); color:var(--accent-cyan); cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.2s;">FORCE RECONNECT</button>
               </div>
 
               <!-- Storage & System Usage Card -->
-              <div class="settings-section" style="padding: 16px; border: 1px solid var(--border-titanium); border-radius: 8px;">
-                <h3 style="margin-top:0;">Quota &amp; Storage Footprint</h3>
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;">
-                  <span>Storage Type:</span>
-                  <span id="health-storage-type" style="font-weight:bold;">PERSISTED</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;">
-                  <span>Utilized Space:</span>
-                  <span id="health-storage-used" style="font-weight:bold;">Loading...</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;">
-                  <span>Total Quota:</span>
-                  <span id="health-storage-total" style="font-weight:bold;">Loading...</span>
-                </div>
-                <button class="action-btn" id="btn-health-storage-check" style="width:100%; min-height:32px; font-size:11px; margin-top:8px;">RUN STORAGE DIAGNOSTIC</button>
+              <div class="settings-section" style="padding: 20px; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; background: rgba(255,255,255,0.02);">
+                <h3 style="margin-top:0; font-size: 14px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Quota &amp; Storage Footprint</h3>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;"><span style="color:var(--text-gray);">Storage Type:</span><span id="health-storage-type" style="font-weight:bold;">PERSISTED</span></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:12px;"><span style="color:var(--text-gray);">Utilized Space:</span><span id="health-storage-used" style="font-weight:bold;">Loading...</span></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-size:12px;"><span style="color:var(--text-gray);">Total Quota:</span><span id="health-storage-total" style="font-weight:bold;">Loading...</span></div>
+                <button class="action-btn" id="btn-health-storage-check" style="width:100%; min-height:36px; font-size:11px; font-weight:800; border-radius:10px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.12); color:var(--text-white); cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.2s;">RUN STORAGE DIAGNOSTIC</button>
               </div>
 
               <!-- Error & Audit Analytics Card -->
@@ -1209,6 +1035,7 @@
               <div class="settings-row">
                 <label for="setting-receipt-tagline">Print Tagline footer:</label>
                 <input type="text" id="setting-receipt-tagline" class="pos-input" aria-label="Setting Receipt Tagline">
+              </div>
             </div>
 
             <div class="settings-section">
@@ -1287,15 +1114,73 @@
                   <option value="32">32 Columns (Narrow/Compact)</option>
                 </select>
               </div>
+              <!-- ── Desktop Interface Scale ─────────────────────────────── -->
               <div class="settings-row">
-                <label>Interface Scale (Accessibility):</label>
-                <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;" id="setting-size-scale-group" role="group" aria-label="Interface Scale">
-                  <button class="action-btn _scale-btn" data-scale="0.85" id="btn-scale-compact" style="flex:1;min-width:60px;font-size:11px;min-height:32px;padding:0 8px;">Compact</button>
-                  <button class="action-btn _scale-btn active" data-scale="1.0" id="btn-scale-default" style="flex:1;min-width:60px;font-size:11px;min-height:32px;padding:0 8px;">Default</button>
-                  <button class="action-btn _scale-btn" data-scale="1.1" id="btn-scale-large" style="flex:1;min-width:60px;font-size:11px;min-height:32px;padding:0 8px;">Large</button>
-                  <button class="action-btn _scale-btn" data-scale="1.2" id="btn-scale-xl" style="flex:1;min-width:60px;font-size:11px;min-height:32px;padding:0 8px;">X-Large</button>
+                <label>Desktop Interface Scale:</label>
+                <p style="margin:2px 0 8px;font-size:10px;color:var(--text-gray);line-height:1.4;">
+                  Scales all rem-unit text and spacing. Only affects the desktop view (≥1025px).
+                </p>
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;" id="setting-size-scale-group" role="group" aria-label="Desktop Interface Scale">
+                  <button class="action-btn _scale-btn" data-scale="0.85" id="btn-scale-compact" style="min-height:48px;padding:6px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;line-height:1.2;">
+                    <span style="font-size:14px;font-weight:900;line-height:1;">A</span>
+                    <span style="font-size:9px;opacity:0.7;text-transform:uppercase;letter-spacing:0.5px;">Compact</span>
+                  </button>
+                  <button class="action-btn _scale-btn active" data-scale="1.0" id="btn-scale-default" style="min-height:48px;padding:6px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;line-height:1.2;">
+                    <span style="font-size:18px;font-weight:900;line-height:1;">A</span>
+                    <span style="font-size:9px;opacity:0.7;text-transform:uppercase;letter-spacing:0.5px;">Default</span>
+                  </button>
+                  <button class="action-btn _scale-btn" data-scale="1.1" id="btn-scale-large" style="min-height:48px;padding:6px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;line-height:1.2;">
+                    <span style="font-size:22px;font-weight:900;line-height:1;">A</span>
+                    <span style="font-size:9px;opacity:0.7;text-transform:uppercase;letter-spacing:0.5px;">Large</span>
+                  </button>
+                  <button class="action-btn _scale-btn" data-scale="1.2" id="btn-scale-xl" style="min-height:48px;padding:6px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;line-height:1.2;">
+                    <span style="font-size:26px;font-weight:900;line-height:1;">A</span>
+                    <span style="font-size:9px;opacity:0.7;text-transform:uppercase;letter-spacing:0.5px;">X-Large</span>
+                  </button>
                 </div>
               </div>
+
+              <!-- ── Mobile Density Scale (hidden on desktop) ────────────── -->
+              <div class="settings-row" id="mobile-density-setting-row" style="display:none;">
+                <label>Mobile Display Density:</label>
+                <p style="margin:2px 0 8px;font-size:10px;color:var(--text-gray);line-height:1.4;">
+                  Controls touch target size, spacing, and text size on this device's screen. Never distorts layout.
+                </p>
+                <!-- Current scale indicator -->
+                <div id="mobile-scale-indicator" style="display:none;align-items:center;gap:6px;font-size:10px;color:var(--text-gray);margin-bottom:8px;padding:6px 10px;background:rgba(0,214,143,0.06);border:1px solid rgba(0,214,143,0.15);border-radius:6px;">
+                  <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="var(--accent-emerald)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+                  <span>Active mobile scale: </span>
+                  <span id="mobile-scale-label" style="font-weight:700;color:var(--accent-emerald);">Default</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;" id="mobile-scale-group" role="group" aria-label="Mobile Display Density">
+                  <button class="action-btn _mobile-scale-btn" data-mscale="compact" id="btn-mscale-compact"
+                    style="min-height:64px;padding:10px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;line-height:1.2;border-radius:10px;border:2px solid transparent;">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
+                    <span style="font-size:11px;font-weight:800;line-height:1;">Compact</span>
+                    <span style="font-size:8px;opacity:0.6;">Dense, small</span>
+                  </button>
+                  <button class="action-btn _mobile-scale-btn active" data-mscale="default" id="btn-mscale-default"
+                    style="min-height:64px;padding:10px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;line-height:1.2;border-radius:10px;border:2px solid transparent;">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 9h8M8 12h8M8 15h5"/></svg>
+                    <span style="font-size:13px;font-weight:800;line-height:1;">Default</span>
+                    <span style="font-size:8px;opacity:0.6;">Balanced</span>
+                  </button>
+                  <button class="action-btn _mobile-scale-btn" data-mscale="large" id="btn-mscale-large"
+                    style="min-height:64px;padding:10px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;line-height:1.2;border-radius:10px;border:2px solid transparent;">
+                    <svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 9h10M7 12h10M7 15h7"/></svg>
+                    <span style="font-size:15px;font-weight:800;line-height:1;">Large</span>
+                    <span style="font-size:8px;opacity:0.6;">Spacious</span>
+                  </button>
+                  <button class="action-btn _mobile-scale-btn" data-mscale="xl" id="btn-mscale-xl"
+                    style="min-height:64px;padding:10px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;line-height:1.2;border-radius:10px;border:2px solid transparent;">
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M6 9h12M6 12h12M6 15h9"/></svg>
+                    <span style="font-size:17px;font-weight:800;line-height:1;">X-Large</span>
+                    <span style="font-size:8px;opacity:0.6;">Max legibility</span>
+                  </button>
+                </div>
+              </div>
+
+
               <div class="settings-row flex-row">
                 <label for="setting-glass-fx" style="cursor: pointer;">Enable Glassmorphic UI filters</label>
                 <input type="checkbox" id="setting-glass-fx" class="pos-checkbox">
@@ -1416,23 +1301,40 @@
             </div>
 
             <div class="settings-section full-width admin-only" id="settings-device-whitelisting" style="display: none;">
-              <h3>Device Security & Pairing Requests</h3>
-              <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 12px;">Approve or reject tablet registers, CFD displays, and other nodes requesting to sync with this Master register.</p>
-              <div id="device-list-container">
-                <table class="pos-table" style="width: 100%;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+                <div>
+                  <h3 style="margin:0 0 4px;">Device Security &amp; Pairing Requests</h3>
+                  <p style="font-size: 11px; color: var(--text-gray); margin: 0;">Approve or reject terminals, tablets, and CFD displays requesting to sync with this Master register.</p>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+                  <span id="device-list-last-updated" style="font-size:10px;color:var(--text-gray);font-family:monospace;"></span>
+                  <button type="button" class="action-btn" id="btn-refresh-devices" style="padding:6px 12px;font-size:11px;min-height:32px;display:flex;align-items:center;gap:6px;">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                    Refresh
+                  </button>
+                </div>
+              </div>
+              <!-- Pending pairing badge -->
+              <div id="device-pairing-alert" style="display:none;padding:10px 14px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:6px;margin-bottom:12px;font-size:12px;color:var(--alert-amber);font-weight:700;">
+                <span id="device-pairing-alert-count">0</span> new pairing request(s) awaiting approval
+              </div>
+              <!-- Overflow-safe table wrapper -->
+              <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;border-radius:6px;border:1px solid var(--border-titanium);">
+                <table class="pos-table" style="width:100%;min-width:600px;">
                   <thead>
                     <tr>
-                      <th style="text-align: left; padding: 12px 8px;">Device Name</th>
-                      <th style="text-align: left; padding: 12px 8px;">Node ID</th>
-                      <th style="text-align: left; padding: 12px 8px;">Platform / User-Agent</th>
-                      <th style="text-align: left; padding: 12px 8px;">Status</th>
-                      <th style="text-align: right; padding: 12px 8px; width: 180px;">Actions</th>
+                      <th style="text-align:left;padding:10px 12px;">Device Name</th>
+                      <th style="text-align:left;padding:10px 12px;">Node / HWID</th>
+                      <th style="text-align:left;padding:10px 12px;">Platform</th>
+                      <th style="text-align:center;padding:10px 12px;">Status</th>
+                      <th style="text-align:right;padding:10px 12px;min-width:170px;">Actions</th>
                     </tr>
                   </thead>
                   <tbody id="device-list-tbody">
-                    <!-- Populated dynamically -->
                     <tr>
-                      <td colspan="5" style="text-align: center; color: var(--text-gray); padding: 24px;">Loading whitelisted devices...</td>
+                      <td colspan="5" style="text-align:center;color:var(--text-gray);padding:24px;">
+                        Loading devices — navigate to Settings as Admin to load.
+                      </td>
                     </tr>
                   </tbody>
                 </table>
@@ -1525,12 +1427,41 @@
             <div class="settings-section full-width dm-card">
               <div class="dm-card-header">
                 <div class="dm-icon dm-icon-emerald"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg></div>
-                <div><h3 style="margin:0;font-size:14px;font-weight:700;color:var(--text-white);">Cloud Backup</h3><p style="margin:4px 0 0;font-size:11px;color:var(--text-gray);">Backup your entire database to Google Drive. Zero server costs — stays in your account.</p></div>
+                <div><h3 style="margin:0;font-size:14px;font-weight:700;color:var(--text-white);">Cloud Backup — Google Drive</h3><p style="margin:4px 0 0;font-size:11px;color:var(--text-gray);">Backup your entire database to Google Drive. Zero server costs — stays in your account.</p></div>
               </div>
-              <div class="settings-row" style="margin-bottom:12px;">
+
+              <!-- Step-by-step guide -->
+              <div style="background:rgba(16,185,129,0.04);border:1px solid rgba(16,185,129,0.15);border-radius:8px;padding:14px;margin-top:12px;">
+                <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--accent-emerald);margin-bottom:10px;">How to Connect Google Drive (3 Steps)</div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  <div style="display:flex;align-items:flex-start;gap:10px;font-size:11px;color:var(--text-gray);">
+                    <span style="min-width:20px;height:20px;background:var(--accent-emerald);color:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;">1</span>
+                    <span>Click <strong style="color:var(--text-white);">Get Google Token</strong> below. This opens the Google OAuth Playground pre-configured for Drive access.</span>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:10px;font-size:11px;color:var(--text-gray);">
+                    <span style="min-width:20px;height:20px;background:var(--accent-emerald);color:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;">2</span>
+                    <span>In the Playground: click <strong style="color:var(--text-white);">Authorize APIs</strong> → sign in with your Google account → click <strong style="color:var(--text-white);">Exchange authorization code for tokens</strong>.</span>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:10px;font-size:11px;color:var(--text-gray);">
+                    <span style="min-width:20px;height:20px;background:var(--accent-emerald);color:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;">3</span>
+                    <span>Copy the <strong style="color:var(--text-white);">Access Token</strong> field value and paste it below. Note: tokens expire after <strong style="color:var(--alert-amber);">1 hour</strong> — you'll need to repeat this for each backup session.</span>
+                  </div>
+                </div>
+                <button type="button" id="btn-get-google-token" onclick="window.open('https://developers.google.com/oauthplayground/#step1&scopes=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive.file&url=https%3A%2F%2F&content_type=application%2Fjson&http_method=GET&useDefaultOauthCred=unchecked&oauthEndpointSelect=Google&oauthAuthEndpointValue=https%3A%2F%2Faccounts.google.com%2Fo%2Foauth2%2Fauth&oauthTokenEndpointValue=https%3A%2F%2Foauth2.googleapis.com%2Ftoken&includeCredentials=unchecked&accessTokenType=bearer&autoRefreshToken=unchecked&accessType=offline&prompt=consent&response_type=code&wrapLines=on','_blank','noopener,noreferrer')" style="margin-top:12px;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);border-radius:6px;color:var(--accent-emerald);font-size:11px;font-weight:800;cursor:pointer;text-transform:uppercase;letter-spacing:0.5px;">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  Get Google Token (OAuth Playground)
+                </button>
+              </div>
+
+              <!-- Token input -->
+              <div class="settings-row" style="margin-top:14px;">
                 <label style="font-size:11px;font-weight:700;color:var(--text-gray);text-transform:uppercase;letter-spacing:0.5px;">Google OAuth 2.0 Access Token</label>
-                <div class="password-wrapper" style="margin-top:6px;">
-                  <input type="text"  autocomplete="new-password" id="setting-google-drive-token" class="secure-input pos-input" placeholder="Paste your Google OAuth2 access token" aria-label="Paste your Google OAuth2 access token">
+                <div style="font-size:10px;color:var(--alert-amber);margin-bottom:6px;display:flex;align-items:center;gap:4px;">
+                  <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  Tokens expire after 1 hour. Obtain a fresh token before each backup session.
+                </div>
+                <div class="password-wrapper" style="margin-top:4px;">
+                  <input type="text" autocomplete="new-password" id="setting-google-drive-token" class="secure-input pos-input" placeholder="Paste your Google OAuth2 access token here" aria-label="Google OAuth2 Access Token">
                   <button type="button" class="btn-toggle-password" title="Toggle"><svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button>
                 </div>
               </div>
@@ -1539,6 +1470,7 @@
               </div>
               <p id="cloud-sync-status" style="font-size:10px;color:var(--text-dim);margin-top:10px;font-family:var(--font-mono);">Last backup: Never</p>
             </div>
+
 
             <div class="settings-section full-width dm-card">
               <div class="dm-card-header">
@@ -1565,116 +1497,125 @@
             </div>
 
             <!-- Sales Commission Tracking Admin (SaaS Premium) -->
-            <div class="settings-section full-width dm-card admin-only" id="settings-commissions" style="display: none; margin-top: 24px;">
-              <div class="dm-card-header">
-                <div class="dm-icon dm-icon-amber">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            <div class="settings-section full-width dm-card admin-only" id="settings-commissions" style="display: none; margin-top: 24px; padding: 24px; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; background: rgba(255,255,255,0.02);">
+              <div class="dm-card-header" style="display: flex; align-items: center; gap: 14px; margin-bottom: 20px;">
+                <div class="dm-icon dm-icon-amber" style="width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                 </div>
                 <div>
-                  <h3 style="margin:0;font-size:14px;font-weight:700;color:var(--text-white);">Sales Commissions & Referrals</h3>
-                  <p style="margin:4px 0 0;font-size:11px;color:var(--text-gray);">Manage sales agent rosters, monitor commission payouts, and export performance metrics.</p>
+                  <h3 style="margin:0; font-size:16px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">Sales Commissions &amp; Referrals</h3>
+                  <p style="margin:4px 0 0; font-size:12px; color:var(--text-gray);">Manage sales agent rosters, monitor commission payouts, and export performance metrics.</p>
                 </div>
               </div>
 
               <!-- Roster Actions & New Agent Registration -->
-              <div style="margin-top: 16px; padding: 12px; border: 1px solid var(--border-titanium); border-radius: 6px; background: rgba(255,255,255,0.01);">
-                <h4 style="margin:0 0 12px; font-size:12px; color:var(--text-white); font-weight:700;">Onboard/Update Sales Agent</h4>
-                <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
-                  <div style="flex: 1; min-width: 150px;">
-                    <label style="font-size:10px; color:var(--text-gray); display:block; margin-bottom:4px;">Select Employee:</label>
-                    <select id="comm-agent-employee-select" class="pos-input" aria-label="Select Employee for Sales Agent">
+              <div style="padding: 16px 20px; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; background: rgba(0,0,0,0.2); margin-bottom: 24px;">
+                <h4 style="margin:0 0 12px; font-size:13px; color:var(--accent-emerald); font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">Onboard / Update Sales Agent</h4>
+                <div style="display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end;">
+                  <div style="flex: 2; min-width: 200px;">
+                    <label style="font-size:11px; color:var(--text-gray); display:block; margin-bottom:6px; font-weight:700;">Select Employee:</label>
+                    <select id="comm-agent-employee-select" class="pos-input" aria-label="Select Employee for Sales Agent" style="width: 100%; height: 44px;">
                       <option value="">-- Choose Employee --</option>
                     </select>
                   </div>
-                  <div style="width: 150px;">
-                    <label style="font-size:10px; color:var(--text-gray); display:block; margin-bottom:4px;">Rate (Basis Points, 100=1%):</label>
-                    <input type="number" id="comm-agent-rate-bps" class="pos-input" value="300" min="0" max="5000" placeholder="e.g. 300 (3%)" aria-label="Commission Rate in Basis Points">
+                  <div style="flex: 1; min-width: 160px;">
+                    <label style="font-size:11px; color:var(--text-gray); display:block; margin-bottom:6px; font-weight:700;">Rate (BPS, 100 = 1%):</label>
+                    <input type="number" id="comm-agent-rate-bps" class="pos-input" value="300" min="0" max="5000" placeholder="e.g. 300 (3%)" aria-label="Commission Rate in Basis Points" style="width: 100%; height: 44px;">
                   </div>
-                  <button type="button" class="action-btn action-success" id="btn-comm-agent-save" style="height: 38px;">Save Agent</button>
+                  <button type="button" class="action-btn dm-btn-emerald" id="btn-comm-agent-save" style="height: 44px; padding: 0 24px; font-weight: 800; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,214,143,0.25);">Save Agent</button>
                 </div>
               </div>
 
-              <!-- Commission Ledger Tables -->
-              <div style="margin-top: 20px;">
-                <h4 style="margin:0 0 8px; font-size:12px; color:var(--text-white); font-weight:700;">Active Sales Agents</h4>
-                <table class="pos-table" style="width: 100%; margin-bottom: 20px;">
-                  <thead>
-                    <tr>
-                      <th style="text-align: left; padding: 8px;">Employee ID</th>
-                      <th style="text-align: left; padding: 8px;">Rate (bps)</th>
-                      <th style="text-align: left; padding: 8px;">Total Activations</th>
-                      <th style="text-align: left; padding: 8px;">Pending Commission</th>
-                      <th style="text-align: left; padding: 8px;">Paid Commission</th>
-                    </tr>
-                  </thead>
-                  <tbody id="comm-agents-tbody">
-                    <tr><td colspan="5" style="text-align: center; color: var(--text-gray); padding: 12px;">No sales agents onboarded yet.</td></tr>
-                  </tbody>
-                </table>
-
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                  <h4 style="margin:0; font-size:12px; color:var(--text-white); font-weight:700;">Recent Commission Earnings Ledger</h4>
-                  <button type="button" class="action-btn dm-btn-secondary" id="btn-comm-export-csv" style="padding: 4px 8px; font-size: 10px;">Export CSV</button>
+              <!-- Active Sales Agents Table -->
+              <div style="margin-bottom: 24px;">
+                <h4 style="margin:0 0 12px; font-size:13px; color:var(--text-white); font-weight:800;">Active Sales Agents</h4>
+                <div style="overflow-x: auto; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
+                  <table class="pos-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                    <thead>
+                      <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); color: var(--text-gray); text-align: left; background: rgba(255,255,255,0.02);">
+                        <th style="padding: 10px 14px;">Employee ID</th>
+                        <th style="padding: 10px 14px;">Rate (bps)</th>
+                        <th style="padding: 10px 14px;">Total Activations</th>
+                        <th style="padding: 10px 14px;">Pending Commission</th>
+                        <th style="padding: 10px 14px;">Paid Commission</th>
+                      </tr>
+                    </thead>
+                    <tbody id="comm-agents-tbody">
+                      <tr><td colspan="5" style="text-align: center; color: var(--text-gray); padding: 16px;">No sales agents onboarded yet.</td></tr>
+                    </tbody>
+                  </table>
                 </div>
-                <table class="pos-table" style="width: 100%;">
-                  <thead>
-                    <tr>
-                      <th style="text-align: left; padding: 8px; width: 30px;"><input type="checkbox" id="comm-ledger-select-all" aria-label="Select All Ledgers"></th>
-                      <th style="text-align: left; padding: 8px;">Agent ID</th>
-                      <th style="text-align: left; padding: 8px;">Code</th>
-                      <th style="text-align: left; padding: 8px;">Store</th>
-                      <th style="text-align: left; padding: 8px;">Tier</th>
-                      <th style="text-align: left; padding: 8px;">Gross</th>
-                      <th style="text-align: left; padding: 8px;">Commission</th>
-                      <th style="text-align: left; padding: 8px;">Status</th>
-                      <th style="text-align: right; padding: 8px;">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody id="comm-ledger-tbody">
-                    <tr><td colspan="9" style="text-align: center; color: var(--text-gray); padding: 12px;">No commission records found.</td></tr>
-                  </tbody>
-                </table>
+              </div>
+
+              <!-- Commission Ledger Table -->
+              <div style="margin-bottom: 24px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:12px;">
+                  <h4 style="margin:0; font-size:13px; color:var(--text-white); font-weight:800;">Recent Commission Earnings Ledger</h4>
+                  <button type="button" class="action-btn dm-btn-secondary" id="btn-comm-export-csv" style="padding: 8px 16px; font-size: 11px; font-weight: 700; border-radius: 8px;">Export CSV</button>
+                </div>
+                <div style="overflow-x: auto; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
+                  <table class="pos-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                    <thead>
+                      <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); color: var(--text-gray); text-align: left; background: rgba(255,255,255,0.02);">
+                        <th style="padding: 10px 14px; width: 32px;"><input type="checkbox" id="comm-ledger-select-all" aria-label="Select All Ledgers"></th>
+                        <th style="padding: 10px 14px;">Agent ID</th>
+                        <th style="padding: 10px 14px;">Code</th>
+                        <th style="padding: 10px 14px;">Store</th>
+                        <th style="padding: 10px 14px;">Tier</th>
+                        <th style="padding: 10px 14px;">Gross</th>
+                        <th style="padding: 10px 14px;">Commission</th>
+                        <th style="padding: 10px 14px;">Status</th>
+                        <th style="padding: 10px 14px; text-align: right;">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="comm-ledger-tbody">
+                      <tr><td colspan="9" style="text-align: center; color: var(--text-gray); padding: 16px;">No commission records found.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
 
                 <!-- Bulk Actions Panel -->
-                <div id="comm-bulk-actions-panel" style="display: flex; gap: 8px; margin-top: 12px; align-items: center;">
-                  <span style="font-size: 11px; color: var(--text-gray);"><span id="comm-selected-count">0</span> items selected</span>
-                  <button type="button" class="action-btn action-success" id="btn-comm-bulk-approve" style="padding: 4px 10px; font-size: 11px;">Bulk Approve</button>
-                  <button type="button" class="action-btn action-warning" id="btn-comm-bulk-flag" style="padding: 4px 10px; font-size: 11px;">Bulk Flag</button>
-                  <button type="button" class="action-btn action-danger" id="btn-comm-bulk-cancel" style="padding: 4px 10px; font-size: 11px;">Bulk Cancel</button>
+                <div id="comm-bulk-actions-panel" style="display: flex; gap: 10px; margin-top: 14px; align-items: center; flex-wrap: wrap;">
+                  <span style="font-size: 12px; color: var(--text-gray); font-weight: 600;"><span id="comm-selected-count">0</span> items selected</span>
+                  <button type="button" class="action-btn dm-btn-emerald" id="btn-comm-bulk-approve" style="padding: 8px 16px; font-size: 11px; font-weight: 800; border-radius: 8px;">Bulk Approve</button>
+                  <button type="button" class="action-btn" id="btn-comm-bulk-flag" style="padding: 8px 16px; font-size: 11px; font-weight: 700; border-radius: 8px; background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3);">Bulk Flag</button>
+                  <button type="button" class="action-btn" id="btn-comm-bulk-cancel" style="padding: 8px 16px; font-size: 11px; font-weight: 700; border-radius: 8px; background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3);">Bulk Cancel</button>
+                </div>
+              </div>
+
+              <!-- Whitelist Management Panel -->
+              <div style="padding: 16px 20px; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; background: rgba(0,0,0,0.2);">
+                <h4 style="margin:0 0 4px; font-size:13px; color:var(--text-white); font-weight:800;">Trusted Activation Whitelist</h4>
+                <p style="margin:0 0 14px; font-size:11px; color:var(--text-gray);">Bypass licensing limitations for trusted IPs and HWIDs (Full Audit Logging).</p>
+                
+                <div style="display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 18px;">
+                  <div>
+                    <label style="font-size:11px; color:var(--text-gray); display:block; margin-bottom:6px; font-weight:700;">Type:</label>
+                    <select id="whitelist-type-select" class="pos-input" style="width: 120px; height: 44px;">
+                      <option value="IP">IP Address</option>
+                      <option value="HWID">Hardware ID</option>
+                    </select>
+                  </div>
+                  <div style="flex: 1; min-width: 200px;">
+                    <label style="font-size:11px; color:var(--text-gray); display:block; margin-bottom:6px; font-weight:700;">Value:</label>
+                    <input type="text" id="whitelist-value-input" class="pos-input" placeholder="e.g. 192.168.1.50 or DEV-HWID-KEY" autocomplete="off" style="width: 100%; height: 44px;">
+                  </div>
+                  <button type="button" class="action-btn dm-btn-emerald" id="btn-whitelist-add" style="height: 44px; padding: 0 24px; font-weight: 800; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,214,143,0.25);">Add Whitelist</button>
                 </div>
 
-                <!-- Whitelist Management Panel -->
-                <div style="margin-top: 24px; padding: 16px; border: 1px solid var(--border-titanium); border-radius: 6px; background: rgba(255,255,255,0.01);">
-                  <h4 style="margin:0 0 4px; font-size:12px; color:var(--text-white); font-weight:700;">Trusted Activation Whitelist</h4>
-                  <p style="margin:0 0 12px; font-size:10px; color:var(--text-gray);">Bypass licensing limitations for trusted IPs and HWIDs (Full Audit Logging).</p>
-                  
-                  <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px;">
-                    <div>
-                      <label style="font-size:10px; color:var(--text-gray); display:block; margin-bottom:4px;">Type:</label>
-                      <select id="whitelist-type-select" class="pos-input" style="width: 100px;">
-                        <option value="IP">IP Address</option>
-                        <option value="HWID">Hardware ID</option>
-                      </select>
-                    </div>
-                    <div style="flex: 1; min-width: 180px;">
-                      <label style="font-size:10px; color:var(--text-gray); display:block; margin-bottom:4px;">Value:</label>
-                      <input type="text" id="whitelist-value-input" class="pos-input" placeholder="e.g. 192.168.1.50 or DEV-HWID-KEY" autocomplete="off">
-                    </div>
-                    <button type="button" class="action-btn action-success" id="btn-whitelist-add" style="height: 38px;">Add Whitelist</button>
-                  </div>
-
-                  <table class="pos-table" style="width: 100%;">
+                <div style="overflow-x: auto; border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;">
+                  <table class="pos-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
                     <thead>
-                      <tr>
-                        <th style="text-align: left; padding: 6px;">Type</th>
-                        <th style="text-align: left; padding: 6px;">Value</th>
-                        <th style="text-align: left; padding: 6px;">Added By</th>
-                        <th style="text-align: left; padding: 6px;">Added At</th>
-                        <th style="text-align: right; padding: 6px;">Actions</th>
+                      <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); color: var(--text-gray); text-align: left; background: rgba(255,255,255,0.02);">
+                        <th style="padding: 10px 14px;">Type</th>
+                        <th style="padding: 10px 14px;">Value</th>
+                        <th style="padding: 10px 14px;">Added By</th>
+                        <th style="padding: 10px 14px;">Added At</th>
+                        <th style="padding: 10px 14px; text-align: right;">Actions</th>
                       </tr>
                     </thead>
                     <tbody id="whitelist-tbody">
-                      <tr><td colspan="5" style="text-align: center; color: var(--text-gray); padding: 10px;">Loading whitelist...</td></tr>
+                      <tr><td colspan="5" style="text-align: center; color: var(--text-gray); padding: 14px;">Loading whitelist...</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -1838,9 +1779,227 @@
           </div>
         </section>
 
-        <!-- View: Subscription Page -->
-        <section class="content-view" id="view-subscription" style="padding: 0; height: calc(100vh - 64px); overflow: hidden;">
-          <iframe id="subscription-iframe" src="subscription.html" style="width: 100%; height: 100%; border: none; background: var(--bg-obsidian, #080810);" title="Subscription & Billing Vault"></iframe>
+        <!-- View: Subscription & Billing Vault (Native View) -->
+        <section class="content-view" id="view-subscription">
+          <div style="max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px;">
+
+            <!-- Active License & Tier Telemetry Header -->
+            <div class="cloud-vault-card">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+                <div style="display:flex; align-items:center; gap:16px;">
+                  <div class="dm-icon dm-icon-emerald" style="width:48px; height:48px; border-radius:14px; background:linear-gradient(135deg, rgba(0,214,143,0.2) 0%, rgba(6,182,212,0.1) 100%); border:1px solid rgba(0,214,143,0.3);">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  </div>
+                  <div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                      <h2 style="margin:0; font-size:20px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">Active Subscription Tier</h2>
+                      <span id="badge-active-tier-pill" style="padding:4px 12px; border-radius:20px; background:rgba(0,214,143,0.15); color:var(--accent-emerald); font-size:11px; font-weight:800; border:1px solid rgba(0,214,143,0.3); text-transform:uppercase;">STARTER</span>
+                    </div>
+                    <p style="margin:4px 0 0; font-size:12px; color:var(--text-gray);">Cryptographic Ed25519 asymmetric key validated • Hardware ID bound</p>
+                  </div>
+                </div>
+
+                <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                  <div style="padding:10px 16px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:10px; text-align:right;">
+                    <div style="font-size:10px; color:var(--text-gray); text-transform:uppercase; font-weight:700;">License Expiry</div>
+                    <div id="txt-license-expiry" style="font-size:13px; font-weight:800; color:var(--text-white); font-family:var(--font-mono); margin-top:2px;">Active Starter</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 7-Day Free Pro Trial Banner Card -->
+            <div id="free-trial-banner-card" style="padding: 20px 24px; border-radius: 14px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.14) 0%, rgba(6, 182, 212, 0.08) 100%); border: 1px solid rgba(16, 185, 129, 0.35); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+              <div style="display: flex; align-items: center; gap: 16px;">
+                <div style="font-size: 32px;">🚀</div>
+                <div>
+                  <h4 style="margin: 0; font-size: 16px; font-weight: 800; color: #ffffff; font-family: var(--font-display); text-transform: uppercase;">Try Growth Features Free for 7 Days</h4>
+                  <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Instantly unlock advanced analytics, supplier management, multi-staff controls, and FBR fiscal features with no payment required.</p>
+                </div>
+              </div>
+              <button type="button" id="btn-start-free-trial-subscription" style="padding: 12px 24px; font-size: 12px; font-weight: 800; border-radius: 10px; border: none; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #080810; text-transform: uppercase; cursor: pointer; letter-spacing: 0.5px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35); white-space: nowrap;">Start 7-Day Free Trial</button>
+            </div>
+
+            <!-- Pricing Tiers & Billing Selector Section -->
+            <div>
+              <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px; margin-bottom:20px;">
+                <div>
+                  <h3 style="margin:0; font-size:18px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">Upgrade Commerce License</h3>
+                  <p style="margin:4px 0 0; font-size:13px; color:var(--text-gray);">Unlock enterprise register capacity, multi-branch analytics, and FBR POS compliance.</p>
+                </div>
+
+                <!-- Cycle Switcher Toggle -->
+                <div style="display:flex; gap:6px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:5px; border-radius:12px;" id="billing-cycle-toggle-group">
+                  <button type="button" class="billing-cycle-btn active" id="btn-billing-cycle-monthly" data-cycle="subscription" style="padding:8px 16px; font-size:11px; font-weight:800; border:none; border-radius:8px; cursor:pointer; background:var(--accent-emerald); color:#080810; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.2s;">Monthly Subscription</button>
+                  <button type="button" class="billing-cycle-btn" id="btn-billing-cycle-lifetime" data-cycle="lifetime" style="padding:8px 16px; font-size:11px; font-weight:800; border:none; border-radius:8px; cursor:pointer; background:transparent; color:var(--text-gray); text-transform:uppercase; letter-spacing:0.5px; transition:all 0.2s;">Perpetual + AMC</button>
+                </div>
+              </div>
+
+              <!-- Tier Cards Grid -->
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+
+                <!-- STARTER TIER -->
+                <div class="pricing-card" data-tier="STARTER" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
+                  <div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                      <h4 style="margin:0; font-size:16px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">STARTER TIER</h4>
+                    </div>
+                    <div style="font-size:24px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:16px;" id="price-val-STARTER">
+                      PKR 3,499 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>
+                    </div>
+                    <ul style="font-size:12px; color:var(--text-muted); padding-left:18px; margin:0 0 20px; line-height:1.8;">
+                      <li><strong style="color:var(--text-white);">1 Register Terminal License</strong></li>
+                      <li>Fast Point of Sale Checkout &amp; ESC/POS Printing</li>
+                      <li>Product Catalog &amp; Real-Time Inventory</li>
+                      <li>Customer Directory &amp; Credit Khata Ledger</li>
+                      <li>Suppliers &amp; Purchase Ledger</li>
+                      <li>Sales Analytics &amp; Profit Reports</li>
+                    </ul>
+                  </div>
+                  <button class="action-btn dm-btn-secondary btn-select-tier" data-tier="STARTER" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase;">Select Starter Plan</button>
+                </div>
+
+                <!-- GROWTH / PRO TIER (Featured) -->
+                <div class="pricing-card featured" data-tier="PRO" style="background: linear-gradient(145deg, rgba(0, 214, 143, 0.06) 0%, rgba(14, 14, 26, 0.8) 100%); border: 1px solid rgba(0, 214, 143, 0.4); border-radius: 18px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between; position: relative;">
+                  <span style="position: absolute; top: 16px; right: 16px; background: var(--accent-emerald); color: #080810; font-size: 10px; font-weight: 800; padding: 3px 10px; border-radius: 20px; text-transform: uppercase;">Most Popular</span>
+                  <div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                      <h4 style="margin:0; font-size:16px; font-weight:800; color:var(--accent-emerald); font-family:var(--font-display);">GROWTH (PRO)</h4>
+                    </div>
+                    <div style="font-size:24px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:16px;" id="price-val-PRO">
+                      PKR 6,999 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>
+                    </div>
+                    <ul style="font-size:12px; color:var(--text-muted); padding-left:18px; margin:0 0 20px; line-height:1.8;">
+                      <li><strong style="color:var(--text-white);">Up to 3 Register Terminals</strong></li>
+                      <li><strong style="color:var(--accent-emerald);">Everything in Starter, plus:</strong></li>
+                      <li>Multi-Device Real-Time Cloud Sync &amp; Backup</li>
+                      <li>Kitchen &amp; Bar Ticket Routing (KOT)</li>
+                      <li>Staff Security PINs &amp; Audit Logs</li>
+                      <li>Automated WhatsApp Digital Receipts</li>
+                      <li>Advanced Margin &amp; Stock Forecasting</li>
+                    </ul>
+                  </div>
+                  <button class="action-btn dm-btn-emerald btn-select-tier" data-tier="PRO" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase; box-shadow:0 4px 14px rgba(0,214,143,0.3);">Select Growth Plan</button>
+                </div>
+
+                <!-- ENTERPRISE TIER -->
+                <div class="pricing-card" data-tier="ENTERPRISE" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
+                  <div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                      <h4 style="margin:0; font-size:16px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">ENTERPRISE</h4>
+                    </div>
+                    <div style="font-size:24px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:16px;" id="price-val-ENTERPRISE">
+                      PKR 11,999 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>
+                    </div>
+                    <ul style="font-size:12px; color:var(--text-muted); padding-left:18px; margin:0 0 20px; line-height:1.8;">
+                      <li><strong style="color:var(--text-white);">Unlimited Register Terminals &amp; Branches</strong></li>
+                      <li><strong style="color:var(--text-white);">Everything in Growth, plus:</strong></li>
+                      <li><strong style="color:var(--accent-emerald);">Official FBR Fiscal POS &amp; PRAL Tax Integration</strong></li>
+                      <li>Multi-Branch Central HQ Dashboard &amp; Transfers</li>
+                      <li>High-Security Audit Logs &amp; Custom Roles</li>
+                      <li>24/7 Priority Support &amp; Onsite Hardware Setup</li>
+                    </ul>
+                  </div>
+                  <button class="action-btn dm-btn-secondary btn-select-tier" data-tier="ENTERPRISE" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase;">Select Enterprise</button>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Manual NayaPay Coordinates & Payment Proof Form Container -->
+            <div id="billing-upgrade-form-container" style="display:none;" class="cloud-vault-card">
+              <h3 style="margin:0 0 16px; font-size:16px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">Submit NayaPay Payment Proof</h3>
+
+              <div style="background:rgba(0,214,143,0.05); border:1px solid rgba(0,214,143,0.2); border-radius:10px; padding:10px 14px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                <span style="font-size:12px; color:var(--text-white); font-weight:700;">Target Terminal Device ID (HWID):</span>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <code id="billing-form-device-hwid" style="font-family:var(--font-mono); font-size:12px; font-weight:800; color:var(--accent-emerald);">Loading...</code>
+                  <button type="button" id="btn-copy-billing-hwid" style="padding:4px 10px; font-size:10px; font-weight:700; border-radius:6px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:var(--text-white); cursor:pointer;">Copy Device ID</button>
+                </div>
+              </div>
+
+              <div style="display:flex; gap:24px; flex-wrap:wrap; margin-bottom:24px;">
+                <div style="flex:1.5; min-width:260px;">
+                  <h4 style="margin:0 0 12px; font-size:13px; color:var(--accent-emerald); font-weight:700;">NayaPay Bank Coordinates</h4>
+                  <div style="display:flex; flex-direction:column; gap:10px; font-size:12px;">
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;"><span style="color:var(--text-gray);">Bank Name:</span><span style="color:var(--text-white); font-weight:700;">NayaPay</span></div>
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;"><span style="color:var(--text-gray);">Account Title:</span><span style="color:var(--text-white); font-weight:700;">MUHAMMAD SOBAN ALI</span></div>
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;"><span style="color:var(--text-gray);">Account Number:</span><span style="color:var(--text-white); font-weight:700; font-family:var(--font-mono);">03315133226</span></div>
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;"><span style="color:var(--text-gray);">IBAN:</span><span style="color:var(--text-white); font-weight:700; font-family:var(--font-mono);">PK47NAYA1234503315133226</span></div>
+                  </div>
+                  
+                  <!-- Fast-Track WhatsApp Payment Note -->
+                  <div style="margin-top:14px; background:rgba(0,214,143,0.08); border:1px dashed rgba(0,214,143,0.35); border-radius:12px; padding:12px 14px; display:flex; align-items:center; gap:12px;">
+                    <div style="font-size:22px; flex-shrink:0;">📲</div>
+                    <div style="font-size:11px; color:var(--text-white); line-height:1.5;">
+                      <strong style="color:var(--accent-emerald); font-size:12px; display:block; margin-bottom:2px;">Account Upgrade via WhatsApp Payment Screenshot</strong>
+                      For successful upgradation, send your payment proof screenshot along with your <strong>Device ID (HWID)</strong> on WhatsApp <a href="https://wa.me/923315133226" target="_blank" style="color:#25D366; font-weight:800; text-decoration:underline; font-family:var(--font-mono);">03315133226</a>. Your Device ID and transaction will be verified and your account upgraded promptly! Thank you!
+                    </div>
+                  </div>
+                </div>
+
+                <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:180px; border-left:1px solid rgba(255,255,255,0.08); padding-left:24px;">
+                  <span style="font-size:10px; font-weight:800; color:var(--accent-emerald); display:block; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;">Scan QR to Pay via NayaPay</span>
+                  <div style="padding:8px; background:#ffffff; border-radius:12px; width:140px; height:140px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 16px rgba(0,0,0,0.3);">
+                    <img src="soban_nayapay_qr_code.png" alt="NayaPay QR Code" style="max-width:100%; max-height:100%; border-radius:6px;">
+                  </div>
+                </div>
+              </div>
+
+              <form id="billing-upgrade-proof-form" style="display:flex; flex-direction:column; gap:16px; border-top:1px solid rgba(255,255,255,0.08); padding-top:20px;">
+                <input type="hidden" id="form-billing-selected-tier">
+                <div style="display:flex; gap:16px; flex-wrap:wrap;">
+                  <div style="flex:1; min-width:180px;">
+                    <label for="form-billing-amount" style="font-size:11px; color:var(--text-gray); display:block; margin-bottom:6px; font-weight:700;">Amount (PKR):</label>
+                    <input type="number" id="form-billing-amount" class="pos-input" readonly style="padding:12px; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); border-radius:10px; color:var(--text-white); font-weight:700; font-family:var(--font-mono); width:100%; box-sizing:border-box;">
+                  </div>
+                  <div style="flex:1; min-width:180px;">
+                    <label for="form-billing-rrn" style="font-size:11px; color:var(--text-gray); display:block; margin-bottom:6px; font-weight:700;">Transaction Ref / RRN (Optional):</label>
+                    <input type="text" id="form-billing-rrn" class="pos-input" placeholder="e.g. TRX12345678 (Optional)" maxlength="30" style="padding:12px; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); border-radius:10px; color:var(--text-white); font-family:var(--font-mono); width:100%; box-sizing:border-box;">
+                  </div>
+                </div>
+
+                <div>
+                  <label style="font-size:11px; color:var(--text-gray); display:block; margin-bottom:6px; font-weight:700;">Screenshot Proof of Payment (Required if no Ref entered):</label>
+                  <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                    <label for="form-billing-file" style="padding:10px 18px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); color:var(--text-white); border-radius:10px; font-size:12px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:8px;">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Choose Image
+                    </label>
+                    <input type="file" id="form-billing-file" accept="image/jpeg,image/png,image/webp" style="display:none;">
+                    <span id="form-billing-file-name" style="font-size:11px; color:var(--text-dim);">No file chosen (5MB max)</span>
+                  </div>
+                </div>
+
+                <div style="display:flex; gap:12px; margin-top:8px;">
+                  <button type="button" class="action-btn" id="btn-billing-upgrade-cancel" style="flex:1; padding:12px; background:transparent; border:1px solid rgba(255,255,255,0.1); color:var(--text-muted); border-radius:10px; font-weight:700;">Cancel</button>
+                  <button type="submit" class="action-btn dm-btn-emerald" id="btn-billing-upgrade-submit" style="flex:2; padding:12px; font-weight:800; border-radius:10px; box-shadow:0 4px 14px rgba(0,214,143,0.3); display:inline-flex; align-items:center; justify-content:center; gap:8px;">Submit Claim via WhatsApp 💬</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Upgrade Claims History Table -->
+            <div class="cloud-vault-card">
+              <h3 style="margin:0 0 16px; font-size:16px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">Upgrade Claims History</h3>
+              <div style="overflow-x:auto;">
+                <table class="pos-table" style="width:100%; border-collapse:collapse; font-size:12px;">
+                  <thead>
+                    <tr style="border-bottom:1px solid rgba(255,255,255,0.08); color:var(--text-gray); text-align:left;">
+                      <th style="padding:10px;">Date</th>
+                      <th style="padding:10px;">Device ID (HWID)</th>
+                      <th style="padding:10px;">Target Tier</th>
+                      <th style="padding:10px;">Amount Paid</th>
+                      <th style="padding:10px;">Reference / RRN</th>
+                      <th style="padding:10px;">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="billing-history-tbody">
+                    <tr><td colspan="6" style="text-align:center; color:var(--text-dim); padding:16px;">No subscription upgrade claims submitted yet.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
         </section>
 
         <!-- View 11: Suppliers (Distributors & Purchase Ledger) -->
@@ -2359,41 +2518,55 @@
 
   <!-- DIALOG MODAL 7: DYNAMIC QR PAYMENT PRESENTER -->
   <div class="modal-overlay" id="modal-qr-pay">
-    <div class="modal-card" style="max-width: 420px;">
-      <div class="modal-header">
-        <h3>Digital QR Wallet Payment</h3>
-        <button class="btn-close-modal" id="btn-close-qr-pay-modal">×</button>
+    <div class="modal-card" style="max-width: 440px;">
+      <div class="modal-header" style="border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:36px;height:36px;background:linear-gradient(135deg,#00d68f,#00a876);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#060d0d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+          </div>
+          <div>
+            <h3 style="margin:0;font-size:15px;font-weight:800;color:var(--text-white);">Digital QR Wallet Payment</h3>
+            <p style="margin:0;font-size:11px;color:var(--text-gray);">JazzCash · EasyPaisa · Raast · Any Bank App</p>
+          </div>
+        </div>
+        <button class="btn-close-modal" id="btn-close-qr-pay-modal" aria-label="Close QR payment">×</button>
       </div>
-      <div class="modal-body" style="text-align: center; display: flex; flex-direction: column; align-items: center; gap: 16px;">
-        <span style="font-size: 12px; color: var(--text-gray);">Please scan the QR code to send payment of:</span>
-        <span style="font-size: 28px; font-weight: 800; color: var(--accent-emerald);" id="qr-pay-amount-label">Rs. 0.00</span>
-        
-        <!-- Beautiful QR Display Canvas Container -->
-        <div id="qr-pay-canvas-container" style="width: 200px; height: 200px; padding: 12px; background: white; border-radius: 4px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px rgba(0,0,0,0.4);"></div>
-
-        <span style="font-size: 10px; color: var(--text-gray);">Security verified via real-time SMS bank transaction interception pipeline.</span>
-
-        <!-- SMS INTERCEPT SIMULATOR PANEL -->
-        <div style="width: 100%; text-align: left; padding: 12px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 8px; margin-top: 10px;">
-          <span style="font-size: 11px; font-weight: 700; color: var(--warning); display: inline-flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-            <svg class="svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            SMS BANK TRANSACTION INTERCEPTOR (SANDBOX)
-          </span>
-          <div class="settings-row" style="margin-bottom: 8px;">
-            <label style="font-size: 10px;">Bank Gateway Shortcode (e.g. 8558, 3737):</label>
-            <input type="text" id="sms-sim-sender" class="pos-input" value="8558" style="padding: 4px 8px; font-size: 11px;" aria-label="Sms Sim Sender">
+      <div class="modal-body" style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:0;padding:20px 24px;">
+        <div style="margin-bottom:16px;">
+          <div style="font-size:11px;color:var(--text-gray);font-weight:600;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px;">Amount Due</div>
+          <div style="font-size:32px;font-weight:900;color:var(--accent-emerald);font-family:var(--font-display);" id="qr-pay-amount-label">Rs. 0.00</div>
+        </div>
+        <div style="padding:14px;background:#ffffff;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(0,214,143,0.2),0 4px 12px rgba(0,0,0,0.5);margin-bottom:16px;">
+          <div id="qr-pay-canvas-container" style="width:192px;height:192px;display:flex;align-items:center;justify-content:center;"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:16px;justify-content:center;flex-wrap:wrap;">
+          <span style="background:rgba(0,214,143,0.12);border:1px solid rgba(0,214,143,0.3);color:#00d68f;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.5px;">JAZZCASH</span>
+          <span style="background:rgba(79,158,255,0.12);border:1px solid rgba(79,158,255,0.3);color:#4f9eff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.5px;">EASYPAISA</span>
+          <span style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);color:#f59e0b;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.5px;">RAAST</span>
+          <span style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:var(--text-gray);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.5px;">ANY BANK APP</span>
+        </div>
+        <div style="width:100%;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px;text-align:left;margin-bottom:16px;">
+          <div style="font-size:10px;font-weight:800;color:#8f9cb5;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:10px;">Customer Instructions</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;align-items:flex-start;gap:10px;"><div style="width:20px;height:20px;background:rgba(0,214,143,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#00d68f;flex-shrink:0;">1</div><span style="font-size:12px;color:var(--text-white);line-height:1.4;">Open your <strong>JazzCash</strong>, <strong>EasyPaisa</strong>, or any bank app</span></div>
+            <div style="display:flex;align-items:flex-start;gap:10px;"><div style="width:20px;height:20px;background:rgba(0,214,143,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#00d68f;flex-shrink:0;">2</div><span style="font-size:12px;color:var(--text-white);line-height:1.4;">Tap <strong>Scan QR</strong> and point camera at this code</span></div>
+            <div style="display:flex;align-items:flex-start;gap:10px;"><div style="width:20px;height:20px;background:rgba(0,214,143,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#00d68f;flex-shrink:0;">3</div><span style="font-size:12px;color:var(--text-white);line-height:1.4;">Confirm the amount and tap <strong>Pay</strong> in your app</span></div>
           </div>
-          <div class="settings-row" style="margin-bottom: 8px;">
-            <label style="font-size: 10px;">Encrypted Bank Transaction SMS Payload:</label>
-            <textarea id="sms-sim-body" class="pos-input" style="padding: 4px 8px; font-size: 11px; height: 50px; font-family: monospace; resize: none;" aria-label="Sms Sim Body"></textarea>
-          </div>
-          <button class="action-btn action-success" id="btn-trigger-sms-simulation" style="width:100%; min-height: 32px; font-size: 11px; padding: 6px;">
-            SIMULATE SECURE INCOMING BANK TRANSACTION
+        </div>
+        <div id="qr-setup-notice" style="display:none;width:100%;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:12px;text-align:left;margin-bottom:16px;">
+          <div style="font-size:11px;color:#f59e0b;font-weight:700;margin-bottom:4px;">⚙️ QR Account Not Configured</div>
+          <div style="font-size:11px;color:var(--text-gray);line-height:1.5;">Showing generic QR. For direct payments to your wallet, go to <strong style="color:var(--text-white);">Settings → Payment → QR Setup</strong> and enter your merchant Till ID.</div>
+        </div>
+        <div style="width:100%;background:rgba(0,214,143,0.05);border:1px solid rgba(0,214,143,0.15);border-radius:10px;padding:14px;text-align:center;">
+          <div style="font-size:11px;color:var(--text-gray);margin-bottom:10px;">Once the customer completes payment on their device, tap below:</div>
+          <button id="btn-qr-mark-paid" style="width:100%;min-height:52px;background:linear-gradient(135deg,#00d68f,#00a876);border:none;border-radius:10px;color:#060d0d;font-family:var(--font-display);font-weight:800;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;cursor:pointer;touch-action:manipulation;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 16px rgba(0,214,143,0.35);">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Payment Received — Complete Order
           </button>
         </div>
       </div>
-      <div class="modal-footer">
-        <button class="action-btn" id="btn-close-qr-pay-modal-footer">Cancel</button>
+      <div class="modal-footer" style="border-top:1px solid rgba(255,255,255,0.04);padding-top:12px;">
+        <button class="action-btn" id="btn-close-qr-pay-modal-footer" style="min-height:40px;font-size:12px;color:var(--text-gray);">Cancel Payment</button>
       </div>
     </div>
   </div>
@@ -2755,7 +2928,7 @@
           <div class="wiz-field-group">
             <label class="wiz-label">Owner PIN <span style="color:#8f9cb5; font-weight:500; font-size:10px;">(4-6 digits)</span></label>
             <div class="password-wrapper" style="margin-top:6px;">
-              <input type="password" autocomplete="new-password" id="wizard-admin-pin" class="secure-input pos-input" placeholder="e.g. 1234" value="1234" maxlength="6" minlength="4" inputmode="numeric" pattern="[0-9]*" aria-label="e.g. 1234">
+              <input type="password" autocomplete="new-password" id="wizard-admin-pin" class="secure-input pos-input" placeholder="Enter 4-6 digit Owner PIN" value="" maxlength="6" minlength="4" inputmode="numeric" pattern="[0-9]*" aria-label="Owner PIN">
               <button type="button" class="btn-toggle-password" title="Toggle visibility">
                 <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -3120,6 +3293,7 @@
   <script src="client-speech.js"></script>
   <!-- OFFLINE QR CODE ENGINE -->
   <script src="qrcode.min.js"></script>
+  <script src="emvco-qr.js"></script>
   <!-- CENTRALIZED LICENSE CONFIGURATION -->
   <script src="license-config.js"></script>
   <!-- CRYPTOGRAPHIC LICENSE ENGINE — must load before app.js -->
@@ -3199,15 +3373,5 @@
     style="display:none; position:fixed; bottom:80px; right:16px; width:56px; height:56px; border-radius:50%; background:var(--accent-emerald,#10b981); border:none; z-index:1000; cursor:pointer; touch-action:manipulation; align-items:center; justify-content:center; box-shadow:0 4px 16px rgba(16,185,129,0.4); transition:transform 0.15s, box-shadow 0.15s;"
     onmouseenter="this.style.transform='scale(1.08)'"
     onmouseleave="this.style.transform='scale(1)'"
-  </button>
-  <button id="diag-fab" onclick="if(window.copyDiagnostics)window.copyDiagnostics();" title="Copy Diagnostics" style="display:none;" aria-label="Copy Diagnostics">
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
-  </button>
-  <script>
-    if (/Android|iPhone|iPad|iPod|wv|WebView/i.test(navigator.userAgent)) {
-      var fab = document.getElementById('diag-fab');
-      if (fab) fab.style.display = 'flex';
-    }
-  </script>
 </body>
 </html>

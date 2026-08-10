@@ -17,6 +17,10 @@ function getAllFiles(dir, relativeTo = dir) {
         results = results.concat(getAllFiles(filePath, relativeTo));
       }
     } else {
+      const ext = path.extname(file).toLowerCase();
+      if (ext === '.apk' || ext === '.zip' || ext === '.exe' || ext === '.map' || ext === '.tar' || ext === '.gz') {
+        return; // Never bundle installer packages or binaries into Android WebView assets
+      }
       results.push({
         absolutePath: filePath,
         relativePath: path.relative(relativeTo, filePath),

@@ -300,11 +300,37 @@
     // isCheckingOut / __isSubmitting flags are reset even if the app cannot
     // send the receipt (no app installed, network error, user cancels prompt, etc.)
     var closeModalSafe = function() {
+      document.removeEventListener('keydown', onEscKey, true);
       var m = document.getElementById("__vx-receipt-share-modal");
       if (m) m.remove();
+      // Sweep any leaked showModal overlays so they cannot block UI interaction
+      if (typeof window.cleanupModalOverlays === 'function') window.cleanupModalOverlays();
       if (window.state) { window.state.isCheckingOut = false; }
       window.__isSubmitting = false;
+      window.__checkoutInProgress = false;
+      if (typeof setButtonLoading === 'function') {
+        setButtonLoading('btn-checkout-complete', false, '', 'COMPLETE ORDER (F1)');
+      }
+      // Explicitly restore pointer events & scrolling on body and app containers
+      try { document.body.style.removeProperty('pointer-events'); } catch(_) {}
+      try { document.body.style.removeProperty('overflow'); } catch(_) {}
+      try {
+        const layout = document.getElementById('pos-app-layout');
+        if (layout) {
+          layout.style.removeProperty('pointer-events');
+          layout.style.removeProperty('user-select');
+        }
+      } catch(_) {}
+      try { if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); } catch(_) {}
     };
+
+    function onEscKey(e) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeModalSafe();
+      }
+    }
+    document.addEventListener('keydown', onEscKey, true);
 
     document.getElementById("__vx-rcpt-whatsapp").addEventListener("click", async function() {
       try { if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); } catch(_) {}
@@ -320,27 +346,21 @@
           actions: [{ id: "ok", label: "Send Receipt", style: "primary" }, { id: "cancel", label: "Cancel", style: "secondary" }],
           input: { placeholder: "03001234567", defaultValue: "" }
         });
-        if (!res || res === "cancel" || res === false) return;
+        if (!res || res === "cancel" || res === false) { closeModalSafe(); return; }
         phone = (typeof res === "string" && res !== "ok") ? res.trim() : "";
       }
       if (!phone) {
-        if (window.showModal) {
-          const act = await showModal({
-            title: "No Phone Number Found",
-            message: "No phone number was provided. Would you like to configure customer contacts or store phone in Settings?",
-            type: "warning",
-            actions: [
-              { id: "settings", label: "Open Settings", style: "primary" },
-              { id: "cancel", label: "Dismiss", style: "secondary" }
-            ]
-          });
-          if (act === "settings" && typeof window.switchActiveScreen === 'function') {
-            window.switchActiveScreen('settings');
-          }
+        if (window.showNotificationToast) {
+          showNotificationToast('No phone number provided. You can set one in Settings → Store → Store Phone.', 'warning', 4000);
         }
+        closeModalSafe();
         return;
       }
-      shareReceiptWhatsApp(receiptData, phone);
+      try {
+        shareReceiptWhatsApp(receiptData, phone);
+      } finally {
+        closeModalSafe();
+      }
     });
 
     document.getElementById("__vx-rcpt-email").addEventListener("click", async function() {
@@ -357,34 +377,32 @@
           actions: [{ id: "ok", label: "Send Email", style: "primary" }, { id: "cancel", label: "Cancel", style: "secondary" }],
           input: { placeholder: "customer@email.com", defaultValue: "" }
         });
-        if (!res || res === "cancel" || res === false) return;
+        if (!res || res === "cancel" || res === false) { closeModalSafe(); return; }
         email = (typeof res === "string" && res !== "ok") ? res.trim() : "";
       }
       if (!email) {
-        if (window.showModal) {
-          const act = await showModal({
-            title: "No Email Address Found",
-            message: "No email address was provided. Would you like to configure customer contacts or store details in Settings?",
-            type: "warning",
-            actions: [
-              { id: "settings", label: "Open Settings", style: "primary" },
-              { id: "cancel", label: "Dismiss", style: "secondary" }
-            ]
-          });
-          if (act === "settings" && typeof window.switchActiveScreen === 'function') {
-            window.switchActiveScreen('settings');
-          }
+        if (window.showNotificationToast) {
+          showNotificationToast('No email address provided. You can set one in Settings → Store → Store Email.', 'warning', 4000);
         }
+        closeModalSafe();
         return;
       }
-      shareReceiptEmail(receiptData, email);
+      try {
+        shareReceiptEmail(receiptData, email);
+      } finally {
+        closeModalSafe();
+      }
     });
 
     document.getElementById("__vx-rcpt-pdf").addEventListener("click", function() {
       try { if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); } catch(_) {}
       // Release checkout lock FIRST — before download
       closeModalSafe();
-      downloadReceiptPDF(receiptData);
+      try {
+        downloadReceiptPDF(receiptData);
+      } finally {
+        closeModalSafe();
+      }
     });
 
     document.getElementById("__vx-rcpt-close").addEventListener("click", closeModalSafe);

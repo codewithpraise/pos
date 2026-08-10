@@ -101,10 +101,11 @@ body.theme-minimalist-chrome {
 /* Monochrome Ivory Theme (Light Mode) */
 body.theme-monochrome-ivory {
   --bg-obsidian: #f7f6f3;
-  --panel-graphite: #eeece8;
-  --panel-graphite-mid: #e5e3de;
-  --panel-graphite-light: #d8d6d0;
-  --panel-hover: #ceccc6;
+  --panel-graphite: #ffffff;
+  --panel-graphite-mid: #f4f3ef;
+  --panel-graphite-light: #eae8e1;
+  --panel-slate: #ffffff;
+  --panel-hover: #e5e3de;
   --border-titanium: rgba(0,0,0,0.12);
   --border-bright: rgba(0,0,0,0.22);
   --accent-emerald: #1a1a1a;
@@ -118,14 +119,88 @@ body.theme-monochrome-ivory {
   --alert-amber: #c67c26;
   --text-white: #111111;
   --text-muted: #1e1e1e;
-  --text-gray: #2d2d2d;
-  --text-dim: #4c4c4c;
+  --text-gray: #333333;
+  --text-dim: #555555;
   --text-dark: #f7f6f3;
   --success: #1a7a4a;
   --warning: #c67c26;
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.08);
   --shadow-md: 0 4px 16px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.08);
   --shadow-lg: 0 20px 40px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.10);
+}
+
+body.theme-monochrome-ivory .settings-section,
+body.theme-monochrome-ivory .dm-card,
+body.theme-monochrome-ivory .cloud-vault-card,
+body.theme-monochrome-ivory .pricing-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  color: #111111 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+}
+
+body.theme-monochrome-ivory .settings-section h3,
+body.theme-monochrome-ivory .settings-section label,
+body.theme-monochrome-ivory .dm-card h3,
+body.theme-monochrome-ivory .dm-card label {
+  color: #111111 !important;
+}
+
+body.theme-monochrome-ivory .settings-section p,
+body.theme-monochrome-ivory .dm-card p {
+  color: #555555 !important;
+}
+
+body.theme-monochrome-ivory ._scale-btn,
+body.theme-monochrome-ivory ._mobile-scale-btn {
+  background: #f0eee9 !important;
+  color: #111111 !important;
+  border: 1px solid rgba(0, 0, 0, 0.18) !important;
+}
+
+body.theme-monochrome-ivory ._scale-btn.active,
+body.theme-monochrome-ivory ._mobile-scale-btn.active {
+  background: #111111 !important;
+  color: #ffffff !important;
+  border-color: #111111 !important;
+}
+
+body.theme-monochrome-ivory .ledger-footer,
+body.theme-monochrome-ivory .checkout-cart,
+body.theme-monochrome-ivory .cart-list-header {
+  background: #ffffff !important;
+  color: #111111 !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+body.theme-monochrome-ivory .clh-product,
+body.theme-monochrome-ivory .clh-total {
+  color: #555555 !important;
+}
+
+body.theme-monochrome-ivory .cart-product-title,
+body.theme-monochrome-ivory .qty-val {
+  color: #111111 !important;
+}
+
+body.theme-monochrome-ivory .cart-row-meta {
+  color: #666666 !important;
+}
+
+body.theme-monochrome-ivory .qty-btn {
+  background: #f0eee9 !important;
+  color: #111111 !important;
+  border-color: rgba(0, 0, 0, 0.18) !important;
+}
+
+body.theme-monochrome-ivory .totals-row {
+  color: #333333 !important;
+}
+
+body.theme-monochrome-ivory .totals-row.grand-total {
+  color: #111111 !important;
+  border-top-color: rgba(0, 0, 0, 0.15) !important;
+  text-shadow: none !important;
 }
 
 /* ── High Contrast Accessibility Override ── */

@@ -101,9 +101,11 @@
   --size-scale: 1;
 }
 
-/* Apply scale to root font-size so all UI elements scale cleanly without layout breaking */
+/* Apply scale to root font-size so all rem-based UI scales cleanly.
+   Use 100% (not a hardcoded px value) so the user's browser/OS accessibility
+   font-size setting is respected as the base before scaling is applied. */
 html {
-  font-size: calc(15px * var(--size-scale, 1)) !important;
+  font-size: calc(100% * var(--size-scale, 1));
 }
 
 body {

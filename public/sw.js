@@ -1,7 +1,7 @@
 // ============================================================================
 // VALENIXIA COMMERCE ECOSYSTEM - OFFLINE PWA SERVICE WORKER
 // Caches core application assets for local-first operations
-// v9 - PASSPHRASE_MISMATCH auto-recovery, SAVE_PREFERENCE queue, token validation fix
+// v10 - Cache-busting refresh, PASSPHRASE_MISMATCH auto-recovery
 // ============================================================================
 
 // Console gating in production Service Worker context to block trace leaks
@@ -15,7 +15,7 @@ if (self.location.hostname !== 'localhost' && !self.location.hostname.includes('
 
 const urlParams = new URLSearchParams(self.location.search);
 const buildVersion = urlParams.get('v') || 'dev';
-const CACHE_NAME = `valenixia-pos-cache-v16`;
+const CACHE_NAME = `valenixia-pos-cache-v31`;
 const ASSETS_TO_CACHE = [
   { url: '/', integrity: '' },
   { url: '/index.html', integrity: '' },
@@ -24,24 +24,24 @@ const ASSETS_TO_CACHE = [
   { url: '/styles/themes.css', integrity: '' },
   { url: '/styles/animations.css', integrity: '' },
   { url: '/styles/components.css', integrity: '' },
-  { url: '/app.js', integrity: 'sha384-L5f+n4wsSISVt79Vw0NX+rz0PWV78inn7SnOD0A6jHEYnP/HcVy/S529YTz6ln8J' },
+  { url: '/app.js', integrity: '' },
   { url: '/modules/ui.js', integrity: '' },
   { url: '/modules/animations.js', integrity: '' },
   { url: '/modules/offline.js', integrity: '' },
   { url: '/modules/keyboard.js', integrity: '' },
-  { url: '/client-db.js', integrity: 'sha384-DlhbRlE7aSOf7OrEUk3xZ0oToM2y94OVHEg6M+WdVOdXgjlyX+r3N3YUh+Avt9LF' },
-  { url: '/client-audio.js', integrity: 'sha384-vSkZxNpW3irRy+M++qqNgiEfTojWAuiVCd2q+cgd1Mny2htbsK82FG+mYLljIbyW' },
-  { url: '/client-speech.js', integrity: 'sha384-okOmHgmFVB+jxD+KR0d9OLQzPS3oG28FiwyjpymBRk7+0BLoaaTgBwl/cULP8hSc' },
-  { url: '/client-sync.js', integrity: 'sha384-p0tYwxIv1hb9Td3vukDJkySuZqe2oXG6hPXKvWDWjDNab2edrluo19+Gobr0jJwn' },
-  { url: '/sync-worker.js', integrity: 'sha384-yLyEaq+GZDQj9HLgkZiK2A+YJLCYRMQqLrEtom3P+ktQ0KWs62nvw3orQE9rvLqG' },
+  { url: '/client-db.js', integrity: '' },
+  { url: '/client-audio.js', integrity: '' },
+  { url: '/client-speech.js', integrity: '' },
+  { url: '/client-sync.js', integrity: '' },
+  { url: '/sync-worker.js', integrity: '' },
   { url: '/manifest.json', integrity: '' },
   { url: '/icon-192.png', integrity: '' },
   { url: '/icon-512.png', integrity: '' },
-  { url: '/polyfill.min.js', integrity: 'sha384-P1J6VFE0IBOGvQjC3qf5YzjpdKWZ5EkHW4kGwsHnyLXMvhRbGJ01arDKwVqcdkUG' },
+  { url: '/polyfill.min.js', integrity: '' },
   { url: '/NotoNastaliqUrdu-Regular.ttf', integrity: '' },
-  { url: '/dompurify.min.js', integrity: 'sha384-piCcpDdJ7qVeK4Tv8Z6Hpcr3ZBIgP16TxQTPVfsLFdZ5uDgwc3Y8Ho7oUnqf12qu' },
-  { url: '/jspdf.umd.min.js', integrity: 'sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk' },
-  { url: '/zxing.min.js', integrity: 'sha384-ET1PhbRYLe6k2AXPuFZAF+LZYXgMwkHwqrsbw4PobRULALuRP1buPYV++5ODebL5' }
+  { url: '/dompurify.min.js', integrity: '' },
+  { url: '/jspdf.umd.min.js', integrity: '' },
+  { url: '/zxing.min.js', integrity: '' }
 ];
 
 // Helper: build a clean offline JSON response
@@ -156,14 +156,7 @@ self.addEventListener('fetch', (event) => {
         ) {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            // Verify integrity of response before putting into cache
-            const hasIntegrity = responseToCache.headers.get('x-content-hash') || 
-                                 responseToCache.headers.get('etag') || 
-                                 responseToCache.headers.get('last-modified');
-            if (hasIntegrity) {
-              // Verify subresource integrity before caching
-              cache.put(request, responseToCache);
-            }
+            cache.put(request, responseToCache).catch(() => {});
           });
         }
         return networkResponse;

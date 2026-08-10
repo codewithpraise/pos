@@ -1,0 +1,292 @@
+/* ============================================================================
+   VALENIXIA — MOBILE SCALE SYSTEM v3.0 (GLOBAL ALL-PAGES EDITION)
+   ============================================================================ */
+
+/* ── 1. MOBILE SCALE TOKENS & ROOT FONT SIZES ───────────────────────────── */
+@media (max-width: 768px) {
+  html {
+    font-size: 15px !important;
+    --vx-bottom-nav-h: 62px;
+    --vx-topbar-h: 50px;
+    --vx-font-xs:    10px;
+    --vx-font-sm:    11.5px;
+    --vx-font-base:  13.5px;
+    --vx-font-md:    15px;
+    --vx-font-lg:    17px;
+    --vx-font-xl:    20px;
+    --vx-font-2xl:   24px;
+    --vx-font-3xl:   30px;
+    --vx-touch-sm:   40px;
+    --vx-touch-md:   48px;
+    --vx-touch-lg:   56px;
+    --vx-space-xs:   4px;
+    --vx-space-sm:   8px;
+    --vx-space-md:   12px;
+    --vx-space-lg:   16px;
+    --vx-space-xl:   20px;
+    --vx-space-2xl:  28px;
+    --vx-radius-sm:  6px;
+    --vx-radius-md:  10px;
+    --vx-radius-lg:  14px;
+    --vx-icon-sm:    16px;
+    --vx-icon-md:    20px;
+    --vx-icon-lg:    24px;
+    --vx-input-h:    44px;
+    --vx-nav-item-h: 54px;
+    --vx-nav-icon-sz: 20px;
+    --vx-nav-font:   9px;
+    --vx-cart-card-h: 68px;
+  }
+
+  html[data-mobile-scale="compact"] {
+    font-size: 13px !important;
+    --vx-bottom-nav-h: 54px;  --vx-topbar-h: 44px;
+    --vx-font-xs: 9px;        --vx-font-sm: 10px;
+    --vx-font-base: 11.5px;   --vx-font-md: 13px;
+    --vx-font-lg: 15px;       --vx-font-xl: 17px;
+    --vx-font-2xl: 20px;      --vx-font-3xl: 25px;
+    --vx-touch-sm: 36px;      --vx-touch-md: 44px;  --vx-touch-lg: 50px;
+    --vx-space-xs: 3px;       --vx-space-sm: 6px;
+    --vx-space-md: 9px;       --vx-space-lg: 12px;
+    --vx-space-xl: 16px;      --vx-space-2xl: 22px;
+    --vx-radius-sm: 5px;      --vx-radius-md: 8px;  --vx-radius-lg: 12px;
+    --vx-icon-sm: 14px;       --vx-icon-md: 17px;   --vx-icon-lg: 20px;
+    --vx-input-h: 38px;
+    --vx-nav-item-h: 48px;    --vx-nav-icon-sz: 18px; --vx-nav-font: 8px;
+    --vx-cart-card-h: 58px;
+  }
+
+  html[data-mobile-scale="default"] {
+    font-size: 15px !important;
+    --vx-bottom-nav-h: 62px;  --vx-topbar-h: 50px;
+    --vx-font-xs: 10px;       --vx-font-sm: 11.5px;
+    --vx-font-base: 13.5px;   --vx-font-md: 15px;
+    --vx-font-lg: 17px;       --vx-font-xl: 20px;
+    --vx-font-2xl: 24px;      --vx-font-3xl: 30px;
+    --vx-touch-sm: 40px;      --vx-touch-md: 48px;  --vx-touch-lg: 56px;
+    --vx-space-xs: 4px;       --vx-space-sm: 8px;
+    --vx-space-md: 12px;      --vx-space-lg: 16px;
+    --vx-space-xl: 20px;      --vx-space-2xl: 28px;
+    --vx-radius-sm: 6px;      --vx-radius-md: 10px; --vx-radius-lg: 14px;
+    --vx-icon-sm: 16px;       --vx-icon-md: 20px;   --vx-icon-lg: 24px;
+    --vx-input-h: 44px;
+    --vx-nav-item-h: 54px;    --vx-nav-icon-sz: 20px; --vx-nav-font: 9px;
+    --vx-cart-card-h: 68px;
+  }
+
+  html[data-mobile-scale="large"] {
+    font-size: 17.5px !important;
+    --vx-bottom-nav-h: 68px;  --vx-topbar-h: 56px;
+    --vx-font-xs: 11.5px;     --vx-font-sm: 13px;
+    --vx-font-base: 15.5px;   --vx-font-md: 17.5px;
+    --vx-font-lg: 19.5px;     --vx-font-xl: 23px;
+    --vx-font-2xl: 28px;      --vx-font-3xl: 35px;
+    --vx-touch-sm: 44px;      --vx-touch-md: 52px;  --vx-touch-lg: 62px;
+    --vx-space-xs: 5px;       --vx-space-sm: 10px;
+    --vx-space-md: 14px;      --vx-space-lg: 20px;
+    --vx-space-xl: 26px;      --vx-space-2xl: 36px;
+    --vx-radius-sm: 7px;      --vx-radius-md: 12px; --vx-radius-lg: 17px;
+    --vx-icon-sm: 18px;       --vx-icon-md: 22px;   --vx-icon-lg: 28px;
+    --vx-input-h: 52px;
+    --vx-nav-item-h: 62px;    --vx-nav-icon-sz: 24px; --vx-nav-font: 10px;
+    --vx-cart-card-h: 76px;
+  }
+
+  html[data-mobile-scale="xl"] {
+    font-size: 20px !important;
+    --vx-bottom-nav-h: 76px;  --vx-topbar-h: 60px;
+    --vx-font-xs: 13px;       --vx-font-sm: 15px;
+    --vx-font-base: 17.5px;   --vx-font-md: 20px;
+    --vx-font-lg: 22.5px;     --vx-font-xl: 26px;
+    --vx-font-2xl: 32px;      --vx-font-3xl: 40px;
+    --vx-touch-sm: 48px;      --vx-touch-md: 58px;  --vx-touch-lg: 68px;
+    --vx-space-xs: 6px;       --vx-space-sm: 12px;
+    --vx-space-md: 16px;      --vx-space-lg: 24px;
+    --vx-space-xl: 32px;      --vx-space-2xl: 44px;
+    --vx-radius-sm: 8px;      --vx-radius-md: 14px; --vx-radius-lg: 20px;
+    --vx-icon-sm: 20px;       --vx-icon-md: 26px;   --vx-icon-lg: 32px;
+    --vx-input-h: 58px;
+    --vx-nav-item-h: 70px;    --vx-nav-icon-sz: 28px; --vx-nav-font: 11px;
+    --vx-cart-card-h: 84px;
+  }
+}
+
+/* ── 2. GLOBAL COMPONENT & VIEW STYLING OVERRIDES (MOBILE) ───────────────── */
+@media (max-width: 768px) {
+
+  body {
+    font-size: var(--vx-font-base) !important;
+    line-height: 1.5 !important;
+  }
+
+  /* Headings across all views */
+  h1, .view-header h1 { font-size: var(--vx-font-2xl) !important; }
+  h2, .view-header h2 { font-size: var(--vx-font-xl) !important; }
+  h3, .view-header h3 { font-size: var(--vx-font-lg) !important; }
+  h4 { font-size: var(--vx-font-md) !important; }
+  p, span, label, div { font-size: inherit; }
+
+  /* Navigation elements */
+  .pos-bottom-nav {
+    height: var(--vx-bottom-nav-h) !important;
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 6px) !important;
+  }
+  .pos-bottom-nav .nav-btn {
+    height: var(--vx-nav-item-h) !important;
+    font-size: var(--vx-nav-font) !important;
+    gap: var(--vx-space-xs) !important;
+    position: relative !important;
+  }
+  .pos-bottom-nav .nav-btn .nav-icon,
+  .pos-bottom-nav .nav-btn svg {
+    width: var(--vx-nav-icon-sz) !important;
+    height: var(--vx-nav-icon-sz) !important;
+    font-size: var(--vx-nav-icon-sz) !important;
+  }
+  .pos-topbar {
+    height: var(--vx-topbar-h) !important;
+    padding: 0 var(--vx-space-lg) !important;
+  }
+  .active-view-title { font-size: var(--vx-font-lg) !important; }
+
+  /* Main containers & views */
+  .pos-main-container {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+    padding-bottom: var(--vx-bottom-nav-h) !important;
+  }
+
+  .content-view {
+    width: 100% !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+    padding: var(--vx-space-md) !important;
+    padding-bottom: calc(var(--vx-bottom-nav-h) + var(--vx-space-xl)) !important;
+  }
+
+  .view-header {
+    padding: var(--vx-space-sm) 0 !important;
+    margin-bottom: var(--vx-space-md) !important;
+  }
+
+  /* Form controls & buttons across ALL views */
+  .action-btn, .btn-checkout-pay, .payment-btn, .btn-primary-action {
+    min-height: var(--vx-touch-lg) !important;
+    font-size: var(--vx-font-md) !important;
+    padding: 0 var(--vx-space-lg) !important;
+    border-radius: var(--vx-radius-md) !important;
+  }
+  .action-btn.sm, .dm-btn-secondary, .dm-btn-primary {
+    min-height: var(--vx-touch-md) !important;
+    font-size: var(--vx-font-sm) !important;
+  }
+
+  .pos-input, input[type="text"], input[type="number"],
+  input[type="email"], input[type="password"], input[type="tel"], select {
+    height: var(--vx-input-h) !important;
+    font-size: var(--vx-font-md) !important;
+    padding: 0 var(--vx-space-md) !important;
+    border-radius: var(--vx-radius-md) !important;
+    box-sizing: border-box !important;
+  }
+  textarea, .pos-textarea {
+    font-size: var(--vx-font-md) !important;
+    padding: var(--vx-space-md) !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Cards, panels, grids across all views (Catalog, History, Inventory, Analytics, Customers, Suppliers, etc.) */
+  .card-panel-wrapper, .kpi-card, .quick-product-card,
+  .inventory-card, .customer-card, .supplier-card, .cloud-vault-card,
+  .settings-section, .dm-card, .pricing-card {
+    padding: var(--vx-space-lg) !important;
+    border-radius: var(--vx-radius-md) !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .kpi-val { font-size: var(--vx-font-2xl) !important; }
+  .kpi-lbl { font-size: var(--vx-font-xs) !important; }
+
+  /* Tables across all pages */
+  .pos-table th, .pos-table td,
+  .data-table th, .data-table td,
+  .report-table th, .report-table td {
+    font-size: var(--vx-font-xs) !important;
+    padding: var(--vx-space-sm) var(--vx-space-md) !important;
+  }
+
+  /* Modals */
+  .modal-card, .pos-modal, .auth-modal-box {
+    width: calc(100vw - 24px) !important;
+    max-width: calc(100vw - 24px) !important;
+    border-radius: var(--vx-radius-lg) !important;
+    padding: var(--vx-space-xl) !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Toasts */
+  .notification-toast {
+    font-size: var(--vx-font-sm) !important;
+    padding: var(--vx-space-md) var(--vx-space-lg) !important;
+    border-radius: var(--vx-radius-md) !important;
+    max-width: calc(100vw - 24px) !important;
+    bottom: calc(var(--vx-bottom-nav-h) + var(--vx-space-md)) !important;
+  }
+
+  /* Scale selector buttons in settings */
+  ._scale-btn, ._mobile-scale-btn {
+    min-height: var(--vx-touch-md) !important;
+    font-size: var(--vx-font-xs) !important;
+    border-radius: var(--vx-radius-sm) !important;
+    padding: var(--vx-space-sm) var(--vx-space-xs) !important;
+  }
+
+}
+
+/* ── 3. OVERFLOW HARDENING ────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  html, body {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    overscroll-behavior-y: contain;
+  }
+  #app-root, #pos-app-layout, .pos-app-layout,
+  .pos-main-container, .pos-content-pane {
+    max-width: 100vw !important;
+    width: 100% !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+  .settings-grid > *, .kpi-grid > *, .analytics-grid > *,
+  .dm-grid > *, .maintenance-actions > * {
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+  .pos-table, .data-table, .report-table {
+    display: block !important;
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  h1,h2,h3,h4,h5,h6,p,span,label,td,th,li,a {
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    max-width: 100% !important;
+  }
+  img, video, svg:not(.inline-icon), canvas, iframe {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+}
+
+/* ── 4. DISPLAY INDICATORS ────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  #mobile-scale-indicator { display: flex !important; }
+}
+@media (min-width: 769px) {
+  #mobile-scale-indicator { display: none !important; }
+}

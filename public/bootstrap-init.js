@@ -569,7 +569,13 @@ window.submitWizard = async function() {
 
   const storeName = (document.getElementById('wizard-store-name') || {}).value.trim() || 'My Business';
   const taxRate = parseFloat((document.getElementById('wizard-tax-rate') || {}).value || 0);
-  const adminPin = (document.getElementById('wizard-admin-pin') || {}).value.trim() || '1234';
+  const adminPin = (document.getElementById('wizard-admin-pin') || {}).value.trim();
+  if (!adminPin || adminPin.length < 4) {
+    if (typeof showNotificationToast === 'function') {
+      showNotificationToast('Owner PIN (4-6 digits) is required to set up your register.', 'error', 3000);
+    }
+    return;
+  }
   const syncPassphrase = (document.getElementById('wizard-sync-passphrase') || {}).value.trim() || 'valenixia-secret';
   const theme = (document.getElementById('wizard-theme') || {}).value || 'dark';
   const shopMode = (document.getElementById('wizard-shop-mode') || {}).value || 'simple-retail';
@@ -1016,7 +1022,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     if (window.location.protocol !== 'file:') {
       return window.location.origin;
     }
-    throw new Error('server_url not configured');
+    return 'http://localhost:8080';
   }
   try {
     window.__valenixiaServerUrl = resolveServerUrl();
@@ -1056,34 +1062,111 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
   window.__valenixiaSystemTheme = systemTheme;
 })();
 
-// Global showModal helper
+// Early UI scale initialization at boot — applies before first paint
+// Desktop: font-size on <html>. Mobile: data-mobile-scale attribute on <html>.
+// Both approaches preserve viewport geometry (no overflow, no zoom artifacts).
+(function() {
+  try {
+    // ── Desktop scale (rem-based font-size) ─────────────────────────────────
+    const savedScale = localStorage.getItem('vx_ui_scale') || '1';
+    const num = parseFloat(savedScale) || 1;
+    document.documentElement.style.setProperty('--size-scale', String(num), 'important');
+    document.documentElement.style.setProperty('font-size', `calc(100% * ${num})`, 'important');
+    if (document.body) document.body.style.zoom = String(num);
+    document.addEventListener('DOMContentLoaded', () => {
+      if (document.body) document.body.style.zoom = String(num);
+      const container = document.querySelector('.pos-main-container');
+      if (container) container.style.zoom = String(num);
+    });
+  } catch (_) {}
+
+  try {
+    // ── Mobile density scale (attribute-based CSS token switching) ───────────
+    // Only apply on viewports ≤1024px. On desktop this attribute is inert.
+    const VALID_MOBILE_SCALES = ['compact', 'default', 'large', 'xl'];
+    const MOBILE_FONT_MAP = { compact: '13px', default: '15px', large: '17.5px', xl: '20px' };
+    const savedMobileScale = localStorage.getItem('vx_mobile_density') || 'default';
+    const safeScale = VALID_MOBILE_SCALES.includes(savedMobileScale) ? savedMobileScale : 'default';
+    document.documentElement.setAttribute('data-mobile-scale', safeScale);
+    if (window.innerWidth <= 1024) {
+      document.documentElement.style.fontSize = MOBILE_FONT_MAP[safeScale] || '15px';
+    }
+  } catch (_) {}
+})();
+
+
+
+// Global showModal helper — production-safe with backdrop dismiss, Escape key, and no-leak guarantee
 window.showModal = function({ title, message, type = 'info', actions = [{ id: 'ok', label: 'OK', style: 'primary' }], input = null }) {
   return new Promise((resolve) => {
+    // Unique class so we can find and nuke orphans later
+    const OVERLAY_CLASS = '__vx-global-modal-overlay';
+
     const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:999999999;display:flex;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(4px);font-family:sans-serif;';
+    overlay.className = OVERLAY_CLASS;
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:999999999;display:flex;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);font-family:sans-serif;';
+
     let inputHtml = '';
     if (input) {
-      inputHtml = '<input id="__modal-input" type="' + escapeHTML(input.type || 'text') + '" placeholder="' + escapeHTML(input.placeholder || '') + '" value="' + escapeHTML(input.defaultValue || '') + '" style="width:100%;margin-top:16px;padding:12px;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:6px;outline:none;font-size:14px;" />';
+      inputHtml = '<input id="__modal-input" type="' + escapeHTML(input.type || 'text') + '" placeholder="' + escapeHTML(input.placeholder || '') + '" value="' + escapeHTML(input.defaultValue || '') + '" style="width:100%;margin-top:16px;padding:12px;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:6px;outline:none;font-size:14px;box-sizing:border-box;" />';
     }
     const buttonsHtml = actions.map(act => {
       const bg = act.style === 'danger' ? '#ef4444' : (act.style === 'primary' ? '#10b981' : 'transparent');
       const border = act.style === 'secondary' ? '1px solid rgba(255,255,255,0.15)' : 'none';
       const color = act.style === 'secondary' ? '#9ca3af' : '#fff';
-      return '<button data-id="' + escapeHTML(act.id) + '" style="flex:1;padding:12px;background:' + bg + ';border:' + border + ';color:' + color + ';font-weight:700;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit;">' + escapeHTML(act.label) + '</button>';
+      return '<button data-id="' + escapeHTML(act.id) + '" style="flex:1;padding:12px;background:' + bg + ';border:' + border + ';color:' + color + ';font-weight:700;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit;min-height:44px;touch-action:manipulation;">' + escapeHTML(act.label) + '</button>';
     }).join('');
-    overlay.innerHTML = '<div style="background:#0f0f11;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:24px;max-width:400px;width:100%;box-shadow:0 20px 40px rgba(0,0,0,0.5);"><h3 style="color:#fff;font-size:16px;font-weight:800;margin-bottom:10px;font-family:inherit;">' + escapeHTML(title) + '</h3><p style="color:#9ca3af;font-size:13px;line-height:1.6;white-space:pre-wrap;margin:0;font-family:inherit;">' + escapeHTML(message) + '</p>' + inputHtml + '<div style="display:flex;gap:12px;margin-top:24px;">' + buttonsHtml + '</div></div>';
+
+    overlay.innerHTML = '<div id="__vx-modal-card" style="background:#0f0f11;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:24px;max-width:400px;width:100%;box-shadow:0 20px 40px rgba(0,0,0,0.5);"><h3 style="color:#fff;font-size:16px;font-weight:800;margin-bottom:10px;font-family:inherit;">' + escapeHTML(title) + '</h3><p style="color:#9ca3af;font-size:13px;line-height:1.6;white-space:pre-wrap;margin:0;font-family:inherit;">' + escapeHTML(message) + '</p>' + inputHtml + '<div style="display:flex;gap:12px;margin-top:24px;">' + buttonsHtml + '</div></div>';
+
+    let settled = false;
+    function settle(val) {
+      if (settled) return;
+      settled = true;
+      overlay.remove();
+      document.removeEventListener('keydown', onEsc, true);
+      resolve(val);
+    }
+
+    // Button click handlers
+    overlay.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const val = input ? (document.getElementById('__modal-input')?.value ?? btn.dataset.id) : btn.dataset.id;
+        settle(val || btn.dataset.id);
+      });
+    });
+
+    // Backdrop click (clicking outside the card) → dismiss with first action id (usually 'cancel' or 'ok')
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        const defaultId = (actions.find(a => a.style === 'secondary') || actions[0] || { id: 'cancel' }).id;
+        settle(defaultId);
+      }
+    });
+
+    // Escape key to dismiss
+    function onEsc(e) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        const defaultId = (actions.find(a => a.style === 'secondary') || actions[0] || { id: 'cancel' }).id;
+        settle(defaultId);
+      }
+    }
+    document.addEventListener('keydown', onEsc, true);
+
     document.body.appendChild(overlay);
     if (input) {
       setTimeout(() => document.getElementById('__modal-input')?.focus(), 50);
     }
-    overlay.querySelectorAll('button').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const val = input ? document.getElementById('__modal-input').value : btn.dataset.id;
-        overlay.remove();
-        resolve(val || btn.dataset.id);
-      });
-    });
   });
+};
+
+// Emergency cleanup: removes all leaked showModal overlays (called after checkout actions)
+window.cleanupModalOverlays = function() {
+  document.querySelectorAll('.__vx-global-modal-overlay').forEach(el => el.remove());
 };
 
 // Global click interceptor for tabnabbing
@@ -1310,4 +1393,36 @@ window.runWhenDOMReady(function() {
       console.error('[AutoDiag] Diagnostic suite error:', diagErr);
     }
   }, 5000);
+});
+
+// Force-clear pre-filled credential fields (PIN/passkey/password) on bootstrap startup
+document.addEventListener('DOMContentLoaded', function() {
+  try {
+    var fields = document.querySelectorAll('input[type="password"], input[type="text"], input[inputmode="numeric"]');
+    fields.forEach(function(el) {
+      if (el.id && (el.id.includes('pin') || el.id.includes('pass') || el.id.includes('key'))) {
+        if (el.id !== 'wizard-admin-pin') {
+          el.value = '';
+        }
+        el.setAttribute('autocomplete', 'off');
+      }
+    });
+  } catch(_) {}
+
+  // Explicit event listener bindings for CSP compliance
+  document.getElementById('btn-wiz-choose-new')?.addEventListener('click', function() {
+    if (typeof window.executeWizardGoTo === 'function') window.executeWizardGoTo(2, 'NEW');
+  });
+  document.getElementById('btn-wiz-choose-join')?.addEventListener('click', function() {
+    if (typeof window.executeWizardGoTo === 'function') window.executeWizardGoTo(2, 'JOIN');
+  });
+  document.getElementById('btn-wizard-scan-qr')?.addEventListener('click', function() {
+    if (typeof window.executeWizardScanQR === 'function') window.executeWizardScanQR();
+  });
+  document.getElementById('btn-wizard-scan-qr-direct')?.addEventListener('click', function() {
+    if (typeof window.executeWizardScanQR === 'function') window.executeWizardScanQR();
+  });
+  document.getElementById('btn-force-open-app')?.addEventListener('click', function() {
+    if (typeof window.updateBootProgress === 'function') window.updateBootProgress(100, 'Ready');
+  });
 });

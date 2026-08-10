@@ -9,6 +9,7 @@ const androidSwJsPath = path.join(__dirname, '../android/app/src/main/assets/sw.
 // Files that have SRI in sw.js — must match the url: '/filename' entries
 const SRI_FILES = [
   'app.js',
+  'mobile-diag.js',
   'client-db.js',
   'sync-worker.js',
   'client-audio.js',

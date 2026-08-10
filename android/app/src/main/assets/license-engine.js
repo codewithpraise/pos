@@ -19,8 +19,41 @@ const LicenseEngine = (() => {
   const CLOCK_SKEW_TOLERANCE_MS = 60 * 1000; // 1 minute grace
   const GRACE_PERIOD_MS         = 48 * 60 * 60 * 1000; // 48h offline grace
 
-  // â”€â”€ Hardware Fingerprint (browser-native, no OS calls) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Hardware Fingerprint (Native Android priority, browser fallback) ─────
   async function generateHWID() {
+    if (window.__valenixiaHWID && window.__valenixiaHWID !== 'Unknown') {
+      return String(window.__valenixiaHWID).toUpperCase().trim();
+    }
+    try {
+      if (window.AndroidPOS && typeof window.AndroidPOS.getDeviceID === 'function') {
+        const nativeId = window.AndroidPOS.getDeviceID();
+        if (nativeId && String(nativeId).trim().length >= 6) {
+          const cleanNative = String(nativeId).toUpperCase().trim();
+          window.__valenixiaHWID = cleanNative;
+          try { localStorage.setItem('valenixia_hwid', cleanNative); } catch(_) {}
+          return cleanNative;
+        }
+      }
+      if (window.Android && typeof window.Android.getDeviceID === 'function') {
+        const nativeId = window.Android.getDeviceID();
+        if (nativeId && String(nativeId).trim().length >= 6) {
+          const cleanNative = String(nativeId).toUpperCase().trim();
+          window.__valenixiaHWID = cleanNative;
+          try { localStorage.setItem('valenixia_hwid', cleanNative); } catch(_) {}
+          return cleanNative;
+        }
+      }
+    } catch (e) {
+      console.warn('[License] Native Android HWID query error:', e.message);
+    }
+    try {
+      const storedHwid = localStorage.getItem('valenixia_hwid');
+      if (storedHwid && storedHwid !== 'Unknown') {
+        window.__valenixiaHWID = String(storedHwid).toUpperCase().trim();
+        return String(storedHwid).toUpperCase().trim();
+      }
+    } catch (_) {}
+
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     ctx.textBaseline = 'top';
@@ -870,6 +903,32 @@ const LicenseEngine = (() => {
           setInterval(() => {
             updateTrialHUD(result.payload);
           }, 1000);
+
+          // ── Grace Period Enforcement ────────────────────────────────────────────
+          // Checked every 60 s — lightweight. When both expiry AND the 48-hour
+          // offline grace period are exhausted, downgrade the active tier to FREE
+          // and surface the lockout overlay so the user is never silently left on
+          // a post-grace elevated tier.
+          setInterval(async () => {
+            try {
+              const expiryMs  = await getExpiryMs();
+              const graceMs   = await getGraceRemainingMs();
+              // expiryMs <=0 means expired; graceMs === 0 means grace exhausted too
+              if (expiryMs !== null && expiryMs <= 0 && graceMs === 0) {
+                if (window.__valenixiaTier && window.__valenixiaTier !== 'FREE') {
+                  console.warn('[License] Grace period exhausted — downgrading tier to FREE.');
+                  window.__valenixiaTier = 'FREE';
+                  // Reuse the existing lockout overlay pattern — no new UI invented
+                  mountLockoutOverlay(
+                    `Your license has expired and the 48-hour offline grace period has ended.<br><br>` +
+                    `Please enter your 6-digit activation code and registered phone number below to reactivate.`
+                  );
+                }
+              }
+            } catch (e) {
+              console.warn('[License] Grace enforcement check failed:', e.message);
+            }
+          }, 60000); // Every 60 seconds
         }
 
         // Silent background checking for license updates (every 60 minutes)
@@ -889,18 +948,48 @@ const LicenseEngine = (() => {
         // On HTTP context: if token is present but just can't be crypto-verified,
         // still allow boot — server middleware already enforces authorization.
         if (isHttpContext && result.reason && result.reason.includes('Verification error')) {
-          console.warn('[License] HTTP context: crypto verification failed but token present — defaulting to FREE tier.');
-          window.__valenixiaTier = 'FREE';
+          const activeTier = (localStorage.getItem('valenixia_tier') || 'STARTER').toUpperCase();
+          console.warn('[License] HTTP context: crypto verification skipped — active tier:', activeTier);
+          window.__valenixiaTier = activeTier;
           window.__valenixiaHWID = hwid;
           return true;
         }
       }
     } else if (isHttpContext || isAndroidApp) {
-      // No stored license AND on HTTP context — server auth is enforcing access.
-      // Default initial tier to FREE so paid modules are locked until subscribed.
-      console.warn('[License] HTTP/Android context without local token — defaulting initial tier to FREE.');
-      window.__valenixiaTier = 'FREE';
+      // No stored license AND on HTTP/Android context — SaaS subscription mode.
+      const activeTier = (localStorage.getItem('valenixia_tier') || 'STARTER').toUpperCase();
+      console.log('[License] SaaS subscription mode active — active tier:', activeTier);
+      window.__valenixiaTier = activeTier;
       window.__valenixiaHWID = hwid;
+
+      // Immediately initialize subscription start timestamp at boot if missing
+      try {
+        let subStart = parseInt(localStorage.getItem('valenixia_subscription_start_time'), 10);
+        if (!subStart || isNaN(subStart)) {
+          const pref = await ValenixiaDB.get('local_preferences', 'valenixia_subscription_start_time').catch(() => null);
+          if (pref && pref.value_payload) {
+            subStart = parseInt(pref.value_payload, 10);
+            if (subStart && !isNaN(subStart)) {
+              localStorage.setItem('valenixia_subscription_start_time', String(subStart));
+            }
+          }
+          if (!subStart || isNaN(subStart)) {
+            subStart = Date.now();
+            localStorage.setItem('valenixia_subscription_start_time', String(subStart));
+            ValenixiaDB.put('local_preferences', {
+              key: 'valenixia_subscription_start_time',
+              value_type: 'STR',
+              value_payload: String(subStart),
+              is_idempotent_flag: 0,
+              updated_at: Date.now()
+            }).catch(() => {});
+          }
+        }
+      } catch (_) {}
+
+      if (typeof window.syncOnlineSubscriptionTier === 'function') {
+        window.syncOnlineSubscriptionTier();
+      }
       return true;
     }
 
@@ -1050,7 +1139,7 @@ const LicenseEngine = (() => {
     document.body.appendChild(banner);
   }
 
-  // â”€â”€ Public: Re-verify the stored token on demand (called by Settings card) â”€
+  // Public: Re-verify the stored token on demand (called by Settings card)
   async function verifyStored() {
     try {
       const stored = await ValenixiaDB.getSecurePref(STORAGE_KEY_LICENSE);
@@ -1063,16 +1152,87 @@ const LicenseEngine = (() => {
     }
   }
 
-  // â”€â”€ Public: Returns milliseconds until license expiry, null for lifetime â”€â”€
+  // Public: Returns milliseconds until license expiry, null for lifetime
   async function getExpiryMs() {
     try {
+      // Check active 7-Day Free Growth Trial FIRST
+      const isTrialActive = localStorage.getItem('valenixia_trial_active') === 'true';
+      if (isTrialActive) {
+        const trialStart = parseInt(localStorage.getItem('valenixia_trial_start_time'), 10) || Date.now();
+        const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 Days
+        const trialRemaining = (trialStart + TRIAL_DURATION_MS) - Date.now();
+
+        if (trialRemaining <= 0) {
+          // Trial expired! Revert to pre-trial tier & resume paused countdown
+          console.warn('[Trial] 7-Day Free Trial expired. Reverting to previous subscription plan...');
+          const preTrialTier = (localStorage.getItem('valenixia_pre_trial_tier') || 'STARTER').toUpperCase();
+          const pausedRemainingMs = parseInt(localStorage.getItem('valenixia_pre_trial_paused_remaining_ms'), 10) || (30 * 24 * 60 * 60 * 1000);
+          
+          localStorage.removeItem('valenixia_trial_active');
+          localStorage.setItem('valenixia_tier', preTrialTier);
+          window.__valenixiaTier = preTrialTier;
+          
+          // Resume paused subscription countdown
+          const newStartMs = Date.now() - ((30 * 24 * 60 * 60 * 1000) - pausedRemainingMs);
+          localStorage.setItem('valenixia_subscription_start_time', String(newStartMs));
+
+          if (typeof applyTierLocks === 'function') applyTierLocks(preTrialTier);
+          if (typeof renderNavbarByTier === 'function') renderNavbarByTier(preTrialTier);
+          if (typeof showNotificationToast === 'function') {
+            showNotificationToast('⌛ 7-Day Free Trial finished. Subscription reverted to ' + preTrialTier + '.', 'info', 6000);
+          }
+          return pausedRemainingMs;
+        }
+        return trialRemaining;
+      }
+
       const stored = await ValenixiaDB.getSecurePref(STORAGE_KEY_LICENSE);
-      if (!stored) return 0;
-      const hwid = await generateHWID();
-      const result = await verifyToken(stored, hwid);
-      if (!result.valid || !result.payload) return 0;
-      if (!result.payload.exp || result.payload.mode === 'lifetime') return null; // null = lifetime
-      return result.payload.exp - Date.now();
+      if (stored) {
+        const hwid = await generateHWID();
+        const result = await verifyToken(stored, hwid);
+        if (result.valid && result.payload) {
+          if (!result.payload.exp || result.payload.mode === 'lifetime') return null; // null = lifetime
+          const remaining = result.payload.exp - Date.now();
+          if (remaining > 0) return remaining;
+        }
+      }
+
+      // Persistent 30-day subscription countdown for active SaaS tiers
+      const activeTier = (window.__valenixiaTier || localStorage.getItem('valenixia_tier') || '').toUpperCase();
+      if (['GROWTH', 'PRO', 'ENTERPRISE', 'STARTER'].includes(activeTier)) {
+        let subStartTime = parseInt(localStorage.getItem('valenixia_subscription_start_time'), 10);
+        if (!subStartTime || isNaN(subStartTime)) {
+          const pref = await ValenixiaDB.get('local_preferences', 'valenixia_subscription_start_time').catch(() => null);
+          if (pref && pref.value_payload) {
+            subStartTime = parseInt(pref.value_payload, 10);
+          }
+        }
+        if (!subStartTime || isNaN(subStartTime)) {
+          try {
+            if (typeof syncOnlineSubscriptionTier === 'function') {
+              await syncOnlineSubscriptionTier();
+              subStartTime = parseInt(localStorage.getItem('valenixia_subscription_start_time'), 10);
+            }
+          } catch (_) {}
+        }
+        if (!subStartTime || isNaN(subStartTime)) {
+          subStartTime = Date.now();
+          localStorage.setItem('valenixia_subscription_start_time', String(subStartTime));
+          ValenixiaDB.put('local_preferences', {
+            key: 'valenixia_subscription_start_time',
+            value_type: 'STR',
+            value_payload: String(subStartTime),
+            is_idempotent_flag: 0,
+            updated_at: Date.now()
+          }).catch(() => {});
+        } else {
+          localStorage.setItem('valenixia_subscription_start_time', String(subStartTime));
+        }
+        const DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 Days
+        const remaining = (subStartTime + DURATION_MS) - Date.now();
+        return remaining > 0 ? remaining : 0;
+      }
+      return 0;
     } catch (e) { return 0; }
   }
 

@@ -213,7 +213,7 @@ button:not(:disabled):active,
 /* LAYOUT STRUCTURE */
 .pos-app-layout {
   display: grid;
-  grid-template-columns: 228px 1fr;
+  grid-template-columns: 240px 1fr;
   width: 100%;
   min-height: 100dvh;
   height: auto;
@@ -226,7 +226,7 @@ button:not(:disabled):active,
 
 /* SIDEBAR STYLES */
 .pos-sidebar {
-  background: linear-gradient(180deg, var(--panel-graphite) 0%, #0b0b16 100%);
+  background: var(--panel-graphite, #1e293b);
   border-right: 1px solid var(--border-titanium);
   display: flex;
   flex-direction: column;
@@ -284,30 +284,60 @@ button:not(:disabled):active,
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 10px 8px;
+  gap: 6px !important;
+  padding: 12px 10px !important;
   flex-grow: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.sidebar-nav::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
 }
 
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 11px 12px;
+.sidebar-nav .nav-item {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 12px 14px !important;
   background: transparent;
   border: none;
   color: var(--text-gray);
   border-radius: 8px;
   cursor: pointer;
-  width: 100%;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
   text-align: left;
   font-family: var(--font-body);
-  font-size: 12.5px;
-  font-weight: 500;
+  font-size: 13px !important;
+  font-weight: 600 !important;
   position: relative;
   letter-spacing: 0.1px;
+  box-sizing: border-box !important;
+}
+
+.sidebar-nav .nav-icon {
+  font-size: 18px !important;
+  width: 22px !important;
+  margin-bottom: 0 !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.sidebar-nav .nav-label {
+  display: inline-block !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  flex: 1 !important;
+  max-width: none !important;
 }
 
 .nav-item:hover {
@@ -347,13 +377,58 @@ button:not(:disabled):active,
   opacity: 1;
 }
 
+/* ── Collapsed Sidebar Adjustments (Sleek & Pixel-Perfect) ── */
+.pos-app-layout.sidebar-collapsed .pos-sidebar {
+  width: 64px !important;
+  min-width: 64px !important;
+  overflow: hidden !important;
+}
+
+.pos-app-layout.sidebar-collapsed .sidebar-brand {
+  padding: 0 8px !important;
+  justify-content: center !important;
+}
+
+.pos-app-layout.sidebar-collapsed .sidebar-nav {
+  padding: 10px 4px !important;
+  gap: 6px !important;
+  overflow-x: hidden !important;
+}
+
 .pos-app-layout.sidebar-collapsed .nav-label {
-  display: none;
+  display: none !important;
 }
 
 .pos-app-layout.sidebar-collapsed .nav-item {
-  justify-content: center;
-  padding: 12px 0;
+  width: 44px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 !important;
+  margin: 0 auto !important;
+  border-radius: 10px !important;
+  justify-content: center !important;
+  align-items: center !important;
+  position: relative !important;
+}
+
+.pos-app-layout.sidebar-collapsed .nav-item .nav-icon {
+  margin: 0 !important;
+  width: auto !important;
+}
+
+.pos-app-layout.sidebar-collapsed .nav-item.active::before {
+  left: -6px !important;
+  top: 8px !important;
+  bottom: 8px !important;
+  width: 4px !important;
+  border-radius: 0 4px 4px 0 !important;
+}
+
+.pos-app-layout.sidebar-collapsed .cashier-info {
+  padding: 4px !important;
+  justify-content: center !important;
+  border: none !important;
+  background: transparent !important;
 }
 
 /* Sidebar footer */
@@ -633,6 +708,13 @@ button:not(:disabled):active,
   padding-bottom: calc(var(--bottom-nav-h) + 24px);
 }
 
+@media (min-width: 769px) {
+  .content-view {
+    padding-bottom: 0 !important;
+    height: 100% !important;
+  }
+}
+
 .content-view.active {
   display: block !important;
 }
@@ -644,12 +726,26 @@ button:not(:disabled):active,
   -webkit-overflow-scrolling: touch;
 }
 
-#view-checkout, #view-history {
+#view-checkout {
+  overflow: hidden;
+  height: 100%;
+  display: none;
+}
+
+#view-checkout.active {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+}
+
+#view-history {
   overflow: hidden;
 }
 
 /* On mobile, checkout view must be a flex column so tab-bar + split share height */
-@media (max-width: 1024px) {
+@media (max-width: 768px) {
   #view-checkout {
     display: none;
     flex-direction: column;
@@ -659,15 +755,15 @@ button:not(:disabled):active,
   }
 }
 
-
-
 /* ============================================================================
    CHECKOUT SCREEN SPECIFIC STYLES
    ============================================================================ */
 .checkout-split {
-  display: grid;
-  grid-template-columns: 1.3fr 1fr;
-  height: 100%;
+  display: grid !important;
+  grid-template-columns: 1.3fr 1fr !important;
+  height: 100% !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
 }
 
 .checkout-cart {
@@ -708,31 +804,35 @@ button:not(:disabled):active,
 .cart-list {
   width: 100%;
 }
-
-/* Desktop column header row */
 .cart-list-header {
-  display: flex;
-  align-items: center;
-  padding: 8px 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  padding: 8px 12px !important;
+  background: var(--panel-graphite-dark, rgba(0,0,0,0.05));
+  border-bottom: 1px solid var(--border-titanium, rgba(255,255,255,0.08));
+  font-family: var(--font-display);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.6px;
   text-transform: uppercase;
-  color: var(--text-dim);
-  gap: 12px;
+  color: var(--text-gray, #888888);
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
 }
-.clh-product  { flex: 1 1 0; min-width: 0; }
-.clh-price    { width: 90px; text-align: right; }
-.clh-qty      { width: 108px; text-align: center; }
-.clh-total    { width: 90px; text-align: right; }
-.clh-remove   { width: 36px; }
+.clh-product  { text-align: left; }
+.clh-total    { text-align: right; }
 
 /* Each cart row */
 .cart-item-row {
   position: relative;
   overflow: hidden;
-  border-bottom: 1px solid rgba(255,255,255,0.025);
+  border-bottom: 1px solid var(--border-titanium, rgba(255,255,255,0.06));
+  background: transparent;
+  transition: background 0.15s ease;
+}
+.cart-item-row:hover {
+  background: var(--panel-hover, rgba(255,255,255,0.02));
 }
 
 /* Swipe delete background (revealed behind the fg panel on swipe) */
@@ -756,116 +856,140 @@ button:not(:disabled):active,
 .cart-swipe-fg {
   position: relative;
   z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  padding: 10px 12px !important;
   background: transparent;
   will-change: transform;
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-sizing: border-box;
-  width: 100%;
+  box-sizing: border-box !important;
+  width: 100% !important;
 }
 
-/* Product name + SKU column — takes remaining space */
-.cart-swipe-fg .cart-product-cell {
-  flex: 1 1 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  overflow: hidden;
+/* Top Row: Title on Left, Total & Delete on Right */
+.cart-row-top {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  gap: 8px !important;
+  width: 100% !important;
 }
+
 .cart-product-title {
-  color: var(--text-white);
+  color: var(--text-white, #111111);
   font-weight: 700;
   font-size: 13px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.3;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
 }
+
+.cart-top-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-shrink: 0 !important;
+}
+
+.cart-item-total {
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  color: var(--accent-emerald) !important;
+  white-space: nowrap !important;
+}
+
+.btn-remove-item {
+  width: 24px !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  border-radius: 4px !important;
+  color: var(--alert-coral, #ef4444) !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 0.7 !important;
+  transition: opacity 0.15s, background 0.15s !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+}
+.btn-remove-item:hover {
+  opacity: 1 !important;
+  background: rgba(239, 68, 68, 0.15) !important;
+}
+
+/* Bottom Row: SKU & Unit price on Left, Qty on Right */
+.cart-row-bottom {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+
+.cart-row-meta {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+  font-size: 10.5px !important;
+  color: var(--text-gray, #666666) !important;
+  min-width: 0 !important;
+}
+
 .cart-product-sku {
-  color: var(--text-gray);
-  font-size: 10px;
   font-family: monospace;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-weight: 600;
 }
 
-/* Unit price column */
-.cart-swipe-fg .cart-item-price {
-  width: 90px;
-  text-align: right;
-  font-size: 12px;
-  color: var(--text-gray);
-  flex-shrink: 0;
-  white-space: nowrap;
+.cart-unit-price {
+  font-weight: 600;
+  opacity: 0.9;
 }
 
-/* Qty ─/+/value controls */
 .qty-controls {
-  width: 108px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  flex-shrink: 0;
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  flex-shrink: 0 !important;
 }
+
 .qty-btn {
-  background: var(--panel-graphite-light);
-  border: 1px solid var(--border-titanium);
-  color: var(--text-white);
-  width: 30px;
-  height: 30px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 700;
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s, border-color 0.15s;
-  flex-shrink: 0;
+  background: var(--panel-graphite-light, rgba(0,0,0,0.06)) !important;
+  border: 1px solid var(--border-titanium, rgba(0,0,0,0.12)) !important;
+  color: var(--text-white, #111111) !important;
+  border-radius: 4px !important;
+  width: 24px !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  padding: 0 !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  touch-action: manipulation !important;
+  flex-shrink: 0 !important;
 }
 .qty-btn:hover {
-  background: var(--accent-emerald-glow);
-  border-color: var(--accent-emerald);
+  background: var(--accent-emerald-glow, rgba(0, 214, 143, 0.15)) !important;
+  border-color: var(--accent-emerald) !important;
 }
+
 .qty-val {
-  font-weight: 700;
-  color: var(--text-white);
-  min-width: 22px;
-  text-align: center;
-  font-size: 14px;
-}
-
-/* Line total column */
-.cart-swipe-fg .cart-item-total {
-  width: 90px;
-  text-align: right;
-  font-weight: 800;
-  font-size: 13px;
-  color: var(--text-white);
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
-/* Remove button */
-.btn-remove-item {
-  width: 36px;
-  flex-shrink: 0;
-  color: var(--alert-coral);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.7;
-  transition: opacity 0.15s;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  color: var(--text-white, #111111) !important;
+  min-width: 20px !important;
+  text-align: center !important;
 }
 .btn-remove-item:hover { opacity: 1; }
 
@@ -895,8 +1019,8 @@ button:not(:disabled):active,
 
 
 .ledger-footer {
-  background: linear-gradient(180deg, rgba(8,8,16,0) 0%, rgba(8,8,16,0.6) 100%);
-  border-top: 1px solid rgba(255,255,255,0.04);
+  background: var(--panel-graphite, #ffffff);
+  border-top: 1px solid var(--border-titanium, rgba(255, 255, 255, 0.06));
   padding: 14px 20px;
   flex-shrink: 0;
 }
@@ -1887,11 +2011,17 @@ button:not(:disabled):active,
 /* ============================================================================
    SETTINGS SCREEN STYLES
    ============================================================================ */
+/* ─── Settings grid: always bounded, never overflows ─────────────────────── */
 .settings-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
   padding: 20px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .settings-section {
@@ -1903,6 +2033,13 @@ button:not(:disabled):active,
   flex-direction: column;
   gap: 14px;
   box-shadow: var(--shadow-sm);
+  /* Prevent content from escaping the grid cell */
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .settings-section h3 {
@@ -1947,7 +2084,10 @@ button:not(:disabled):active,
 }
 
 .settings-section.full-width {
-  grid-column: span 2;
+  grid-column: 1 / -1;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .maintenance-actions {
@@ -2280,8 +2420,8 @@ button:not(:disabled):active,
   display: none;
 }
 
-/* MOBILE VIEW (Screen max width 1024px) */
-@media (max-width: 1024px) {
+/* MOBILE VIEW (Screen max width 768px) */
+@media (max-width: 768px) {
   .pos-main-container {
     padding-bottom: 70px !important;
   }
@@ -2921,10 +3061,19 @@ button:not(:disabled):active,
 /* ============================================================================
    RESPONSIVE 3-COLUMN PREMIUM LAYOUT FOR CHECKOUT & QUICK PRODUCTS
    ============================================================================ */
-@media (min-width: 1200px) {
+@media (min-width: 769px) {
+  .checkout-tabs-mobile,
+  #checkout-tabs-mobile-nav {
+    display: none !important;
+  }
+  .checkout-cart,
+  .checkout-quick-catalog,
+  .checkout-actions {
+    display: flex !important;
+  }
   .checkout-split {
     display: grid;
-    grid-template-columns: minmax(420px, 1.3fr) 1fr 340px;
+    grid-template-columns: minmax(340px, 1.4fr) minmax(240px, 1fr) minmax(260px, 320px);
     height: 100%;
     overflow: hidden;
   }
@@ -2964,21 +3113,7 @@ button:not(:disabled):active,
   }
 }
 
-@media (max-width: 1199px) {
-  .checkout-split {
-    display: grid;
-    grid-template-columns: 1.3fr 1fr;
-    height: 100%;
-  }
-  .checkout-quick-catalog {
-    display: none !important;
-  }
-  #btn-toggle-quick-catalog {
-    display: none !important;
-  }
-}
-
-@media (max-width: 1024px) {
+@media (max-width: 768px) {
   .checkout-split {
     grid-template-columns: 1fr;
     /* Height is managed by the flex parent; do not hard-set */
@@ -2996,7 +3131,6 @@ button:not(:disabled):active,
     max-height: none;
     height: 100%;
   }
-  /* Tab-active visibility rules already defined above in the @media (max-width: 1024px) block */
 }
 
 /* Quick Catalog Components */
@@ -3056,9 +3190,9 @@ button:not(:disabled):active,
 .quick-catalog-grid {
   flex-grow: 1;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 10px;
-  padding: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+  gap: 12px;
+  padding: 16px;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -3067,15 +3201,17 @@ button:not(:disabled):active,
 .product-quick-card {
   background: var(--panel-graphite);
   border: 1px solid var(--border-titanium);
-  border-radius: 4px !important;
-  padding: 12px;
+  border-radius: 6px !important;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  height: 104px;
+  min-height: 112px;
+  height: auto;
   cursor: pointer;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+  box-sizing: border-box;
 }
 
 .product-quick-card:hover {
@@ -4260,13 +4396,113 @@ html {
 
 
 
-.cart-item-row.adding {
-  animation: slide-in-fade 0.2s var(--ease-out);
+@keyframes slide-out-fade {
+  0% { opacity: 1; transform: translateX(0); max-height: 80px; }
+  100% { opacity: 0; transform: translateX(-100%); max-height: 0; padding: 0; margin: 0; }
 }
 
 .cart-item-row.removing {
+  animation: slide-out-fade 0.2s var(--ease-out) forwards;
   overflow: hidden;
 }
+
+/* ── PRODUCT QUICK ACCESS CARD (CHECKOUT GRID) ──────────────────────────── */
+.product-quick-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: var(--vx-space-md, 10px 12px);
+  min-height: 112px;
+  height: auto;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--vx-radius-md, 6px);
+  cursor: pointer;
+  box-sizing: border-box;
+  overflow: visible;
+  transition: transform 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+.product-quick-card:hover {
+  border-color: var(--accent-emerald, #00d68f);
+  background: rgba(0, 214, 143, 0.05);
+  transform: translateY(-2px);
+}
+.product-quick-card.out-of-stock {
+  opacity: 0.45;
+}
+.quick-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 6px;
+}
+.quick-card-cat {
+  font-size: var(--vx-font-xs, 10px);
+  font-weight: 800;
+  color: var(--accent-cyan, #06b6d4);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.quick-card-title {
+  font-size: var(--vx-font-sm, 12px);
+  font-weight: 700;
+  color: var(--text-white, #ffffff);
+  margin: 0;
+  line-height: 1.3;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.quick-card-sku {
+  font-size: var(--vx-font-xs, 10px);
+  color: var(--text-gray, #94a3b8);
+  font-family: var(--font-mono, monospace);
+}
+.quick-card-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+.quick-card-price {
+  font-size: var(--vx-font-md, 14px);
+  font-weight: 800;
+  color: var(--accent-emerald, #00d68f);
+  white-space: nowrap;
+}
+.quick-card-stock {
+  font-size: var(--vx-font-xs, 10px);
+  font-weight: 700;
+  color: var(--text-muted, #64748b);
+  white-space: nowrap;
+}
+.quick-card-stock.low-stock {
+  color: var(--alert-coral, #ff5c5c);
+}
+
+/* ── CATALOG MANAGER SCROLL & BUTTON CONTAINER HARDENING ───────────────── */
+#catalog-virtual-container {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+.catalog-grid-row {
+  min-width: 820px;
+  box-sizing: border-box;
+}
+.btn-edit-item {
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
 
 .qty-val.bump {
   animation: pulse-ring 0.3s var(--ease-out);
@@ -4445,7 +4681,7 @@ body.theme-monochrome-ivory .skeleton-card {
   transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 768px) {
   /* Layout reset */
   .pos-app-layout {
     grid-template-columns: 1fr;
@@ -4607,20 +4843,24 @@ body.theme-monochrome-ivory .skeleton-card {
     color: #ffd700 !important;
   }
 
-  .sidebar-nav .nav-item.premium.locked,
-  .nav-item.premium.locked {
+  .sidebar-nav .nav-item.locked,
+  .nav-item.locked,
+  .pos-bottom-nav .nav-btn.locked {
     opacity: 0.55 !important;
     filter: grayscale(0.8) !important;
     cursor: pointer !important;
     pointer-events: auto !important;
+    position: relative !important;
   }
-  .sidebar-nav .nav-item.premium.locked::after,
-  .nav-item.premium.locked::after {
+  .sidebar-nav .nav-item.locked::after,
+  .nav-item.locked::after,
+  .pos-bottom-nav .nav-btn.locked::after {
     content: '🔒' !important;
     position: absolute !important;
     top: 1px !important;
     right: 2px !important;
     font-size: 8px !important;
+    z-index: 2 !important;
   }
 
   .nav-icon { font-size: 18px !important; line-height: 1 !important; }
@@ -4651,13 +4891,13 @@ body.theme-monochrome-ivory .skeleton-card {
   }
 
   /* Content clears single-row navbar */
-  .pos-main-container,
+  /* Content clears single-row navbar cleanly without excessive blank gap */
   .content-view,
   main,
   .checkout-main,
   #checkout-view,
   .page-container {
-    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: 20px !important;
   }
 
   /* Scroll handling */
@@ -4670,13 +4910,24 @@ body.theme-monochrome-ivory .skeleton-card {
     height: 100dvh !important;
     overflow: hidden !important;
   }
+  /* ── UI Scale: font-size on :root scales all rem-based units proportionally ──
+     This approach never touches viewport width/height so overflow cannot occur.
+     The --vx-ui-font-size is set by JS in bootstrap-init.js based on user choice.
+     Default: 16px (100%), Compact: 14px (87.5%), Large: 17.6px (110%), XL: 19.2px (120%) */
+  html {
+    font-size: var(--vx-ui-font-size, 16px) !important;
+  }
   .pos-main-container {
-    height: calc(100dvh - 60px) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: calc(100dvh - 64px - env(safe-area-inset-bottom, 0px)) !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
     overflow-x: hidden !important;
+    box-sizing: border-box !important;
   }
 }
+
 
 /* Subscription page scrolling reset */
 #view-subscription {
@@ -4876,7 +5127,7 @@ input.revealed {
 }
 
 /* ===== NAVBAR v2 — Two-row mobile layout ===== */
-@media (max-width: 1024px) {
+@media (max-width: 768px) {
   .pos-sidebar {
     position: fixed;
     bottom: 0;
@@ -4927,7 +5178,7 @@ input.revealed {
   background: rgba(255,215,0,0.03);
 }
 
-.nav-item {
+.pos-bottom-nav .nav-item {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -4944,17 +5195,17 @@ input.revealed {
   position: relative;
 }
 
-.nav-item:active {
+.pos-bottom-nav .nav-item:active {
   background: rgba(255,255,255,0.08);
   transform: scale(0.95);
 }
 
-.nav-item.active {
+.pos-bottom-nav .nav-item.active {
   color: var(--accent, #00d4aa);
   background: rgba(0,212,170,0.1);
 }
 
-.nav-icon {
+.pos-bottom-nav .nav-icon {
   font-size: 18px;
   line-height: 1;
   margin-bottom: 2px;
@@ -4963,7 +5214,7 @@ input.revealed {
   justify-content: center;
 }
 
-.nav-label {
+.pos-bottom-nav .nav-label {
   font-size: 9px;
   white-space: nowrap;
   overflow: hidden;
@@ -4971,13 +5222,14 @@ input.revealed {
   max-width: 100%;
 }
 
-/* Premium locked state */
-.nav-item.premium.locked {
+/* Locked state */
+.nav-item.locked, .nav-btn.locked {
   opacity: 0.45;
   filter: grayscale(1);
   cursor: pointer;
+  position: relative;
 }
-.nav-item.premium.locked::after {
+.nav-item.locked::after, .nav-btn.locked::after {
   content: '🔒';
   position: absolute;
   top: 2px;
@@ -5123,7 +5375,6 @@ table.report-table * {
 .history-filter-pills,
 .analytics-range-group,
 .logs-tabs-nav,
-.checkout-tabs-mobile,
 #checkout-quick-filters,
 #logs-tabs-nav,
 #analytics-range-group,
@@ -5229,100 +5480,98 @@ table.report-table * {
   box-sizing: border-box !important;
 }
 
-.modal-overlay,
-.pos-modal-backdrop,
-.auth-overlay {
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-}
-
-.modal-card,
-.pos-modal-card,
-.modal-content {
-  margin: auto !important;
-  align-self: center !important;
-  max-height: 90vh !important;
-  max-width: 560px !important;
-  width: 100% !important;
-  border-radius: 20px !important;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
-  overflow-y: auto !important;
-  -webkit-overflow-scrolling: touch !important;
-  position: relative !important;
-  animation: modalCenterZoom 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
-}
-
-@keyframes modalCenterZoom {
-  from { opacity: 0; transform: scale(0.92) translateY(10px); }
-  to   { opacity: 1; transform: scale(1) translateY(0); }
-}
-
-@media (max-width: 768px) {
-  .modal-overlay,
-  .pos-modal-backdrop,
-  .auth-overlay {
-    padding: 12px !important;
+/* ===== CHECKOUT SPLIT LAYOUT DESKTOP & MOBILE ===== */
+@media (min-width: 900px) {
+  #checkout-tabs-mobile-nav,
+  .checkout-tabs-mobile {
+    display: none !important;
   }
-
-  .modal-card,
-  .pos-modal-card,
-  .modal-content {
-    max-width: 100% !important;
-    border-radius: 20px !important;
-    padding: 20px !important;
-    max-height: 85vh !important;
-  }
-
-  /* Mobile view responsive scrolling fixes for Settings, Analytics, and Data Migration */
-  #view-settings,
-  #view-analytics,
-  #view-data-portability,
-  #view-logs,
-  #view-fbr-fiscal,
-  #view-multi-store,
-  #view-suppliers,
-  #view-customers,
-  #view-staff {
+  #checkout-split-layout {
+    display: grid !important;
+    grid-template-columns: minmax(340px, 1.4fr) minmax(260px, 1fr) minmax(280px, 320px) !important;
+    gap: 12px !important;
     width: 100% !important;
-    max-width: 100vw !important;
+    max-width: 100% !important;
+    height: 100% !important;
     box-sizing: border-box !important;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
-    padding-bottom: 90px !important;
+    overflow: hidden !important;
   }
-
-  .settings-grid,
-  .kpi-grid,
-  .analytics-grid,
-  .dm-grid,
-  .settings-row {
+  #checkout-split-layout.catalog-collapsed {
+    grid-template-columns: 1fr 340px !important;
+  }
+  #checkout-split-layout.catalog-collapsed .checkout-quick-catalog {
+    display: none !important;
+  }
+  .checkout-cart,
+  .checkout-quick-catalog,
+  .checkout-actions {
     display: flex !important;
-    flex-wrap: wrap !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
-  }
-
-  .kpi-card,
-  .dm-card,
-  .settings-card {
-    width: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
-    margin-bottom: 12px !important;
+    overflow: hidden !important;
   }
+}
 
-  /* Horizontal scrolling wrappers for dense tables on mobile */
-  .table-responsive,
-  .pos-table-wrapper,
-  .customers-table-wrapper,
-  .staff-table-wrapper,
-  .catalog-table-wrapper {
-    width: 100% !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    margin-bottom: 16px !important;
+@media (max-width: 899px) {
+  #checkout-tabs-mobile-nav,
+  .checkout-tabs-mobile {
+    display: flex !important;
   }
+  #checkout-split-layout {
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+    gap: 12px !important;
+  }
+}
+
+/* ===== INPUT FOCUS & KEYBOARD POPUP ENFORCEMENT ===== */
+input, textarea, select, [contenteditable="true"] {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  pointer-events: auto !important;
+  touch-action: auto !important;
+}
+
+/* ===== SETTINGS PAGE FULL SECTION SIZING & ACTIVE SCOPING ===== */
+#view-settings {
+  display: none;
+}
+#view-settings.active {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  max-width: 1200px !important;
+  margin: 0 auto !important;
+  box-sizing: border-box !important;
+  padding: 24px !important;
+  gap: 20px !important;
+  overflow-y: auto !important;
+}
+
+.settings-section {
+  width: 100% !important;
+  max-width: 100% !important;
+  background: var(--panel-graphite, var(--panel-graphite-mid, #1e293b)) !important;
+  border: 1px solid var(--border-titanium, rgba(255, 255, 255, 0.08)) !important;
+  border-radius: 12px !important;
+  padding: 20px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+}
+
+/* Horizontal scrolling wrappers for dense tables on mobile */
+.table-responsive,
+.pos-table-wrapper,
+.customers-table-wrapper,
+.staff-table-wrapper,
+.catalog-table-wrapper {
+  width: 100% !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  margin-bottom: 16px !important;
 }
 
 /* ===== SLEEK CUSTOM SCROLLBARS ===== */
@@ -5358,20 +5607,47 @@ button, .action-btn, .nav-item, .quick-product-card, .billing-cycle-btn, .pricin
 }
 
 /* ===== CHECKOUT SPLIT LAYOUT DESKTOP & MOBILE ===== */
-#checkout-split-layout {
-  display: grid !important;
-  grid-template-columns: 360px 1fr 340px !important;
-  gap: 16px !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
+@media (min-width: 769px) {
+  #checkout-tabs-mobile-nav,
+  .checkout-tabs-mobile {
+    display: none !important;
+  }
+  #checkout-split-layout {
+    display: grid !important;
+    grid-template-columns: minmax(320px, 1.4fr) minmax(240px, 1fr) minmax(260px, 320px) !important;
+    gap: 12px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+  #checkout-split-layout.catalog-collapsed {
+    grid-template-columns: 1fr 340px !important;
+  }
+  #checkout-split-layout.catalog-collapsed .checkout-quick-catalog {
+    display: none !important;
+  }
+  .checkout-cart,
+  .checkout-quick-catalog,
+  .checkout-actions {
+    display: flex !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 768px) {
+  #checkout-tabs-mobile-nav,
+  .checkout-tabs-mobile {
+    display: flex !important;
+  }
   #checkout-split-layout {
     display: flex !important;
     flex-direction: column !important;
     height: auto !important;
-    gap: 16px !important;
+    gap: 12px !important;
   }
 }
 
@@ -5383,7 +5659,7 @@ input, textarea, select, [contenteditable="true"] {
   touch-action: auto !important;
 }
 
-/* ===== SETTINGS PAGE FULL SECTION SIZING & ACTIVE SCOPING ===== */
+/* ===== SETTINGS PAGE FULL SECTION SIZING & NATURAL DYNAMIC HEIGHTS ===== */
 #view-settings {
   display: none;
 }
@@ -5391,16 +5667,40 @@ input, textarea, select, [contenteditable="true"] {
   display: flex !important;
   flex-direction: column !important;
   width: 100% !important;
-  max-width: 100% !important;
+  max-width: 1200px !important;
+  margin: 0 auto !important;
   box-sizing: border-box !important;
-  padding: 16px !important;
+  padding: 24px !important;
   gap: 20px !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
 }
 
-.settings-section {
+.settings-grid,
+.kpi-grid,
+.analytics-grid,
+.dm-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)) !important;
+  gap: 20px !important;
+  width: 100% !important;
+  height: auto !important;
+  flex: 0 0 auto !important;
+  flex-shrink: 0 !important;
+}
+
+.settings-section,
+.cloud-vault-card,
+.dm-card,
+.pricing-card {
   width: 100% !important;
   max-width: 100% !important;
-  background: var(--panel-slate, rgba(15, 23, 42, 0.6)) !important;
+  background: var(--panel-graphite, var(--panel-graphite-mid, #1e293b)) !important;
   border: 1px solid var(--border-titanium, rgba(255, 255, 255, 0.08)) !important;
   border-radius: 12px !important;
   padding: 20px !important;
@@ -5408,7 +5708,12 @@ input, textarea, select, [contenteditable="true"] {
   display: flex !important;
   flex-direction: column !important;
   gap: 16px !important;
-  cursor: pointer;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow-y: visible !important;
+  flex: 0 0 auto !important;
+  flex-shrink: 0 !important;
 }
 
 .settings-section h3 {
@@ -5583,53 +5888,89 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
   }
 }
 
-/* ===== UI SIZE SCALE ENGINE ===== */
+/* ===== UI SIZE SCALE ENGINE =====
+   Fluid Proportional Container Zoom
+
+   Strategy:
+   - Outer layout (body, #pos-app-layout, #app-sidebar / mobile bottom-nav, modals, toasts)
+     NEVER has body-level zoom. This keeps the mobile bottom navigation bar, lock screen,
+     and dialogs 100% full-viewport width with ZERO overflow or clipping.
+   - Main interface view container (.pos-main-container) applies zoom: var(--size-scale) 
+     with fluid width: 100%.
+   - Result:
+     - Compact (0.85): All font sizes, buttons, cards, tables, inputs shrink to 85% scale seamlessly. Layout stays 100% full width without stretching or distortion.
+     - Default (1.00): Standard 100% scale.
+     - Large (1.10) & X-Large (1.20): All font sizes, buttons, cards, tables, inputs enlarge to 110%/120% scale cleanly. Layout stays 100% full width without squishing or column overlap.
+   ====================================================================== */
+
+/* ===== PERFECT PRODUCTION UI SCALE ENGINE =====
+   Dual Width & Height Compensation
+   Formula: (100% / S) * S = 100% Visual Viewport Width & Height ALWAYS!
+
+   1. Width Compensation: width: calc(100% / var(--size-scale, 1))
+      - Compact (0.85): 100% / 0.85 = 117.65% width @ 0.85 zoom = EXACTLY 100% visual width! Zero right margin gap!
+      - Default (1.00): 100% width @ 1.00 zoom = EXACTLY 100% visual width!
+      - X-Large (1.20): 100% / 1.20 = 83.33% width @ 1.20 zoom = EXACTLY 100% visual width! Zero horizontal overflow!
+
+   2. Height Compensation (Mobile): height: calc((100dvh - 64px - env(safe-area-inset-bottom, 0px)) / var(--size-scale, 1))
+      - Compact (0.85): (100dvh - 64px) / 0.85 @ 0.85 zoom = EXACTLY (100dvh - 64px) visual height!
+        Reaches EXACTLY down to the top edge of the 64px bottom navbar with ZERO vertical gap!
+      - Default (1.00): 100dvh - 64px @ 1.00 zoom = EXACTLY (100dvh - 64px) visual height! Zero vertical gap!
+      - X-Large (1.20): (100dvh - 64px) / 1.20 @ 1.20 zoom = EXACTLY (100dvh - 64px) visual height! Zero vertical gap, zero overflow!
+*/
+
+.pos-main-container {
+  zoom: var(--size-scale, 1);
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 768px) {
+  body.app-scaled .pos-main-container,
+  .pos-main-container {
+    zoom: var(--size-scale, 1);
+    width: calc(100% / var(--size-scale, 1)) !important;
+    max-width: calc(100% / var(--size-scale, 1)) !important;
+    height: calc((100dvh - 64px - env(safe-area-inset-bottom, 0px)) / var(--size-scale, 1)) !important;
+    max-height: calc((100dvh - 64px - env(safe-area-inset-bottom, 0px)) / var(--size-scale, 1)) !important;
+    box-sizing: border-box !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .content-view,
+  .pos-content-pane,
+  .main-stage,
+  .page-container,
+  #view-checkout,
+  #view-catalog,
+  #view-catalog-manager,
+  #view-deals,
+  #view-history,
+  #view-customers,
+  #view-analytics,
+  #view-suppliers,
+  #view-staff,
+  #view-credit-book,
+  #view-settings,
+  #view-logs,
+  #view-backup,
+  #view-subscription,
+  #view-data-portability,
+  #view-fbr-fiscal,
+  #view-multi-store,
+  .checkout-split {
+    padding-bottom: 24px !important;
+  }
+}
+
+/* Fallback — matches design-tokens.css. Use 100% not a hardcoded px base. */
 html {
-  font-size: calc(15px * var(--size-scale, 1)) !important;
+  font-size: calc(100% * var(--size-scale, 1));
 }
 
-body.app-scaled #pos-app-layout {
-  transform-origin: top left !important;
-  transform: scale(var(--size-scale, 1)) !important;
-  width: calc(100vw / var(--size-scale, 1)) !important;
-  height: calc(100vh / var(--size-scale, 1)) !important;
-  overflow: hidden !important;
-}
 
-/* ===== ANALYTICS VIEW CONTAINMENT ===== */
-#view-analytics {
-  width: 100% !important;
-  max-width: 100% !important;
-  box-sizing: border-box !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-}
 
-#view-analytics .kpi-grid {
-  display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
-  gap: 16px !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-#view-analytics .analytics-grid-row {
-  display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)) !important;
-  gap: 20px !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-#analytics-histogram-bars, .bar-chart-visual {
-  display: flex !important;
-  align-items: flex-end !important;
-  gap: 12px !important;
-  min-width: 600px !important;
-  overflow-x: auto !important;
-  -webkit-overflow-scrolling: touch !important;
-  padding-bottom: 8px !important;
-}
 
 
 

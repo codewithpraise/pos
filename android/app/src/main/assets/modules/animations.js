@@ -10,6 +10,9 @@
  */
 export function haptic(pattern = 50) {
   try {
+    if (navigator.userActivation && !navigator.userActivation.hasBeenActive) {
+      return;
+    }
     const localPref = window.state?.preferences?.['haptic_feedback_enabled'];
     const storagePref = localStorage.getItem('valenixia_haptics_enabled');
     const enabled = localPref !== 'false' && storagePref !== 'false';
@@ -41,11 +44,15 @@ export function animateCartItemAdd(row) {
 export function animateCartItemRemove(row, onComplete) {
   if (!row) { if (onComplete) onComplete(); return; }
   row.classList.add('removing');
-  row.addEventListener('animationend', () => {
-    try {
+  let done = false;
+  const finish = () => {
+    if (!done) {
+      done = true;
       if (onComplete) onComplete();
-    } catch(e){}
-  }, { once: true });
+    }
+  };
+  row.addEventListener('animationend', finish, { once: true });
+  setTimeout(finish, 250);
   haptic([30, 20]);
 }
 
