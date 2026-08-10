@@ -2,6 +2,8 @@
    VALENIXIA POS — KEYBOARD & SHORTCUTS MODULE
    Binds Ctrl+K, Ctrl+Shift+P, and Esc to core navigation/modal events.
    ============================================================================ */
+if (typeof exports === 'undefined') var exports = (typeof window !== 'undefined' ? (window.exports = window.exports || {}) : {});
+
 
 import { haptic } from './animations.js';
 

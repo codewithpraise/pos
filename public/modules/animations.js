@@ -2,6 +2,8 @@
    VALENIXIA POS — ANIMATIONS & HAPTICS MODULE
    Wraps device vibration, cart additions, quantity pulses, and error shakes.
    ============================================================================ */
+if (typeof exports === 'undefined') var exports = (typeof window !== 'undefined' ? (window.exports = window.exports || {}) : {});
+
 
 /**
  * Trigger device vibration for haptic feedback.

@@ -2,6 +2,8 @@
    VALENIXIA POS — OFFLINE CONNECTIVITY & STATUS BADGE MODULE
    Choreographs sync indicators and fixed top alert bars.
    ============================================================================ */
+if (typeof exports === 'undefined') var exports = (typeof window !== 'undefined' ? (window.exports = window.exports || {}) : {});
+
 
 /**
  * Announce connection state changes and slide banner alerts.

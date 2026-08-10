@@ -2,6 +2,8 @@
    VALENIXIA POS — UI MODULE
    Renders skeleton loaders and empty states.
    ============================================================================ */
+if (typeof exports === 'undefined') var exports = (typeof window !== 'undefined' ? (window.exports = window.exports || {}) : {});
+
 
 /**
  * Inject a premium animated empty state into a container.
