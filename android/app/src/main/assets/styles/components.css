@@ -5983,13 +5983,22 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
   }
 }
 
-/* Single Scrollbar Enforcement for Catalog Manager Table & FBR Fiscal Hub */
+/* Single Scrollbar & Full Height Enforcement for Catalog Manager & FBR Fiscal Hub */
 #view-catalog-manager #catalog-virtual-container,
 #view-fbr-fiscal .catalog-table-wrapper,
 #view-fbr-fiscal .catalog-table {
   height: auto !important;
   max-height: none !important;
   overflow-y: visible !important;
+  min-height: 0 !important;
+}
+
+#view-fbr-fiscal {
+  height: auto !important;
+  min-height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  padding-bottom: 24px !important;
 }
 
 /* Strict Text Overflow & Container Boundaries for Product Cards, Pills & Tables */
@@ -6070,7 +6079,7 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
     max-height: 100% !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
-    padding-bottom: 74px !important; /* Space for bottom navbar */
+    padding-bottom: 0 !important; /* Fixed: eliminates 74px+60px double padding gap above bottom navbar */
     box-sizing: border-box !important;
   }
   #view-checkout.active {

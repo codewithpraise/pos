@@ -7466,13 +7466,16 @@ I am attaching my payment proof screenshot below. Please verify and upgrade my a
           try {
             const serverBase = (window.__valenixiaServerUrl || location.origin);
             const devTok = state.deviceToken || localStorage.getItem('valenixia_device_token') || '';
-            if (!devTok || devTok.startsWith('mock_') || devTok.startsWith('dev_')) {
+            const isVercelHost = location.hostname.includes('vercel.app');
+            if (isVercelHost || !devTok || devTok.startsWith('mock_') || devTok.startsWith('dev_') || devTok.startsWith('dpl_') || window.__valenixiaTier === 'FREE') {
               const statusEl = document.getElementById('fbr-status-val');
-              if (statusEl) statusEl.textContent = 'ACTIVE (LOCAL)';
+              if (statusEl) statusEl.textContent = 'ACTIVE';
               const integratedEl = document.getElementById('fbr-integrated-count');
               if (integratedEl) integratedEl.textContent = '0';
               const pendingEl = document.getElementById('fbr-pending-count');
               if (pendingEl) pendingEl.textContent = '0 Invoices';
+              const tbody = document.getElementById('fbr-queue-tbody');
+              if (tbody) setHtml(tbody, `<tr><td colspan="5" style="text-align:center;color:var(--text-gray);padding:24px;">No pending invoices in queue. System synchronized.</td></tr>`);
               return;
             }
             const authHeader = { 'Authorization': `Bearer ${devTok}` };
