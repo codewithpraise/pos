@@ -5990,9 +5990,7 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
 
 /* Single Scrollbar & Full Height Enforcement for Catalog Manager & FBR Fiscal Hub */
 #view-catalog-manager.active {
-  display: flex !important;
-  flex-direction: column !important;
-  flex: 1 1 auto !important;
+  display: block !important;
   height: 100% !important;
   min-height: 0 !important;
   overflow-y: auto !important;
@@ -6001,13 +5999,23 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
   box-sizing: border-box !important;
 }
 
+#view-catalog-manager .catalog-table-wrapper,
+#view-catalog-manager .catalog-grid-table,
 #view-catalog-manager #catalog-virtual-container,
 #view-fbr-fiscal .catalog-table-wrapper,
 #view-fbr-fiscal .catalog-table {
   height: auto !important;
   max-height: none !important;
+  overflow: visible !important;
   overflow-y: visible !important;
   min-height: 0 !important;
+}
+
+#view-catalog-manager .catalog-table-wrapper {
+  display: block !important;
+  width: 100% !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
 }
 
 #view-fbr-fiscal.active {
@@ -6148,7 +6156,7 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
   flex: 1 1 0px !important;
   height: 100% !important;
   min-height: 0 !important;
-  justify-content: space-between !important;
+  justify-content: flex-start !important;
   overflow: hidden !important;
   padding: 0 !important;
   margin: 0 !important;
@@ -6157,11 +6165,12 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
 
 .checkout-cart .ledger-header {
   flex-shrink: 0 !important;
+  height: auto !important;
 }
 
 .checkout-cart .ledger-body {
   flex: 1 1 0px !important;
-  height: auto !important;
+  height: 0 !important;
   min-height: 0 !important;
   overflow-y: auto !important;
   -webkit-overflow-scrolling: touch !important;
@@ -6169,11 +6178,57 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
 
 .checkout-cart .ledger-footer {
   flex-shrink: 0 !important;
-  margin-top: auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  margin-top: 0 !important;
   margin-bottom: 0 !important;
-  padding: 8px 16px 8px 16px !important;
+  padding: 10px 16px !important;
   box-sizing: border-box !important;
   width: 100% !important;
+  background: var(--panel-graphite) !important;
+  border-top: 1px solid var(--border-titanium) !important;
+}
+
+.checkout-cart .ledger-footer .totals-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  align-items: stretch !important;
+  gap: 4px !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.checkout-cart .ledger-footer .totals-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  height: auto !important;
+  min-height: 0 !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+  color: var(--text-gray) !important;
+  margin: 0 !important;
+  padding: 2px 0 !important;
+}
+
+.checkout-cart .ledger-footer .totals-row.grand-total {
+  font-family: var(--font-display) !important;
+  font-size: 24px !important;
+  font-weight: 900 !important;
+  color: var(--accent-emerald) !important;
+  border-top: 1px solid rgba(0, 214, 143, 0.2) !important;
+  padding-top: 6px !important;
+  margin-top: 4px !important;
+  margin-bottom: 0 !important;
+  letter-spacing: -0.5px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: baseline !important;
+  text-transform: uppercase !important;
 }
 
 /* 3. FBR FISCAL VIEW (#view-fbr-fiscal.active) — Single Unified Page Scrollbar */
@@ -6204,8 +6259,6 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
   width: 100% !important;
   height: auto !important;
 }
-
-
 
 /* Fallback — matches design-tokens.css. Use 100% not a hardcoded px base. */
 html {
