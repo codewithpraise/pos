@@ -5417,3 +5417,5 @@ process.on('uncaughtException', (error) => {
   console.error('[UncaughtException] Server caught critical error:', error);
 });
 
+module.exports = app;
+
