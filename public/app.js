@@ -7442,6 +7442,9 @@ I am attaching my payment proof screenshot below. Please verify and upgrade my a
           try { state.catalogVirtualList.destroy(); } catch (_) {}
           state.catalogVirtualList = null;
         }
+        setTimeout(() => {
+          if (typeof renderCatalogScreen === 'function') renderCatalogScreen();
+        }, 50);
         if (syncWorker) syncWorker.postMessage({ type: 'GET_CATALOG' });
       } else if (screenName === 'history') {
         if (syncWorker) syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
@@ -9782,34 +9785,29 @@ setHtml(tr, `
     const container = document.getElementById('catalog-virtual-container');
     if (!container) return;
 
-    // Deduplicate state.catalog by SKU and normalized Name
+    // Load from IndexedDB fallback if state.catalog is empty or missing
+    if ((!Array.isArray(state.catalog) || state.catalog.length === 0) && typeof ValenixiaDB !== 'undefined' && ValenixiaDB.getAll) {
+      ValenixiaDB.getAll('inventory_catalog').then(dbItems => {
+        if (Array.isArray(dbItems) && dbItems.length > 0) {
+          state.catalog = dbItems;
+          renderCatalogScreen();
+        }
+      }).catch(() => {});
+    }
+
+    // Safely normalize state.catalog without deleting valid items
     if (Array.isArray(state.catalog)) {
-      const seenSkus = new Set();
-      const seenNames = new Set();
+      const seenKeys = new Set();
       const cleanCatalog = [];
-      const dupSkusToRemove = [];
-
-      state.catalog.forEach(p => {
-        const skuKey = String(p.sku || '').trim().toUpperCase();
-        const nameKey = String(p.name || '').trim().toLowerCase();
-        if (!skuKey || !nameKey) return;
-
-        if (!seenSkus.has(skuKey) && !seenNames.has(nameKey)) {
-          seenSkus.add(skuKey);
-          seenNames.add(nameKey);
+      state.catalog.forEach((p, idx) => {
+        if (!p) return;
+        const skuKey = (p.sku && String(p.sku).trim()) ? String(p.sku).trim().toUpperCase() : `ID_${p.id || idx}`;
+        if (!seenKeys.has(skuKey)) {
+          seenKeys.add(skuKey);
           cleanCatalog.push(p);
-        } else {
-          dupSkusToRemove.push(skuKey);
         }
       });
-
       state.catalog = cleanCatalog;
-
-      if (dupSkusToRemove.length > 0 && typeof ValenixiaDB !== 'undefined' && ValenixiaDB.delete) {
-        dupSkusToRemove.forEach(badSku => {
-          ValenixiaDB.delete('inventory_catalog', badSku).catch(() => {});
-        });
-      }
     }
 
     if (!state.catalogVirtualList) {

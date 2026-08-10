@@ -74,7 +74,7 @@ class VirtualList {
 
   _render() {
     const scrollTop      = this.container.scrollTop;
-    const viewportHeight = this.container.clientHeight;
+    const viewportHeight = this.container.clientHeight || (typeof window !== 'undefined' ? window.innerHeight : 800);
     const total          = this.items.length;
     const itemH          = this.itemHeight;
 
