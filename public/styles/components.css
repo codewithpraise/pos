@@ -5314,7 +5314,7 @@ table, .data-table, .report-table {
     font-size: 16px !important;
   }
 
-  .content-view, .main-stage, .page-container {
+  .content-view:not(#view-checkout), .main-stage:not(#view-checkout), .page-container:not(#view-checkout) {
     padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
@@ -6101,16 +6101,20 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
   box-sizing: border-box !important;
 }
 
-/* 2. CHECKOUT VIEW (#view-checkout.active) — Flush Bottom & Zero Gap Guarantee */
+/* 2. CHECKOUT VIEW (#view-checkout, #view-checkout.active) — Flush Bottom & Zero Gap Guarantee */
+#view-checkout,
 #view-checkout.active {
   display: flex !important;
   flex-direction: column !important;
   flex: 1 1 auto !important;
   height: 100% !important;
   min-height: 0 !important;
+  max-height: 100% !important;
   overflow: hidden !important;
   padding: 0 !important;
+  padding-bottom: 0 !important;
   margin: 0 !important;
+  margin-bottom: 0 !important;
   box-sizing: border-box !important;
 }
 
