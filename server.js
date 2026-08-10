@@ -2546,7 +2546,7 @@ app.get('/api/subscription/status', async (req, res) => {
       storeRow = await db.get("SELECT * FROM stores LIMIT 1");
     } catch (_) {}
 
-    const effectiveTier = onlineInfo ? onlineInfo.tier : ((storeRow && storeRow.tier) ? storeRow.tier : 'ENTERPRISE').toUpperCase();
+    const effectiveTier = onlineInfo ? onlineInfo.tier : ((storeRow && storeRow.tier) ? storeRow.tier : 'STARTER').toUpperCase();
     
     // Determine immutable first-seen timestamp for this hardware device ID
     let createdTimeIso = onlineInfo ? onlineInfo.created_at : null;
