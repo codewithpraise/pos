@@ -14,7 +14,7 @@ console.log('%c[VALENIXIA-DIAG-FREEMIUM] Freemium Engine v1.0.5 Initialized at '
     get: () => currentSession,
     set: (val) => {
       const secondsSinceLoad = (Date.now() - loadTime) / 1000;
-      if (secondsSinceLoad > 5 && currentSession && val && val.tier !== currentSession.tier) {
+      if (secondsSinceLoad > 300 && currentSession && val && val.tier !== currentSession.tier && !val.verifiedByServer) {
         console.warn('[Security] Unauthorized tier modification blocked.');
         return;
       }

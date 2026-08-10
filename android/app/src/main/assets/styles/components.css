@@ -5958,9 +5958,54 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
   #view-subscription,
   #view-data-portability,
   #view-fbr-fiscal,
-  #view-multi-store,
-  .checkout-split {
+  #view-multi-store {
     padding-bottom: 24px !important;
+  }
+}
+
+/* Mobile Checkout Cart View — Flush Layout without Empty Space */
+@media (max-width: 899px) {
+  #view-checkout {
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    padding-bottom: 64px !important; /* Space for bottom navbar */
+    box-sizing: border-box !important;
+  }
+  #checkout-split-layout {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    gap: 0 !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+  }
+  .checkout-split.tab-cart-active .checkout-cart {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    justify-content: space-between !important;
+    overflow: hidden !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+  }
+  .checkout-split.tab-cart-active .checkout-cart .ledger-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .checkout-split.tab-cart-active .checkout-cart .ledger-footer {
+    margin-top: auto !important;
+    flex-shrink: 0 !important;
+    border-bottom: none !important;
+    padding-bottom: 12px !important;
   }
 }
 

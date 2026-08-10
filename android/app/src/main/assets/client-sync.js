@@ -160,9 +160,12 @@ class SyncClient {
     const isBlobWorker = typeof globalScope !== 'undefined' && globalScope.location && globalScope.location.protocol === 'blob:';
     const wsHost = (typeof window !== 'undefined' && window.location && window.location.host) 
                 || (typeof globalScope !== 'undefined' && globalScope.location && globalScope.location.host);
+    const hostname = (typeof window !== 'undefined' && window.location && window.location.hostname) 
+                  || (typeof globalScope !== 'undefined' && globalScope.location && globalScope.location.hostname) || '';
+    const isVercel = hostname.includes('vercel.app');
 
-    if (!globalScope.serverUrl && (!wsHost || isBlobWorker)) {
-      console.log(`[SyncClient:${this.nodeId}] Blob worker / offline mode detected — WebSocket sync disabled.`);
+    if (isVercel || (!globalScope.serverUrl && (!wsHost || isBlobWorker))) {
+      console.log(`[SyncClient:${this.nodeId}] Vercel Serverless / Blob worker / offline mode detected — WebSocket sync disabled.`);
       this.isConnected = false;
       if (typeof this.onConnectionChange === 'function') this.onConnectionChange(false);
       return;

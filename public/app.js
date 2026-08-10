@@ -14692,9 +14692,14 @@ setHtml(container, `<p style="color: var(--text-gray); font-size:12px;">License 
       const isFreemium = !isDevActive && (tierRaw === 'FREE');
 
       const isTrialActive = localStorage.getItem('valenixia_trial_active') === 'true';
-      let tier = isTrialActive ? '7-DAY FREE GROWTH TRIAL' : (isDevActive ? 'ENTERPRISE (DEV OVERRIDE)' : `${tierRaw} TIER`);
-      const hwid = window.__valenixiaHWID || '';
-      const hwidDisplay = hwid.length > 8 ? hwid.slice(0, 8) + '...' : hwid;
+      let hwid = window.__valenixiaHWID || localStorage.getItem('valenixia_hwid') || '';
+      if (!hwid && typeof LicenseEngine !== 'undefined' && typeof LicenseEngine.generateHWID === 'function') {
+        hwid = await LicenseEngine.generateHWID();
+      }
+      if (!hwid) hwid = 'VALENIXIA_DEVICE_' + Math.random().toString(36).substring(2, 8).toUpperCase();
+      window.__valenixiaHWID = hwid;
+      try { localStorage.setItem('valenixia_hwid', hwid); } catch(_) {}
+      const hwidDisplay = hwid.length > 14 ? hwid.slice(0, 14) + '...' : hwid;
 
       let expiryText = '';
       let expiryColor = 'var(--text-gray)';
