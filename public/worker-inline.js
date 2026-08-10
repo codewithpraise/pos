@@ -3291,6 +3291,19 @@ self.onmessage = async (event) => {
         const tickHlc = syncClient.hlc.tick();
 
         const exists = await ValenixiaDB.get('inventory_catalog', sku);
+        if (!exists) {
+          const currentCatalog = await ValenixiaDB.getAll('inventory_catalog');
+          const planPref = await ValenixiaDB.get('local_preferences', 'store_plan');
+          const rawPlan = planPref ? (planPref.value_payload || '').toUpperCase() : 'STARTER';
+          const maxAllowed = (rawPlan === 'FREE' || rawPlan === 'STARTER') ? 25 : Infinity;
+          if (currentCatalog.length >= maxAllowed) {
+            postMessage({
+              type: 'ERROR',
+              error: 'Free Tier Limit Reached (' + currentCatalog.length + '/' + maxAllowed + ' products): Your tier allows up to ' + maxAllowed + ' products. Upgrade your plan to add unlimited products.'
+            });
+            return;
+          }
+        }
         const colVersion = exists ? (exists.col_version || 1) + 1 : 1;
 
         const shopModePref = await ValenixiaDB.get('local_preferences', 'shop_mode');

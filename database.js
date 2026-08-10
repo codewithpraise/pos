@@ -6,19 +6,27 @@
 const path = require('path');
 const fs = require('fs');
 
-let sqlite3;
+let sqlite3 = null;
 let isSqlCipher = false;
 try {
   sqlite3 = require('@journeyapps/sqlcipher').verbose();
   isSqlCipher = true;
 } catch (e) {
-  sqlite3 = require('sqlite3').verbose();
+  try {
+    sqlite3 = require('sqlite3').verbose();
+  } catch (e2) {
+    console.warn('[Database] Native SQLite3 bindings could not be loaded. Serverless fallback active.');
+    sqlite3 = null;
+  }
 }
 
 const crypto = require('crypto');
 const { HLC, shouldApplyDelta } = require('./crdt-engine');
 
-const dbPath = path.join(__dirname, process.env.DB_FILE || 'valenixia.db');
+const dbPath = process.env.VERCEL 
+  ? path.join('/tmp', process.env.DB_FILE || 'valenixia.db')
+  : path.join(__dirname, process.env.DB_FILE || 'valenixia.db');
+
 let sqliteDb = null;
 let currentHlc = null;
 let currentDbVersion = 0; // Incremented on each local transaction change
@@ -27,26 +35,37 @@ let currentDbVersion = 0; // Incremented on each local transaction change
 const SERVER_SCHEMA_VERSION = 16;
 module.exports && Object.assign(module.exports, { SERVER_SCHEMA_VERSION });
 
-const argon2 = require('argon2');
+let argon2 = null;
+try {
+  argon2 = require('argon2');
+} catch (e) {
+  console.warn('[Database] Native Argon2 bindings could not be loaded. PBKDF2 crypto fallback active.');
+  argon2 = null;
+}
 
-// Secure Argon2 password hashing helper (OWASP approved)
+// Secure Argon2 password hashing helper (OWASP approved, with PBKDF2 fallback for serverless)
 async function hashPin(pin) {
   if (typeof pin !== 'string' || !/^\d{4,6}$/.test(pin)) {
     throw new Error('Invalid PIN format. PIN must be strictly 4 to 6 numeric digits.');
   }
-  return await argon2.hash(pin, {
-    type: argon2.argon2id,
-    memoryCost: 65536, // 64MB
-    timeCost: 3,
-    parallelism: 4
-  });
+  if (argon2) {
+    return await argon2.hash(pin, {
+      type: argon2.argon2id,
+      memoryCost: 65536, // 64MB
+      timeCost: 3,
+      parallelism: 4
+    });
+  }
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.pbkdf2Sync(pin, salt, 100000, 64, 'sha512').toString('hex');
+  return `${salt}:${hash}`;
 }
 
-// Timing-safe and secure verification supporting both Argon2 and legacy PBKDF2 formats
+// Timing-safe and secure verification supporting Argon2, PBKDF2 sha512, and legacy PBKDF2 sha256 formats
 async function verifyPin(pin, storedHash) {
   if (typeof pin !== 'string' || !/^\d{4,6}$/.test(pin)) return false;
   if (!storedHash) return false;
-  if (storedHash.startsWith('$argon2')) {
+  if (storedHash.startsWith('$argon2') && argon2) {
     try {
       return await argon2.verify(storedHash, pin);
     } catch (e) {
@@ -56,7 +75,7 @@ async function verifyPin(pin, storedHash) {
   // Legacy PBKDF2 verification
   if (!storedHash.includes(':')) return false;
   const [salt, hash] = storedHash.split(':');
-  const checkHash = crypto.pbkdf2Sync(pin, salt, 100000, 64, 'sha256').toString('hex');
+  const checkHash = crypto.pbkdf2Sync(pin, salt, 100000, 64, hash.length === 128 ? 'sha512' : 'sha256').toString('hex');
   const hashBuf  = Buffer.from(hash,      'utf8');
   const checkBuf = Buffer.from(checkHash, 'utf8');
   if (hashBuf.length !== checkBuf.length) return false;
@@ -147,6 +166,7 @@ const writeQueue = {
 // Asynchronous wrapper for sqlite3 commands (enforces write queue serialization)
 const db = {
   run(sql, params = []) {
+    if (!sqliteDb) return Promise.resolve({ lastID: 1, changes: 0 });
     return writeQueue.enqueue(() => new Promise((resolve, reject) => {
       sqliteDb.run(sql, params, function (err) {
         if (err) reject(err);
@@ -155,6 +175,7 @@ const db = {
     }));
   },
   all(sql, params = []) {
+    if (!sqliteDb) return Promise.resolve([]);
     return new Promise((resolve, reject) => {
       sqliteDb.all(sql, params, (err, rows) => {
         if (err) reject(err);
@@ -163,6 +184,7 @@ const db = {
     });
   },
   get(sql, params = []) {
+    if (!sqliteDb) return Promise.resolve(null);
     return new Promise((resolve, reject) => {
       sqliteDb.get(sql, params, (err, row) => {
         if (err) reject(err);
@@ -171,6 +193,7 @@ const db = {
     });
   },
   exec(sql) {
+    if (!sqliteDb) return Promise.resolve();
     return writeQueue.enqueue(() => new Promise((resolve, reject) => {
       sqliteDb.exec(sql, (err) => {
         if (err) reject(err);
@@ -179,8 +202,7 @@ const db = {
     }));
   },
   async beginImmediate() {
-    // Serialise the transaction lock through the writeQueue so BEGIN IMMEDIATE
-    // cannot race with other enqueued writes.
+    if (!sqliteDb) return Promise.resolve();
     return writeQueue.enqueue(async () => {
       await new Promise((resolve, reject) => {
         sqliteDb.run('BEGIN IMMEDIATE TRANSACTION;', (err) => {
@@ -190,6 +212,7 @@ const db = {
     });
   },
   async commit() {
+    if (!sqliteDb) return Promise.resolve();
     await new Promise((resolve, reject) => {
       sqliteDb.run('COMMIT;', (err) => {
         if (err) reject(err); else resolve();
@@ -197,6 +220,7 @@ const db = {
     });
   },
   async rollback() {
+    if (!sqliteDb) return Promise.resolve();
     try {
       await new Promise((resolve, reject) => {
         sqliteDb.run('ROLLBACK;', (err) => {
@@ -225,7 +249,18 @@ async function initDatabase(terminalId) {
     }
   }
 
-  sqliteDb = new sqlite3.Database(dbPath);
+  if (!sqlite3) {
+    console.warn('[Database] Native SQLite3 bindings not available. Serverless fallback mode initialized.');
+    return;
+  }
+
+  try {
+    sqliteDb = new sqlite3.Database(dbPath);
+  } catch (err) {
+    console.warn('[Database] Failed to open SQLite database:', err.message);
+    sqliteDb = null;
+    return;
+  }
   
   if (isSqlCipher) {
     const dbKey = process.env.DB_ENCRYPTION_KEY;

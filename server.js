@@ -5133,21 +5133,32 @@ app.use((err, req, res, next) => {
 });
 
 // Start Server
-initDatabase(terminalId)
-  .then(async () => {
-    await loadServerPassphrase();
-    server.listen(port, () => {
-      console.log(`================================================================`);
-      console.log(`  VALENIXIA COMMERCE ECOSYSTEM running locally on port ${port}`);
-      console.log(`  [VALENIXIA-DIAG-SERVER] Fresh Server Instance Started at ${new Date().toISOString()}`);
-      console.log(`  [VALENIXIA-DIAG-SERVER] Static Asset Caching: DISABLED (no-store, max-age=0)`);
-      console.log(`  [VALENIXIA-DIAG-SERVER] System Version: 1.0.5`);
-      console.log(`  Terminal Master ID: ${terminalId}`);
-      console.log(`  Schema Version: ${SERVER_SCHEMA_VERSION}`);
-      console.log(`  WAL + FULL SYNC + STRICT mode database initialized.`);
-      console.log(`  Cloud Disaster Recovery Daemon: ACTIVE (5m intervals)`);
-      console.log(`================================================================`);
+if (process.env.VERCEL) {
+  initDatabase(terminalId).catch(err => {
+    console.warn('[Vercel Serverless] Non-fatal DB init warning:', err.message);
+  });
+} else {
+  initDatabase(terminalId)
+    .then(async () => {
+      await loadServerPassphrase();
+      server.listen(port, () => {
+        console.log(`================================================================`);
+        console.log(`  VALENIXIA COMMERCE ECOSYSTEM running locally on port ${port}`);
+        console.log(`  [VALENIXIA-DIAG-SERVER] Fresh Server Instance Started at ${new Date().toISOString()}`);
+        console.log(`  [VALENIXIA-DIAG-SERVER] Static Asset Caching: DISABLED (no-store, max-age=0)`);
+        console.log(`  [VALENIXIA-DIAG-SERVER] System Version: 1.0.5`);
+        console.log(`  Terminal Master ID: ${terminalId}`);
+        console.log(`  Schema Version: ${SERVER_SCHEMA_VERSION}`);
+        console.log(`  WAL + FULL SYNC + STRICT mode database initialized.`);
+        console.log(`  Cloud Disaster Recovery Daemon: ACTIVE (5m intervals)`);
+        console.log(`================================================================`);
+      });
+    })
+    .catch((err) => {
+      console.error('Initialization error:', err);
+      process.exit(1);
     });
+}
 
     // ── Component N: Supabase Cloud Sync Daemon ──────────────────────────────
     // Syncs local SQLite change logs asynchronously to remote Supabase DB.
@@ -5276,8 +5287,8 @@ initDatabase(terminalId)
 
     // Schedule run check hourly (highly robust against restarts and drift)
     const HOUR_MS = 60 * 60 * 1000;
-    const retentionTimer = setInterval(enforceDataRetentionPolicy, HOUR_MS);
-    activeTimers.push(retentionTimer);
+    const dataRetentionTimer = setInterval(enforceDataRetentionPolicy, HOUR_MS);
+    activeTimers.push(dataRetentionTimer);
     console.log('[RetentionPolicy] Hourly data retention prune scheduler active.');
 
     // ── Subscription Lifecycle Manager ───────────────────────────────────────
@@ -5378,13 +5389,6 @@ initDatabase(terminalId)
     const subLifecycleTimer = setInterval(runSubscriptionLifecycleSweep, SIX_HOURS_MS);
     activeTimers.push(subLifecycleTimer);
     console.log('[SubLifecycle] Subscription lifecycle manager active (6h sweep interval).');
-
-  })
-
-  .catch((err) => {
-    console.error('Initialization error:', err);
-    process.exit(1);
-  });
 
 function handleGracefulShutdown(signal) {
   console.log(`[Shutdown] Received ${signal}. Starting graceful shutdown...`);
