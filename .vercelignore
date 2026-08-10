@@ -7,3 +7,5 @@ scratch
 tests
 *.db
 *.sqlite
+public/downloads/*.exe
+public/downloads/*.msi
