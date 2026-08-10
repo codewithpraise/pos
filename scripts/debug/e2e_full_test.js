@@ -680,8 +680,8 @@ async function run() {
     else fail('Starter trialDays', `Expected 7, got: ${starterPrice}`);
 
     const proTerminals = await ev('window.LICENSE_CONFIG.PRO.allowedTerminals');
-    if (proTerminals === 1) pass('Pro allowed registers is 1 (3 terminals total)');
-    else fail('Pro registers', `Expected 1, got: ${proTerminals}`);
+    if (proTerminals === 2) pass('Pro allowed registers is 2 (3 terminals total)');
+    else fail('Pro registers', `Expected 2, got: ${proTerminals}`);
   } else {
     fail('LICENSE_CONFIG', 'window.LICENSE_CONFIG is undefined');
   }
