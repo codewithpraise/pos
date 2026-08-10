@@ -7480,9 +7480,10 @@ I am attaching my payment proof screenshot below. Please verify and upgrade my a
               }
             }
             // Fetch pending queue
-            const queueRes = await fetch(`${serverBase}/api/fbr/queue`, { headers: authHeader });
-            const queueType = queueRes.headers.get('content-type') || '';
-            if (queueRes.ok && queueType.includes('application/json')) {
+            const queueRes = await fetch(`${serverBase}/api/fbr/queue`, { headers: authHeader }).catch(() => null);
+            if (queueRes && queueRes.ok) {
+              const queueType = queueRes.headers.get('content-type') || '';
+              if (queueType.includes('application/json')) {
               const queueData = await queueRes.json();
               const pendingEl = document.getElementById('fbr-pending-count');
               const tbody = document.getElementById('fbr-queue-tbody');
@@ -7503,10 +7504,11 @@ I am attaching my payment proof screenshot below. Please verify and upgrade my a
                 }
               }
             }
-          } catch (fbrErr) {
-            console.warn('[FBR] Failed to load fiscal hub data:', fbrErr.message);
           }
-        })();
+        } catch (fbrErr) {
+          console.warn('[FBR] Failed to load fiscal hub data:', fbrErr.message);
+        }
+      })();
       } else if (screenName === 'deals') {
         // Deals / Bundles / Combos screen — render via deals engine
         if (window.VXDeals) {
