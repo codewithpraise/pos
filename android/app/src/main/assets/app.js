@@ -9810,48 +9810,6 @@ setHtml(tr, `
       state.catalog = cleanCatalog;
     }
 
-    if (!state.catalogVirtualList) {
-      state.catalogVirtualList = new VirtualList({
-        container,
-        itemHeight: 48,
-        renderItem: (p) => {
-          const row = document.createElement('div');
-          row.className = 'catalog-grid-row';
-          row.style.cssText = 'display: grid; grid-template-columns: 110px 130px minmax(220px, 2fr) 130px 110px 110px 150px; gap: 8px; padding: 10px 12px; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 12px;';
-          
-          const threshold = p.low_stock_threshold !== undefined ? p.low_stock_threshold : 10;
-          const stockVal = (p.stock_level !== undefined && p.stock_level !== null) ? p.stock_level : ((p.stock_quantity !== undefined && p.stock_quantity !== null) ? p.stock_quantity : (p.stock || 0));
-          const isLowStock = stockVal <= threshold;
-          
-          setHtml(row, `
-            <div style="font-family: monospace; font-size: 11px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${p.sku}</div>
-            <div style="font-family: monospace; font-size: 11px; color: var(--text-gray); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${p.gtin || 'N/A'}</div>
-            <div style="font-weight: 700; color: var(--text-white); word-break: break-word; line-height: 1.3;" title="${p.name}">${p.name}</div>
-            <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-gray);">${p.category || 'General'}</div>
-            <div style="text-align: right; font-weight: 700; color: var(--text-white);">Rs. ${((p.base_price_minor_units || 0) / 100.0).toFixed(2)}</div>
-            <div style="text-align: right; font-weight: 700; color: ${isLowStock ? 'var(--alert-coral)' : 'var(--success)'};">${stockVal} ${(p.unit || 'Units').toUpperCase()}</div>
-            <div style="text-align: center; display: flex; align-items: center; justify-content: center;">
-              <button class="btn-edit-item action-btn action-primary" data-sku="${p.sku}" style="padding: 4px 14px; font-size: 11px; font-weight: 800; min-height: 28px; border-radius: 6px;">Edit &amp; Stock</button>
-            </div>
-          `);
-          
-          row.querySelector('.btn-edit-item')?.addEventListener('click', () => {
-            openProductEditModal(p.sku);
-          });
-          row.querySelector('.btn-stock-down')?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            quickStockAdjust(p.sku, -1);
-          });
-          row.querySelector('.btn-stock-up')?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            quickStockAdjust(p.sku, 1);
-          });
-          
-          return row;
-        }
-      });
-    }
-
     const filter = state.catalogManagerCategory || 'ALL';
     const searchEl = document.getElementById('catalog-search-input');
     const query = searchEl ? (searchEl.value || '').toLowerCase().trim() : '';
@@ -9876,7 +9834,49 @@ setHtml(tr, `
       return matchesCat && matchesQuery;
     });
 
-    state.catalogVirtualList.setItems(items);
+    container.innerHTML = '';
+
+    if (items.length === 0) {
+      container.innerHTML = `
+        <div style="padding: 48px; text-align: center; color: var(--text-gray);">
+          <div style="font-size: 15px; font-weight: 700; color: var(--text-white); margin-bottom: 6px;">No Catalog Products Found</div>
+          <div style="font-size: 12.5px;">Click "+ Add Product" above or adjust your category filter / search term.</div>
+        </div>
+      `;
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    items.forEach(p => {
+      const row = document.createElement('div');
+      row.className = 'catalog-grid-row';
+      row.style.cssText = 'display: grid; grid-template-columns: 110px 130px minmax(220px, 2fr) 130px 110px 110px 150px; gap: 8px; padding: 10px 12px; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 12px;';
+
+      const threshold = p.low_stock_threshold !== undefined ? p.low_stock_threshold : 10;
+      const stockVal = (p.stock_level !== undefined && p.stock_level !== null) ? p.stock_level : ((p.stock_quantity !== undefined && p.stock_quantity !== null) ? p.stock_quantity : (p.stock || 0));
+      const isLowStock = stockVal <= threshold;
+
+      setHtml(row, `
+        <div style="font-family: monospace; font-size: 11px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-white);">${p.sku || 'N/A'}</div>
+        <div style="font-family: monospace; font-size: 11px; color: var(--text-gray); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${p.gtin || 'N/A'}</div>
+        <div style="font-weight: 700; color: var(--text-white); word-break: break-word; line-height: 1.3;" title="${p.name || ''}">${p.name || 'Unnamed Product'}</div>
+        <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-gray);">${p.category || 'General'}</div>
+        <div style="text-align: right; font-weight: 700; color: var(--text-white);">Rs. ${((p.base_price_minor_units || 0) / 100.0).toFixed(2)}</div>
+        <div style="text-align: right; font-weight: 700; color: ${isLowStock ? 'var(--alert-coral)' : 'var(--success)'};">${stockVal} ${(p.unit || 'Units').toUpperCase()}</div>
+        <div style="text-align: center; display: flex; align-items: center; justify-content: center;">
+          <button class="btn-edit-item action-btn action-primary" data-sku="${p.sku}" style="padding: 4px 14px; font-size: 11px; font-weight: 800; min-height: 28px; border-radius: 6px;">Edit &amp; Stock</button>
+        </div>
+      `);
+
+      row.querySelector('.btn-edit-item')?.addEventListener('click', () => {
+        openProductEditModal(p.sku);
+      });
+
+      fragment.appendChild(row);
+    });
+
+    container.appendChild(fragment);
+
     // Keep storage telemetry fresh whenever catalog renders
     if (typeof measureStorageUtilization === 'function') {
       measureStorageUtilization();
