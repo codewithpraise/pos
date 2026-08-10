@@ -2062,20 +2062,23 @@ setHtml(overlay, `
       };
 
       const serverBase = window.__valenixiaServerUrl || (location.protocol === 'file:' ? '' : location.origin);
-      if (state.deviceToken && serverBase && serverBase.startsWith('http')) {
+      const isVercelHost = location.hostname.includes('vercel.app');
+      const isLocalOrMockToken = !state.deviceToken || state.deviceToken.startsWith('mock_') || state.deviceToken.startsWith('dev_') || state.deviceToken.startsWith('dpl_');
+
+      if (state.deviceToken && !isVercelHost && !isLocalOrMockToken && serverBase && serverBase.startsWith('http')) {
         try {
           let resp = await fetchWithTimeout(serverBase + '/api/auth/verify', {
             headers: { 'Authorization': `Bearer ${state.deviceToken}` }
-          }, 1500);
-          if (resp.status === 401) {
+          }, 1500).catch(() => null);
+          if (resp && resp.status === 401) {
             const newToken = await refreshDeviceToken();
             if (newToken) {
               resp = await fetchWithTimeout(serverBase + '/api/auth/verify', {
                 headers: { 'Authorization': `Bearer ${newToken}` }
-              }, 1500);
+              }, 1500).catch(() => null);
             }
           }
-          if (resp.ok) {
+          if (resp && resp.ok) {
             const authData = await resp.json();
             // Normalize status to 'active' so the freemium-engine setter accepts the update
             const normalizedStatus = (authData.status === 'active' || authData.status === 'APPROVED' || authData.status === 'valid') ? authData.status : 'active';
@@ -2087,16 +2090,14 @@ setHtml(overlay, `
               trialStart: authData.trialStart || trialStart
             };
             window.__valenixiaTier = authData.tier || window.__valenixiaTier || 'STARTER';
-          } else if (resp.status === 401) {
+          } else if (resp && resp.status === 401) {
             state.deviceToken = null;
             await ValenixiaDB.delete('local_preferences', 'device_token');
-          } else if (resp.status === 403) {
+          } else if (resp && resp.status === 403) {
             const data = await resp.json();
             triggerLicenseLockout(data.error);
           }
-        } catch (verifyErr) {
-          console.warn('[App] Session auth check skipped (server unreachable):', verifyErr.message);
-        }
+        } catch (verifyErr) {}
       }
       if (window.renderTrialBanner) window.renderTrialBanner();
     } catch (e) {
@@ -2113,25 +2114,23 @@ setHtml(overlay, `
 
     // Start background license heartbeat (every 5 minutes)
     EventListenerRegistry.setInterval(async () => {
-      if (location.protocol === 'file:') return; // Skip in file:// asset context
+      if (location.protocol === 'file:' || location.hostname.includes('vercel.app')) return; // Skip on Vercel or file://
       if (localStorage.getItem('onboarding_complete') !== 'true') return; // Skip if not onboarded
-      if (!state.deviceToken) return; // Skip if device token not present/authorized
+      if (!state.deviceToken || state.deviceToken.startsWith('mock_') || state.deviceToken.startsWith('dev_') || state.deviceToken.startsWith('dpl_')) return; // Skip mock/dev tokens
       
       try {
         const serverBase = (window.__valenixiaServerUrl || location.origin);
         const resp = await fetchWithTimeout(serverBase + '/api/auth/verify', {
           headers: { 'Authorization': `Bearer ${state.deviceToken || ''}` }
-        }, 5000);
-        if (resp.status === 401) {
+        }, 5000).catch(() => null);
+        if (resp && resp.status === 401) {
           state.deviceToken = null;
           await ValenixiaDB.delete('local_preferences', 'device_token');
-        } else if (resp.status === 403) {
+        } else if (resp && resp.status === 403) {
           const data = await resp.json();
           triggerLicenseLockout(data.error);
         }
-      } catch (err) {
-        console.warn('[Heartbeat] Failed to verify license status with server:', err.message);
-      }
+      } catch (err) {}
     }, 5 * 60 * 1000);
     updateBootProgress(100, 'Ready');
     window.appInitialized = true;

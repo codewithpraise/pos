@@ -977,11 +977,11 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
 
         window.appInitialized = true;
 
-        // SAFETY NET: If nothing is visible after 4s and app not authenticated, force view
+        // SAFETY NET: Ensure app view is initialized cleanly
         setTimeout(function() {
           try {
-            if (window.__valenixiaAuthenticated) return;
-            const layoutDisp = layout ? (layout.style.display || window.getComputedStyle(layout).display) : 'none';
+            if (window.__valenixiaAuthenticated || window.appInitialized) return;
+            const layoutDisp = layout ? (layout.style.display || (window.getComputedStyle ? window.getComputedStyle(layout).display : 'none')) : 'none';
             const isLayoutVis = layoutDisp !== 'none';
             const anyVisible = (
               (wiz && (wiz.style.display === 'flex' || wiz.classList.contains('active'))) ||
@@ -989,7 +989,6 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
               isLayoutVis
             );
             if (!anyVisible && !window.__valenixiaAuthenticated) {
-              console.warn('[Bootstrap] Safety net: nothing visible after 4s. Forcing correct view.');
               if (localStorage.getItem('onboarding_complete') === 'true') {
                 const lk = document.getElementById('auth-lock-screen');
                 const lay = document.getElementById('pos-app-layout');
