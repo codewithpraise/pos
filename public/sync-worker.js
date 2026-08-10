@@ -395,7 +395,7 @@ self.onmessage = async (event) => {
   // Guard: Reject non-INIT messages if not bootstrapped
   // Exception: queue SAVE_PREFERENCE and GET_PREFERENCE for replay after boot
   if (type !== 'INIT' && !isBootstrapped) {
-    const canQueue = type === 'SAVE_PREFERENCE' || type === 'GET_PREFERENCE' || type === 'SET_ONLINE_STATE';
+    const canQueue = type === 'SAVE_PREFERENCE' || type === 'GET_PREFERENCE' || type === 'SET_ONLINE_STATE' || (typeof type === 'string' && type.startsWith('GET_'));
     if (canQueue) {
       _preBootQueue.push(event.data);
       console.log(`[SyncWorker] Queued "${type}" for replay after engine bootstrap.`);

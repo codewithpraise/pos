@@ -978,10 +978,12 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
         // SAFETY NET: If nothing is visible after 4s, force the lock screen or wizard to show
         setTimeout(function() {
           try {
+            const layoutDisp = layout ? (layout.style.display || window.getComputedStyle(layout).display) : 'none';
+            const isLayoutVis = layoutDisp !== 'none';
             const anyVisible = (
               (wiz && (wiz.style.display === 'flex' || wiz.classList.contains('active'))) ||
               (lock && (lock.classList.contains('active') || lock.style.display === 'flex')) ||
-              (layout && layout.style.display !== 'none' && layout.style.display !== '')
+              isLayoutVis
             );
             if (!anyVisible) {
               console.warn('[Bootstrap] Safety net: nothing visible after 4s. Forcing correct view.');

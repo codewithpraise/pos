@@ -14692,6 +14692,7 @@ setHtml(container, `<p style="color: var(--text-gray); font-size:12px;">License 
       const isFreemium = !isDevActive && (tierRaw === 'FREE');
 
       const isTrialActive = localStorage.getItem('valenixia_trial_active') === 'true';
+      let tier = isTrialActive ? '7-DAY FREE GROWTH TRIAL' : (isDevActive ? 'ENTERPRISE (DEV OVERRIDE)' : `${tierRaw} TIER`);
       let hwid = window.__valenixiaHWID || localStorage.getItem('valenixia_hwid') || '';
       if (!hwid && typeof LicenseEngine !== 'undefined' && typeof LicenseEngine.generateHWID === 'function') {
         hwid = await LicenseEngine.generateHWID();
