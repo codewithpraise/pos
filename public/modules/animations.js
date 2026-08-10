@@ -1,15 +1,9 @@
-var exports = exports || (typeof window !== 'undefined' ? window : {});
 /* ============================================================================
    VALENIXIA POS — ANIMATIONS & HAPTICS MODULE
    Wraps device vibration, cart additions, quantity pulses, and error shakes.
    ============================================================================ */
 
-/**
- * Trigger device vibration for haptic feedback.
- * Pattern examples: 50 (single), [50,50,50] (triple tap)
- * @param {number|number[]} pattern
- */
-export function haptic(pattern = 50) {
+function haptic(pattern = 50) {
   try {
     if (navigator.userActivation && !navigator.userActivation.hasBeenActive) {
       return;
@@ -23,26 +17,16 @@ export function haptic(pattern = 50) {
   } catch (_) { /* Silently fail in restricted contexts */ }
 }
 
-/**
- * Animate a cart row when it's added.
- * @param {HTMLElement} row - the <tr> or row element
- */
-export function animateCartItemAdd(row) {
+function animateCartItemAdd(row) {
   if (!row) return;
   row.classList.remove('adding');
-  // Force reflow
   void row.offsetWidth;
   row.classList.add('adding');
   row.addEventListener('animationend', () => { try { row.classList.remove('adding'); } catch(e){} }, { once: true });
   haptic(30);
 }
 
-/**
- * Animate a cart row when it's removed, then call callback.
- * @param {HTMLElement} row
- * @param {Function} onComplete
- */
-export function animateCartItemRemove(row, onComplete) {
+function animateCartItemRemove(row, onComplete) {
   if (!row) { if (onComplete) onComplete(); return; }
   row.classList.add('removing');
   let done = false;
@@ -57,11 +41,7 @@ export function animateCartItemRemove(row, onComplete) {
   haptic([30, 20]);
 }
 
-/**
- * Pulse the quantity display on quantity change.
- * @param {HTMLElement} qtyEl
- */
-export function pulseQtyDisplay(qtyEl) {
+function pulseQtyDisplay(qtyEl) {
   if (!qtyEl) return;
   qtyEl.classList.remove('bump');
   void qtyEl.offsetWidth;
@@ -69,10 +49,7 @@ export function pulseQtyDisplay(qtyEl) {
   qtyEl.addEventListener('animationend', () => { try { qtyEl.classList.remove('bump'); } catch(e){} }, { once: true });
 }
 
-/**
- * Flash the charge button with a success ring animation.
- */
-export function flashPaymentSuccess() {
+function flashPaymentSuccess() {
   const btn = document.getElementById('btn-charge');
   if (!btn) return;
   btn.classList.add('success-pulse');
@@ -83,11 +60,7 @@ export function flashPaymentSuccess() {
   }
 }
 
-/**
- * Shake an element to indicate an error.
- * @param {HTMLElement|string} elOrId
- */
-export function shakeElement(elOrId) {
+function shakeElement(elOrId) {
   const el = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
   if (!el) return;
   el.classList.remove('shake');
@@ -97,7 +70,6 @@ export function shakeElement(elOrId) {
   haptic([50, 30, 50]);
 }
 
-// Expose globally for backward compatibility
 if (typeof window !== 'undefined') {
   window.haptic = haptic;
   window.animateCartItemAdd = animateCartItemAdd;
@@ -105,4 +77,8 @@ if (typeof window !== 'undefined') {
   window.pulseQtyDisplay = pulseQtyDisplay;
   window.flashPaymentSuccess = flashPaymentSuccess;
   window.shakeElement = shakeElement;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { haptic, animateCartItemAdd, animateCartItemRemove, pulseQtyDisplay, flashPaymentSuccess, shakeElement };
 }

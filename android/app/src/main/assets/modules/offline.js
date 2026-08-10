@@ -1,14 +1,9 @@
-var exports = exports || (typeof window !== 'undefined' ? window : {});
 /* ============================================================================
    VALENIXIA POS — OFFLINE CONNECTIVITY & STATUS BADGE MODULE
    Choreographs sync indicators and fixed top alert bars.
    ============================================================================ */
 
-/**
- * Announce connection state changes and slide banner alerts.
- * @param {boolean} isOnline
- */
-export function updateOfflineBanner(isOnline) {
+function updateOfflineBanner(isOnline) {
   const banner = document.getElementById('offline-banner');
   const pill   = document.getElementById('mobile-offline-pill');
   const dot    = document.getElementById('offline-status-dot');
@@ -25,7 +20,6 @@ export function updateOfflineBanner(isOnline) {
     }
     if (pill) pill.style.display = 'none';
 
-    // Show for 2 seconds, then fade out and leave yellow status dot
     window.__offlineBannerTimeout = setTimeout(() => {
       if (banner) {
         banner.style.opacity = '0';
@@ -52,11 +46,7 @@ export function updateOfflineBanner(isOnline) {
   }
 }
 
-/**
- * Update the sync status badge in the topbar (if it exists).
- * @param {'syncing'|'synced'|'offline'} status
- */
-export function updateSyncStatusBadge(status) {
+function updateSyncStatusBadge(status) {
   const badge = document.querySelector('.sync-status-badge');
   if (!badge) return;
 
@@ -72,9 +62,8 @@ export function updateSyncStatusBadge(status) {
   }
 }
 
-export function initOfflineListeners() {
+function initOfflineListeners() {
   try {
-    // Initial connectivity check
     updateOfflineBanner(navigator.onLine);
 
     window.addEventListener('online',  () => {
@@ -96,8 +85,12 @@ export function initOfflineListeners() {
   }
 }
 
-// Expose globally for backward compatibility
 if (typeof window !== 'undefined') {
   window.updateOfflineBanner = updateOfflineBanner;
   window.updateSyncStatusBadge = updateSyncStatusBadge;
+  window.initOfflineListeners = initOfflineListeners;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { updateOfflineBanner, updateSyncStatusBadge, initOfflineListeners };
 }

@@ -1,4 +1,3 @@
-var exports = exports || (typeof window !== 'undefined' ? window : {});
 /* ============================================================================
    VALENIXIA POS — UI MODULE
    Renders skeleton loaders and empty states.
@@ -13,7 +12,7 @@ var exports = exports || (typeof window !== 'undefined' ? window : {});
  * @param {string} [ctaLabel] - Optional CTA button label
  * @param {Function} [ctaFn]  - Optional CTA click handler
  */
-export function renderPremiumEmptyState(containerId, icon, title, subtitle, ctaLabel, ctaFn) {
+function renderPremiumEmptyState(containerId, icon, title, subtitle, ctaLabel, ctaFn) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
@@ -64,7 +63,7 @@ export function renderPremiumEmptyState(containerId, icon, title, subtitle, ctaL
  * @param {number} count    - Number of skeleton cards
  * @param {'card'|'row'} type
  */
-export function renderSkeletonLoader(containerId, count = 8, type = 'row') {
+function renderSkeletonLoader(containerId, count = 8, type = 'row') {
   const container = document.getElementById(containerId);
   if (!container) return;
 
@@ -85,8 +84,12 @@ export function renderSkeletonLoader(containerId, count = 8, type = 'row') {
   container.setAttribute('aria-label', 'Loading…');
 }
 
-// Expose globally for backward compatibility
+// Expose globally for browser usage
 if (typeof window !== 'undefined') {
   window.renderPremiumEmptyState = renderPremiumEmptyState;
   window.renderSkeletonLoader = renderSkeletonLoader;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { renderPremiumEmptyState, renderSkeletonLoader };
 }

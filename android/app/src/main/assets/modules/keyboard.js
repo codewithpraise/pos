@@ -1,15 +1,9 @@
-var exports = exports || (typeof window !== 'undefined' ? window : {});
 /* ============================================================================
    VALENIXIA POS — KEYBOARD & SHORTCUTS MODULE
    Binds Ctrl+K, Ctrl+Shift+P, and Esc to core navigation/modal events.
    ============================================================================ */
 
-import { haptic } from './animations.js';
-
-/**
- * Find the topmost visible modal overlay and close it.
- */
-export function closeTopmostModal() {
+function closeTopmostModal() {
   const activeModals = Array.from(document.querySelectorAll('.modal-overlay.active'));
   if (activeModals.length === 0) return;
   const topmost = activeModals[activeModals.length - 1];
@@ -21,7 +15,7 @@ export function closeTopmostModal() {
   }
 }
 
-export function initKeyboardListeners() {
+function initKeyboardListeners() {
   try {
     document.addEventListener('keydown', (e) => {
       try {
@@ -74,5 +68,14 @@ export function initKeyboardListeners() {
   }
 }
 
-// Automatically initialize on module load
+if (typeof window !== 'undefined') {
+  window.closeTopmostModal = closeTopmostModal;
+  window.initKeyboardListeners = initKeyboardListeners;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { closeTopmostModal, initKeyboardListeners };
+}
+
+// Automatically initialize on load
 initKeyboardListeners();
