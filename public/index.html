@@ -247,9 +247,14 @@
             <span class="lock-text" id="storage-lock-text">STORAGE: UNLOCKED</span>
           </div>
 
-          <div class="network-badge online" id="net-badge">
+          <div class="network-badge online" id="net-badge" title="Network Connection Status">
             <span class="badge-dot"></span>
             <span class="badge-text" id="net-status-text">ONLINE</span>
+          </div>
+
+          <div class="network-badge synced" id="sync-badge" title="Sync Engine Operational Status" style="margin-left: 6px; background: rgba(59, 130, 246, 0.12); border-color: rgba(59, 130, 246, 0.4); color: #60a5fa;">
+            <span class="badge-dot" style="background: #3b82f6;"></span>
+            <span class="badge-text" id="sync-status-text">SYNCED</span>
           </div>
           
           <button id="btn-net-sync-retry" style="display: none; align-items: center; justify-content: center; gap: 6px; padding: 4px 10px; font-size: 10px; font-weight: 700; background: var(--alert-coral); border: none; border-radius: 4px; color: var(--text-dark); cursor: pointer; margin-left: 8px;" aria-label="Retry Synchronization">

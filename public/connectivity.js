@@ -205,9 +205,27 @@
     }
 
     setSyncSignal(status) {
-      this.signals.SYNC = status;
-      if (status === 'DELAYED' || status === 'FAILED') {
-        if (this.status === 'ONLINE') this.updateState('DEGRADED', 'SYNC_' + status);
+      this.signals.SYNC = String(status || 'SYNCED').toUpperCase();
+      if (typeof document !== 'undefined') {
+        const syncBadge = document.getElementById('sync-badge');
+        const syncText = document.getElementById('sync-status-text');
+        if (syncText) syncText.textContent = this.signals.SYNC;
+        if (syncBadge) {
+          syncBadge.className = 'network-badge ' + this.signals.SYNC.toLowerCase();
+          const dot = syncBadge.querySelector('.badge-dot');
+          if (dot) {
+            if (this.signals.SYNC === 'SYNCED') {
+              dot.style.background = '#3b82f6';
+            } else if (this.signals.SYNC === 'SYNCING' || this.signals.SYNC === 'QUEUED') {
+              dot.style.background = '#f59e0b';
+            } else {
+              dot.style.background = '#ef4444';
+            }
+          }
+        }
+      }
+      if (this.signals.SYNC === 'DELAYED' || this.signals.SYNC === 'FAILED' || this.signals.SYNC === 'DISCONNECTED') {
+        if (this.status === 'ONLINE') this.updateState('DEGRADED', 'SYNC_' + this.signals.SYNC);
       }
     }
 

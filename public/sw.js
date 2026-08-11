@@ -137,6 +137,7 @@ self.addEventListener('fetch', (event) => {
     url.pathname === '/version.json' ||
     url.pathname === '/release-manifest.json' ||
     url.pathname === '/build-id' ||
+    url.pathname === '/artifact-manifest.json' ||
     url.pathname.startsWith('/version') ||
     url.pathname === '/healthz' ||
     url.pathname.startsWith('/healthz');

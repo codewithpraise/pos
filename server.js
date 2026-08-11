@@ -501,41 +501,119 @@ app.use((req, res, next) => {
   next();
 });
 
-// Uncached Health & Release Manifest Probe Endpoints
+// Uncached Health & Release Metadata Probe Endpoints
+const RELEASE_VERSION = '2.5.1';
+const RELEASE_GIT_COMMIT = 'b6c04e59dbcc91ea2c2107b87d84016282a3dd7d';
+const RELEASE_BUILD_ID = `v${RELEASE_VERSION}-prod-${RELEASE_GIT_COMMIT}`;
+const RELEASE_SCHEMA_VERSION = '17';
+
+function getReleaseManifestData() {
+  const manifestPath = path.join(__dirname, 'public', 'release-manifest.json');
+  if (fs.existsSync(manifestPath)) {
+    try {
+      return JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    } catch (_) {}
+  }
+  return {
+    product: "VALENIXIA POS",
+    version: RELEASE_VERSION,
+    build_id: RELEASE_BUILD_ID,
+    git_commit: RELEASE_GIT_COMMIT,
+    environment: "production",
+    schema_version: RELEASE_SCHEMA_VERSION,
+    commercial_catalog_version: RELEASE_VERSION,
+    legal_documents_version: RELEASE_VERSION,
+    minimum_client_version: RELEASE_VERSION,
+    rollback_allowed: false,
+    minimum_compatible_version: "2.5.0"
+  };
+}
+
+function getArtifactManifestData() {
+  const manifestPath = path.join(__dirname, 'public', 'artifact-manifest.json');
+  if (fs.existsSync(manifestPath)) {
+    try {
+      const content = fs.readFileSync(manifestPath, 'utf8');
+      const data = JSON.parse(content);
+      const hash = crypto.createHash('sha256').update(content).digest('hex');
+      return { data, hash };
+    } catch (_) {}
+  }
+  return { data: { version: RELEASE_VERSION, artifacts: {} }, hash: 'none' };
+}
+
+function getReleaseFingerprint(artHash) {
+  const payload = JSON.stringify({
+    artifactManifestHash: artHash,
+    buildId: RELEASE_BUILD_ID,
+    gitCommit: RELEASE_GIT_COMMIT,
+    schemaVersion: RELEASE_SCHEMA_VERSION,
+    version: RELEASE_VERSION
+  });
+  return crypto.createHash('sha256').update(payload).digest('hex');
+}
+
 app.get(['/api/health', '/healthz'], (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  const { hash: artHash } = getArtifactManifestData();
+  const fingerprint = getReleaseFingerprint(artHash);
   res.json({
     ok: true,
     service: 'valenixia-pos',
-    version: '2.5.0',
-    build_id: 'v2.5.0-prod-20260811.2015',
+    version: RELEASE_VERSION,
+    build_id: RELEASE_BUILD_ID,
+    git_commit: RELEASE_GIT_COMMIT,
+    release_fingerprint: fingerprint,
+    artifact_manifest_hash: artHash,
+    schema_version: RELEASE_SCHEMA_VERSION,
+    deployment_id: process.env.VERCEL_DEPLOYMENT_ID || 'local-dev',
+    environment: process.env.NODE_ENV || 'production',
     timestamp: Date.now()
   });
 });
 
 app.get('/release-manifest.json', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
-  res.setHeader('Content-Type', 'application/json');
-  const manifestPath = path.join(__dirname, 'public', 'release-manifest.json');
-  if (fs.existsSync(manifestPath)) {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  const data = getReleaseManifestData();
+  res.json(data);
+});
+
+app.get('/version.json', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  const vPath = path.join(__dirname, 'public', 'version.json');
+  if (fs.existsSync(vPath)) {
     try {
-      const content = fs.readFileSync(manifestPath, 'utf8');
-      return res.send(content);
+      return res.sendFile(vPath);
     } catch (_) {}
   }
   res.json({
-    product: "VALENIXIA POS",
-    version: "2.5.0",
-    build_id: "v2.5.0-prod-20260811.2015",
-    git_commit: "c0f8bf1",
-    created_at: "2026-08-11T20:15:00.000Z",
-    environment: "production",
-    schema_version: "17",
-    commercial_catalog_version: "2.5.0",
-    legal_documents_version: "2.5.0"
+    version: RELEASE_VERSION,
+    build_id: RELEASE_BUILD_ID,
+    git_commit: RELEASE_GIT_COMMIT,
+    updated_at: '2026-08-11'
   });
+});
+
+app.get('/build-id', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.send(RELEASE_BUILD_ID);
+});
+
+app.get('/artifact-manifest.json', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  const artPath = path.join(__dirname, 'public', 'artifact-manifest.json');
+  if (fs.existsSync(artPath)) {
+    try {
+      return res.sendFile(artPath);
+    } catch (_) {}
+  }
+  const { data } = getArtifactManifestData();
+  res.json(data);
 });
 
 // Explicit Top-Level PWA Static File Routes (BEFORE Helmet & CSRF)
@@ -2689,6 +2767,74 @@ app.get('/api/subscription/status', async (req, res) => {
   } catch (err) {
     const fallbackIso = new Date(1780000000000).toISOString();
     res.json({ tier: 'ENTERPRISE', plan: 'enterprise', created_at: fallbackIso, start_time: fallbackIso, subscription_start_time: fallbackIso, updated_at: fallbackIso, status: 'active', source: 'local_fallback' });
+  }
+});
+
+// POST /api/billing/claim - Idempotent Subscription Upgrade Claim Submission (Phase 9)
+app.post('/api/billing/claim', billingLimiter, async (req, res) => {
+  try {
+    const idempotencyKey = req.headers['idempotency-key'] || req.body?.idempotency_key;
+    if (idempotencyKey) {
+      try {
+        const existingKey = await db.get('SELECT * FROM idempotency_keys WHERE key = ?', [idempotencyKey]);
+        if (existingKey) {
+          return res.status(existingKey.response_code || 200).json(JSON.parse(existingKey.response_body));
+        }
+      } catch (_) {}
+    }
+
+    const { accountId, organizationId, storeId, terminalId, requestedTier, amount, paymentReference, paymentProofHash, notes } = req.body || {};
+    if (!requestedTier || !['STARTER', 'PRO', 'GROWTH', 'ENTERPRISE'].includes(String(requestedTier).toUpperCase())) {
+      return res.status(400).json({ error: 'Invalid or missing requestedTier parameter' });
+    }
+
+    const claimId = `CLAIM_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+    const claimRecord = {
+      claimId,
+      status: 'SUBMITTED',
+      accountId: accountId || 'acc_primary',
+      organizationId: organizationId || 'org_valenixia_default',
+      storeId: storeId || 'store_valenixia_1',
+      terminalId: terminalId || 'terminal_1',
+      requestedTier: String(requestedTier).toUpperCase(),
+      amount: amount || 0,
+      paymentReference: paymentReference || null,
+      paymentProofHash: paymentProofHash || null,
+      notes: notes || '',
+      submittedAt: Date.now()
+    };
+
+    await db.beginImmediate();
+    try {
+      await db.run(
+        `INSERT INTO local_preferences (key, value_payload) VALUES (?, ?)`,
+        [`payment_claim_${claimId}`, JSON.stringify(claimRecord)]
+      );
+
+      // Audit Log Record
+      const auditId = `AUDIT_SUB_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+      await db.run(
+        `INSERT INTO entitlement_audit_log (event_id, actor_user_id, organization_id, store_id, terminal_id, event_type, previous_state, new_state, timestamp, request_id, claim_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [auditId, accountId || 'acc_primary', organizationId || 'org_valenixia_default', storeId || 'store_valenixia_1', terminalId || 'terminal_1', 'CLAIM_SUBMITTED', 'DRAFT', 'SUBMITTED', Date.now(), req.headers['x-request-id'] || null, claimId]
+      );
+
+      const responseObj = { ok: true, status: 'SUBMITTED', claim: claimRecord };
+
+      if (idempotencyKey) {
+        await db.run(
+          `INSERT OR REPLACE INTO idempotency_keys (key, response_code, response_body, created_at) VALUES (?, ?, ?, ?)`,
+          [idempotencyKey, 200, JSON.stringify(responseObj), Date.now()]
+        );
+      }
+
+      await db.commit();
+      return res.json(responseObj);
+    } catch (err) {
+      await db.rollback();
+      throw err;
+    }
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to process upgrade claim: ' + err.message });
   }
 });
 

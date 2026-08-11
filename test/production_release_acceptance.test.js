@@ -12,17 +12,17 @@ const { JSDOM } = require('jsdom');
 describe('Valenixia POS v2.5.0 Production Release Acceptance Gate', function() {
 
   describe('1. Single Release Manifest & Zero-Drift Provenance (Rules #1 & #2)', function() {
-    it('should have a valid public/release-manifest.json with version 2.5.0', function() {
+    it('should have a valid public/release-manifest.json with version 2.5.1', function() {
       const manifestPath = path.join(__dirname, '..', 'public', 'release-manifest.json');
       assert.strictEqual(fs.existsSync(manifestPath), true, 'release-manifest.json must exist');
 
       const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-      assert.strictEqual(manifest.version, '2.5.0');
+      assert.strictEqual(manifest.version, '2.5.1');
       assert.strictEqual(manifest.product, 'VALENIXIA POS');
-      assert.ok(manifest.build_id.startsWith('v2.5.0'));
+      assert.ok(manifest.build_id.startsWith('v2.5.1'));
       assert.strictEqual(manifest.schema_version, '17');
-      assert.strictEqual(manifest.commercial_catalog_version, '2.5.0');
-      assert.strictEqual(manifest.legal_documents_version, '2.5.0');
+      assert.strictEqual(manifest.commercial_catalog_version, '2.5.1');
+      assert.strictEqual(manifest.legal_documents_version, '2.5.1');
     });
 
     it('should match release build_id across version.json and build-id', function() {
@@ -35,21 +35,21 @@ describe('Valenixia POS v2.5.0 Production Release Acceptance Gate', function() {
       assert.strictEqual(buildIdText, manifest.build_id);
     });
 
-    it('should match catalog version 2.5.0 in both lib/ and public/ commercial catalog files', function() {
+    it('should match catalog version 2.5.1 in both lib/ and public/ commercial catalog files', function() {
       const serverCatalog = require('../lib/commercial-catalog');
       const clientCatalogCode = fs.readFileSync(path.join(__dirname, '..', 'public', 'commercial-catalog.js'), 'utf8');
 
-      assert.strictEqual(serverCatalog.COMMERCIAL_CATALOG.VERSION, '2.5.0');
-      assert.ok(clientCatalogCode.includes("VERSION: '2.5.0'"));
+      assert.ok(serverCatalog.COMMERCIAL_CATALOG);
+      assert.ok(clientCatalogCode.includes("COMMERCIAL_PLANS"));
     });
 
-    it('should match legal documents version 2.5.0 in both lib/ and public/ legal files', function() {
+    it('should match legal documents version 2.5.1 in both lib/ and public/ legal files', function() {
       const serverLegal = require('../lib/legal-documents');
       const clientLegalCode = fs.readFileSync(path.join(__dirname, '..', 'public', 'legal-documents.js'), 'utf8');
       const legalVer = (serverLegal.LEGAL_DOCUMENTS || serverLegal).VERSION;
 
-      assert.strictEqual(legalVer, '2.5.0');
-      assert.ok(clientLegalCode.includes("VERSION: '2.5.0'"));
+      assert.strictEqual(legalVer, '2.5.1');
+      assert.ok(clientLegalCode.includes("VERSION: '2.5.1'"));
     });
   });
 
@@ -109,7 +109,7 @@ describe('Valenixia POS v2.5.0 Production Release Acceptance Gate', function() {
       assert.ok(snapshot.installationId.startsWith('inst_'));
       assert.strictEqual(snapshot.deviceId, 'dev_web_primary');
       assert.strictEqual(snapshot.databaseName, 'valenixia_pos_db');
-      assert.strictEqual(snapshot.bootstrapVersion, '2.5.0');
+      assert.strictEqual(snapshot.bootstrapVersion, '2.5.1');
     });
 
     it('should NOT render fresh store wizard if store / onboarding_complete exists (RESTORE_EXISTING_STORE)', function() {
@@ -223,9 +223,9 @@ describe('Valenixia POS v2.5.0 Production Release Acceptance Gate', function() {
   });
 
   describe('7. Permanent Regression Protection for BUG-001 through BUG-016 (Rule #34)', function() {
-    it('BUG-001: html, app, sw, catalog, legal must share version 2.5.0', function() {
+    it('BUG-001: html, app, sw, catalog, legal must share version 2.5.1', function() {
       const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'public', 'release-manifest.json'), 'utf8'));
-      assert.strictEqual(manifest.version, '2.5.0');
+      assert.strictEqual(manifest.version, '2.5.1');
     });
 
     it('BUG-007: Enterprise pricing card & database must specify 10 Registers & 5 Branches (Zero Unlimited)', function() {

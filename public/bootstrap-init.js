@@ -1510,29 +1510,48 @@ window.__VALENIXIA_IDENTITY__ = {
       databaseName: 'valenixia_pos_db',
       databaseSchemaVersion: '17',
       bootstrapCompleted: localStorage.getItem('onboarding_complete') === 'true',
-      bootstrapVersion: '2.5.0',
+      bootstrapVersion: '2.5.1',
       lastAuthenticatedAt: localStorage.getItem('valenixia_last_auth_at') || new Date().toISOString()
     };
   }
 };
 
-// 13-Stage Idempotent Bootstrap Discovery Pipeline (Rule #5 & #6)
+// 13-Stage Idempotent Bootstrap Discovery Pipeline with Formal Identity Confidence Matrix
 window.runBootstrapDiscoveryPipeline = function runBootstrapDiscoveryPipeline() {
-  console.log('[BootstrapDiscovery v2.5.0] Initiating 13-stage discovery state machine...');
-  const isOnboarded = localStorage.getItem('onboarding_complete') === 'true' || localStorage.getItem('database_hydrated') === 'true';
+  console.log('[BootstrapDiscovery v2.5.1] Initiating 13-stage discovery state machine...');
+  const snap = window.__VALENIXIA_IDENTITY__.getSnapshot();
+  
+  const hasOnboardingFlag = localStorage.getItem('onboarding_complete') === 'true';
+  const hasHydratedFlag = localStorage.getItem('database_hydrated') === 'true';
+  const hasStoreName = !!localStorage.getItem('store_name');
+  const hasStoreId = !!localStorage.getItem('valenixia_store_id');
+  const hasPin = !!(localStorage.getItem('admin_pin') || localStorage.getItem('employee_pin_hash'));
+  const hasLocalDb = typeof window.ValenixiaDB !== 'undefined';
+
   const wizardOverlay = document.getElementById('first-boot-wizard');
   const lockScreen = document.getElementById('auth-lock-screen');
   const posLayout = document.getElementById('pos-app-layout');
 
-  if (isOnboarded) {
-    console.log('[BootstrapDiscovery v2.5.0] Decision: RESTORE_EXISTING_STORE (Bypassing fresh store wizard)');
+  // Confidence Matrix Evaluation
+  const hasAnyData = hasOnboardingFlag || hasHydratedFlag || hasStoreName || hasStoreId || hasPin;
+  const isAllEmpty = !hasOnboardingFlag && !hasHydratedFlag && !hasStoreName && !hasStoreId && !hasPin;
+
+  if (hasAnyData) {
+    console.log('[BootstrapDiscovery v2.5.1] Decision: RESTORE_EXISTING_STORE (Data detected in identity graph)');
     if (wizardOverlay) { wizardOverlay.style.display = 'none'; wizardOverlay.classList.remove('active'); }
     if (lockScreen) { lockScreen.style.display = 'flex'; lockScreen.classList.add('active'); }
     if (posLayout) { posLayout.style.display = 'none'; }
-  } else {
-    console.log('[BootstrapDiscovery v2.5.0] Decision: FIRST_RUN_BOOTSTRAP (Confirmed empty store status)');
+    window.setLifecycleState?.('READY');
+  } else if (isAllEmpty) {
+    console.log('[BootstrapDiscovery v2.5.1] Decision: FIRST_RUN_BOOTSTRAP (Confirmed empty store status)');
     if (wizardOverlay) { wizardOverlay.style.display = 'flex'; wizardOverlay.classList.add('active'); }
     if (lockScreen) { lockScreen.style.display = 'none'; lockScreen.classList.remove('active'); }
+    window.setLifecycleState?.('READY');
+  } else {
+    console.warn('[BootstrapDiscovery v2.5.1] Decision: RECOVERY_REQUIRED (Ambiguous or unreadable identity state)');
+    if (wizardOverlay) { wizardOverlay.style.display = 'none'; wizardOverlay.classList.remove('active'); }
+    if (lockScreen) { lockScreen.style.display = 'flex'; lockScreen.classList.add('active'); }
+    window.setLifecycleState?.('READY');
   }
 };
 

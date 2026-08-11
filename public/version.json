@@ -1,15 +1,17 @@
 {
-  "version": "2.5.0",
-  "build_id": "v2.5.0-prod-20260811.2015",
+  "version": "2.5.1",
+  "build_id": "v2.5.1-prod-b6c04e59dbcc91ea2c2107b87d84016282a3dd7d",
+  "git_commit": "b6c04e59dbcc91ea2c2107b87d84016282a3dd7d",
   "updated_at": "2026-08-11",
-  "changelog": "Valenixia POS v2.5.0 Release Integrity, Entitlement & Idempotent Bootstrap Hardening.",
+  "changelog": "Valenixia POS v2.5.1 Canonical Release Reconciliation, Identity Recovery & Production Integrity Lockdown.",
   "changes": [
-    "Created single authoritative release manifest at /release-manifest.json",
-    "Implemented atomic Service Worker update handshake and Network-First PWA caching strategy",
-    "Built 13-stage idempotent bootstrap state machine with CONFIRMED_EMPTY database discovery gate",
-    "Separated identity hierarchy across account, organization, store, terminal, installation, and hardware device",
-    "Enforced server-authoritative entitlements, 10/5 hardware limits, and signed anti-replay snapshots",
-    "Restored Get Apps button WEB-only surface identity and responsive subscription main scroll container",
-    "Authored substantive legal text for 6 legal documents with 24-subject compliance matrix"
+    "Reconciled canonical release fingerprint across release-manifest.json, version.json, build-id, artifact-manifest.json, and /api/health",
+    "Hardened explicit Express static routes for metadata endpoints with 0 text/html fallback",
+    "Implemented 13-stage confidence matrix for idempotent bootstrap discovery without false store creation",
+    "Enforced cart namespace isolation and copy-first order migration safeguards",
+    "Built atomic row-level capacity locking and immutable subscription upgrade state machine",
+    "Implemented asymmetric Ed25519 offline entitlement signing with key rotation support",
+    "Separated Network Reachability (ONLINE) from Sync Engine Status (SYNCED) in topbar",
+    "Enforced single vertical scroll owner on subscription vault stage with zero viewport clipping"
   ]
 }

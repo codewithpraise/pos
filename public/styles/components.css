@@ -839,12 +839,19 @@ button:not(:disabled):active,
   box-shadow: 0 4px 12px rgba(0, 214, 143, 0.1);
 }
 
+#view-subscription, .sub-vault-layout {
+  overflow: hidden !important;
+  height: 100% !important;
+  max-height: 100% !important;
+}
+
 .subscription-main, .sub-vault-stage {
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+  height: 100%;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
   padding: 24px;
   box-sizing: border-box;
   display: flex;

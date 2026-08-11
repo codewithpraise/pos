@@ -23,7 +23,37 @@ window.__ERROR_LOG = window.__ERROR_LOG || [];
   window.dumpErrors = () => JSON.stringify(window.__ERROR_LOG, null, 2);
 })();
 
-console.log('%c[VALENIXIA-DIAG-CLIENT] App Controller v1.0.5 Loaded at ' + new Date().toISOString() + ' | URL: ' + location.href, 'color:#00d68f;font-weight:bold;font-size:14px;');
+console.log('%c[VALENIXIA-DIAG-CLIENT] App Controller v2.5.1 Loaded at ' + new Date().toISOString() + ' | URL: ' + location.href, 'color:#00d68f;font-weight:bold;font-size:14px;');
+
+// Explicit Lifecycle State Machine & Early Call Queue
+window.__LIFECYCLE_STATE__ = 'BOOTING';
+window.__LIFECYCLE_QUEUE__ = [];
+
+window.__processLifecycleQueue = function() {
+  if (window.__LIFECYCLE_STATE__ !== 'READY') return;
+  console.log(`[LifecycleQueue] Processing ${window.__LIFECYCLE_QUEUE__.length} queued boot intents.`);
+  while (window.__LIFECYCLE_QUEUE__.length > 0) {
+    const fn = window.__LIFECYCLE_QUEUE__.shift();
+    try { if (typeof fn === 'function') fn(); } catch (err) { console.warn('[LifecycleQueue] Queue execution error:', err); }
+  }
+};
+
+window.setLifecycleState = function(newState) {
+  console.log(`[LifecycleState] Transitioning state: ${window.__LIFECYCLE_STATE__} -> ${newState}`);
+  window.__LIFECYCLE_STATE__ = newState;
+  if (newState === 'READY') {
+    window.__processLifecycleQueue();
+  }
+};
+
+window.enqueueBootAction = function(fn) {
+  if (window.__LIFECYCLE_STATE__ === 'READY') {
+    fn();
+  } else {
+    console.log('[LifecycleState] Enqueueing boot action during state:', window.__LIFECYCLE_STATE__);
+    window.__LIFECYCLE_QUEUE__.push(fn);
+  }
+};
 
 // Global window.showToast alias to resolve checkout/timeout errors
 window.showToast = function(message, type = 'info', duration = 3000) {
@@ -9653,8 +9683,24 @@ setHtml(tr, `
     document.getElementById('txt-tax').textContent = `Rs. ${(tax / 100.0).toFixed(2)}`;
     document.getElementById('txt-total').textContent = `Rs. ${(total / 100.0).toFixed(2)}`;
 
+    function getCartStorageKey() {
+      try {
+        const snap = window.__VALENIXIA_IDENTITY__ ? window.__VALENIXIA_IDENTITY__.getSnapshot() : {};
+        const acc = snap.accountId || localStorage.getItem('valenixia_account_id') || 'acc_default';
+        const org = snap.organizationId || localStorage.getItem('valenixia_org_id') || 'org_default';
+        const store = snap.storeId || localStorage.getItem('valenixia_store_id') || 'store_default';
+        const term = snap.terminalId || localStorage.getItem('valenixia_terminal_id') || 'term_default';
+        return `valenixia:${acc}:${org}:${store}:${term}:cart`;
+      } catch (_) {
+        return 'valenixia_active_cart';
+      }
+    }
+    window.getCartStorageKey = getCartStorageKey;
+
     // Persist active cart and attached customer to localStorage so re-logins and app refreshes retain active state
     try {
+      const cartKey = getCartStorageKey();
+      localStorage.setItem(cartKey, JSON.stringify(state.activeCart || []));
       localStorage.setItem('valenixia_active_cart', JSON.stringify(state.activeCart || []));
       if (state.attachedCustomer) {
         localStorage.setItem('valenixia_attached_customer', JSON.stringify(state.attachedCustomer));
@@ -9666,7 +9712,26 @@ setHtml(tr, `
 
   function restoreActiveCartSession() {
     try {
-      const saved = localStorage.getItem('valenixia_active_cart');
+      const cartKey = getCartStorageKey();
+      let saved = localStorage.getItem(cartKey);
+      
+      // Copy-First Migration scanner if namespaced key is empty
+      if (!saved) {
+        const legacyValenixia = localStorage.getItem('valenixia_active_cart');
+        const legacyGeneric = localStorage.getItem('cart');
+        const candidate = legacyValenixia || legacyGeneric;
+        if (candidate) {
+          try {
+            const parsedCandidate = JSON.parse(candidate);
+            if (Array.isArray(parsedCandidate) && parsedCandidate.length > 0) {
+              console.log('[CartMigration v2.5.1] LEGACY_STORAGE_DETECTED — Copying legacy cart to namespaced key:', cartKey);
+              localStorage.setItem(cartKey, candidate);
+              saved = candidate;
+            }
+          } catch (_) {}
+        }
+      }
+
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {

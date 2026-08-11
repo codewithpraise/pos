@@ -304,7 +304,7 @@ async function initDatabase(terminalId) {
     console.warn('[Database] SQLite optimization pass was bypassed:', err.message);
   }
   
-  // 1. Ensure local_preferences and idempotency_keys tables exist first so we can track schema version
+  // 1. Ensure local_preferences, idempotency_keys, and entitlement_audit_log tables exist
   await db.exec(`
     CREATE TABLE IF NOT EXISTS local_preferences (
       key TEXT PRIMARY KEY,
@@ -319,6 +319,19 @@ async function initDatabase(terminalId) {
       response_code INTEGER,
       response_body TEXT,
       created_at INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS entitlement_audit_log (
+      event_id TEXT PRIMARY KEY,
+      actor_user_id TEXT,
+      organization_id TEXT,
+      store_id TEXT,
+      terminal_id TEXT,
+      event_type TEXT NOT NULL,
+      previous_state TEXT,
+      new_state TEXT,
+      timestamp INTEGER NOT NULL,
+      request_id TEXT,
+      claim_id TEXT
     );
   `);
 
