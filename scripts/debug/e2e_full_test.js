@@ -406,7 +406,7 @@ async function run() {
       // Views show via .active class → display:block
       const hasActiveClass = await ev(`!!document.getElementById('view-${scr}')?.classList.contains('active')`);
       const display = await ev(`window.getComputedStyle(document.getElementById('view-${scr}')||document.createElement('div')).display`);
-      if (hasActiveClass || display === 'block') pass(`Screen "${scr}" renders correctly (display:block)`);
+      if (hasActiveClass || display === 'flex' || display === 'block') pass(`Screen "${scr}" renders correctly (display:${display})`);
       else fail(`Screen "${scr}" render`, `active:${hasActiveClass}, display:${display}`);
     }
     // Go back to checkout
