@@ -520,9 +520,22 @@ app.get('/release-manifest.json', (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   const manifestPath = path.join(__dirname, 'public', 'release-manifest.json');
   if (fs.existsSync(manifestPath)) {
-    return res.sendFile(manifestPath);
+    try {
+      const content = fs.readFileSync(manifestPath, 'utf8');
+      return res.send(content);
+    } catch (_) {}
   }
-  res.json({ version: '2.5.0', build_id: 'v2.5.0-prod-20260811.2015' });
+  res.json({
+    product: "VALENIXIA POS",
+    version: "2.5.0",
+    build_id: "v2.5.0-prod-20260811.2015",
+    git_commit: "c0f8bf1",
+    created_at: "2026-08-11T20:15:00.000Z",
+    environment: "production",
+    schema_version: "17",
+    commercial_catalog_version: "2.5.0",
+    legal_documents_version: "2.5.0"
+  });
 });
 
 // Explicit Top-Level PWA Static File Routes (BEFORE Helmet & CSRF)
