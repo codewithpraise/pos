@@ -1,9 +1,9 @@
 {
-  "version": "2.6.0",
-  "build_id": "v2.6.0-prod-hardened",
-  "git_commit": "de42bc729e8dd12fd51ef3ad43e1979ff35a7c23",
-  "updated_at": "2026-08-11",
-  "changelog": "Valenixia POS v2.6.0 Production Hardened Master Commercial Engine Release.",
+  "version": "2.6.1",
+  "build_id": "v2.6.1-prod-analytics-suppliers-khata",
+  "git_commit": "7022030",
+  "updated_at": "2026-08-12",
+  "changelog": "Valenixia POS v2.6.1 - Restored Suppliers & Khata Views, Overhauled Analytics UI & Multi-Branch Telemetry.",
   "changes": [
     "Single integer pricing catalog (PKR) with Math.round(monthly * 12 * 85 / 100) annual discount calculations",
     "Immutable server subscription quote engine (/api/subscription/quote) with 24-hour quote expiration",
