@@ -78,9 +78,11 @@
         if (panelId === targetSubtab || (targetSubtab === 'payment' && panelId === 'nayapay')) {
           panel.classList.add('active');
           panel.removeAttribute('hidden');
+          panel.setAttribute('aria-hidden', 'false');
         } else {
           panel.classList.remove('active');
           panel.setAttribute('hidden', 'true');
+          panel.setAttribute('aria-hidden', 'true');
         }
       });
 
@@ -294,7 +296,7 @@
       }
     },
 
-    refresh() {
+    async refresh() {
       const curTier = (typeof window.getActiveTier === 'function' ? window.getActiveTier() : (window.__valenixiaTier || 'GROWTH')).toUpperCase();
       const isTrialActive = localStorage.getItem('valenixia_trial_active') === 'true';
 
@@ -306,6 +308,38 @@
       const hwidCodeEl = document.getElementById('billing-form-device-hwid');
       const hwidVal = window.__valenixiaHWID || localStorage.getItem('valenixia_hwid') || 'DEV-HWID-LOCAL-NODE';
       if (hwidCodeEl) hwidCodeEl.textContent = hwidVal;
+
+      // Update Addon Marketplace Cards with Real Entitlement Status
+      try {
+        const serverBase = window.__valenixiaServerUrl || location.origin;
+        const res = await fetch(serverBase + '/api/entitlements/status');
+        if (res.ok) {
+          const data = await res.json();
+          const activeAddons = (data.entitlements && data.entitlements.activeAddons) || [];
+
+          document.querySelectorAll('#addons-marketplace-grid .pricing-card').forEach(card => {
+            const addonId = card.getAttribute('data-addon-id');
+            const actionBtn = card.querySelector('.btn-addon-action');
+            if (!addonId || !actionBtn) return;
+
+            const isGranted = activeAddons.some(a => a === addonId || a === `addon_${addonId.toLowerCase()}`);
+
+            if (isGranted) {
+              actionBtn.textContent = '🟢 ACTIVE ENTITLEMENT';
+              actionBtn.classList.remove('dm-btn-emerald');
+              actionBtn.classList.add('dm-btn-secondary');
+              actionBtn.disabled = true;
+              actionBtn.style.opacity = '0.8';
+            } else {
+              actionBtn.textContent = `Request ${addonId.replace('_', ' ')} Add-on`;
+              actionBtn.classList.add('dm-btn-emerald');
+              actionBtn.classList.remove('dm-btn-secondary');
+              actionBtn.disabled = false;
+              actionBtn.style.opacity = '1';
+            }
+          });
+        }
+      } catch (_) {}
     },
 
     destroy() {

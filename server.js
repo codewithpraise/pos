@@ -5844,7 +5844,82 @@ if (process.env.VERCEL) {
       next();
     };
 
+    // ── PUBLIC / CLIENT ENTITLEMENT STATUS API ENDPOINTS ──────────────────────
+    app.get('/api/entitlements/status', async (req, res) => {
+      try {
+        const organizationId = req.query.org_id || req.headers['x-organization-id'] || 'ORG_LOCAL_DEFAULT';
+        const effective = await EntitlementService.getOrganizationEntitlements(organizationId);
+        res.json({ success: true, organizationId, entitlements: effective });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    app.get('/api/entitlements/check', async (req, res) => {
+      try {
+        const organizationId = req.query.org_id || req.headers['x-organization-id'] || 'ORG_LOCAL_DEFAULT';
+        const featureKey = req.query.feature;
+        if (!featureKey) return res.status(400).json({ error: 'feature query parameter is required' });
+
+        const result = await EntitlementService.canUseFeature(organizationId, featureKey);
+        res.json({ success: true, ...result });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
     app.use('/api/admin', requirePlatformAdmin);
+
+    // Admin Entitlement Control Plane Routes
+    app.post('/api/admin/entitlements/grant', async (req, res) => {
+      try {
+        const { organization_id, addon_id, duration_days } = req.body || {};
+        if (!organization_id || !addon_id) {
+          return res.status(400).json({ error: 'organization_id and addon_id are required' });
+        }
+        const result = await EntitlementService.grantAddon(organization_id, addon_id, duration_days || 30, 'PLATFORM_ADMIN');
+        res.json({ success: true, ...result });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    app.post('/api/admin/entitlements/revoke', async (req, res) => {
+      try {
+        const { organization_id, addon_id, reason } = req.body || {};
+        if (!organization_id || !addon_id) {
+          return res.status(400).json({ error: 'organization_id and addon_id are required' });
+        }
+        const result = await EntitlementService.revokeAddon(organization_id, addon_id, 'PLATFORM_ADMIN', reason || '');
+        res.json({ success: true, ...result });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    app.post('/api/admin/entitlements/extend', async (req, res) => {
+      try {
+        const { organization_id, addon_id, extra_days } = req.body || {};
+        if (!organization_id || !addon_id) {
+          return res.status(400).json({ error: 'organization_id and addon_id are required' });
+        }
+        const result = await EntitlementService.extendAddon(organization_id, addon_id, extra_days || 30, 'PLATFORM_ADMIN');
+        res.json({ success: true, ...result });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    app.get('/api/admin/entitlements/audit-classifier', async (req, res) => {
+      try {
+        const { AddonService } = require('./lib/addon-service');
+        const organizationId = req.query.org_id || 'ORG_LOCAL_DEFAULT';
+        const summary = await AddonService.classifyEntitlements(organizationId);
+        res.json({ success: true, ...summary });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
 
     // 0. Get Authenticated Admin Profile
     app.get('/api/admin/me', async (req, res) => {
