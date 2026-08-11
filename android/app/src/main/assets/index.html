@@ -45,21 +45,12 @@
       <div id="app-boot-loader-progress" style="width:30%;height:100%;background:linear-gradient(90deg,#00d68f,#10b981);border-radius:99px;transition:width 0.3s ease;"></div>
     </div>
 
-
-    <script>
-      (function() {
-        var dismissBootLoader = function() {
-          var loader = document.getElementById('app-boot-loader');
-          if (loader && loader.style.display !== 'none') {
-            loader.style.opacity = '0';
-            loader.style.pointerEvents = 'none';
-            setTimeout(function() { loader.style.display = 'none'; }, 300);
-          }
-        };
-        window.dismissBootLoader = dismissBootLoader;
-        setTimeout(dismissBootLoader, 2000);
-      })();
-    </script>
+    <!-- Diagnostic App Bypass Action -->
+    <div style="display: flex; gap: 8px; margin-top: 12px; z-index: 100000; pointer-events: auto !important;">
+      <button type="button" id="btn-force-open-app" onclick="if(window.updateBootProgress)window.updateBootProgress(100,'Ready');" style="background: rgba(255,255,255,0.04); color: var(--text-gray); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 6px 12px; font-size: 10px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+        ⚡ Skip Loading
+      </button>
+    </div>
   </div>
 
   <!-- AUTH LOCK SCREEN (Centered login PIN pad overlay) -->
@@ -1784,224 +1775,252 @@
 
         <!-- View: Subscription & Billing Vault (Native View) -->
         <section class="content-view" id="view-subscription">
-          <div style="max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px;">
+          <div class="screen-shell subscription-layout sub-vault-layout">
+            <!-- Subscription Sub-Navigation Sidebar -->
+            <aside class="subscription-sidebar sub-vault-sidebar">
+              <div class="sub-vault-header">
+                <h3 class="sub-vault-title">Subscription Vault</h3>
+                <span class="sub-vault-subtitle">Tier Plans &amp; Billing</span>
+              </div>
+              <div class="sub-vault-nav" id="sub-vault-nav">
+                <button type="button" class="sub-nav-item active" data-subtab="overview">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  <span>Active Status</span>
+                </button>
+                <button type="button" class="sub-nav-item" data-subtab="plans">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                  <span>Upgrade Plans</span>
+                </button>
+                <button type="button" class="sub-nav-item" data-subtab="nayapay">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                  <span>Pay via NayaPay</span>
+                </button>
+                <button type="button" class="sub-nav-item" data-subtab="history">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  <span>Upgrade Claims</span>
+                </button>
+              </div>
+            </aside>
 
-            <!-- Active License & Tier Telemetry Header -->
-            <div class="cloud-vault-card">
-              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
-                <div style="display:flex; align-items:center; gap:16px;">
-                  <div class="dm-icon dm-icon-emerald" style="width:48px; height:48px; border-radius:14px; background:linear-gradient(135deg, rgba(0,214,143,0.2) 0%, rgba(6,182,212,0.1) 100%); border:1px solid rgba(0,214,143,0.3);">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <!-- Subscription Main Scroll Owner Stage -->
+            <main class="screen-main subscription-main sub-vault-stage">
+              <!-- Sub-Tab Panel 1: OVERVIEW -->
+              <div class="sub-tab-panel active" id="sub-panel-overview">
+                <div class="cloud-vault-card">
+                  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+                    <div style="display:flex; align-items:center; gap:16px;">
+                      <div class="dm-icon dm-icon-emerald" style="width:48px; height:48px; border-radius:14px; background:linear-gradient(135deg, rgba(0,214,143,0.2) 0%, rgba(6,182,212,0.1) 100%); border:1px solid rgba(0,214,143,0.3);">
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                      </div>
+                      <div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                          <h2 style="margin:0; font-size:20px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">Active Subscription Tier</h2>
+                          <span id="badge-active-tier-pill" style="padding:4px 12px; border-radius:20px; background:rgba(0,214,143,0.15); color:var(--accent-emerald); font-size:11px; font-weight:800; border:1px solid rgba(0,214,143,0.3); text-transform:uppercase;">STARTER</span>
+                        </div>
+                        <p style="margin:4px 0 0; font-size:12px; color:var(--text-gray);">Cryptographic Ed25519 asymmetric key validated • Hardware ID bound</p>
+                      </div>
+                    </div>
+
+                    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                      <div style="padding:10px 16px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:10px; text-align:right;">
+                        <div style="font-size:10px; color:var(--text-gray); text-transform:uppercase; font-weight:700;">License Expiry</div>
+                        <div id="txt-license-expiry" style="font-size:13px; font-weight:800; color:var(--text-white); font-family:var(--font-mono); margin-top:2px;">Active Starter</div>
+                      </div>
+                    </div>
                   </div>
+                </div>
+
+                <!-- 7-Day Free Pro Trial Banner Card -->
+                <div id="free-trial-banner-card" style="padding: 20px 24px; border-radius: 14px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.14) 0%, rgba(6, 182, 212, 0.08) 100%); border: 1px solid rgba(16, 185, 129, 0.35); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+                  <div style="display: flex; align-items: center; gap: 16px;">
+                    <div style="font-size: 32px;">🚀</div>
+                    <div>
+                      <h4 style="margin: 0; font-size: 16px; font-weight: 800; color: #ffffff; font-family: var(--font-display); text-transform: uppercase;">Try Growth Features Free for 7 Days</h4>
+                      <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Instantly unlock advanced analytics, supplier management, multi-staff controls, and FBR fiscal features with no payment required.</p>
+                    </div>
+                  </div>
+                  <button type="button" id="btn-start-free-trial-subscription" style="padding: 12px 24px; font-size: 12px; font-weight: 800; border-radius: 10px; border: none; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #080810; text-transform: uppercase; cursor: pointer; letter-spacing: 0.5px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35); white-space: nowrap;">Start 7-Day Free Trial</button>
+                </div>
+              </div>
+
+              <!-- Sub-Tab Panel 2: PLANS -->
+              <div class="sub-tab-panel" id="sub-panel-plans">
+                <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px; margin-bottom:20px;">
                   <div>
-                    <div style="display:flex; align-items:center; gap:10px;">
-                      <h2 style="margin:0; font-size:20px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">Active Subscription Tier</h2>
-                      <span id="badge-active-tier-pill" style="padding:4px 12px; border-radius:20px; background:rgba(0,214,143,0.15); color:var(--accent-emerald); font-size:11px; font-weight:800; border:1px solid rgba(0,214,143,0.3); text-transform:uppercase;">STARTER</span>
-                    </div>
-                    <p style="margin:4px 0 0; font-size:12px; color:var(--text-gray);">Cryptographic Ed25519 asymmetric key validated • Hardware ID bound</p>
+                    <h3 style="margin:0; font-size:18px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">Upgrade Commerce License</h3>
+                    <p style="margin:4px 0 0; font-size:13px; color:var(--text-gray);">Unlock enterprise register capacity, multi-branch analytics, and FBR POS compliance.</p>
+                  </div>
+
+                  <div style="display:flex; gap:6px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:5px; border-radius:12px;" id="billing-cycle-toggle-group">
+                    <button type="button" class="billing-cycle-btn active" id="btn-billing-cycle-monthly" data-cycle="subscription" style="padding:8px 16px; font-size:11px; font-weight:800; border:none; border-radius:8px; cursor:pointer; background:var(--accent-emerald); color:#080810; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.2s;">Monthly Subscription</button>
+                    <button type="button" class="billing-cycle-btn" id="btn-billing-cycle-lifetime" data-cycle="lifetime" style="padding:8px 16px; font-size:11px; font-weight:800; border:none; border-radius:8px; cursor:pointer; background:transparent; color:var(--text-gray); text-transform:uppercase; letter-spacing:0.5px; transition:all 0.2s;">Perpetual + AMC</button>
                   </div>
                 </div>
 
-                <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-                  <div style="padding:10px 16px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:10px; text-align:right;">
-                    <div style="font-size:10px; color:var(--text-gray); text-transform:uppercase; font-weight:700;">License Expiry</div>
-                    <div id="txt-license-expiry" style="font-size:13px; font-weight:800; color:var(--text-white); font-family:var(--font-mono); margin-top:2px;">Active Starter</div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+                  <!-- STARTER TIER -->
+                  <div class="pricing-card" data-tier="STARTER" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <h4 style="margin:0; font-size:16px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">STARTER TIER</h4>
+                      </div>
+                      <div style="font-size:24px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:16px;" id="price-val-STARTER">
+                        PKR 3,499 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>
+                      </div>
+                      <ul style="font-size:12px; color:var(--text-muted); padding-left:18px; margin:0 0 20px; line-height:1.8;">
+                        <li><strong style="color:var(--text-white);">1 Register Terminal License</strong></li>
+                        <li>Fast Point of Sale Checkout &amp; ESC/POS Printing</li>
+                        <li>Product Catalog &amp; Real-Time Inventory</li>
+                        <li>Customer Directory &amp; Credit Khata Ledger</li>
+                        <li>Suppliers &amp; Purchase Ledger</li>
+                        <li>Sales Analytics &amp; Profit Reports</li>
+                      </ul>
+                    </div>
+                    <button class="action-btn dm-btn-secondary btn-select-tier" data-tier="STARTER" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase;">Select Starter Plan</button>
                   </div>
-                </div>
-              </div>
-            </div>
 
-            <!-- 7-Day Free Pro Trial Banner Card -->
-            <div id="free-trial-banner-card" style="padding: 20px 24px; border-radius: 14px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.14) 0%, rgba(6, 182, 212, 0.08) 100%); border: 1px solid rgba(16, 185, 129, 0.35); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
-              <div style="display: flex; align-items: center; gap: 16px;">
-                <div style="font-size: 32px;">🚀</div>
-                <div>
-                  <h4 style="margin: 0; font-size: 16px; font-weight: 800; color: #ffffff; font-family: var(--font-display); text-transform: uppercase;">Try Growth Features Free for 7 Days</h4>
-                  <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Instantly unlock advanced analytics, supplier management, multi-staff controls, and FBR fiscal features with no payment required.</p>
-                </div>
-              </div>
-              <button type="button" id="btn-start-free-trial-subscription" style="padding: 12px 24px; font-size: 12px; font-weight: 800; border-radius: 10px; border: none; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #080810; text-transform: uppercase; cursor: pointer; letter-spacing: 0.5px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35); white-space: nowrap;">Start 7-Day Free Trial</button>
-            </div>
-
-            <!-- Pricing Tiers & Billing Selector Section -->
-            <div>
-              <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px; margin-bottom:20px;">
-                <div>
-                  <h3 style="margin:0; font-size:18px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">Upgrade Commerce License</h3>
-                  <p style="margin:4px 0 0; font-size:13px; color:var(--text-gray);">Unlock enterprise register capacity, multi-branch analytics, and FBR POS compliance.</p>
-                </div>
-
-                <!-- Cycle Switcher Toggle -->
-                <div style="display:flex; gap:6px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:5px; border-radius:12px;" id="billing-cycle-toggle-group">
-                  <button type="button" class="billing-cycle-btn active" id="btn-billing-cycle-monthly" data-cycle="subscription" style="padding:8px 16px; font-size:11px; font-weight:800; border:none; border-radius:8px; cursor:pointer; background:var(--accent-emerald); color:#080810; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.2s;">Monthly Subscription</button>
-                  <button type="button" class="billing-cycle-btn" id="btn-billing-cycle-lifetime" data-cycle="lifetime" style="padding:8px 16px; font-size:11px; font-weight:800; border:none; border-radius:8px; cursor:pointer; background:transparent; color:var(--text-gray); text-transform:uppercase; letter-spacing:0.5px; transition:all 0.2s;">Perpetual + AMC</button>
-                </div>
-              </div>
-
-              <!-- Tier Cards Grid -->
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
-
-                <!-- STARTER TIER -->
-                <div class="pricing-card" data-tier="STARTER" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
-                  <div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                      <h4 style="margin:0; font-size:16px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">STARTER TIER</h4>
+                  <!-- GROWTH / PRO TIER (Featured) -->
+                  <div class="pricing-card featured" data-tier="PRO" style="background: linear-gradient(145deg, rgba(0, 214, 143, 0.06) 0%, rgba(14, 14, 26, 0.8) 100%); border: 1px solid rgba(0, 214, 143, 0.4); border-radius: 18px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between; position: relative;">
+                    <span style="position: absolute; top: 16px; right: 16px; background: var(--accent-emerald); color: #080810; font-size: 10px; font-weight: 800; padding: 3px 10px; border-radius: 20px; text-transform: uppercase;">Most Popular</span>
+                    <div>
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <h4 style="margin:0; font-size:16px; font-weight:800; color:var(--accent-emerald); font-family:var(--font-display);">GROWTH (PRO)</h4>
+                      </div>
+                      <div style="font-size:24px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:16px;" id="price-val-PRO">
+                        PKR 6,999 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>
+                      </div>
+                      <ul style="font-size:12px; color:var(--text-muted); padding-left:18px; margin:0 0 20px; line-height:1.8;">
+                        <li><strong style="color:var(--text-white);">Up to 3 Register Terminals</strong></li>
+                        <li><strong style="color:var(--accent-emerald);">Everything in Starter, plus:</strong></li>
+                        <li>Multi-Device Real-Time Cloud Sync &amp; Backup</li>
+                        <li>Kitchen &amp; Bar Ticket Routing (KOT)</li>
+                        <li>Staff Security PINs &amp; Audit Logs</li>
+                        <li>Automated WhatsApp Digital Receipts</li>
+                        <li>Advanced Margin &amp; Stock Forecasting</li>
+                      </ul>
                     </div>
-                    <div style="font-size:24px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:16px;" id="price-val-STARTER">
-                      PKR 3,499 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>
-                    </div>
-                    <ul style="font-size:12px; color:var(--text-muted); padding-left:18px; margin:0 0 20px; line-height:1.8;">
-                      <li><strong style="color:var(--text-white);">1 Register Terminal License</strong></li>
-                      <li>Fast Point of Sale Checkout &amp; ESC/POS Printing</li>
-                      <li>Product Catalog &amp; Real-Time Inventory</li>
-                      <li>Customer Directory &amp; Credit Khata Ledger</li>
-                      <li>Suppliers &amp; Purchase Ledger</li>
-                      <li>Sales Analytics &amp; Profit Reports</li>
-                    </ul>
+                    <button class="action-btn dm-btn-emerald btn-select-tier" data-tier="PRO" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase; box-shadow:0 4px 14px rgba(0,214,143,0.3);">Select Growth Plan</button>
                   </div>
-                  <button class="action-btn dm-btn-secondary btn-select-tier" data-tier="STARTER" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase;">Select Starter Plan</button>
-                </div>
 
-                <!-- GROWTH / PRO TIER (Featured) -->
-                <div class="pricing-card featured" data-tier="PRO" style="background: linear-gradient(145deg, rgba(0, 214, 143, 0.06) 0%, rgba(14, 14, 26, 0.8) 100%); border: 1px solid rgba(0, 214, 143, 0.4); border-radius: 18px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between; position: relative;">
-                  <span style="position: absolute; top: 16px; right: 16px; background: var(--accent-emerald); color: #080810; font-size: 10px; font-weight: 800; padding: 3px 10px; border-radius: 20px; text-transform: uppercase;">Most Popular</span>
-                  <div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                      <h4 style="margin:0; font-size:16px; font-weight:800; color:var(--accent-emerald); font-family:var(--font-display);">GROWTH (PRO)</h4>
+                  <!-- ENTERPRISE TIER -->
+                  <div class="pricing-card" data-tier="ENTERPRISE" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <h4 style="margin:0; font-size:16px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">ENTERPRISE</h4>
+                      </div>
+                      <div style="font-size:24px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:16px;" id="price-val-ENTERPRISE">
+                        PKR 11,999 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>
+                      </div>
+                      <ul style="font-size:12px; color:var(--text-muted); padding-left:18px; margin:0 0 20px; line-height:1.8;">
+                        <li><strong style="color:var(--text-white);">Unlimited Register Terminals &amp; Branches</strong></li>
+                        <li><strong style="color:var(--text-white);">Everything in Growth, plus:</strong></li>
+                        <li><strong style="color:var(--accent-emerald);">Official FBR Fiscal POS &amp; PRAL Tax Integration</strong></li>
+                        <li>Multi-Branch Central HQ Dashboard &amp; Transfers</li>
+                        <li>High-Security Audit Logs &amp; Custom Roles</li>
+                        <li>24/7 Priority Support &amp; Onsite Hardware Setup</li>
+                      </ul>
                     </div>
-                    <div style="font-size:24px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:16px;" id="price-val-PRO">
-                      PKR 6,999 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>
-                    </div>
-                    <ul style="font-size:12px; color:var(--text-muted); padding-left:18px; margin:0 0 20px; line-height:1.8;">
-                      <li><strong style="color:var(--text-white);">Up to 3 Register Terminals</strong></li>
-                      <li><strong style="color:var(--accent-emerald);">Everything in Starter, plus:</strong></li>
-                      <li>Multi-Device Real-Time Cloud Sync &amp; Backup</li>
-                      <li>Kitchen &amp; Bar Ticket Routing (KOT)</li>
-                      <li>Staff Security PINs &amp; Audit Logs</li>
-                      <li>Automated WhatsApp Digital Receipts</li>
-                      <li>Advanced Margin &amp; Stock Forecasting</li>
-                    </ul>
-                  </div>
-                  <button class="action-btn dm-btn-emerald btn-select-tier" data-tier="PRO" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase; box-shadow:0 4px 14px rgba(0,214,143,0.3);">Select Growth Plan</button>
-                </div>
-
-                <!-- ENTERPRISE TIER -->
-                <div class="pricing-card" data-tier="ENTERPRISE" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
-                  <div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                      <h4 style="margin:0; font-size:16px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">ENTERPRISE</h4>
-                    </div>
-                    <div style="font-size:24px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:16px;" id="price-val-ENTERPRISE">
-                      PKR 11,999 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>
-                    </div>
-                    <ul style="font-size:12px; color:var(--text-muted); padding-left:18px; margin:0 0 20px; line-height:1.8;">
-                      <li><strong style="color:var(--text-white);">Unlimited Register Terminals &amp; Branches</strong></li>
-                      <li><strong style="color:var(--text-white);">Everything in Growth, plus:</strong></li>
-                      <li><strong style="color:var(--accent-emerald);">Official FBR Fiscal POS &amp; PRAL Tax Integration</strong></li>
-                      <li>Multi-Branch Central HQ Dashboard &amp; Transfers</li>
-                      <li>High-Security Audit Logs &amp; Custom Roles</li>
-                      <li>24/7 Priority Support &amp; Onsite Hardware Setup</li>
-                    </ul>
-                  </div>
-                  <button class="action-btn dm-btn-secondary btn-select-tier" data-tier="ENTERPRISE" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase;">Select Enterprise</button>
-                </div>
-
-              </div>
-            </div>
-
-            <!-- Manual NayaPay Coordinates & Payment Proof Form Container -->
-            <div id="billing-upgrade-form-container" style="display:none;" class="cloud-vault-card">
-              <h3 style="margin:0 0 16px; font-size:16px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">Submit NayaPay Payment Proof</h3>
-
-              <div style="background:rgba(0,214,143,0.05); border:1px solid rgba(0,214,143,0.2); border-radius:10px; padding:10px 14px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
-                <span style="font-size:12px; color:var(--text-white); font-weight:700;">Target Terminal Device ID (HWID):</span>
-                <div style="display:flex; align-items:center; gap:8px;">
-                  <code id="billing-form-device-hwid" style="font-family:var(--font-mono); font-size:12px; font-weight:800; color:var(--accent-emerald);">Loading...</code>
-                  <button type="button" id="btn-copy-billing-hwid" style="padding:4px 10px; font-size:10px; font-weight:700; border-radius:6px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:var(--text-white); cursor:pointer;">Copy Device ID</button>
-                </div>
-              </div>
-
-              <div style="display:flex; gap:24px; flex-wrap:wrap; margin-bottom:24px;">
-                <div style="flex:1.5; min-width:260px;">
-                  <h4 style="margin:0 0 12px; font-size:13px; color:var(--accent-emerald); font-weight:700;">NayaPay Bank Coordinates</h4>
-                  <div style="display:flex; flex-direction:column; gap:10px; font-size:12px;">
-                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;"><span style="color:var(--text-gray);">Bank Name:</span><span style="color:var(--text-white); font-weight:700;">NayaPay</span></div>
-                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;"><span style="color:var(--text-gray);">Account Title:</span><span style="color:var(--text-white); font-weight:700;">MUHAMMAD SOBAN ALI</span></div>
-                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;"><span style="color:var(--text-gray);">Account Number:</span><span style="color:var(--text-white); font-weight:700; font-family:var(--font-mono);">03315133226</span></div>
-                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;"><span style="color:var(--text-gray);">IBAN:</span><span style="color:var(--text-white); font-weight:700; font-family:var(--font-mono);">PK47NAYA1234503315133226</span></div>
-                  </div>
-                  
-                  <!-- Fast-Track WhatsApp Payment Note -->
-                  <div style="margin-top:14px; background:rgba(0,214,143,0.08); border:1px dashed rgba(0,214,143,0.35); border-radius:12px; padding:12px 14px; display:flex; align-items:center; gap:12px;">
-                    <div style="font-size:22px; flex-shrink:0;">📲</div>
-                    <div style="font-size:11px; color:var(--text-white); line-height:1.5;">
-                      <strong style="color:var(--accent-emerald); font-size:12px; display:block; margin-bottom:2px;">Account Upgrade via WhatsApp Payment Screenshot</strong>
-                      For successful upgradation, send your payment proof screenshot along with your <strong>Device ID (HWID)</strong> on WhatsApp <a href="https://wa.me/923315133226" target="_blank" style="color:#25D366; font-weight:800; text-decoration:underline; font-family:var(--font-mono);">03315133226</a>. Your Device ID and transaction will be verified and your account upgraded promptly! Thank you!
-                    </div>
-                  </div>
-                </div>
-
-                <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:180px; border-left:1px solid rgba(255,255,255,0.08); padding-left:24px;">
-                  <span style="font-size:10px; font-weight:800; color:var(--accent-emerald); display:block; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;">Scan QR to Pay via NayaPay</span>
-                  <div style="padding:8px; background:#ffffff; border-radius:12px; width:140px; height:140px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 16px rgba(0,0,0,0.3);">
-                    <img src="soban_nayapay_qr_code.png" alt="NayaPay QR Code" style="max-width:100%; max-height:100%; border-radius:6px;">
+                    <button class="action-btn dm-btn-secondary btn-select-tier" data-tier="ENTERPRISE" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase;">Select Enterprise</button>
                   </div>
                 </div>
               </div>
 
-              <form id="billing-upgrade-proof-form" style="display:flex; flex-direction:column; gap:16px; border-top:1px solid rgba(255,255,255,0.08); padding-top:20px;">
-                <input type="hidden" id="form-billing-selected-tier">
-                <div style="display:flex; gap:16px; flex-wrap:wrap;">
-                  <div style="flex:1; min-width:180px;">
-                    <label for="form-billing-amount" style="font-size:11px; color:var(--text-gray); display:block; margin-bottom:6px; font-weight:700;">Amount (PKR):</label>
-                    <input type="number" id="form-billing-amount" class="pos-input" readonly style="padding:12px; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); border-radius:10px; color:var(--text-white); font-weight:700; font-family:var(--font-mono); width:100%; box-sizing:border-box;">
-                  </div>
-                  <div style="flex:1; min-width:180px;">
-                    <label for="form-billing-rrn" style="font-size:11px; color:var(--text-gray); display:block; margin-bottom:6px; font-weight:700;">Transaction Ref / RRN (Optional):</label>
-                    <input type="text" id="form-billing-rrn" class="pos-input" placeholder="e.g. TRX12345678 (Optional)" maxlength="30" style="padding:12px; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); border-radius:10px; color:var(--text-white); font-family:var(--font-mono); width:100%; box-sizing:border-box;">
-                  </div>
-                </div>
+              <!-- Sub-Tab Panel 3: NAYAPAY -->
+              <div class="sub-tab-panel" id="sub-panel-nayapay">
+                <div class="cloud-vault-card" id="billing-upgrade-form-container">
+                  <h3 style="margin:0 0 16px; font-size:16px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">Submit NayaPay Payment Proof</h3>
 
-                <div>
-                  <label style="font-size:11px; color:var(--text-gray); display:block; margin-bottom:6px; font-weight:700;">Screenshot Proof of Payment (Required if no Ref entered):</label>
-                  <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-                    <label for="form-billing-file" style="padding:10px 18px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); color:var(--text-white); border-radius:10px; font-size:12px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:8px;">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Choose Image
-                    </label>
-                    <input type="file" id="form-billing-file" accept="image/jpeg,image/png,image/webp" style="display:none;">
-                    <span id="form-billing-file-name" style="font-size:11px; color:var(--text-dim);">No file chosen (5MB max)</span>
+                  <div style="background:rgba(0,214,143,0.05); border:1px solid rgba(0,214,143,0.2); border-radius:10px; padding:10px 14px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                    <span style="font-size:12px; color:var(--text-white); font-weight:700;">Target Terminal Device ID (HWID):</span>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <code id="billing-form-device-hwid" style="font-family:var(--font-mono); font-size:12px; font-weight:800; color:var(--accent-emerald);">Loading...</code>
+                      <button type="button" id="btn-copy-billing-hwid" style="padding:4px 10px; font-size:10px; font-weight:700; border-radius:6px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:var(--text-white); cursor:pointer;">Copy Device ID</button>
+                    </div>
                   </div>
-                </div>
 
-                <div style="display:flex; gap:12px; margin-top:8px;">
-                  <button type="button" class="action-btn" id="btn-billing-upgrade-cancel" style="flex:1; padding:12px; background:transparent; border:1px solid rgba(255,255,255,0.1); color:var(--text-muted); border-radius:10px; font-weight:700;">Cancel</button>
-                  <button type="submit" class="action-btn dm-btn-emerald" id="btn-billing-upgrade-submit" style="flex:2; padding:12px; font-weight:800; border-radius:10px; box-shadow:0 4px 14px rgba(0,214,143,0.3); display:inline-flex; align-items:center; justify-content:center; gap:8px;">Submit Claim via WhatsApp 💬</button>
-                </div>
-              </form>
-            </div>
+                  <div style="display:flex; gap:24px; flex-wrap:wrap; margin-bottom:24px;">
+                    <div style="flex:1.5; min-width:260px;">
+                      <h4 style="margin:0 0 12px; font-size:13px; color:var(--accent-emerald); font-weight:700;">NayaPay Bank Coordinates</h4>
+                      <div style="display:flex; flex-direction:column; gap:10px; font-size:12px;">
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;"><span style="color:var(--text-gray);">Bank Name:</span><span style="color:var(--text-white); font-weight:700;">NayaPay</span></div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;"><span style="color:var(--text-gray);">Account Title:</span><span style="color:var(--text-white); font-weight:700;">MUHAMMAD SOBAN ALI</span></div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;"><span style="color:var(--text-gray);">Account Number:</span><span style="color:var(--text-white); font-weight:700; font-family:var(--font-mono);">03315133226</span></div>
+                        <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:6px;"><span style="color:var(--text-gray);">IBAN:</span><span style="color:var(--text-white); font-weight:700; font-family:var(--font-mono);">PK47NAYA1234503315133226</span></div>
+                      </div>
+                      
+                      <div style="margin-top:14px; background:rgba(0,214,143,0.08); border:1px dashed rgba(0,214,143,0.35); border-radius:12px; padding:12px 14px; display:flex; align-items:center; gap:12px;">
+                        <div style="font-size:22px; flex-shrink:0;">📲</div>
+                        <div style="font-size:11px; color:var(--text-white); line-height:1.5;">
+                          <strong style="color:var(--accent-emerald); font-size:12px; display:block; margin-bottom:2px;">Account Upgrade via WhatsApp Payment Screenshot</strong>
+                          For successful upgradation, send your payment proof screenshot along with your <strong>Device ID (HWID)</strong> on WhatsApp <a href="https://wa.me/923315133226" target="_blank" style="color:#25D366; font-weight:800; text-decoration:underline; font-family:var(--font-mono);">03315133226</a>. Your Device ID and transaction will be verified and your account upgraded promptly! Thank you!
+                        </div>
+                      </div>
+                    </div>
 
-            <!-- Upgrade Claims History Table -->
-            <div class="cloud-vault-card">
-              <h3 style="margin:0 0 16px; font-size:16px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">Upgrade Claims History</h3>
-              <div style="overflow-x:auto;">
-                <table class="pos-table" style="width:100%; border-collapse:collapse; font-size:12px;">
-                  <thead>
-                    <tr style="border-bottom:1px solid rgba(255,255,255,0.08); color:var(--text-gray); text-align:left;">
-                      <th style="padding:10px;">Date</th>
-                      <th style="padding:10px;">Device ID (HWID)</th>
-                      <th style="padding:10px;">Target Tier</th>
-                      <th style="padding:10px;">Amount Paid</th>
-                      <th style="padding:10px;">Reference / RRN</th>
-                      <th style="padding:10px;">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody id="billing-history-tbody">
-                    <tr><td colspan="6" style="text-align:center; color:var(--text-dim); padding:16px;">No subscription upgrade claims submitted yet.</td></tr>
-                  </tbody>
-                </table>
+                    <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:180px; border-left:1px solid rgba(255,255,255,0.08); padding-left:24px;">
+                      <span style="font-size:10px; font-weight:800; color:var(--accent-emerald); display:block; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;">Scan QR to Pay via NayaPay</span>
+                      <div style="padding:8px; background:#ffffff; border-radius:12px; width:140px; height:140px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 16px rgba(0,0,0,0.3);">
+                        <img src="soban_nayapay_qr_code.png" alt="NayaPay QR Code" style="max-width:100%; max-height:100%; border-radius:6px;">
+                      </div>
+                    </div>
+                  </div>
+
+                  <form id="billing-upgrade-proof-form" style="display:flex; flex-direction:column; gap:16px; border-top:1px solid rgba(255,255,255,0.08); padding-top:20px;">
+                    <input type="hidden" id="form-billing-selected-tier">
+                    <div style="display:flex; gap:16px; flex-wrap:wrap;">
+                      <div style="flex:1; min-width:180px;">
+                        <label for="form-billing-amount" style="font-size:11px; color:var(--text-gray); display:block; margin-bottom:6px; font-weight:700;">Amount (PKR):</label>
+                        <input type="number" id="form-billing-amount" class="pos-input" readonly style="padding:12px; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); border-radius:10px; color:var(--text-white); font-weight:700; font-family:var(--font-mono); width:100%; box-sizing:border-box;">
+                      </div>
+                      <div style="flex:1; min-width:180px;">
+                        <label for="form-billing-rrn" style="font-size:11px; color:var(--text-gray); display:block; margin-bottom:6px; font-weight:700;">Transaction Ref / RRN (Optional):</label>
+                        <input type="text" id="form-billing-rrn" class="pos-input" placeholder="e.g. TRX12345678 (Optional)" maxlength="30" style="padding:12px; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); border-radius:10px; color:var(--text-white); font-family:var(--font-mono); width:100%; box-sizing:border-box;">
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style="font-size:11px; color:var(--text-gray); display:block; margin-bottom:6px; font-weight:700;">Screenshot Proof of Payment (Required if no Ref entered):</label>
+                      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                        <label for="form-billing-file" style="padding:10px 18px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); color:var(--text-white); border-radius:10px; font-size:12px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:8px;">
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Choose Image
+                        </label>
+                        <input type="file" id="form-billing-file" accept="image/jpeg,image/png,image/webp" style="display:none;">
+                        <span id="form-billing-file-name" style="font-size:11px; color:var(--text-dim);">No file chosen (5MB max)</span>
+                      </div>
+                    </div>
+
+                    <div style="display:flex; gap:12px; margin-top:8px;">
+                      <button type="button" class="action-btn" id="btn-billing-upgrade-cancel" style="flex:1; padding:12px; background:transparent; border:1px solid rgba(255,255,255,0.1); color:var(--text-muted); border-radius:10px; font-weight:700;">Cancel</button>
+                      <button type="submit" class="action-btn dm-btn-emerald" id="btn-billing-upgrade-submit" style="flex:2; padding:12px; font-weight:800; border-radius:10px; box-shadow:0 4px 14px rgba(0,214,143,0.3); display:inline-flex; align-items:center; justify-content:center; gap:8px;">Submit Claim via WhatsApp 💬</button>
+                    </div>
+                  </form>
+                </div>
               </div>
-            </div>
 
+              <!-- Sub-Tab Panel 4: HISTORY -->
+              <div class="sub-tab-panel" id="sub-panel-history">
+                <div class="cloud-vault-card">
+                  <h3 style="margin:0 0 16px; font-size:16px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">Upgrade Claims History</h3>
+                  <div style="overflow-x:auto;">
+                    <table class="pos-table" style="width:100%; border-collapse:collapse; font-size:12px;">
+                      <thead>
+                        <tr style="border-bottom:1px solid rgba(255,255,255,0.08); color:var(--text-gray); text-align:left;">
+                          <th style="padding:10px;">Date</th>
+                          <th style="padding:10px;">Device ID (HWID)</th>
+                          <th style="padding:10px;">Target Tier</th>
+                          <th style="padding:10px;">Amount Paid</th>
+                          <th style="padding:10px;">Reference / RRN</th>
+                          <th style="padding:10px;">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody id="billing-history-tbody">
+                        <tr><td colspan="6" style="text-align:center; color:var(--text-dim); padding:16px;">No subscription upgrade claims submitted yet.</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </main>
           </div>
         </section>
 
@@ -2066,14 +2085,38 @@
                   <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z"/></svg>
                 </div>
                 <h3>Accounts Receivable Ledger</h3>
-                <p style="font-size: 12px; max-width: 320px; margin: 8px auto 0;">Select a customer to track credit balance sheet, log payments, and generate WhatsApp recovery reminders.</p>
               </div>
             </div>
           </div>
         </section>
 
-      </div>
-
+        <!-- View: Platform Admin -->
+        <section class="content-view" id="view-platform-admin">
+          <div style="max-width:1100px; margin:0 auto; padding:20px; display:flex; flex-direction:column; gap:20px;">
+            <div class="cloud-vault-card">
+              <h2 style="margin:0 0 8px; font-size:18px; font-weight:800; color:var(--text-white);">Platform Admin Control Center</h2>
+              <div style="overflow-x:auto;">
+                <table class="pos-table" style="width:100%; border-collapse:collapse; font-size:12px;">
+                  <thead>
+                    <tr style="border-bottom:1px solid rgba(255,255,255,0.08); color:var(--text-gray); text-align:left;">
+                      <th style="padding:10px;">Claim ID</th>
+                      <th style="padding:10px;">HWID</th>
+                      <th style="padding:10px;">Module</th>
+                      <th style="padding:10px;">Ref / RRN</th>
+                      <th style="padding:10px;">Amount</th>
+                      <th style="padding:10px;">Date</th>
+                      <th style="padding:10px;">Status</th>
+                      <th style="padding:10px; text-align:right;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin-claims-queue-tbody">
+                    <tr><td colspan="8" style="text-align:center; color:var(--text-dim); padding:16px;">Loading platform admin claims queue...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   </div>
@@ -3367,14 +3410,5 @@
       </div>
     </div>
   </div>
-
-  <!-- MOBILE SCANNER FAB — shown on checkout screen (mobile only), controlled by app.js -->
-  <button
-    id="btn-mobile-scanner-fab"
-    aria-label="Scan barcode with camera"
-    title="Scan barcode"
-    style="display:none; position:fixed; bottom:80px; right:16px; width:56px; height:56px; border-radius:50%; background:var(--accent-emerald,#10b981); border:none; z-index:1000; cursor:pointer; touch-action:manipulation; align-items:center; justify-content:center; box-shadow:0 4px 16px rgba(16,185,129,0.4); transition:transform 0.15s, box-shadow 0.15s;"
-    onmouseenter="this.style.transform='scale(1.08)'"
-    onmouseleave="this.style.transform='scale(1)'"
 </body>
 </html>

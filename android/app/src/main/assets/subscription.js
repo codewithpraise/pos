@@ -135,6 +135,14 @@ const initSubscriptionPage = async () => {
       if (selectedTierInput) selectedTierInput.value = `${targetTier}_${currentCycle.toUpperCase()}`;
       if (amountInput) amountInput.value = tierData.amount;
 
+      // ── Fast-Track WhatsApp Message Dispatch ────────────────────────────────
+      try {
+        const storeIdPref = localStorage.getItem('valenixia_active_store_id') || 'Primary Store';
+        const msgText = encodeURIComponent(`Hello Valenixia Team! I want to upgrade to the ${targetTier} plan (${currentCycle.toUpperCase()} - PKR ${tierData.amount}). Store Reference: ${storeIdPref}. Please send activation details.`);
+        window.open(`https://wa.me/923315133226?text=${msgText}`, '_blank');
+      } catch (_) {}
+
+      // Reveal NayaPay bank coordinates and payment proof form
       if (formContainer) {
         formContainer.style.display = 'block';
         formContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });

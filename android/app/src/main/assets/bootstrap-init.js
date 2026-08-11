@@ -131,6 +131,41 @@ window.logDiagnostic = function(lvl, src, msg, meta) {
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
+// RUNTIME PLATFORM CAPABILITY MODEL
+// Restricts 'Get Apps' topbar button exclusively to WEB application surface
+// ══════════════════════════════════════════════════════════════════════════════
+window.APP_SURFACE = (function() {
+  const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+  const isCapacitor = !!(window.Capacitor || window.AndroidBridge || window.AndroidPOS || window.AndroidHardware || window.Android || ua.includes('ValenixiaAndroidApp') || ua.includes('ValenixiaPOSApp'));
+  const isElectron = !!(window.electron || window.electronAPI || window.isDesktopApp || window.desktopNative || window.__VALENIXIA_DESKTOP__ || (typeof process !== 'undefined' && process.versions && process.versions.electron) || ua.includes('Electron'));
+  const isPwa = !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || (typeof navigator !== 'undefined' && navigator.standalone === true);
+
+  let kind = 'WEB';
+  if (isCapacitor) kind = 'MOBILE';
+  else if (isElectron) kind = 'DESKTOP';
+  else if (isPwa) kind = 'PWA';
+
+  const isWeb = (kind === 'WEB');
+  return Object.freeze({
+    kind: kind,
+    isWeb: isWeb,
+    canInstallApps: isWeb,
+    showGetApps: isWeb
+  });
+})();
+
+document.addEventListener('DOMContentLoaded', () => {
+  const btnGetApps = document.getElementById('btn-topbar-apps-download');
+  if (btnGetApps) {
+    if (window.APP_SURFACE && window.APP_SURFACE.showGetApps) {
+      btnGetApps.style.setProperty('display', 'inline-flex', 'important');
+    } else {
+      btnGetApps.remove();
+    }
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
 // EARLY GLOBAL WINDOW EXPORTS — Guaranteed available from millisecond zero
 // ══════════════════════════════════════════════════════════════════════════════
 window.__realHandlers = window.__realHandlers || {};
@@ -138,17 +173,20 @@ window.__realHandlers = window.__realHandlers || {};
 if (typeof window.switchActiveScreen !== 'function') {
   window.switchActiveScreen = function(screenId) {
     if (!screenId) return;
+    const targetId = screenId.startsWith('view-') ? screenId : 'view-' + screenId;
     const views = document.querySelectorAll('.content-view');
     views.forEach(v => {
-      v.style.display = 'none';
-      v.classList.remove('active');
+      if (v.id === targetId) {
+        v.classList.add('active');
+        v.removeAttribute('hidden');
+        v.style.setProperty('display', 'flex', 'important');
+      } else {
+        v.classList.remove('active');
+        v.setAttribute('hidden', 'true');
+        v.style.setProperty('display', 'none', 'important');
+      }
     });
-    const target = document.getElementById(screenId);
-    if (target) {
-      target.style.display = 'block';
-      target.classList.add('active');
-    }
-    const navItems = document.querySelectorAll('.nav-item');
+    const navItems = document.querySelectorAll('.nav-item, .pos-bottom-nav .nav-btn');
     navItems.forEach(item => {
       const isTarget = item.getAttribute('data-screen') === screenId || item.id === 'nav-' + screenId.replace('view-', '');
       item.classList.toggle('active', isTarget);

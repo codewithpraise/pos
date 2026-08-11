@@ -1,20 +1,13 @@
 {
-  "version": "1.0.5",
-  "updated_at": "2026-08-10",
-  "changelog": "Mobile checkout tab navigation, PIN keypad ENT-only submission, cart overflow fixes, and responsive layout improvements.",
+  "version": "2.4.5",
+  "build_id": "v2.4.5-prod-20260811.1815",
+  "updated_at": "2026-08-11",
+  "changelog": "Valenixia POS v2.4.5 UX & Connectivity Patch resolving health probe timeouts, global content view scrolling, and subscription page single-screen width layout.",
   "changes": [
-    "Local-first SQLite architecture with full offline capability",
-    "Ed25519 asymmetric license verification with 48-hour grace period",
-    "CRDT-based multi-device synchronization with Hybrid Logical Clocks",
-    "Admin payment approval panel with audit logging",
-    "SaaS billing portal with NayaPay proof submission",
-    "Multi-theme UI: Obsidian Emerald, Midnight Sapphire, Warm Amber, and more",
-    "FBR Tier-1 Tax compliance modes for retail and food domains",
-    "ESC/POS thermal receipt printing support",
-    "PWA installable — works on mobile and desktop",
-    "Emergency override bypass for offline Manager/Admin access",
-    "Mobile checkout tab navigation (Catalog / Cart / Payment)",
-    "PIN keypad now requires ENT button to submit — no more auto-submit on 4th digit",
-    "Cart item overflow fixed on narrow viewports"
+    "Created static /healthz file for Vercel CDN edge 200 OK responses in <20ms",
+    "Increased license-engine.js health query timeout from 1.5s to 5.0s with JSON content-type verification",
+    "Updated ConnectivityMonitor probe timeout to 6s with fallback to /version.json probe",
+    "Fixed global page scrolling issue by enforcing overflow-y: auto !important and -webkit-overflow-scrolling: touch !important across active content views in style.css and components.css",
+    "Refactored subscription page layout (#view-subscription) with responsive single-screen width container, auto-fit grid breakpoints (250px), and mobile NayaPay form stacking to eliminate horizontal overflow"
   ]
 }

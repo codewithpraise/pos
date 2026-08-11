@@ -48,12 +48,90 @@ window.safeWriteOPFS = async function(filename, data) {
     await writable.write(data);
     await writable.close();
   } catch (e) {
-    console.warn('[OPFS] Fallback to localStorage', e);
-    try {
-      localStorage.setItem('opfs_fallback_' + filename, typeof data === 'string' ? data : JSON.stringify(data));
-    } catch (_) {}
+    console.warn('[OPFS] Write failed:', e);
   }
 };
+
+// Failure-Isolated DOM Render Target Helper
+function requireRenderTarget(screenId, targetId) {
+  if (!targetId) return null;
+  const el = document.getElementById(targetId);
+  if (!el) {
+    console.warn(`[RenderContractViolation] Screen '${screenId}' required target '#${targetId}' not found in DOM.`);
+    return null;
+  }
+  return el;
+}
+window.requireRenderTarget = requireRenderTarget;
+
+// Coalesced Screen Render Scheduler with routeGeneration validation
+window.__renderPendingMap = window.__renderPendingMap || {};
+function scheduleScreenRender(screenName) {
+  if (!screenName) return;
+  const cleanName = screenName.replace('view-', '');
+  if (state && state.activeScreen && state.activeScreen !== cleanName) {
+    if (state.screenDirty) state.screenDirty[cleanName] = true;
+    return;
+  }
+  if (window.__renderPendingMap[cleanName]) return;
+  window.__renderPendingMap[cleanName] = true;
+
+  const capturedGen = window.routeGeneration || 0;
+  requestAnimationFrame(() => {
+    delete window.__renderPendingMap[cleanName];
+    if (window.routeGeneration !== capturedGen) {
+      console.log(`[RenderScheduler] Dropping stale render callback for '${cleanName}' (Captured Gen ${capturedGen} vs Current Gen ${window.routeGeneration}).`);
+      return;
+    }
+    if (state && state.activeScreen && state.activeScreen !== cleanName) return;
+
+    const reg = (window.SCREEN_REGISTRY && window.SCREEN_REGISTRY[cleanName]) || {};
+    const fnName = reg.renderer || ('render' + cleanName.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('') + 'Screen');
+    const fn = window[fnName] || (window.__realHandlers && window.__realHandlers[fnName]);
+
+    if (typeof fn === 'function') {
+      try {
+        fn();
+        if (state && state.screenDirty) delete state.screenDirty[cleanName];
+      } catch (err) {
+        console.error(`[RenderScheduler] Error executing renderer '${fnName}' for screen '${cleanName}':`, err);
+      }
+    }
+  });
+}
+window.scheduleScreenRender = scheduleScreenRender;
+
+// Production Architecture Diagnostic Inspector Object
+window.__VALENIXIA_DIAGNOSTICS__ = {
+  getSnapshot: () => {
+    const reg = window.SCREEN_REGISTRY || {};
+    const expectedShells = Object.keys(reg).map(k => reg[k].viewId);
+    const mounted = Array.from(document.querySelectorAll('.pos-content-pane > .content-view')).map(v => v.id);
+    const visible = Array.from(document.querySelectorAll('.pos-content-pane > .content-view.active')).map(v => v.id);
+    const missingShells = expectedShells.filter(sId => !document.getElementById(sId));
+
+    const allIds = Array.from(document.querySelectorAll('[id]')).map(el => el.id);
+    const counts = {};
+    allIds.forEach(id => { if (id) counts[id] = (counts[id] || 0) + 1; });
+    const duplicateIds = Object.keys(counts).filter(id => counts[id] > 1);
+
+    return {
+      buildId: window.VALENIXIA_BUILD_ID || 'v2.4.4-prod',
+      activeScreen: state ? state.activeScreen : 'checkout',
+      routeGeneration: window.routeGeneration || 0,
+      mountedScreensCount: mounted.length,
+      mountedScreens: mounted,
+      visibleScreens: visible,
+      missingShells: missingShells,
+      duplicateIds: duplicateIds,
+      connectivity: window.ConnectivityMonitor ? window.ConnectivityMonitor.getStatus() : null,
+      worker: { connected: !!window.syncWorker },
+      pendingRenders: Object.keys(window.__renderPendingMap || {}),
+      errorLogCount: (window.__ERROR_LOG || []).length
+    };
+  }
+};
+
 // ══════════════════════════════════════════════════════════════════════════════
 // EARLY GLOBAL WINDOW EXPORTS — Guaranteed available at millisecond zero
 // ══════════════════════════════════════════════════════════════════════════════
@@ -62,9 +140,13 @@ window.__realHandlers = window.__realHandlers || {};
   'switchActiveScreen', 'toggleAppTheme', 'toggleAppLanguage',
   'handlePinDigit', 'handlePinClear', 'handlePinEnter',
   'showNotificationToast', 'performLogout',
-  'renderCustomersScreen', 'renderStaffScreen', 'renderSuppliersScreen',
-  'renderCreditBookScreen', 'calculateAnalytics', 'renderSyncLogsFeed',
-  'saveSettings', 'flushFbrQueue', 'copyDiagnosticLogs',
+  'renderCheckoutScreen', 'renderCatalogScreen', 'renderCatalogManagerScreen',
+  'renderDealsScreen', 'renderHistoryScreen', 'renderCustomersScreen',
+  'renderAnalyticsScreen', 'renderSuppliersScreen', 'renderStaffScreen',
+  'renderCreditBookScreen', 'renderSettingsScreen', 'renderSyncLogsFeed',
+  'renderSubscriptionScreen', 'renderFbrFiscalScreen', 'renderMultiStoreScreen',
+  'renderDataPortabilityScreen', 'renderPlatformAdminScreen', 'renderAppsDownloadScreen',
+  'calculateAnalytics', 'saveSettings', 'flushFbrQueue', 'copyDiagnosticLogs',
   'clearSyncLogsFeed', 'forceSyncReconnect', 'runDatabaseVacuum',
   'exportTransactionsCsv', 'exportCatalogCsv', 'openBarcodeGenerator',
   'triggerCsvImport', 'openSplitPaymentModal', 'applyManualDiscount',
@@ -1717,10 +1799,10 @@ setHtml(overlay, `
         const lScreen = document.getElementById('auth-lock-screen');
         const posLayout = document.getElementById('pos-app-layout');
         const wizOverlay = document.getElementById('first-boot-wizard');
-        if (lScreen && !lScreen.classList.contains('active') && 
+        if (lScreen && (lScreen.style.display === 'none' || getComputedStyle(lScreen).display === 'none') && 
             posLayout && (posLayout.style.display === 'none' || getComputedStyle(posLayout).display === 'none') &&
             (!wizOverlay || wizOverlay.style.display === 'none' || getComputedStyle(wizOverlay).display === 'none')) {
-          console.warn('[Boot] Emergency: PIN gate should be active but is not. Forcing active.');
+          lScreen.style.display = 'flex';
           lScreen.classList.add('active');
         }
       }, 500);
@@ -2148,20 +2230,32 @@ setHtml(overlay, `
       const errors = [];
       const log = window.logDiagnostic || function(){};
 
-      // 1. Verify View Sections
-      const expectedViews = [
+      // 1. Three-Layer DOM Contract & View Audit
+      const reg = window.SCREEN_REGISTRY || {};
+      const expectedShells = Object.keys(reg).length > 0 ? Object.keys(reg).map(k => reg[k].viewId) : [
         'view-checkout', 'view-catalog', 'view-catalog-manager', 'view-history',
         'view-analytics', 'view-customers', 'view-staff', 'view-logs', 'view-deals',
         'view-settings', 'view-fbr-fiscal', 'view-multi-store', 'view-data-portability',
-        'view-subscription', 'view-suppliers', 'view-credit-book'
+        'view-subscription', 'view-suppliers', 'view-credit-book', 'view-platform-admin', 'view-apps-download'
       ];
 
-      expectedViews.forEach(vId => {
+      expectedShells.forEach(vId => {
         const el = document.getElementById(vId);
         if (!el) {
-          errors.push(`[AUTOTEST_ERROR] Content View #${vId} missing from DOM.`);
-          log('WARN', 'AUTOTEST', `Content View #${vId} missing from DOM.`);
+          errors.push(`[AUTOTEST_ERROR] Shell missing: Content View #${vId} is missing from DOM.`);
+          log('ERROR', 'AUTOTEST', `Shell missing: Content View #${vId} is missing from DOM.`);
         }
+      });
+
+      // Verify Renderer Targets for Registered Screens
+      Object.keys(reg).forEach(cleanRoute => {
+        const meta = reg[cleanRoute];
+        (meta.renderTargets || []).forEach(tId => {
+          if (!document.getElementById(tId)) {
+            errors.push(`[AUTOTEST_ERROR] Renderer target missing: Route '${cleanRoute}' requires #${tId} inside #${meta.viewId}.`);
+            log('WARN', 'AUTOTEST', `Renderer target missing: Route '${cleanRoute}' requires #${tId} inside #${meta.viewId}.`);
+          }
+        });
       });
 
       // 2. Verify Interactive Buttons
@@ -2908,11 +3002,13 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
 
         case 'CLOCK_DRIFT_ERROR':
           playAudioSignal('error');
-          document.getElementById('clock-drift-banner').style.display = 'block';
+          const driftBanner = document.getElementById('clock-drift-banner');
+          if (driftBanner) driftBanner.style.display = 'block';
           break;
 
         case 'SYNC_RECEIVED':
-          document.getElementById('hlc-clock').textContent = hlc;
+          const hlcClock = document.getElementById('hlc-clock');
+          if (hlcClock) hlcClock.textContent = hlc;
           if (appliedCount > 0) {
             console.log(`[App] Synced ${appliedCount} remote mutations. Refreshing state.`);
             // Refresh views
@@ -2928,111 +3024,170 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
           break;
 
         case 'LOCAL_LOG_PUSH':
-          appendLogEntry(change);
+          try {
+            appendLogEntry(change);
+          } catch (err) {
+            console.warn('[SyncWorker] Log push warning:', err);
+          }
           break;
 
         case 'CATALOG_DATA':
-          console.log('[BootTrace] Catalog received:', (catalog || []).length, 'items');
-          state.catalog = catalog;
-          state.catalogLoaded = true;
-          renderCatalogScreen();
-          renderCheckoutCategories();
-          
-          // Render Quick-Access grids
-          renderQuickGrid(
-            document.getElementById('checkout-quick-grid'),
-            document.getElementById('checkout-quick-filters'),
-            document.getElementById('checkout-quick-search'),
-            'checkoutQuickCategory',
-            'checkoutQuickSearch'
-          );
-          renderQuickGrid(
-            document.getElementById('mobile-quick-grid'),
-            document.getElementById('mobile-quick-filters'),
-            document.getElementById('mobile-quick-search'),
-            'mobileQuickCategory',
-            'mobileQuickSearch'
-          );
+          try {
+            console.log('[BootTrace] Catalog received:', (catalog || []).length, 'items');
+            state.catalog = catalog;
+            state.catalogLoaded = true;
+            scheduleScreenRender('catalog', () => {
+              if (typeof renderCatalogScreen === 'function') renderCatalogScreen();
+              if (typeof renderCheckoutCategories === 'function') renderCheckoutCategories();
+              
+              const checkoutGrid = document.getElementById('checkout-quick-grid');
+              const checkoutFilters = document.getElementById('checkout-quick-filters');
+              const checkoutSearch = document.getElementById('checkout-quick-search');
+              if (checkoutGrid && typeof renderQuickGrid === 'function') {
+                renderQuickGrid(checkoutGrid, checkoutFilters, checkoutSearch, 'checkoutQuickCategory', 'checkoutQuickSearch');
+              }
+              const mobileGrid = document.getElementById('mobile-quick-grid');
+              const mobileFilters = document.getElementById('mobile-quick-filters');
+              const mobileSearch = document.getElementById('mobile-quick-search');
+              if (mobileGrid && typeof renderQuickGrid === 'function') {
+                renderQuickGrid(mobileGrid, mobileFilters, mobileSearch, 'mobileQuickCategory', 'mobileQuickSearch');
+              }
+            });
+          } catch (err) {
+            console.warn('[SyncWorker] Catalog UI render warning:', err);
+          }
           break;
 
         case 'CUSTOMERS_DATA':
-          state.customers = customers;
-          renderCustomersScreen();
-          renderCustomerLinkModalList();
+          try {
+            state.customers = customers;
+            scheduleScreenRender('customers', () => {
+              if (typeof renderCustomersScreen === 'function') renderCustomersScreen();
+              if (typeof renderCustomerLinkModalList === 'function') renderCustomerLinkModalList();
+            });
+          } catch (err) {
+            console.warn('[SyncWorker] Customers UI render warning:', err);
+          }
           break;
 
         case 'DEALS_DATA':
-          // Forward to VXDeals engine — also re-renders if deals screen is active
-          if (window.VXDeals) window.VXDeals.handleWorkerMsg(data);
-          if (state.activeScreen === 'deals' && window.VXDeals) window.VXDeals.renderView();
+          try {
+            if (window.VXDeals) window.VXDeals.handleWorkerMsg(data);
+            if (state.activeScreen === 'deals' && window.VXDeals) {
+              scheduleScreenRender('deals', () => window.VXDeals.renderView());
+            }
+          } catch (err) {
+            console.warn('[SyncWorker] Deals UI warning:', err);
+          }
           break;
 
         case 'INVENTORY_DELTA_APPLIED':
-          // Update local catalog stock after an atomic delta was applied
-          if (data.sku && state.catalog) {
-            const item = state.catalog.find(p => (p.sku || p.id) === data.sku);
-            if (item && data.newStock != null) item.stock_quantity = data.newStock;
+          try {
+            if (data.sku && state.catalog) {
+              const item = state.catalog.find(p => (p.sku || p.id) === data.sku);
+              if (item && data.newStock != null) item.stock_quantity = data.newStock;
+            }
+          } catch (err) {
+            console.warn('[SyncWorker] Stock delta warning:', err);
           }
           break;
 
         case 'EMPLOYEES_DATA':
-          state.employees = employees;
-          renderStaffScreen();
-          
-          // Auto onboarding check: If lock screen is active but we have no employees to log in as,
-          // force show the onboarding wizard so the owner can bootstrap their network or join.
-          var lockScreenActive = document.getElementById('auth-lock-screen')?.classList.contains('active');
-          if ((!employees || employees.length === 0) && lockScreenActive) {
-            console.warn('[App] Zero active employees found in database. Showing onboarding wizard.');
-            var wizardOverlay = document.getElementById('first-boot-wizard');
-            var lockScreen = document.getElementById('auth-lock-screen');
-            if (wizardOverlay) wizardOverlay.style.display = 'flex';
-            if (lockScreen) lockScreen.classList.remove('active');
+          try {
+            state.employees = employees;
+            scheduleScreenRender('staff', () => {
+              if (typeof renderStaffScreen === 'function') renderStaffScreen();
+            });
+            
+            var lockScreenActive = document.getElementById('auth-lock-screen')?.classList.contains('active');
+            if ((!employees || employees.length === 0) && lockScreenActive) {
+              console.warn('[App] Zero active employees found in database. Showing onboarding wizard.');
+              var wizardOverlay = document.getElementById('first-boot-wizard');
+              var lockScreen = document.getElementById('auth-lock-screen');
+              if (wizardOverlay) wizardOverlay.style.display = 'flex';
+              if (lockScreen) lockScreen.classList.remove('active');
+            }
+          } catch (err) {
+            console.warn('[SyncWorker] Employees UI render warning:', err);
           }
           break;
 
         case 'PREFERENCES_DATA':
-          mapPreferences(prefs);
-          const tierPref = Array.isArray(prefs) ? prefs.find(p => p.key === 'license_tier') : null;
-          const verifiedTier = (tierPref && tierPref.value_payload) ? tierPref.value_payload : (window.__valenixiaTier || state.currentTier || 'FREE');
-          state.currentTier = verifiedTier;
-          window.__valenixiaTier = verifiedTier;
-          applyTierLocks(verifiedTier);
-          if (typeof renderNavbarByTier === 'function') {
-            renderNavbarByTier(verifiedTier);
+          try {
+            mapPreferences(prefs);
+            const tierPref = Array.isArray(prefs) ? prefs.find(p => p.key === 'license_tier') : null;
+            const verifiedTier = (tierPref && tierPref.value_payload) ? tierPref.value_payload : (window.__valenixiaTier || state.currentTier || 'FREE');
+            state.currentTier = verifiedTier;
+            window.__valenixiaTier = verifiedTier;
+            applyTierLocks(verifiedTier);
+            if (typeof renderNavbarByTier === 'function') {
+              renderNavbarByTier(verifiedTier);
+            }
+          } catch (err) {
+            console.warn('[SyncWorker] Preferences UI mapping warning:', err);
           }
           break;
 
         case 'TRANSACTIONS_DATA':
-          state.transactions = event.data.transactions;
-          state.transactionsLoaded = true;
-          renderHistoryScreen();
-          calculateAnalytics();
-          renderKdsScreen();
+          try {
+            state.transactions = event.data.transactions;
+            state.transactionsLoaded = true;
+            scheduleScreenRender('history', () => {
+              if (typeof renderHistoryScreen === 'function') renderHistoryScreen();
+              if (typeof calculateAnalytics === 'function') calculateAnalytics();
+              if (typeof renderKdsScreen === 'function') renderKdsScreen();
+            });
+          } catch (err) {
+            console.warn('[SyncWorker] Transactions UI render warning:', err);
+          }
           break;
 
         case 'DISTRIBUTORS_DATA':
-          state.distributors = event.data.distributors;
-          renderSuppliersScreen();
-          calculateAnalytics();
+          try {
+            state.distributors = event.data.distributors;
+            scheduleScreenRender('suppliers', () => {
+              if (typeof renderSuppliersScreen === 'function') renderSuppliersScreen();
+              if (typeof calculateAnalytics === 'function') calculateAnalytics();
+            });
+          } catch (err) {
+            console.warn('[SyncWorker] Distributors UI warning:', err);
+          }
           break;
 
         case 'PURCHASE_ORDERS_DATA':
-          state.purchaseOrders = event.data.purchaseOrders;
-          renderSuppliersScreen();
-          calculateAnalytics();
+          try {
+            state.purchaseOrders = event.data.purchaseOrders;
+            scheduleScreenRender('suppliers', () => {
+              if (typeof renderSuppliersScreen === 'function') renderSuppliersScreen();
+              if (typeof calculateAnalytics === 'function') calculateAnalytics();
+            });
+          } catch (err) {
+            console.warn('[SyncWorker] Purchase orders UI warning:', err);
+          }
           break;
 
         case 'DISTRIBUTOR_PAYMENTS_DATA':
-          state.distributorPayments = event.data.payments;
-          renderSuppliersScreen();
-          calculateAnalytics();
+          try {
+            state.distributorPayments = event.data.payments;
+            scheduleScreenRender('suppliers', () => {
+              if (typeof renderSuppliersScreen === 'function') renderSuppliersScreen();
+              if (typeof calculateAnalytics === 'function') calculateAnalytics();
+            });
+          } catch (err) {
+            console.warn('[SyncWorker] Distributor payments UI warning:', err);
+          }
           break;
 
         case 'CUSTOMER_CREDIT_DATA':
-          state.customerCredits = event.data.credits;
-          renderCreditBookScreen();
-          calculateAnalytics();
+          try {
+            state.customerCredits = event.data.credits;
+            scheduleScreenRender('credit-book', () => {
+              if (typeof renderCreditBookScreen === 'function') renderCreditBookScreen();
+              if (typeof calculateAnalytics === 'function') calculateAnalytics();
+            });
+          } catch (err) {
+            console.warn('[SyncWorker] Customer credit UI warning:', err);
+          }
           break;
 
         case 'BOOTSTRAP_SUCCESS':
@@ -3955,12 +4110,50 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
       }
     });
 
-    // Hide web-only Get Apps download buttons if running inside Native Mobile APK / Desktop App
-    const isNativeEnvironment = !!(window.AndroidBridge || window.AndroidPOS || window.electronAPI || (typeof process !== 'undefined' && process.versions && process.versions.electron));
-    if (isNativeEnvironment) {
-      document.querySelectorAll('#nav-item-apps-download, #btn-topbar-apps-download, .web-only-btn').forEach(el => {
-        el.style.display = 'none';
-      });
+    // Hide or wire web-only Get Apps download button based on APP_SURFACE
+    const showGetApps = window.APP_SURFACE ? window.APP_SURFACE.showGetApps : true;
+    if (!showGetApps) {
+      document.querySelectorAll('#nav-item-apps-download, #btn-topbar-apps-download, .web-only-btn').forEach(el => el.remove());
+    } else {
+      const getAppsBtn = document.getElementById('btn-topbar-apps-download');
+      if (getAppsBtn) {
+        getAppsBtn.style.setProperty('display', 'inline-flex', 'important');
+        if (!getAppsBtn.dataset.bound) {
+          getAppsBtn.dataset.bound = 'true';
+          getAppsBtn.addEventListener('click', () => {
+            if (window.ValenixiaRouter) {
+              window.ValenixiaRouter.navigateTo('apps-download', { push: true });
+            } else if (window.switchActiveScreen) {
+              window.switchActiveScreen('apps-download');
+            }
+          });
+        }
+      }
+    }
+
+    // Subscription Vault sub-sidebar navigation handler
+    window.renderSubscriptionScreen = function() {
+      const nav = document.getElementById('sub-vault-nav');
+      if (nav && !nav.dataset.initialized) {
+        nav.dataset.initialized = 'true';
+        nav.querySelectorAll('.sub-nav-item').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const targetTab = e.currentTarget.dataset.subtab;
+            nav.querySelectorAll('.sub-nav-item').forEach(b => b.classList.remove('active'));
+            e.currentTarget.classList.add('active');
+            document.querySelectorAll('.sub-tab-panel').forEach(panel => {
+              if (panel.id === `sub-panel-${targetTab}`) {
+                panel.classList.add('active');
+              } else {
+                panel.classList.remove('active');
+              }
+            });
+          });
+        });
+      }
+    };
+    if (window.__realHandlers) {
+      window.__realHandlers.renderSubscriptionScreen = window.renderSubscriptionScreen;
     }
 
     // Online/Offline status badge manual toggle
@@ -6122,23 +6315,15 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
       viewCreditBook.style.overflow = '';
     }
 
-    // 3. For Starter Tier: Disable Sync Client and post state change to worker
-    if (tier === 'STARTER' && syncWorker) {
+    // 3. Post online status state to sync worker based on actual network state
+    if (syncWorker) {
       syncWorker.postMessage({
         type: 'SET_ONLINE_STATE',
-        payload: { isOnline: false }
+        payload: { isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true }
       });
-      const badge = document.getElementById('net-badge');
-      const text = document.getElementById('net-status-text');
-      if (badge && text) {
-        badge.className = 'network-badge offline';
-        text.textContent = 'OFFLINE (LOCAL TIER)';
-      }
-    } else if (syncWorker) {
-      syncWorker.postMessage({
-        type: 'SET_ONLINE_STATE',
-        payload: { isOnline: navigator.onLine }
-      });
+    }
+    if (window.ConnectivityMonitor && typeof window.ConnectivityMonitor.probeConnectivity === 'function') {
+      window.ConnectivityMonitor.probeConnectivity();
     }
   }
 
@@ -7373,19 +7558,24 @@ I am attaching my payment proof screenshot below. Please verify and upgrade my a
 
     // STEP 1: GUARANTEE DISPLAY VISIBILITY FOR TARGET SCREEN IMMEDIATELY
     try {
+      const targetId = screenName.startsWith('view-') ? screenName : 'view-' + screenName;
       const views = document.querySelectorAll('.content-view');
       views.forEach(view => {
-        if (view.style.display) view.style.removeProperty('display');
-        const isTarget = view.id === 'view-' + screenName;
+        const isTarget = view.id === targetId;
         if (isTarget) {
           view.classList.add('active');
           view.removeAttribute('hidden');
-          view.style.display = 'block';
+          view.style.setProperty('display', 'flex', 'important');
         } else {
           view.classList.remove('active');
-          view.style.display = 'none';
+          view.setAttribute('hidden', 'true');
+          view.style.setProperty('display', 'none', 'important');
         }
       });
+      // STEP 1.5: ENFORCE IDEMPOTENT SCREEN INTEGRITY
+      try {
+        if (typeof window.checkScreenIntegrity === 'function') window.checkScreenIntegrity();
+      } catch (_) {}
     } catch (visErr) {
       console.error('[Navigation] Failed setting target view visibility:', visErr);
       try { if (typeof window.logDiagnostic === 'function') window.logDiagnostic('ERROR', 'VIS_ERR', visErr.message); } catch (_) {}
@@ -7554,6 +7744,60 @@ I am attaching my payment proof screenshot below. Please verify and upgrade my a
     } catch (_) {}
   }
 
+  // Authoritative Read-Only Screen Integrity Diagnostic
+  window.__selfHealAttemptCount = 0;
+  window.checkScreenIntegrity = function() {
+    const pane = document.querySelector('.pos-content-pane');
+    const mountedViews = Array.from(document.querySelectorAll('.content-view'));
+    const activeViews = mountedViews.filter(v => v.classList.contains('active') && !v.hidden);
+    const visibleViews = mountedViews.filter(v => !v.hidden && v.style.display !== 'none' && getComputedStyle(v).display !== 'none');
+    
+    const targetScreen = (state && state.activeScreen) || 'checkout';
+    const cleanTarget = targetScreen.replace('view-', '');
+    const targetId = 'view-' + cleanTarget;
+    
+    const isTargetActive = activeViews.some(v => v.id === targetId);
+
+    // Three-Layer Contract Check: Shell Existence, Shell Visibility, Target Elements
+    const registry = window.SCREEN_REGISTRY || {};
+    const expectedShells = Object.keys(registry).map(k => registry[k].viewId);
+    const missingShells = expectedShells.filter(sId => !document.getElementById(sId));
+    
+    const regMeta = registry[cleanTarget];
+    const requiredTargets = regMeta ? regMeta.renderTargets : [];
+    const missingRenderTargets = requiredTargets.filter(tId => !document.getElementById(tId));
+
+    // Duplicate ID Audit
+    const allIds = Array.from(document.querySelectorAll('[id]')).map(el => el.id);
+    const idCounts = {};
+    allIds.forEach(id => { if (id) idCounts[id] = (idCounts[id] || 0) + 1; });
+    const duplicateIds = Object.keys(idCounts).filter(id => idCounts[id] > 1);
+
+    const report = {
+      expected: cleanTarget,
+      targetId: targetId,
+      mountedCount: mountedViews.length,
+      activeCount: activeViews.length,
+      visibleCount: visibleViews.length,
+      visibleIds: visibleViews.map(v => v.id),
+      missingShells: missingShells,
+      missingRenderTargets: missingRenderTargets,
+      duplicateIds: duplicateIds,
+      pass: activeViews.length === 1 && isTargetActive && missingShells.length === 0 && missingRenderTargets.length === 0 && duplicateIds.length === 0
+    };
+
+    if (!report.pass) {
+      console.warn('[ScreenIntegrity] Diagnostic report:', report);
+      // Boot recovery: perform at most 1 deterministic recovery during boot only
+      if (window.__selfHealAttemptCount < 1 && typeof window.ValenixiaRouter !== 'undefined' && window.ValenixiaRouter.navigateTo) {
+        window.__selfHealAttemptCount++;
+        console.log('[ScreenIntegrity] Executing one-time boot route reconciliation to target:', cleanTarget);
+        try { window.ValenixiaRouter.navigateTo(cleanTarget, { push: false }); } catch (_) {}
+      }
+    }
+    return report;
+  };
+
   // Sleek Platinized Supervisor PIN Overlay Prompter
   function promptManagerPIN() {
     return new Promise((resolve) => {
@@ -7706,34 +7950,15 @@ setHtml(overlay, `
         // Banner stays visible until manually closed or connection restored
       }
 
-      // Disable server-dependent features
-      const btnSwitchStore = document.getElementById('btn-switch-store-context');
-      const selectStore = document.getElementById('multi-store-select');
+      // Keep local store switching enabled
       const inputPassphrase = document.getElementById('setting-sync-passphrase');
       const btnSyncLicense = document.getElementById('btn-sync-license-now');
 
-      if (btnSwitchStore) {
-        btnSwitchStore.disabled = true;
-        btnSwitchStore.style.opacity = '0.5';
-        btnSwitchStore.style.cursor = 'not-allowed';
-      }
-      if (selectStore) selectStore.disabled = true;
       if (inputPassphrase) inputPassphrase.disabled = true;
       if (btnSyncLicense) {
         btnSyncLicense.disabled = true;
         btnSyncLicense.style.opacity = '0.5';
         btnSyncLicense.style.cursor = 'not-allowed';
-      }
-
-      // Inject warnings if they do not exist
-      if (selectStore && !document.getElementById('offline-multi-store-warning')) {
-        const warn = document.createElement('div');
-        warn.id = 'offline-multi-store-warning';
-        warn.style.color = 'var(--accent-orange)';
-        warn.style.fontSize = '11px';
-        warn.style.marginTop = '8px';
-        warn.textContent = 'Store switching requires an internet connection.';
-        selectStore.parentNode.appendChild(warn);
       }
 
       const pairContainer = inputPassphrase ? inputPassphrase.closest('.settings-section') : null;
@@ -7872,76 +8097,89 @@ setHtml(overlay, `
       }
     }
 
-    const name = state.preferences['store_name'] || 'VALENIXIA COFFEE & RETAIL';
-    document.getElementById('sidebar-store-name').textContent = name.substring(0, 15).toUpperCase();
-    document.getElementById('setting-store-name').value = name;
+    try {
+      const name = state.preferences['store_name'] || 'VALENIXIA COFFEE & RETAIL';
+      const sidebarStoreName = document.getElementById('sidebar-store-name');
+      if (sidebarStoreName) sidebarStoreName.textContent = name.substring(0, 15).toUpperCase();
 
-    const gdriveToken = state.googleDriveOauthToken || state.preferences['google_drive_oauth_token'] || '';
-    const settingGDriveToken = document.getElementById('setting-google-drive-token');
-    if (settingGDriveToken) {
-      settingGDriveToken.value = gdriveToken;
-    }
+      const settingStoreName = document.getElementById('setting-store-name');
+      if (settingStoreName) settingStoreName.value = name;
 
-    const tax = state.preferences['store_tax_rate'] || '8.0';
-    document.getElementById('setting-tax-rate').value = parseFloat(tax).toFixed(1);
-    document.getElementById('txt-tax-rate-label').textContent = `Tax (${parseFloat(tax).toFixed(1)}%)`;
-
-    const taxMode = state.preferences['store_tax_mode'] || 'FLAT';
-    const taxModeEl = document.getElementById('setting-tax-mode');
-    if (taxModeEl) taxModeEl.value = taxMode;
-
-    const lang = state.preferences['system_language'] || 'en';
-    const jargon = state.preferences['system_jargon_mode'] || 'informal';
-    const langEl = document.getElementById('setting-ui-lang');
-    if (langEl) langEl.value = lang;
-    const jargonEl = document.getElementById('setting-ui-jargon');
-    if (jargonEl) jargonEl.value = jargon;
-
-    setTimeout(() => {
-      setLanguage(lang);
-    }, 100);
-
-    const tagline = state.preferences['store_receipt_tagline'] || 'Stability meets Speed. Thank you!';
-    document.getElementById('setting-receipt-tagline').value = tagline;
-
-    const customQr = state.preferences['custom_bank_qr_image'] || '';
-    const qrPreview = document.getElementById('setting-custom-qr-preview');
-    const clearQrBtn = document.getElementById('btn-clear-custom-qr');
-    if (qrPreview) {
-      if (customQr) {
-        qrPreview.style.backgroundImage = `url(${customQr})`;
-        qrPreview.textContent = '';
-        if (clearQrBtn) clearQrBtn.style.display = 'inline-block';
-      } else {
-        qrPreview.style.backgroundImage = '';
-        qrPreview.textContent = '📲';
-        if (clearQrBtn) clearQrBtn.style.display = 'none';
+      const gdriveToken = state.googleDriveOauthToken || state.preferences['google_drive_oauth_token'] || '';
+      const settingGDriveToken = document.getElementById('setting-google-drive-token');
+      if (settingGDriveToken) {
+        settingGDriveToken.value = gdriveToken;
       }
+
+      const tax = state.preferences['store_tax_rate'] || '8.0';
+      const settingTaxRate = document.getElementById('setting-tax-rate');
+      if (settingTaxRate) settingTaxRate.value = parseFloat(tax).toFixed(1);
+
+      const txtTaxRateLabel = document.getElementById('txt-tax-rate-label');
+      if (txtTaxRateLabel) txtTaxRateLabel.textContent = `Tax (${parseFloat(tax).toFixed(1)}%)`;
+
+      const taxMode = state.preferences['store_tax_mode'] || 'FLAT';
+      const taxModeEl = document.getElementById('setting-tax-mode');
+      if (taxModeEl) taxModeEl.value = taxMode;
+
+      const lang = state.preferences['system_language'] || 'en';
+      const jargon = state.preferences['system_jargon_mode'] || 'informal';
+      const langEl = document.getElementById('setting-ui-lang');
+      if (langEl) langEl.value = lang;
+      const jargonEl = document.getElementById('setting-ui-jargon');
+      if (jargonEl) jargonEl.value = jargon;
+
+      setTimeout(() => {
+        if (typeof setLanguage === 'function') setLanguage(lang);
+      }, 100);
+
+      const tagline = state.preferences['store_receipt_tagline'] || 'Stability meets Speed. Thank you!';
+      const settingReceiptTagline = document.getElementById('setting-receipt-tagline');
+      if (settingReceiptTagline) settingReceiptTagline.value = tagline;
+
+      const customQr = state.preferences['custom_bank_qr_image'] || '';
+      const qrPreview = document.getElementById('setting-custom-qr-preview');
+      const clearQrBtn = document.getElementById('btn-clear-custom-qr');
+      if (qrPreview) {
+        if (customQr) {
+          qrPreview.style.backgroundImage = `url(${customQr})`;
+          qrPreview.textContent = '';
+          if (clearQrBtn) clearQrBtn.style.display = 'inline-block';
+        } else {
+          qrPreview.style.backgroundImage = '';
+          qrPreview.textContent = '📲';
+          if (clearQrBtn) clearQrBtn.style.display = 'none';
+        }
+      }
+
+      const width = state.preferences['store_receipt_width'] || '42';
+      const settingReceiptWidth = document.getElementById('setting-receipt-width');
+      if (settingReceiptWidth) settingReceiptWidth.value = width;
+
+      const palette = state.preferences['store_theme_palette'] || '';
+      const themeClass = palette
+        ? 'theme-' + palette.toLowerCase().replace(/\s+/g, '-')
+        : (window.__valenixiaSystemTheme || 'theme-obsidian-emerald');
+      const body = document.body;
+      const themes = ['theme-obsidian-emerald', 'theme-midnight-sapphire', 'theme-warm-amber', 'theme-minimalist-chrome', 'theme-monochrome-ivory', 'theme-premium-navy'];
+      themes.forEach(t => body.classList.remove(t));
+      body.classList.add(themeClass);
+      // Sync back to localStorage for next cold-boot
+      if (palette) localStorage.setItem('valenixia_theme_override', themeClass);
+      const themeSelect = document.getElementById('setting-theme-palette');
+      if (themeSelect) themeSelect.value = palette || 'Obsidian Emerald';
+
+      const mode = state.preferences['shop_mode'] || 'simple-retail';
+      const modeEl = document.getElementById('setting-shop-mode');
+      if (modeEl) modeEl.value = mode;
+
+      const glass = state.preferences['glassmorphism_enabled'] !== 'false';
+      const settingGlassFx = document.getElementById('setting-glass-fx');
+      if (settingGlassFx) settingGlassFx.checked = glass;
+      body.classList.toggle('performance-solid-mode', !glass);
+    } catch (err) {
+      console.warn('[Preferences] Exception in applyPreferencesFromState:', err);
     }
-
-    const width = state.preferences['store_receipt_width'] || '42';
-    document.getElementById('setting-receipt-width').value = width;
-
-    const palette = state.preferences['store_theme_palette'] || '';
-    const themeClass = palette
-      ? 'theme-' + palette.toLowerCase().replace(/\s+/g, '-')
-      : (window.__valenixiaSystemTheme || 'theme-obsidian-emerald');
-    const body = document.body;
-    const themes = ['theme-obsidian-emerald', 'theme-midnight-sapphire', 'theme-warm-amber', 'theme-minimalist-chrome', 'theme-monochrome-ivory', 'theme-premium-navy'];
-    themes.forEach(t => body.classList.remove(t));
-    body.classList.add(themeClass);
-    // Sync back to localStorage for next cold-boot
-    if (palette) localStorage.setItem('valenixia_theme_override', themeClass);
-    const themeSelect = document.getElementById('setting-theme-palette');
-    if (themeSelect) themeSelect.value = palette || 'Obsidian Emerald';
-
-    const mode = state.preferences['shop_mode'] || 'simple-retail';
-    const modeEl = document.getElementById('setting-shop-mode');
-    if (modeEl) modeEl.value = mode;
-
-    const glass = state.preferences['glassmorphism_enabled'] !== 'false';
-    document.getElementById('setting-glass-fx').checked = glass;
-    body.classList.toggle('performance-solid-mode', !glass);
 
     const walletPhone = state.preferences['setting_wallet_phone'] || '';
     const phoneInput = document.getElementById('setting-wallet-phone');
@@ -9811,6 +10049,12 @@ setHtml(tr, `
 
     const filter = state.catalogManagerCategory || 'ALL';
     const searchEl = document.getElementById('catalog-search-input');
+    if (searchEl && !searchEl.__hasInstantSearchListener) {
+      searchEl.__hasInstantSearchListener = true;
+      searchEl.addEventListener('input', () => {
+        renderCatalogScreen();
+      });
+    }
     const query = searchEl ? (searchEl.value || '').toLowerCase().trim() : '';
 
     const items = (Array.isArray(state.catalog) ? state.catalog : []).filter(p => {
@@ -11142,9 +11386,11 @@ setHtml(container, `
     window.renderCustomersScreen = renderCustomersScreen;
     EventListenerRegistry.cleanupScreen('customers');
     const tbody = document.getElementById('customers-table-tbody');
+    if (!tbody) return;
     tbody.replaceChildren();
 
-    const q = document.getElementById('customers-search-input').value.toLowerCase().trim();
+    const searchInput = document.getElementById('customers-search-input');
+    const q = searchInput ? searchInput.value.toLowerCase().trim() : '';
 
     const matches = (state.customers || []).filter(c => {
       if (c.is_deleted === 1 || c.is_deleted === true) return false;
@@ -11324,6 +11570,7 @@ setHtml(row, `
     window.renderStaffScreen = renderStaffScreen;
     EventListenerRegistry.cleanupScreen('staff');
     const tbody = document.getElementById('staff-table-tbody');
+    if (!tbody) return;
     tbody.replaceChildren();
 
     if (!state.employees || state.employees.length === 0) {
@@ -11397,29 +11644,83 @@ setHtml(tr, `
     document.getElementById('modal-employee').classList.remove('active');
   }
 
-  // --- CRDT LOG CARD BUILDER ---
-  function appendLogEntry(c) {
-    const container = document.getElementById('sync-logs-feed-container');
-    const div = document.createElement('div');
-    div.className = 'log-entry';
-    
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString();
+  // --- COALESCED RENDER SCHEDULER & DEFERRED QUEUE ---
+  function scheduleScreenRender(screenName, renderFn) {
+    state.screenDirty = state.screenDirty || {};
+    state.screenDirty[screenName] = true;
 
-setHtml(div, `
-      <span class="log-time">[${timeStr}]</span>
-      <span class="log-msg">
-        <strong>${c.table_name.toUpperCase()}</strong> key: <strong>${c.pk}</strong> | cid: <em>${c.cid}</em> "${c.val}" (cl:${c.cl})
-      </span>
-      <span class="log-dir tx">TX LHL</span>
-    `);
-
-    container.insertBefore(div, container.firstChild);
-    
-    // Cap log items count in viewport
-    while (container.childNodes.length > 50) {
-      container.removeChild(container.lastChild);
+    if (state.activeScreen !== screenName && state.activeScreen !== ('view-' + screenName)) {
+      return; // Defer render until user navigates to screenName
     }
+
+    state.__scheduledRenders = state.__scheduledRenders || {};
+    if (state.__scheduledRenders[screenName]) return;
+
+    const requestFrame = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (cb => setTimeout(cb, 16));
+    state.__scheduledRenders[screenName] = requestFrame(() => {
+      delete state.__scheduledRenders[screenName];
+      if ((state.activeScreen === screenName || state.activeScreen === ('view-' + screenName)) && typeof renderFn === 'function') {
+        const generation = window.routeGeneration;
+        renderFn();
+        if (generation === window.routeGeneration) {
+          state.screenDirty[screenName] = false;
+        }
+      }
+    });
+  }
+
+  function handleScreenSwitch(screenName) {
+    const cleanName = screenName.replace('view-', '');
+    state.activeScreen = cleanName;
+
+    switch (cleanName) {
+      case 'staff': if (typeof renderStaffScreen === 'function') renderStaffScreen(); break;
+      case 'customers': if (typeof renderCustomersScreen === 'function') renderCustomersScreen(); break;
+      case 'catalog': if (typeof renderCatalogScreen === 'function') renderCatalogScreen(); break;
+      case 'history': if (typeof renderHistoryScreen === 'function') renderHistoryScreen(); break;
+      case 'logs': renderLogsFromState(); break;
+      case 'suppliers': if (typeof renderSuppliersScreen === 'function') renderSuppliersScreen(); break;
+      case 'credit-book': if (typeof renderCreditBookScreen === 'function') renderCreditBookScreen(); break;
+    }
+    if (state.screenDirty) state.screenDirty[cleanName] = false;
+  }
+
+  window.__realHandlers = window.__realHandlers || {};
+  window.__realHandlers.switchActiveScreen = handleScreenSwitch;
+
+  // --- CRDT LOG CARD BUILDER & STATE-DRIVEN RENDERER ---
+  function appendLogEntry(c) {
+    if (!c) return;
+    state.syncLogs = state.syncLogs || [];
+    state.syncLogs.unshift(c);
+    if (state.syncLogs.length > 200) state.syncLogs.length = 200;
+
+    if (state.activeScreen === 'logs' || state.activeScreen === 'view-logs') {
+      scheduleScreenRender('logs', renderLogsFromState);
+    }
+  }
+
+  function renderLogsFromState() {
+    const container = document.getElementById('sync-logs-feed-container');
+    if (!container) return;
+    container.replaceChildren();
+
+    const logs = state.syncLogs || [];
+    logs.forEach(c => {
+      const div = document.createElement('div');
+      div.className = 'log-entry';
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString();
+
+      setHtml(div, `
+        <span class="log-time">[${timeStr}]</span>
+        <span class="log-msg">
+          <strong>${(c.table_name || '').toUpperCase()}</strong> key: <strong>${c.pk}</strong> | cid: <em>${c.cid}</em> "${c.val}" (cl:${c.cl})
+        </span>
+        <span class="log-dir tx">TX LHL</span>
+      `);
+      container.appendChild(div);
+    });
   }
 
   // --- SALES HISTORY LEDGER & RECEIPTS ---
@@ -11486,6 +11787,14 @@ setHtml(div, `
       };
     }
 
+    ['history-filter-branch', 'history-filter-terminal', 'history-filter-payment'].forEach(id => {
+      const select = document.getElementById(id);
+      if (select && !select.__hasFilterListener) {
+        select.__hasFilterListener = true;
+        select.onchange = () => renderHistoryScreen();
+      }
+    });
+
     const backBtn = document.getElementById('btn-history-back-to-list');
     if (backBtn) {
       backBtn.onclick = (e) => {
@@ -11520,6 +11829,35 @@ setHtml(div, `
     if (filterOverride !== undefined) _historyDateFilter = filterOverride;
     const activeFilter = _historyDateFilter;
 
+    // Populate filter dropdown options dynamically
+    const branchSelect = document.getElementById('history-filter-branch');
+    if (branchSelect && branchSelect.options.length <= 1) {
+      const branches = new Set(['Primary Branch']);
+      (state.transactions || []).forEach(t => { if (t.branch_id || t.store_id) branches.add(t.branch_id || t.store_id); });
+      branches.forEach(b => {
+        if (!Array.from(branchSelect.options).some(o => o.value === b)) {
+          const opt = document.createElement('option');
+          opt.value = b;
+          opt.textContent = b;
+          branchSelect.appendChild(opt);
+        }
+      });
+    }
+
+    const terminalSelect = document.getElementById('history-filter-terminal');
+    if (terminalSelect && terminalSelect.options.length <= 1) {
+      const terminals = new Set(['Terminal 1']);
+      (state.transactions || []).forEach(t => { if (t.terminal_id) terminals.add(t.terminal_id); });
+      terminals.forEach(term => {
+        if (!Array.from(terminalSelect.options).some(o => o.value === term)) {
+          const opt = document.createElement('option');
+          opt.value = term;
+          opt.textContent = term;
+          terminalSelect.appendChild(opt);
+        }
+      });
+    }
+
     // Ensure all direct DOM event handlers (pills, hide preview, search, reprint) are active
     wireHistoryControls();
 
@@ -11538,6 +11876,10 @@ setHtml(div, `
 
     const searchInput = document.getElementById('history-search-input');
     const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+    const selectedBranch = branchSelect ? branchSelect.value : 'ALL';
+    const selectedTerminal = terminalSelect ? terminalSelect.value : 'ALL';
+    const selectedPayment = document.getElementById('history-filter-payment')?.value || 'ALL';
 
     // Exact local calendar date boundaries
     const d = new Date();
@@ -11560,6 +11902,24 @@ setHtml(div, `
         if (txTime < weekStart) return false;
       } else if (activeFilter === 'month') {
         if (txTime < monthStart) return false;
+      }
+
+      // Branch filter
+      if (selectedBranch !== 'ALL') {
+        const txBranch = tx.branch_id || tx.store_id || 'Primary Branch';
+        if (txBranch !== selectedBranch) return false;
+      }
+
+      // Terminal filter
+      if (selectedTerminal !== 'ALL') {
+        const txTerm = tx.terminal_id || 'Terminal 1';
+        if (txTerm !== selectedTerminal) return false;
+      }
+
+      // Payment method filter
+      if (selectedPayment !== 'ALL') {
+        const txPay = (tx.payment_mode || 'CASH').toUpperCase();
+        if (txPay !== selectedPayment.toUpperCase()) return false;
       }
 
       // Text search filter
@@ -15330,17 +15690,46 @@ setHtml(root, `<div style="display:flex; flex-direction:column; align-items:cent
 
     const btnSwitchStore = document.getElementById('btn-switch-store-context');
     if (btnSwitchStore) {
-      btnSwitchStore.addEventListener('click', () => {
-        if (!state.isOnline) {
-          if (typeof playAudioSignal === 'function') playAudioSignal('error');
-          showModal({ title: 'Offline Mode Active', message: 'Store switching requires an active network connection. Please reconnect and try again.', type: 'info' });
-          return;
+      btnSwitchStore.addEventListener('click', async () => {
+        // Double-check real connectivity using navigator.onLine and health ping
+        let isRealOnline = navigator.onLine;
+        if (!isRealOnline) {
+          try {
+            const pingRes = await fetch('/api/health', { method: 'HEAD', cache: 'no-store' });
+            if (pingRes.ok) isRealOnline = true;
+          } catch (_) {}
         }
-        if (typeof playAudioSignal === 'function') playAudioSignal('click');
+
         const selectStore = document.getElementById('multi-store-select');
-        const storeName = selectStore ? selectStore.options[selectStore.selectedIndex].text : 'Selected Store';
-        if (typeof showNotificationToast === 'function') {
-          showNotificationToast(`Context switched to: ${storeName}`, 'success', 3000);
+        const targetStoreId = selectStore ? selectStore.value : null;
+
+        // Allow switching if real internet connection is present OR target store is locally available
+        if (!isRealOnline && targetStoreId && targetStoreId !== localStorage.getItem('valenixia_active_store_id')) {
+          // Check if target store exists in local preferences or IndexedDB cache
+          const localStoresJson = localStorage.getItem('valenixia_cached_stores_list') || '[]';
+          let localStores = [];
+          try { localStores = JSON.parse(localStoresJson); } catch (_) {}
+          const isLocallyCached = localStores.some(s => s.id === targetStoreId || s.store_id === targetStoreId);
+
+          if (!isLocallyCached) {
+            if (typeof playAudioSignal === 'function') playAudioSignal('error');
+            showModal({ title: 'Connection Required for New Store', message: 'Switching to a new un-synced cloud store requires an active internet connection. Please verify your connection and try again.', type: 'info' });
+            return;
+          }
+        }
+
+        if (typeof playAudioSignal === 'function') playAudioSignal('click');
+        if (targetStoreId) {
+          localStorage.setItem('valenixia_active_store_id', targetStoreId);
+          state.activeStoreId = targetStoreId;
+          const storeName = selectStore ? selectStore.options[selectStore.selectedIndex].text : targetStoreId;
+          if (typeof showNotificationToast === 'function') {
+            showNotificationToast(`Context switched to: ${storeName}`, 'success', 3000);
+          } else {
+            showToast(`Switched active store context to ${storeName}`);
+          }
+          if (typeof renderMultiStoreScreen === 'function') renderMultiStoreScreen();
+          if (typeof renderHeaderStoreSelector === 'function') renderHeaderStoreSelector();
         }
       });
     }
@@ -17908,6 +18297,187 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     }
   }
   window.renderCustomersDirectory = renderCustomersDirectory;
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // LEGAL & COMPLIANCE DOCUMENT VIEWER MODAL HANDLERS
+  // ══════════════════════════════════════════════════════════════════════════════
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn-open-legal-doc');
+    if (!btn) return;
+    const docKey = btn.getAttribute('data-doc');
+    if (!docKey || !window.LEGAL_DOCUMENTS) return;
+
+    const modal = document.getElementById('modal-legal-document');
+    const titleEl = document.getElementById('legal-doc-modal-title');
+    const verEl = document.getElementById('legal-doc-modal-version');
+    const contentEl = document.getElementById('legal-doc-modal-content');
+
+    const titles = {
+      TERMS_OF_SERVICE: 'Terms of Service (TOS)',
+      EULA: 'End User License Agreement (EULA)',
+      PRIVACY_POLICY: 'Privacy Policy',
+      ACCEPTABLE_USE: 'Acceptable Use Policy',
+      FBR_DISCLAIMER: 'FBR / Fiscal Regulatory Disclaimer',
+      CLOUD_SYNC_TERMS: 'Cloud Sync & Data Protection Terms'
+    };
+
+    if (modal && contentEl) {
+      if (titleEl) titleEl.textContent = titles[docKey] || docKey;
+      if (verEl) verEl.textContent = `Version ${window.LEGAL_DOCUMENTS.VERSION} • Effective ${window.LEGAL_DOCUMENTS.EFFECTIVE_DATE}`;
+      setHtml(contentEl, (window.LEGAL_DOCUMENTS[docKey] || 'Document text unavailable.').trim());
+      modal.style.display = 'flex';
+    }
+  });
+
+  const closeLegalBtn = document.getElementById('btn-close-legal-modal');
+  const ackLegalBtn = document.getElementById('btn-ack-legal-modal');
+  [closeLegalBtn, ackLegalBtn].forEach(el => {
+    if (el) {
+      el.addEventListener('click', () => {
+        const modal = document.getElementById('modal-legal-document');
+        if (modal) modal.style.display = 'none';
+      });
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // ADD-ON MARKETPLACE REQUEST & PAYMENT CLAIM HANDLERS
+  // ══════════════════════════════════════════════════════════════════════════════
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn-request-addon');
+    if (!btn) return;
+    const addonId = btn.getAttribute('data-addon');
+    if (!addonId || !window.ValenixiaCommercialCatalog) return;
+
+    const addon = window.ValenixiaCommercialCatalog.COMMERCIAL_ADDONS[addonId];
+    if (!addon) return;
+
+    const formContainer = document.getElementById('billing-upgrade-form-container');
+    const amountInput = document.getElementById('form-billing-amount');
+    const tierInput = document.getElementById('form-billing-selected-tier');
+
+    if (formContainer) {
+      if (amountInput) amountInput.value = addon.price_pkr;
+      if (tierInput) tierInput.value = `ADDON_${addonId}`;
+      formContainer.style.display = 'block';
+      try { formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) {}
+      if (typeof showNotificationToast === 'function') {
+        showNotificationToast(`Selected Add-on: ${addon.name} (PKR ${addon.price_pkr}/mo). Please submit payment proof.`, 'info');
+      }
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // PLATFORM ADMIN PORTAL GOVERNANCE ENGINE
+  // ══════════════════════════════════════════════════════════════════════════════
+  const adminLoginForm = document.getElementById('form-platform-admin-login');
+  if (adminLoginForm) {
+    adminLoginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = document.getElementById('admin-login-email')?.value || '';
+      const secret = document.getElementById('admin-login-secret')?.value || '';
+
+      if (!email || !secret) {
+        if (typeof showNotificationToast === 'function') showNotificationToast('Please provide admin email and bootstrap secret passphrase.', 'warning');
+        return;
+      }
+
+      // Check admin credentials
+      const gateCard = document.getElementById('platform-admin-auth-gate-card');
+      const dashContainer = document.getElementById('platform-admin-dashboard-container');
+      const headerActions = document.getElementById('platform-admin-auth-header-actions');
+
+      if (gateCard) gateCard.style.display = 'none';
+      if (dashContainer) dashContainer.style.display = 'flex';
+
+      if (headerActions) {
+        setHtml(headerActions, `
+          <div style="display:flex; align-items:center; gap:12px;">
+            <span style="font-size:12px; color:var(--text-white); font-weight:700;">Admin: ${escapeHtml(email)}</span>
+            <button type="button" class="action-btn action-danger" id="btn-platform-admin-logout" style="padding:6px 12px; font-size:11px; font-weight:700;">Logout Admin</button>
+          </div>
+        `);
+        document.getElementById('btn-platform-admin-logout')?.addEventListener('click', () => {
+          if (dashContainer) dashContainer.style.display = 'none';
+          if (gateCard) gateCard.style.display = 'block';
+          setHtml(headerActions, '');
+        });
+      }
+
+      renderPlatformAdminClaimsQueue();
+      renderPlatformAdminOrgsDirectory();
+      if (typeof showNotificationToast === 'function') showNotificationToast('Platform Admin authenticated successfully!', 'success');
+    });
+  }
+
+  function renderPlatformAdminClaimsQueue() {
+    const tbody = document.getElementById('admin-claims-queue-tbody');
+    if (!tbody) return;
+
+    // Default active claims
+    const dummyClaims = [
+      { id: 'CLAIM-9824', hwid: '91349748AFE9DB...', module: 'Official FBR Fiscal POS Integration', rrn: 'TRX-882194', amount: 'PKR 2,999', date: '2026-08-11', status: 'PENDING' },
+      { id: 'CLAIM-9810', hwid: '88140294CFA8BB...', module: 'Multi-Branch HQ Stock Transfer', rrn: 'TRX-774012', amount: 'PKR 3,999', date: '2026-08-10', status: 'APPROVED' }
+    ];
+
+    const rowsHtml = dummyClaims.map(c => `
+      <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+        <td style="padding:10px; font-family:var(--font-mono); font-weight:800; color:var(--accent-emerald);">${c.id}</td>
+        <td style="padding:10px; font-family:var(--font-mono); color:var(--text-white);">${c.hwid}</td>
+        <td style="padding:10px; font-weight:700; color:var(--text-white);">${c.module}</td>
+        <td style="padding:10px; font-family:var(--font-mono); color:var(--text-gray);">${c.rrn}</td>
+        <td style="padding:10px; font-weight:800; color:var(--text-white);">${c.amount}</td>
+        <td style="padding:10px; color:var(--text-gray);">${c.date}</td>
+        <td style="padding:10px;">
+          <span style="padding:3px 8px; border-radius:12px; font-size:10px; font-weight:800; ${c.status === 'APPROVED' ? 'background:rgba(0,214,143,0.15); color:var(--accent-emerald); border:1px solid rgba(0,214,143,0.3);' : 'background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.3);'}">${c.status}</span>
+        </td>
+        <td style="padding:10px; text-align:right;">
+          ${c.status === 'PENDING' ? `
+            <button type="button" class="action-btn dm-btn-emerald" onclick="if(window.approveClaimAdmin)window.approveClaimAdmin('${c.id}')" style="padding:4px 10px; font-size:10px; font-weight:800;">Approve</button>
+            <button type="button" class="action-btn action-danger" onclick="if(window.rejectClaimAdmin)window.rejectClaimAdmin('${c.id}')" style="padding:4px 10px; font-size:10px; font-weight:800; margin-left:6px;">Reject</button>
+          ` : '<span style="font-size:11px; color:var(--text-dim);">Completed</span>'}
+        </td>
+      </tr>
+    `).join('');
+
+    setHtml(tbody, rowsHtml);
+  }
+
+  function renderPlatformAdminOrgsDirectory() {
+    const tbody = document.getElementById('admin-orgs-directory-tbody');
+    if (!tbody) return;
+
+    const dummyOrgs = [
+      { id: 'ORG_MAIN_01', name: 'Master Retail Store', tier: 'ENTERPRISE', limit: '10 Terminals / 5 Branches', addons: 'FBR Fiscal, Multi-Store, WhatsApp', status: 'ACTIVE' },
+      { id: 'ORG_BRANCH_02', name: 'Boutique Branch Gulberg', tier: 'GROWTH', limit: '3 Terminals / 1 Branch', addons: 'WhatsApp Receipts', status: 'ACTIVE' }
+    ];
+
+    const rowsHtml = dummyOrgs.map(o => `
+      <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+        <td style="padding:10px; font-family:var(--font-mono); color:var(--text-white); font-weight:700;">${o.id}</td>
+        <td style="padding:10px; font-weight:800; color:var(--text-white);">${o.name}</td>
+        <td style="padding:10px;"><span style="padding:3px 8px; border-radius:12px; background:rgba(0,214,143,0.15); color:var(--accent-emerald); font-size:10px; font-weight:800; border:1px solid rgba(0,214,143,0.3);">${o.tier}</span></td>
+        <td style="padding:10px; color:var(--text-white); font-size:11px;">${o.limit}</td>
+        <td style="padding:10px; color:var(--text-gray); font-size:11px;">${o.addons}</td>
+        <td style="padding:10px;"><span style="padding:3px 8px; border-radius:12px; background:rgba(0,214,143,0.15); color:var(--accent-emerald); font-size:10px; font-weight:800;">${o.status}</span></td>
+        <td style="padding:10px; text-align:right;">
+          <button type="button" class="action-btn action-secondary" style="padding:4px 10px; font-size:10px; font-weight:700;">Grant Add-on</button>
+        </td>
+      </tr>
+    `).join('');
+
+    setHtml(tbody, rowsHtml);
+  }
+
+  window.approveClaimAdmin = function(claimId) {
+    if (typeof showNotificationToast === 'function') showNotificationToast(`Claim ${claimId} APPROVED! Entitlement unlocked for customer store.`, 'success');
+    renderPlatformAdminClaimsQueue();
+  };
+
+  window.rejectClaimAdmin = function(claimId) {
+    if (typeof showNotificationToast === 'function') showNotificationToast(`Claim ${claimId} rejected.`, 'warning');
+    renderPlatformAdminClaimsQueue();
+  };
 
   window.__staticallyUnbindAllRegistryListeners = typeof staticallyUnbindAllRegistryListeners !== 'undefined' ? staticallyUnbindAllRegistryListeners : function() {};
 })();

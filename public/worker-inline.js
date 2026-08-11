@@ -3302,7 +3302,7 @@ self.onmessage = async (event) => {
           if (currentCatalog.length >= maxAllowed) {
             postMessage({
               type: 'ERROR',
-              error: 'Free Tier Limit Reached (' + currentCatalog.length + '/' + maxAllowed + ' products): Your tier allows up to ' + maxAllowed + ' products. Upgrade your plan to add unlimited products.'
+              error: \`Free Tier Limit Reached (\${currentCatalog.length}/\${maxAllowed} products): Your tier allows up to \${maxAllowed} products. Upgrade your plan to add unlimited products.\`
             });
             return;
           }
