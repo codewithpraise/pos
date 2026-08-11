@@ -7236,9 +7236,49 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
         pinInput.focus();
       }
       if (errorMsg) errorMsg.textContent = 'Error: ' + e.message;
-      console.error('[Auth] verifyPinCredentials failed:', e);
     }
   }
+
+  // UI state transition dots
+  function updatePinDisplayDots() {
+    window.__isUpdatingPinDots = true;
+    try {
+      const pinInput = document.getElementById('pin-input');
+      if (pinInput) {
+        pinInput.value = '•'.repeat((state.currentPin || '').length);
+      }
+
+      const dots = document.querySelectorAll('#pin-display .dot');
+      const curLen = (state.currentPin || '').length;
+      dots.forEach((dot, index) => {
+        if (index < curLen) {
+          dot.classList.add('filled');
+          dot.classList.remove('active-focus');
+          dot.style.background = 'rgba(16, 185, 129, 0.2)';
+          dot.style.borderColor = '#10b981';
+          dot.style.boxShadow = '0 0 12px rgba(16, 185, 129, 0.5)';
+          dot.textContent = '●';
+        } else if (index === curLen) {
+          dot.classList.remove('filled');
+          dot.classList.add('active-focus');
+          dot.style.background = 'rgba(255, 255, 255, 0.08)';
+          dot.style.borderColor = '#10b981';
+          dot.style.boxShadow = '0 0 6px rgba(16, 185, 129, 0.3)';
+          dot.textContent = '';
+        } else {
+          dot.classList.remove('filled');
+          dot.classList.remove('active-focus');
+          dot.style.background = 'rgba(255, 255, 255, 0.03)';
+          dot.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+          dot.style.boxShadow = 'none';
+          dot.textContent = '';
+        }
+      });
+    } finally {
+      window.__isUpdatingPinDots = false;
+    }
+  }
+  window.updatePinDisplayDots = updatePinDisplayDots;
 
   async function initSubscriptionPage() {
     if (window.ValenixiaSubscription && typeof window.ValenixiaSubscription.init === 'function') {

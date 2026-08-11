@@ -145,6 +145,21 @@ test('Subscription Domain Controller Exposes window.ValenixiaSubscription Interf
 });
 
 // ----------------------------------------------------------------------------
+// TEST 6: PIN Keypad updatePinDisplayDots Global Function Binding
+// ----------------------------------------------------------------------------
+test('updatePinDisplayDots Function is Defined and Bound to window in app.js', () => {
+  const appJs = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8');
+  assert.ok(
+    appJs.includes('function updatePinDisplayDots()'),
+    'updatePinDisplayDots function definition missing from app.js'
+  );
+  assert.ok(
+    appJs.includes('window.updatePinDisplayDots = updatePinDisplayDots;'),
+    'updatePinDisplayDots not exposed on window object'
+  );
+});
+
+// ----------------------------------------------------------------------------
 // SUMMARY REPORT
 // ----------------------------------------------------------------------------
 console.log(`\n==================================================`);
