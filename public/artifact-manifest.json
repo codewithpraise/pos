@@ -1,22 +1,22 @@
 {
   "version": "2.5.1",
-  "git_commit": "b6c04e59dbcc91ea2c2107b87d84016282a3dd7d",
-  "build_id": "v2.5.1-prod-b6c04e59dbcc91ea2c2107b87d84016282a3dd7d",
+  "git_commit": "badda34f768186762f400ba553eef5e7dc46a5b8",
+  "build_id": "v2.5.1-prod-badda34f768186762f400ba553eef5e7dc46a5b8",
   "artifacts": {
     "app.js": {
       "path": "app.js",
-      "size": 879131,
-      "sha256": "f7c6286b501daa60e804153516635568aab8f385f0ef8c81e2e11451ea6ad275"
+      "size": 881867,
+      "sha256": "5945544311e6c70e8f1ad39ca10383ed687f7ac19ff9a66c725140d3277e3722"
     },
     "bootstrap-init.js": {
       "path": "bootstrap-init.js",
-      "size": 76131,
-      "sha256": "0e764a22dd1df8adc379438ad43d4abe2a733a4e525bfec1d7a12853e30cd4de"
+      "size": 77252,
+      "sha256": "13c8fa58c063a2acae31746845f9569b59b7679a1e7a2afe100d77d4d017eb45"
     },
     "build-id": {
       "path": "build-id",
       "size": 53,
-      "sha256": "4718b656fc37d88351baa7133158da903142a69c6a3d86ce62159a4999f3e38a"
+      "sha256": "59b54d76bb09b97a0eb1cdd8046eecba039f8a387f66b9432859038db8f5fcf7"
     },
     "commercial-catalog.js": {
       "path": "commercial-catalog.js",
@@ -25,13 +25,13 @@
     },
     "connectivity.js": {
       "path": "connectivity.js",
-      "size": 9149,
-      "sha256": "28ea7ab5b1171b8b5e151f329b6a43601ea12d7f454e5f01ec03e3e3c8923b55"
+      "size": 10042,
+      "sha256": "df5565ccdfc1cf5588333b9d2de1772c3065b62bc5594dd22da4d4c6d16937ed"
     },
     "index.html": {
       "path": "index.html",
-      "size": 305782,
-      "sha256": "45aab27f4e85c3cfe2395e91107cb887dac59983812055d9692adcd7f5b18aee"
+      "size": 306199,
+      "sha256": "5e596c7b49a0901692451ab43712138416bb448c10db1cf9b5cec3b71e894dc5"
     },
     "legal-documents.js": {
       "path": "legal-documents.js",
@@ -46,7 +46,7 @@
     "release-manifest.json": {
       "path": "release-manifest.json",
       "size": 428,
-      "sha256": "15adb371ecf87aaf9b2cbbb390a6a26fd7462efe1846367ab10ddf657ce56ffe"
+      "sha256": "1a876aa00677200ba4f9d1b452895d81838578ff2dd4e11f1dea22fb5cc02153"
     },
     "sw-loader.js": {
       "path": "sw-loader.js",
@@ -61,7 +61,7 @@
     "version.json": {
       "path": "version.json",
       "size": 1138,
-      "sha256": "0026e0d2638924e07e5a6629637c172e2d238b1e5b1f95319d9fb8877663913a"
+      "sha256": "6c3c5df5bf5021d4ef0f51620c52b5f2fcfac219a054125bb58d8556f2133f5f"
     }
   }
 }

@@ -2,8 +2,14 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+const { execSync } = require('child_process');
+
 const VERSION = '2.5.1';
-const GIT_COMMIT = 'b6c04e59dbcc91ea2c2107b87d84016282a3dd7d';
+let GIT_COMMIT = 'badda34f768186762f400ba553eef5e7dc46a5b8';
+try {
+  GIT_COMMIT = execSync('git rev-parse HEAD', { cwd: path.join(__dirname, '..') }).toString().trim();
+} catch (_) {}
+
 const BUILD_ID = `v${VERSION}-prod-${GIT_COMMIT}`;
 const SCHEMA_VERSION = '17';
 
