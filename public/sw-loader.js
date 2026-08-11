@@ -18,12 +18,12 @@
         headers: { 'Cache-Control': 'no-store' }
       });
 
-      let manifest = { version: '2.5.1', build_id: 'v2.5.1-prod-b6c04e59dbcc91ea2c2107b87d84016282a3dd7d' };
+      let manifest = { version: '2.6.0', build_id: 'v2.6.0-prod-hardened' };
       if (manifestRes.ok) {
         try { manifest = await manifestRes.json(); } catch (_) {}
       }
 
-      const activeBuildId = manifest.build_id || manifest.version || 'v2.5.1';
+      const activeBuildId = manifest.build_id || manifest.version || 'v2.6.0';
       window.VALENIXIA_BUILD_ID = activeBuildId;
 
       // Handle Emergency Service Worker Kill Switch
@@ -50,17 +50,17 @@
       // Expose Release Provenance Diagnostics
       window.__VALENIXIA_RELEASE__ = Object.freeze({
         product: manifest.product || 'VALENIXIA POS',
-        version: manifest.version || '2.5.1',
+        version: manifest.version || '2.6.0',
         buildId: activeBuildId,
-        gitCommit: manifest.git_commit || 'b6c04e59dbcc91ea2c2107b87d84016282a3dd7d',
-        createdAt: manifest.created_at || '2026-08-11T21:00:00Z',
+        gitCommit: manifest.git_commit || 'de42bc729e8dd12fd51ef3ad43e1979ff35a7c23',
+        createdAt: manifest.created_at || '2026-08-11T23:00:00Z',
         environment: manifest.environment || 'production',
         schemaVersion: manifest.schema_version || '17',
-        catalogVersion: manifest.commercial_catalog_version || '2.5.1',
-        legalVersion: manifest.legal_documents_version || '2.5.1'
+        catalogVersion: manifest.commercial_catalog_version || 'v2.6.0-catalog-001',
+        legalVersion: manifest.legal_documents_version || '2.6.0'
       });
 
-      console.log(`[ReleaseProvenance v2.5.1] Authoritative Build ID: ${activeBuildId} (Version: ${manifest.version})`);
+      console.log(`[ReleaseProvenance v2.6.0] Authoritative Build ID: ${activeBuildId} (Version: ${manifest.version})`);
 
       // 2. Register Service Worker with explicit version query
       const reg = await navigator.serviceWorker.register(`/sw.js?v=${encodeURIComponent(activeBuildId)}`);

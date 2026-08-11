@@ -502,7 +502,7 @@ app.use((req, res, next) => {
 });
 
 // Uncached Health & Release Metadata Probe Endpoints
-const RELEASE_VERSION = '2.5.1';
+const RELEASE_VERSION = '2.6.0';
 let RELEASE_GIT_COMMIT = 'de42bc729e8dd12fd51ef3ad43e1979ff35a7c23';
 let RELEASE_BUILD_ID = `v${RELEASE_VERSION}-prod-${RELEASE_GIT_COMMIT}`;
 try {
@@ -3487,6 +3487,105 @@ app.post('/api/payments/submit-proof', billingLimiter, requireAuth, requireBody(
 app.get('/api/addons/list', (req, res) => {
   const catalog = require('./lib/commercial-catalog');
   res.json({ ok: true, addons: catalog.COMMERCIAL_ADDONS });
+});
+
+// POST /api/subscription/quote — Generate Immutable Server Quote
+app.post('/api/subscription/quote', billingLimiter, async (req, res) => {
+  try {
+    const { tier, additionalTerminals, additionalBranches, selectedAddons, billingCycle, idempotencyKey, accountId, orgId } = req.body || {};
+    const planKey = (tier || 'STARTER').toUpperCase();
+    const catalog = require('./public/commercial-catalog');
+    const planMeta = catalog.COMMERCIAL_PLANS[planKey] || catalog.COMMERCIAL_PLANS.STARTER;
+    
+    const extraTerms = parseInt(additionalTerminals || 0, 10);
+    const extraBranches = parseInt(additionalBranches || 0, 10);
+    const cycle = (billingCycle || 'MONTHLY').toUpperCase();
+    
+    // Starter Branch Expansion Rejection Gate
+    if (planKey === 'STARTER' && extraBranches > 0) {
+      return res.status(400).json({
+        error: 'Branch expansion requires Pro or Enterprise tier.',
+        code: 'BRANCH_EXPANSION_REQUIRES_UPGRADE'
+      });
+    }
+
+    const basePrice = cycle === 'ANNUAL' ? planMeta.price_annual_pkr : planMeta.price_monthly_pkr;
+    const termRate = cycle === 'ANNUAL' ? (planMeta.extra_terminal_annual_pkr || 0) : (planMeta.extra_terminal_monthly_pkr || 0);
+    const branchRate = cycle === 'ANNUAL' ? (planMeta.extra_branch_annual_pkr || 0) : (planMeta.extra_branch_monthly_pkr || 0);
+
+    const baseTermCharge = extraTerms * termRate;
+    const baseBranchCharge = extraBranches * branchRate;
+
+    let addonsCharge = 0;
+    const addonDetails = [];
+    const addonsList = Array.isArray(selectedAddons) ? selectedAddons : [];
+    for (const addonId of addonsList) {
+      const addonMeta = catalog.COMMERCIAL_ADDONS[addonId] || catalog.COMMERCIAL_BUNDLES[addonId];
+      if (addonMeta) {
+        const price = cycle === 'ANNUAL' ? (addonMeta.price_annual_pkr || addonMeta.price_monthly_pkr) : (addonMeta.price_monthly_pkr || addonMeta.price_pkr || 0);
+        addonsCharge += price;
+        addonDetails.push({ id: addonId, name: addonMeta.name, price_pkr: price });
+      }
+    }
+
+    const totalAmountPkr = basePrice + baseTermCharge + baseBranchCharge + addonsCharge;
+    const idKey = idempotencyKey || `quote:${orgId || 'default'}:${Date.now()}_${Math.random().toString(36).substring(2,6)}`;
+
+    // Check existing quote by idempotency key
+    const existing = await db.get("SELECT * FROM subscription_quotes WHERE idempotency_key = ?", [idKey]);
+    if (existing) {
+      return res.json({ ok: true, quote: existing, cached: true });
+    }
+
+    const quoteId = `QUOTE_${Date.now()}_${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+    const now = Date.now();
+    const expiresAt = now + (24 * 60 * 60 * 1000); // 24 hours
+
+    const itemized = {
+      basePrice,
+      extraTerminals: extraTerms,
+      extraTerminalCharge: baseTermCharge,
+      extraBranches: extraBranches,
+      extraBranchCharge: baseBranchCharge,
+      addons: addonDetails,
+      addonsCharge,
+      totalAmountPkr,
+      billingCycle: cycle
+    };
+
+    const quoteRecord = {
+      quote_id: quoteId,
+      account_id: accountId || 'default_acc',
+      org_id: orgId || 'default_org',
+      catalog_version: catalog.COMMERCIAL_CATALOG.VERSION,
+      requested_config_json: JSON.stringify({ tier: planKey, extraTerms, extraBranches, addonsList, cycle }),
+      itemized_charges_json: JSON.stringify(itemized),
+      billing_period: cycle,
+      total_amount_pkr: totalAmountPkr,
+      currency: 'PKR',
+      created_at: now,
+      expires_at: expiresAt,
+      status: 'PENDING',
+      idempotency_key: idKey
+    };
+
+    await db.run(`
+      INSERT INTO subscription_quotes (
+        quote_id, account_id, org_id, catalog_version, requested_config_json,
+        itemized_charges_json, billing_period, total_amount_pkr, currency,
+        created_at, expires_at, status, idempotency_key
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      quoteRecord.quote_id, quoteRecord.account_id, quoteRecord.org_id, quoteRecord.catalog_version,
+      quoteRecord.requested_config_json, quoteRecord.itemized_charges_json, quoteRecord.billing_period,
+      quoteRecord.total_amount_pkr, quoteRecord.currency, quoteRecord.created_at, quoteRecord.expires_at,
+      quoteRecord.status, quoteRecord.idempotency_key
+    ]);
+
+    return res.json({ ok: true, quote: quoteRecord });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // POST /api/addons/claim — Submit Commercial Add-on Claim

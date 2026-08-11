@@ -237,46 +237,57 @@
       <!-- TOP STATUS BAR -->
       <header class="pos-topbar">
         <div class="topbar-left">
-          <button class="sidebar-toggle-btn" id="sidebar-toggle-btn">◀</button>
+          <button class="sidebar-toggle-btn" id="sidebar-toggle-btn" aria-label="Toggle Sidebar">◀</button>
           <span class="active-view-title" id="active-view-title">Checkout</span>
         </div>
+
+        <div class="topbar-center" id="topbar-center-context"></div>
         
         <div class="topbar-right">
-          <div class="storage-lock-badge offline" id="storage-lock-badge">
-            <span class="lock-dot"></span>
-            <span class="lock-text" id="storage-lock-text">STORAGE: UNLOCKED</span>
+          <div class="topbar-essential-badges" style="display: flex; align-items: center; gap: 8px;">
+            <div class="storage-lock-badge offline" id="storage-lock-badge">
+              <span class="lock-dot"></span>
+              <span class="lock-text" id="storage-lock-text">STORAGE: UNLOCKED</span>
+            </div>
+
+            <div class="network-badge online" id="net-badge" title="Network Connection Status">
+              <span class="badge-dot"></span>
+              <span class="badge-text" id="net-status-text">ONLINE</span>
+            </div>
+
+            <div class="network-badge synced" id="sync-badge" title="Sync Engine Operational Status">
+              <span class="badge-dot"></span>
+              <span class="badge-text" id="sync-status-text">SYNCED</span>
+            </div>
+
+            <button id="btn-net-sync-retry" style="display: none; align-items: center; justify-content: center; gap: 6px; padding: 4px 10px; font-size: 10px; font-weight: 700; background: var(--alert-coral); border: none; border-radius: 4px; color: var(--text-dark); cursor: pointer;" aria-label="Retry Synchronization">
+              Retry Sync
+            </button>
           </div>
 
-          <div class="network-badge online" id="net-badge" title="Network Connection Status">
-            <span class="badge-dot"></span>
-            <span class="badge-text" id="net-status-text">ONLINE</span>
-          </div>
-
-          <div class="network-badge synced" id="sync-badge" title="Sync Engine Operational Status" style="margin-left: 6px; background: rgba(59, 130, 246, 0.12); border-color: rgba(59, 130, 246, 0.4); color: #60a5fa;">
-            <span class="badge-dot" style="background: #3b82f6;"></span>
-            <span class="badge-text" id="sync-status-text">SYNCED</span>
-          </div>
-          
-          <button id="btn-net-sync-retry" style="display: none; align-items: center; justify-content: center; gap: 6px; padding: 4px 10px; font-size: 10px; font-weight: 700; background: var(--alert-coral); border: none; border-radius: 4px; color: var(--text-dark); cursor: pointer; margin-left: 8px;" aria-label="Retry Synchronization">
-            Retry Sync
+          <button class="theme-toggle-btn" id="theme-toggle-btn" title="Toggle Theme" aria-label="Toggle Theme">
+            <svg class="svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M12 2a10 10 0 0 0 0 20Z" fill="currentColor"/></svg>
           </button>
-          
-          <div class="clock-badge">
-            <span class="badge-lbl">HLC:</span>
-            <span class="badge-val" id="hlc-clock">0000000000000:000000:web_node</span>
+
+          <!-- RESPONSIVE UTILITY OVERFLOW MENU -->
+          <div class="topbar-overflow-wrapper" style="position: relative;">
+            <button class="topbar-btn" id="btn-topbar-overflow-toggle" aria-expanded="false" aria-controls="topbar-overflow-menu" title="More Utilities" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 4px; border: 1px solid var(--border-titanium); background: transparent; color: var(--text-white); cursor: pointer; font-size: 16px; font-weight: 700;">⋮</button>
+            <div class="topbar-overflow-menu" id="topbar-overflow-menu" style="display: none; position: absolute; top: calc(100% + 8px); right: 0; min-width: 220px; background: rgba(12, 14, 24, 0.95); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 8px; box-shadow: var(--shadow-lg); z-index: 1000; flex-direction: column; gap: 8px;">
+              <button class="topbar-btn" id="lang-toggle-btn" onclick="if(window.toggleAppLanguage)window.toggleAppLanguage();" style="display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 8px 12px; border-radius: 4px; border: 1px solid var(--border-titanium); background: transparent; color: var(--text-white); cursor: pointer; font-size: 11px; font-weight: 700;">
+                <span>Language</span>
+                <span>اردو / ENG</span>
+              </button>
+              <button class="topbar-btn web-only-btn" id="btn-topbar-apps-download" data-screen="apps-download" style="display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 8px 12px; border-radius: 4px; border: 1px solid var(--accent-emerald); background: rgba(0, 214, 143, 0.12); color: var(--accent-emerald); cursor: pointer; font-size: 11px; font-weight: 800; text-transform: uppercase;">
+                <span>Native Apps</span>
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              </button>
+              <div class="clock-badge-menu" style="display: flex; flex-direction: column; padding: 8px; background: rgba(255,255,255,0.03); border-radius: 4px;">
+                <span class="badge-lbl" style="font-size: 10px; color: var(--text-gray);">HLC Clock:</span>
+                <span class="badge-val" id="hlc-clock" style="font-size: 10px; font-family: var(--font-mono); color: var(--accent-emerald); word-break: break-all;">0000000000000:000000:web_node</span>
+              </div>
+            </div>
           </div>
-          
-           <button class="theme-toggle-btn" id="lang-toggle-btn" onclick="if(window.toggleAppLanguage)window.toggleAppLanguage();" style="display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 36px; border-radius: 4px; border: 1px solid var(--border-titanium); background: transparent; color: var(--text-white); cursor: pointer; font-size: 11px; font-weight: 700; margin-right: 8px;" title="Toggle Language (English / اردو)">
-             اردو
-           </button>
-           <button class="topbar-btn web-only-btn" id="btn-topbar-apps-download" data-screen="apps-download" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 12px; height: 36px; border-radius: 4px; border: 1px solid var(--accent-emerald); background: rgba(0, 214, 143, 0.12); color: var(--accent-emerald); cursor: pointer; font-size: 11px; font-weight: 800; text-transform: uppercase; margin-right: 8px;" title="Download Native Apps">
-             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-             Get Apps
-           </button>
-           <button class="theme-toggle-btn" id="theme-toggle-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 4px; border: 1px solid var(--border-titanium); background: transparent; color: var(--text-white); cursor: pointer;" title="Toggle Theme">
-             <svg class="svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M12 2a10 10 0 0 0 0 20Z" fill="currentColor"/></svg>
-           </button>
-         </div>
+        </div>
       </header>
 
       <!-- CLOCK DRIFT CRITICAL WARNING BANNER -->
@@ -702,8 +713,55 @@
                 Export CSV
               </button>
             </div>
+          <!-- Multi-Dimensional Telemetry Filter Bar -->
+          <div id="analytics-multidim-filter-bar" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-titanium); border-radius: 12px; padding: 14px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+              <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent-emerald); font-family: var(--font-display);">🔍 Telemetry Scope Filters</span>
+              <button id="analytics-filter-reset" class="action-btn action-secondary" style="padding: 4px 10px; font-size: 10px; font-weight: 700; border-radius: 6px; text-transform: uppercase;">Reset All Filters</button>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px;">
+              <div>
+                <label style="display: block; font-size: 10px; font-weight: 700; color: var(--text-gray); margin-bottom: 4px; text-transform: uppercase;">Store Branch</label>
+                <select id="analytics-filter-branch" class="pos-input" style="width: 100%; height: 32px; font-size: 11px; font-weight: 700; padding: 0 8px;">
+                  <option value="ALL">All Branches</option>
+                  <option value="main">Main Store / HQ</option>
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 10px; font-weight: 700; color: var(--text-gray); margin-bottom: 4px; text-transform: uppercase;">POS Terminal</label>
+                <select id="analytics-filter-terminal" class="pos-input" style="width: 100%; height: 32px; font-size: 11px; font-weight: 700; padding: 0 8px;">
+                  <option value="ALL">All Terminals</option>
+                  <option value="term_01">Terminal #1 (Primary)</option>
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 10px; font-weight: 700; color: var(--text-gray); margin-bottom: 4px; text-transform: uppercase;">Cashier / Staff</label>
+                <select id="analytics-filter-cashier" class="pos-input" style="width: 100%; height: 32px; font-size: 11px; font-weight: 700; padding: 0 8px;">
+                  <option value="ALL">All Cashiers</option>
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 10px; font-weight: 700; color: var(--text-gray); margin-bottom: 4px; text-transform: uppercase;">Product Category</label>
+                <select id="analytics-filter-category" class="pos-input" style="width: 100%; height: 32px; font-size: 11px; font-weight: 700; padding: 0 8px;">
+                  <option value="ALL">All Categories</option>
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 10px; font-weight: 700; color: var(--text-gray); margin-bottom: 4px; text-transform: uppercase;">Payment Method</label>
+                <select id="analytics-filter-payment" class="pos-input" style="width: 100%; height: 32px; font-size: 11px; font-weight: 700; padding: 0 8px;">
+                  <option value="ALL">All Payment Types</option>
+                  <option value="CASH">Cash</option>
+                  <option value="CARD">Card / POS</option>
+                  <option value="KHATA">Khata Ledger</option>
+                  <option value="MOBILE">Mobile Wallet / QR</option>
+                </select>
+              </div>
+            </div>
+            <div id="analytics-active-chips" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+              <span style="font-size: 10px; color: var(--text-dim); font-weight: 600;">Active Filter Scope: <strong style="color: var(--text-white);">Full Store Dataset (Unfiltered)</strong></span>
+            </div>
           </div>
-          
+
           <!-- Loading skeleton placeholder overlay -->
           <div id="analytics-loading-overlay" style="display: none; flex-direction: column; align-items: center; justify-content: center; padding: 40px; border: 1px dashed var(--border-titanium); border-radius: 8px; margin-bottom: 20px; background: rgba(0,0,0,0.1);">
             <div style="width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--accent-blue); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 12px;"></div>
@@ -1244,12 +1302,12 @@
               <h3>Legal &amp; Compliance</h3>
               <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 12px;">Review system policy agreements and software licenses.</p>
               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;">
-                <button type="button" class="action-btn btn-open-legal-doc" data-doc-key="TERMS_OF_SERVICE" style="text-align: left; padding: 10px 14px; font-size: 11px;">📄 Terms of Service (TOS)</button>
-                <button type="button" class="action-btn btn-open-legal-doc" data-doc-key="EULA" style="text-align: left; padding: 10px 14px; font-size: 11px;">📜 End User License (EULA)</button>
-                <button type="button" class="action-btn btn-open-legal-doc" data-doc-key="PRIVACY_POLICY" style="text-align: left; padding: 10px 14px; font-size: 11px;">🛡️ Privacy Policy</button>
-                <button type="button" class="action-btn btn-open-legal-doc" data-doc-key="ACCEPTABLE_USE" style="text-align: left; padding: 10px 14px; font-size: 11px;">⚖️ Acceptable Use Policy</button>
-                <button type="button" class="action-btn btn-open-legal-doc" data-doc-key="FBR_DISCLAIMER" style="text-align: left; padding: 10px 14px; font-size: 11px;">🏛️ FBR Tax Disclaimer</button>
-                <button type="button" class="action-btn btn-open-legal-doc" data-doc-key="CLOUD_SYNC_TERMS" style="text-align: left; padding: 10px 14px; font-size: 11px;">☁️ Cloud Sync Terms</button>
+                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="TERMS_OF_SERVICE" style="text-align: left; padding: 10px 14px; font-size: 11px;">📄 Terms of Service (TOS)</button>
+                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="EULA" style="text-align: left; padding: 10px 14px; font-size: 11px;">📜 End User License (EULA)</button>
+                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="PRIVACY_POLICY" style="text-align: left; padding: 10px 14px; font-size: 11px;">🛡️ Privacy Policy</button>
+                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="ACCEPTABLE_USE" style="text-align: left; padding: 10px 14px; font-size: 11px;">⚖️ Acceptable Use Policy</button>
+                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="FBR_DISCLAIMER" style="text-align: left; padding: 10px 14px; font-size: 11px;">🏛️ FBR Tax Disclaimer</button>
+                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="CLOUD_SYNC_TERMS" style="text-align: left; padding: 10px 14px; font-size: 11px;">☁️ Cloud Sync Terms</button>
               </div>
             </div>
             
@@ -1844,9 +1902,9 @@
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
                   <span>Add-on Marketplace</span>
                 </button>
-                <button type="button" class="sub-nav-item" data-subtab="nayapay">
+                <button type="button" class="sub-nav-item" data-subtab="payment">
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                  <span>Pay via NayaPay</span>
+                  <span>Pay &amp; Upgrade</span>
                 </button>
                 <button type="button" class="sub-nav-item" data-subtab="history">
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -1943,7 +2001,7 @@
                         PKR 6,999 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>
                       </div>
                       <ul style="font-size:12px; color:var(--text-muted); padding-left:18px; margin:0 0 20px; line-height:1.8;">
-                        <li><strong style="color:var(--text-white);">Up to 3 Register Terminals &amp; 1 Store Branch</strong></li>
+                        <li><strong style="color:var(--text-white);">2 Register Terminals &amp; 1 Store Branch (Metered)</strong></li>
                         <li><strong style="color:var(--accent-emerald);">Everything in Starter, plus:</strong></li>
                         <li>Multi-Device Real-Time Cloud Sync &amp; Backup</li>
                         <li>Kitchen &amp; Bar Ticket Routing (KOT)</li>
@@ -2086,7 +2144,7 @@
                     </div>
 
                     <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:180px; border-left:1px solid rgba(255,255,255,0.08); padding-left:24px;">
-                      <span style="font-size:10px; font-weight:800; color:var(--accent-emerald); display:block; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;">Scan QR to Pay via NayaPay</span>
+                      <span style="font-size:10px; font-weight:800; color:var(--accent-emerald); display:block; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;">Scan QR / Payment Instructions</span>
                       <div style="padding:8px; background:#ffffff; border-radius:12px; width:140px; height:140px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 16px rgba(0,0,0,0.3);">
                         <img src="soban_nayapay_qr_code.png" alt="NayaPay QR Code" style="max-width:100%; max-height:100%; border-radius:6px;">
                       </div>
@@ -2148,7 +2206,82 @@
                   </div>
                 </div>
               </div>
-            </main>
+        <!-- View 10B: Revenue Control Tower (Admin Commerce Portal) -->
+        <section class="content-view" id="view-admin-commerce">
+          <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <div>
+              <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800;">Revenue Control Tower</h2>
+              <p style="margin: 4px 0 0; font-size: 13px; color: var(--text-gray);">Monetization &amp; Financial Ledger Control — Valenixia Commerce Ecosystem</p>
+            </div>
+            <button class="action-btn action-primary" id="btn-refresh-admin-commerce" style="padding: 8px 16px; font-weight: 800; font-size: 12px; border-radius: 8px;">🔄 Refresh Revenue Metrics</button>
+          </div>
+
+          <!-- Revenue Metrics Grid: Separating MRR from One-Time Revenue -->
+          <div class="kpi-grid" style="margin-bottom: 24px;">
+            <div class="kpi-card accent-emerald" style="display: flex; flex-direction: column; background: rgba(0, 214, 143, 0.05); border: 1px solid rgba(0, 214, 143, 0.2);">
+              <span class="kpi-lbl">MONTHLY RECURRING REVENUE (MRR)</span>
+              <span class="kpi-val" id="admin-mrr-value">PKR 0</span>
+              <span style="font-size: 10px; color: var(--accent-emerald); font-weight: 700; margin-top: 4px;">Active Subscriptions &amp; Add-ons</span>
+            </div>
+            <div class="kpi-card accent-blue" style="display: flex; flex-direction: column; background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2);">
+              <span class="kpi-lbl">ONE-TIME REVENUE (ARR/FBR)</span>
+              <span class="kpi-val" id="admin-onetime-value">PKR 0</span>
+              <span style="font-size: 10px; color: var(--accent-blue); font-weight: 700; margin-top: 4px;">Hardware, FBR Setup &amp; Onboarding Services</span>
+            </div>
+            <div class="kpi-card accent-amber" style="display: flex; flex-direction: column; background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.2);">
+              <span class="kpi-lbl">PENDING PAYMENT CLAIMS</span>
+              <span class="kpi-val" id="admin-pending-claims-count">0</span>
+              <span style="font-size: 10px; color: #f59e0b; font-weight: 700; margin-top: 4px;">Awaiting Admin Decision</span>
+            </div>
+            <div class="kpi-card accent-coral" style="display: flex; flex-direction: column; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2);">
+              <span class="kpi-lbl">ACTIVE IMMUTABLE QUOTES</span>
+              <span class="kpi-val" id="admin-quotes-count">0</span>
+              <span style="font-size: 10px; color: #ef4444; font-weight: 700; margin-top: 4px;">Server-Authoritative Quotes Logged</span>
+            </div>
+          </div>
+
+          <!-- Pending Payment Claims Queue -->
+          <div class="cloud-vault-card" style="margin-bottom: 24px;">
+            <h3 style="margin: 0 0 16px; font-size: 16px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Pending Payment Claims Queue</h3>
+            <div style="overflow-x: auto;">
+              <table class="pos-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                <thead>
+                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); color: var(--text-gray); text-align: left;">
+                    <th style="padding: 10px;">Submitted Date</th>
+                    <th style="padding: 10px;">Claim / Proof ID</th>
+                    <th style="padding: 10px;">Requested Tier</th>
+                    <th style="padding: 10px;">Amount (PKR)</th>
+                    <th style="padding: 10px;">RRN Reference</th>
+                    <th style="padding: 10px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-claims-tbody">
+                  <tr><td colspan="6" style="text-align: center; color: var(--text-dim); padding: 16px;">No pending payment claims in queue.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Quoted Ledger Status Table -->
+          <div class="cloud-vault-card">
+            <h3 style="margin: 0 0 16px; font-size: 16px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Server Quote Ledger Status</h3>
+            <div style="overflow-x: auto;">
+              <table class="pos-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                <thead>
+                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); color: var(--text-gray); text-align: left;">
+                    <th style="padding: 10px;">Quote ID</th>
+                    <th style="padding: 10px;">Org / Account</th>
+                    <th style="padding: 10px;">Period</th>
+                    <th style="padding: 10px;">Total Amount</th>
+                    <th style="padding: 10px;">Expires At</th>
+                    <th style="padding: 10px;">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-quotes-tbody">
+                  <tr><td colspan="6" style="text-align: center; color: var(--text-dim); padding: 16px;">No quotes generated yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
 
@@ -2627,6 +2760,24 @@
       <div class="modal-footer">
         <button class="action-btn" id="btn-cancel-reset-modal">Cancel</button>
         <button class="action-btn action-danger" id="btn-confirm-reset-modal">EXECUTE DATABASE PURGE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CANONICAL LEGAL DOCUMENT VIEWER MODAL -->
+  <div class="modal-overlay" id="modal-legal-document" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="legal-doc-modal-title">
+    <div class="modal-card legal-doc-modal-card" style="max-width: 720px; width: 90%; max-height: 85vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <div>
+          <h3 id="legal-doc-modal-title" style="margin: 0; font-size: 18px; font-weight: 700; color: var(--text-white);">Legal Agreement</h3>
+          <span class="legal-doc-version" id="legal-doc-modal-version" style="font-size: 11px; color: var(--accent-emerald); font-weight: 700;">Version 2.6.0</span>
+        </div>
+        <button type="button" class="btn-close-modal" id="btn-close-legal-modal" aria-label="Close document">×</button>
+      </div>
+      <div class="modal-body legal-doc-body" id="legal-doc-modal-content" style="overflow-y: auto; max-height: 60vh; padding: 16px; font-size: 13px; line-height: 1.6; color: var(--text-light); white-space: pre-wrap; word-break: break-word;"></div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 12px; border-top: 1px solid var(--border-titanium);">
+        <button type="button" class="action-btn" id="btn-close-legal-modal-footer">Close</button>
+        <button type="button" class="action-btn action-success" id="btn-ack-legal-modal">I Understand</button>
       </div>
     </div>
   </div>
@@ -3148,22 +3299,22 @@
           <!-- Interactive Full Legal Documents Section -->
           <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px;">
             <div style="font-size:10px; font-weight:800; color:#8f9cb5; letter-spacing:0.8px; text-transform:uppercase;">Legal Agreements (Tap to Review)</div>
-            <button type="button" data-legal-doc="TERMS_OF_SERVICE" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
+            <button type="button" data-legal-document="TERMS_OF_SERVICE" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
               <span>📄 Terms of Service</span><span id="wiz-legal-tos-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
             </button>
-            <button type="button" data-legal-doc="EULA" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
+            <button type="button" data-legal-document="EULA" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
               <span>📜 End User License (EULA)</span><span id="wiz-legal-eula-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
             </button>
-            <button type="button" data-legal-doc="PRIVACY_POLICY" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
+            <button type="button" data-legal-document="PRIVACY_POLICY" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
               <span>🛡️ Privacy Policy</span><span id="wiz-legal-privacy-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
             </button>
-            <button type="button" data-legal-doc="ACCEPTABLE_USE" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
+            <button type="button" data-legal-document="ACCEPTABLE_USE" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
               <span>⚖️ Acceptable Use Policy</span><span id="wiz-legal-aup-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
             </button>
-            <button type="button" data-legal-doc="FBR_DISCLAIMER" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
+            <button type="button" data-legal-document="FBR_DISCLAIMER" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
               <span>🏛️ FBR Tax Disclaimer</span><span id="wiz-legal-fbr-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
             </button>
-            <button type="button" data-legal-doc="CLOUD_SYNC_TERMS" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
+            <button type="button" data-legal-document="CLOUD_SYNC_TERMS" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
               <span>☁️ Cloud Sync Terms</span><span id="wiz-legal-cloud-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
             </button>
           </div>

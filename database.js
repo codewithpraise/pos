@@ -154,12 +154,13 @@ const writeQueue = {
       return Promise.reject(new Error(`[Database Backpressure] Write queue depth exceeded maximum limit (${MAX_DB_WRITE_QUEUE_DEPTH}).`));
     }
     pendingWriteCount++;
-    const nextLink = this.queue.then(() => op());
-    this.queue = nextLink.catch(() => {});
-    nextLink.finally(() => {
+    const resPromise = this.queue.then(() => op());
+    resPromise.catch(() => {});
+    this.queue = resPromise.then(() => {}, () => {});
+    resPromise.finally(() => {
       pendingWriteCount = Math.max(0, pendingWriteCount - 1);
     });
-    return nextLink;
+    return resPromise;
   }
 };
 
@@ -167,12 +168,14 @@ const writeQueue = {
 const db = {
   run(sql, params = []) {
     if (!sqliteDb) return Promise.resolve({ lastID: 1, changes: 0 });
-    return writeQueue.enqueue(() => new Promise((resolve, reject) => {
+    const p = writeQueue.enqueue(() => new Promise((resolve, reject) => {
       sqliteDb.run(sql, params, function (err) {
         if (err) reject(err);
         else resolve({ lastID: this.lastID, changes: this.changes });
       });
     }));
+    p.catch(() => {});
+    return p;
   },
   all(sql, params = []) {
     if (!sqliteDb) return Promise.resolve([]);
@@ -304,7 +307,7 @@ async function initDatabase(terminalId) {
     console.warn('[Database] SQLite optimization pass was bypassed:', err.message);
   }
   
-  // 1. Ensure local_preferences, idempotency_keys, and entitlement_audit_log tables exist
+  // 1. Ensure local_preferences, idempotency_keys, entitlement_audit_log, subscription_quotes, and billing_events tables exist
   await db.exec(`
     CREATE TABLE IF NOT EXISTS local_preferences (
       key TEXT PRIMARY KEY,
@@ -333,6 +336,63 @@ async function initDatabase(terminalId) {
       request_id TEXT,
       claim_id TEXT
     );
+    CREATE TABLE IF NOT EXISTS subscription_quotes (
+      quote_id TEXT PRIMARY KEY,
+      account_id TEXT NOT NULL,
+      org_id TEXT NOT NULL,
+      catalog_version TEXT NOT NULL DEFAULT 'v2.6.0-catalog-001',
+      requested_config_json TEXT NOT NULL,
+      itemized_charges_json TEXT NOT NULL,
+      billing_period TEXT NOT NULL DEFAULT 'MONTHLY',
+      total_amount_pkr INTEGER NOT NULL,
+      currency TEXT NOT NULL DEFAULT 'PKR',
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'PENDING',
+      idempotency_key TEXT NOT NULL UNIQUE,
+      consumed_at INTEGER,
+      consumed_by_claim_id TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS billing_events (
+      event_id TEXT PRIMARY KEY,
+      account_id TEXT NOT NULL,
+      org_id TEXT NOT NULL,
+      quote_id TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      plan_tier TEXT NOT NULL,
+      billing_cycle TEXT NOT NULL DEFAULT 'MONTHLY',
+      additional_terminals INTEGER NOT NULL DEFAULT 0,
+      additional_branches INTEGER NOT NULL DEFAULT 0,
+      active_addons_json TEXT NOT NULL DEFAULT '[]',
+      amount_pkr INTEGER NOT NULL,
+      currency TEXT NOT NULL DEFAULT 'PKR',
+      payment_reference TEXT,
+      claim_id TEXT,
+      effective_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL,
+      created_at INTEGER NOT NULL,
+      actor_user_id TEXT NOT NULL,
+      event_version INTEGER NOT NULL DEFAULT 1,
+      idempotency_key TEXT NOT NULL UNIQUE,
+      source TEXT NOT NULL DEFAULT 'VALENIXIA_COMMERCE_ENGINE',
+      metadata_json TEXT DEFAULT '{}',
+      reversal_of_event_id TEXT,
+      previous_state_hash TEXT NOT NULL,
+      event_hash TEXT NOT NULL
+    );
+
+    CREATE TRIGGER IF NOT EXISTS billing_events_no_update
+    BEFORE UPDATE ON billing_events
+    BEGIN
+      SELECT RAISE(ABORT, 'billing_events is append-only: UPDATE operations prohibited');
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS billing_events_no_delete
+    BEFORE DELETE ON billing_events
+    BEGIN
+      SELECT RAISE(ABORT, 'billing_events is append-only: DELETE operations prohibited');
+    END;
   `);
 
   // Ensure val_type column exists (in case the table was created by an older schema version)

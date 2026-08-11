@@ -525,56 +525,61 @@ button:not(:disabled):active,
 
 /* TOP STATUS BAR */
 .pos-topbar {
-  background: rgba(8, 8, 16, 0.75);
+  background: rgba(8, 8, 16, 0.85);
   border-bottom: 1px solid var(--border-titanium);
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
   height: 54px;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  padding: 0 20px;
-  z-index: 5;
+  padding: 0 16px;
+  z-index: 100;
   box-shadow: 0 1px 0 rgba(255,255,255,0.03);
+  overflow: visible;
 }
 
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
-.sidebar-toggle-btn {
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-dim);
-  cursor: pointer;
-  font-size: 12px;
-  padding: 7px;
-  border-radius: 8px;
+.topbar-center {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.sidebar-toggle-btn:hover {
-  background: rgba(255,255,255,0.04);
-  border-color: var(--border-titanium);
-  color: var(--text-white);
-}
-
-.active-view-title {
-  font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--text-white);
-  letter-spacing: -0.2px;
+  padding: 0 12px;
+  overflow: hidden;
 }
 
 .topbar-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+/* Topbar Responsive Collapse Contract */
+@media (max-width: 768px) {
+  .topbar-right .clock-badge,
+  .topbar-right #lang-toggle-btn,
+  .topbar-right #btn-topbar-apps-download {
+    display: none !important;
+  }
+  .topbar-essential-badges .storage-lock-badge {
+    display: none !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .topbar-essential-badges .badge-text {
+    display: none !important;
+  }
+  .topbar-essential-badges .network-badge {
+    padding: 4px 6px !important;
+  }
 }
 
 /* Telemetry Badges */
@@ -5204,11 +5209,9 @@ body.theme-premium-navy .totals-row.grand-total {
 /* ensure all view headers and content panes have correct top margin/padding when top banner shows */
 body.is-offline,
 body.has-top-banner {
-  padding-top: calc(env(safe-area-inset-top, 0px) + 44px) !important;
+  padding-top: 0 !important;
 }
 
-body.is-offline .pos-topbar,
-body.has-top-banner .pos-topbar,
 body.is-offline .pos-content-pane,
 body.has-top-banner .pos-content-pane,
 body.is-offline .content-view,
@@ -5627,15 +5630,13 @@ table.report-table * {
 
 /* 3. Topbar Telemetry Right Panel Scroll Protection */
 .topbar-right {
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
-  -webkit-overflow-scrolling: touch !important;
-  scrollbar-width: none !important;
-  max-width: calc(100vw - 140px) !important;
-  flex-shrink: 0 !important;
-}
-.topbar-right::-webkit-scrollbar {
-  display: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+  max-width: 100% !important;
+  overflow: visible !important;
 }
 .topbar-right > * {
   flex-shrink: 0 !important;

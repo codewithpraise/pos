@@ -7240,319 +7240,9 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
     }
   }
 
-  // UI state transition dots
-  function updatePinDisplayDots() {
-    window.__isUpdatingPinDots = true;
-    try {
-      const pinInput = document.getElementById('pin-input');
-      if (pinInput) {
-        pinInput.value = '•'.repeat((state.currentPin || '').length);
-      }
-
-      const dots = document.querySelectorAll('#pin-display .dot');
-      const curLen = state.currentPin.length;
-      dots.forEach((dot, index) => {
-        if (index < curLen) {
-          dot.classList.add('filled');
-          dot.classList.remove('active-focus');
-          dot.style.background = 'rgba(16, 185, 129, 0.2)';
-          dot.style.borderColor = '#10b981';
-          dot.style.boxShadow = '0 0 12px rgba(16, 185, 129, 0.5)';
-          dot.textContent = '●';
-        } else if (index === curLen) {
-          dot.classList.remove('filled');
-          dot.classList.add('active-focus');
-          dot.style.background = 'rgba(255, 255, 255, 0.08)';
-          dot.style.borderColor = '#10b981';
-          dot.style.boxShadow = '0 0 6px rgba(16, 185, 129, 0.3)';
-          dot.textContent = '';
-        } else {
-          dot.classList.remove('filled');
-          dot.classList.remove('active-focus');
-          dot.style.background = 'rgba(255, 255, 255, 0.03)';
-          dot.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-          dot.style.boxShadow = 'none';
-          dot.textContent = '';
-        }
-      });
-    } finally {
-      window.__isUpdatingPinDots = false;
-    }
-  }
-
   async function initSubscriptionPage() {
-    // 1. Fetch online subscription status from server/Supabase
-    try {
-      if (typeof syncOnlineSubscriptionTier === 'function') {
-        await syncOnlineSubscriptionTier();
-      }
-    } catch (_) {}
-
-    const curTier = (typeof getActiveTier === 'function' ? getActiveTier() : (window.__valenixiaTier || 'GROWTH')).toUpperCase();
-    
-    const isTrialActive = localStorage.getItem('valenixia_trial_active') === 'true';
-    const badgeEl = document.getElementById('badge-active-tier-pill');
-    if (badgeEl) {
-      badgeEl.textContent = isTrialActive ? '7-DAY FREE TRIAL' : curTier;
-      if (curTier === 'STARTER' && !isTrialActive) {
-        badgeEl.style.background = 'rgba(245, 158, 11, 0.15)';
-        badgeEl.style.color = 'var(--alert-amber, #f59e0b)';
-        badgeEl.style.borderColor = 'rgba(245, 158, 11, 0.3)';
-      } else {
-        badgeEl.style.background = 'rgba(0, 214, 143, 0.15)';
-        badgeEl.style.color = 'var(--accent-emerald, #00d68f)';
-        badgeEl.style.borderColor = 'rgba(0, 214, 143, 0.3)';
-      }
-    }
-
-    const txtExpiryEl = document.getElementById('txt-license-expiry');
-    if (txtExpiryEl) {
-      if (curTier === 'FREE' && !isTrialActive) {
-        txtExpiryEl.textContent = 'Free Baseline';
-        txtExpiryEl.style.color = 'var(--text-gray)';
-      } else {
-        let remainingMs = 30 * 86400000;
-        if (typeof LicenseEngine !== 'undefined' && LicenseEngine.getExpiryMs) {
-          try { remainingMs = (await LicenseEngine.getExpiryMs()) || remainingMs; } catch(_) {}
-        }
-        const days = Math.floor(remainingMs / 86400000);
-        const hrs = Math.floor((remainingMs % 86400000) / 3600000);
-        txtExpiryEl.textContent = isTrialActive ? `7-Day Trial (${days}d ${hrs}h)` : `${curTier} Active (${days}d ${hrs}h)`;
-        txtExpiryEl.style.color = 'var(--accent-emerald)';
-      }
-    }
-
-    // Update Device HWID display on subscription form
-    const hwidCodeEl = document.getElementById('billing-form-device-hwid');
-    const deviceHwid = window.__valenixiaHWID || localStorage.getItem('valenixia_hwid') || 'UNKNOWN_HWID';
-    if (hwidCodeEl) hwidCodeEl.textContent = deviceHwid;
-    const btnCopyHwid = document.getElementById('btn-copy-billing-hwid');
-    if (btnCopyHwid) {
-      btnCopyHwid.onclick = (e) => {
-        e.preventDefault();
-        navigator.clipboard.writeText(deviceHwid).then(() => {
-          if (typeof showNotificationToast === 'function') showNotificationToast('Device ID copied to clipboard!', 'success', 2000);
-        }).catch(() => {});
-      };
-    }
-
-    // 3. Bind Tier Selection Buttons & Pricing Cards
-    const PRICING_MONTHLY = { STARTER: 3499, PRO: 6999, GROWTH: 6999, ENTERPRISE: 11999 };
-    const PRICING_LIFETIME = { STARTER: 79000, PRO: 149000, GROWTH: 149000, ENTERPRISE: 249000 };
-
-    let activeCycle = 'subscription';
-
-    const btnMonthly = document.getElementById('btn-billing-cycle-monthly');
-    const btnLifetime = document.getElementById('btn-billing-cycle-lifetime');
-    const priceStarter = document.getElementById('price-val-STARTER');
-    const pricePro = document.getElementById('price-val-PRO');
-    const priceEnterprise = document.getElementById('price-val-ENTERPRISE');
-
-    function updateCycleDisplay(cycle) {
-      activeCycle = cycle;
-      if (cycle === 'lifetime') {
-        if (btnMonthly) { btnMonthly.classList.remove('active'); btnMonthly.style.background = 'transparent'; btnMonthly.style.color = 'var(--text-gray)'; }
-        if (btnLifetime) { btnLifetime.classList.add('active'); btnLifetime.style.background = 'var(--accent-emerald)'; btnLifetime.style.color = '#080810'; }
-        if (priceStarter) priceStarter.innerHTML = 'PKR 79,000 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ lifetime</span>';
-        if (pricePro) pricePro.innerHTML = 'PKR 149,000 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ lifetime</span>';
-        if (priceEnterprise) priceEnterprise.innerHTML = 'PKR 249,000 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ lifetime</span>';
-      } else {
-        if (btnLifetime) { btnLifetime.classList.remove('active'); btnLifetime.style.background = 'transparent'; btnLifetime.style.color = 'var(--text-gray)'; }
-        if (btnMonthly) { btnMonthly.classList.add('active'); btnMonthly.style.background = 'var(--accent-emerald)'; btnMonthly.style.color = '#080810'; }
-        if (priceStarter) priceStarter.innerHTML = 'PKR 3,499 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>';
-        if (pricePro) pricePro.innerHTML = 'PKR 6,999 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>';
-        if (priceEnterprise) priceEnterprise.innerHTML = 'PKR 11,999 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>';
-      }
-    }
-
-    if (btnMonthly) btnMonthly.onclick = () => updateCycleDisplay('subscription');
-    if (btnLifetime) btnLifetime.onclick = () => updateCycleDisplay('lifetime');
-
-    const formContainer = document.getElementById('billing-upgrade-form-container');
-    const selectedTierInput = document.getElementById('form-billing-selected-tier');
-    const amountInput = document.getElementById('form-billing-amount');
-
-    function handleSelectTier(tier) {
-      if (typeof playAudioSignal === 'function') playAudioSignal('click');
-      const pricingMap = activeCycle === 'subscription' ? PRICING_MONTHLY : PRICING_LIFETIME;
-      const amount = pricingMap[tier] || pricingMap.PRO;
-
-      if (selectedTierInput) selectedTierInput.value = `${tier}_${activeCycle.toUpperCase()}`;
-      if (amountInput) amountInput.value = amount;
-
-      if (formContainer) {
-        formContainer.style.display = 'block';
-        formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }
-
-    // Attach click handlers to all select tier buttons and pricing cards
-    document.querySelectorAll('.btn-select-tier').forEach(btn => {
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        const tier = btn.getAttribute('data-tier') || 'PRO';
-        handleSelectTier(tier);
-      };
-    });
-
-    document.querySelectorAll('.pricing-card').forEach(card => {
-      card.onclick = () => {
-        const tier = card.getAttribute('data-tier') || 'PRO';
-        handleSelectTier(tier);
-      };
-    });
-
-    // Handle cancel button
-    const btnCancel = document.getElementById('btn-billing-upgrade-cancel');
-    if (btnCancel) {
-      btnCancel.onclick = () => {
-        if (typeof playAudioSignal === 'function') playAudioSignal('click');
-        if (formContainer) formContainer.style.display = 'none';
-      };
-    }
-
-    // Handle file choice display
-    const fileInput = document.getElementById('form-billing-file');
-    const fileNameSpan = document.getElementById('form-billing-file-name');
-    if (fileInput && fileNameSpan) {
-      fileInput.onchange = (e) => {
-        const f = e.target.files && e.target.files[0];
-        if (f) {
-          fileNameSpan.textContent = `${f.name} (${(f.size / 1024).toFixed(1)} KB)`;
-          fileNameSpan.style.color = 'var(--accent-emerald)';
-        } else {
-          fileNameSpan.textContent = 'No file chosen (5MB max)';
-          fileNameSpan.style.color = 'var(--text-dim)';
-        }
-      };
-    }
-
-    // Render Upgrade Claims Table
-    async function renderUpgradeClaimsHistory() {
-      const tbody = document.getElementById('billing-history-tbody');
-      if (!tbody) return;
-      try {
-        let claims = [];
-        try {
-          const rawClaims = await ValenixiaDB.getSecurePref('valenixia_upgrade_claims');
-          if (rawClaims) claims = JSON.parse(rawClaims);
-        } catch (_) {}
-        if (!Array.isArray(claims) || claims.length === 0) {
-          setHtml(tbody, `<tr><td colspan="6" style="text-align:center; color:var(--text-dim); padding:16px;">No subscription upgrade claims submitted yet.</td></tr>`);
-          return;
-        }
-        claims.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-        const rows = claims.map(c => `
-          <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
-            <td style="padding:10px; color:var(--text-white); font-weight:600;">${c.date || '—'}</td>
-            <td style="padding:10px; font-family:monospace; font-size:11px; color:var(--accent-emerald);">${(c.device_id || '—').slice(0, 16)}</td>
-            <td style="padding:10px; font-weight:700; color:var(--text-white);">${c.target_tier || 'PRO'}</td>
-            <td style="padding:10px; font-weight:700; color:var(--accent-emerald);">PKR ${c.amount || '0'}</td>
-            <td style="padding:10px; font-family:monospace; font-size:11px; color:var(--text-gray);">${c.rrn || 'N/A'}</td>
-            <td style="padding:10px;"><span style="padding:3px 8px; border-radius:4px; font-size:10px; font-weight:800; background:rgba(245,158,11,0.15); color:var(--alert-amber); border:1px solid rgba(245,158,11,0.3);">${c.status || 'PENDING'}</span></td>
-          </tr>
-        `).join('');
-        setHtml(tbody, rows);
-      } catch (e) {
-        console.warn('[Billing] Error rendering claims history:', e);
-      }
-    }
-    renderUpgradeClaimsHistory();
-
-    // Handle Form Submission with Strict Required Validation
-    const proofForm = document.getElementById('billing-upgrade-proof-form');
-    if (proofForm) {
-      proofForm.onsubmit = async (e) => {
-        e.preventDefault();
-        const tierVal = selectedTierInput?.value || 'PRO_SUBSCRIPTION';
-        const amountVal = amountInput?.value || '6999';
-        const rrnVal = document.getElementById('form-billing-rrn')?.value?.trim() || 'N/A';
-        const claimObj = {
-          id: 'claim_' + Date.now(),
-          date: new Date().toLocaleDateString(),
-          target_tier: tierVal,
-          amount: amountVal,
-          rrn: rrnVal,
-          device_id: deviceHwid,
-          status: 'PENDING_VERIFICATION',
-          createdAt: Date.now()
-        };
-
-        try {
-          const rawClaims = await ValenixiaDB.getSecurePref('valenixia_upgrade_claims');
-          const claims = rawClaims ? JSON.parse(rawClaims) : [];
-          claims.push(claimObj);
-          await ValenixiaDB.setSecurePref('valenixia_upgrade_claims', JSON.stringify(claims));
-        } catch (_) {}
-
-        if (syncWorker) {
-          syncWorker.postMessage({ type: 'SAVE_UPGRADE_CLAIM', payload: claimObj });
-        }
-
-        // Construct pre-filled WhatsApp message
-        const waMsgText = `Hello Soban! I have submitted a subscription upgrade claim on Valenixia POS.
-
-📱 Device ID (HWID): ${deviceHwid}
-⭐ Target Upgrade Tier: ${tierVal.replace('_', ' ')}
-💰 Amount Paid: PKR ${amountVal}
-🔢 Transaction Ref / RRN: ${rrnVal}
-📅 Date: ${new Date().toLocaleDateString()}
-
-I am attaching my payment proof screenshot below. Please verify and upgrade my account. Thank you!`;
-
-        const waUrl = `https://wa.me/923315133226?text=${encodeURIComponent(waMsgText)}`;
-        window.open(waUrl, '_blank');
-
-        if (typeof showNotificationToast === 'function') {
-          showNotificationToast(`✓ Claim for device [${deviceHwid.slice(0, 8)}...] saved! Opening WhatsApp chat...`, 'success', 4000);
-        }
-        if (formContainer) formContainer.style.display = 'none';
-        renderUpgradeClaimsHistory();
-      };
-    }
-    const btnTrial = document.getElementById('btn-start-free-trial-subscription');
-    const bannerEl = document.getElementById('free-trial-banner-card');
-    const currentTier = (window.__valenixiaTier || localStorage.getItem('valenixia_tier') || 'STARTER').toUpperCase();
-    const isPaidOrGrowth = ['GROWTH', 'PRO', 'ENTERPRISE'].includes(currentTier);
-    const isTrialUsed = localStorage.getItem('valenixia_trial_used_' + deviceHwid) === 'true';
-
-    if (isPaidOrGrowth || isTrialUsed) {
-      if (bannerEl) bannerEl.style.display = 'none';
-      if (btnTrial) btnTrial.style.display = 'none';
-    } else if (btnTrial) {
-      btnTrial.style.display = 'inline-block';
-      btnTrial.onclick = async () => {
-        const liveTier = (window.__valenixiaTier || localStorage.getItem('valenixia_tier') || 'STARTER').toUpperCase();
-        if (['GROWTH', 'PRO', 'ENTERPRISE'].includes(liveTier)) {
-          if (bannerEl) bannerEl.style.display = 'none';
-          if (btnTrial) btnTrial.style.display = 'none';
-          if (typeof showNotificationToast === 'function') {
-            showNotificationToast(`Free trial is only available for Starter tier users. You are already on active ${liveTier} tier.`, 'warning', 5000);
-          }
-          return;
-        }
-
-        let currentRemaining = 30 * 24 * 60 * 60 * 1000;
-        if (typeof LicenseEngine !== 'undefined' && LicenseEngine.getExpiryMs) {
-          try { currentRemaining = await LicenseEngine.getExpiryMs() || currentRemaining; } catch (_) {}
-        }
-        localStorage.setItem('valenixia_pre_trial_tier', liveTier);
-        localStorage.setItem('valenixia_pre_trial_paused_remaining_ms', String(currentRemaining));
-        localStorage.setItem('valenixia_trial_active', 'true');
-        localStorage.setItem('valenixia_trial_start_time', String(Date.now()));
-        localStorage.setItem('valenixia_tier', 'GROWTH');
-        window.__valenixiaTier = 'GROWTH';
-        localStorage.setItem('valenixia_trial_used_' + deviceHwid, 'true');
-        if (btnTrial) btnTrial.style.display = 'none';
-        if (bannerEl) bannerEl.style.display = 'none';
-
-        if (typeof applyTierLocks === 'function') applyTierLocks('GROWTH');
-        if (typeof renderNavbarByTier === 'function') renderNavbarByTier('GROWTH');
-        if (typeof renderLicenseInfoCard === 'function') await renderLicenseInfoCard();
-        if (typeof showNotificationToast === 'function') {
-          showNotificationToast('🚀 7-Day Free Growth Trial Activated! All multi-device & staff features unlocked.', 'success', 5000);
-        }
-      };
+    if (window.ValenixiaSubscription && typeof window.ValenixiaSubscription.init === 'function') {
+      window.ValenixiaSubscription.init();
     }
   }
   window.initSubscriptionPage = initSubscriptionPage;
@@ -12229,34 +11919,51 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
   function getFilteredTransactions() {
     const all = state.transactions || [];
     const range = state.analyticsRange || 'all';
-    if (range === 'all') return all;
+
+    const selectedBranch = document.getElementById('analytics-filter-branch')?.value || 'ALL';
+    const selectedTerminal = document.getElementById('analytics-filter-terminal')?.value || 'ALL';
+    const selectedCashier = document.getElementById('analytics-filter-cashier')?.value || 'ALL';
+    const selectedCategory = document.getElementById('analytics-filter-category')?.value || 'ALL';
+    const selectedPayment = document.getElementById('analytics-filter-payment')?.value || 'ALL';
 
     const d = new Date();
     let cutoff = 0;
 
+    let timeFiltered = all;
     if (range === 'today') {
       cutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime();
+      timeFiltered = all.filter(t => (typeof t.created_at === 'number' ? t.created_at : new Date(t.created_at || 0).getTime()) >= cutoff);
     } else if (range === 'week') {
       const dayOfWeek = d.getDay();
       const diffToMonday = (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
       cutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate() - diffToMonday, 0, 0, 0, 0).getTime();
+      timeFiltered = all.filter(t => (typeof t.created_at === 'number' ? t.created_at : new Date(t.created_at || 0).getTime()) >= cutoff);
     } else if (range === 'month') {
       cutoff = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0).getTime();
+      timeFiltered = all.filter(t => (typeof t.created_at === 'number' ? t.created_at : new Date(t.created_at || 0).getTime()) >= cutoff);
     } else if (range === 'custom') {
       const fromVal = document.getElementById('analytics-date-from')?.value;
       const toVal = document.getElementById('analytics-date-to')?.value;
-      if (!fromVal || !toVal) return all;
-      const fromTs = new Date(fromVal + 'T00:00:00').getTime();
-      const toTs = new Date(toVal + 'T23:59:59').getTime();
-      return all.filter(t => {
-        const ts = typeof t.created_at === 'number' ? t.created_at : new Date(t.created_at || t.ts || 0).getTime();
-        return ts >= fromTs && ts <= toTs;
-      });
+      if (fromVal && toVal) {
+        const fromTs = new Date(fromVal + 'T00:00:00').getTime();
+        const toTs = new Date(toVal + 'T23:59:59').getTime();
+        timeFiltered = all.filter(t => {
+          const ts = typeof t.created_at === 'number' ? t.created_at : new Date(t.created_at || 0).getTime();
+          return ts >= fromTs && ts <= toTs;
+        });
+      }
     }
 
-    return all.filter(t => {
-      const ts = typeof t.created_at === 'number' ? t.created_at : new Date(t.created_at || t.ts || 0).getTime();
-      return ts >= cutoff;
+    return timeFiltered.filter(t => {
+      if (selectedBranch !== 'ALL' && (t.branch_id || t.store_id || 'main') !== selectedBranch) return false;
+      if (selectedTerminal !== 'ALL' && (t.terminal_id || 'term_01') !== selectedTerminal) return false;
+      if (selectedCashier !== 'ALL' && (t.cashier_id || t.cashier_name || '') !== selectedCashier) return false;
+      if (selectedPayment !== 'ALL' && (t.payment_method || t.mode || 'CASH') !== selectedPayment) return false;
+      if (selectedCategory !== 'ALL') {
+        const hasCategory = (t.items || []).some(item => (item.category || item.category_id || '') === selectedCategory);
+        if (!hasCategory) return false;
+      }
+      return true;
     });
   }
 
@@ -18544,6 +18251,124 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     if (typeof showNotificationToast === 'function') showNotificationToast(`Claim ${claimId} rejected.`, 'warning');
     renderPlatformAdminClaimsQueue();
   };
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // CANONICAL LEGAL DOCUMENTS REGISTRY & ACCESSIBLE MODAL LIFECYCLE SERVICE
+  // ══════════════════════════════════════════════════════════════════════════════
+  let activeElementBeforeLegalModal = null;
+
+  function getLegalRegistry() {
+    return window.ValenixiaLegalDocuments || window.LEGAL_DOCUMENTS || {};
+  }
+  window.ValenixiaLegalDocuments = getLegalRegistry();
+
+  function openLegalDocumentModal(docKey) {
+    if (!docKey) return;
+    const registry = getLegalRegistry();
+    const modal = document.getElementById('modal-legal-document');
+    const titleEl = document.getElementById('legal-doc-modal-title');
+    const verEl = document.getElementById('legal-doc-modal-version');
+    const contentEl = document.getElementById('legal-doc-modal-content');
+
+    const titles = {
+      TERMS_OF_SERVICE: 'Terms of Service (TOS)',
+      EULA: 'End User License Agreement (EULA)',
+      PRIVACY_POLICY: 'Privacy Policy',
+      ACCEPTABLE_USE: 'Acceptable Use Policy',
+      FBR_DISCLAIMER: 'FBR / Fiscal Regulatory Disclaimer',
+      CLOUD_SYNC_TERMS: 'Cloud Sync & Data Protection Terms'
+    };
+
+    activeElementBeforeLegalModal = document.activeElement;
+
+    if (modal && contentEl) {
+      if (titleEl) titleEl.textContent = titles[docKey] || docKey.replace(/_/g, ' ');
+      if (verEl) verEl.textContent = `Version ${registry.VERSION || '2.6.0'} • Effective ${registry.EFFECTIVE_DATE || '2026-08-11'}`;
+      
+      const docText = (registry[docKey] || 'This document is currently unavailable.').trim();
+      setHtml(contentEl, docText);
+
+      modal.style.display = 'flex';
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('modal-open');
+      document.body.style.overflow = 'hidden';
+
+      const closeBtn = document.getElementById('btn-close-legal-modal');
+      if (closeBtn) closeBtn.focus();
+    } else {
+      if (typeof showNotificationToast === 'function') {
+        showNotificationToast('Unable to open legal document modal container.', 'error', 3500);
+      }
+    }
+  }
+
+  function closeLegalDocumentModal() {
+    const modal = document.getElementById('modal-legal-document');
+    if (modal) {
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('modal-open');
+      document.body.style.overflow = '';
+
+      if (activeElementBeforeLegalModal && typeof activeElementBeforeLegalModal.focus === 'function') {
+        try { activeElementBeforeLegalModal.focus(); } catch (_) {}
+      }
+    }
+  }
+
+  document.addEventListener('click', (e) => {
+    const trigger = e.target.closest('[data-legal-document], .btn-open-legal-doc, [data-doc-key], [data-legal-doc]');
+    if (!trigger) return;
+    const docKey = trigger.getAttribute('data-legal-document') || trigger.getAttribute('data-doc-key') || trigger.getAttribute('data-doc') || trigger.getAttribute('data-legal-doc');
+    if (docKey) {
+      openLegalDocumentModal(docKey);
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const modal = document.getElementById('modal-legal-document');
+      if (modal && modal.style.display === 'flex') {
+        closeLegalDocumentModal();
+      }
+    }
+  });
+
+  ['btn-close-legal-modal', 'btn-close-legal-modal-footer', 'btn-ack-legal-modal'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('click', closeLegalDocumentModal);
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // TOPBAR RESPONSIVE OVERFLOW MENU CONTROLLER
+  // ══════════════════════════════════════════════════════════════════════════════
+  const overflowToggleBtn = document.getElementById('btn-topbar-overflow-toggle');
+  const overflowMenu = document.getElementById('topbar-overflow-menu');
+
+  if (overflowToggleBtn && overflowMenu) {
+    overflowToggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isVisible = overflowMenu.style.display === 'flex';
+      overflowMenu.style.display = isVisible ? 'none' : 'flex';
+      overflowToggleBtn.setAttribute('aria-expanded', isVisible ? 'false' : 'true');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (overflowMenu.style.display === 'flex' && !overflowMenu.contains(e.target) && e.target !== overflowToggleBtn) {
+        overflowMenu.style.display = 'none';
+        overflowToggleBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && overflowMenu.style.display === 'flex') {
+        overflowMenu.style.display = 'none';
+        overflowToggleBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
 
   window.__staticallyUnbindAllRegistryListeners = typeof staticallyUnbindAllRegistryListeners !== 'undefined' ? staticallyUnbindAllRegistryListeners : function() {};
 })();

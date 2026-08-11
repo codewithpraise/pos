@@ -28,8 +28,8 @@ describe('VALENIXIA POS v2.5.1 Security & Architectural Suite', () => {
 
     assert.strictEqual(manifest.version, '2.5.1');
     assert.strictEqual(versionJson.version, '2.5.1');
-    assert.strictEqual(manifest.git_commit, 'b6c04e59dbcc91ea2c2107b87d84016282a3dd7d');
-    assert.strictEqual(buildId, 'v2.5.1-prod-b6c04e59dbcc91ea2c2107b87d84016282a3dd7d');
+    assert.strictEqual(/^[0-9a-f]{40}$/.test(manifest.git_commit), true, 'git_commit must be a full 40-character hex string');
+    assert.strictEqual(buildId, `v2.5.1-prod-${manifest.git_commit}`);
   });
 
   it('2. Verifies Ed25519 asymmetric offline entitlement signing and key verification', () => {

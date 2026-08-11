@@ -73,8 +73,8 @@ test('6. Analytics (Kamai & Summary) cards have responsive layout CSS', () => {
   assert.ok(css.includes('#view-analytics') || css.includes('@media (max-width: 900px)') || css.includes('@media (max-width: 1024px)'), 'Analytics layout CSS must exist');
 });
 
-test('7. Offline banner provides top padding offset for page headers and topbar', () => {
-  assert.ok(css.includes('body.is-offline .pos-topbar') || css.includes('body.has-top-banner .pos-topbar'), 'Offline banner top offset CSS must exist');
+test('7. Offline banner provides top padding offset for page headers and content pane', () => {
+  assert.ok(css.includes('body.is-offline .pos-content-pane') || css.includes('body.has-top-banner .pos-content-pane'), 'Offline banner top offset CSS must exist');
 });
 
 test('8. Subscription vault integrity (no duplicate sections in settings, body scroll enabled)', () => {
