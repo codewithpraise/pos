@@ -18328,6 +18328,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       const docText = (registry[docKey] || 'This document is currently unavailable.').trim();
       setHtml(contentEl, docText);
 
+      modal.classList.add('active');
       modal.style.display = 'flex';
       modal.setAttribute('aria-hidden', 'false');
       document.body.classList.add('modal-open');
@@ -18345,6 +18346,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   function closeLegalDocumentModal() {
     const modal = document.getElementById('modal-legal-document');
     if (modal) {
+      modal.classList.remove('active');
       modal.style.display = 'none';
       modal.setAttribute('aria-hidden', 'true');
       document.body.classList.remove('modal-open');
@@ -18355,6 +18357,9 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       }
     }
   }
+
+  window.openLegalDocumentModal = openLegalDocumentModal;
+  window.closeLegalDocumentModal = closeLegalDocumentModal;
 
   document.addEventListener('click', (e) => {
     const trigger = e.target.closest('[data-legal-document], .btn-open-legal-doc, [data-doc-key], [data-legal-doc]');

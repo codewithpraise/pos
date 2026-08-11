@@ -459,6 +459,12 @@ const qrApproveLimiter = rateLimit({
   skip: () => process.env.NODE_ENV === 'test'
 });
 
+// Health Probe Endpoints
+app.get(['/api/health', '/healthz'], (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  res.json({ ok: true, status: 'HEALTHY', service: 'valenixia-pos', version: '2.6.0', timestamp: new Date().toISOString() });
+});
+
 function isHostAllowed(host) {
   if (!host) return false;
   const hostname = host.split(':')[0];

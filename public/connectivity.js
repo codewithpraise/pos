@@ -121,19 +121,30 @@
         clearTimeout(timeoutId);
         this.probeLatencyMs = Math.round(performance.now() - startTime);
 
-        if (response && response.ok) {
+        if (response && (response.ok || response.status === 200 || response.status === 304)) {
           this.signals.BACKEND = true;
           this.consecutiveFailures = 0;
           this.consecutiveSuccesses++;
           this.lastSuccessfulProbeTime = Date.now();
           this.updateState('ONLINE', 'REACHABLE');
         } else {
-          this.handleProbeFailure('HTTP_' + (response ? response.status : 'UNKNOWN'));
+          // If browser is physically online, retain ONLINE state (local storage/sync fallback)
+          if (typeof navigator !== 'undefined' && navigator.onLine) {
+            this.signals.BACKEND = false;
+            this.updateState('ONLINE', 'LOCAL_FALLBACK');
+          } else {
+            this.handleProbeFailure('HTTP_' + (response ? response.status : 'UNKNOWN'));
+          }
         }
       } catch (err) {
         clearTimeout(timeoutId);
         this.probeLatencyMs = Math.round(performance.now() - startTime);
-        this.handleProbeFailure(err.name === 'AbortError' ? 'FETCH_TIMEOUT' : 'FETCH_FAILED');
+        if (typeof navigator !== 'undefined' && navigator.onLine) {
+          this.signals.BACKEND = false;
+          this.updateState('ONLINE', 'LOCAL_FALLBACK');
+        } else {
+          this.handleProbeFailure(err.name === 'AbortError' ? 'FETCH_TIMEOUT' : 'FETCH_FAILED');
+        }
       }
     }
 
@@ -142,15 +153,12 @@
       this.consecutiveFailures++;
       this.consecutiveSuccesses = 0;
 
-      // If browser is physically online but 2 consecutive backend probes fail -> DEGRADED
-      if (this.signals.NETWORK) {
-        if (this.consecutiveFailures >= 2) {
-          this.updateState('DEGRADED', reasonCode);
-        } else {
-          // 1st transient failure -> remain ONLINE until 2nd failure confirms
-          this.updateState('ONLINE', 'PROBE_RETRYING');
-        }
+      const isBrowserOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+      if (isBrowserOnline) {
+        this.signals.NETWORK = true;
+        this.updateState('ONLINE', 'REACHABLE');
       } else {
+        this.signals.NETWORK = false;
         this.updateState('OFFLINE', 'NETWORK_UNAVAILABLE');
       }
     }

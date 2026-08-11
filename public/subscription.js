@@ -146,7 +146,9 @@
       const targetTier = tier.toUpperCase();
       const catalog = window.COMMERCIAL_CATALOG || {};
 
+      const fallbackPrice = targetTier === 'PRO' ? (activeCycle === 'annual' ? 71390 : 6999) : (targetTier === 'ENTERPRISE' ? (activeCycle === 'annual' ? 183590 : 17999) : 0);
       let generatedQuote = null;
+
       try {
         generatedQuote = await this.quote({
           tier: targetTier,
@@ -156,7 +158,6 @@
         });
       } catch (err) {
         console.warn('[ValenixiaSubscription] Server quote fetch failed, using local calculation fallback:', err.message);
-        const fallbackPrice = targetTier === 'PRO' ? (activeCycle === 'annual' ? 71390 : 6999) : (targetTier === 'ENTERPRISE' ? (activeCycle === 'annual' ? 183590 : 17999) : 0);
         generatedQuote = {
           quoteId: 'QUOTE_LOCAL_' + Date.now().toString(36).toUpperCase(),
           tier: targetTier,
@@ -166,47 +167,49 @@
         };
       }
 
+      const pkrVal = Number(generatedQuote?.totalAmountPkr ?? generatedQuote?.total_amount_pkr ?? generatedQuote?.amount ?? fallbackPrice);
+      const formattedPkr = isNaN(pkrVal) ? '0' : pkrVal.toLocaleString();
+
       const selectedTierInput = document.getElementById('form-billing-selected-tier');
       const amountInput = document.getElementById('form-billing-amount');
 
       if (selectedTierInput) selectedTierInput.value = `${targetTier}_${activeCycle.toUpperCase()}`;
-      if (amountInput) amountInput.value = generatedQuote.totalAmountPkr;
+      if (amountInput) amountInput.value = pkrVal;
 
       this.activateTab('payment');
 
       const formContainer = document.getElementById('billing-upgrade-form-container');
-      if (formContainer) formContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (formContainer) formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
       if (typeof showNotificationToast === 'function') {
-        showNotificationToast(`Selected ${targetTier} plan: PKR ${generatedQuote.totalAmountPkr.toLocaleString()}`, 'success', 3500);
+        showNotificationToast(`Selected ${targetTier} plan: PKR ${formattedPkr}`, 'success', 3500);
       }
     },
 
     async selectAddon(addonId) {
       if (!addonId) return;
-      try {
-        const serverBase = window.__valenixiaServerUrl || location.origin;
-        const res = await fetch(serverBase + '/api/addons/claim', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            addonId: addonId,
-            organizationId: localStorage.getItem('valenixia_org_id') || 'default_org',
-            paymentRef: 'CLAIM_ADDON_' + Date.now()
-          })
-        });
-        const data = await res.json();
-        if (res.ok) {
-          if (typeof showNotificationToast === 'function') {
-            showNotificationToast(`✅ Add-on claim registered for ${addonId}. Pending review.`, 'success', 4000);
-          } else alert(`Add-on claim registered for ${addonId}.`);
-        } else {
-          throw new Error(data.error || 'Add-on claim failed.');
-        }
-      } catch (err) {
-        if (typeof showNotificationToast === 'function') {
-          showNotificationToast(`Add-on error: ${err.message}`, 'error', 4000);
-        } else alert(`Add-on error: ${err.message}`);
+      const addonPrices = {
+        FBR_FISCAL: 2999,
+        MULTISTORE_HQ: 3999,
+        WHATSAPP_RECEIPTS: 999,
+        CUSTOM_RBAC: 1999,
+        DATA_PORTABILITY: 1499
+      };
+
+      const pkrVal = addonPrices[addonId] || 1999;
+      const selectedTierInput = document.getElementById('form-billing-selected-tier');
+      const amountInput = document.getElementById('form-billing-amount');
+
+      if (selectedTierInput) selectedTierInput.value = `ADDON_${addonId}`;
+      if (amountInput) amountInput.value = pkrVal;
+
+      this.activateTab('payment');
+
+      const formContainer = document.getElementById('billing-upgrade-form-container');
+      if (formContainer) formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      if (typeof showNotificationToast === 'function') {
+        showNotificationToast(`Add-on ${addonId} selected: PKR ${pkrVal.toLocaleString()}. Transfer & submit proof below.`, 'success', 4000);
       }
     },
 
