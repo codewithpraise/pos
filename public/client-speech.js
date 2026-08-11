@@ -1,6 +1,6 @@
 // ============================================================================
-// VALENIXIA COMMERCE ECOSYSTEM - AI SPEECH COACH & CONVERSATIONAL NLP
-// Web Speech API client-side analytics with voice POS commands
+// VALENIXIA COMMERCE ECOSYSTEM - SPEECH COMMAND COACH & CONVERSATIONAL NLP
+// Hands-free voice recognition engine for checkout actions & inventory search
 // ============================================================================
 
 class SpeechCoach {

@@ -1,9 +1,9 @@
 {
-  "version": "2.6.1",
-  "build_id": "v2.6.1-prod-analytics-suppliers-khata",
-  "git_commit": "7022030",
+  "version": "2.6.2",
+  "build_id": "v2.6.2-prod-purge-ai-dynamic-filters",
+  "git_commit": "HEAD",
   "updated_at": "2026-08-12",
-  "changelog": "Valenixia POS v2.6.1 - Restored Suppliers & Khata Views, Overhauled Analytics UI & Multi-Branch Telemetry.",
+  "changelog": "Valenixia POS v2.6.2 - Purged word AI across entire app, resolved 53 duplicate element IDs, and implemented dynamic filter panel.",
   "changes": [
     "Single integer pricing catalog (PKR) with Math.round(monthly * 12 * 85 / 100) annual discount calculations",
     "Immutable server subscription quote engine (/api/subscription/quote) with 24-hour quote expiration",

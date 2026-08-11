@@ -12161,6 +12161,136 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
         else if (typeof exportAnalyticsCSV === 'function') exportAnalyticsCSV();
       };
     }
+
+    // Bind Filter Dropdowns & Reset Button
+    ['branch', 'terminal', 'cashier', 'category', 'payment'].forEach(fKey => {
+      const select = document.getElementById(`analytics-filter-${fKey}`);
+      if (select) {
+        select.onchange = () => {
+          try { playAudioSignal('click'); } catch(_) {}
+          calculateAnalytics();
+        };
+      }
+    });
+
+    const resetBtn = document.getElementById('analytics-filter-reset');
+    if (resetBtn) {
+      resetBtn.onclick = (e) => {
+        e.preventDefault();
+        ['branch', 'terminal', 'cashier', 'category', 'payment'].forEach(fKey => {
+          const s = document.getElementById(`analytics-filter-${fKey}`);
+          if (s) s.value = 'ALL';
+        });
+        try { playAudioSignal('click'); } catch(_) {}
+        calculateAnalytics();
+      };
+    }
+
+    populateAnalyticsFilterOptions();
+  }
+
+  function populateAnalyticsFilterOptions() {
+    const txs = state.transactions || [];
+    
+    // 1. Branches
+    const branchSelect = document.getElementById('analytics-filter-branch');
+    if (branchSelect) {
+      const cur = branchSelect.value || 'ALL';
+      const branchSet = new Map();
+      const defaultName = (state.preferences && state.preferences['store_name']) || 'Main Store / HQ';
+      branchSet.set('main', defaultName);
+      if (Array.isArray(state.branches)) {
+        state.branches.forEach(b => { if (b.id) branchSet.set(b.id, b.name || b.id); });
+      }
+      txs.forEach(t => {
+        const bId = t.branch_id || t.store_id || 'main';
+        if (!branchSet.has(bId)) branchSet.set(bId, bId === 'main' ? defaultName : `Branch (${bId})`);
+      });
+      setHtml(branchSelect, '<option value="ALL">All Branches</option>' + Array.from(branchSet.entries()).map(([id, name]) => `<option value="${id}" ${id === cur ? 'selected' : ''}>${name}</option>`).join(''));
+    }
+
+    // 2. Terminals
+    const termSelect = document.getElementById('analytics-filter-terminal');
+    if (termSelect) {
+      const cur = termSelect.value || 'ALL';
+      const termSet = new Map();
+      termSet.set('term_01', 'Terminal #1 (Primary)');
+      if (Array.isArray(state.terminals)) {
+        state.terminals.forEach(t => { if (t.id) termSet.set(t.id, t.name || `Terminal (${t.id})`); });
+      }
+      txs.forEach(t => {
+        const tId = t.terminal_id || 'term_01';
+        if (!termSet.has(tId)) termSet.set(tId, `Terminal (${tId})`);
+      });
+      setHtml(termSelect, '<option value="ALL">All Terminals</option>' + Array.from(termSet.entries()).map(([id, name]) => `<option value="${id}" ${id === cur ? 'selected' : ''}>${name}</option>`).join(''));
+    }
+
+    // 3. Cashiers / Staff
+    const cashierSelect = document.getElementById('analytics-filter-cashier');
+    if (cashierSelect) {
+      const cur = cashierSelect.value || 'ALL';
+      const cashierSet = new Set();
+      if (Array.isArray(state.staff)) {
+        state.staff.forEach(s => { if (s.name) cashierSet.add(s.name); else if (s.id) cashierSet.add(s.id); });
+      }
+      txs.forEach(t => {
+        const cName = t.cashier_name || t.cashier_id || t.cashier;
+        if (cName) cashierSet.add(cName);
+      });
+      setHtml(cashierSelect, '<option value="ALL">All Cashiers</option>' + Array.from(cashierSet.values()).map(c => `<option value="${c}" ${c === cur ? 'selected' : ''}>${c}</option>`).join(''));
+    }
+
+    // 4. Categories
+    const catSelect = document.getElementById('analytics-filter-category');
+    if (catSelect) {
+      const cur = catSelect.value || 'ALL';
+      const catSet = new Set();
+      if (Array.isArray(state.catalog)) {
+        state.catalog.forEach(p => { if (p.category) catSet.add(p.category); });
+      }
+      txs.forEach(t => {
+        (t.items || []).forEach(i => {
+          if (i.category) catSet.add(i.category);
+        });
+      });
+      setHtml(catSelect, '<option value="ALL">All Categories</option>' + Array.from(catSet.values()).map(c => `<option value="${c}" ${c === cur ? 'selected' : ''}>${c}</option>`).join(''));
+    }
+  }
+
+  function updateAnalyticsActiveFilterChips(filteredTxs) {
+    const chipsContainer = document.getElementById('analytics-active-chips');
+    if (!chipsContainer) return;
+
+    const bVal = document.getElementById('analytics-filter-branch')?.value || 'ALL';
+    const tVal = document.getElementById('analytics-filter-terminal')?.value || 'ALL';
+    const cVal = document.getElementById('analytics-filter-cashier')?.value || 'ALL';
+    const catVal = document.getElementById('analytics-filter-category')?.value || 'ALL';
+    const pVal = document.getElementById('analytics-filter-payment')?.value || 'ALL';
+    const range = state.analyticsRange || 'all';
+
+    const chips = [];
+    if (range !== 'all') chips.push(`Time: ${range.toUpperCase()}`);
+    if (bVal !== 'ALL') chips.push(`Branch: ${bVal}`);
+    if (tVal !== 'ALL') chips.push(`Terminal: ${tVal}`);
+    if (cVal !== 'ALL') chips.push(`Cashier: ${cVal}`);
+    if (catVal !== 'ALL') chips.push(`Category: ${catVal}`);
+    if (pVal !== 'ALL') chips.push(`Payment: ${pVal}`);
+
+    const count = (filteredTxs || []).length;
+
+    if (chips.length === 0) {
+      setHtml(chipsContainer, `<span style="font-size: 10px; color: var(--text-dim); font-weight: 600;">Active Filter Scope: <strong style="color: var(--text-white);">Full Store Dataset (${count} Records)</strong></span>`);
+    } else {
+      const badgesHtml = chips.map(chip => `
+        <span style="font-size: 10px; font-weight: 700; background: rgba(0,214,143,0.15); color: var(--accent-emerald); border: 1px solid rgba(0,214,143,0.3); padding: 2px 8px; border-radius: 12px; display: inline-flex; align-items: center; gap: 4px;">
+          ${chip}
+        </span>
+      `).join('');
+      setHtml(chipsContainer, `<div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+        <span style="font-size: 10px; color: var(--text-dim); font-weight: 600;">Active Scope (${count} txs):</span>
+        ${badgesHtml}
+      </div>`);
+    }
   }
 
   /** Export currently-visible transactions as a CSV download. */
@@ -12210,6 +12340,7 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
 
     // Use date-range-filtered subset
     const txs = getFilteredTransactions();
+    updateAnalyticsActiveFilterChips(txs);
     if (txs.length === 0) {
       if (revVal) revVal.textContent = 'Rs. 0.00';
       if (orderVal) orderVal.textContent = '0';
@@ -12323,9 +12454,9 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     // Business Intelligence dashboard calculations
     calculateBiDashboardMetrics();
 
-    // Render Multi-Store Branch Telemetry Matrix & Kamai AI Business Recommendations
+    // Render Multi-Store Branch Telemetry Matrix & Kamai Business Recommendations
     renderBranchTelemetryMatrix(txs);
-    renderKamaiAiAdvisor(txs);
+    renderKamaiBusinessAdvisor(txs);
 
     // Check stock thresholds and generate draft POs if needed
     runSmartReorderCheck();
@@ -12561,7 +12692,7 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     }
   }
 
-  function renderKamaiAiAdvisor(txs) {
+  function renderKamaiBusinessAdvisor(txs) {
     const container = document.getElementById('analytics-ai-recommendations');
     if (!container) return;
     container.replaceChildren();
@@ -12574,7 +12705,7 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     const insights = [];
 
     if (orderCount === 0) {
-      insights.push({ icon: '🛒', title: 'Start Processing Transactions', text: 'Register sales to trigger real-time AI inventory velocity & margin analysis.' });
+      insights.push({ icon: '🛒', title: 'Start Processing Transactions', text: 'Register sales to trigger real-time smart inventory velocity & margin analysis.' });
     } else {
       if (avgTicket < 150000) {
         insights.push({ icon: '📈', title: 'Basket Size Opportunity', text: 'Average ticket is Rs. ' + (avgTicket/100).toFixed(2) + '. Consider bundling high-margin add-on items at checkout.' });
@@ -13275,7 +13406,7 @@ setHtml(itemRow, `
     }
   }
 
-  // --- AI SPEECH COACH IMPLEMENTATION ---
+  // --- SPEECH COMMAND COACH IMPLEMENTATION ---
   function toggleSpeechCoachRecording() {
     const btn = document.getElementById('btn-speech-record');
     const status = document.getElementById('speech-status');
