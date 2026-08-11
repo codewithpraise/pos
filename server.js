@@ -503,8 +503,17 @@ app.use((req, res, next) => {
 
 // Uncached Health & Release Metadata Probe Endpoints
 const RELEASE_VERSION = '2.5.1';
-const RELEASE_GIT_COMMIT = 'b6c04e59dbcc91ea2c2107b87d84016282a3dd7d';
-const RELEASE_BUILD_ID = `v${RELEASE_VERSION}-prod-${RELEASE_GIT_COMMIT}`;
+let RELEASE_GIT_COMMIT = 'de42bc729e8dd12fd51ef3ad43e1979ff35a7c23';
+let RELEASE_BUILD_ID = `v${RELEASE_VERSION}-prod-${RELEASE_GIT_COMMIT}`;
+try {
+  const buildIdPath = path.join(__dirname, 'public', 'build-id');
+  if (fs.existsSync(buildIdPath)) {
+    RELEASE_BUILD_ID = fs.readFileSync(buildIdPath, 'utf8').trim();
+    if (RELEASE_BUILD_ID.includes('-prod-')) {
+      RELEASE_GIT_COMMIT = RELEASE_BUILD_ID.split('-prod-')[1] || RELEASE_GIT_COMMIT;
+    }
+  }
+} catch (_) {}
 const RELEASE_SCHEMA_VERSION = '17';
 
 function getReleaseManifestData() {
