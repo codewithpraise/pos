@@ -2264,7 +2264,8 @@ setHtml(overlay, `
         const text = (btn.innerText || btn.textContent || btn.ariaLabel || btn.value || '').trim().substring(0, 25);
         try {
           const style = window.getComputedStyle(btn);
-          if (style.pointerEvents === 'none' && !btn.disabled) {
+          const isHiddenParent = !!btn.closest('.content-view:not(.active), [hidden], [inert], .modal-overlay:not(.active), .auth-overlay:not(.active), .wizard-overlay:not(.active)');
+          if (style.pointerEvents === 'none' && !btn.disabled && !isHiddenParent) {
             errors.push(`[AUTOTEST_ERROR] Button #${id} (${text}) has pointer-events: none while enabled.`);
           } else {
             passedButtons++;
