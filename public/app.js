@@ -15119,7 +15119,7 @@ setHtml(container, `<p style="color: var(--text-gray); font-size:12px;">License 
         const mode2         = payload2.mode || 'subscription';
         const hwid2         = window.__valenixiaHWID || localStorage.getItem('valenixia_hwid') || 'Unknown';
         const hwidShort     = hwid2.length > 14 ? hwid2.slice(0, 14) + '…' : hwid2;
-        const devLimitMap   = { STARTER: '1 Device', FREE: '1 Device', FREEMIUM: '1 Device', GROWTH: '3 Devices', PRO: '5 Devices', ENTERPRISE: 'Unlimited' };
+        const devLimitMap   = { STARTER: '1 Register / 1 Branch', FREE: '1 Register / 1 Branch', FREEMIUM: '1 Register / 1 Branch', GROWTH: '3 Registers / 1 Branch', PRO: '3 Registers / 1 Branch', ENTERPRISE: '10 Registers / 5 Branches' };
         const deviceLimit   = isTrialActive ? '3 Devices (Trial)' : (typeof payload2.device_limit === 'number' ? payload2.device_limit + ' Device' + (payload2.device_limit !== 1 ? 's' : '') : (devLimitMap[tierRaw] || '—'));
 
         if (tierValEl) {

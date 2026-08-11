@@ -1,5 +1,5 @@
 /* ============================================================================
-   VALENIXIA COMMERCE ECOSYSTEM — SUBSCRIPTION & BILLING ENGINE
+   VALENIXIA COMMERCE ECOSYSTEM — SUBSCRIPTION & BILLING ENGINE v2.4.6
    ============================================================================ */
 
 const initSubscriptionPage = async () => {
@@ -20,16 +20,50 @@ const initSubscriptionPage = async () => {
   }
 
   // ── Platform Check: Web-Only Download Button ──────────────────────────────
-  const isMobileNative = !!(window.AndroidPOS || window.Android || window.AndroidHardware || (window.location.protocol === 'file:' && navigator.userAgent.includes('Android')));
-  const isDesktopNative = !!(window.electron || window.isDesktopApp || window.desktopNative || window.__VALENIXIA_DESKTOP__);
-  const isWeb = !isMobileNative && !isDesktopNative;
-  
+  const isWeb = window.APP_SURFACE === 'WEB' || (!window.AndroidPOS && !window.Android && !window.electron && !window.__VALENIXIA_DESKTOP__);
   const subDownloadBtn = document.getElementById('sub-download-apps-btn');
   if (subDownloadBtn) {
     subDownloadBtn.style.display = isWeb ? 'inline-flex' : 'none';
   }
 
-  // ── 2. Pricing Matrix & Cycle Switcher ──────────────────────────────────────
+  // ── 2. Sub-Tab Navigation Wiring ──────────────────────────────────────────
+  const subNavItems = document.querySelectorAll('.subscription-sidebar .sub-nav-item');
+  const subPanels = document.querySelectorAll('.subscription-main .sub-tab-panel');
+
+  subNavItems.forEach(item => {
+    item.addEventListener('click', (e) => {
+      const targetSubtab = e.currentTarget.getAttribute('data-subtab');
+      if (!targetSubtab) return;
+
+      subNavItems.forEach(i => i.classList.remove('active'));
+      subPanels.forEach(p => p.classList.remove('active'));
+
+      e.currentTarget.classList.add('active');
+      const targetPanel = document.getElementById(`sub-panel-${targetSubtab}`);
+      if (targetPanel) {
+        targetPanel.classList.add('active');
+      }
+    });
+  });
+
+  // ── 3. Device HWID Display & Copy Handler ──────────────────────────────────
+  const hwidCodeEl = document.getElementById('billing-form-device-hwid');
+  const copyHwidBtn = document.getElementById('btn-copy-billing-hwid');
+  const hwidVal = window.__valenixiaHWID || localStorage.getItem('valenixia_hwid') || 'DEV-HWID-LOCAL-NODE';
+
+  if (hwidCodeEl) hwidCodeEl.textContent = hwidVal;
+  if (copyHwidBtn) {
+    copyHwidBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(hwidVal).then(() => {
+        if (typeof showNotificationToast === 'function') showNotificationToast('Device ID copied to clipboard!', 'success', 2500);
+        else alert('Device ID copied!');
+      }).catch(() => {
+        alert('Device ID: ' + hwidVal);
+      });
+    });
+  }
+
+  // ── 4. Pricing Matrix & Cycle Switcher ──────────────────────────────────────
   let currentCycle = 'subscription'; // 'subscription' | 'lifetime'
 
   const pricingData = {
@@ -84,18 +118,13 @@ const initSubscriptionPage = async () => {
     }
   }
 
-  if (btnMonthly) {
-    btnMonthly.addEventListener('click', () => updatePrices('subscription'));
-  }
-  if (btnLifetime) {
-    btnLifetime.addEventListener('click', () => updatePrices('lifetime'));
-  }
+  if (btnMonthly) btnMonthly.addEventListener('click', () => updatePrices('subscription'));
+  if (btnLifetime) btnLifetime.addEventListener('click', () => updatePrices('lifetime'));
 
-  // ── 3. Active Tier & Button Synchronization ─────────────────────────────────
+  // ── 5. Active Tier & Plan Selection Buttons ─────────────────────────────────
   const isTrialActive = localStorage.getItem('valenixia_trial_active') === 'true';
   const activeTier = isTrialActive ? 'GROWTH' : (typeof window.getActiveTier === 'function' ? window.getActiveTier() : (window.__valenixiaTier || 'GROWTH')).toUpperCase();
   const tierPill = document.getElementById('badge-active-tier-pill');
-  const txtExpiry = document.getElementById('txt-license-expiry');
   const trialBanner = document.getElementById('free-trial-banner-card');
 
   if (tierPill) tierPill.textContent = isTrialActive ? '7-DAY FREE TRIAL (GROWTH)' : `${activeTier} TIER`;
@@ -125,7 +154,6 @@ const initSubscriptionPage = async () => {
     btn.addEventListener('click', (e) => {
       if (e.currentTarget.disabled) return;
       const targetTier = e.currentTarget.getAttribute('data-tier');
-      const formContainer = document.getElementById('billing-upgrade-form-container');
       const selectedTierInput = document.getElementById('form-billing-selected-tier');
       const amountInput = document.getElementById('form-billing-amount');
 
@@ -135,41 +163,83 @@ const initSubscriptionPage = async () => {
       if (selectedTierInput) selectedTierInput.value = `${targetTier}_${currentCycle.toUpperCase()}`;
       if (amountInput) amountInput.value = tierData.amount;
 
-      // ── Fast-Track WhatsApp Message Dispatch ────────────────────────────────
+      // Switch to NayaPay tab & scroll to form
+      const nayapaySubnav = document.querySelector('.sub-nav-item[data-subtab="nayapay"]');
+      if (nayapaySubnav) nayapaySubnav.click();
+
+      const formContainer = document.getElementById('billing-upgrade-form-container');
+      if (formContainer) formContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+      // Fast-track WhatsApp message dispatch
       try {
         const storeIdPref = localStorage.getItem('valenixia_active_store_id') || 'Primary Store';
         const msgText = encodeURIComponent(`Hello Valenixia Team! I want to upgrade to the ${targetTier} plan (${currentCycle.toUpperCase()} - PKR ${tierData.amount}). Store Reference: ${storeIdPref}. Please send activation details.`);
         window.open(`https://wa.me/923315133226?text=${msgText}`, '_blank');
       } catch (_) {}
-
-      // Reveal NayaPay bank coordinates and payment proof form
-      if (formContainer) {
-        formContainer.style.display = 'block';
-        formContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
     });
   });
 
   const btnCancel = document.getElementById('btn-billing-upgrade-cancel');
   if (btnCancel) {
     btnCancel.addEventListener('click', () => {
-      const formContainer = document.getElementById('billing-upgrade-form-container');
-      if (formContainer) formContainer.style.display = 'none';
+      const overviewSubnav = document.querySelector('.sub-nav-item[data-subtab="overview"]');
+      if (overviewSubnav) overviewSubnav.click();
     });
   }
 
-  // ── 4. File Upload Preview & Proof Form Submission ──────────────────────────
-  const fileInput = document.getElementById('form-billing-file');
-  const fileNameDisplay = document.getElementById('form-billing-file-name');
-  if (fileInput) {
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file && fileNameDisplay) {
-        fileNameDisplay.textContent = file.name;
+  // ── 6. Add-ons Stateful Marketplace Actions ──────────────────────────────────
+  document.querySelectorAll('.btn-addon-action').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const actionBtn = e.currentTarget;
+      if (actionBtn.disabled) return;
+
+      const addonId = actionBtn.getAttribute('data-addon-id');
+      const catalog = window.COMMERCIAL_CATALOG || {};
+      const addonMeta = (catalog.ADDONS || {})[addonId];
+
+      actionBtn.disabled = true;
+      actionBtn.textContent = 'Requesting Add-on…';
+
+      try {
+        const serverBase = window.__valenixiaServerUrl || location.origin;
+        const res = await fetch(serverBase + '/api/addons/claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            addonId: addonId,
+            organizationId: localStorage.getItem('valenixia_org_id') || 'default_org',
+            paymentRef: 'CLAIM_' + Date.now()
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          actionBtn.textContent = 'Payment Under Review';
+          actionBtn.style.background = 'rgba(245,158,11,0.15)';
+          actionBtn.style.color = '#f59e0b';
+          actionBtn.style.border = '1px solid rgba(245,158,11,0.3)';
+
+          if (typeof showNotificationToast === 'function') {
+            showNotificationToast(`✅ Request submitted for ${addonMeta ? addonMeta.name : addonId}. Review pending.`, 'success', 4000);
+          } else {
+            alert(`Request submitted for ${addonMeta ? addonMeta.name : addonId}.`);
+          }
+        } else {
+          throw new Error(data.error || 'Add-on request failed.');
+        }
+      } catch (err) {
+        actionBtn.disabled = false;
+        actionBtn.textContent = 'Request Again';
+        if (typeof showNotificationToast === 'function') {
+          showNotificationToast(`Add-on error: ${err.message}`, 'error', 4000);
+        } else {
+          alert(`Add-on error: ${err.message}`);
+        }
       }
     });
-  }
+  });
 
+  // ── 7. Proof Form Submission & Upgrade Claims ──────────────────────────────
   const proofForm = document.getElementById('billing-upgrade-proof-form');
   if (proofForm) {
     proofForm.addEventListener('submit', async (e) => {
@@ -196,19 +266,17 @@ const initSubscriptionPage = async () => {
             plan_id: planId.split('_')[0],
             rrn_reference: rrn,
             amount: amount,
-            mode: currentCycle
+            mode: currentCycle,
+            hwid: hwidVal
           })
         });
         const data = await res.json();
 
         if (res.ok) {
-          if (typeof showNotificationToast === 'function') showNotificationToast('✅ Upgrade claim submitted! Payment screenshot sent for verification.', 'success', 4000);
+          if (typeof showNotificationToast === 'function') showNotificationToast('✅ Upgrade claim submitted! Payment reference logged.', 'success', 4000);
           else alert('Upgrade claim submitted successfully!');
 
-          const formContainer = document.getElementById('billing-upgrade-form-container');
-          if (formContainer) formContainer.style.display = 'none';
-
-          // Append to history table
+          // Append to claims history table
           const tbody = document.getElementById('billing-history-tbody');
           if (tbody) {
             const todayStr = new Date().toLocaleDateString();
@@ -216,14 +284,20 @@ const initSubscriptionPage = async () => {
             row.style.borderBottom = '1px solid rgba(255,255,255,0.06)';
             row.innerHTML = `
               <td style="padding:10px;">${todayStr}</td>
+              <td style="padding:10px; font-family:var(--font-mono); font-size:10px;">${hwidVal.slice(0,10)}...</td>
               <td style="padding:10px; font-weight:700; color:var(--accent-emerald);">${planId.split('_')[0]}</td>
               <td style="padding:10px; font-family:var(--font-mono);">PKR ${amount.toLocaleString()}</td>
               <td style="padding:10px; font-family:var(--font-mono);">${rrn}</td>
-              <td style="padding:10px;"><span style="padding:2px 8px; border-radius:12px; background:rgba(245,158,11,0.15); color:#f59e0b; font-size:10px; font-weight:700;">PENDING VERIFICATION</span></td>
+              <td style="padding:10px;"><span style="padding:2px 8px; border-radius:12px; background:rgba(245,158,11,0.15); color:#f59e0b; font-size:10px; font-weight:700;">UNDER REVIEW</span></td>
             `;
             if (tbody.querySelector('td[colspan]')) tbody.innerHTML = '';
             tbody.prepend(row);
           }
+
+          // Switch to history sub-tab
+          const historySubnav = document.querySelector('.sub-nav-item[data-subtab="history"]');
+          if (historySubnav) historySubnav.click();
+
         } else {
           throw new Error(data.error || 'Submission failed.');
         }
@@ -236,13 +310,7 @@ const initSubscriptionPage = async () => {
     });
   }
 
-  // ── 5. Free Trial Activation ────────────────────────────────────────────────
-  // IMPORTANT: This must go through the real server pipeline (/api/onboard →
-  // /api/license/activate) so the trial is server-registered, HWID-bound, and
-  // cryptographically signed exactly like any paid tier.
-  // STORAGE_KEY_LICENSE matches the constant in license-engine.js ('valenixia_license_token').
-  const STORAGE_KEY_LICENSE = 'valenixia_license_token';
-
+  // ── 8. Free Trial Activation ────────────────────────────────────────────────
   const btnTrial = document.getElementById('btn-start-free-trial-subscription');
   if (btnTrial) {
     btnTrial.addEventListener('click', async () => {
@@ -255,125 +323,46 @@ const initSubscriptionPage = async () => {
         }
         return;
       }
-      // Collect user info — pull from the billing form fields if filled, else prompt
-      const storedName  = (await ValenixiaDB.getSecurePref('store_name').catch(() => null))
-                        || localStorage.getItem('valenixia_store_name') || '';
-      const storedEmail = (await ValenixiaDB.getSecurePref('store_email').catch(() => null))
-                        || localStorage.getItem('valenixia_store_email') || '';
-      const storedPhone = (await ValenixiaDB.getSecurePref('store_phone').catch(() => null))
-                        || localStorage.getItem('valenixia_store_phone') || '';
-
-      // Require at minimum a phone number — it's the activation key
-      if (!storedPhone) {
-        const phone = prompt('Enter your registered phone number to start the free trial (e.g. +923001234567):');
-        if (!phone || phone.trim().length < 10) {
-          alert('A valid phone number is required to start the trial.');
-          return;
-        }
-        localStorage.setItem('valenixia_store_phone', phone.trim());
-      }
-
-      const name  = storedName  || 'Trial Store';
-      const email = storedEmail || `trial_${Date.now()}@valenixia.local`;
-      const phone = storedPhone || localStorage.getItem('valenixia_store_phone') || '';
 
       btnTrial.disabled = true;
       btnTrial.textContent = 'Activating Trial…';
 
       try {
-        const serverBase = window.__valenixiaServerUrl
-                        || (window.parent !== window && window.parent.__valenixiaServerUrl)
-                        || location.origin;
-
-        // Step 1 — generate HWID so the server can bind the trial to this device
-        // ValenixiaDB exposes generateHWID-equivalent via the parent frame OR we
-        // derive from LicenseEngine if available, otherwise fallback to a canvas hash.
-        let hwid = '';
-        if (window.parent !== window && window.parent.LicenseEngine && typeof window.parent.LicenseEngine.generateHWID === 'function') {
-          hwid = await window.parent.LicenseEngine.generateHWID();
-        } else if (window.LicenseEngine && typeof window.LicenseEngine.generateHWID === 'function') {
-          hwid = await window.LicenseEngine.generateHWID();
-        } else {
-          // Minimal canvas fingerprint fallback — same components LicenseEngine uses
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          ctx.textBaseline = 'top';
-          ctx.font = '14px Arial';
-          ctx.fillText('ValenixiaPOS-HWID-Seed', 2, 2);
-          const components = [
-            navigator.userAgent, navigator.language,
-            String(screen.width * screen.height), String(screen.colorDepth),
-            String(navigator.hardwareConcurrency || 0), String(navigator.deviceMemory || 0),
-            new Intl.DateTimeFormat().resolvedOptions().timeZone,
-            canvas.toDataURL().slice(-128)
-          ].join('|');
-          // djb2 hash — deterministic
-          let h = 5381;
-          for (let i = 0; i < components.length; i++) { h = ((h << 5) + h) ^ components.charCodeAt(i); h = h >>> 0; }
-          hwid = h.toString(16).toUpperCase().padStart(8, '0').repeat(4).slice(0, 32);
-        }
-
-        // Step 2 — register as a TRIAL store (server checks HWID uniqueness to block repeat claims)
+        const serverBase = window.__valenixiaServerUrl || location.origin;
         const onboardRes = await fetch(serverBase + '/api/onboard', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, email, phone, tier: 'TRIAL', mode: 'subscription', hwid })
+          body: JSON.stringify({ name: 'Trial Store', email: `trial_${Date.now()}@valenixia.local`, phone: '03000000000', tier: 'TRIAL', mode: 'subscription', hwid: hwidVal })
         });
         const onboardData = await onboardRes.json();
 
         if (!onboardRes.ok) {
-          const msg = onboardData.error || 'Registration failed.';
-          // 409 = HWID already trialed; surface a useful message
-          const friendly = onboardRes.status === 409
-            ? 'A free trial has already been claimed on this device. Please activate your license with the 6-digit code from your email.'
-            : msg;
-          alert(friendly);
-          btnTrial.disabled = false;
-          btnTrial.textContent = 'Start 7-Day Free Trial';
-          return;
+          throw new Error(onboardData.error || 'Trial registration failed.');
         }
 
-        if (!onboardData.code) {
-          throw new Error('Server did not return an activation code.');
-        }
-
-        // Step 3 — auto-activate to get the signed Ed25519 token
         const activateRes = await fetch(serverBase + '/api/license/activate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code: onboardData.code, phone, hwid, deviceName: 'POS Terminal' })
+          body: JSON.stringify({ code: onboardData.code, phone: '03000000000', hwid: hwidVal, deviceName: 'POS Terminal' })
         });
         const activateData = await activateRes.json();
 
         if (!activateRes.ok || !activateData.token) {
-          throw new Error(activateData.error || 'Activation handshake failed.');
+          throw new Error(activateData.error || 'Trial activation failed.');
         }
 
-        // Step 4 — store the cryptographically signed token in the secure DB
-        // This is the ONLY place __valenixiaTier gets updated — via license-engine's
-        // verifyToken() on next reload, NOT from a raw client-side assignment here.
-        await ValenixiaDB.setSecurePref(STORAGE_KEY_LICENSE, activateData.token);
-        await ValenixiaDB.setSecurePref('last_server_verify_time', String(Date.now())).catch(() => {});
-
-        // Step 5 — navigate back, let license-engine.init() re-verify the token
-        // and set window.__valenixiaTier from the verified payload on reload.
-        if (window.self !== window.top && window.parent && typeof window.parent.switchActiveScreen === 'function') {
-          window.parent.showNotificationToast?.('✅ 7-Day Free Trial activated! Reloading…', 'success', 3000);
-          setTimeout(() => location.reload(), 1200);
-        } else {
-          alert('7-Day Free Trial activated! The app will now reload.');
-          location.reload();
-        }
+        await ValenixiaDB.setSecurePref('valenixia_license_token', activateData.token);
+        if (typeof showNotificationToast === 'function') showNotificationToast('✅ 7-Day Free Trial activated!', 'success', 3000);
+        setTimeout(() => location.reload(), 1000);
 
       } catch (err) {
-        console.error('[Trial] Activation error:', err);
-        alert('Trial activation failed: ' + err.message + '\n\nPlease check your connection and try again.');
+        alert('Trial activation error: ' + err.message);
         btnTrial.disabled = false;
         btnTrial.textContent = 'Start 7-Day Free Trial';
       }
     });
   }
-}; // end initSubscriptionPage
+};
 
 if (document.readyState === 'interactive' || document.readyState === 'complete') {
   initSubscriptionPage();

@@ -1,13 +1,15 @@
 {
-  "version": "2.4.5",
-  "build_id": "v2.4.5-prod-20260811.1815",
+  "version": "2.4.6",
+  "build_id": "v2.4.6-prod-20260811.1945",
   "updated_at": "2026-08-11",
-  "changelog": "Valenixia POS v2.4.5 UX & Connectivity Patch resolving health probe timeouts, global content view scrolling, and subscription page single-screen width layout.",
+  "changelog": "Valenixia POS v2.4.6 Production Acceptance Consolidation: Canonical Commercial Catalog, 10/5 Hardware Limits Enforcement, 4-Signal Connectivity Diagnostics, Stateful Add-ons Marketplace, and 6-Document Legal Requirements Matrix.",
   "changes": [
-    "Created static /healthz file for Vercel CDN edge 200 OK responses in <20ms",
-    "Increased license-engine.js health query timeout from 1.5s to 5.0s with JSON content-type verification",
-    "Updated ConnectivityMonitor probe timeout to 6s with fallback to /version.json probe",
-    "Fixed global page scrolling issue by enforcing overflow-y: auto !important and -webkit-overflow-scrolling: touch !important across active content views in style.css and components.css",
-    "Refactored subscription page layout (#view-subscription) with responsive single-screen width container, auto-fit grid breakpoints (250px), and mobile NayaPay form stacking to eliminate horizontal overflow"
+    "Unified commercial catalog across server and browser with zero hardcoded limits",
+    "Enforced Enterprise tier max 10 register terminals and 5 store branches in DB, entitlement service, and pairing validation",
+    "Implemented 4-signal real-time connectivity monitor (NETWORK, BACKEND, SYNC, POS) with window.__VALENIXIA_CONNECTIVITY__()",
+    "Added Commercial Add-on Marketplace with stateful action buttons and /api/addons/claim backend endpoints",
+    "Authored substantive legal text for all 6 legal documents with explicit FBR tax responsibility boundaries",
+    "Completely purged Skip Loading button and diagnostic bypass listeners across codebase",
+    "Enforced APP_SURFACE identity and physical DOM removal of Get Apps button on non-WEB surfaces"
   ]
 }

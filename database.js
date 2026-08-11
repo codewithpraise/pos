@@ -1114,8 +1114,8 @@ async function initDatabase(terminalId) {
           VALUES 
             ('FREE', 1, 1, 25, '{"csv_import": true, "fbr": true, "analytics": "basic"}'),
             ('STARTER', 1, 1, 2147483647, '{"csv_import": true, "fbr": true, "manual_backup": true, "logs": true, "analytics": "basic"}'),
-            ('PRO', 1, 2, 2147483647, '{"csv_import": true, "fbr": true, "manual_backup": true, "logs": true, "deals": true, "multi_device": true, "whatsapp_reminders": true, "analytics": "advanced"}'),
-            ('ENTERPRISE', 2, 3, 2147483647, '{"csv_import": true, "fbr": true, "manual_backup": true, "logs": true, "deals": true, "multi_device": true, "whatsapp_reminders": true, "api_access": true, "white_label": true, "analytics": "full"}');
+            ('PRO', 1, 3, 2147483647, '{"csv_import": true, "fbr": true, "manual_backup": true, "logs": true, "deals": true, "multi_device": true, "whatsapp_reminders": true, "analytics": "advanced"}'),
+            ('ENTERPRISE', 5, 10, 2147483647, '{"csv_import": true, "fbr": true, "manual_backup": true, "logs": true, "deals": true, "multi_device": true, "whatsapp_reminders": true, "api_access": true, "white_label": true, "analytics": "full"}');
         `);
 
         // Seed data-driven addon pricing

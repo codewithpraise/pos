@@ -398,7 +398,7 @@ function showUpgradeModal(featureName, requiredTier = 'GROWTH') {
           <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:#10b981;color:#000;font-size:9px;font-weight:900;padding:2px 8px;border-radius:99px;text-transform:uppercase;">RECOMMENDED</div>
           <div style="font-size:11px;font-weight:800;color:#10b981;text-transform:uppercase;margin-top:4px;">Growth (Pro)</div>
           <div style="font-size:16px;font-weight:900;color:#fff;margin:6px 0 2px;">Rs. 5,999<span style="font-size:10px;font-weight:400;color:#64748b;">/mo</span></div>
-          <div style="font-size:10px;color:#94a3b8;margin-bottom:12px;">Unlimited Products · Analytics & Sync</div>
+          <div style="font-size:10px;color:#94a3b8;margin-bottom:12px;">Full Catalog Products · Analytics & Sync</div>
           <button class="__btn-select-tier" data-tier="GROWTH" style="width:100%;padding:8px;background:#10b981;border:none;color:#000;font-size:11px;font-weight:900;border-radius:8px;cursor:pointer;">
             ${activeTier==='GROWTH'?'Current Plan':'Upgrade Growth'}
           </button>

@@ -1464,7 +1464,4 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('btn-wizard-scan-qr-direct')?.addEventListener('click', function() {
     if (typeof window.executeWizardScanQR === 'function') window.executeWizardScanQR();
   });
-  document.getElementById('btn-force-open-app')?.addEventListener('click', function() {
-    if (typeof window.updateBootProgress === 'function') window.updateBootProgress(100, 'Ready');
-  });
 });

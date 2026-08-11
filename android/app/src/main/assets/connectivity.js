@@ -1,9 +1,11 @@
 // ============================================================================
-// VALENIXIA COMMERCE ECOSYSTEM - REAL-TIME TRI-STATE CONNECTIVITY ENGINE v2.4.5
-// Tracks 4 signals (NETWORK, BACKEND, SYNC, POS) and calculates exact status:
-// - ONLINE: Network reachable and backend health probe responding OK
-// - DEGRADED: Network reachable but backend probe failing (offline queue active)
+// VALENIXIA COMMERCE ECOSYSTEM - 4-SIGNAL REAL-TIME CONNECTIVITY ENGINE v2.4.6
+// Tracks 4 signals: NETWORK STATE, BACKEND STATE, SYNC STATE, and POS OPERATING MODE
+// Calculates projected state:
+// - ONLINE: Browser network reachable AND backend probe responding 200 OK
+// - DEGRADED: Browser network reachable BUT backend probe failing or sync delayed
 // - OFFLINE: Browser physical network interface disconnected
+// Exposes window.__VALENIXIA_CONNECTIVITY__() for forensic diagnostics.
 // ============================================================================
 
 (function(global) {
@@ -14,17 +16,20 @@
       this.signals = {
         NETWORK: (typeof navigator !== 'undefined' && navigator.onLine),
         BACKEND: true,
-        SYNC: 'IDLE',
-        POS: 'READY'
+        SYNC: 'HEALTHY',
+        POS: 'OPERATIONAL'
       };
 
       this.status = this.signals.NETWORK ? 'ONLINE' : 'OFFLINE';
       this.reason = this.signals.NETWORK ? 'REACHABLE' : 'NETWORK_UNAVAILABLE';
       this.consecutiveFailures = 0;
+      this.consecutiveSuccesses = 0;
+      this.lastProbeTime = null;
+      this.lastSuccessfulProbeTime = null;
+      this.probeLatencyMs = 0;
       this.listeners = new Set();
       this.checkInterval = null;
       this.initialized = false;
-      this.lastProbeTime = null;
     }
 
     init() {
@@ -43,7 +48,12 @@
       this.checkInterval = setInterval(() => this.probeConnectivity(), 15000);
       this.probeConnectivity();
 
-      console.log(`[ConnectivityEngine v2.4.5] Initialized. Initial state: ${this.status}`);
+      // Expose authoritative diagnostic function on global window
+      if (typeof window !== 'undefined') {
+        window.__VALENIXIA_CONNECTIVITY__ = () => this.getDiagnosticSnapshot();
+      }
+
+      console.log(`[ConnectivityEngine v2.4.6] Initialized. Initial status: ${this.status}`);
     }
 
     syncStateWithNavigator() {
@@ -78,6 +88,7 @@
       }
 
       this.signals.NETWORK = true;
+      const startTime = performance.now();
       this.lastProbeTime = Date.now();
 
       const controller = new AbortController();
@@ -92,7 +103,7 @@
           response = await fetch(healthUrl, {
             method: 'GET',
             cache: 'no-store',
-            headers: { 'Cache-Control': 'no-store' },
+            headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' },
             credentials: 'same-origin',
             signal: controller.signal
           });
@@ -101,23 +112,27 @@
           response = await fetch(fallbackUrl, {
             method: 'GET',
             cache: 'no-store',
-            headers: { 'Cache-Control': 'no-store' },
+            headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' },
             credentials: 'same-origin',
             signal: controller.signal
           });
         }
 
         clearTimeout(timeoutId);
+        this.probeLatencyMs = Math.round(performance.now() - startTime);
 
         if (response && response.ok) {
           this.signals.BACKEND = true;
           this.consecutiveFailures = 0;
+          this.consecutiveSuccesses++;
+          this.lastSuccessfulProbeTime = Date.now();
           this.updateState('ONLINE', 'REACHABLE');
         } else {
           this.handleProbeFailure('HTTP_' + (response ? response.status : 'UNKNOWN'));
         }
       } catch (err) {
         clearTimeout(timeoutId);
+        this.probeLatencyMs = Math.round(performance.now() - startTime);
         this.handleProbeFailure(err.name === 'AbortError' ? 'FETCH_TIMEOUT' : 'FETCH_FAILED');
       }
     }
@@ -125,6 +140,7 @@
     handleProbeFailure(reasonCode) {
       this.signals.BACKEND = false;
       this.consecutiveFailures++;
+      this.consecutiveSuccesses = 0;
 
       // If browser is physically online but 2 consecutive backend probes fail -> DEGRADED
       if (this.signals.NETWORK) {
@@ -145,7 +161,7 @@
       this.reason = reason;
 
       if (changed) {
-        console.log(`[ConnectivityEngine] Status changed -> ${newStatus} (${reason}) [Failures: ${this.consecutiveFailures}]`);
+        console.log(`[ConnectivityEngine v2.4.6] Status changed -> ${newStatus} (${reason}) [Failures: ${this.consecutiveFailures}]`);
         this.updateDOM();
         this.notifyListeners();
       }
@@ -190,6 +206,9 @@
 
     setSyncSignal(status) {
       this.signals.SYNC = status;
+      if (status === 'DELAYED' || status === 'FAILED') {
+        if (this.status === 'ONLINE') this.updateState('DEGRADED', 'SYNC_' + status);
+      }
     }
 
     setPosSignal(status) {
@@ -204,20 +223,30 @@
     }
 
     notifyListeners() {
-      const snapshot = this.getStatus();
+      const snapshot = this.getDiagnosticSnapshot();
       this.listeners.forEach(cb => {
         try { cb(snapshot); } catch (_) {}
       });
     }
 
     getStatus() {
+      const snap = this.getDiagnosticSnapshot();
+      return Object.assign({ status: this.status, signals: Object.assign({}, this.signals), browserOnline: typeof navigator !== 'undefined' ? navigator.onLine : true }, snap);
+    }
+
+    getDiagnosticSnapshot() {
       return {
-        status: this.status,
+        state: this.status,
         reason: this.reason,
-        signals: Object.assign({}, this.signals),
-        browserOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
+        browserNetwork: !!this.signals.NETWORK,
+        backendReachability: !!this.signals.BACKEND,
+        syncHealth: this.signals.SYNC || 'HEALTHY',
+        posOperatingMode: this.signals.POS || 'OPERATIONAL',
+        lastProbeAt: this.lastProbeTime ? new Date(this.lastProbeTime).toISOString() : null,
+        lastSuccessfulProbeAt: this.lastSuccessfulProbeTime ? new Date(this.lastSuccessfulProbeTime).toISOString() : null,
         consecutiveFailures: this.consecutiveFailures,
-        lastProbeTime: this.lastProbeTime
+        consecutiveSuccesses: this.consecutiveSuccesses,
+        probeLatencyMs: this.probeLatencyMs
       };
     }
   }

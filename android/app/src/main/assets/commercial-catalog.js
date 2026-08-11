@@ -1,5 +1,5 @@
 // ============================================================================
-// VALENIXIA COMMERCE ECOSYSTEM - SINGLE AUTHORITATIVE COMMERCIAL CATALOG
+// VALENIXIA COMMERCE ECOSYSTEM - SINGLE CANONICAL COMMERCIAL CATALOG
 // Single source of truth for all Tier Plans, Add-ons, Entitlements, and Limits.
 // Consumed by Subscription Page, Settings Page, Admin Portal, and Feature Gates.
 // ============================================================================
@@ -8,6 +8,23 @@
   'use strict';
 
   const COMMERCIAL_PLANS = {
+    FREE: {
+      id: 'FREE',
+      name: 'Free Basic',
+      price_pkr: 0,
+      billing_cycle: 'monthly',
+      terminal_limit: 1,
+      branch_limit: 1,
+      product_limit: 25,
+      badge: 'FREE FOREVER',
+      tagline: 'Basic trial register for small single-counter kiosks.',
+      features: [
+        '1 Register Terminal License & 1 Store Branch',
+        'Basic Sales Checkout & Local Stock',
+        'Max 25 Inventory Items'
+      ],
+      included_addons: []
+    },
     STARTER: {
       id: 'STARTER',
       name: 'Starter Register',
@@ -15,10 +32,11 @@
       billing_cycle: 'monthly',
       terminal_limit: 1,
       branch_limit: 1,
+      product_limit: 2147483647,
       badge: 'ENTRY TIER',
       tagline: 'Essential offline-first POS for single counter shops.',
       features: [
-        '1 Register Terminal License',
+        '1 Register Terminal License & 1 Store Branch',
         'Fast Checkout & ESC/POS Thermal Printing',
         'Product Catalog & Real-Time Local Stock',
         'Customer Directory & Credit Khata Ledger',
@@ -34,10 +52,31 @@
       billing_cycle: 'monthly',
       terminal_limit: 3,
       branch_limit: 1,
+      product_limit: 2147483647,
       badge: 'MOST POPULAR',
       tagline: 'Multi-device real-time sync for growing retail & restaurants.',
       features: [
-        'Up to 3 Register Terminals per Store',
+        'Up to 3 Register Terminals & 1 Store Branch',
+        'Multi-Device Real-Time Cloud Sync & Backup',
+        'Kitchen & Bar Ticket Routing (KOT)',
+        'Staff Security PINs & Activity Audit Logs',
+        'Automated WhatsApp Digital Receipts',
+        'Advanced Margin & Stock Forecasting'
+      ],
+      included_addons: ['WHATSAPP_RECEIPTS']
+    },
+    PRO: {
+      id: 'PRO',
+      name: 'Growth (Pro Store)',
+      price_pkr: 6999,
+      billing_cycle: 'monthly',
+      terminal_limit: 3,
+      branch_limit: 1,
+      product_limit: 2147483647,
+      badge: 'MOST POPULAR',
+      tagline: 'Multi-device real-time sync for growing retail & restaurants.',
+      features: [
+        'Up to 3 Register Terminals & 1 Store Branch',
         'Multi-Device Real-Time Cloud Sync & Backup',
         'Kitchen & Bar Ticket Routing (KOT)',
         'Staff Security PINs & Activity Audit Logs',
@@ -53,6 +92,7 @@
       billing_cycle: 'monthly',
       terminal_limit: 10,
       branch_limit: 5,
+      product_limit: 2147483647,
       badge: 'ENTERPRISE HQ',
       tagline: 'Multi-branch retail chain & FBR tax compliant commerce engine.',
       features: [
@@ -76,6 +116,7 @@
       billing_cycle: 'monthly',
       description: 'Tier-1 FBR / PRAL digital fiscal invoice tagging with QR code generation & automatic queue syncing.',
       icon: '🏛️',
+      entitlementKey: 'fbrPos',
       included_in: ['ENTERPRISE']
     },
     MULTI_STORE: {
@@ -86,6 +127,7 @@
       billing_cycle: 'monthly',
       description: 'Centralized HQ stock transfer requests, multi-outlet sales aggregation, and inventory consolidation.',
       icon: '🏬',
+      entitlementKey: 'multiStoreHq',
       included_in: ['ENTERPRISE']
     },
     WHATSAPP_RECEIPTS: {
@@ -96,7 +138,8 @@
       billing_cycle: 'monthly',
       description: 'Send instant PDF transaction receipts and credit statements directly to customers WhatsApp numbers.',
       icon: '💬',
-      included_in: ['GROWTH', 'ENTERPRISE']
+      entitlementKey: 'whatsappReceipts',
+      included_in: ['GROWTH', 'PRO', 'ENTERPRISE']
     },
     CUSTOM_ROLES: {
       id: 'CUSTOM_ROLES',
@@ -106,6 +149,7 @@
       billing_cycle: 'monthly',
       description: 'Define custom cashier, supervisor, and inventory manager permissions with immutable audit trails.',
       icon: '🛡️',
+      entitlementKey: 'customRbac',
       included_in: ['ENTERPRISE']
     },
     DATA_PORTABILITY: {
@@ -116,21 +160,21 @@
       billing_cycle: 'monthly',
       description: 'Automated Google Drive daily database backups and scheduled CSV/Excel business reporting exports.',
       icon: '☁️',
+      entitlementKey: 'dataPortability',
       included_in: ['ENTERPRISE']
     }
   };
 
-  global.ValenixiaCommercialCatalog = {
-    COMMERCIAL_PLANS,
-    COMMERCIAL_ADDONS
-  };
-
-  global.COMMERCIAL_CATALOG = {
-    TIERS: COMMERCIAL_PLANS,
+  const COMMERCIAL_CATALOG = {
+    VERSION: '2.4.6',
+    PLANS: COMMERCIAL_PLANS,
     ADDONS: COMMERCIAL_ADDONS
   };
 
+  global.ValenixiaCommercialCatalog = COMMERCIAL_CATALOG;
+  global.COMMERCIAL_CATALOG = COMMERCIAL_CATALOG;
+
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { COMMERCIAL_PLANS, COMMERCIAL_ADDONS, COMMERCIAL_CATALOG: global.COMMERCIAL_CATALOG };
+    module.exports = { COMMERCIAL_PLANS, COMMERCIAL_ADDONS, COMMERCIAL_CATALOG };
   }
 })(typeof window !== 'undefined' ? window : global);

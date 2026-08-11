@@ -45,12 +45,6 @@
       <div id="app-boot-loader-progress" style="width:30%;height:100%;background:linear-gradient(90deg,#00d68f,#10b981);border-radius:99px;transition:width 0.3s ease;"></div>
     </div>
 
-    <!-- Diagnostic App Bypass Action -->
-    <div style="display: flex; gap: 8px; margin-top: 12px; z-index: 100000; pointer-events: auto !important;">
-      <button type="button" id="btn-force-open-app" onclick="if(window.updateBootProgress)window.updateBootProgress(100,'Ready');" style="background: rgba(255,255,255,0.04); color: var(--text-gray); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 6px 12px; font-size: 10px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-        ⚡ Skip Loading
-      </button>
-    </div>
   </div>
 
   <!-- AUTH LOCK SCREEN (Centered login PIN pad overlay) -->
@@ -1244,10 +1238,13 @@
             <div class="settings-section">
               <h3>Legal &amp; Compliance</h3>
               <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 12px;">Review system policy agreements and software licenses.</p>
-              <div style="display: flex; flex-direction: column; gap: 8px;">
-                <button type="button" class="action-btn" id="btn-legal-tos" style="width: 100%; text-align: left; padding: 10px 14px; font-size: 12px;">📄 Terms of Service (TOS)</button>
-                <button type="button" class="action-btn" id="btn-legal-privacy" style="width: 100%; text-align: left; padding: 10px 14px; font-size: 12px;">🛡️ Privacy Policy</button>
-                <button type="button" class="action-btn" id="btn-legal-refund" style="width: 100%; text-align: left; padding: 10px 14px; font-size: 12px;">💸 Refund &amp; Cancellation Policy</button>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;">
+                <button type="button" class="action-btn btn-open-legal-doc" data-doc-key="TERMS_OF_SERVICE" style="text-align: left; padding: 10px 14px; font-size: 11px;">📄 Terms of Service (TOS)</button>
+                <button type="button" class="action-btn btn-open-legal-doc" data-doc-key="EULA" style="text-align: left; padding: 10px 14px; font-size: 11px;">📜 End User License (EULA)</button>
+                <button type="button" class="action-btn btn-open-legal-doc" data-doc-key="PRIVACY_POLICY" style="text-align: left; padding: 10px 14px; font-size: 11px;">🛡️ Privacy Policy</button>
+                <button type="button" class="action-btn btn-open-legal-doc" data-doc-key="ACCEPTABLE_USE" style="text-align: left; padding: 10px 14px; font-size: 11px;">⚖️ Acceptable Use Policy</button>
+                <button type="button" class="action-btn btn-open-legal-doc" data-doc-key="FBR_DISCLAIMER" style="text-align: left; padding: 10px 14px; font-size: 11px;">🏛️ FBR Tax Disclaimer</button>
+                <button type="button" class="action-btn btn-open-legal-doc" data-doc-key="CLOUD_SYNC_TERMS" style="text-align: left; padding: 10px 14px; font-size: 11px;">☁️ Cloud Sync Terms</button>
               </div>
             </div>
             
@@ -1791,6 +1788,10 @@
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                   <span>Upgrade Plans</span>
                 </button>
+                <button type="button" class="sub-nav-item" data-subtab="addons">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                  <span>Add-on Marketplace</span>
+                </button>
                 <button type="button" class="sub-nav-item" data-subtab="nayapay">
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
                   <span>Pay via NayaPay</span>
@@ -1912,7 +1913,7 @@
                         PKR 11,999 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>
                       </div>
                       <ul style="font-size:12px; color:var(--text-muted); padding-left:18px; margin:0 0 20px; line-height:1.8;">
-                        <li><strong style="color:var(--text-white);">Unlimited Register Terminals &amp; Branches</strong></li>
+                        <li><strong style="color:var(--text-white);">Up to 10 Register Terminals &amp; 5 Store Branches</strong></li>
                         <li><strong style="color:var(--text-white);">Everything in Growth, plus:</strong></li>
                         <li><strong style="color:var(--accent-emerald);">Official FBR Fiscal POS &amp; PRAL Tax Integration</strong></li>
                         <li>Multi-Branch Central HQ Dashboard &amp; Transfers</li>
@@ -1921,6 +1922,81 @@
                       </ul>
                     </div>
                     <button class="action-btn dm-btn-secondary btn-select-tier" data-tier="ENTERPRISE" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase;">Select Enterprise</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Sub-Tab Panel: ADD-ONS MARKETPLACE -->
+              <div class="sub-tab-panel" id="sub-panel-addons">
+                <div style="margin-bottom:20px;">
+                  <h3 style="margin:0; font-size:18px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">Commercial Add-on Marketplace</h3>
+                  <p style="margin:4px 0 0; font-size:13px; color:var(--text-gray);">Enhance your register capability with specialized compliance, multi-store HQ, marketing, and security add-ons.</p>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;" id="addons-marketplace-grid">
+                  <!-- FBR POS Add-on -->
+                  <div class="pricing-card" data-addon-id="FBR_FISCAL" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <h4 style="margin:0; font-size:15px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">🏛️ FBR Fiscal POS</h4>
+                        <span style="font-size:10px; font-weight:800; padding:2px 8px; border-radius:12px; background:rgba(239,68,68,0.15); color:#ef4444;">TAX COMPLIANCE</span>
+                      </div>
+                      <div style="font-size:20px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:10px;">PKR 2,999 <span style="font-size:11px; font-weight:600; color:var(--text-gray);">/ mo</span></div>
+                      <p style="font-size:12px; color:var(--text-gray); line-height:1.5; margin-bottom:16px;">Tier-1 FBR / PRAL digital fiscal invoice tagging with QR code generation &amp; automatic queue syncing.</p>
+                    </div>
+                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="FBR_FISCAL" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request FBR Add-on</button>
+                  </div>
+
+                  <!-- Multi-Store HQ Add-on -->
+                  <div class="pricing-card" data-addon-id="MULTI_STORE" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <h4 style="margin:0; font-size:15px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">🏬 Multi-Store HQ</h4>
+                        <span style="font-size:10px; font-weight:800; padding:2px 8px; border-radius:12px; background:rgba(59,130,246,0.15); color:#3b82f6;">MULTI-BRANCH</span>
+                      </div>
+                      <div style="font-size:20px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:10px;">PKR 3,999 <span style="font-size:11px; font-weight:600; color:var(--text-gray);">/ mo</span></div>
+                      <p style="font-size:12px; color:var(--text-gray); line-height:1.5; margin-bottom:16px;">Centralized HQ stock transfer requests, multi-outlet sales aggregation, and inventory consolidation.</p>
+                    </div>
+                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="MULTI_STORE" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request Multi-Store HQ</button>
+                  </div>
+
+                  <!-- WhatsApp Receipts Add-on -->
+                  <div class="pricing-card" data-addon-id="WHATSAPP_RECEIPTS" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <h4 style="margin:0; font-size:15px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">💬 WhatsApp Receipts</h4>
+                        <span style="font-size:10px; font-weight:800; padding:2px 8px; border-radius:12px; background:rgba(16,185,129,0.15); color:#10b981;">MARKETING</span>
+                      </div>
+                      <div style="font-size:20px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:10px;">PKR 1,499 <span style="font-size:11px; font-weight:600; color:var(--text-gray);">/ mo</span></div>
+                      <p style="font-size:12px; color:var(--text-gray); line-height:1.5; margin-bottom:16px;">Send instant PDF transaction receipts and credit statements directly to customers WhatsApp numbers.</p>
+                    </div>
+                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="WHATSAPP_RECEIPTS" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request WhatsApp Add-on</button>
+                  </div>
+
+                  <!-- Custom Roles Add-on -->
+                  <div class="pricing-card" data-addon-id="CUSTOM_ROLES" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <h4 style="margin:0; font-size:15px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">🛡️ Custom Roles &amp; RBAC</h4>
+                        <span style="font-size:10px; font-weight:800; padding:2px 8px; border-radius:12px; background:rgba(245,158,11,0.15); color:#f59e0b;">SECURITY</span>
+                      </div>
+                      <div style="font-size:20px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:10px;">PKR 1,999 <span style="font-size:11px; font-weight:600; color:var(--text-gray);">/ mo</span></div>
+                      <p style="font-size:12px; color:var(--text-gray); line-height:1.5; margin-bottom:16px;">Define custom cashier, supervisor, and inventory manager permissions with immutable audit trails.</p>
+                    </div>
+                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="CUSTOM_ROLES" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request Custom RBAC</button>
+                  </div>
+
+                  <!-- Data Portability Add-on -->
+                  <div class="pricing-card" data-addon-id="DATA_PORTABILITY" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <h4 style="margin:0; font-size:15px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">☁️ Automated Backup &amp; Export</h4>
+                        <span style="font-size:10px; font-weight:800; padding:2px 8px; border-radius:12px; background:rgba(168,85,247,0.15); color:#a855f7;">DATA PORTABILITY</span>
+                      </div>
+                      <div style="font-size:20px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:10px;">PKR 1,499 <span style="font-size:11px; font-weight:600; color:var(--text-gray);">/ mo</span></div>
+                      <p style="font-size:12px; color:var(--text-gray); line-height:1.5; margin-bottom:16px;">Automated Google Drive daily database backups and scheduled CSV/Excel business reporting exports.</p>
+                    </div>
+                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="DATA_PORTABILITY" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request Data Portability</button>
                   </div>
                 </div>
               </div>
@@ -3020,14 +3096,23 @@
           <!-- Interactive Full Legal Documents Section -->
           <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px;">
             <div style="font-size:10px; font-weight:800; color:#8f9cb5; letter-spacing:0.8px; text-transform:uppercase;">Legal Agreements (Tap to Review)</div>
-            <button type="button" data-legal-doc="tos" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:10px 14px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit; transition:all 0.2s ease;">
-              <span>📄 View Terms of Service</span><span id="wiz-legal-tos-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
+            <button type="button" data-legal-doc="TERMS_OF_SERVICE" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
+              <span>📄 Terms of Service</span><span id="wiz-legal-tos-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
             </button>
-            <button type="button" data-legal-doc="privacy" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:10px 14px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit; transition:all 0.2s ease;">
-              <span>🛡️ View Privacy Policy</span><span id="wiz-legal-privacy-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
+            <button type="button" data-legal-doc="EULA" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
+              <span>📜 End User License (EULA)</span><span id="wiz-legal-eula-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
             </button>
-            <button type="button" data-legal-doc="refund" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:10px 14px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit; transition:all 0.2s ease;">
-              <span>💸 View Refund &amp; Cancellation Policy</span><span id="wiz-legal-refund-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
+            <button type="button" data-legal-doc="PRIVACY_POLICY" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
+              <span>🛡️ Privacy Policy</span><span id="wiz-legal-privacy-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
+            </button>
+            <button type="button" data-legal-doc="ACCEPTABLE_USE" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
+              <span>⚖️ Acceptable Use Policy</span><span id="wiz-legal-aup-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
+            </button>
+            <button type="button" data-legal-doc="FBR_DISCLAIMER" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
+              <span>🏛️ FBR Tax Disclaimer</span><span id="wiz-legal-fbr-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
+            </button>
+            <button type="button" data-legal-doc="CLOUD_SYNC_TERMS" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
+              <span>☁️ Cloud Sync Terms</span><span id="wiz-legal-cloud-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
             </button>
           </div>
 

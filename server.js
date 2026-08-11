@@ -509,7 +509,7 @@ app.get(['/api/health', '/healthz'], (req, res) => {
   res.json({
     ok: true,
     service: 'valenixia-pos',
-    version: '2.4.5',
+    version: '2.4.6',
     timestamp: Date.now()
   });
 });
@@ -3301,6 +3301,43 @@ app.post('/api/payments/submit-proof', billingLimiter, requireAuth, requireBody(
     return sendResponse(201, { success: true, message: 'Proof submitted successfully', proof_id: proofId });
   } catch (err) {
     return sendResponse(500, { error: err.message });
+  }
+});
+
+// GET /api/addons/list — Commercial Add-ons Catalog
+app.get('/api/addons/list', (req, res) => {
+  const catalog = require('./lib/commercial-catalog');
+  res.json({ ok: true, addons: catalog.COMMERCIAL_ADDONS });
+});
+
+// POST /api/addons/claim — Submit Commercial Add-on Claim
+app.post('/api/addons/claim', async (req, res) => {
+  try {
+    const { addonId, organizationId, paymentRef } = req.body || {};
+    if (!addonId) return res.status(400).json({ error: 'Missing required field: addonId' });
+
+    const catalog = require('./lib/commercial-catalog');
+    const addonMeta = catalog.COMMERCIAL_ADDONS[addonId];
+    if (!addonMeta) return res.status(404).json({ error: `Add-on '${addonId}' not found in commercial catalog.` });
+
+    const claimId = `ADDON_CLAIM_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const claimRecord = {
+      id: claimId,
+      addonId,
+      organizationId: organizationId || 'default_org',
+      paymentRef: paymentRef || `REF_${Date.now()}`,
+      status: 'PENDING',
+      submittedAt: Date.now()
+    };
+
+    await db.run(
+      'INSERT INTO local_preferences (key, value_payload) VALUES (?, ?)',
+      [`addon_claim_${claimId}`, JSON.stringify(claimRecord)]
+    );
+
+    return res.json({ ok: true, claim: claimRecord });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
   }
 });
 

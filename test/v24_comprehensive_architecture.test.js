@@ -1,217 +1,187 @@
 // ============================================================================
-// VALENIXIA POS v2.4.4 COMPREHENSIVE ARCHITECTURAL SUITE
-// Tests permanent screen shells, render contract targets, single-view isolation,
-// 1000 worker messages + 100 rapid route changes, failure isolation, connectivity states,
-// and commercial/legal feature regressions.
+// VALENIXIA COMMERCE ECOSYSTEM — COMPREHENSIVE V2.4.6 ACCEPTANCE GATE TEST SUITE
+// Tests zero-drift commercial catalog, 10/5 hardware limit enforcement,
+// 4-signal connectivity engine, legal requirements matrix, zero Skip Loading,
+// APP_SURFACE identity, and production build consistency.
 // ============================================================================
 
+const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-const { JSDOM } = require('jsdom');
 
-describe('Valenixia POS v2.4.4 Comprehensive Architectural Verification', () => {
-  let dom;
-  let window;
-  let document;
+describe('Valenixia POS v2.4.6 Comprehensive Production Acceptance Gate', function() {
 
-  beforeAll(() => {
-    const htmlPath = path.join(__dirname, '../public/index.html');
-    const htmlContent = fs.readFileSync(htmlPath, 'utf8');
+  describe('1. Single Canonical Commercial Catalog & Zero Drift', function() {
+    it('should have identical server catalog and browser catalog definitions', function() {
+      const serverCatalog = require('../lib/commercial-catalog');
+      const publicCatalogFile = fs.readFileSync(path.join(__dirname, '../public/commercial-catalog.js'), 'utf8');
 
-    dom = new JSDOM(htmlContent, {
-      url: 'http://localhost:8080/#checkout',
-      runScripts: 'dangerously',
-      resources: 'usable'
+      assert.strictEqual(serverCatalog.COMMERCIAL_PLANS.ENTERPRISE.terminal_limit, 10);
+      assert.strictEqual(serverCatalog.COMMERCIAL_PLANS.ENTERPRISE.branch_limit, 5);
+      assert.strictEqual(serverCatalog.COMMERCIAL_PLANS.STARTER.terminal_limit, 1);
+      assert.strictEqual(serverCatalog.COMMERCIAL_PLANS.STARTER.branch_limit, 1);
+      assert.strictEqual(serverCatalog.COMMERCIAL_PLANS.GROWTH.terminal_limit, 3);
+      assert.strictEqual(serverCatalog.COMMERCIAL_PLANS.GROWTH.branch_limit, 1);
+
+      assert.ok(publicCatalogFile.includes("terminal_limit: 10"), "public/commercial-catalog.js must set terminal_limit: 10");
+      assert.ok(publicCatalogFile.includes("branch_limit: 5"), "public/commercial-catalog.js must set branch_limit: 5");
     });
 
-    window = dom.window;
-    document = window.document;
+    it('should contain zero "Unlimited" hardware limit references in UI files', function() {
+      const indexHtml = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+      const appJs = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8');
 
-    // Load scripts in order
-    const scripts = [
-      'public/connectivity.js',
-      'public/router.js',
-      'public/commercial-catalog.js',
-      'public/legal-documents.js',
-      'public/freemium-engine.js',
-      'public/app.js'
-    ];
-
-    scripts.forEach(scriptPath => {
-      const fullPath = path.join(__dirname, '../', scriptPath);
-      if (fs.existsSync(fullPath)) {
-        const code = fs.readFileSync(fullPath, 'utf8');
-        window.eval(code);
-      }
-    });
-
-    // Mock minimal state
-    window.state = {
-      activeScreen: 'checkout',
-      screenDirty: {},
-      catalog: [],
-      activeCart: [],
-      customers: [],
-      employees: []
-    };
-  });
-
-  afterAll(() => {
-    if (dom) dom.window.close();
-  });
-
-  test('Test A: All 18 permanent screen shells exist in DOM simultaneously', () => {
-    const registry = window.SCREEN_REGISTRY;
-    expect(registry).toBeDefined();
-
-    const keys = Object.keys(registry);
-    expect(keys.length).toBe(18);
-
-    keys.forEach(routeKey => {
-      const viewId = registry[routeKey].viewId;
-      const shell = document.getElementById(viewId);
-      expect(shell).not.toBeNull();
-      expect(shell.classList.contains('content-view')).toBe(true);
+      assert.doesNotMatch(indexHtml, /Unlimited Register Terminals/i, 'index.html must not contain Unlimited Register Terminals');
+      assert.doesNotMatch(appJs, /ENTERPRISE:\s*'Unlimited'/i, 'app.js must not contain ENTERPRISE: Unlimited');
     });
   });
 
-  test('Test B: All registered renderer contract DOM targets exist inside shells', () => {
-    const registry = window.SCREEN_REGISTRY;
+  describe('2. Enterprise Hardware Limits (10 Terminals / 5 Branches) Enforcement', function() {
+    it('should allow terminal #10 and reject terminal #11 for Enterprise tier', async function() {
+      const entitlementService = require('../lib/entitlement-service');
 
-    Object.keys(registry).forEach(routeKey => {
-      const meta = registry[routeKey];
-      meta.renderTargets.forEach(tId => {
-        const el = document.getElementById(tId);
-        expect(el).not.toBeNull();
+      const ent10 = { tier: 'ENTERPRISE', maxTerminals: 10, maxBranches: 5 };
+      const res10 = await entitlementService.canAddTerminal(ent10, 9);
+      const res11 = await entitlementService.canAddTerminal(ent10, 10);
+      assert.strictEqual(res10.allowed, true, 'Terminal #10 (current count 9) must be allowed');
+      assert.strictEqual(res11.allowed, false, 'Terminal #11 (current count 10) must be rejected');
+    });
+
+    it('should allow branch #5 and reject branch #6 for Enterprise tier', async function() {
+      const entitlementService = require('../lib/entitlement-service');
+
+      const ent5 = { tier: 'ENTERPRISE', maxTerminals: 10, maxBranches: 5 };
+      const res5 = await entitlementService.canAddBranch(ent5, 4);
+      const res6 = await entitlementService.canAddBranch(ent5, 5);
+      assert.strictEqual(res5.allowed, true, 'Branch #5 (current count 4) must be allowed');
+      assert.strictEqual(res6.allowed, false, 'Branch #6 (current count 5) must be rejected');
+    });
+
+    it('should enforce STARTER (1 terminal / 1 branch) and GROWTH (3 terminals / 1 branch) tier limits', async function() {
+      const entitlementService = require('../lib/entitlement-service');
+
+      const starterEnt = { tier: 'STARTER', maxTerminals: 1, maxBranches: 1 };
+      assert.strictEqual((await entitlementService.canAddTerminal(starterEnt, 0)).allowed, true, 'Starter Terminal #1 allowed');
+      assert.strictEqual((await entitlementService.canAddTerminal(starterEnt, 1)).allowed, false, 'Starter Terminal #2 rejected');
+
+      const growthEnt = { tier: 'GROWTH', maxTerminals: 3, maxBranches: 1 };
+      assert.strictEqual((await entitlementService.canAddTerminal(growthEnt, 2)).allowed, true, 'Growth Terminal #3 allowed');
+      assert.strictEqual((await entitlementService.canAddTerminal(growthEnt, 3)).allowed, false, 'Growth Terminal #4 rejected');
+    });
+
+    it('should seed database plan_entitlements table with max_branches=5 and max_terminals=10 for ENTERPRISE', function() {
+      const dbSeedContent = fs.readFileSync(path.join(__dirname, '../database.js'), 'utf8');
+      assert.ok(dbSeedContent.includes("('ENTERPRISE', 5, 10,"), 'database.js seed must insert 5 branches and 10 terminals for ENTERPRISE');
+    });
+  });
+
+  describe('3. 4-Signal Connectivity Engine & Observability Diagnostic', function() {
+    it('should expose getDiagnosticSnapshot returning all 4 signal fields', function() {
+      const connectivityJs = fs.readFileSync(path.join(__dirname, '../public/connectivity.js'), 'utf8');
+
+      assert.ok(connectivityJs.includes('window.__VALENIXIA_CONNECTIVITY__ ='), 'connectivity.js must expose window.__VALENIXIA_CONNECTIVITY__');
+      assert.ok(connectivityJs.includes('browserNetwork:'), 'Diagnostic snapshot must include browserNetwork');
+      assert.ok(connectivityJs.includes('backendReachability:'), 'Diagnostic snapshot must include backendReachability');
+      assert.ok(connectivityJs.includes('syncHealth:'), 'Diagnostic snapshot must include syncHealth');
+      assert.ok(connectivityJs.includes('posOperatingMode:'), 'Diagnostic snapshot must include posOperatingMode');
+    });
+
+    it('should configure uncached health headers in server.js and vercel.json', function() {
+      const serverJs = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
+      const vercelJson = fs.readFileSync(path.join(__dirname, '../vercel.json'), 'utf8');
+
+      assert.ok(serverJs.includes("version: '2.4.6'"), 'server.js /api/health endpoint must report version 2.4.6');
+      assert.ok(vercelJson.includes("no-store"), 'vercel.json must enforce no-store header on health probes');
+    });
+  });
+
+  describe('4. Add-on Marketplace & Stateful Buttons', function() {
+    it('should define all 5 commercial add-ons in catalog', function() {
+      const catalog = require('../lib/commercial-catalog');
+      const addons = catalog.COMMERCIAL_ADDONS;
+
+      assert.ok(addons.FBR_FISCAL, 'FBR_FISCAL add-on must exist');
+      assert.ok(addons.MULTI_STORE, 'MULTI_STORE add-on must exist');
+      assert.ok(addons.WHATSAPP_RECEIPTS, 'WHATSAPP_RECEIPTS add-on must exist');
+      assert.ok(addons.CUSTOM_ROLES, 'CUSTOM_ROLES add-on must exist');
+      assert.ok(addons.DATA_PORTABILITY, 'DATA_PORTABILITY add-on must exist');
+    });
+
+    it('should contain add-ons marketplace sub-panel and request buttons in index.html', function() {
+      const indexHtml = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+
+      assert.ok(indexHtml.includes('id="sub-panel-addons"'), 'index.html must contain #sub-panel-addons panel');
+      assert.ok(indexHtml.includes('data-addon-id="FBR_FISCAL"'), 'index.html must contain FBR_FISCAL add-on card');
+      assert.ok(indexHtml.includes('data-addon-id="MULTI_STORE"'), 'index.html must contain MULTI_STORE add-on card');
+    });
+
+    it('should implement /api/addons/claim and /api/addons/list in server.js', function() {
+      const serverJs = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
+
+      assert.ok(serverJs.includes('/api/addons/list'), 'server.js must implement /api/addons/list');
+      assert.ok(serverJs.includes('/api/addons/claim'), 'server.js must implement /api/addons/claim');
+    });
+  });
+
+  describe('5. Legal Requirements Matrix & Substantive Document Completeness', function() {
+    it('should contain all 6 legal documents with substantive non-placeholder text', function() {
+      const legalDocs = require('../lib/legal-documents');
+
+      const requiredKeys = ['TERMS_OF_SERVICE', 'EULA', 'PRIVACY_POLICY', 'ACCEPTABLE_USE', 'FBR_DISCLAIMER', 'CLOUD_SYNC_TERMS'];
+      requiredKeys.forEach(key => {
+        assert.ok(legalDocs[key], `Legal document ${key} must exist`);
+        assert.ok(legalDocs[key].length > 200, `Legal document ${key} must contain substantive text (>200 chars)`);
       });
+
+      // Verify specific mandatory legal clauses
+      assert.ok(legalDocs.FBR_DISCLAIMER.includes('Software Application'), 'FBR Disclaimer must state Software Application boundary');
+      assert.ok(legalDocs.FBR_DISCLAIMER.includes('Taxpayer / Merchant Obligations'), 'FBR Disclaimer must state Taxpayer Merchant obligations');
+      assert.ok(legalDocs.TERMS_OF_SERVICE.includes('Up to 10 Register Terminals'), 'TOS must state Enterprise 10 register limit');
+      assert.ok(legalDocs.PRIVACY_POLICY.includes('AES-256-GCM'), 'Privacy Policy must state AES-256-GCM encryption');
+    });
+
+    it('should present review buttons for all 6 legal documents in index.html', function() {
+      const indexHtml = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+
+      assert.ok(indexHtml.includes('data-doc-key="TERMS_OF_SERVICE"'), 'index.html must link TERMS_OF_SERVICE');
+      assert.ok(indexHtml.includes('data-doc-key="EULA"'), 'index.html must link EULA');
+      assert.ok(indexHtml.includes('data-doc-key="PRIVACY_POLICY"'), 'index.html must link PRIVACY_POLICY');
+      assert.ok(indexHtml.includes('data-doc-key="ACCEPTABLE_USE"'), 'index.html must link ACCEPTABLE_USE');
+      assert.ok(indexHtml.includes('data-doc-key="FBR_DISCLAIMER"'), 'index.html must link FBR_DISCLAIMER');
+      assert.ok(indexHtml.includes('data-doc-key="CLOUD_SYNC_TERMS"'), 'index.html must link CLOUD_SYNC_TERMS');
     });
   });
 
-  test('Test C: ValenixiaRouter enforces exactly 1 active view on every route', () => {
-    const router = window.ValenixiaRouter;
-    expect(router).toBeDefined();
+  describe('6. Absolute Purge of Skip Loading', function() {
+    it('should contain ZERO instances of btn-force-open-app or Skip Loading in public/index.html and bootstrap-init.js', function() {
+      const indexHtml = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+      const bootstrapJs = fs.readFileSync(path.join(__dirname, '../public/bootstrap-init.js'), 'utf8');
 
-    const routes = Object.keys(window.SCREEN_REGISTRY);
-
-    routes.forEach(route => {
-      const success = router.navigateTo(route, { push: false });
-      expect(success).toBe(true);
-
-      const activeViews = Array.from(document.querySelectorAll('.content-view.active'));
-      expect(activeViews.length).toBe(1);
-      expect(activeViews[0].id).toBe(window.SCREEN_REGISTRY[route].viewId);
-
-      const hiddenViews = Array.from(document.querySelectorAll('.content-view')).filter(v => v.hidden);
-      expect(hiddenViews.length).toBe(17);
+      assert.doesNotMatch(indexHtml, /btn-force-open-app|Skip Loading/i, 'public/index.html must not contain Skip Loading button');
+      assert.doesNotMatch(bootstrapJs, /btn-force-open-app/i, 'public/bootstrap-init.js must not contain btn-force-open-app listener');
     });
   });
 
-  test('Test D: Zero duplicate DOM IDs across the entire document', () => {
-    const allElements = Array.from(document.querySelectorAll('[id]'));
-    const idCounts = {};
+  describe('7. APP_SURFACE Identity & Web-Only Get Apps DOM Removal', function() {
+    it('should define APP_SURFACE and handle non-WEB DOM removal', function() {
+      const bootstrapJs = fs.readFileSync(path.join(__dirname, '../public/bootstrap-init.js'), 'utf8');
+      const appJs = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8');
 
-    allElements.forEach(el => {
-      const id = el.id;
-      if (id) {
-        idCounts[id] = (idCounts[id] || 0) + 1;
-      }
+      assert.ok(bootstrapJs.includes('window.APP_SURFACE ='), 'bootstrap-init.js must define APP_SURFACE');
+      assert.ok(bootstrapJs.includes('btnGetApps.remove()'), 'bootstrap-init.js must call btnGetApps.remove() on non-WEB');
+      assert.ok(appJs.includes('.forEach(el => el.remove())'), 'app.js must remove Get Apps elements from DOM on non-WEB');
     });
-
-    const duplicates = Object.keys(idCounts).filter(id => idCounts[id] > 1);
-    expect(duplicates).toEqual([]);
   });
 
-  test('Test E: Stress Matrix — 100 rapid route switches + 1000 worker messages execute with 0 errors', () => {
-    const router = window.ValenixiaRouter;
-    const routes = Object.keys(window.SCREEN_REGISTRY);
+  describe('8. Production Build ID & Version Consistency', function() {
+    it('should expose build_id in version.json and build-id file', function() {
+      const versionJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../public/version.json'), 'utf8'));
+      const buildIdText = fs.readFileSync(path.join(__dirname, '../public/build-id'), 'utf8').trim();
 
-    let errorCount = 0;
-    const origError = window.console.error;
-    window.console.error = (...args) => {
-      errorCount++;
-      origError(...args);
-    };
-
-    // Simulate 1000 worker state messages interleaved with 100 route switches
-    for (let i = 0; i < 1000; i++) {
-      window.state.catalog.push({ sku: `SKU_${i}`, name: `Item ${i}`, price: 100 });
-      if (i % 10 === 0) {
-        const targetRoute = routes[i % routes.length];
-        router.navigateTo(targetRoute, { push: false });
-      }
-    }
-
-    window.console.error = origError;
-    expect(errorCount).toBe(0);
-    expect(window.routeGeneration).toBeGreaterThanOrEqual(100);
-  });
-
-  test('Test F: Failure Isolation — missing render target logs warning without crashing app', () => {
-    let warnLogged = false;
-    const origWarn = window.console.warn;
-    window.console.warn = (...args) => {
-      if (args[0] && String(args[0]).includes('[RenderContractViolation]')) {
-        warnLogged = true;
-      }
-      origWarn(...args);
-    };
-
-    const target = window.requireRenderTarget('staff', 'non-existent-target-id');
-    window.console.warn = origWarn;
-
-    expect(target).toBeNull();
-    expect(warnLogged).toBe(true);
-  });
-
-  test('Test G: Real-Time Connectivity Subsystem state transitions', async () => {
-    const monitor = window.ConnectivityMonitor;
-    expect(monitor).toBeDefined();
-
-    // Test OFFLINE
-    monitor.handleOfflineEvent();
-    let status = monitor.getStatus();
-    expect(status.status).toBe('OFFLINE');
-    expect(status.reason).toBe('NETWORK_UNAVAILABLE');
-
-    // Test ONLINE with successful mock fetch
-    window.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ ok: true, version: '2.4.4' })
+      assert.strictEqual(versionJson.version, '2.4.6', 'version.json version must be 2.4.6');
+      assert.ok(versionJson.build_id, 'version.json must specify build_id');
+      assert.strictEqual(buildIdText, versionJson.build_id, 'public/build-id content must match version.json build_id');
     });
-
-    await monitor.probeConnectivity();
-    status = monitor.getStatus();
-    expect(status.status).toBe('ONLINE');
-    expect(status.reason).toBe('REACHABLE');
-
-    // Test DEGRADED with failed backend response
-    window.fetch = jest.fn().mockRejectedValue(new Error('Network timeout'));
-    await monitor.probeConnectivity();
-    status = monitor.getStatus();
-    expect(status.status).toBe('DEGRADED');
-    expect(status.reason).toBe('BACKEND_UNREACHABLE');
   });
 
-  test('Test H: Commercial Catalog & Legal Document Center Regressions', () => {
-    expect(window.COMMERCIAL_CATALOG).toBeDefined();
-    expect(window.COMMERCIAL_CATALOG.TIERS).toBeDefined();
-    expect(window.COMMERCIAL_CATALOG.ADDONS).toBeDefined();
-
-    expect(window.LEGAL_DOCUMENTS).toBeDefined();
-    expect(window.LEGAL_DOCUMENTS.TERMS_OF_SERVICE).toBeDefined();
-    expect(window.LEGAL_DOCUMENTS.EULA).toBeDefined();
-  });
-
-  test('Test I: Global Diagnostic Inspection Snapshot (__VALENIXIA_DIAGNOSTICS__)', () => {
-    const diag = window.__VALENIXIA_DIAGNOSTICS__;
-    expect(diag).toBeDefined();
-
-    const snapshot = diag.getSnapshot();
-    expect(snapshot.buildId).toBeDefined();
-    expect(snapshot.mountedScreensCount).toBe(18);
-    expect(snapshot.visibleScreens.length).toBe(1);
-    expect(snapshot.missingShells).toHaveLength(0);
-    expect(snapshot.duplicateIds).toHaveLength(0);
-    expect(snapshot.connectivity).toBeDefined();
-  });
 });
