@@ -32,7 +32,7 @@ let currentHlc = null;
 let currentDbVersion = 0; // Incremented on each local transaction change
 
 // Schema version: increment when adding columns/tables that clients must have before syncing
-const SERVER_SCHEMA_VERSION = 16;
+const SERVER_SCHEMA_VERSION = 17;
 module.exports && Object.assign(module.exports, { SERVER_SCHEMA_VERSION });
 
 let argon2 = null;
@@ -973,6 +973,184 @@ async function initDatabase(terminalId) {
         console.log('[Database] Migrated database schema to v16 (admin_audit_log column guard).');
       } catch (err) {
         console.error('[Database] Failed to apply v16 migration:', err.message);
+      }
+    } else if (v === 17) {
+      // v17: Organization -> Branch -> Terminal hierarchy, Stock Events Ledger, Outbox/Inbox, Deals, Data-Driven Entitlements & Audit Trail
+      try {
+        await db.exec(`
+          CREATE TABLE IF NOT EXISTS accounts (
+            id TEXT PRIMARY KEY,
+            phone TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            display_name TEXT,
+            created_at INTEGER,
+            updated_at INTEGER
+          );
+
+          CREATE TABLE IF NOT EXISTS organizations (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            tax_id TEXT,
+            tier TEXT NOT NULL DEFAULT 'FREE',
+            billing_mode TEXT NOT NULL DEFAULT 'monthly',
+            status TEXT NOT NULL DEFAULT 'active',
+            expires_at INTEGER,
+            created_at INTEGER,
+            updated_at INTEGER
+          );
+
+          CREATE TABLE IF NOT EXISTS organization_members (
+            id TEXT PRIMARY KEY,
+            organization_id TEXT NOT NULL,
+            account_id TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'owner',
+            status TEXT NOT NULL DEFAULT 'active',
+            created_at INTEGER,
+            UNIQUE(organization_id, account_id),
+            FOREIGN KEY(organization_id) REFERENCES organizations(id) ON DELETE CASCADE
+          );
+
+          CREATE TABLE IF NOT EXISTS branches (
+            id TEXT PRIMARY KEY,
+            organization_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            city TEXT NOT NULL,
+            address TEXT,
+            phone TEXT,
+            fbr_pos_id TEXT,
+            created_at INTEGER,
+            FOREIGN KEY(organization_id) REFERENCES organizations(id) ON DELETE CASCADE
+          );
+
+          CREATE TABLE IF NOT EXISTS inventory_events (
+            id TEXT PRIMARY KEY,
+            organization_id TEXT NOT NULL,
+            branch_id TEXT NOT NULL,
+            terminal_id TEXT NOT NULL,
+            product_id TEXT NOT NULL,
+            sku_snapshot TEXT NOT NULL,
+            operation TEXT NOT NULL,
+            quantity_delta INTEGER NOT NULL,
+            transaction_id TEXT,
+            hlc_timestamp TEXT NOT NULL,
+            idempotency_key TEXT UNIQUE NOT NULL,
+            created_at INTEGER
+          );
+
+          CREATE TABLE IF NOT EXISTS sync_outbox (
+            event_id TEXT PRIMARY KEY,
+            idempotency_key TEXT UNIQUE NOT NULL,
+            payload_json TEXT NOT NULL,
+            attempt_count INTEGER DEFAULT 0,
+            next_retry_at INTEGER DEFAULT 0,
+            status TEXT DEFAULT 'pending'
+          );
+
+          CREATE TABLE IF NOT EXISTS sync_inbox (
+            event_id TEXT PRIMARY KEY,
+            idempotency_key TEXT UNIQUE NOT NULL,
+            received_at INTEGER NOT NULL,
+            applied_at INTEGER NOT NULL
+          );
+
+          CREATE TABLE IF NOT EXISTS deals (
+            id TEXT PRIMARY KEY,
+            organization_id TEXT NOT NULL,
+            branch_id TEXT,
+            name TEXT NOT NULL,
+            bundle_price_minor INTEGER NOT NULL,
+            start_date INTEGER,
+            end_date INTEGER,
+            is_active INTEGER DEFAULT 1,
+            created_at INTEGER
+          );
+
+          CREATE TABLE IF NOT EXISTS deal_items (
+            id TEXT PRIMARY KEY,
+            deal_id TEXT NOT NULL,
+            product_id TEXT NOT NULL,
+            quantity INTEGER NOT NULL DEFAULT 1,
+            FOREIGN KEY(deal_id) REFERENCES deals(id) ON DELETE CASCADE
+          );
+
+          CREATE TABLE IF NOT EXISTS plan_entitlements (
+            tier TEXT PRIMARY KEY,
+            max_branches INTEGER NOT NULL,
+            max_terminals INTEGER NOT NULL,
+            max_products INTEGER NOT NULL,
+            features_json TEXT NOT NULL
+          );
+
+          CREATE TABLE IF NOT EXISTS addon_pricing (
+            addon_type TEXT NOT NULL,
+            min_qty INTEGER NOT NULL,
+            max_qty INTEGER NOT NULL,
+            price_pkr_monthly INTEGER NOT NULL,
+            PRIMARY KEY (addon_type, min_qty)
+          );
+
+          CREATE TABLE IF NOT EXISTS audit_logs (
+            id TEXT PRIMARY KEY,
+            organization_id TEXT,
+            branch_id TEXT,
+            terminal_id TEXT,
+            actor_id TEXT,
+            action TEXT NOT NULL,
+            network_ip TEXT,
+            client_version TEXT,
+            installation_id TEXT,
+            request_id TEXT,
+            before_state_json TEXT,
+            after_state_json TEXT,
+            previous_hash TEXT NOT NULL DEFAULT '0000000000000000000000000000000000000000000000000000000000000000',
+            event_hash TEXT NOT NULL,
+            created_at INTEGER
+          );
+        `);
+
+        // Seed data-driven plan entitlements
+        await db.run(`
+          INSERT OR REPLACE INTO plan_entitlements (tier, max_branches, max_terminals, max_products, features_json)
+          VALUES 
+            ('FREE', 1, 1, 25, '{"csv_import": true, "fbr": true, "analytics": "basic"}'),
+            ('STARTER', 1, 1, 2147483647, '{"csv_import": true, "fbr": true, "manual_backup": true, "logs": true, "analytics": "basic"}'),
+            ('PRO', 1, 2, 2147483647, '{"csv_import": true, "fbr": true, "manual_backup": true, "logs": true, "deals": true, "multi_device": true, "whatsapp_reminders": true, "analytics": "advanced"}'),
+            ('ENTERPRISE', 2, 3, 2147483647, '{"csv_import": true, "fbr": true, "manual_backup": true, "logs": true, "deals": true, "multi_device": true, "whatsapp_reminders": true, "api_access": true, "white_label": true, "analytics": "full"}');
+        `);
+
+        // Seed data-driven addon pricing
+        const addons = [
+          ['extra_terminal', 1, 1, 1200],
+          ['extra_terminal', 2, 5, 1000],
+          ['extra_terminal', 6, 10, 900],
+          ['extra_terminal', 11, 100, 800],
+          ['extra_branch', 1, 100, 3500]
+        ];
+        for (const addon of addons) {
+          await db.run(
+            `INSERT OR REPLACE INTO addon_pricing (addon_type, min_qty, max_qty, price_pkr_monthly) VALUES (?, ?, ?, ?)`,
+            addon
+          );
+        }
+
+        // Column guards on existing tables
+        const alterGuard = async (tbl, col, def) => {
+          const cols = await db.all(`PRAGMA table_info(${tbl})`);
+          if (!cols.some(c => c.name === col)) {
+            await db.exec(`ALTER TABLE ${tbl} ADD COLUMN ${col} ${def};`);
+          }
+        };
+
+        await alterGuard('transactions', 'organization_id', 'TEXT');
+        await alterGuard('transactions', 'branch_id', 'TEXT');
+        await alterGuard('approved_devices', 'organization_id', 'TEXT');
+        await alterGuard('approved_devices', 'branch_id', 'TEXT');
+        await alterGuard('inventory_catalog', 'organization_id', 'TEXT');
+        await alterGuard('inventory_catalog', 'branch_id', 'TEXT');
+
+        console.log('[Database] Migrated database schema to v17 (Organization hierarchy, stock events ledger, outbox/inbox, deals & data-driven entitlements).');
+      } catch (err) {
+        console.error('[Database] Failed to apply v17 migration:', err.message);
       }
     }
 

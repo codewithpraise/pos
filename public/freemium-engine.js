@@ -36,23 +36,23 @@ const PLAN_LIMITS = {
   [PLANS.FREE]: {
     displayName: "Valenixia Free Basic",
     monthlyPKR: 0, annualPKR: 0, lifetimePKR: null,
-    devices: 1, transactionsPerMonth: 100, products: 25, customers: 50, employees: 1,
-    transactionHistoryDays: 1, receiptBranding: "valenixia",
-    backup: false, fbrCompliance: false, multiDeviceSync: false, apiAccess: false,
-    analytics: "none", importLimit: 0, support: "community"
+    devices: 1, branches: 1, transactionsPerMonth: Infinity, products: 25, customers: Infinity, employees: 1,
+    transactionHistoryDays: Infinity, receiptBranding: "valenixia",
+    backup: "manual", fbrCompliance: true, multiDeviceSync: false, apiAccess: false,
+    analytics: "basic", importLimit: Infinity, support: "community"
   },
   [PLANS.STARTER]: {
     displayName: "Valenixia Starter",
     monthlyPKR: 3499, lifetimePKR: 79000,
-    devices: 1, transactionsPerMonth: Infinity, products: 500, customers: Infinity, employees: 3,
-    transactionHistoryDays: 7, receiptBranding: "custom",
+    devices: 1, branches: 1, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: 5,
+    transactionHistoryDays: Infinity, receiptBranding: "custom",
     backup: "manual", fbrCompliance: true, multiDeviceSync: false, apiAccess: false,
-    analytics: "basic", importLimit: 50, support: "whatsapp"
+    analytics: "basic", importLimit: Infinity, support: "whatsapp"
   },
   [PLANS.GROWTH]: {
-    displayName: "Valenixia Growth",
-    monthlyPKR: 5999, annualPKR: 59999, lifetimePKR: 119999,
-    devices: 2, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: 10,
+    displayName: "Valenixia Pro",
+    monthlyPKR: 6999, annualPKR: 69999, lifetimePKR: 149000,
+    devices: 2, branches: 1, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: 20,
     transactionHistoryDays: Infinity, receiptBranding: "custom",
     backup: "auto_daily", fbrCompliance: true, multiDeviceSync: true, apiAccess: false,
     analytics: "advanced", importLimit: Infinity, support: "priority"
@@ -60,15 +60,15 @@ const PLAN_LIMITS = {
   [PLANS.PRO]: {
     displayName: "Valenixia Pro",
     monthlyPKR: 6999, lifetimePKR: 149000,
-    devices: 3, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: 50,
+    devices: 2, branches: 1, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: 50,
     transactionHistoryDays: Infinity, receiptBranding: "white_label",
     backup: "auto_daily", fbrCompliance: true, multiDeviceSync: true, apiAccess: true,
-    analytics: "full", importLimit: Infinity, support: "phone"
+    analytics: "advanced", importLimit: Infinity, support: "phone"
   },
   [PLANS.ENTERPRISE]: {
     displayName: "Valenixia Enterprise",
     monthlyPKR: 11999, lifetimePKR: 249000,
-    devices: 5, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: Infinity,
+    devices: 3, branches: 2, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: Infinity,
     transactionHistoryDays: Infinity, receiptBranding: "white_label",
     backup: "auto_realtime", fbrCompliance: true, multiDeviceSync: true, apiAccess: true,
     analytics: "full", importLimit: Infinity, support: "dedicated"
@@ -76,11 +76,10 @@ const PLAN_LIMITS = {
 };
 
 const ADDONS = [
-  { id: "extra_device",  name: "Extra Device",      pricePKR: 999,   period: "/month" },
-  { id: "extra_branch",  name: "Extra Branch",       pricePKR: 4999,  period: "/month" },
-  { id: "fbr_module",    name: "FBR Compliance",     pricePKR: 1499,  period: "/month" },
-  { id: "extra_backup",  name: "Daily Auto-Backup",  pricePKR: 499,   period: "/month" },
-  { id: "setup_onsite",  name: "On-site Setup",      pricePKR: 15000, period: " one-time" }
+  { id: "extra_device",  name: "Extra Terminal (1st)",     pricePKR: 1200,  period: "/month" },
+  { id: "extra_device_vol", name: "Extra Terminal (2-5)",   pricePKR: 1000,  period: "/month" },
+  { id: "extra_branch",  name: "Extra Branch (incl 2 term)", pricePKR: 3500, period: "/month" },
+  { id: "setup_onsite",  name: "On-site Setup",            pricePKR: 15000, period: " one-time" }
 ];
 
 const TIER_TO_PLAN = {

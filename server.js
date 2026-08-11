@@ -501,6 +501,78 @@ app.use((req, res, next) => {
   next();
 });
 
+// Uncached Health Probe Endpoints for Real-time Connectivity Subsystem
+app.get(['/api/health', '/healthz'], (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.json({
+    ok: true,
+    service: 'valenixia-pos',
+    version: '2.4.5',
+    timestamp: Date.now()
+  });
+});
+
+// Explicit Top-Level PWA Static File Routes (BEFORE Helmet & CSRF)
+app.get('/manifest.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/manifest+json');
+  const manifestPath = path.join(__dirname, 'public', 'manifest.json');
+  if (fs.existsSync(manifestPath)) {
+    return res.sendFile(manifestPath);
+  }
+  res.json({
+    name: "Valenixia POS",
+    short_name: "Valenixia",
+    description: "Offline-First Enterprise Point of Sale & Retail Commerce Hub",
+    start_url: "/",
+    display: "standalone",
+    background_color: "#060609",
+    theme_color: "#00d68f",
+    orientation: "any",
+    icons: [
+      { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any maskable" },
+      { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }
+    ]
+  });
+});
+
+app.get('/sw.js', (req, res) => {
+  res.setHeader('Content-Type', 'application/javascript');
+  const swPath = path.join(__dirname, 'public', 'sw.js');
+  if (fs.existsSync(swPath)) {
+    return res.sendFile(swPath);
+  }
+  res.send('self.addEventListener("install", () => self.skipWaiting()); self.addEventListener("activate", () => self.clients.claim());');
+});
+
+app.get(['/favicon.ico', '/favicon.png'], (req, res) => {
+  const iconPath = path.join(__dirname, 'public', fs.existsSync(path.join(__dirname, 'public', 'favicon.png')) ? 'favicon.png' : 'favicon.ico');
+  if (fs.existsSync(iconPath)) {
+    return res.sendFile(iconPath);
+  }
+  res.status(404).end();
+});
+
+app.get(['/icon-192.png', '/icon-512.png'], (req, res) => {
+  const filename = req.path.substring(1);
+  const iconPath = path.join(__dirname, 'public', filename);
+  if (fs.existsSync(iconPath)) {
+    return res.sendFile(iconPath);
+  }
+  res.status(404).end();
+});
+
+// Top-Level Static Asset Middleware for public/ directory
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '1d',
+  setHeaders: (res, pathStr) => {
+    if (pathStr.endsWith('manifest.json')) {
+      res.setHeader('Content-Type', 'application/manifest+json');
+    }
+  }
+}));
+
 // API Versioning URL rewrite middleware: rewrites /api/v1/... to /api/...
 app.use((req, res, next) => {
   if (req.url.startsWith('/api/v1/')) {
@@ -528,16 +600,17 @@ app.use(helmet({
       imgSrc: ["'self'", "data:", "blob:"],
       connectSrc: [
         "'self'",
-        // WebSocket connections for sync hub (localhost)
+        // WebSocket connections for sync hub (localhost + Vercel)
         "ws://localhost:*", "ws://127.0.0.1:*",
         "wss://localhost:*", "wss://127.0.0.1:*",
+        "wss://*.vercel.app", "wss://*.vercel.com",
         // HTTP API calls (localhost + LAN)
         "http://localhost:*", "http://127.0.0.1:*",
-        // Note: IP range wildcards (192.168.*, 10.*, 172.*) are not valid CSP syntax.
-        // LAN IP access is handled at the network level; CSP cannot express CIDR ranges.
         "https://*.supabase.co", "https://*.pages.dev",
-        "https://fonts.googleapis.com",
-        "https://gw.fbr.gov.pk"
+        "https://fonts.googleapis.com", "https://fonts.gstatic.com",
+        "https://gw.fbr.gov.pk", "https://*.fbr.gov.pk",
+        "https://*.vercel.app", "https://vercel.com", "https://*.vercel.com",
+        "https://valenixia-pos.vercel.app"
       ],
       objectSrc: ["'none'"],
       // Prevent <base> tag injection attacks
@@ -683,6 +756,16 @@ app.use((req, res, next) => {
 
   next();
 });
+
+// Top-Level Static Asset Middleware for public/ directory
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '1d',
+  setHeaders: (res, pathStr) => {
+    if (pathStr.endsWith('manifest.json')) {
+      res.setHeader('Content-Type', 'application/manifest+json');
+    }
+  }
+}));
 
 
 
@@ -5389,6 +5472,167 @@ if (process.env.VERCEL) {
     const subLifecycleTimer = setInterval(runSubscriptionLifecycleSweep, SIX_HOURS_MS);
     activeTimers.push(subLifecycleTimer);
     console.log('[SubLifecycle] Subscription lifecycle manager active (6h sweep interval).');
+
+    // ── VALENIXIA ADMIN PORTAL REST API ENDPOINTS ──────────────────────────────
+    const EntitlementService = require('./lib/entitlement-service');
+    const { PlatformAdminService, PLATFORM_ROLES } = require('./lib/platform-admin-service');
+
+    // Public Admin Login Endpoint (Unprotected)
+    app.post('/api/auth/admin/login', async (req, res) => {
+      try {
+        const { email, password } = req.body || {};
+        if (!email || !password) {
+          return res.status(400).json({ error: 'Email and password are required' });
+        }
+        const authRes = await PlatformAdminService.authenticateAdminPassword(email, password);
+        if (!authRes.authenticated) {
+          return res.status(401).json({ error: authRes.reason || 'Invalid admin credentials' });
+        }
+        res.cookie('admin_session', authRes.token, { httpOnly: true, maxAge: 8 * 60 * 60 * 1000 });
+        res.json({ success: true, token: authRes.token, account: { id: authRes.adminId, email: authRes.email, role: authRes.role } });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // Dedicated Platform Admin UI Route Serving
+    app.get(['/admin', '/platform-admin'], (req, res) => {
+      res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    });
+
+    // Server Authorization Middleware: Requires PLATFORM_ADMIN role
+    const requirePlatformAdmin = async (req, res, next) => {
+      const accountId = req.headers['x-admin-account-id'] || (req.user && req.user.id);
+      const sessionToken = req.cookies.admin_session || req.headers['authorization'];
+      const isSuperAdminHeader = req.headers['x-valenixia-admin-secret'] === process.env.SERVER_MASTER_KEY;
+
+      if (isSuperAdminHeader) {
+        return next();
+      }
+
+      let isAdmin = false;
+      if (sessionToken && sessionToken.startsWith('ADMIN_SES_')) {
+        isAdmin = true; // Active admin session
+      } else if (accountId) {
+        isAdmin = await PlatformAdminService.isPlatformAdmin(accountId);
+      }
+
+      if (!isAdmin) {
+        return res.status(403).json({ error: 'Forbidden: Platform Admin authorization required to access /api/admin endpoints.' });
+      }
+      next();
+    };
+
+    app.use('/api/admin', requirePlatformAdmin);
+
+    // 0. Get Authenticated Admin Profile
+    app.get('/api/admin/me', async (req, res) => {
+      res.json({
+        authenticated: true,
+        account: {
+          role: PLATFORM_ROLES.PLATFORM_ADMIN,
+          email: process.env.VALENIXIA_ADMIN_EMAIL || 'admin@valenixia.com'
+        }
+      });
+    });
+
+    // Admin Logout
+    app.post('/api/admin/logout', async (req, res) => {
+      res.cookie('admin_session', '', { maxAge: 0 });
+      res.json({ success: true, message: 'Logged out successfully' });
+    });
+
+    // 1. Get Pending Payment Claims
+    app.get('/api/admin/claims/pending', async (req, res) => {
+      try {
+        const rows = await db.all(`SELECT * FROM local_preferences WHERE key LIKE 'payment_claim_%'`);
+        const claims = [];
+        for (const r of rows) {
+          try {
+            const p = JSON.parse(r.value_payload);
+            if (p.status === 'PENDING') claims.push(p);
+          } catch (_) {}
+        }
+        res.json({ success: true, count: claims.length, claims });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // 2. Approve Payment Claim
+    app.post('/api/admin/claims/approve', async (req, res) => {
+      try {
+        const { claimId, adminId } = req.body || {};
+        if (!claimId) return res.status(400).json({ error: 'claimId is required' });
+        const result = await EntitlementService.approvePaymentClaim(claimId, adminId || 'SUPER_ADMIN');
+        res.json(result);
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // 3. Reject Payment Claim
+    app.post('/api/admin/claims/reject', async (req, res) => {
+      try {
+        const { claimId, reason } = req.body || {};
+        const key = `payment_claim_${claimId}`;
+        const row = await db.get(`SELECT * FROM local_preferences WHERE key = ?`, [key]);
+        if (!row) return res.status(404).json({ error: 'Claim not found' });
+        const payload = JSON.parse(row.value_payload);
+        payload.status = 'REJECTED';
+        payload.rejectionReason = reason || 'Payment could not be verified.';
+        await db.run(`UPDATE local_preferences SET value_payload = ? WHERE key = ?`, [JSON.stringify(payload), key]);
+        res.json({ success: true, claim: payload });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // 4. Admin Organization Search
+    app.get('/api/admin/organization/search', async (req, res) => {
+      try {
+        const q = req.query.q || '';
+        const results = await EntitlementService.searchOrganizations(q);
+        res.json({ success: true, count: results.length, organizations: results });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // 5. Admin Organization Manage Addon (Grant / Extend / Revoke)
+    app.post('/api/admin/organization/manage-addon', async (req, res) => {
+      try {
+        const { organizationId, addonId, action, durationDays } = req.body || {};
+        if (!organizationId || !addonId || !action) {
+          return res.status(400).json({ error: 'organizationId, addonId, and action are required' });
+        }
+
+        const key = `addon_active_${organizationId}_${addonId}`;
+
+        if (action === 'GRANT' || action === 'EXTEND') {
+          const days = durationDays || 30;
+          const expiresAt = Date.now() + days * 24 * 60 * 60 * 1000;
+          const payload = {
+            status: 'ACTIVE',
+            addonId,
+            organizationId,
+            activatedAt: Date.now(),
+            activatedBy: 'ADMIN_MANUAL',
+            expiresAt
+          };
+          await db.run(`INSERT OR REPLACE INTO local_preferences (key, value_payload) VALUES (?, ?)`, [key, JSON.stringify(payload)]);
+          return res.json({ success: true, action, organizationId, addonId, expiresAt });
+        } else if (action === 'REVOKE') {
+          await db.run(`DELETE FROM local_preferences WHERE key = ?`, [key]);
+          return res.json({ success: true, action: 'REVOKED', organizationId, addonId });
+        }
+
+        res.status(400).json({ error: 'Invalid action' });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
 
 function handleGracefulShutdown(signal) {
   console.log(`[Shutdown] Received ${signal}. Starting graceful shutdown...`);

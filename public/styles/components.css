@@ -710,20 +710,196 @@ button:not(:disabled):active,
 
 @media (min-width: 769px) {
   .content-view {
-    padding-bottom: 0 !important;
+    padding-bottom: 32px !important;
     height: 100% !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
   }
 }
 
+.content-view {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+.content-view[hidden] {
+  display: none !important;
+}
+
 .content-view.active {
-  display: block !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0;
+}
+
+.screen-shell {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.screen-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 #view-subscription {
-  padding: 20px;
-  padding-bottom: calc(var(--bottom-nav-h) + 40px);
+  padding: 0;
+  overflow: hidden !important;
+  width: 100% !important;
+  height: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.subscription-layout, .sub-vault-layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.subscription-sidebar, .sub-vault-sidebar {
+  width: 240px;
+  min-width: 240px;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--panel-graphite);
+  border-right: 1px solid var(--border-titanium);
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
+.sub-vault-header {
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding-bottom: 12px;
+}
+
+.sub-vault-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-white);
+  font-family: var(--font-display);
+}
+
+.sub-vault-subtitle {
+  font-size: 11px;
+  color: var(--text-gray);
+  display: block;
+  margin-top: 2px;
+}
+
+.sub-vault-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sub-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-gray);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.sub-nav-item:hover {
+  background: rgba(255,255,255,0.04);
+  color: var(--text-white);
+}
+
+.sub-nav-item.active {
+  background: linear-gradient(135deg, rgba(0, 214, 143, 0.15) 0%, rgba(6, 182, 212, 0.08) 100%);
+  border-color: rgba(0, 214, 143, 0.3);
+  color: var(--accent-emerald);
+  box-shadow: 0 4px 12px rgba(0, 214, 143, 0.1);
+}
+
+.subscription-main, .sub-vault-stage {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 24px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
   -webkit-overflow-scrolling: touch;
+}
+
+.sub-tab-panel:not(.active) {
+  display: none !important;
+}
+
+.sub-tab-panel.active {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .subscription-layout, .sub-vault-layout {
+    display: flex;
+    flex-direction: column;
+  }
+  .subscription-sidebar, .sub-vault-sidebar {
+    width: 100%;
+    min-width: 0;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    display: flex;
+    flex-direction: row;
+    border-right: none;
+    border-bottom: 1px solid var(--border-titanium);
+    padding: 12px 16px;
+  }
+  .sub-vault-header {
+    display: none;
+  }
+  .sub-vault-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    width: 100%;
+    gap: 8px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .sub-nav-item {
+    white-space: nowrap;
+    padding: 8px 12px;
+  }
+  .subscription-main, .sub-vault-stage {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 16px;
+  }
 }
 
 #view-checkout {
@@ -6101,8 +6277,11 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
   box-sizing: border-box !important;
 }
 
-/* 2. CHECKOUT VIEW (#view-checkout, #view-checkout.active) — Flush Bottom & Zero Gap Guarantee */
-#view-checkout,
+/* 2. CHECKOUT VIEW (#view-checkout.active) — Flush Bottom & Zero Gap Guarantee */
+#view-checkout:not(.active) {
+  display: none !important;
+}
+
 #view-checkout.active {
   display: flex !important;
   flex-direction: column !important;

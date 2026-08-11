@@ -37,11 +37,11 @@ Start-Sleep -Seconds 3
 $env:CDP_PORT = "$port"
 
 Write-Host "`n=== RUNNING COMPREHENSIVE E2E TESTS ==="
-node e2e_full_test.js
+node scripts/debug/e2e_full_test.js
 $e2eExit = $LASTEXITCODE
 
 Write-Host "`n=== RUNNING MOBILE E2E TESTS ==="
-node cdp_mobile_e2e_full5.js
+node scripts/debug/cdp_mobile_e2e_full5.js
 $mobileExit = $LASTEXITCODE
 
 # Clean up Chrome

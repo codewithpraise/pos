@@ -1007,7 +1007,7 @@ const LicenseEngine = (() => {
       isNativeOnboarded = window.AndroidPOS.isOnboardingComplete();
     }
 
-    function fetchWithTimeout(url, options = {}, timeoutMs = 1500) {
+    function fetchWithTimeout(url, options = {}, timeoutMs = 5000) {
       return Promise.race([
         fetch(url, options),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Fetch timeout')), timeoutMs))
@@ -1017,20 +1017,23 @@ const LicenseEngine = (() => {
     // At startup, check if the Node backend is already onboarded
     let isServerOnboarded = false;
     try {
-      const healthResp = await fetchWithTimeout((window.__valenixiaServerUrl || location.origin) + `/api/health?hwid=${encodeURIComponent(hwid)}`, {}, 1500);
-      if (healthResp.ok) {
-        const healthData = await healthResp.json();
-        if (healthData.onboarded) {
-          isServerOnboarded = true;
-        }
-        if (healthData.trial_claimed) {
-          console.warn('[License] Device has already claimed a trial session. Blocking fresh trial assignment.');
-          mountLockoutOverlay(`A trial has already been claimed on this device.<br><br>Please enter your 6-digit activation code and registered phone number below to activate Valenixia POS.`);
-          return false;
+      const healthResp = await fetchWithTimeout((window.__valenixiaServerUrl || location.origin) + `/api/health?hwid=${encodeURIComponent(hwid)}`, {}, 5000);
+      if (healthResp && healthResp.ok) {
+        const contentType = healthResp.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const healthData = await healthResp.json();
+          if (healthData.onboarded) {
+            isServerOnboarded = true;
+          }
+          if (healthData.trial_claimed) {
+            console.warn('[License] Device has already claimed a trial session. Blocking fresh trial assignment.');
+            mountLockoutOverlay(`A trial has already been claimed on this device.<br><br>Please enter your 6-digit activation code and registered phone number below to activate Valenixia POS.`);
+            return false;
+          }
         }
       }
     } catch (err) {
-      console.warn('[LicenseEngine] Failed to query backend health status:', err.message);
+      console.warn('[LicenseEngine] Backend health probe info:', err.message);
     }
 
     const isOnboardingComplete = (onboardingCompletePref && onboardingCompletePref.value_payload === 'true') || isServerOnboarded || isNativeOnboarded;

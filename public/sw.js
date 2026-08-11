@@ -14,8 +14,8 @@ if (self.location.hostname !== 'localhost' && !self.location.hostname.includes('
 }
 
 const urlParams = new URLSearchParams(self.location.search);
-const buildVersion = urlParams.get('v') || 'dev';
-const CACHE_NAME = `valenixia-pos-cache-v31`;
+const buildVersion = urlParams.get('v') || '2.3.0';
+const CACHE_NAME = `valenixia-pos-cache-${buildVersion}`;
 const ASSETS_TO_CACHE = [
   { url: '/', integrity: '' },
   { url: '/index.html', integrity: '' },
@@ -25,6 +25,9 @@ const ASSETS_TO_CACHE = [
   { url: '/styles/animations.css', integrity: '' },
   { url: '/styles/components.css', integrity: '' },
   { url: '/app.js', integrity: '' },
+  { url: '/router.js', integrity: '' },
+  { url: '/commercial-catalog.js', integrity: '' },
+  { url: '/legal-documents.js', integrity: '' },
   { url: '/modules/ui.js', integrity: '' },
   { url: '/modules/animations.js', integrity: '' },
   { url: '/modules/offline.js', integrity: '' },
@@ -132,7 +135,9 @@ self.addEventListener('fetch', (event) => {
   const isDynamic =
     url.pathname.startsWith('/api/') ||
     url.pathname === '/version.json' ||
-    url.pathname.startsWith('/version');
+    url.pathname.startsWith('/version') ||
+    url.pathname === '/healthz' ||
+    url.pathname.startsWith('/healthz');
 
   if (isDynamic) {
     event.respondWith(

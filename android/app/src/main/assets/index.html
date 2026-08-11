@@ -45,12 +45,21 @@
       <div id="app-boot-loader-progress" style="width:30%;height:100%;background:linear-gradient(90deg,#00d68f,#10b981);border-radius:99px;transition:width 0.3s ease;"></div>
     </div>
 
-    <!-- Diagnostic App Bypass Action -->
-    <div style="display: flex; gap: 8px; margin-top: 12px; z-index: 100000; pointer-events: auto !important;">
-      <button type="button" id="btn-force-open-app" onclick="if(window.updateBootProgress)window.updateBootProgress(100,'Ready');" style="background: rgba(255,255,255,0.04); color: var(--text-gray); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 6px 12px; font-size: 10px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-        ⚡ Skip Loading
-      </button>
-    </div>
+
+    <script>
+      (function() {
+        var dismissBootLoader = function() {
+          var loader = document.getElementById('app-boot-loader');
+          if (loader && loader.style.display !== 'none') {
+            loader.style.opacity = '0';
+            loader.style.pointerEvents = 'none';
+            setTimeout(function() { loader.style.display = 'none'; }, 300);
+          }
+        };
+        window.dismissBootLoader = dismissBootLoader;
+        setTimeout(dismissBootLoader, 2000);
+      })();
+    </script>
   </div>
 
   <!-- AUTH LOCK SCREEN (Centered login PIN pad overlay) -->
