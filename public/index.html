@@ -2765,7 +2765,7 @@
   </div>
 
   <!-- CANONICAL LEGAL DOCUMENT VIEWER MODAL -->
-  <div class="modal-overlay" id="modal-legal-document" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="legal-doc-modal-title">
+  <div class="modal-overlay" id="modal-legal-document" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; background: rgba(4, 6, 14, 0.88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); z-index: 12000; align-items: center; justify-content: center; box-sizing: border-box;" role="dialog" aria-modal="true" aria-labelledby="legal-doc-modal-title">
     <div class="modal-card legal-doc-modal-card" style="max-width: 720px; width: 90%; max-height: 85vh; display: flex; flex-direction: column;">
       <div class="modal-header">
         <div>
@@ -3649,6 +3649,8 @@
   <!-- COMMAND PALETTE — Ctrl+K global quick navigation and product search -->
   <script src="command-palette.js"></script>
   <script src="strings.js"></script>
+  <script src="legal-documents.js"></script>
+  <script src="subscription.js"></script>
   <script src="dompurify.min.js" integrity="sha384-piCcpDdJ7qVeK4Tv8Z6Hpcr3ZBIgP16TxQTPVfsLFdZ5uDgwc3Y8Ho7oUnqf12qu" crossorigin="anonymous"></script>
   <script src="worker-inline.js"></script>
   <!-- DEALS ENGINE — Bundles / Combos / Specials / Kits -->

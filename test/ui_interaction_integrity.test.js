@@ -160,6 +160,21 @@ test('updatePinDisplayDots Function is Defined and Bound to window in app.js', (
 });
 
 // ----------------------------------------------------------------------------
+// TEST 7: Domain Controller Script Imports in index.html
+// ----------------------------------------------------------------------------
+test('legal-documents.js and subscription.js Script Tags Imported in index.html', () => {
+  const indexHtml = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  assert.ok(
+    indexHtml.includes('<script src="legal-documents.js"></script>'),
+    'legal-documents.js script tag missing from index.html'
+  );
+  assert.ok(
+    indexHtml.includes('<script src="subscription.js"></script>'),
+    'subscription.js script tag missing from index.html'
+  );
+});
+
+// ----------------------------------------------------------------------------
 // SUMMARY REPORT
 // ----------------------------------------------------------------------------
 console.log(`\n==================================================`);
