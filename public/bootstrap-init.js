@@ -459,14 +459,25 @@ document.addEventListener('click', function(e) {
 window.toggleAppLanguage = function() {
   try {
     if (typeof playAudioSignal === 'function') playAudioSignal('click');
-    const cur = localStorage.getItem('valenixia_lang') || 'en';
+    const cur = localStorage.getItem('valenixia_lang') || (window.state && window.state.preferences && window.state.preferences['system_language']) || 'en';
     const next = cur === 'ur' ? 'en' : 'ur';
-    localStorage.setItem('valenixia_lang', next);
-    if (window.state && window.state.preferences) window.state.preferences['system_language'] = next;
-    const btn = document.getElementById('lang-toggle-btn');
-    if (btn) btn.textContent = next === 'ur' ? 'English' : 'اردو';
-    document.body.classList.toggle('lang-urdu', next === 'ur');
-    if (typeof window.applyI18n === 'function') window.applyI18n(next);
+    if (typeof window.setLanguage === 'function') {
+      window.setLanguage(next);
+    } else {
+      localStorage.setItem('valenixia_lang', next);
+      if (window.state && window.state.preferences) window.state.preferences['system_language'] = next;
+      document.documentElement.lang = next;
+      document.body.setAttribute('data-lang', next);
+      document.body.classList.toggle('rtl', next === 'ur');
+      document.body.classList.toggle('lang-urdu', next === 'ur');
+      document.body.setAttribute('dir', next === 'ur' ? 'rtl' : 'ltr');
+      const btn = document.getElementById('lang-toggle-btn');
+      if (btn) {
+        const subSpan = btn.querySelector('span:nth-child(2)');
+        if (subSpan) subSpan.textContent = next === 'ur' ? 'English' : 'اردو / ENG';
+        else btn.textContent = next === 'ur' ? 'English' : 'اردو / ENG';
+      }
+    }
   } catch (e) {
     console.warn('[Lang] Language toggle error:', e);
   }

@@ -4538,15 +4538,7 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
       applyPreferencesFromState();
     });
 
-    const langBtn = document.getElementById('lang-toggle-btn');
-    if (langBtn) {
-      langBtn.addEventListener('click', () => {
-        playAudioSignal('click');
-        const currentLang = state.preferences['system_language'] || 'en';
-        const newLang = currentLang === 'en' ? 'ur' : 'en';
-        setLanguage(newLang);
-      });
-    }
+
 
     const taxModeEl = document.getElementById('setting-tax-mode');
     if (taxModeEl) {
@@ -8146,87 +8138,130 @@ setHtml(qrContainer, '<span style="font-size: 8px; color: var(--text-gray); text
   };
 
   // Dynamic UI Language & Jargon Mode Localization
+  // Dynamic UI Language & Jargon Mode Localization
   function setLanguage(lang) {
-    state.preferences['system_language'] = lang;
-    syncWorker.postMessage({
-      type: 'SAVE_PREFERENCE',
-      payload: { key: 'system_language', val: lang }
-    });
+    const targetLang = (lang === 'ur') ? 'ur' : 'en';
+    if (state && state.preferences) {
+      state.preferences['system_language'] = targetLang;
+    }
+    try {
+      localStorage.setItem('valenixia_lang', targetLang);
+    } catch (_) {}
 
-    const isUrdu = lang === 'ur';
-    const langBtn = document.getElementById('lang-toggle-btn');
-    if (langBtn) {
-      langBtn.textContent = isUrdu ? 'English' : 'اردو';
+    document.documentElement.lang = targetLang;
+    document.body.setAttribute('data-lang', targetLang);
+
+    if (syncWorker && typeof syncWorker.postMessage === 'function') {
+      try {
+        syncWorker.postMessage({
+          type: 'SAVE_PREFERENCE',
+          payload: { key: 'system_language', val: targetLang }
+        });
+      } catch (_) {}
     }
 
-    const jargonMode = state.preferences['system_jargon_mode'] || 'informal';
-    const i18n = window.__valenixiaI18n[lang] ? window.__valenixiaI18n[lang][jargonMode] : window.__valenixiaI18n['en']['informal'];
+    const isUrdu = targetLang === 'ur';
+    const langBtn = document.getElementById('lang-toggle-btn');
+    if (langBtn) {
+      const subSpan = langBtn.querySelector('span:nth-child(2)');
+      if (subSpan) {
+        subSpan.textContent = isUrdu ? 'English' : 'اردو / ENG';
+      } else {
+        langBtn.textContent = isUrdu ? 'English' : 'اردو / ENG';
+      }
+    }
+
+    const jargonMode = (state && state.preferences && state.preferences['system_jargon_mode']) || 'informal';
+    const i18n = (window.__valenixiaI18n && window.__valenixiaI18n[targetLang])
+      ? (window.__valenixiaI18n[targetLang][jargonMode] || window.__valenixiaI18n[targetLang]['formal'] || window.__valenixiaI18n['en']['informal'])
+      : (window.__valenixiaI18n ? window.__valenixiaI18n['en']['informal'] : {});
 
     // Toggle RTL document flow and fonts
     if (isUrdu) {
       document.body.classList.add('rtl');
+      document.body.classList.add('lang-urdu');
+      document.body.setAttribute('dir', 'rtl');
       document.body.style.fontFamily = "'Noto Nastaliq Urdu', 'Outfit', sans-serif";
     } else {
       document.body.classList.remove('rtl');
+      document.body.classList.remove('lang-urdu');
+      document.body.setAttribute('dir', 'ltr');
       document.body.style.fontFamily = "";
     }
 
-    const s = window.ValenixiaStrings[lang] || window.ValenixiaStrings['en'];
+    const s = (window.ValenixiaStrings && window.ValenixiaStrings[targetLang])
+      ? window.ValenixiaStrings[targetLang]
+      : (window.ValenixiaStrings ? window.ValenixiaStrings['en'] : {});
 
     // Map of CSS selectors to translated texts
     const textMapping = {
-      '[data-screen="checkout"] .nav-label': s.checkout,
-      '[data-screen="catalog"] .nav-label': i18n.inventory,
+      '[data-screen="checkout"] .nav-label': s.checkout || 'Checkout',
+      '[data-screen="catalog"] .nav-label': i18n.inventory || s.inventory || 'Inventory',
       '[data-screen="catalog-manager"] .nav-label': i18n.inventory_ledger || (isUrdu ? 'مال کا حساب' : 'Inventory Ledger'),
-      '[data-screen="history"] .nav-label': i18n.sales_log,
-      '[data-screen="analytics"] .nav-label': i18n.dashboard,
-      '[data-screen="customers"] .nav-label': i18n.customers,
-      '[data-screen="suppliers"] .nav-label': i18n.suppliers,
-      '[data-screen="credit-book"] .nav-label': i18n.credit,
-      '[data-screen="staff"] .nav-label': s.staff,
-      '[data-screen="logs"] .nav-label': s.sync_logs,
-      '[data-screen="settings"] .nav-label': s.settings,
-      '.ledger-header .title': s.active_order,
-      '#btn-void-order': i18n.void_sale,
-      '.cart-table th:nth-child(1)': isUrdu ? '' : 'Product',
-      '.cart-table th:nth-child(2)': isUrdu ? '' : 'Price',
-      '.cart-table th:nth-child(3)': isUrdu ? '' : 'Qty',
-      '.cart-table th:nth-child(4)': isUrdu ? '' : 'Total',
-      '.ledger-footer .totals-row:nth-child(1) span:nth-child(1)': isUrdu ? '' : 'Subtotal',
-      '.ledger-footer .totals-row:nth-child(3) span:nth-child(1)': isUrdu ? '' : 'Total Due',
-      '#checkout-quick-catalog .lbl': isUrdu ? '' : 'Quick Products',
-      '#checkout-quick-search': isUrdu ? '' : 'Quick search...',
-      '.checkout-actions .lbl-cust': isUrdu ? '' : 'Customer Profile',
-      '#checkout-customer-attached .text-muted': isUrdu ? '' : 'No customer attached to transaction.',
-      '.payment-card .lbl': isUrdu ? '' : 'Payment Method',
-      '[data-mode="CASH"]': isUrdu ? '' : 'Cash',
-      '[data-mode="CARD"]': isUrdu ? '' : 'Card',
-      '[data-mode="QR"]': isUrdu ? '' : 'QR Code',
-      '[data-mode="SPLIT"]': isUrdu ? '' : 'Split',
-      '[data-mode="CREDIT"]': isUrdu ? '' : 'Credit (Udhaar)',
-      '#btn-checkout-complete span': isUrdu ? '' : 'COMPLETE ORDER (F1)',
-      '#btn-wiz-choose-new': isUrdu ? '' : 'Set Up New Standalone Store',
-      '#btn-wiz-choose-join': isUrdu ? '' : 'Join Existing Store Network',
-      '#wizard-step-title': isUrdu ? '' : 'Valenixia Setup',
-      '#btn-wiz-back': isUrdu ? '' : 'Back',
-      '#btn-wiz-next': isUrdu ? '' : 'Continue'
+      '[data-screen="history"] .nav-label': i18n.sales_log || 'History',
+      '[data-screen="analytics"] .nav-label': i18n.dashboard || s.analytics || 'Analytics',
+      '[data-screen="customers"] .nav-label': i18n.customers || 'Customers',
+      '[data-screen="suppliers"] .nav-label': i18n.suppliers || 'Suppliers',
+      '[data-screen="credit-book"] .nav-label': i18n.credit || 'Credit',
+      '[data-screen="staff"] .nav-label': s.staff || 'Staff',
+      '[data-screen="logs"] .nav-label': s.sync_logs || 'Sync Logs',
+      '[data-screen="settings"] .nav-label': s.settings || 'Settings',
+      '.ledger-header .title': s.active_order || (isUrdu ? 'فعال آرڈر' : 'Active Order'),
+      '#btn-void-order': i18n.void_sale || (isUrdu ? 'فروخت منسوخ' : 'Void Order'),
+      '.cart-table th:nth-child(1)': s.product || (isUrdu ? 'مصنوعات' : 'Product'),
+      '.cart-table th:nth-child(2)': s.price || (isUrdu ? 'قیمت' : 'Price'),
+      '.cart-table th:nth-child(3)': s.qty || (isUrdu ? 'تعداد' : 'Qty'),
+      '.cart-table th:nth-child(4)': s.total || (isUrdu ? 'کل رقم' : 'Total'),
+      '.ledger-footer .totals-row:nth-child(1) span:nth-child(1)': s.subtotal || (isUrdu ? 'کل رقم (بغیر ٹیکس)' : 'Subtotal'),
+      '.ledger-footer .totals-row:nth-child(3) span:nth-child(1)': isUrdu ? 'کل ادا قابل رقم' : 'Total Due',
+      '#checkout-quick-catalog .lbl': s.quick_products || (isUrdu ? 'تیز مصنوعات کی فہرست' : 'Quick Products'),
+      '#checkout-quick-search': s.quick_search || (isUrdu ? 'تلاش کریں...' : 'Quick search...'),
+      '.checkout-actions .lbl-cust': s.customer_profile || (isUrdu ? 'گاہک کی پروفائل' : 'Customer Profile'),
+      '#checkout-customer-attached .text-muted': s.no_customer || (isUrdu ? 'کوئی گاہک منسلک نہیں ہے' : 'No customer attached to transaction.'),
+      '.payment-card .lbl': s.payment_method || (isUrdu ? 'ادائیگی کا طریقہ' : 'Payment Method'),
+      '[data-mode="CASH"]': s.cash || (isUrdu ? 'نقد ادائیگی' : 'Cash'),
+      '[data-mode="CARD"]': s.card || (isUrdu ? 'کارڈ ادائیگی' : 'Card'),
+      '[data-mode="QR"]': s.qr_code || (isUrdu ? 'کیو آر کوڈ' : 'QR Code'),
+      '[data-mode="SPLIT"]': s.split || (isUrdu ? 'تقسیم ادائیگی' : 'Split'),
+      '[data-mode="CREDIT"]': s.credit || (isUrdu ? 'ادھار کھاتہ' : 'Credit (Udhaar)'),
+      '#btn-checkout-complete span': s.complete_order || (isUrdu ? 'آرڈر مکمل کریں (F1)' : 'COMPLETE ORDER (F1)'),
+      '#btn-wiz-choose-new': s.setup_new || (isUrdu ? 'نیا اسٹور قائم کریں' : 'Set Up New Standalone Store'),
+      '#btn-wiz-choose-join': s.join_existing || (isUrdu ? 'موجودہ نیٹ ورک میں شامل ہوں' : 'Join Existing Store Network'),
+      '#wizard-step-title': s.setup_title || (isUrdu ? 'والینکسیا سیٹ اپ' : 'Valenixia Setup'),
+      '#btn-wiz-back': s.back || (isUrdu ? 'واپس جائیں' : 'Back'),
+      '#btn-wiz-next': s.continue || (isUrdu ? 'جاری رکھیں' : 'Continue')
     };
 
     for (const [selector, text] of Object.entries(textMapping)) {
+      if (text === undefined || text === null) continue;
       const el = document.querySelector(selector);
       if (el) {
-        const textNode = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim() !== '');
-        if (textNode) {
-          textNode.textContent = text;
+        if (el.tagName === 'INPUT' && el.hasAttribute('placeholder')) {
+          el.placeholder = text;
         } else {
-          el.textContent = text;
+          const textNode = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim() !== '');
+          if (textNode) {
+            textNode.textContent = ' ' + text;
+          } else {
+            const hasElementChild = el.firstElementChild !== null;
+            if (hasElementChild) {
+              const lastNode = el.lastChild;
+              if (lastNode && lastNode.nodeType === Node.TEXT_NODE) {
+                lastNode.textContent = ' ' + text;
+              } else {
+                el.appendChild(document.createTextNode(' ' + text));
+              }
+            } else {
+              el.textContent = text;
+            }
+          }
         }
       }
     }
 
     // Refresh totals labels dynamically
-    const sub = calculateSubtotal();
-    const taxMode = state.preferences['store_tax_mode'] || 'FLAT';
+    const sub = typeof calculateSubtotal === 'function' ? calculateSubtotal() : 0;
+    const taxMode = (state && state.preferences && state.preferences['store_tax_mode']) || 'FLAT';
     let taxLabel = 'Tax';
     let rateStr = '';
 
@@ -8239,7 +8274,7 @@ setHtml(qrContainer, '<span style="font-size: 8px; color: var(--text-gray); text
       rateStr = '18.0%';
       taxLabel = isUrdu ? `ٹیکس (${rateStr})` : `FBR Tax (${rateStr})`;
     } else {
-      const taxRate = parseFloat(state.preferences['store_tax_rate'] || '8.0');
+      const taxRate = parseFloat((state && state.preferences && state.preferences['store_tax_rate']) || '8.0');
       rateStr = `${taxRate.toFixed(1)}%`;
       taxLabel = isUrdu ? `ٹیکس (${rateStr})` : `Tax (${rateStr})`;
     }
@@ -15136,22 +15171,15 @@ setHtml(container, `<p style="color: var(--alert-coral); font-size:12px;">Failed
     };
 
     window.toggleAppLanguage = function() {
-      const cur = document.documentElement.lang || document.body.getAttribute('data-lang') || localStorage.getItem('valenixia_lang') || 'en';
-      const next = (cur === 'en') ? 'ur' : 'en';
-      document.documentElement.lang = next;
-      document.body.setAttribute('data-lang', next);
-      document.body.classList.toggle('rtl', next === 'ur');
-      document.body.setAttribute('dir', next === 'ur' ? 'rtl' : 'ltr');
-      const btn = document.getElementById('lang-toggle-btn');
-      if (btn) btn.textContent = next === 'ur' ? 'EN' : 'اردو';
-      try { localStorage.setItem('valenixia_lang', next); } catch(_) {}
       try {
+        if (typeof playAudioSignal === 'function') playAudioSignal('click');
+        const cur = (state && state.preferences && state.preferences['system_language']) || localStorage.getItem('valenixia_lang') || document.documentElement.lang || 'en';
+        const next = (cur === 'ur') ? 'en' : 'ur';
         if (typeof setLanguage === 'function') setLanguage(next);
         else if (typeof window.setLanguage === 'function') window.setLanguage(next);
-      } catch(langErr) {
-        console.warn('[Lang] Error applying translations:', langErr);
+      } catch (langErr) {
+        console.warn('[Lang] Error toggling language:', langErr);
       }
-      try { window.logDiagnostic && window.logDiagnostic('INFO','LANG','Language switched to: '+next); } catch(_) {}
     };
 
     // ── SIDEBAR TOGGLE ────────────────────────────────────────────────────────
