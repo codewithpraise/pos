@@ -6029,6 +6029,167 @@ if (process.env.VERCEL) {
       }
     });
 
+    // 6. WhatsApp Receipt Server Authorization Endpoint
+    app.post('/api/receipts/whatsapp', async (req, res) => {
+      try {
+        const authResult = await EntitlementService.authorizeFeature({
+          req,
+          featureKey: 'whatsapp.receipts',
+          action: 'receipt.send_whatsapp'
+        });
+
+        if (!authResult.allowed) {
+          return res.status(403).json({
+            error: 'Feature Unauthorized',
+            code: authResult.code,
+            featureKey: 'whatsapp.receipts',
+            requiredAddon: 'WHATSAPP_RECEIPTS',
+            message: authResult.message,
+            snapshot: authResult.snapshot
+          });
+        }
+
+        const { recipientPhone, receiptId, orderData } = req.body || {};
+        if (!recipientPhone) return res.status(400).json({ error: 'recipientPhone is required' });
+
+        const auditId = `AUDIT_WA_${Date.now()}`;
+        await db.run(
+          `INSERT INTO local_preferences (key, value_payload) VALUES (?, ?)`,
+          [
+            `audit_wa_${auditId}`,
+            JSON.stringify({
+              id: auditId,
+              action: 'WHATSAPP_RECEIPT_SENT',
+              recipientPhone,
+              receiptId,
+              organizationId: authResult.organizationId,
+              timestamp: Date.now()
+            })
+          ]
+        );
+
+        res.json({
+          success: true,
+          message: 'WhatsApp receipt dispatch authorized and queued.',
+          recipientPhone,
+          receiptId,
+          snapshot: authResult.snapshot,
+          signature: authResult.signature
+        });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    app.post('/api/whatsapp/send', async (req, res) => {
+      try {
+        const authResult = await EntitlementService.authorizeFeature({
+          req,
+          featureKey: 'whatsapp.receipts',
+          action: 'whatsapp.send'
+        });
+
+        if (!authResult.allowed) {
+          return res.status(403).json({
+            error: 'Feature Unauthorized',
+            code: authResult.code,
+            featureKey: 'whatsapp.receipts',
+            requiredAddon: 'WHATSAPP_RECEIPTS',
+            message: authResult.message
+          });
+        }
+
+        res.json({ success: true, message: 'WhatsApp dispatch authorized.', snapshot: authResult.snapshot });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // 7. General Server Feature Check Endpoint
+    app.post('/api/entitlements/authorize', async (req, res) => {
+      try {
+        const { featureKey, action } = req.body || {};
+        if (!featureKey) return res.status(400).json({ error: 'featureKey is required' });
+
+        const authResult = await EntitlementService.authorizeFeature({ req, featureKey, action });
+        if (!authResult.allowed) {
+          return res.status(403).json(authResult);
+        }
+        res.json(authResult);
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // 7b. General Client Entitlement Status Endpoint
+    app.get('/api/entitlements/status', async (req, res) => {
+      try {
+        const identity = await EntitlementService.resolveIdentity(req);
+        const effective = await EntitlementService.getOrganizationEntitlements(identity.organizationId);
+
+        const signedSnapshot = EntitlementService.generateSignedOfflineSnapshot({
+          organizationId: identity.organizationId,
+          terminalId: identity.terminalId,
+          effectiveTier: effective.tier,
+          activeAddons: effective.activeAddons,
+          features: effective.features
+        });
+
+        res.json({
+          success: true,
+          entitlements: effective,
+          signedSnapshot: signedSnapshot.snapshot,
+          signature: signedSnapshot.signature
+        });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // 8. Admin Entitlement Inspector Endpoint
+    app.get('/api/admin/entitlements/inspector', async (req, res) => {
+      try {
+        const identity = await EntitlementService.resolveIdentity(req);
+        const orgId = req.query.orgId || identity.organizationId;
+        const effective = await EntitlementService.getOrganizationEntitlements(orgId);
+
+        const featureMatrix = {};
+        const { FEATURE_REGISTRY } = require('./lib/feature-registry');
+        Object.values(FEATURE_REGISTRY).forEach(f => {
+          const isAct = Boolean(effective.activeAddons && effective.activeAddons.includes(f.addonId));
+          featureMatrix[f.featureKey] = {
+            featureKey: f.featureKey,
+            displayName: f.displayName,
+            requiredAddon: f.addonId,
+            status: isAct ? 'ACTIVE' : 'DENIED',
+            scope: f.scope
+          };
+        });
+
+        const signedSnapshot = EntitlementService.generateSignedOfflineSnapshot({
+          organizationId: orgId,
+          terminalId: identity.terminalId,
+          effectiveTier: effective.tier,
+          features: featureMatrix
+        });
+
+        res.json({
+          success: true,
+          organizationId: orgId,
+          terminalId: identity.terminalId,
+          effectiveTier: effective.tier,
+          maxBranches: effective.maxBranches,
+          maxTerminals: effective.maxTerminals,
+          activeAddons: effective.activeAddons,
+          features: featureMatrix,
+          signedSnapshot: signedSnapshot.snapshot,
+          signature: signedSnapshot.signature
+        });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
 
 function handleGracefulShutdown(signal) {
   console.log(`[Shutdown] Received ${signal}. Starting graceful shutdown...`);

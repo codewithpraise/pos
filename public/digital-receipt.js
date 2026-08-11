@@ -334,8 +334,6 @@
 
     document.getElementById("__vx-rcpt-whatsapp").addEventListener("click", async function() {
       try { if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); } catch(_) {}
-      // Release checkout lock FIRST — before any async prompts or navigation
-      closeModalSafe();
 
       let phone = customerPhone || storePhone;
       if (!phone && window.showModal) {
@@ -356,6 +354,29 @@
         closeModalSafe();
         return;
       }
+
+      // Hard Server-Side Authorization Check
+      try {
+        const serverUrl = window.__valenixiaServerUrl || location.origin;
+        const authRes = await fetch(serverUrl + '/api/receipts/whatsapp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recipientPhone: phone, receiptId: receiptData.receiptNumber || 'RCPT' })
+        });
+        if (authRes.status === 403) {
+          const errData = await authRes.json();
+          if (typeof showNotificationToast === 'function') {
+            showNotificationToast(`🔒 ${errData.message || 'WhatsApp Receipts feature is locked. Request activation in Subscription -> Add-ons.'}`, 'error', 5000);
+          } else alert(errData.message || 'WhatsApp Receipts feature is locked.');
+          return;
+        }
+      } catch (err) {
+        console.warn('[WhatsApp] Server authorization check warning:', err);
+      }
+
+      // Release checkout lock
+      closeModalSafe();
+
       try {
         shareReceiptWhatsApp(receiptData, phone);
       } finally {

@@ -4056,10 +4056,13 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
       });
     });
 
-    document.getElementById('lang-toggle-btn')?.addEventListener('click', () => {
-      playAudioSignal('click');
-      if (typeof window.toggleAppLanguage === 'function') {
-        window.toggleAppLanguage();
+    // Bind Settings Language Select Dropdown
+    document.getElementById('setting-ui-lang')?.addEventListener('change', (e) => {
+      const selectedLang = e.target.value;
+      if (window.ValenixiaLanguage && typeof window.ValenixiaLanguage.setLanguage === 'function') {
+        window.ValenixiaLanguage.setLanguage(selectedLang);
+      } else if (typeof setLanguage === 'function') {
+        setLanguage(selectedLang);
       }
     });
 
@@ -8239,15 +8242,17 @@ setHtml(qrContainer, '<span style="font-size: 8px; color: var(--text-gray); text
         if (el.tagName === 'INPUT' && el.hasAttribute('placeholder')) {
           el.placeholder = text;
         } else {
+          // If element contains SVG icons (like payment-btn), safely update or append only the text node
           const textNode = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim() !== '');
           if (textNode) {
             textNode.textContent = ' ' + text;
           } else {
             const hasElementChild = el.firstElementChild !== null;
-            if (hasElementChild) {
-              const lastNode = el.lastChild;
-              if (lastNode && lastNode.nodeType === Node.TEXT_NODE) {
-                lastNode.textContent = ' ' + text;
+            const svgChild = el.querySelector('svg');
+            if (svgChild || hasElementChild) {
+              const lastChild = el.lastChild;
+              if (lastChild && lastChild.nodeType === Node.TEXT_NODE) {
+                lastChild.textContent = ' ' + text;
               } else {
                 el.appendChild(document.createTextNode(' ' + text));
               }

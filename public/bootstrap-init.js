@@ -456,15 +456,19 @@ document.addEventListener('click', function(e) {
   }
 }, true);
 
-window.toggleAppLanguage = function() {
-  try {
-    if (typeof playAudioSignal === 'function') playAudioSignal('click');
-    const cur = localStorage.getItem('valenixia_lang') || (window.state && window.state.preferences && window.state.preferences['system_language']) || 'en';
-    const next = cur === 'ur' ? 'en' : 'ur';
+window.ValenixiaLanguage = {
+  getLanguage() {
+    return (window.state && window.state.preferences && window.state.preferences['system_language'])
+      || localStorage.getItem('valenixia_lang')
+      || document.documentElement.lang
+      || 'en';
+  },
+  setLanguage(lang) {
     if (typeof window.setLanguage === 'function') {
-      window.setLanguage(next);
+      window.setLanguage(lang);
     } else {
-      localStorage.setItem('valenixia_lang', next);
+      const next = lang === 'ur' ? 'ur' : 'en';
+      try { localStorage.setItem('valenixia_lang', next); } catch(_) {}
       if (window.state && window.state.preferences) window.state.preferences['system_language'] = next;
       document.documentElement.lang = next;
       document.body.setAttribute('data-lang', next);
@@ -478,9 +482,20 @@ window.toggleAppLanguage = function() {
         else btn.textContent = next === 'ur' ? 'English' : 'اردو / ENG';
       }
     }
-  } catch (e) {
-    console.warn('[Lang] Language toggle error:', e);
+  },
+  toggle() {
+    const cur = this.getLanguage();
+    const next = cur === 'ur' ? 'en' : 'ur';
+    this.setLanguage(next);
+  },
+  refresh() {
+    this.setLanguage(this.getLanguage());
   }
+};
+
+window.toggleAppLanguage = function() {
+  try { if (typeof playAudioSignal === 'function') playAudioSignal('click'); } catch(_) {}
+  window.ValenixiaLanguage.toggle();
 };
 
 window.toggleAppTheme = function() {
