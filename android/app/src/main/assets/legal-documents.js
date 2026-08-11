@@ -7,7 +7,7 @@
   'use strict';
 
   const LEGAL_DOCUMENTS = {
-    VERSION: '2.4.6',
+    VERSION: '2.5.0',
     EFFECTIVE_DATE: '2026-08-11',
 
     TERMS_OF_SERVICE: `

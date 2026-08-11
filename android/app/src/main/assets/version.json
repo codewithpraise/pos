@@ -1,15 +1,15 @@
 {
-  "version": "2.4.6",
-  "build_id": "v2.4.6-prod-20260811.1945",
+  "version": "2.5.0",
+  "build_id": "v2.5.0-prod-20260811.2015",
   "updated_at": "2026-08-11",
-  "changelog": "Valenixia POS v2.4.6 Production Acceptance Consolidation: Canonical Commercial Catalog, 10/5 Hardware Limits Enforcement, 4-Signal Connectivity Diagnostics, Stateful Add-ons Marketplace, and 6-Document Legal Requirements Matrix.",
+  "changelog": "Valenixia POS v2.5.0 Release Integrity, Entitlement & Idempotent Bootstrap Hardening.",
   "changes": [
-    "Unified commercial catalog across server and browser with zero hardcoded limits",
-    "Enforced Enterprise tier max 10 register terminals and 5 store branches in DB, entitlement service, and pairing validation",
-    "Implemented 4-signal real-time connectivity monitor (NETWORK, BACKEND, SYNC, POS) with window.__VALENIXIA_CONNECTIVITY__()",
-    "Added Commercial Add-on Marketplace with stateful action buttons and /api/addons/claim backend endpoints",
-    "Authored substantive legal text for all 6 legal documents with explicit FBR tax responsibility boundaries",
-    "Completely purged Skip Loading button and diagnostic bypass listeners across codebase",
-    "Enforced APP_SURFACE identity and physical DOM removal of Get Apps button on non-WEB surfaces"
+    "Created single authoritative release manifest at /release-manifest.json",
+    "Implemented atomic Service Worker update handshake and Network-First PWA caching strategy",
+    "Built 13-stage idempotent bootstrap state machine with CONFIRMED_EMPTY database discovery gate",
+    "Separated identity hierarchy across account, organization, store, terminal, installation, and hardware device",
+    "Enforced server-authoritative entitlements, 10/5 hardware limits, and signed anti-replay snapshots",
+    "Restored Get Apps button WEB-only surface identity and responsive subscription main scroll container",
+    "Authored substantive legal text for 6 legal documents with 24-subject compliance matrix"
   ]
 }

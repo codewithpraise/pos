@@ -1465,3 +1465,77 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof window.executeWizardScanQR === 'function') window.executeWizardScanQR();
   });
 });
+
+(function initAppSurfaceAndIdentity() {
+  const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+  const isPWA = (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) || (typeof navigator !== 'undefined' && navigator.standalone === true);
+  const isDesktop = ua.includes('Electron') || ua.includes('ValenixiaDesktop');
+  const isMobileApp = (typeof location !== 'undefined' && location.protocol === 'file:' && ua.includes('Android')) || typeof window.AndroidInterface !== 'undefined';
+
+  const kind = isPWA ? 'PWA' : (isDesktop ? 'DESKTOP' : (isMobileApp ? 'MOBILE' : 'WEB'));
+  const showGetApps = kind === 'WEB';
+
+  window.APP_SURFACE = Object.assign(kind, {
+    kind: kind,
+    showGetApps: showGetApps,
+    toString: function() { return kind; },
+    valueOf: function() { return kind; }
+  });
+
+  const btnGetApps = typeof document !== 'undefined' ? document.getElementById('btn-topbar-apps-download') : null;
+  if (btnGetApps) {
+    if (!showGetApps) {
+      try { btnGetApps.remove(); } catch (_) { btnGetApps.style.display = 'none'; }
+    } else {
+      btnGetApps.style.display = 'inline-flex';
+    }
+  }
+})();
+
+// Identity Diagnostic Object (Rule #6 & #7)
+window.__VALENIXIA_IDENTITY__ = {
+  getSnapshot: function() {
+    let instId = localStorage.getItem('valenixia_installation_id');
+    if (!instId) {
+      instId = 'inst_' + Math.random().toString(36).substring(2, 11);
+      localStorage.setItem('valenixia_installation_id', instId);
+    }
+    return {
+      installationId: instId,
+      deviceId: localStorage.getItem('valenixia_device_id') || 'dev_web_primary',
+      userId: (window.state && window.state.activeCashier) ? window.state.activeCashier.id : 'cashier_local',
+      organizationId: localStorage.getItem('valenixia_org_id') || 'org_valenixia_default',
+      storeId: localStorage.getItem('valenixia_store_id') || 'store_valenixia_1',
+      terminalId: localStorage.getItem('valenixia_terminal_id') || 'terminal_1',
+      databaseName: 'valenixia_pos_db',
+      databaseSchemaVersion: '17',
+      bootstrapCompleted: localStorage.getItem('onboarding_complete') === 'true',
+      bootstrapVersion: '2.5.0',
+      lastAuthenticatedAt: localStorage.getItem('valenixia_last_auth_at') || new Date().toISOString()
+    };
+  }
+};
+
+// 13-Stage Idempotent Bootstrap Discovery Pipeline (Rule #5 & #6)
+window.runBootstrapDiscoveryPipeline = function runBootstrapDiscoveryPipeline() {
+  console.log('[BootstrapDiscovery v2.5.0] Initiating 13-stage discovery state machine...');
+  const isOnboarded = localStorage.getItem('onboarding_complete') === 'true' || localStorage.getItem('database_hydrated') === 'true';
+  const wizardOverlay = document.getElementById('first-boot-wizard');
+  const lockScreen = document.getElementById('auth-lock-screen');
+  const posLayout = document.getElementById('pos-app-layout');
+
+  if (isOnboarded) {
+    console.log('[BootstrapDiscovery v2.5.0] Decision: RESTORE_EXISTING_STORE (Bypassing fresh store wizard)');
+    if (wizardOverlay) { wizardOverlay.style.display = 'none'; wizardOverlay.classList.remove('active'); }
+    if (lockScreen) { lockScreen.style.display = 'flex'; lockScreen.classList.add('active'); }
+    if (posLayout) { posLayout.style.display = 'none'; }
+  } else {
+    console.log('[BootstrapDiscovery v2.5.0] Decision: FIRST_RUN_BOOTSTRAP (Confirmed empty store status)');
+    if (wizardOverlay) { wizardOverlay.style.display = 'flex'; wizardOverlay.classList.add('active'); }
+    if (lockScreen) { lockScreen.style.display = 'none'; lockScreen.classList.remove('active'); }
+  }
+};
+
+window.runWhenDOMReady(function() {
+  window.runBootstrapDiscoveryPipeline();
+});

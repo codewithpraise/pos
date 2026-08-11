@@ -135,6 +135,8 @@ self.addEventListener('fetch', (event) => {
   const isDynamic =
     url.pathname.startsWith('/api/') ||
     url.pathname === '/version.json' ||
+    url.pathname === '/release-manifest.json' ||
+    url.pathname === '/build-id' ||
     url.pathname.startsWith('/version') ||
     url.pathname === '/healthz' ||
     url.pathname.startsWith('/healthz');

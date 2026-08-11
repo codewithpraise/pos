@@ -3,7 +3,8 @@ const path = require('path');
 
 const testFiles = [
   path.join(__dirname, 'v24_subscription_layout.test.js'),
-  path.join(__dirname, 'v24_comprehensive_architecture.test.js')
+  path.join(__dirname, 'v24_comprehensive_architecture.test.js'),
+  path.join(__dirname, 'production_release_acceptance.test.js')
 ];
 
 const child = spawn('npx', ['mocha', ...testFiles], {

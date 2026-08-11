@@ -90,7 +90,7 @@ describe('Valenixia POS v2.4.6 Comprehensive Production Acceptance Gate', functi
       const serverJs = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
       const vercelJson = fs.readFileSync(path.join(__dirname, '../vercel.json'), 'utf8');
 
-      assert.ok(serverJs.includes("version: '2.4.6'"), 'server.js /api/health endpoint must report version 2.4.6');
+      assert.ok(serverJs.includes("version: '2.5.0'"), 'server.js /api/health endpoint must report version 2.5.0');
       assert.ok(vercelJson.includes("no-store"), 'vercel.json must enforce no-store header on health probes');
     });
   });
@@ -178,7 +178,7 @@ describe('Valenixia POS v2.4.6 Comprehensive Production Acceptance Gate', functi
       const versionJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../public/version.json'), 'utf8'));
       const buildIdText = fs.readFileSync(path.join(__dirname, '../public/build-id'), 'utf8').trim();
 
-      assert.strictEqual(versionJson.version, '2.4.6', 'version.json version must be 2.4.6');
+      assert.strictEqual(versionJson.version, '2.5.0', 'version.json version must be 2.5.0');
       assert.ok(versionJson.build_id, 'version.json must specify build_id');
       assert.strictEqual(buildIdText, versionJson.build_id, 'public/build-id content must match version.json build_id');
     });

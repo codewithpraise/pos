@@ -501,7 +501,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Uncached Health Probe Endpoints for Real-time Connectivity Subsystem
+// Uncached Health & Release Manifest Probe Endpoints
 app.get(['/api/health', '/healthz'], (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
   res.setHeader('Pragma', 'no-cache');
@@ -509,9 +509,20 @@ app.get(['/api/health', '/healthz'], (req, res) => {
   res.json({
     ok: true,
     service: 'valenixia-pos',
-    version: '2.4.6',
+    version: '2.5.0',
+    build_id: 'v2.5.0-prod-20260811.2015',
     timestamp: Date.now()
   });
+});
+
+app.get('/release-manifest.json', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  res.setHeader('Content-Type', 'application/json');
+  const manifestPath = path.join(__dirname, 'public', 'release-manifest.json');
+  if (fs.existsSync(manifestPath)) {
+    return res.sendFile(manifestPath);
+  }
+  res.json({ version: '2.5.0', build_id: 'v2.5.0-prod-20260811.2015' });
 });
 
 // Explicit Top-Level PWA Static File Routes (BEFORE Helmet & CSRF)
