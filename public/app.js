@@ -4170,15 +4170,20 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
         nav.querySelectorAll('.sub-nav-item').forEach(btn => {
           btn.addEventListener('click', (e) => {
             const targetTab = e.currentTarget.dataset.subtab;
-            nav.querySelectorAll('.sub-nav-item').forEach(b => b.classList.remove('active'));
-            e.currentTarget.classList.add('active');
-            document.querySelectorAll('.sub-tab-panel').forEach(panel => {
-              if (panel.id === `sub-panel-${targetTab}`) {
-                panel.classList.add('active');
-              } else {
-                panel.classList.remove('active');
-              }
-            });
+            if (window.ValenixiaSubscription && typeof window.ValenixiaSubscription.activateTab === 'function') {
+              window.ValenixiaSubscription.activateTab(targetTab);
+            } else {
+              nav.querySelectorAll('.sub-nav-item').forEach(b => b.classList.remove('active'));
+              e.currentTarget.classList.add('active');
+              document.querySelectorAll('.sub-tab-panel').forEach(panel => {
+                const pId = panel.id.replace('sub-panel-', '').toLowerCase();
+                if (pId === targetTab || (targetTab === 'payment' && (pId === 'payment' || pId === 'nayapay'))) {
+                  panel.classList.add('active');
+                } else {
+                  panel.classList.remove('active');
+                }
+              });
+            }
           });
         });
       }
@@ -7645,13 +7650,14 @@ setHtml(overlay, `
 
   // Network badge UI update
   function updateNetworkBadge(isConnected) {
-    state.isOnline = isConnected;
+    const isPhysicalOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+    state.isOnline = isPhysicalOnline;
     const badge = document.getElementById('net-badge');
     const txt = document.getElementById('net-status-text');
     const pill = document.getElementById('mobile-offline-pill');
     const banner = document.getElementById('offline-banner');
 
-    if (isConnected) {
+    if (isPhysicalOnline) {
       if (badge) {
         badge.className = 'network-badge online';
         badge.title = 'Sync Status: Online (All changes fully synced)';
@@ -18302,6 +18308,39 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   }
   window.ValenixiaLegalDocuments = getLegalRegistry();
 
+  function renderMarkdownToHtml(md) {
+    if (!md) return '';
+    let html = md
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    
+    // Headers
+    html = html.replace(/^### (.*$)/gim, '<h4 style="color:var(--accent-emerald);margin:16px 0 8px;font-size:13px;font-weight:700;">$1</h4>');
+    html = html.replace(/^## (.*$)/gim, '<h3 style="color:var(--text-white);margin:20px 0 10px;font-size:15px;font-weight:800;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:6px;">$1</h3>');
+    html = html.replace(/^# (.*$)/gim, '<h2 style="color:var(--text-white);margin:0 0 14px;font-size:17px;font-weight:900;">$1</h2>');
+
+    // Bold & Italic
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--text-white);">$1</strong>');
+    html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+    // Horizontal rules
+    html = html.replace(/^---$/gim, '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:16px 0;">');
+
+    // Bullet points
+    html = html.replace(/^\- (.*$)/gim, '<li style="margin-bottom:6px;color:var(--text-light);list-style:disc inside;">$1</li>');
+
+    // Paragraphs
+    html = html.split('\n\n').map(p => {
+      const trimmed = p.trim();
+      if (!trimmed) return '';
+      if (trimmed.startsWith('<h') || trimmed.startsWith('<hr') || trimmed.startsWith('<li')) return trimmed;
+      return `<p style="margin:0 0 12px;line-height:1.6;color:var(--text-light);">${trimmed.replace(/\n/g, '<br>')}</p>`;
+    }).filter(Boolean).join('');
+
+    return html;
+  }
+
   function openLegalDocumentModal(docKey) {
     if (!docKey) return;
     const registry = getLegalRegistry();
@@ -18326,7 +18365,8 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       if (verEl) verEl.textContent = `Version ${registry.VERSION || '2.6.0'} • Effective ${registry.EFFECTIVE_DATE || '2026-08-11'}`;
       
       const docText = (registry[docKey] || 'This document is currently unavailable.').trim();
-      setHtml(contentEl, docText);
+      const formattedHtml = renderMarkdownToHtml(docText);
+      setHtml(contentEl, formattedHtml);
 
       modal.classList.add('active');
       modal.style.display = 'flex';

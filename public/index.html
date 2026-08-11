@@ -1987,7 +1987,7 @@
                         <li>Sales Analytics &amp; Profit Reports</li>
                       </ul>
                     </div>
-                    <button class="action-btn dm-btn-secondary btn-select-tier" data-tier="STARTER" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase;">Select Starter Plan</button>
+                    <button class="action-btn dm-btn-secondary btn-select-tier" data-tier="STARTER" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.selectPlan('STARTER');" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase;">Select Starter Plan</button>
                   </div>
 
                   <!-- GROWTH / PRO TIER (Featured) -->
@@ -2010,7 +2010,7 @@
                         <li>Advanced Margin &amp; Stock Forecasting</li>
                       </ul>
                     </div>
-                    <button class="action-btn dm-btn-emerald btn-select-tier" data-tier="PRO" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase; box-shadow:0 4px 14px rgba(0,214,143,0.3);">Select Growth Plan</button>
+                    <button class="action-btn dm-btn-emerald btn-select-tier" data-tier="PRO" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.selectPlan('PRO');" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase; box-shadow:0 4px 14px rgba(0,214,143,0.3);">Select Growth Plan</button>
                   </div>
 
                   <!-- ENTERPRISE TIER -->
@@ -2031,7 +2031,7 @@
                         <li>24/7 Priority Support &amp; Onsite Hardware Setup</li>
                       </ul>
                     </div>
-                    <button class="action-btn dm-btn-secondary btn-select-tier" data-tier="ENTERPRISE" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase;">Select Enterprise</button>
+                    <button class="action-btn dm-btn-secondary btn-select-tier" data-tier="ENTERPRISE" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.selectPlan('ENTERPRISE');" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase;">Select Enterprise</button>
                   </div>
                 </div>
               </div>
@@ -2054,7 +2054,7 @@
                       <div style="font-size:20px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:10px;">PKR 2,999 <span style="font-size:11px; font-weight:600; color:var(--text-gray);">/ mo</span></div>
                       <p style="font-size:12px; color:var(--text-gray); line-height:1.5; margin-bottom:16px;">Tier-1 FBR / PRAL digital fiscal invoice tagging with QR code generation &amp; automatic queue syncing.</p>
                     </div>
-                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="FBR_FISCAL" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request FBR Add-on</button>
+                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="FBR_FISCAL" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.selectAddon('FBR_FISCAL');" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request FBR Add-on</button>
                   </div>
 
                   <!-- Multi-Store HQ Add-on -->
@@ -2067,7 +2067,7 @@
                       <div style="font-size:20px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:10px;">PKR 3,999 <span style="font-size:11px; font-weight:600; color:var(--text-gray);">/ mo</span></div>
                       <p style="font-size:12px; color:var(--text-gray); line-height:1.5; margin-bottom:16px;">Centralized HQ stock transfer requests, multi-outlet sales aggregation, and inventory consolidation.</p>
                     </div>
-                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="MULTI_STORE" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request Multi-Store HQ</button>
+                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="MULTI_STORE" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.selectAddon('MULTI_STORE');" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request Multi-Store HQ</button>
                   </div>
 
                   <!-- WhatsApp Receipts Add-on -->
@@ -2080,7 +2080,7 @@
                       <div style="font-size:20px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:10px;">PKR 1,499 <span style="font-size:11px; font-weight:600; color:var(--text-gray);">/ mo</span></div>
                       <p style="font-size:12px; color:var(--text-gray); line-height:1.5; margin-bottom:16px;">Send instant PDF transaction receipts and credit statements directly to customers WhatsApp numbers.</p>
                     </div>
-                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="WHATSAPP_RECEIPTS" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request WhatsApp Add-on</button>
+                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="WHATSAPP_RECEIPTS" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.selectAddon('WHATSAPP_RECEIPTS');" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request WhatsApp Add-on</button>
                   </div>
 
                   <!-- Custom Roles Add-on -->
@@ -2093,7 +2093,7 @@
                       <div style="font-size:20px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:10px;">PKR 1,999 <span style="font-size:11px; font-weight:600; color:var(--text-gray);">/ mo</span></div>
                       <p style="font-size:12px; color:var(--text-gray); line-height:1.5; margin-bottom:16px;">Define custom cashier, supervisor, and inventory manager permissions with immutable audit trails.</p>
                     </div>
-                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="CUSTOM_ROLES" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request Custom RBAC</button>
+                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="CUSTOM_ROLES" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.selectAddon('CUSTOM_ROLES');" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request Custom RBAC</button>
                   </div>
 
                   <!-- Data Portability Add-on -->
@@ -2106,13 +2106,13 @@
                       <div style="font-size:20px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:10px;">PKR 1,499 <span style="font-size:11px; font-weight:600; color:var(--text-gray);">/ mo</span></div>
                       <p style="font-size:12px; color:var(--text-gray); line-height:1.5; margin-bottom:16px;">Automated Google Drive daily database backups and scheduled CSV/Excel business reporting exports.</p>
                     </div>
-                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="DATA_PORTABILITY" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request Data Portability</button>
+                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="DATA_PORTABILITY" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.selectAddon('DATA_PORTABILITY');" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request Data Portability</button>
                   </div>
                 </div>
               </div>
 
-              <!-- Sub-Tab Panel 3: NAYAPAY -->
-              <div class="sub-tab-panel" id="sub-panel-nayapay">
+              <!-- Sub-Tab Panel 3: PAYMENT / NAYAPAY -->
+              <div class="sub-tab-panel" id="sub-panel-payment">
                 <div class="cloud-vault-card" id="billing-upgrade-form-container">
                   <h3 style="margin:0 0 16px; font-size:16px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">Submit NayaPay Payment Proof</h3>
 
