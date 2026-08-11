@@ -1,15 +1,12 @@
-/* Google Fonts @import removed to prevent render-blocking in offline mode */
-
-/* ============================================================================
-   VALENIXIA COMMERCE ECOSYSTEM — OBSIDIAN PRECISION DESIGN SYSTEM v2
-   ============================================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&display=swap');
 
 /* Noto Nastaliq Urdu Font Integration */
 @font-face {
-  font-family: 'Noto Nastaliq Urdu';
+  font-family: 'Noto Nastaliq Urdu Local';
   src: url('NotoNastaliqUrdu-Regular.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
+  font-display: swap;
 }
 
 * {

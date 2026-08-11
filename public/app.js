@@ -12323,6 +12323,10 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     // Business Intelligence dashboard calculations
     calculateBiDashboardMetrics();
 
+    // Render Multi-Store Branch Telemetry Matrix & Kamai AI Business Recommendations
+    renderBranchTelemetryMatrix(txs);
+    renderKamaiAiAdvisor(txs);
+
     // Check stock thresholds and generate draft POs if needed
     runSmartReorderCheck();
   }
@@ -12483,6 +12487,130 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
       netVal.style.fontWeight = '800';
     }
     if (marginVal) marginVal.textContent = `${avgMarginRate.toFixed(2)}%`;
+  }
+
+  function renderBranchTelemetryMatrix(txs) {
+    const tbody = document.getElementById('analytics-branch-matrix-tbody');
+    if (!tbody) return;
+    tbody.replaceChildren();
+
+    const branchMap = {};
+    const defaultBranch = (state.preferences && state.preferences['store_name']) || 'Main Store / HQ';
+    branchMap['main'] = { id: 'main', name: defaultBranch, revenue: 0, orders: 0, cost: 0 };
+
+    if (Array.isArray(state.branches)) {
+      state.branches.forEach(b => {
+        if (b.id && !branchMap[b.id]) {
+          branchMap[b.id] = { id: b.id, name: b.name || b.id, revenue: 0, orders: 0, cost: 0 };
+        }
+      });
+    }
+
+    const sourceTxs = txs || state.transactions || [];
+    sourceTxs.forEach(t => {
+      const bId = t.branch_id || t.store_id || 'main';
+      if (!branchMap[bId]) {
+        branchMap[bId] = { id: bId, name: bId === 'main' ? defaultBranch : `Branch (${bId})`, revenue: 0, orders: 0, cost: 0 };
+      }
+      const rev = Number(t.total_minor_units || t.total || 0);
+      branchMap[bId].revenue += rev;
+      branchMap[bId].orders += 1;
+      
+      (t.items || []).forEach(item => {
+        const uPrice = Number(item.unit_price_minor_units || item.price || 0);
+        const qty = Number(item.quantity || item.qty || 1);
+        const cost = Number(item.cost_price_minor_units || Math.round(uPrice * 0.7));
+        branchMap[bId].cost += cost * qty;
+      });
+    });
+
+    const branches = Object.values(branchMap);
+    if (branches.length === 0) {
+      setHtml(tbody, `<tr><td colspan="4" class="text-center text-muted" style="padding: 16px;">No multi-store branch telemetry.</td></tr>`);
+      return;
+    }
+
+    branches.forEach(b => {
+      const margin = b.revenue - b.cost;
+      const marginPct = b.revenue > 0 ? ((margin / b.revenue) * 100).toFixed(1) : '0.0';
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+      setHtml(tr, `
+        <td style="padding: 10px 6px; font-weight: 700; color: var(--text-white);">
+          ${b.name}<br>
+          <span style="font-size: 9px; color: var(--text-gray); font-family: var(--font-mono);">ID: ${b.id}</span>
+        </td>
+        <td style="padding: 10px 6px; text-align: right; font-weight: 700; color: var(--accent-emerald);">Rs. ${(b.revenue / 100).toFixed(2)}</td>
+        <td style="padding: 10px 6px; text-align: right; font-weight: 700; color: var(--text-white);">${b.orders}</td>
+        <td style="padding: 10px 6px; text-align: right; font-weight: 700; color: ${Number(marginPct) >= 20 ? 'var(--accent-emerald)' : 'var(--warning)'};">${marginPct}%</td>
+      `);
+      tbody.appendChild(tr);
+    });
+
+    const branchSelect = document.getElementById('analytics-filter-branch');
+    if (branchSelect) {
+      const currentVal = branchSelect.value;
+      setHtml(branchSelect, '<option value="ALL">All Branches</option>');
+      branches.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b.id;
+        opt.textContent = b.name;
+        if (b.id === currentVal) opt.selected = true;
+        branchSelect.appendChild(opt);
+      });
+    }
+  }
+
+  function renderKamaiAiAdvisor(txs) {
+    const container = document.getElementById('analytics-ai-recommendations');
+    if (!container) return;
+    container.replaceChildren();
+
+    const filtered = txs || [];
+    const totalRev = filtered.reduce((sum, t) => sum + Number(t.total_minor_units || 0), 0);
+    const orderCount = filtered.length;
+    const avgTicket = orderCount > 0 ? totalRev / orderCount : 0;
+
+    const insights = [];
+
+    if (orderCount === 0) {
+      insights.push({ icon: '🛒', title: 'Start Processing Transactions', text: 'Register sales to trigger real-time AI inventory velocity & margin analysis.' });
+    } else {
+      if (avgTicket < 150000) {
+        insights.push({ icon: '📈', title: 'Basket Size Opportunity', text: 'Average ticket is Rs. ' + (avgTicket/100).toFixed(2) + '. Consider bundling high-margin add-on items at checkout.' });
+      } else {
+        insights.push({ icon: '🎯', title: 'Strong Average Ticket', text: 'High ticket size (Rs. ' + (avgTicket/100).toFixed(2) + ') indicates strong product value perception.' });
+      }
+
+      let totalUdhaar = 0;
+      (state.customerCredits || []).forEach(c => {
+        if (c.is_deleted !== 1) {
+          if (c.type === 'CREDIT') totalUdhaar += c.amount_minor;
+          else if (c.type === 'PAYMENT') totalUdhaar -= c.amount_minor;
+        }
+      });
+
+      if (totalUdhaar > 500000) {
+        insights.push({ icon: '⚠️', title: 'Khata Credit Risk Alert', text: 'Outstanding Udhaar receivables are Rs. ' + (totalUdhaar/100).toFixed(2) + '. Send automated WhatsApp debt reminders to recover liquid cash.' });
+      } else {
+        insights.push({ icon: '✅', title: 'Liquid Cash Health', text: 'Credit receivables are well within safety thresholds. Working capital remains liquid.' });
+      }
+
+      const lowStockCount = (state.catalog || []).filter(p => (p.stock_level || 0) < (p.low_stock_threshold || 10)).length;
+      if (lowStockCount > 0) {
+        insights.push({ icon: '📦', title: 'Stock Replenishment Needed', text: lowStockCount + ' products are below safety thresholds. Generate auto purchase orders to prevent lost sales.' });
+      }
+    }
+
+    setHtml(container, insights.map(item => `
+      <div style="padding: 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
+        <div style="font-weight: 700; color: var(--text-white); margin-bottom: 2px; display: flex; align-items: center; gap: 6px;">
+          <span>${item.icon}</span>
+          <span>${item.title}</span>
+        </div>
+        <div style="font-size: 11px; color: var(--text-gray); line-height: 1.4;">${item.text}</div>
+      </div>
+    `).join(''));
   }
 
   // Stock tracking & auto PO generation

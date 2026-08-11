@@ -6146,6 +6146,22 @@ if (process.env.VERCEL) {
       }
     });
 
+    // 7c. Device Verification & Token Recovery Endpoint
+    app.post('/api/checkout/verify', async (req, res) => {
+      try {
+        const identity = await EntitlementService.resolveIdentity(req);
+        res.json({
+          verified: true,
+          status: 'OK',
+          organizationId: identity.organizationId,
+          terminalId: identity.terminalId,
+          timestamp: Date.now()
+        });
+      } catch (err) {
+        res.status(500).json({ verified: false, error: err.message });
+      }
+    });
+
     // 8. Admin Entitlement Inspector Endpoint
     app.get('/api/admin/entitlements/inspector', async (req, res) => {
       try {
