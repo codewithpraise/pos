@@ -15178,10 +15178,13 @@ setHtml(container, `<p style="color: var(--alert-coral); font-size:12px;">Failed
     window.toggleAppLanguage = function() {
       try {
         if (typeof playAudioSignal === 'function') playAudioSignal('click');
-        const cur = (state && state.preferences && state.preferences['system_language']) || localStorage.getItem('valenixia_lang') || document.documentElement.lang || 'en';
-        const next = (cur === 'ur') ? 'en' : 'ur';
-        if (typeof setLanguage === 'function') setLanguage(next);
-        else if (typeof window.setLanguage === 'function') window.setLanguage(next);
+        if (window.ValenixiaLanguage && typeof window.ValenixiaLanguage.toggle === 'function') {
+          window.ValenixiaLanguage.toggle();
+        } else if (typeof setLanguage === 'function') {
+          const cur = (state && state.preferences && state.preferences['system_language']) || localStorage.getItem('valenixia_lang') || document.documentElement.lang || 'en';
+          const next = (cur === 'ur') ? 'en' : 'ur';
+          setLanguage(next);
+        }
       } catch (langErr) {
         console.warn('[Lang] Error toggling language:', langErr);
       }
