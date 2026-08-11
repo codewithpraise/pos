@@ -178,6 +178,17 @@
       if (selectedTierInput) selectedTierInput.value = `${targetTier}_${activeCycle.toUpperCase()}`;
       if (amountInput) amountInput.value = pkrVal;
 
+      if (window.ValenixiaRouter && typeof window.ValenixiaRouter.navigateTo === 'function') {
+        window.ValenixiaRouter.navigateTo('subscription');
+      } else {
+        const subView = document.getElementById('view-subscription');
+        if (subView) {
+          document.querySelectorAll('.content-view').forEach(v => v.style.display = 'none');
+          subView.style.display = 'block';
+          subView.classList.add('active');
+        }
+      }
+
       this.activateTab('payment');
 
       const formContainer = document.getElementById('billing-upgrade-form-container');
@@ -192,8 +203,10 @@
       if (!addonId) return;
       const addonPrices = {
         FBR_FISCAL: 2999,
+        MULTI_STORE: 3999,
         MULTISTORE_HQ: 3999,
-        WHATSAPP_RECEIPTS: 999,
+        WHATSAPP_RECEIPTS: 1499,
+        CUSTOM_ROLES: 1999,
         CUSTOM_RBAC: 1999,
         DATA_PORTABILITY: 1499
       };
@@ -204,6 +217,17 @@
 
       if (selectedTierInput) selectedTierInput.value = `ADDON_${addonId}`;
       if (amountInput) amountInput.value = pkrVal;
+
+      if (window.ValenixiaRouter && typeof window.ValenixiaRouter.navigateTo === 'function') {
+        window.ValenixiaRouter.navigateTo('subscription');
+      } else {
+        const subView = document.getElementById('view-subscription');
+        if (subView) {
+          document.querySelectorAll('.content-view').forEach(v => v.style.display = 'none');
+          subView.style.display = 'block';
+          subView.classList.add('active');
+        }
+      }
 
       this.activateTab('payment');
 

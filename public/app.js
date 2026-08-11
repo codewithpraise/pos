@@ -8237,8 +8237,8 @@ setHtml(qrContainer, '<span style="font-size: 8px; color: var(--text-gray); text
 
     for (const [selector, text] of Object.entries(textMapping)) {
       if (text === undefined || text === null) continue;
-      const el = document.querySelector(selector);
-      if (el) {
+      const elements = document.querySelectorAll(selector);
+      elements.forEach(el => {
         if (el.tagName === 'INPUT' && el.hasAttribute('placeholder')) {
           el.placeholder = text;
         } else {
@@ -8261,7 +8261,7 @@ setHtml(qrContainer, '<span style="font-size: 8px; color: var(--text-gray); text
             }
           }
         }
-      }
+      });
     }
 
     // Refresh totals labels dynamically
@@ -11519,16 +11519,29 @@ setHtml(tr, `
       case 'staff': if (typeof renderStaffScreen === 'function') renderStaffScreen(); break;
       case 'customers': if (typeof renderCustomersScreen === 'function') renderCustomersScreen(); break;
       case 'catalog': if (typeof renderCatalogScreen === 'function') renderCatalogScreen(); break;
+      case 'catalog-manager': if (typeof renderCatalogScreen === 'function') renderCatalogScreen(); break;
       case 'history': if (typeof renderHistoryScreen === 'function') renderHistoryScreen(); break;
       case 'logs': renderLogsFromState(); break;
       case 'suppliers': if (typeof renderSuppliersScreen === 'function') renderSuppliersScreen(); break;
       case 'credit-book': if (typeof renderCreditBookScreen === 'function') renderCreditBookScreen(); break;
+      case 'analytics': if (typeof calculateAnalytics === 'function') calculateAnalytics(); break;
+      case 'subscription': if (typeof renderSubscriptionScreen === 'function') renderSubscriptionScreen(); break;
+      case 'deals': if (typeof renderDealsScreen === 'function') renderDealsScreen(); break;
     }
     if (state.screenDirty) state.screenDirty[cleanName] = false;
   }
 
+  window.scheduleScreenRender = function(screenName, fn) {
+    if (typeof fn === 'function') {
+      try { fn(); } catch(e) { console.warn('[ScheduleRender] Error rendering ' + screenName, e); }
+    } else {
+      handleScreenSwitch(screenName);
+    }
+  };
+
   window.__realHandlers = window.__realHandlers || {};
   window.__realHandlers.switchActiveScreen = handleScreenSwitch;
+  window.__realHandlers.scheduleScreenRender = window.scheduleScreenRender;
 
   // --- CRDT LOG CARD BUILDER & STATE-DRIVEN RENDERER ---
   function appendLogEntry(c) {
@@ -12041,12 +12054,20 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     }
 
     return timeFiltered.filter(t => {
-      if (selectedBranch !== 'ALL' && (t.branch_id || t.store_id || 'main') !== selectedBranch) return false;
-      if (selectedTerminal !== 'ALL' && (t.terminal_id || 'term_01') !== selectedTerminal) return false;
-      if (selectedCashier !== 'ALL' && (t.cashier_id || t.cashier_name || '') !== selectedCashier) return false;
-      if (selectedPayment !== 'ALL' && (t.payment_method || t.mode || 'CASH') !== selectedPayment) return false;
+      const bId = (t.branch_id || t.store_id || 'main').toString();
+      if (selectedBranch !== 'ALL' && bId !== selectedBranch) return false;
+
+      const termId = (t.terminal_id || t.terminalId || 'term_01').toString();
+      if (selectedTerminal !== 'ALL' && termId !== selectedTerminal) return false;
+
+      const cashier = (t.cashier_name || t.cashier_id || t.cashier || '').toString();
+      if (selectedCashier !== 'ALL' && cashier !== selectedCashier) return false;
+
+      const payMode = (t.payment_mode || t.paymentMode || t.payment_method || t.mode || 'CASH').toString().toUpperCase();
+      if (selectedPayment !== 'ALL' && payMode !== selectedPayment.toUpperCase()) return false;
+
       if (selectedCategory !== 'ALL') {
-        const hasCategory = (t.items || []).some(item => (item.category || item.category_id || '') === selectedCategory);
+        const hasCategory = (t.items || []).some(item => (item.category || item.category_id || '').toString() === selectedCategory);
         if (!hasCategory) return false;
       }
       return true;
@@ -12333,6 +12354,8 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
   function calculateAnalytics() {
     window.__realHandlers.calculateAnalytics = calculateAnalytics;
     window.calculateAnalytics = calculateAnalytics;
+    populateAnalyticsFilterOptions();
+
     const revVal = document.getElementById('analytics-revenue-value');
     const orderVal = document.getElementById('analytics-orders-count');
     const avgVal = document.getElementById('analytics-average-value');
@@ -12693,7 +12716,7 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
   }
 
   function renderKamaiBusinessAdvisor(txs) {
-    const container = document.getElementById('analytics-ai-recommendations');
+    const container = document.getElementById('analytics-business-recommendations') || document.getElementById('analytics-ai-recommendations');
     if (!container) return;
     container.replaceChildren();
 
