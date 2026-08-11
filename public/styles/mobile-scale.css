@@ -158,7 +158,7 @@
     padding-bottom: var(--vx-bottom-nav-h) !important;
   }
 
-  .content-view:not(#view-checkout) {
+  .content-view:not(#view-checkout):not(#view-subscription) {
     width: 100% !important;
     max-width: 100vw !important;
     height: 100% !important;

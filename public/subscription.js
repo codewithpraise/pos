@@ -213,6 +213,36 @@
       }
     },
 
+    async addCapacity(type) {
+      const activeTier = localStorage.getItem('valenixia_tier') || 'STARTER';
+      if (type === 'branch' && activeTier === 'STARTER') {
+        if (typeof showNotificationToast === 'function') {
+          showNotificationToast('Branch expansion is available on Growth (PRO) and Enterprise plans.', 'warning', 4500);
+        }
+        this.activateTab('plans');
+        return;
+      }
+
+      const extraTerminalRate = activeTier === 'STARTER' ? 1200 : (activeTier === 'PRO' || activeTier === 'GROWTH' ? 1000 : 800);
+      const extraBranchRate = activeTier === 'PRO' || activeTier === 'GROWTH' ? 3500 : 3000;
+
+      const pkrVal = type === 'terminal' ? extraTerminalRate : extraBranchRate;
+      const selectedTierInput = document.getElementById('form-billing-selected-tier');
+      const amountInput = document.getElementById('form-billing-amount');
+
+      if (selectedTierInput) selectedTierInput.value = `EXTRA_${type.toUpperCase()}_${activeTier}`;
+      if (amountInput) amountInput.value = pkrVal;
+
+      this.activateTab('payment');
+
+      const formContainer = document.getElementById('billing-upgrade-form-container');
+      if (formContainer) formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      if (typeof showNotificationToast === 'function') {
+        showNotificationToast(`Added extra ${type} capacity: PKR ${pkrVal.toLocaleString()}/mo. Transfer & submit proof below.`, 'success', 4000);
+      }
+    },
+
     async submitPaymentClaim(claimData) {
       const rrn = claimData.rrn || document.getElementById('form-billing-rrn')?.value?.trim();
       const planId = claimData.planId || document.getElementById('form-billing-selected-tier')?.value || 'PRO_MONTHLY';

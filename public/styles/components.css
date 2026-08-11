@@ -5527,7 +5527,7 @@ table, .data-table, .report-table {
     font-size: 16px !important;
   }
 
-  .content-view:not(#view-checkout), .main-stage:not(#view-checkout), .page-container:not(#view-checkout) {
+  .content-view:not(#view-checkout):not(#view-subscription), .main-stage:not(#view-checkout):not(#view-subscription), .page-container:not(#view-checkout):not(#view-subscription) {
     padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)) !important;
   }
 

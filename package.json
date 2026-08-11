@@ -7,7 +7,7 @@
     "start": "node server.js",
     "build": "node scripts/generate-sri.js && npm run test:syntax",
     "lint": "npm run test:syntax",
-    "test": "node tests/unit.test.js && node tests/db.test.js && node tests/backup.test.js && node tests/modes.test.js && node tests/button_handlers.test.js && node tests/ui_verification.test.js",
+    "test": "node tests/unit.test.js && node tests/db.test.js && node tests/backup.test.js && node tests/modes.test.js && node tests/button_handlers.test.js && node tests/ui_verification.test.js && node test/v26_subscription_geometry.test.js && node test/ui_interaction_integrity.test.js",
     "test:e2e": "node scripts/debug/e2e_full_test.js",
     "test:unit": "node tests/unit.test.js",
     "test:db": "node tests/db.test.js",

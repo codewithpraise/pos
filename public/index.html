@@ -1952,6 +1952,30 @@
                   </div>
                   <button type="button" id="btn-start-free-trial-subscription" style="padding: 12px 24px; font-size: 12px; font-weight: 800; border-radius: 10px; border: none; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #080810; text-transform: uppercase; cursor: pointer; letter-spacing: 0.5px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35); white-space: nowrap;">Start 7-Day Free Trial</button>
                 </div>
+
+                <!-- CAPACITY CALCULATOR WIDGET -->
+                <div class="cloud-vault-card" id="subscription-capacity-calculator" style="margin-top: 20px;">
+                  <h3 style="margin: 0 0 14px; font-size: 16px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Register &amp; Branch Capacity Calculator</h3>
+                  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 14px; border-radius: 12px;">
+                      <span style="font-size: 11px; color: var(--text-gray); font-weight: 700; text-transform: uppercase;">Register Terminals</span>
+                      <div style="font-size: 15px; font-weight: 900; color: var(--accent-emerald); font-family: var(--font-mono); margin-top: 4px;" id="cap-terminals-summary">1 Included + 0 Extra = 1 Capacity</div>
+                      <button type="button" class="action-btn dm-btn-emerald" id="btn-add-terminal-capacity" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.addCapacity('terminal');" style="margin-top: 10px; padding: 6px 12px; font-size: 11px; font-weight: 800; border-radius: 8px;">+ Add Terminal (PKR 1,200/mo)</button>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 14px; border-radius: 12px;">
+                      <span style="font-size: 11px; color: var(--text-gray); font-weight: 700; text-transform: uppercase;">Store Branches</span>
+                      <div style="font-size: 15px; font-weight: 900; color: var(--accent-emerald); font-family: var(--font-mono); margin-top: 4px;" id="cap-branches-summary">1 Included + 0 Extra = 1 Branch</div>
+                      <button type="button" class="action-btn dm-btn-secondary" id="btn-add-branch-capacity" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.addCapacity('branch');" style="margin-top: 10px; padding: 6px 12px; font-size: 11px; font-weight: 800; border-radius: 8px;">+ Add Branch (Requires Pro)</button>
+                    </div>
+                  </div>
+                  <div style="background: rgba(0,214,143,0.05); border: 1px solid rgba(0,214,143,0.2); border-radius: 12px; padding: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                      <span style="font-size: 11px; color: var(--text-gray); font-weight: 700; text-transform: uppercase;">Estimated Monthly Cost</span>
+                      <div style="font-size: 20px; font-weight: 900; color: var(--text-white); font-family: var(--font-display);" id="cap-total-monthly-estimate">PKR 3,499 / month</div>
+                    </div>
+                    <button type="button" class="action-btn dm-btn-emerald" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.activateTab('payment');" style="padding: 10px 20px; font-weight: 800; font-size: 12px; border-radius: 10px;">Proceed to Pay &amp; Upgrade 💳</button>
+                  </div>
+                </div>
               </div>
 
               <!-- Sub-Tab Panel 2: PLANS -->
@@ -1979,12 +2003,12 @@
                         PKR 3,499 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>
                       </div>
                       <ul style="font-size:12px; color:var(--text-muted); padding-left:18px; margin:0 0 20px; line-height:1.8;">
-                        <li><strong style="color:var(--text-white);">1 Register Terminal &amp; 1 Store Branch</strong></li>
-                        <li>Fast Point of Sale Checkout &amp; ESC/POS Printing</li>
-                        <li>Product Catalog &amp; Real-Time Inventory</li>
-                        <li>Customer Directory &amp; Credit Khata Ledger</li>
-                        <li>Suppliers &amp; Purchase Ledger</li>
-                        <li>Sales Analytics &amp; Profit Reports</li>
+                        <li><strong style="color:var(--text-white);">1 Included Terminal &amp; 1 Included Branch</strong></li>
+                        <li>Unlimited Inventory Catalog &amp; Core POS</li>
+                        <li>Offline-First Local Storage Engine</li>
+                        <li>Free CSV / XLS / XLSX Data Import</li>
+                        <li>Optional FBR Tax Capability Boundary</li>
+                        <li>Add extra terminal: PKR 1,200/mo</li>
                       </ul>
                     </div>
                     <button class="action-btn dm-btn-secondary btn-select-tier" data-tier="STARTER" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.selectPlan('STARTER');" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase;">Select Starter Plan</button>
@@ -2001,13 +2025,12 @@
                         PKR 6,999 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>
                       </div>
                       <ul style="font-size:12px; color:var(--text-muted); padding-left:18px; margin:0 0 20px; line-height:1.8;">
-                        <li><strong style="color:var(--text-white);">2 Register Terminals &amp; 1 Store Branch (Metered)</strong></li>
-                        <li><strong style="color:var(--accent-emerald);">Everything in Starter, plus:</strong></li>
+                        <li><strong style="color:var(--text-white);">2 Included Terminals &amp; 1 Included Branch</strong></li>
                         <li>Multi-Device Real-Time Cloud Sync &amp; Backup</li>
+                        <li>Deals, Combos &amp; Promotional Engine</li>
                         <li>Kitchen &amp; Bar Ticket Routing (KOT)</li>
-                        <li>Staff Security PINs &amp; Audit Logs</li>
                         <li>Automated WhatsApp Digital Receipts</li>
-                        <li>Advanced Margin &amp; Stock Forecasting</li>
+                        <li>Add extra terminal: PKR 1,000/mo | Branch: PKR 3,500/mo</li>
                       </ul>
                     </div>
                     <button class="action-btn dm-btn-emerald btn-select-tier" data-tier="PRO" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.selectPlan('PRO');" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase; box-shadow:0 4px 14px rgba(0,214,143,0.3);">Select Growth Plan</button>
@@ -2023,12 +2046,12 @@
                         PKR 11,999 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>
                       </div>
                       <ul style="font-size:12px; color:var(--text-muted); padding-left:18px; margin:0 0 20px; line-height:1.8;">
-                        <li><strong style="color:var(--text-white);">Up to 10 Register Terminals &amp; 5 Store Branches</strong></li>
-                        <li><strong style="color:var(--text-white);">Everything in Growth, plus:</strong></li>
-                        <li><strong style="color:var(--accent-emerald);">Official FBR Fiscal POS &amp; PRAL Tax Integration</strong></li>
+                        <li><strong style="color:var(--text-white);">3 Included Terminals &amp; 2 Included Branches</strong></li>
+                        <li>Official FBR Fiscal POS &amp; PRAL Tax Integration</li>
                         <li>Multi-Branch Central HQ Dashboard &amp; Transfers</li>
+                        <li>Enterprise Multi-Branch Analytics &amp; Operations</li>
                         <li>High-Security Audit Logs &amp; Custom Roles</li>
-                        <li>24/7 Priority Support &amp; Onsite Hardware Setup</li>
+                        <li>Add extra terminal: PKR 800/mo | Branch: PKR 3,000/mo</li>
                       </ul>
                     </div>
                     <button class="action-btn dm-btn-secondary btn-select-tier" data-tier="ENTERPRISE" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.selectPlan('ENTERPRISE');" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase;">Select Enterprise</button>
