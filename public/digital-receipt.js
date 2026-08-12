@@ -5,34 +5,63 @@
 "use strict";
 (function() {
 
+  function serializeReceiptForIntegrity(data) {
+    if (!data) return '';
+    const txId = (data.transactionId || data.id || '').toString();
+    const sub = Number(data.subtotal !== undefined ? data.subtotal : (data.subtotal_minor_units || 0));
+    const txTax = Number(data.tax !== undefined ? data.tax : (data.tax_minor_units || 0));
+    const txTotal = Number(data.total !== undefined ? data.total : (data.total_minor_units || 0));
+    let ts = 0;
+    if (typeof data.timestamp === 'number') ts = data.timestamp;
+    else if (typeof data.created_at_epoch === 'number') ts = data.created_at_epoch;
+    else if (typeof data.created_at === 'number') ts = data.created_at;
+    else if (data.timestamp) ts = new Date(data.timestamp).getTime();
+    else if (data.created_at) ts = new Date(data.created_at).getTime();
+
+    return JSON.stringify({
+      id: txId,
+      subtotal: sub,
+      tax: txTax,
+      total: txTotal,
+      timestamp: ts
+    });
+  }
+
   // Validate receipt signature to prevent tampering (Task 14)
   async function verifyReceiptSignature(data) {
-    if (!data || !data.signature) return; // bypass if signature not present
+    if (!data) return false;
+    if (!data.signature) {
+      data.__integrityStatus = 'INTEGRITY_VERIFICATION_FAILED';
+      data.__isVerified = false;
+      return false;
+    }
     try {
-      const txId = data.transactionId || data.id || '';
-      const sub = Number(data.subtotal || 0);
-      const txTax = Number(data.tax || 0);
-      const txTotal = Number(data.total || 0);
-      const ts = Number(data.timestamp || data.created_at_epoch || 0);
-
-      const payload = JSON.stringify({
-        id: txId,
-        subtotal: sub,
-        tax: txTax,
-        total: txTotal,
-        timestamp: ts
-      });
+      const payload = serializeReceiptForIntegrity(data);
       const encoder = new TextEncoder();
       const dataBuf = encoder.encode(payload + '-valenixia-receipt-salt');
-      const hashBuf = await crypto.subtle.digest('SHA-256', dataBuf);
+      const subtleCrypto = (window.crypto && window.crypto.subtle) || (typeof globalThis !== 'undefined' && globalThis.crypto && globalThis.crypto.subtle);
+      if (!subtleCrypto) return false;
+      const hashBuf = await subtleCrypto.digest('SHA-256', dataBuf);
       const expected = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
       if (data.signature !== expected) {
-        console.warn('[ReceiptEngine] Signature verification notice: hash mismatch (calculated', expected, 'vs stored', data.signature, '). Allowing receipt rendering.');
+        console.warn('[ReceiptEngine] Signature verification failure: hash mismatch (calculated', expected, 'vs stored', data.signature, '). Setting status to INTEGRITY_VERIFICATION_FAILED.');
+        data.__integrityStatus = 'INTEGRITY_VERIFICATION_FAILED';
+        data.__isVerified = false;
+        return false;
       }
+      data.__integrityStatus = 'VERIFIED';
+      data.__isVerified = true;
+      return true;
     } catch (e) {
-      console.warn('[ReceiptEngine] Receipt signature check notice:', e.message);
+      console.warn('[ReceiptEngine] Receipt signature check error:', e.message);
+      data.__integrityStatus = 'INTEGRITY_VERIFICATION_FAILED';
+      data.__isVerified = false;
+      return false;
     }
   }
+  window.serializeReceiptForIntegrity = serializeReceiptForIntegrity;
+  window.verifyReceiptSignature = verifyReceiptSignature;
+  window.buildReceiptLines = buildReceiptLines;
 
   // ── Core receipt data formatter ──────────────────────────────────────────────
   function buildReceiptLines(data) {
@@ -52,6 +81,15 @@
     function fmt(paise) {
       return "Rs. " + (paise / 100).toLocaleString("en-PK", { minimumFractionDigits: 2 });
     }
+
+    if (data && (data.__isVerified === false || data.__integrityStatus === 'INTEGRITY_VERIFICATION_FAILED')) {
+      lines.push({ text: center("! INTEGRITY VERIFICATION FAILED !"), bold: true, size: 10, color: "#ef4444" });
+      lines.push({ text: center("UNVERIFIED / TAMPERED RECEIPT"), bold: true, size: 8, color: "#ef4444" });
+      lines.push({ text: "-".repeat(storeWidth), size: 9 });
+    } else {
+      lines.push({ text: center("✓ VERIFIED DIGITAL RECEIPT"), size: 8, color: "#059669" });
+    }
+
     lines.push({ text: center(data.storeName || "VALENIXIA POS"), bold: true, size: 14 });
     if (data.storeAddress) lines.push({ text: center(data.storeAddress), size: 9 });
     lines.push({ text: center("SALES RECEIPT"), bold: true, size: 10 });

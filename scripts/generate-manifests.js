@@ -4,13 +4,13 @@ const crypto = require('crypto');
 
 const { execSync } = require('child_process');
 
-const VERSION = '2.5.1';
+const VERSION = '2.6.0';
 let GIT_COMMIT = 'badda34f768186762f400ba553eef5e7dc46a5b8';
 try {
   GIT_COMMIT = execSync('git rev-parse HEAD', { cwd: path.join(__dirname, '..') }).toString().trim();
 } catch (_) {}
 
-const BUILD_ID = `v${VERSION}-prod-${GIT_COMMIT}`;
+const BUILD_ID = `v${VERSION}-prod-${GIT_COMMIT.slice(0, 7)}`;
 const SCHEMA_VERSION = '17';
 
 const publicDir = path.join(__dirname, '..', 'public');
@@ -43,7 +43,7 @@ const releaseManifest = {
   legal_documents_version: VERSION,
   minimum_client_version: VERSION,
   rollback_allowed: false,
-  minimum_compatible_version: '2.5.0'
+  minimum_compatible_version: '2.6.0'
 };
 fs.writeFileSync(path.join(publicDir, 'release-manifest.json'), JSON.stringify(releaseManifest, null, 2) + '\n');
 

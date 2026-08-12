@@ -2052,7 +2052,16 @@ async function checkStockAlert(sku, tickHlc, tx = null) {
     const threshold = prod.low_stock_threshold !== undefined ? prod.low_stock_threshold : 10;
 
     if (currentStock <= threshold) {
-      console.warn(`[InventoryAlert] SKU ${sku} (${prod.name}) dropped below threshold (${currentStock}/${threshold}).`);
+      try {
+        postMessage({
+          type: 'INVENTORY_ALERT',
+          sku: sku,
+          productName: prod.name,
+          currentStock: currentStock,
+          threshold: threshold,
+          timestamp: Date.now()
+        });
+      } catch (_) {}
 
       // Check if there is already a PENDING or DRAFT purchase order for this SKU to prevent duplicate ordering
       const pos = await ValenixiaDB.getAll('purchase_orders', tx);

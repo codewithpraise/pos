@@ -525,56 +525,83 @@ button:not(:disabled):active,
 
 /* TOP STATUS BAR */
 .pos-topbar {
-  background: rgba(8, 8, 16, 0.75);
+  background: rgba(8, 8, 16, 0.85);
   border-bottom: 1px solid var(--border-titanium);
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
   height: 54px;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  padding: 0 20px;
-  z-index: 5;
+  padding: 0 16px;
+  z-index: 100;
   box-shadow: 0 1px 0 rgba(255,255,255,0.03);
+  overflow: visible;
 }
 
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
-.sidebar-toggle-btn {
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-dim);
-  cursor: pointer;
-  font-size: 12px;
-  padding: 7px;
-  border-radius: 8px;
+.topbar-center {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.sidebar-toggle-btn:hover {
-  background: rgba(255,255,255,0.04);
-  border-color: var(--border-titanium);
-  color: var(--text-white);
-}
-
-.active-view-title {
-  font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--text-white);
-  letter-spacing: -0.2px;
+  padding: 0 12px;
+  overflow: hidden;
 }
 
 .topbar-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+/* Topbar Responsive Collapse Contract */
+@media (max-width: 768px) {
+  .topbar-right .clock-badge,
+  .topbar-right #lang-toggle-btn,
+  .topbar-right #btn-topbar-apps-download {
+    display: none !important;
+  }
+  .topbar-essential-badges .storage-lock-badge {
+    display: none !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .topbar-essential-badges .badge-text {
+    display: none !important;
+  }
+  .topbar-essential-badges .network-badge {
+    padding: 4px 6px !important;
+  }
+}
+
+/* CANONICAL ACCESSIBLE MODAL OVERLAY CONTRACT */
+.modal-overlay.active,
+.modal-overlay[style*="display: flex"] {
+  display: flex !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(4, 6, 14, 0.88) !important;
+  backdrop-filter: blur(12px) saturate(1.5) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(1.5) !important;
+  z-index: 12000 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
 }
 
 /* Telemetry Badges */
@@ -839,17 +866,28 @@ button:not(:disabled):active,
   box-shadow: 0 4px 12px rgba(0, 214, 143, 0.1);
 }
 
+#view-subscription, .sub-vault-layout {
+  overflow: hidden !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: var(--bg-dark) !important;
+}
+
 .subscription-main, .sub-vault-stage {
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 24px;
+  height: 100%;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 24px 24px 40px 24px !important;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 20px;
+  background: var(--bg-dark) !important;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -861,12 +899,17 @@ button:not(:disabled):active,
   display: flex !important;
   flex-direction: column !important;
   gap: 20px;
+  flex: 1 0 auto;
+  min-height: min-content;
+  background: transparent;
 }
 
 @media (max-width: 900px) {
   .subscription-layout, .sub-vault-layout {
     display: flex;
     flex-direction: column;
+    height: 100%;
+    overflow: hidden;
   }
   .subscription-sidebar, .sub-vault-sidebar {
     width: 100%;
@@ -879,6 +922,7 @@ button:not(:disabled):active,
     border-right: none;
     border-bottom: 1px solid var(--border-titanium);
     padding: 12px 16px;
+    flex-shrink: 0;
   }
   .sub-vault-header {
     display: none;
@@ -897,8 +941,8 @@ button:not(:disabled):active,
   .subscription-main, .sub-vault-stage {
     flex: 1 1 auto;
     min-height: 0;
-    overflow-y: auto;
-    padding: 16px;
+    overflow-y: auto !important;
+    padding: 16px 16px calc(var(--bottom-nav-h, 64px) + 24px) 16px !important;
   }
 }
 
@@ -5130,14 +5174,6 @@ body.theme-monochrome-ivory .skeleton-card {
 }
 
 
-/* Subscription page scrolling reset */
-#view-subscription {
-  overflow-y: auto !important;
-  -webkit-overflow-scrolling: touch !important;
-  height: 100vh !important;
-  padding-bottom: 120px !important;
-}
-
 .quick-product-card:hover {
   transform: translateY(-3px) scale(1.01) !important;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--accent-emerald-mid) !important;
@@ -5197,11 +5233,9 @@ body.theme-premium-navy .totals-row.grand-total {
 /* ensure all view headers and content panes have correct top margin/padding when top banner shows */
 body.is-offline,
 body.has-top-banner {
-  padding-top: calc(env(safe-area-inset-top, 0px) + 44px) !important;
+  padding-top: 0 !important;
 }
 
-body.is-offline .pos-topbar,
-body.has-top-banner .pos-topbar,
 body.is-offline .pos-content-pane,
 body.has-top-banner .pos-content-pane,
 body.is-offline .content-view,
@@ -5443,14 +5477,6 @@ input.revealed {
   color: #ffd700;
 }
 
-/* Subscription page scrolling reset */
-#view-subscription {
-  overflow-y: auto !important;
-  -webkit-overflow-scrolling: touch !important;
-  height: 100vh !important;
-  padding-bottom: 120px !important;
-}
-
 /* ===== UNIVERSAL MOBILE RESET ===== */
 * {
   box-sizing: border-box;
@@ -5490,7 +5516,7 @@ table, .data-table, .report-table {
     font-size: 16px !important;
   }
 
-  .content-view:not(#view-checkout), .main-stage:not(#view-checkout), .page-container:not(#view-checkout) {
+  .content-view:not(#view-checkout):not(#view-subscription), .main-stage:not(#view-checkout):not(#view-subscription), .page-container:not(#view-checkout):not(#view-subscription) {
     padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
@@ -5620,15 +5646,13 @@ table.report-table * {
 
 /* 3. Topbar Telemetry Right Panel Scroll Protection */
 .topbar-right {
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
-  -webkit-overflow-scrolling: touch !important;
-  scrollbar-width: none !important;
-  max-width: calc(100vw - 140px) !important;
-  flex-shrink: 0 !important;
-}
-.topbar-right::-webkit-scrollbar {
-  display: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+  max-width: 100% !important;
+  overflow: visible !important;
 }
 .topbar-right > * {
   flex-shrink: 0 !important;
@@ -6160,7 +6184,6 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
   #view-settings,
   #view-logs,
   #view-backup,
-  #view-subscription,
   #view-data-portability,
   #view-fbr-fiscal,
   #view-multi-store {

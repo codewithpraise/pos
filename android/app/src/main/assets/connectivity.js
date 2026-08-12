@@ -121,19 +121,30 @@
         clearTimeout(timeoutId);
         this.probeLatencyMs = Math.round(performance.now() - startTime);
 
-        if (response && response.ok) {
+        if (response && (response.ok || response.status === 200 || response.status === 304)) {
           this.signals.BACKEND = true;
           this.consecutiveFailures = 0;
           this.consecutiveSuccesses++;
           this.lastSuccessfulProbeTime = Date.now();
           this.updateState('ONLINE', 'REACHABLE');
         } else {
-          this.handleProbeFailure('HTTP_' + (response ? response.status : 'UNKNOWN'));
+          // If browser is physically online, retain ONLINE state (local storage/sync fallback)
+          if (typeof navigator !== 'undefined' && navigator.onLine) {
+            this.signals.BACKEND = false;
+            this.updateState('ONLINE', 'LOCAL_FALLBACK');
+          } else {
+            this.handleProbeFailure('HTTP_' + (response ? response.status : 'UNKNOWN'));
+          }
         }
       } catch (err) {
         clearTimeout(timeoutId);
         this.probeLatencyMs = Math.round(performance.now() - startTime);
-        this.handleProbeFailure(err.name === 'AbortError' ? 'FETCH_TIMEOUT' : 'FETCH_FAILED');
+        if (typeof navigator !== 'undefined' && navigator.onLine) {
+          this.signals.BACKEND = false;
+          this.updateState('ONLINE', 'LOCAL_FALLBACK');
+        } else {
+          this.handleProbeFailure(err.name === 'AbortError' ? 'FETCH_TIMEOUT' : 'FETCH_FAILED');
+        }
       }
     }
 
@@ -142,15 +153,12 @@
       this.consecutiveFailures++;
       this.consecutiveSuccesses = 0;
 
-      // If browser is physically online but 2 consecutive backend probes fail -> DEGRADED
-      if (this.signals.NETWORK) {
-        if (this.consecutiveFailures >= 2) {
-          this.updateState('DEGRADED', reasonCode);
-        } else {
-          // 1st transient failure -> remain ONLINE until 2nd failure confirms
-          this.updateState('ONLINE', 'PROBE_RETRYING');
-        }
+      const isBrowserOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+      if (isBrowserOnline) {
+        this.signals.NETWORK = true;
+        this.updateState('ONLINE', 'REACHABLE');
       } else {
+        this.signals.NETWORK = false;
         this.updateState('OFFLINE', 'NETWORK_UNAVAILABLE');
       }
     }
@@ -205,9 +213,27 @@
     }
 
     setSyncSignal(status) {
-      this.signals.SYNC = status;
-      if (status === 'DELAYED' || status === 'FAILED') {
-        if (this.status === 'ONLINE') this.updateState('DEGRADED', 'SYNC_' + status);
+      this.signals.SYNC = String(status || 'SYNCED').toUpperCase();
+      if (typeof document !== 'undefined') {
+        const syncBadge = document.getElementById('sync-badge');
+        const syncText = document.getElementById('sync-status-text');
+        if (syncText) syncText.textContent = this.signals.SYNC;
+        if (syncBadge) {
+          syncBadge.className = 'network-badge ' + this.signals.SYNC.toLowerCase();
+          const dot = syncBadge.querySelector('.badge-dot');
+          if (dot) {
+            if (this.signals.SYNC === 'SYNCED') {
+              dot.style.background = '#3b82f6';
+            } else if (this.signals.SYNC === 'SYNCING' || this.signals.SYNC === 'QUEUED') {
+              dot.style.background = '#f59e0b';
+            } else {
+              dot.style.background = '#ef4444';
+            }
+          }
+        }
+      }
+      if (this.signals.SYNC === 'DELAYED' || this.signals.SYNC === 'FAILED' || this.signals.SYNC === 'DISCONNECTED') {
+        if (this.status === 'ONLINE') this.updateState('DEGRADED', 'SYNC_' + this.signals.SYNC);
       }
     }
 

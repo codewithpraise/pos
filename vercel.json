@@ -11,6 +11,10 @@
   ],
   "routes": [
     {
+      "src": "/downloads/valenixia-(pos|latest|mobile)\\.apk",
+      "dest": "/downloads/valenixia.apk"
+    },
+    {
       "handle": "filesystem"
     },
     {

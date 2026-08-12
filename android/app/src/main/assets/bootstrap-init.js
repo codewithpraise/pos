@@ -456,20 +456,46 @@ document.addEventListener('click', function(e) {
   }
 }, true);
 
-window.toggleAppLanguage = function() {
-  try {
-    if (typeof playAudioSignal === 'function') playAudioSignal('click');
-    const cur = localStorage.getItem('valenixia_lang') || 'en';
+window.ValenixiaLanguage = {
+  getLanguage() {
+    return (window.state && window.state.preferences && window.state.preferences['system_language'])
+      || localStorage.getItem('valenixia_lang')
+      || document.documentElement.lang
+      || 'en';
+  },
+  setLanguage(lang) {
+    if (typeof window.setLanguage === 'function') {
+      window.setLanguage(lang);
+    } else {
+      const next = lang === 'ur' ? 'ur' : 'en';
+      try { localStorage.setItem('valenixia_lang', next); } catch(_) {}
+      if (window.state && window.state.preferences) window.state.preferences['system_language'] = next;
+      document.documentElement.lang = next;
+      document.body.setAttribute('data-lang', next);
+      document.body.classList.toggle('rtl', next === 'ur');
+      document.body.classList.toggle('lang-urdu', next === 'ur');
+      document.body.setAttribute('dir', next === 'ur' ? 'rtl' : 'ltr');
+      const btn = document.getElementById('lang-toggle-btn');
+      if (btn) {
+        const subSpan = btn.querySelector('span:nth-child(2)');
+        if (subSpan) subSpan.textContent = next === 'ur' ? 'English' : 'اردو / ENG';
+        else btn.textContent = next === 'ur' ? 'English' : 'اردو / ENG';
+      }
+    }
+  },
+  toggle() {
+    const cur = this.getLanguage();
     const next = cur === 'ur' ? 'en' : 'ur';
-    localStorage.setItem('valenixia_lang', next);
-    if (window.state && window.state.preferences) window.state.preferences['system_language'] = next;
-    const btn = document.getElementById('lang-toggle-btn');
-    if (btn) btn.textContent = next === 'ur' ? 'English' : 'اردو';
-    document.body.classList.toggle('lang-urdu', next === 'ur');
-    if (typeof window.applyI18n === 'function') window.applyI18n(next);
-  } catch (e) {
-    console.warn('[Lang] Language toggle error:', e);
+    this.setLanguage(next);
+  },
+  refresh() {
+    this.setLanguage(this.getLanguage());
   }
+};
+
+window.toggleAppLanguage = function() {
+  try { if (typeof playAudioSignal === 'function') playAudioSignal('click'); } catch(_) {}
+  window.ValenixiaLanguage.toggle();
 };
 
 window.toggleAppTheme = function() {
@@ -1464,68 +1490,97 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('btn-wizard-scan-qr-direct')?.addEventListener('click', function() {
     if (typeof window.executeWizardScanQR === 'function') window.executeWizardScanQR();
   });
+});
 
-  // Explicit App Surface Identity & Web-Only Get Apps DOM Removal (Rule #19)
-  const ua = navigator.userAgent || '';
-  const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+(function initAppSurfaceAndIdentity() {
+  const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+  const isPWA = (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) || (typeof navigator !== 'undefined' && navigator.standalone === true);
   const isDesktop = ua.includes('Electron') || ua.includes('ValenixiaDesktop');
-  const isMobileApp = (location.protocol === 'file:' && ua.includes('Android')) || typeof window.AndroidInterface !== 'undefined';
+  const isMobileApp = (typeof location !== 'undefined' && location.protocol === 'file:' && ua.includes('Android')) || typeof window.AndroidInterface !== 'undefined';
 
-  window.APP_SURFACE = isPWA ? 'PWA' : (isDesktop ? 'DESKTOP' : (isMobileApp ? 'MOBILE' : 'WEB'));
+  const kind = isPWA ? 'PWA' : (isDesktop ? 'DESKTOP' : (isMobileApp ? 'MOBILE' : 'WEB'));
+  const showGetApps = kind === 'WEB';
 
-  const btnGetApps = document.getElementById('btn-topbar-apps-download');
+  window.APP_SURFACE = Object.assign(kind, {
+    kind: kind,
+    showGetApps: showGetApps,
+    toString: function() { return kind; },
+    valueOf: function() { return kind; }
+  });
+
+  const btnGetApps = typeof document !== 'undefined' ? document.getElementById('btn-topbar-apps-download') : null;
   if (btnGetApps) {
-    if (window.APP_SURFACE !== 'WEB') {
+    if (!showGetApps) {
       try { btnGetApps.remove(); } catch (_) { btnGetApps.style.display = 'none'; }
     } else {
       btnGetApps.style.display = 'inline-flex';
     }
   }
+})();
 
-  // Identity Diagnostic Object (Rule #6 & #7)
-  window.__VALENIXIA_IDENTITY__ = {
-    getSnapshot: function() {
-      let instId = localStorage.getItem('valenixia_installation_id');
-      if (!instId) {
-        instId = 'inst_' + Math.random().toString(36).substring(2, 11);
-        localStorage.setItem('valenixia_installation_id', instId);
-      }
-      return {
-        installationId: instId,
-        deviceId: localStorage.getItem('valenixia_device_id') || 'dev_web_primary',
-        userId: (window.state && window.state.activeCashier) ? window.state.activeCashier.id : 'cashier_local',
-        organizationId: localStorage.getItem('valenixia_org_id') || 'org_valenixia_default',
-        storeId: localStorage.getItem('valenixia_store_id') || 'store_valenixia_1',
-        terminalId: localStorage.getItem('valenixia_terminal_id') || 'terminal_1',
-        databaseName: 'valenixia_pos_db',
-        databaseSchemaVersion: '17',
-        bootstrapCompleted: localStorage.getItem('onboarding_complete') === 'true',
-        bootstrapVersion: '2.5.0',
-        lastAuthenticatedAt: localStorage.getItem('valenixia_last_auth_at') || new Date().toISOString()
-      };
+// Identity Diagnostic Object (Rule #6 & #7)
+window.__VALENIXIA_IDENTITY__ = {
+  getSnapshot: function() {
+    let instId = localStorage.getItem('valenixia_installation_id');
+    if (!instId) {
+      instId = 'inst_' + Math.random().toString(36).substring(2, 11);
+      localStorage.setItem('valenixia_installation_id', instId);
     }
-  };
+    return {
+      installationId: instId,
+      deviceId: localStorage.getItem('valenixia_device_id') || 'dev_web_primary',
+      userId: (window.state && window.state.activeCashier) ? window.state.activeCashier.id : 'cashier_local',
+      organizationId: localStorage.getItem('valenixia_org_id') || 'org_valenixia_default',
+      storeId: localStorage.getItem('valenixia_store_id') || 'store_valenixia_1',
+      terminalId: localStorage.getItem('valenixia_terminal_id') || 'terminal_1',
+      databaseName: 'valenixia_pos_db',
+      databaseSchemaVersion: '17',
+      bootstrapCompleted: localStorage.getItem('onboarding_complete') === 'true',
+      bootstrapVersion: '2.5.1',
+      lastAuthenticatedAt: localStorage.getItem('valenixia_last_auth_at') || new Date().toISOString()
+    };
+  }
+};
 
-  // 13-Stage Idempotent Bootstrap Discovery Pipeline (Rule #5 & #6)
-  (function runBootstrapDiscoveryPipeline() {
-    console.log('[BootstrapDiscovery v2.5.0] Initiating 13-stage discovery state machine...');
-    const isOnboarded = localStorage.getItem('onboarding_complete') === 'true' || localStorage.getItem('database_hydrated') === 'true';
-    const wizardOverlay = document.getElementById('first-boot-wizard');
-    const lockScreen = document.getElementById('auth-lock-screen');
-    const posLayout = document.getElementById('pos-app-layout');
+// 13-Stage Idempotent Bootstrap Discovery Pipeline with Formal Identity Confidence Matrix
+window.runBootstrapDiscoveryPipeline = function runBootstrapDiscoveryPipeline() {
+  console.log('[BootstrapDiscovery v2.5.1] Initiating 13-stage discovery state machine...');
+  const snap = window.__VALENIXIA_IDENTITY__.getSnapshot();
+  
+  const hasOnboardingFlag = localStorage.getItem('onboarding_complete') === 'true';
+  const hasHydratedFlag = localStorage.getItem('database_hydrated') === 'true';
+  const hasStoreName = !!localStorage.getItem('store_name');
+  const hasStoreId = !!localStorage.getItem('valenixia_store_id');
+  const hasPin = !!(localStorage.getItem('admin_pin') || localStorage.getItem('employee_pin_hash'));
+  const hasLocalDb = typeof window.ValenixiaDB !== 'undefined';
 
-    // DECISION MATRIX RULE:
-    // If local database / store exists OR onboarding_complete is true:
-    // MUST NOT show first-run bootstrap wizard! Restore existing store or show PIN lock screen.
-    if (isOnboarded) {
-      console.log('[BootstrapDiscovery v2.5.0] Decision: RESTORE_EXISTING_STORE (Bypassing fresh store wizard)');
-      if (wizardOverlay) { wizardOverlay.style.display = 'none'; wizardOverlay.classList.remove('active'); }
-      if (lockScreen) { lockScreen.style.display = 'flex'; lockScreen.classList.add('active'); }
-      if (posLayout) { posLayout.style.display = 'none'; }
-    } else {
-      console.log('[BootstrapDiscovery v2.5.0] Decision: FIRST_RUN_BOOTSTRAP (Confirmed empty store status)');
-      if (wizardOverlay) { wizardOverlay.style.display = 'flex'; wizardOverlay.classList.add('active'); }
-      if (lockScreen) { lockScreen.style.display = 'none'; lockScreen.classList.remove('active'); }
-    }
-  })();
+  const wizardOverlay = document.getElementById('first-boot-wizard');
+  const lockScreen = document.getElementById('auth-lock-screen');
+  const posLayout = document.getElementById('pos-app-layout');
+
+  // Confidence Matrix Evaluation
+  const hasAnyData = hasOnboardingFlag || hasHydratedFlag || hasStoreName || hasStoreId || hasPin;
+  const isAllEmpty = !hasOnboardingFlag && !hasHydratedFlag && !hasStoreName && !hasStoreId && !hasPin;
+
+  if (hasAnyData) {
+    console.log('[BootstrapDiscovery v2.5.1] Decision: RESTORE_EXISTING_STORE (Data detected in identity graph)');
+    if (wizardOverlay) { wizardOverlay.style.display = 'none'; wizardOverlay.classList.remove('active'); }
+    if (lockScreen) { lockScreen.style.display = 'flex'; lockScreen.classList.add('active'); }
+    if (posLayout) { posLayout.style.display = 'none'; }
+    window.setLifecycleState?.('READY');
+  } else if (isAllEmpty) {
+    console.log('[BootstrapDiscovery v2.5.1] Decision: FIRST_RUN_BOOTSTRAP (Confirmed empty store status)');
+    if (wizardOverlay) { wizardOverlay.style.display = 'flex'; wizardOverlay.classList.add('active'); }
+    if (lockScreen) { lockScreen.style.display = 'none'; lockScreen.classList.remove('active'); }
+    window.setLifecycleState?.('READY');
+  } else {
+    console.warn('[BootstrapDiscovery v2.5.1] Decision: RECOVERY_REQUIRED (Ambiguous or unreadable identity state)');
+    if (wizardOverlay) { wizardOverlay.style.display = 'none'; wizardOverlay.classList.remove('active'); }
+    if (lockScreen) { lockScreen.style.display = 'flex'; lockScreen.classList.add('active'); }
+    window.setLifecycleState?.('READY');
+  }
+};
+
+window.runWhenDOMReady(function() {
+  window.runBootstrapDiscoveryPipeline();
 });

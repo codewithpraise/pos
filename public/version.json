@@ -1,16 +1,17 @@
 {
-  "version": "2.6.3",
-  "build_id": "v2.6.3-prod-router-lang-addon-fixes",
-  "git_commit": "HEAD",
-  "updated_at": "2026-08-12",
-  "changelog": "Valenixia POS v2.6.3 - Fixed router screen switch dispatchers, multi-node language translations, and add-on view navigation.",
+  "version": "2.6.0",
+  "build_id": "v2.6.0-prod-5a1baa6",
+  "git_commit": "5a1baa6db4e68dcf1c2a8f6a76274cbbad72cfdb",
+  "updated_at": "2026-08-11",
+  "changelog": "Valenixia POS v2.6.0 Canonical Release Reconciliation, Identity Recovery & Production Integrity Lockdown.",
   "changes": [
-    "Single integer pricing catalog (PKR) with Math.round(monthly * 12 * 85 / 100) annual discount calculations",
-    "Immutable server subscription quote engine (/api/subscription/quote) with 24-hour quote expiration",
-    "Append-only billing_events ledger protected by SQLite database engine triggers prohibiting UPDATE and DELETE",
-    "Starter tier branch expansion rejection gate returning structured BRANCH_EXPANSION_REQUIRES_UPGRADE code",
-    "Interactive Merchant Monetization UI with independent Terminal and Branch capacity sliders and upgrade recommendation engine",
-    "Multi-dimensional telemetry filter bar across Branch, Terminal, Cashier, Category, and Payment Method",
-    "Revenue Control Tower separating Monthly Recurring Revenue (MRR) from One-Time Revenue"
+    "Reconciled canonical release fingerprint across release-manifest.json, version.json, build-id, artifact-manifest.json, and /api/health",
+    "Hardened explicit Express static routes for metadata endpoints with 0 text/html fallback",
+    "Implemented 13-stage confidence matrix for idempotent bootstrap discovery without false store creation",
+    "Enforced cart namespace isolation and copy-first order migration safeguards",
+    "Built atomic row-level capacity locking and immutable subscription upgrade state machine",
+    "Implemented asymmetric Ed25519 offline entitlement signing with key rotation support",
+    "Separated Network Reachability (ONLINE) from Sync Engine Status (SYNCED) in topbar",
+    "Enforced single vertical scroll owner on subscription vault stage with zero viewport clipping"
   ]
 }

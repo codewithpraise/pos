@@ -78,6 +78,9 @@ const {
 const { pushOfflineBackupsToCloud } = require('./supabase-sync');
 const LICENSE_CONFIG = require('./public/license-config');
 const logger = require('./lib/logger');
+const BillingService = require('./lib/billing-service');
+const DestructiveActionService = require('./lib/destructive-action-service');
+const CurrencyService = require('./lib/currency-service');
 
 // Global console interceptor to structured logger (Task 4-A)
 const originalConsoleLog = console.log;
@@ -3158,7 +3161,8 @@ app.put('/api/admin/employees/:id/pin', requireAdmin, adminActionLimiter, requir
   }
 });
 
-// POST /api/checkout/verify — Server-side checkout verification and token signing
+// POST & OPTIONS /api/checkout/verify — Server-side checkout verification and token signing
+app.options('/api/checkout/verify', (req, res) => res.sendStatus(204));
 app.post('/api/checkout/verify', loginLimiter, requireAuth, requireBody({ cart: 'LIST' }), async (req, res) => {
   const { cart, paymentMode } = req.body;
   if (!cart || !Array.isArray(cart)) {
@@ -6143,22 +6147,50 @@ if (process.env.VERCEL) {
         });
       } catch (err) {
         res.status(500).json({ error: err.message });
+      // 7c. Device Verification & Token Recovery Endpoint (Handled by canonical /api/checkout/verify route)
+
+    // 7d. Server-Controlled Payment Methods Catalog Endpoint
+    app.get('/api/billing/payment-methods', (req, res) => {
+      res.json({ success: true, catalog: BillingService.getPaymentMethods() });
+    });
+
+    // 7e. Create Immutable Price Quote Endpoint
+    app.post('/api/billing/quotes', async (req, res) => {
+      try {
+        const quote = await BillingService.createQuote(req.body);
+        res.json({ success: true, quote });
+      } catch (err) {
+        res.status(400).json({ error: err.message });
       }
     });
 
-    // 7c. Device Verification & Token Recovery Endpoint
-    app.post('/api/checkout/verify', async (req, res) => {
+    // 7f. Submit Idempotent Payment Claim Endpoint
+    app.post('/api/billing/claims', async (req, res) => {
       try {
-        const identity = await EntitlementService.resolveIdentity(req);
-        res.json({
-          verified: true,
-          status: 'OK',
-          organizationId: identity.organizationId,
-          terminalId: identity.terminalId,
-          timestamp: Date.now()
-        });
+        const result = await BillingService.submitPaymentClaim(req.body);
+        res.json(result);
       } catch (err) {
-        res.status(500).json({ verified: false, error: err.message });
+        res.status(400).json({ error: err.message });
+      }
+    });
+
+    // 7g. Request Single-Use Destructive Confirmation Nonce Endpoint
+    app.post('/api/admin/destructive/nonce', async (req, res) => {
+      try {
+        const nonceObj = await DestructiveActionService.requestNonce(req.body);
+        res.json({ success: true, ...nonceObj });
+      } catch (err) {
+        res.status(400).json({ error: err.message });
+      }
+    });
+
+    // 7h. Authorize & Execute Destructive Action Endpoint
+    app.post('/api/admin/destructive/execute', async (req, res) => {
+      try {
+        const result = await DestructiveActionService.authorizeAndExecute(req.body);
+        res.json(result);
+      } catch (err) {
+        res.status(400).json({ error: err.message });
       }
     });
 

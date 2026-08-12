@@ -1,12 +1,14 @@
 {
   "product": "VALENIXIA POS",
-  "version": "2.5.0",
-  "build_id": "v2.5.0-prod-20260811.2015",
-  "git_commit": "fcb1d6e",
-  "created_at": "2026-08-11T20:15:00Z",
+  "version": "2.6.6",
+  "build_id": "v2.6.6-prod-suppliers-credit-tier-unlock-fixes",
+  "git_commit": "HEAD",
   "environment": "production",
   "schema_version": "17",
-  "commercial_catalog_version": "2.5.0",
-  "legal_documents_version": "2.5.0",
-  "minimum_client_version": "2.5.0"
+  "commercial_catalog_version": "v2.6.6-catalog-001",
+  "legal_documents_version": "2.6.6",
+  "minimum_client_version": "2.6.0",
+  "rollback_allowed": false,
+  "minimum_compatible_version": "2.5.0",
+  "forceUnregister": true
 }

@@ -164,49 +164,49 @@
           <span class="nav-label">Subscription</span>
         </button>
 
-        <button class="nav-item premium" data-screen="analytics">
+        <button class="nav-item" data-screen="analytics">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
           </span>
           <span class="nav-label">Analytics</span>
         </button>
-        <button class="nav-item premium" data-screen="suppliers">
+        <button class="nav-item" data-screen="suppliers">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v4"/><path d="M14 2v6h6"/><path d="M20 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/><path d="M12 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/><path d="M20 18h2v-4a2 2 0 0 0-2-2h-3"/><path d="M14 18h-2"/></svg>
           </span>
           <span class="nav-label">Suppliers</span>
         </button>
-        <button class="nav-item premium" data-screen="credit-book">
+        <button class="nav-item" data-screen="credit-book">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z"/><path d="M6 6h10M6 10h10"/></svg>
           </span>
           <span class="nav-label">Credit</span>
         </button>
-        <button class="nav-item premium" data-screen="staff">
+        <button class="nav-item" data-screen="staff">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><circle cx="19" cy="11" r="2"/></svg>
           </span>
           <span class="nav-label">Staff</span>
         </button>
-        <button class="nav-item premium" data-screen="logs" id="nav-logs">
+        <button class="nav-item" data-screen="logs" id="nav-logs">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           </span>
           <span class="nav-label">Logs</span>
         </button>
-        <button class="nav-item premium" data-screen="fbr-fiscal" id="nav-fbr-fiscal">
+        <button class="nav-item" data-screen="fbr-fiscal" id="nav-fbr-fiscal">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
           </span>
           <span class="nav-label">FBR Fiscal Hub</span>
         </button>
-        <button class="nav-item premium" data-screen="multi-store" id="nav-multi-store">
+        <button class="nav-item" data-screen="multi-store" id="nav-multi-store">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
           </span>
           <span class="nav-label">Multi-Store</span>
         </button>
-        <button class="nav-item premium" data-screen="data-portability" id="nav-data-portability">
+        <button class="nav-item" data-screen="data-portability" id="nav-data-portability">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           </span>
@@ -389,8 +389,15 @@
                   <span class="toggle-icon">▼</span>
                 </div>
                 <div class="card-collapsible-content">
-                  <div style="display: flex; gap: 8px; width: 100%;">
-                    <input type="text" id="checkout-search-input" class="pos-input" placeholder="Search catalog sku, name, or scan barcode..." autocomplete="off" style="flex-grow: 1;" aria-label="Search catalog sku, name, or scan barcode...">
+                  <div style="position: relative; display: flex; align-items: center; width: 100%;">
+                    <input type="text" id="checkout-sku-search" class="pos-input" placeholder="Search SKU, name, or scan barcode..." autocomplete="off" style="width: 100%; padding-right: 48px;" aria-label="Search SKU, name, or scan barcode...">
+                    <input type="hidden" id="checkout-search-input">
+                    <button type="button" id="btn-trigger-camera-scan" title="Scan barcode with camera" aria-label="Scan barcode with camera" onclick="if(window.ValenixiaBarcodeScanner)window.ValenixiaBarcodeScanner.open();" style="position: absolute; right: 4px; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer; color: var(--text-gray, #94a3b8);">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                        <circle cx="12" cy="13" r="4"/>
+                      </svg>
+                    </button>
                   </div>
                   <div class="search-dropdown" id="search-dropdown-results"></div>
                 </div>
@@ -1793,15 +1800,15 @@
               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 16px; font-size: 11px;">
                 <div style="background: rgba(255,255,255,0.02); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
                   <span style="color: var(--text-gray); display: block;">App Version</span>
-                  <strong style="color: var(--text-white);" id="diag-app-version">2.5.0</strong>
+                  <strong style="color: var(--text-white);" id="diag-app-version">2.6.0</strong>
                 </div>
                 <div style="background: rgba(255,255,255,0.02); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
                   <span style="color: var(--text-gray); display: block;">Build ID</span>
-                  <strong style="color: var(--accent-emerald);" id="diag-build-id">v2.5.0-prod-20260811.2015</strong>
+                  <strong style="color: var(--accent-emerald);" id="diag-build-id">v2.6.0-prod-5a1baa6</strong>
                 </div>
                 <div style="background: rgba(255,255,255,0.02); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
                   <span style="color: var(--text-gray); display: block;">Git Commit</span>
-                  <strong style="color: var(--text-white);" id="diag-git-commit">fcb1d6e</strong>
+                  <strong style="color: var(--text-white);" id="diag-git-commit">5a1baa6</strong>
                 </div>
                 <div style="background: rgba(255,255,255,0.02); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
                   <span style="color: var(--text-gray); display: block;">Deployment ID</span>
@@ -1809,7 +1816,7 @@
                 </div>
                 <div style="background: rgba(255,255,255,0.02); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
                   <span style="color: var(--text-gray); display: block;">SW Version</span>
-                  <strong style="color: var(--text-white);" id="diag-sw-version">v2.5.0-prod-20260811.2015</strong>
+                  <strong style="color: var(--text-white);" id="diag-sw-version">v2.6.0-prod-5a1baa6</strong>
                 </div>
                 <div style="background: rgba(255,255,255,0.02); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
                   <span style="color: var(--text-gray); display: block;">SW Controller</span>
@@ -1821,7 +1828,7 @@
                 </div>
                 <div style="background: rgba(255,255,255,0.02); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
                   <span style="color: var(--text-gray); display: block;">Catalog &amp; Legal Version</span>
-                  <strong style="color: var(--text-white);" id="diag-catalog-version">2.5.0</strong>
+                  <strong style="color: var(--text-white);" id="diag-catalog-version">2.6.0</strong>
                 </div>
               </div>
             </div>
@@ -2363,13 +2370,13 @@
         <!-- View 11: Suppliers (Distributors & Purchase Ledger) -->
         <section class="content-view" id="view-suppliers">
           <div class="view-header">
-            <h2>Suppliers & Purchase Ledger</h2>
+            <h2>Suppliers &amp; Purchase Ledger</h2>
             <button class="action-btn action-success" id="btn-suppliers-create">+ Add Supplier</button>
           </div>
           
-          <div class="suppliers-split-grid" style="display: grid; grid-template-columns: 350px 1fr; gap: 24px; height: calc(100vh - 160px); align-items: start;">
+          <div class="suppliers-split-grid" style="display: grid; grid-template-columns: minmax(280px, 340px) 1fr; gap: 20px; min-height: 520px; height: calc(100vh - 160px); width: 100%;">
             <!-- Left panel: List of distributors -->
-            <div class="card-panel-wrapper" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 16px; height: 100%; display: flex; flex-direction: column; gap: 16px; overflow: hidden;">
+            <div class="card-panel-wrapper" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 16px; height: 100%; display: flex; flex-direction: column; gap: 16px; overflow: hidden; box-sizing: border-box;">
               <input type="text" id="supplier-search" class="pos-input" placeholder="Search suppliers..." style="width: 100%;" aria-label="Search suppliers...">
               <div id="supplier-list-container" style="overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;">
                 <!-- dynamic list of suppliers -->
@@ -2378,11 +2385,11 @@
             </div>
 
             <!-- Right panel: Detailed Ledger & Actions -->
-            <div class="card-panel-wrapper" id="supplier-detail-panel" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 24px; height: 100%; display:none; flex-direction: column; gap: 20px; overflow-y: auto;">
+            <div class="card-panel-wrapper" id="supplier-detail-panel" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 24px; height: 100%; display:none; flex-direction: column; gap: 20px; overflow-y: auto; box-sizing: border-box;">
               <!-- Dynamic details rendered here -->
             </div>
             
-            <div class="card-panel-wrapper" id="supplier-detail-empty" style="background: var(--panel-graphite); border: 1px dashed var(--border-titanium); border-radius: 8px; padding: 48px; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text-gray);">
+            <div class="card-panel-wrapper" id="supplier-detail-empty" style="background: var(--panel-graphite); border: 1px dashed var(--border-titanium); border-radius: 8px; padding: 48px; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text-gray); box-sizing: border-box;">
               <div>
                 <div style="display: flex; justify-content: center; margin-bottom: 20px; color: var(--accent-emerald);">
                   <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
@@ -2400,9 +2407,9 @@
             <h2>Credit Book (Udhaar/Khata Ledger)</h2>
           </div>
           
-          <div class="suppliers-split-grid" style="display: grid; grid-template-columns: 350px 1fr; gap: 24px; height: calc(100vh - 160px); align-items: start;">
+          <div class="suppliers-split-grid" style="display: grid; grid-template-columns: minmax(280px, 340px) 1fr; gap: 20px; min-height: 520px; height: calc(100vh - 160px); width: 100%;">
             <!-- Left panel: List of customers with credit -->
-            <div class="card-panel-wrapper" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 16px; height: 100%; display: flex; flex-direction: column; gap: 16px; overflow: hidden;">
+            <div class="card-panel-wrapper" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 16px; height: 100%; display: flex; flex-direction: column; gap: 16px; overflow: hidden; box-sizing: border-box;">
               <input type="text" id="credit-customer-search" class="pos-input" placeholder="Search customer credit ledger..." style="width: 100%;" aria-label="Search customer credit ledger...">
               <div id="credit-customer-list-container" style="overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;">
                 <!-- dynamic list of customers with outstanding balances -->
@@ -3777,5 +3784,7 @@
       </div>
     </div>
   </div>
+  <script src="barcode-decoder.js"></script>
+  <script src="barcode-scanner.js"></script>
 </body>
 </html>

@@ -1,15 +1,16 @@
 {
-  "version": "2.5.0",
-  "build_id": "v2.5.0-prod-20260811.2015",
-  "updated_at": "2026-08-11",
-  "changelog": "Valenixia POS v2.5.0 Release Integrity, Entitlement & Idempotent Bootstrap Hardening.",
+  "version": "2.6.6",
+  "build_id": "v2.6.6-prod-suppliers-credit-tier-unlock-fixes",
+  "git_commit": "HEAD",
+  "updated_at": "2026-08-12",
+  "changelog": "Valenixia POS v2.6.6 - Unlocked Suppliers, Credit Book, Analytics, and Staff screens for FREE tier and removed navigation tier-lock event interception.",
   "changes": [
-    "Created single authoritative release manifest at /release-manifest.json",
-    "Implemented atomic Service Worker update handshake and Network-First PWA caching strategy",
-    "Built 13-stage idempotent bootstrap state machine with CONFIRMED_EMPTY database discovery gate",
-    "Separated identity hierarchy across account, organization, store, terminal, installation, and hardware device",
-    "Enforced server-authoritative entitlements, 10/5 hardware limits, and signed anti-replay snapshots",
-    "Restored Get Apps button WEB-only surface identity and responsive subscription main scroll container",
-    "Authored substantive legal text for 6 legal documents with 24-subject compliance matrix"
+    "Single integer pricing catalog (PKR) with Math.round(monthly * 12 * 85 / 100) annual discount calculations",
+    "Immutable server subscription quote engine (/api/subscription/quote) with 24-hour quote expiration",
+    "Append-only billing_events ledger protected by SQLite database engine triggers prohibiting UPDATE and DELETE",
+    "Starter tier branch expansion rejection gate returning structured BRANCH_EXPANSION_REQUIRES_UPGRADE code",
+    "Interactive Merchant Monetization UI with independent Terminal and Branch capacity sliders and upgrade recommendation engine",
+    "Multi-dimensional telemetry filter bar across Branch, Terminal, Cashier, Category, and Payment Method",
+    "Revenue Control Tower separating Monthly Recurring Revenue (MRR) from One-Time Revenue"
   ]
 }

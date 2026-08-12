@@ -14,7 +14,7 @@ if (self.location.hostname !== 'localhost' && !self.location.hostname.includes('
 }
 
 const urlParams = new URLSearchParams(self.location.search);
-const buildVersion = urlParams.get('v') || '2.3.0';
+const buildVersion = urlParams.get('v') || '2.6.6';
 const CACHE_NAME = `valenixia-pos-cache-${buildVersion}`;
 const ASSETS_TO_CACHE = [
   { url: '/', integrity: '' },
@@ -137,6 +137,7 @@ self.addEventListener('fetch', (event) => {
     url.pathname === '/version.json' ||
     url.pathname === '/release-manifest.json' ||
     url.pathname === '/build-id' ||
+    url.pathname === '/artifact-manifest.json' ||
     url.pathname.startsWith('/version') ||
     url.pathname === '/healthz' ||
     url.pathname.startsWith('/healthz');

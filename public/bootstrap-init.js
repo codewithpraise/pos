@@ -482,6 +482,9 @@ window.ValenixiaLanguage = {
         else btn.textContent = next === 'ur' ? 'English' : 'اردو / ENG';
       }
     }
+    if (window.ValenixiaOverflowMenu && typeof window.ValenixiaOverflowMenu.close === 'function') {
+      window.ValenixiaOverflowMenu.close();
+    }
   },
   toggle() {
     const cur = this.getLanguage();

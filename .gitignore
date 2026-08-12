@@ -20,7 +20,6 @@ out/
 *.exe
 *.msi
 *.apk
-!public/downloads/valenixia.apk
 *.zip
 *.log
 gradle-8.5/

@@ -18,28 +18,49 @@
         headers: { 'Cache-Control': 'no-store' }
       });
 
-      let manifest = { version: '2.5.0', build_id: 'v2.5.0-prod-20260811.2015' };
+      let manifest = { version: '2.6.0', build_id: 'v2.6.0-prod-hardened' };
       if (manifestRes.ok) {
         try { manifest = await manifestRes.json(); } catch (_) {}
       }
 
-      const activeBuildId = manifest.build_id || manifest.version || 'v2.5.0';
+      const activeBuildId = manifest.build_id || manifest.version || 'v2.6.0';
       window.VALENIXIA_BUILD_ID = activeBuildId;
+
+      // Handle Emergency Service Worker Kill Switch
+      if (manifest.force_unregister || manifest.forceUnregister) {
+        const killToken = sessionStorage.getItem('valenixia_sw_kill_migrated');
+        if (killToken !== activeBuildId) {
+          sessionStorage.setItem('valenixia_sw_kill_migrated', activeBuildId);
+          console.warn('[PWA Release Sync] Emergency forceUnregister active — clearing static caches and unregistering SW.');
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (const reg of registrations) {
+            await reg.unregister();
+          }
+          if ('caches' in window) {
+            const keys = await caches.keys();
+            for (const key of keys) {
+              await caches.delete(key);
+            }
+          }
+          window.location.reload();
+          return;
+        }
+      }
 
       // Expose Release Provenance Diagnostics
       window.__VALENIXIA_RELEASE__ = Object.freeze({
         product: manifest.product || 'VALENIXIA POS',
-        version: manifest.version || '2.5.0',
+        version: manifest.version || '2.6.0',
         buildId: activeBuildId,
-        gitCommit: manifest.git_commit || 'fcb1d6e',
-        createdAt: manifest.created_at || '2026-08-11T20:15:00Z',
+        gitCommit: manifest.git_commit || 'de42bc729e8dd12fd51ef3ad43e1979ff35a7c23',
+        createdAt: manifest.created_at || '2026-08-11T23:00:00Z',
         environment: manifest.environment || 'production',
         schemaVersion: manifest.schema_version || '17',
-        catalogVersion: manifest.commercial_catalog_version || '2.5.0',
-        legalVersion: manifest.legal_documents_version || '2.5.0'
+        catalogVersion: manifest.commercial_catalog_version || 'v2.6.0-catalog-001',
+        legalVersion: manifest.legal_documents_version || '2.6.0'
       });
 
-      console.log(`[ReleaseProvenance v2.5.0] Authoritative Build ID: ${activeBuildId} (Version: ${manifest.version})`);
+      console.log(`[ReleaseProvenance v2.6.0] Authoritative Build ID: ${activeBuildId} (Version: ${manifest.version})`);
 
       // 2. Register Service Worker with explicit version query
       const reg = await navigator.serviceWorker.register(`/sw.js?v=${encodeURIComponent(activeBuildId)}`);

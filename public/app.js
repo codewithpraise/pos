@@ -1449,7 +1449,39 @@ setHtml(overlay, `
   window.switchActiveScreen = switchActiveScreen;
   window.switchScreen = switchActiveScreen;
   window.quickStockAdjust = quickStockAdjust;
-  window.renderCart = renderCart;
+
+  function addToCart(product) {
+    if (!product) return;
+    let s = null;
+    if (typeof window.state !== 'undefined' && window.state) {
+      s = window.state;
+    } else if (typeof state !== 'undefined' && state) {
+      s = state;
+    } else {
+      window.state = { cart: [] };
+      s = window.state;
+    }
+    s.cart = s.cart || [];
+    const existing = s.cart.find(item => item.id === product.id);
+    if (existing) {
+      existing.quantity = (existing.quantity || 1) + 1;
+    } else {
+      s.cart.push({
+        id: product.id,
+        name: product.name,
+        sku: product.sku,
+        gtin: product.gtin || product.barcode || '',
+        price: product.price || 0,
+        price_minor_units: product.price_minor_units !== undefined ? product.price_minor_units : Math.round((product.price || 0) * 100),
+        category: product.category || 'General',
+        quantity: 1
+      });
+    }
+    if (typeof window.renderCart === 'function') {
+      try { window.renderCart(); } catch (_) {}
+    }
+  }
+  window.addToCart = addToCart;
 
   // Helper: Production-safe fetch with timeout
   async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
@@ -2665,9 +2697,10 @@ setHtml(overlay, `
 
     allNavItems.forEach(item => {
       const view = item.getAttribute('data-screen') || item.dataset.view;
-      if (!view || view === 'subscription' || view === 'settings' || view === 'checkout') {
+      if (!view || ['checkout','catalog','catalog-manager','inventory','deals','history','customers','suppliers','credit-book','khata','analytics','settings','subscription','apps-download','staff','logs'].includes(view)) {
         item.classList.remove('locked');
         item.classList.remove('premium');
+        item.onclick = null;
         return;
       }
       const hasPermission = typeof window.can === 'function' ? window.can(view) : (tier !== 'FREE');
@@ -12012,11 +12045,86 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
   // --- ANALYTICS DASHBOARD PLOTTING ---
 
   /**
+   * Authoritative transaction normalizer for Analytics and History projections.
+   * Produces a unified schema object across all storage formats.
+   */
+  function normalizeTransactionForAnalytics(t) {
+    if (!t) return null;
+    const rawId = (t.id || t.transaction_id || t.transactionId || '').toString();
+    const orgId = (t.organization_id || t.organizationId || (state.organization && state.organization.id) || 'org_default').toString();
+    const branchId = (t.branch_id || t.store_id || t.branchId || 'main').toString();
+    const terminalId = (t.terminal_id || t.terminalId || 'term_01').toString();
+    const cashierId = (t.cashier_name || t.cashier_id || t.cashier || 'Cashier').toString();
+    
+    let timestamp = 0;
+    if (typeof t.created_at === 'number') timestamp = t.created_at;
+    else if (typeof t.timestamp === 'number') timestamp = t.timestamp;
+    else if (typeof t.completed_at === 'number') timestamp = t.completed_at;
+    else if (t.created_at) timestamp = new Date(t.created_at).getTime();
+    else if (t.timestamp) timestamp = new Date(t.timestamp).getTime();
+    else timestamp = Date.now();
+    if (isNaN(timestamp)) timestamp = Date.now();
+
+    const status = (t.status || 'COMPLETED').toString().toUpperCase();
+
+    let subtotal = 0;
+    if (t.subtotal_minor_units !== undefined) subtotal = Number(t.subtotal_minor_units || 0);
+    else if (t.subtotal_minor !== undefined) subtotal = Number(t.subtotal_minor || 0);
+    else if (t.subtotal !== undefined) subtotal = Math.round(Number(t.subtotal || 0) * 100);
+
+    let tax = 0;
+    if (t.tax_minor_units !== undefined) tax = Number(t.tax_minor_units || 0);
+    else if (t.tax_minor !== undefined) tax = Number(t.tax_minor || 0);
+    else if (t.tax !== undefined) tax = Math.round(Number(t.tax || 0) * 100);
+
+    let discount = 0;
+    if (t.discount_minor_units !== undefined) discount = Number(t.discount_minor_units || 0);
+    else if (t.discount_minor !== undefined) discount = Number(t.discount_minor || 0);
+    else if (t.discount !== undefined) discount = Math.round(Number(t.discount || 0) * 100);
+
+    let total = 0;
+    if (t.total_minor_units !== undefined) total = Number(t.total_minor_units || 0);
+    else if (t.total_minor !== undefined) total = Number(t.total_minor || 0);
+    else if (t.total !== undefined) total = Math.round(Number(t.total || 0) * 100);
+    else total = subtotal + tax - discount;
+
+    const paymentMethod = (t.payment_mode || t.paymentMode || t.payment_method || t.mode || 'CASH').toString().toUpperCase();
+
+    const items = (t.items || []).map(item => ({
+      productId: (item.id || item.product_id || item.productId || '').toString(),
+      name: (item.name || item.title || 'Product').toString(),
+      category: (item.category || item.category_id || item.categoryId || 'General').toString(),
+      quantity: Number(item.quantity || item.qty || 1),
+      unitPriceMinor: item.unit_price_minor_units !== undefined ? Number(item.unit_price_minor_units || 0) : Math.round(Number(item.price || item.unitPrice || 0) * 100),
+      totalMinor: item.total_minor_units !== undefined ? Number(item.total_minor_units || 0) : Math.round(Number(item.price || item.unitPrice || 0) * (item.quantity || 1) * 100)
+    }));
+
+    return {
+      transactionId: rawId,
+      organizationId: orgId,
+      branchId,
+      terminalId,
+      cashierId,
+      timestamp,
+      status,
+      subtotal,
+      tax,
+      discount,
+      total,
+      paymentMethod,
+      items
+    };
+  }
+  window.normalizeTransactionForAnalytics = normalizeTransactionForAnalytics;
+  window.__realHandlers.normalizeTransactionForAnalytics = normalizeTransactionForAnalytics;
+
+  /**
    * Filter transactions by the currently selected analytics date range.
-   * Returns the subset of state.transactions within the window.
+   * Returns the normalized subset of state.transactions within the window.
    */
   function getFilteredTransactions() {
-    const all = state.transactions || [];
+    const rawAll = state.transactions || [];
+    const normalizedAll = rawAll.map(normalizeTransactionForAnalytics).filter(Boolean);
     const range = state.analyticsRange || 'all';
 
     const selectedBranch = document.getElementById('analytics-filter-branch')?.value || 'ALL';
@@ -12025,49 +12133,41 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     const selectedCategory = document.getElementById('analytics-filter-category')?.value || 'ALL';
     const selectedPayment = document.getElementById('analytics-filter-payment')?.value || 'ALL';
 
+    // Canonical Status Policy Filter: exclude CANCELLED, VOIDED, PENDING
+    const validTransactions = normalizedAll.filter(t => t.status !== 'CANCELLED' && t.status !== 'VOIDED' && t.status !== 'PENDING');
+
     const d = new Date();
     let cutoff = 0;
+    let timeFiltered = validTransactions;
 
-    let timeFiltered = all;
     if (range === 'today') {
       cutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime();
-      timeFiltered = all.filter(t => (typeof t.created_at === 'number' ? t.created_at : new Date(t.created_at || 0).getTime()) >= cutoff);
+      timeFiltered = validTransactions.filter(t => t.timestamp >= cutoff);
     } else if (range === 'week') {
       const dayOfWeek = d.getDay();
       const diffToMonday = (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
       cutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate() - diffToMonday, 0, 0, 0, 0).getTime();
-      timeFiltered = all.filter(t => (typeof t.created_at === 'number' ? t.created_at : new Date(t.created_at || 0).getTime()) >= cutoff);
+      timeFiltered = validTransactions.filter(t => t.timestamp >= cutoff);
     } else if (range === 'month') {
       cutoff = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0).getTime();
-      timeFiltered = all.filter(t => (typeof t.created_at === 'number' ? t.created_at : new Date(t.created_at || 0).getTime()) >= cutoff);
+      timeFiltered = validTransactions.filter(t => t.timestamp >= cutoff);
     } else if (range === 'custom') {
       const fromVal = document.getElementById('analytics-date-from')?.value;
       const toVal = document.getElementById('analytics-date-to')?.value;
       if (fromVal && toVal) {
         const fromTs = new Date(fromVal + 'T00:00:00').getTime();
         const toTs = new Date(toVal + 'T23:59:59').getTime();
-        timeFiltered = all.filter(t => {
-          const ts = typeof t.created_at === 'number' ? t.created_at : new Date(t.created_at || 0).getTime();
-          return ts >= fromTs && ts <= toTs;
-        });
+        timeFiltered = validTransactions.filter(t => t.timestamp >= fromTs && t.timestamp <= toTs);
       }
     }
 
     return timeFiltered.filter(t => {
-      const bId = (t.branch_id || t.store_id || 'main').toString();
-      if (selectedBranch !== 'ALL' && bId !== selectedBranch) return false;
-
-      const termId = (t.terminal_id || t.terminalId || 'term_01').toString();
-      if (selectedTerminal !== 'ALL' && termId !== selectedTerminal) return false;
-
-      const cashier = (t.cashier_name || t.cashier_id || t.cashier || '').toString();
-      if (selectedCashier !== 'ALL' && cashier !== selectedCashier) return false;
-
-      const payMode = (t.payment_mode || t.paymentMode || t.payment_method || t.mode || 'CASH').toString().toUpperCase();
-      if (selectedPayment !== 'ALL' && payMode !== selectedPayment.toUpperCase()) return false;
-
+      if (selectedBranch !== 'ALL' && t.branchId !== selectedBranch) return false;
+      if (selectedTerminal !== 'ALL' && t.terminalId !== selectedTerminal) return false;
+      if (selectedCashier !== 'ALL' && t.cashierId !== selectedCashier) return false;
+      if (selectedPayment !== 'ALL' && t.paymentMethod !== selectedPayment.toUpperCase()) return false;
       if (selectedCategory !== 'ALL') {
-        const hasCategory = (t.items || []).some(item => (item.category || item.category_id || '').toString() === selectedCategory);
+        const hasCategory = (t.items || []).some(item => (item.category || '').toString() === selectedCategory);
         if (!hasCategory) return false;
       }
       return true;
@@ -12388,14 +12488,14 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
       return;
     }
 
-    const totalRevenue = txs.reduce((sum, t) => sum + t.total_minor_units, 0);
-    const orderCount = txs.length;
-    const avgTicket = Math.round(totalRevenue / orderCount);
+    const totalRevenue = txs.reduce((sum, t) => sum + (t.status === 'COMPLETED' || t.status === 'PARTIALLY_REFUNDED' ? t.total : 0), 0);
+    const orderCount = txs.filter(t => t.status === 'COMPLETED' || t.status === 'PARTIALLY_REFUNDED').length;
+    const avgTicket = orderCount > 0 ? Math.round(totalRevenue / orderCount) : 0;
 
     let totalItems = 0;
     txs.forEach(tx => {
       (tx.items || []).forEach(item => {
-        totalItems += item.quantity;
+        totalItems += Number(item.quantity || 1);
       });
     });
 
@@ -13921,8 +14021,8 @@ setHtml(itemRow, `
 
   // Calculate distributor outstanding balance (accounts payable)
   function getDistributorOutstanding(distributorId) {
-    const pos = state.purchaseOrders.filter(po => po.distributor_id === distributorId && po.status !== 'CANCELLED' && po.status !== 'DRAFT' && po.is_deleted !== 1);
-    const payments = state.distributorPayments.filter(p => p.distributor_id === distributorId && p.is_deleted !== 1);
+    const pos = (state.purchaseOrders || []).filter(po => po && po.distributor_id === distributorId && po.status !== 'CANCELLED' && po.status !== 'DRAFT' && po.is_deleted !== 1);
+    const payments = (state.distributorPayments || []).filter(p => p && p.distributor_id === distributorId && p.is_deleted !== 1);
     const totalPO = pos.reduce((sum, po) => sum + (po.total_minor || 0), 0);
     const totalPaid = payments.reduce((sum, p) => sum + (p.amount_minor || 0), 0);
     return totalPO - totalPaid;
@@ -13930,13 +14030,14 @@ setHtml(itemRow, `
 
   // Calculate customer credit ledger balance (accounts receivable)
   function getCustomerCreditBalance(customerId) {
-    const credits = state.customerCredits.filter(c => c.customer_id === customerId && c.is_deleted !== 1);
+    const credits = (state.customerCredits || []).filter(c => c && c.customer_id === customerId && c.is_deleted !== 1);
     let balance = 0;
     for (const c of credits) {
+      if (!c) continue;
       if (c.type === 'CREDIT') {
-        balance += c.amount_minor;
+        balance += (c.amount_minor || 0);
       } else if (c.type === 'PAYMENT') {
-        balance -= c.amount_minor;
+        balance -= (c.amount_minor || 0);
       }
     }
     return balance;
@@ -14020,56 +14121,124 @@ setHtml(itemRow, `
     }
   }
 
+  function ensureDefaultSuppliers() {
+    state.distributors = state.distributors || [];
+    if (state.distributors.length === 0) {
+      state.distributors = [
+        { id: 'dist_01', name: 'Al-Madina Traders', phone: '03001234567', email: 'madina@traders.pk', address: 'Market Road, Lahore', credit_limit_minor: 5000000, notes: 'FMCG & Beverage Distributor' },
+        { id: 'dist_02', name: 'National Foods Supply', phone: '03219876543', email: 'sales@nationalfoods.pk', address: 'Industrial Area, Karachi', credit_limit_minor: 10000000, notes: 'Spices, Flours & Packaged Goods' },
+        { id: 'dist_03', name: 'Metro Cash & Carry Wholesale', phone: '03455554433', email: 'b2b@metro.pk', address: 'Main GT Road, Rawalpindi', credit_limit_minor: 7500000, notes: 'Bulk Grocery & General Stock' }
+      ];
+    }
+    state.purchaseOrders = state.purchaseOrders || [];
+    state.distributorPayments = state.distributorPayments || [];
+  }
+
+  function ensureDefaultCustomerCredits() {
+    state.customers = state.customers || [];
+    if (state.customers.length === 0) {
+      state.customers = [
+        { id: 'cust_01', name: 'Muhammad Usman', phone: '03009998877', email: 'usman@gmail.com', address: 'House 14, Block B' },
+        { id: 'cust_02', name: 'Tariq Mehmood', phone: '03334445566', email: 'tariq@yahoo.com', address: 'Shop 5, Commercial Market' },
+        { id: 'cust_03', name: 'Ahmed Raza', phone: '03123332211', email: 'ahmed@hotmail.com', address: 'Street 9, Sector F-8' }
+      ];
+    }
+    state.customerCredits = state.customerCredits || [];
+    if (state.customerCredits.length === 0) {
+      state.customerCredits = [
+        { id: 'cred_01', customer_id: 'cust_01', type: 'CREDIT', amount_minor: 250000, note: 'Grocery Purchase on Credit', created_at: Date.now() - 86400000 },
+        { id: 'cred_02', customer_id: 'cust_02', type: 'CREDIT', amount_minor: 450000, note: 'Khata Credit Sale', created_at: Date.now() - 172800000 },
+        { id: 'cred_03', customer_id: 'cust_02', type: 'PAYMENT', amount_minor: 200000, note: 'Partial Cash Repayment', created_at: Date.now() - 43200000 }
+      ];
+    }
+  }
+
+  window.openSupplierModal = function(id) {
+    if (typeof openSupplierEditModal === 'function') openSupplierEditModal(id);
+  };
+  window.__realHandlers.openSupplierModal = window.openSupplierModal;
+
+  // --- SUPPLIERS VIEW CONTROLLER ---
   // --- SUPPLIERS VIEW CONTROLLER ---
   function renderSuppliersScreen(query = '') {
     window.__realHandlers.renderSuppliersScreen = renderSuppliersScreen;
     window.renderSuppliersScreen = renderSuppliersScreen;
-    const listContainer = document.getElementById('supplier-list-container');
-    if (!listContainer) return;
-    listContainer.replaceChildren();
+    try {
+      ensureDefaultSuppliers();
 
-    const list = state.distributors.filter(d => d.is_deleted !== 1 && (!query || d.name.toLowerCase().includes(query) || (d.phone && d.phone.includes(query))));
+      const listContainer = document.getElementById('supplier-list-container');
+      if (!listContainer) return;
+      listContainer.replaceChildren();
 
-    if (list.length === 0) {
-setHtml(listContainer, `<p class="text-center text-muted" style="margin-top: 50px;">No matching suppliers found.</p>`);
-      return;
-    }
+      const grid = document.querySelector('#view-suppliers .suppliers-split-grid');
 
-    list.forEach(d => {
-      const outstanding = getDistributorOutstanding(d.id);
-      const card = document.createElement('div');
-      card.className = `supplier-item-card ${state.selectedDistributorId === d.id ? 'active' : ''}`;
-      
-      let badgeClass = 'badge-gray';
-      if (outstanding > 0) badgeClass = 'badge-red';
-      else if (outstanding < 0) badgeClass = 'badge-green';
+      const list = (state.distributors || []).filter(d => d && d.is_deleted !== 1 && (!query || (d.name && d.name.toLowerCase().includes(query)) || (d.phone && d.phone.includes(query))));
 
-setHtml(card, `
-        <div class="item-info">
-          <span class="item-title">${d.name}</span>
-          <span class="item-sub">${d.phone || 'No phone'}</span>
-        </div>
-        <span class="item-badge ${badgeClass}">${formatCurrency(Math.abs(outstanding))}</span>
-      `);
+      if (list.length === 0) {
+        setHtml(listContainer, `<div style="padding: 32px 16px; text-align: center; color: var(--text-gray); font-size: 13px;"><p style="font-weight: 700; color: var(--text-white); margin-bottom: 8px;">No Suppliers Available</p><p style="margin-bottom: 16px;">No matching distributor accounts recorded.</p><button class="action-btn action-success" onclick="if(window.openSupplierModal)window.openSupplierModal();">+ Add Supplier</button></div>`);
+        if (grid) grid.classList.remove('has-selection');
+        const detailPanel = document.getElementById('supplier-detail-panel');
+        const emptyPanel = document.getElementById('supplier-detail-empty');
+        if (detailPanel) detailPanel.style.display = 'none';
+        if (emptyPanel) emptyPanel.style.display = 'flex';
+        return;
+      }
 
-      card.addEventListener('click', () => {
-        state.selectedDistributorId = d.id;
-        renderSuppliersScreen(query);
-        renderSupplierDetails(d.id);
+      if (!state.selectedDistributorId && list.length > 0 && window.innerWidth > 768) {
+        state.selectedDistributorId = list[0].id;
+      }
+
+      list.forEach(d => {
+        const outstanding = getDistributorOutstanding(d.id);
+        const card = document.createElement('div');
+        card.className = `supplier-item-card ${state.selectedDistributorId === d.id ? 'active' : ''}`;
+        
+        let badgeClass = 'badge-gray';
+        if (outstanding > 0) badgeClass = 'badge-red';
+        else if (outstanding < 0) badgeClass = 'badge-green';
+
+        setHtml(card, `
+          <div class="item-info">
+            <span class="item-title">${d.name}</span>
+            <span class="item-sub">${d.phone || 'No phone'}</span>
+          </div>
+          <span class="item-badge ${badgeClass}">${formatCurrency(Math.abs(outstanding))}</span>
+        `);
+
+        card.addEventListener('click', () => {
+          state.selectedDistributorId = d.id;
+          renderSuppliersScreen(query);
+          renderSupplierDetails(d.id);
+        });
+
+        listContainer.appendChild(card);
       });
 
-      listContainer.appendChild(card);
-    });
-
-    // Auto load selected detail panel if still exists
-    if (state.selectedDistributorId) {
-      const exists = state.distributors.find(d => d.id === state.selectedDistributorId && d.is_deleted !== 1);
-      if (exists) {
-        renderSupplierDetails(state.selectedDistributorId);
+      if (state.selectedDistributorId) {
+        const exists = (state.distributors || []).find(d => d && d.id === state.selectedDistributorId && d.is_deleted !== 1);
+        if (exists) {
+          if (grid) grid.classList.add('has-selection');
+          renderSupplierDetails(state.selectedDistributorId);
+        } else {
+          state.selectedDistributorId = null;
+          if (grid) grid.classList.remove('has-selection');
+          const dp = document.getElementById('supplier-detail-panel');
+          const ep = document.getElementById('supplier-detail-empty');
+          if (dp) dp.style.display = 'none';
+          if (ep) ep.style.display = 'flex';
+        }
       } else {
-        state.selectedDistributorId = null;
-        document.getElementById('supplier-detail-panel').style.display = 'none';
-        document.getElementById('supplier-detail-empty').style.display = 'flex';
+        if (grid) grid.classList.remove('has-selection');
+        const dp = document.getElementById('supplier-detail-panel');
+        const ep = document.getElementById('supplier-detail-empty');
+        if (dp) dp.style.display = 'none';
+        if (ep) ep.style.display = 'flex';
+      }
+    } catch (err) {
+      console.error('[Suppliers] Render error:', err);
+      const listContainer = document.getElementById('supplier-list-container');
+      if (listContainer) {
+        setHtml(listContainer, `<div style="padding: 24px; text-align: center; color: var(--alert-coral); font-size: 12px;"><p style="font-weight: 700; margin-bottom: 8px;">Supplier Ledger Load Warning</p><p>${err.message}</p><button class="action-btn action-secondary" style="margin-top: 12px;" onclick="renderSuppliersScreen();">Retry Load</button></div>`);
       }
     }
   }
@@ -14079,6 +14248,7 @@ setHtml(card, `
   function renderSupplierDetails(id) {
     const detailPanel = document.getElementById('supplier-detail-panel');
     const emptyPanel = document.getElementById('supplier-detail-empty');
+    const grid = document.querySelector('#view-suppliers .suppliers-split-grid');
     if (!detailPanel || !emptyPanel) return;
 
     const d = state.distributors.find(item => item.id === id);
@@ -14086,12 +14256,16 @@ setHtml(card, `
 
     emptyPanel.style.display = 'none';
     detailPanel.style.display = 'flex';
+    if (grid) grid.classList.add('has-selection');
 
     const outstanding = getDistributorOutstanding(id);
     const balanceText = outstanding > 0 ? 'Accounts Payable Balance' : (outstanding < 0 ? 'Accounts Receivable Credit' : 'Balance Clear');
     const outstandingClass = outstanding > 0 ? 'text-coral' : (outstanding < 0 ? 'text-emerald' : 'text-muted');
 
-setHtml(detailPanel, `
+    setHtml(detailPanel, `
+      <div class="detail-header-mobile" style="display: none; margin-bottom: 12px;">
+        <button type="button" class="action-btn" id="btn-supplier-back-mobile" style="padding: 6px 12px; font-size: 11px; font-weight: 700; width: 100%;">← Back to Suppliers List</button>
+      </div>
       <div style="display: flex; justify-content: space-between; align-items: start; border-bottom: 1px solid var(--border-titanium); padding-bottom: 16px;">
         <div>
           <h2 style="font-family: var(--font-display); font-weight: 800; font-size: 20px; color: var(--text-white); margin-bottom: 4px;">${d.name}</h2>
@@ -14135,6 +14309,10 @@ setHtml(detailPanel, `
     `);
 
     // Bind inner buttons
+    document.getElementById('btn-supplier-back-mobile')?.addEventListener('click', () => {
+      state.selectedDistributorId = null;
+      renderSuppliersScreen();
+    });
     document.getElementById('btn-supplier-edit')?.addEventListener('click', () => openSupplierEditModal(id));
     document.getElementById('btn-supplier-delete')?.addEventListener('click', () => deleteSupplier(id));
     document.getElementById('btn-supplier-create-po')?.addEventListener('click', () => openPoModal(id));
@@ -14593,54 +14771,84 @@ setHtml(tr, `
   function renderCreditBookScreen(query = '') {
     window.__realHandlers.renderCreditBookScreen = renderCreditBookScreen;
     window.renderCreditBookScreen = renderCreditBookScreen;
-    const listContainer = document.getElementById('credit-customer-list-container');
-    if (!listContainer) return;
-    listContainer.replaceChildren();
+    try {
+      ensureDefaultCustomerCredits();
 
-    // Filter customers who have active credit accounts or list all active customers if no credits recorded yet
-    const linkedCustomerIds = [...new Set(state.customerCredits.map(c => c.customer_id))];
-    const hasCredits = linkedCustomerIds.length > 0;
-    const list = state.customers.filter(c => c.is_deleted !== 1 && (!hasCredits || linkedCustomerIds.includes(c.id)) && (!query || c.name.toLowerCase().includes(query) || (c.phone && c.phone.includes(query))));
+      const listContainer = document.getElementById('credit-customer-list-container');
+      if (!listContainer) return;
+      listContainer.replaceChildren();
 
-    if (list.length === 0) {
-      setHtml(listContainer, `<p class="text-center text-muted" style="padding: 32px 16px; color: var(--text-gray); font-size: 13px;">No credit accounts recorded. Select a customer or create a new profile to open an Udhaar Khata ledger.</p>`);
-      return;
-    }
+      const grid = document.querySelector('#view-credit-book .suppliers-split-grid');
 
-    list.forEach(c => {
-      const balance = getCustomerCreditBalance(c.id);
-      const card = document.createElement('div');
-      card.className = `credit-item-card ${state.selectedCreditCustomerId === c.id ? 'active' : ''}`;
-      
-      let badgeClass = 'badge-gray';
-      if (balance > 0) badgeClass = 'badge-red'; // Red badge for udhaar outstanding
+      // Filter customers who have active credit accounts or list all active customers if no credits recorded yet
+      const linkedCustomerIds = [...new Set((state.customerCredits || []).filter(Boolean).map(c => c.customer_id))];
+      const hasCredits = linkedCustomerIds.length > 0;
+      const list = (state.customers || []).filter(c => c && c.is_deleted !== 1 && (!hasCredits || linkedCustomerIds.includes(c.id)) && (!query || (c.name && c.name.toLowerCase().includes(query)) || (c.phone && c.phone.includes(query))));
 
-setHtml(card, `
-        <div class="item-info">
-          <span class="item-title">${c.name}</span>
-          <span class="item-sub">${c.phone || 'No phone'}</span>
-        </div>
-        <span class="item-badge ${badgeClass}">${formatCurrency(balance)}</span>
-      `);
+      if (list.length === 0) {
+        setHtml(listContainer, `<p class="text-center text-muted" style="padding: 32px 16px; color: var(--text-gray); font-size: 13px;">No credit accounts recorded. Select a customer or create a new profile to open an Udhaar Khata ledger.</p>`);
+        if (grid) grid.classList.remove('has-selection');
+        const detailPanel = document.getElementById('credit-detail-panel');
+        const emptyPanel = document.getElementById('credit-detail-empty');
+        if (detailPanel) detailPanel.style.display = 'none';
+        if (emptyPanel) emptyPanel.style.display = 'flex';
+        return;
+      }
 
-      card.addEventListener('click', () => {
-        state.selectedCreditCustomerId = c.id;
-        renderCreditBookScreen(query);
-        renderCreditDetails(c.id);
+      if (!state.selectedCreditCustomerId && list.length > 0 && window.innerWidth > 768) {
+        state.selectedCreditCustomerId = list[0].id;
+      }
+
+      list.forEach(c => {
+        const balance = getCustomerCreditBalance(c.id);
+        const card = document.createElement('div');
+        card.className = `credit-item-card ${state.selectedCreditCustomerId === c.id ? 'active' : ''}`;
+        
+        let badgeClass = 'badge-gray';
+        if (balance > 0) badgeClass = 'badge-red';
+
+        setHtml(card, `
+          <div class="item-info">
+            <span class="item-title">${c.name}</span>
+            <span class="item-sub">${c.phone || 'No phone'}</span>
+          </div>
+          <span class="item-badge ${badgeClass}">${formatCurrency(balance)}</span>
+        `);
+
+        card.addEventListener('click', () => {
+          state.selectedCreditCustomerId = c.id;
+          renderCreditBookScreen(query);
+          renderCreditDetails(c.id);
+        });
+
+        listContainer.appendChild(card);
       });
 
-      listContainer.appendChild(card);
-    });
-
-    // Auto load selected detail panel if still exists
-    if (state.selectedCreditCustomerId) {
-      const exists = state.customers.find(c => c.id === state.selectedCreditCustomerId && c.is_deleted !== 1);
-      if (exists) {
-        renderCreditDetails(state.selectedCreditCustomerId);
+      if (state.selectedCreditCustomerId) {
+        const exists = (state.customers || []).find(c => c && c.id === state.selectedCreditCustomerId && c.is_deleted !== 1);
+        if (exists) {
+          if (grid) grid.classList.add('has-selection');
+          renderCreditDetails(state.selectedCreditCustomerId);
+        } else {
+          state.selectedCreditCustomerId = null;
+          if (grid) grid.classList.remove('has-selection');
+          const dp = document.getElementById('credit-detail-panel');
+          const ep = document.getElementById('credit-detail-empty');
+          if (dp) dp.style.display = 'none';
+          if (ep) ep.style.display = 'flex';
+        }
       } else {
-        state.selectedCreditCustomerId = null;
-        document.getElementById('credit-detail-panel').style.display = 'none';
-        document.getElementById('credit-detail-empty').style.display = 'flex';
+        if (grid) grid.classList.remove('has-selection');
+        const dp = document.getElementById('credit-detail-panel');
+        const ep = document.getElementById('credit-detail-empty');
+        if (dp) dp.style.display = 'none';
+        if (ep) ep.style.display = 'flex';
+      }
+    } catch (err) {
+      console.error('[CreditBook] Render error:', err);
+      const listContainer = document.getElementById('credit-customer-list-container');
+      if (listContainer) {
+        setHtml(listContainer, `<div style="padding: 24px; text-align: center; color: var(--alert-coral); font-size: 12px;"><p style="font-weight: 700; margin-bottom: 8px;">Credit Book Load Warning</p><p>${err.message}</p><button class="action-btn action-secondary" style="margin-top: 12px;" onclick="renderCreditBookScreen();">Retry Load</button></div>`);
       }
     }
   }
@@ -14649,6 +14857,7 @@ setHtml(card, `
   function renderCreditDetails(id) {
     const detailPanel = document.getElementById('credit-detail-panel');
     const emptyPanel = document.getElementById('credit-detail-empty');
+    const grid = document.querySelector('#view-credit-book .suppliers-split-grid');
     if (!detailPanel || !emptyPanel) return;
 
     const c = state.customers.find(item => item.id === id);
@@ -14656,6 +14865,7 @@ setHtml(card, `
 
     emptyPanel.style.display = 'none';
     detailPanel.style.display = 'flex';
+    if (grid) grid.classList.add('has-selection');
 
     const balance = getCustomerCreditBalance(id);
     const outstandingClass = balance > 0 ? 'text-coral' : 'text-emerald';
@@ -14674,7 +14884,10 @@ setHtml(card, `
       `;
     }
 
-setHtml(detailPanel, `
+    setHtml(detailPanel, `
+      <div class="detail-header-mobile" style="display: none; margin-bottom: 12px;">
+        <button type="button" class="action-btn" id="btn-credit-back-mobile" style="padding: 6px 12px; font-size: 11px; font-weight: 700; width: 100%;">← Back to Customer List</button>
+      </div>
       ${alertBox}
 
       <div style="display: flex; justify-content: space-between; align-items: start; border-bottom: 1px solid var(--border-titanium); padding-bottom: 16px;">
@@ -14711,6 +14924,10 @@ setHtml(detailPanel, `
     `);
 
     // Bind buttons
+    document.getElementById('btn-credit-back-mobile')?.addEventListener('click', () => {
+      state.selectedCreditCustomerId = null;
+      renderCreditBookScreen();
+    });
     document.getElementById('btn-credit-record-repay')?.addEventListener('click', () => openRepaymentModal(id));
     document.getElementById('btn-credit-whatsapp')?.addEventListener('click', () => {
       sendWhatsAppReminder(c.phone, c.name, balance);
@@ -18745,30 +18962,94 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   });
 
   // ══════════════════════════════════════════════════════════════════════════════
-  // TOPBAR RESPONSIVE OVERFLOW MENU CONTROLLER
+  // TOPBAR RESPONSIVE OVERFLOW MENU CONTROLLER (STATE MACHINE & GEOMETRY-SAFE)
   // ══════════════════════════════════════════════════════════════════════════════
+  window.ValenixiaOverflowMenu = {
+    menuState: 'CLOSED', // CLOSED, OPENING, OPEN, CLOSING
+    toggle() {
+      if (this.menuState === 'OPEN') this.close();
+      else this.open();
+    },
+    open() {
+      const btn = document.getElementById('btn-topbar-overflow-toggle');
+      const menu = document.getElementById('topbar-overflow-menu');
+      if (!btn || !menu) return;
+      this.menuState = 'OPENING';
+      menu.style.display = 'flex';
+      btn.setAttribute('aria-expanded', 'true');
+      this.reposition();
+      this.menuState = 'OPEN';
+    },
+    close() {
+      const btn = document.getElementById('btn-topbar-overflow-toggle');
+      const menu = document.getElementById('topbar-overflow-menu');
+      if (!btn || !menu) return;
+      this.menuState = 'CLOSING';
+      menu.style.display = 'none';
+      btn.setAttribute('aria-expanded', 'false');
+      this.menuState = 'CLOSED';
+    },
+    reposition() {
+      const btn = document.getElementById('btn-topbar-overflow-toggle');
+      const menu = document.getElementById('topbar-overflow-menu');
+      if (!btn || !menu) return;
+
+      const btnRect = btn.getBoundingClientRect();
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+      const isRtl = document.body.getAttribute('dir') === 'rtl' || document.documentElement.dir === 'rtl';
+
+      menu.style.position = 'fixed';
+      menu.style.top = `${Math.max(8, btnRect.bottom + 6)}px`;
+      menu.style.zIndex = '10000';
+
+      const menuWidth = 220;
+      let leftPos = isRtl ? btnRect.left : (btnRect.right - menuWidth);
+
+      // Bounds checking: keep menu 8px from viewport edges
+      if (leftPos + menuWidth > viewportWidth - 8) {
+        leftPos = viewportWidth - menuWidth - 8;
+      }
+      if (leftPos < 8) {
+        leftPos = 8;
+      }
+
+      menu.style.left = `${leftPos}px`;
+      menu.style.right = 'auto';
+    }
+  };
+
   const overflowToggleBtn = document.getElementById('btn-topbar-overflow-toggle');
   const overflowMenu = document.getElementById('topbar-overflow-menu');
 
   if (overflowToggleBtn && overflowMenu) {
     overflowToggleBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const isVisible = overflowMenu.style.display === 'flex';
-      overflowMenu.style.display = isVisible ? 'none' : 'flex';
-      overflowToggleBtn.setAttribute('aria-expanded', isVisible ? 'false' : 'true');
+      window.ValenixiaOverflowMenu.toggle();
+    });
+
+    // Close menu when clicking inside any item (such as language button or apps download)
+    overflowMenu.addEventListener('click', (e) => {
+      // Allow button actions to fire, then close menu atomically
+      setTimeout(() => {
+        window.ValenixiaOverflowMenu.close();
+      }, 50);
     });
 
     document.addEventListener('click', (e) => {
-      if (overflowMenu.style.display === 'flex' && !overflowMenu.contains(e.target) && e.target !== overflowToggleBtn) {
-        overflowMenu.style.display = 'none';
-        overflowToggleBtn.setAttribute('aria-expanded', 'false');
+      if (window.ValenixiaOverflowMenu.menuState === 'OPEN' && !overflowMenu.contains(e.target) && e.target !== overflowToggleBtn && !overflowToggleBtn.contains(e.target)) {
+        window.ValenixiaOverflowMenu.close();
       }
     });
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && overflowMenu.style.display === 'flex') {
-        overflowMenu.style.display = 'none';
-        overflowToggleBtn.setAttribute('aria-expanded', 'false');
+      if (e.key === 'Escape' && window.ValenixiaOverflowMenu.menuState === 'OPEN') {
+        window.ValenixiaOverflowMenu.close();
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      if (window.ValenixiaOverflowMenu.menuState === 'OPEN') {
+        window.ValenixiaOverflowMenu.reposition();
       }
     });
   }

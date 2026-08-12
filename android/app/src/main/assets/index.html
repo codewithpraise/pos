@@ -164,49 +164,49 @@
           <span class="nav-label">Subscription</span>
         </button>
 
-        <button class="nav-item premium" data-screen="analytics">
+        <button class="nav-item" data-screen="analytics">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
           </span>
           <span class="nav-label">Analytics</span>
         </button>
-        <button class="nav-item premium" data-screen="suppliers">
+        <button class="nav-item" data-screen="suppliers">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v4"/><path d="M14 2v6h6"/><path d="M20 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/><path d="M12 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/><path d="M20 18h2v-4a2 2 0 0 0-2-2h-3"/><path d="M14 18h-2"/></svg>
           </span>
           <span class="nav-label">Suppliers</span>
         </button>
-        <button class="nav-item premium" data-screen="credit-book">
+        <button class="nav-item" data-screen="credit-book">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z"/><path d="M6 6h10M6 10h10"/></svg>
           </span>
           <span class="nav-label">Credit</span>
         </button>
-        <button class="nav-item premium" data-screen="staff">
+        <button class="nav-item" data-screen="staff">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><circle cx="19" cy="11" r="2"/></svg>
           </span>
           <span class="nav-label">Staff</span>
         </button>
-        <button class="nav-item premium" data-screen="logs" id="nav-logs">
+        <button class="nav-item" data-screen="logs" id="nav-logs">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           </span>
           <span class="nav-label">Logs</span>
         </button>
-        <button class="nav-item premium" data-screen="fbr-fiscal" id="nav-fbr-fiscal">
+        <button class="nav-item" data-screen="fbr-fiscal" id="nav-fbr-fiscal">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
           </span>
           <span class="nav-label">FBR Fiscal Hub</span>
         </button>
-        <button class="nav-item premium" data-screen="multi-store" id="nav-multi-store">
+        <button class="nav-item" data-screen="multi-store" id="nav-multi-store">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
           </span>
           <span class="nav-label">Multi-Store</span>
         </button>
-        <button class="nav-item premium" data-screen="data-portability" id="nav-data-portability">
+        <button class="nav-item" data-screen="data-portability" id="nav-data-portability">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           </span>
@@ -237,41 +237,57 @@
       <!-- TOP STATUS BAR -->
       <header class="pos-topbar">
         <div class="topbar-left">
-          <button class="sidebar-toggle-btn" id="sidebar-toggle-btn">◀</button>
+          <button class="sidebar-toggle-btn" id="sidebar-toggle-btn" aria-label="Toggle Sidebar">◀</button>
           <span class="active-view-title" id="active-view-title">Checkout</span>
         </div>
+
+        <div class="topbar-center" id="topbar-center-context"></div>
         
         <div class="topbar-right">
-          <div class="storage-lock-badge offline" id="storage-lock-badge">
-            <span class="lock-dot"></span>
-            <span class="lock-text" id="storage-lock-text">STORAGE: UNLOCKED</span>
+          <div class="topbar-essential-badges" style="display: flex; align-items: center; gap: 8px;">
+            <div class="storage-lock-badge offline" id="storage-lock-badge">
+              <span class="lock-dot"></span>
+              <span class="lock-text" id="storage-lock-text">STORAGE: UNLOCKED</span>
+            </div>
+
+            <div class="network-badge online" id="net-badge" title="Network Connection Status">
+              <span class="badge-dot"></span>
+              <span class="badge-text" id="net-status-text">ONLINE</span>
+            </div>
+
+            <div class="network-badge synced" id="sync-badge" title="Sync Engine Operational Status">
+              <span class="badge-dot"></span>
+              <span class="badge-text" id="sync-status-text">SYNCED</span>
+            </div>
+
+            <button id="btn-net-sync-retry" style="display: none; align-items: center; justify-content: center; gap: 6px; padding: 4px 10px; font-size: 10px; font-weight: 700; background: var(--alert-coral); border: none; border-radius: 4px; color: var(--text-dark); cursor: pointer;" aria-label="Retry Synchronization">
+              Retry Sync
+            </button>
           </div>
 
-          <div class="network-badge online" id="net-badge">
-            <span class="badge-dot"></span>
-            <span class="badge-text" id="net-status-text">ONLINE</span>
-          </div>
-          
-          <button id="btn-net-sync-retry" style="display: none; align-items: center; justify-content: center; gap: 6px; padding: 4px 10px; font-size: 10px; font-weight: 700; background: var(--alert-coral); border: none; border-radius: 4px; color: var(--text-dark); cursor: pointer; margin-left: 8px;" aria-label="Retry Synchronization">
-            Retry Sync
+          <button class="theme-toggle-btn" id="theme-toggle-btn" title="Toggle Theme" aria-label="Toggle Theme">
+            <svg class="svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M12 2a10 10 0 0 0 0 20Z" fill="currentColor"/></svg>
           </button>
-          
-          <div class="clock-badge">
-            <span class="badge-lbl">HLC:</span>
-            <span class="badge-val" id="hlc-clock">0000000000000:000000:web_node</span>
+
+          <!-- RESPONSIVE UTILITY OVERFLOW MENU -->
+          <div class="topbar-overflow-wrapper" style="position: relative;">
+            <button class="topbar-btn" id="btn-topbar-overflow-toggle" aria-expanded="false" aria-controls="topbar-overflow-menu" title="More Utilities" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 4px; border: 1px solid var(--border-titanium); background: transparent; color: var(--text-white); cursor: pointer; font-size: 16px; font-weight: 700;">⋮</button>
+            <div class="topbar-overflow-menu" id="topbar-overflow-menu" style="display: none; position: absolute; top: calc(100% + 8px); right: 0; min-width: 220px; background: rgba(12, 14, 24, 0.95); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 8px; box-shadow: var(--shadow-lg); z-index: 1000; flex-direction: column; gap: 8px;">
+              <button class="topbar-btn" id="lang-toggle-btn" onclick="if(window.toggleAppLanguage)window.toggleAppLanguage();" style="display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 8px 12px; border-radius: 4px; border: 1px solid var(--border-titanium); background: transparent; color: var(--text-white); cursor: pointer; font-size: 11px; font-weight: 700;">
+                <span>Language</span>
+                <span>اردو / ENG</span>
+              </button>
+              <button class="topbar-btn web-only-btn" id="btn-topbar-apps-download" data-screen="apps-download" style="display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 8px 12px; border-radius: 4px; border: 1px solid var(--accent-emerald); background: rgba(0, 214, 143, 0.12); color: var(--accent-emerald); cursor: pointer; font-size: 11px; font-weight: 800; text-transform: uppercase;">
+                <span>Native Apps</span>
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              </button>
+              <div class="clock-badge-menu" style="display: flex; flex-direction: column; padding: 8px; background: rgba(255,255,255,0.03); border-radius: 4px;">
+                <span class="badge-lbl" style="font-size: 10px; color: var(--text-gray);">HLC Clock:</span>
+                <span class="badge-val" id="hlc-clock" style="font-size: 10px; font-family: var(--font-mono); color: var(--accent-emerald); word-break: break-all;">0000000000000:000000:web_node</span>
+              </div>
+            </div>
           </div>
-          
-           <button class="theme-toggle-btn" id="lang-toggle-btn" onclick="if(window.toggleAppLanguage)window.toggleAppLanguage();" style="display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 36px; border-radius: 4px; border: 1px solid var(--border-titanium); background: transparent; color: var(--text-white); cursor: pointer; font-size: 11px; font-weight: 700; margin-right: 8px;" title="Toggle Language (English / اردو)">
-             اردو
-           </button>
-           <button class="topbar-btn web-only-btn" id="btn-topbar-apps-download" data-screen="apps-download" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 12px; height: 36px; border-radius: 4px; border: 1px solid var(--accent-emerald); background: rgba(0, 214, 143, 0.12); color: var(--accent-emerald); cursor: pointer; font-size: 11px; font-weight: 800; text-transform: uppercase; margin-right: 8px;" title="Download Native Apps">
-             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-             Get Apps
-           </button>
-           <button class="theme-toggle-btn" id="theme-toggle-btn" style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 4px; border: 1px solid var(--border-titanium); background: transparent; color: var(--text-white); cursor: pointer;" title="Toggle Theme">
-             <svg class="svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M12 2a10 10 0 0 0 0 20Z" fill="currentColor"/></svg>
-           </button>
-         </div>
+        </div>
       </header>
 
       <!-- CLOCK DRIFT CRITICAL WARNING BANNER -->
@@ -697,8 +713,70 @@
                 Export CSV
               </button>
             </div>
+          <!-- Multi-Dimensional Telemetry & Dynamic Store/Branch Filter Panel -->
+          <div id="analytics-multidim-filter-bar" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(12, 14, 24, 0.95) 100%); border: 1px solid rgba(0, 214, 143, 0.25); border-radius: 14px; padding: 18px; margin-bottom: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.35); backdrop-filter: blur(12px); display: flex; flex-direction: column; gap: 14px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 12px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(0, 214, 143, 0.15); color: var(--accent-emerald); display: flex; align-items: center; justify-content: center; font-size: 16px; border: 1px solid rgba(0, 214, 143, 0.3);">
+                  🎛️
+                </div>
+                <div>
+                  <h4 style="margin: 0; font-size: 14px; font-weight: 800; color: var(--text-white); font-family: var(--font-display); letter-spacing: 0.3px;">Multi-Dimensional Store Telemetry Control Tower</h4>
+                  <span style="font-size: 11px; color: var(--text-gray);">Filter real-time ledger metrics across branches, registers, cashiers, and payment channels</span>
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span id="analytics-filter-counter-badge" style="font-size: 10px; font-weight: 800; color: var(--accent-emerald); background: rgba(0,214,143,0.12); padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(0,214,143,0.3); text-transform: uppercase;">Real-Time Matrix Active</span>
+                <button id="analytics-filter-reset" class="action-btn action-secondary" style="padding: 6px 12px; font-size: 10px; font-weight: 800; border-radius: 8px; text-transform: uppercase; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: var(--text-white); cursor: pointer; transition: all 0.2s ease;">Reset Filters</button>
+              </div>
+            </div>
+
+            <!-- Dynamic Dropdowns Grid -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px;">
+              <div>
+                <label style="display: block; font-size: 10px; font-weight: 800; color: var(--accent-emerald); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Store Branch</label>
+                <select id="analytics-filter-branch" class="pos-input" style="width: 100%; height: 38px; font-size: 11.5px; font-weight: 700; padding: 0 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.12); color: var(--text-white);" aria-label="Filter by Store Branch">
+                  <option value="ALL">All Branches</option>
+                  <option value="main">Main Store / HQ</option>
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 10px; font-weight: 800; color: #3b82f6; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">POS Terminal Register</label>
+                <select id="analytics-filter-terminal" class="pos-input" style="width: 100%; height: 38px; font-size: 11.5px; font-weight: 700; padding: 0 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.12); color: var(--text-white);" aria-label="Filter by POS Terminal Register">
+                  <option value="ALL">All Terminals</option>
+                  <option value="term_01">Terminal #1 (Primary)</option>
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 10px; font-weight: 800; color: #f59e0b; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Cashier / Staff Member</label>
+                <select id="analytics-filter-cashier" class="pos-input" style="width: 100%; height: 38px; font-size: 11.5px; font-weight: 700; padding: 0 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.12); color: var(--text-white);" aria-label="Filter by Cashier or Staff">
+                  <option value="ALL">All Cashiers</option>
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 10px; font-weight: 800; color: #ec4899; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Product Category</label>
+                <select id="analytics-filter-category" class="pos-input" style="width: 100%; height: 38px; font-size: 11.5px; font-weight: 700; padding: 0 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.12); color: var(--text-white);" aria-label="Filter by Product Category">
+                  <option value="ALL">All Categories</option>
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 10px; font-weight: 800; color: #8b5cf6; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Payment Mode Channel</label>
+                <select id="analytics-filter-payment" class="pos-input" style="width: 100%; height: 38px; font-size: 11.5px; font-weight: 700; padding: 0 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.12); color: var(--text-white);" aria-label="Filter by Payment Mode Channel">
+                  <option value="ALL">All Payment Types</option>
+                  <option value="CASH">Cash</option>
+                  <option value="CARD">Card / POS</option>
+                  <option value="KHATA">Khata Ledger</option>
+                  <option value="MOBILE">Mobile Wallet / QR</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Active Chips & Context Summary Bar -->
+            <div id="analytics-active-chips" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06); padding: 8px 12px; border-radius: 8px;">
+              <span style="font-size: 10px; color: var(--text-dim); font-weight: 600;">Active Filter Scope: <strong style="color: var(--text-white);">Full Store Dataset (Unfiltered)</strong></span>
+            </div>
           </div>
-          
+
           <!-- Loading skeleton placeholder overlay -->
           <div id="analytics-loading-overlay" style="display: none; flex-direction: column; align-items: center; justify-content: center; padding: 40px; border: 1px dashed var(--border-titanium); border-radius: 8px; margin-bottom: 20px; background: rgba(0,0,0,0.1);">
             <div style="width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--accent-blue); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 12px;"></div>
@@ -801,6 +879,43 @@
               <div id="analytics-payment-split" style="display: flex; flex-direction: column; gap: 12px; margin-top: 16px;">
                 <!-- CASH, CARD, QR, MOBILE splits dynamically populated -->
                 <p class="text-muted" style="text-align: center; margin-top: 20px;">No transactions recorded for this range.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Multi-Branch Performance Telemetry & Kamai Business Insights Row -->
+          <div class="analytics-grid-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; margin-top: 24px;">
+            <!-- Multi-Branch Store Performance Table -->
+            <div class="chart-container-card" style="margin-top: 0; padding: 24px; background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: var(--text-white);">Multi-Store Branch Telemetry</h3>
+                <span style="font-size: 10px; font-weight: 700; color: var(--accent-emerald); background: rgba(0,214,143,0.1); padding: 2px 8px; border-radius: 4px;">HQ SYNCED</span>
+              </div>
+              <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+                  <thead>
+                    <tr style="border-bottom: 1px solid var(--border-titanium); color: var(--text-gray); text-transform: uppercase; font-size: 9px; letter-spacing: 0.5px;">
+                      <th style="padding: 8px 6px; text-align: left;">Branch Name</th>
+                      <th style="padding: 8px 6px; text-align: right;">Sales</th>
+                      <th style="padding: 8px 6px; text-align: right;">Orders</th>
+                      <th style="padding: 8px 6px; text-align: right;">Margin %</th>
+                    </tr>
+                  </thead>
+                  <tbody id="analytics-branch-matrix-tbody">
+                    <!-- Branch telemetry populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Kamai Business Advisor & Insights Card -->
+            <div class="chart-container-card" style="margin-top: 0; padding: 24px; background: linear-gradient(145deg, rgba(0,214,143,0.05) 0%, rgba(14,14,26,1) 100%); border: 1px solid rgba(0,214,143,0.2); border-radius: 12px; display: flex; flex-direction: column;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px;">
+                <span style="font-size: 18px;">💡</span>
+                <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: var(--accent-emerald);">Kamai Business Advisor</h3>
+              </div>
+              <div id="analytics-business-recommendations" style="display: flex; flex-direction: column; gap: 10px; font-size: 11.5px; color: var(--text-gray); flex-grow: 1;">
+                <!-- Smart dynamic recommendations -->
               </div>
             </div>
           </div>
@@ -1239,12 +1354,12 @@
               <h3>Legal &amp; Compliance</h3>
               <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 12px;">Review system policy agreements and software licenses.</p>
               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;">
-                <button type="button" class="action-btn btn-open-legal-doc" data-doc-key="TERMS_OF_SERVICE" style="text-align: left; padding: 10px 14px; font-size: 11px;">📄 Terms of Service (TOS)</button>
-                <button type="button" class="action-btn btn-open-legal-doc" data-doc-key="EULA" style="text-align: left; padding: 10px 14px; font-size: 11px;">📜 End User License (EULA)</button>
-                <button type="button" class="action-btn btn-open-legal-doc" data-doc-key="PRIVACY_POLICY" style="text-align: left; padding: 10px 14px; font-size: 11px;">🛡️ Privacy Policy</button>
-                <button type="button" class="action-btn btn-open-legal-doc" data-doc-key="ACCEPTABLE_USE" style="text-align: left; padding: 10px 14px; font-size: 11px;">⚖️ Acceptable Use Policy</button>
-                <button type="button" class="action-btn btn-open-legal-doc" data-doc-key="FBR_DISCLAIMER" style="text-align: left; padding: 10px 14px; font-size: 11px;">🏛️ FBR Tax Disclaimer</button>
-                <button type="button" class="action-btn btn-open-legal-doc" data-doc-key="CLOUD_SYNC_TERMS" style="text-align: left; padding: 10px 14px; font-size: 11px;">☁️ Cloud Sync Terms</button>
+                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="TERMS_OF_SERVICE" onclick="if(window.openLegalDocumentModal)window.openLegalDocumentModal('TERMS_OF_SERVICE');" style="text-align: left; padding: 10px 14px; font-size: 11px;">📄 Terms of Service (TOS)</button>
+                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="EULA" onclick="if(window.openLegalDocumentModal)window.openLegalDocumentModal('EULA');" style="text-align: left; padding: 10px 14px; font-size: 11px;">📜 End User License (EULA)</button>
+                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="PRIVACY_POLICY" onclick="if(window.openLegalDocumentModal)window.openLegalDocumentModal('PRIVACY_POLICY');" style="text-align: left; padding: 10px 14px; font-size: 11px;">🛡️ Privacy Policy</button>
+                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="ACCEPTABLE_USE" onclick="if(window.openLegalDocumentModal)window.openLegalDocumentModal('ACCEPTABLE_USE');" style="text-align: left; padding: 10px 14px; font-size: 11px;">⚖️ Acceptable Use Policy</button>
+                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="FBR_DISCLAIMER" onclick="if(window.openLegalDocumentModal)window.openLegalDocumentModal('FBR_DISCLAIMER');" style="text-align: left; padding: 10px 14px; font-size: 11px;">🏛️ FBR Tax Disclaimer</button>
+                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="CLOUD_SYNC_TERMS" onclick="if(window.openLegalDocumentModal)window.openLegalDocumentModal('CLOUD_SYNC_TERMS');" style="text-align: left; padding: 10px 14px; font-size: 11px;">☁️ Cloud Sync Terms</button>
               </div>
             </div>
             
@@ -1839,9 +1954,9 @@
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
                   <span>Add-on Marketplace</span>
                 </button>
-                <button type="button" class="sub-nav-item" data-subtab="nayapay">
+                <button type="button" class="sub-nav-item" data-subtab="payment">
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                  <span>Pay via NayaPay</span>
+                  <span>Pay &amp; Upgrade</span>
                 </button>
                 <button type="button" class="sub-nav-item" data-subtab="history">
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -1889,10 +2004,34 @@
                   </div>
                   <button type="button" id="btn-start-free-trial-subscription" style="padding: 12px 24px; font-size: 12px; font-weight: 800; border-radius: 10px; border: none; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #080810; text-transform: uppercase; cursor: pointer; letter-spacing: 0.5px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35); white-space: nowrap;">Start 7-Day Free Trial</button>
                 </div>
+
+                <!-- CAPACITY CALCULATOR WIDGET -->
+                <div class="cloud-vault-card" id="subscription-capacity-calculator" style="margin-top: 20px;">
+                  <h3 style="margin: 0 0 14px; font-size: 16px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Register &amp; Branch Capacity Calculator</h3>
+                  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 14px; border-radius: 12px;">
+                      <span style="font-size: 11px; color: var(--text-gray); font-weight: 700; text-transform: uppercase;">Register Terminals</span>
+                      <div style="font-size: 15px; font-weight: 900; color: var(--accent-emerald); font-family: var(--font-mono); margin-top: 4px;" id="cap-terminals-summary">1 Included + 0 Extra = 1 Capacity</div>
+                      <button type="button" class="action-btn dm-btn-emerald" id="btn-add-terminal-capacity" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.addCapacity('terminal');" style="margin-top: 10px; padding: 6px 12px; font-size: 11px; font-weight: 800; border-radius: 8px;">+ Add Terminal (PKR 1,200/mo)</button>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 14px; border-radius: 12px;">
+                      <span style="font-size: 11px; color: var(--text-gray); font-weight: 700; text-transform: uppercase;">Store Branches</span>
+                      <div style="font-size: 15px; font-weight: 900; color: var(--accent-emerald); font-family: var(--font-mono); margin-top: 4px;" id="cap-branches-summary">1 Included + 0 Extra = 1 Branch</div>
+                      <button type="button" class="action-btn dm-btn-secondary" id="btn-add-branch-capacity" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.addCapacity('branch');" style="margin-top: 10px; padding: 6px 12px; font-size: 11px; font-weight: 800; border-radius: 8px;">+ Add Branch (Requires Pro)</button>
+                    </div>
+                  </div>
+                  <div style="background: rgba(0,214,143,0.05); border: 1px solid rgba(0,214,143,0.2); border-radius: 12px; padding: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                      <span style="font-size: 11px; color: var(--text-gray); font-weight: 700; text-transform: uppercase;">Estimated Monthly Cost</span>
+                      <div style="font-size: 20px; font-weight: 900; color: var(--text-white); font-family: var(--font-display);" id="cap-total-monthly-estimate">PKR 3,499 / month</div>
+                    </div>
+                    <button type="button" class="action-btn dm-btn-emerald" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.activateTab('payment');" style="padding: 10px 20px; font-weight: 800; font-size: 12px; border-radius: 10px;">Proceed to Pay &amp; Upgrade 💳</button>
+                  </div>
+                </div>
               </div>
 
               <!-- Sub-Tab Panel 2: PLANS -->
-              <div class="sub-tab-panel" id="sub-panel-plans">
+              <div class="sub-tab-panel" id="sub-panel-plans" hidden aria-hidden="true">
                 <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px; margin-bottom:20px;">
                   <div>
                     <h3 style="margin:0; font-size:18px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">Upgrade Commerce License</h3>
@@ -1916,15 +2055,15 @@
                         PKR 3,499 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>
                       </div>
                       <ul style="font-size:12px; color:var(--text-muted); padding-left:18px; margin:0 0 20px; line-height:1.8;">
-                        <li><strong style="color:var(--text-white);">1 Register Terminal &amp; 1 Store Branch</strong></li>
-                        <li>Fast Point of Sale Checkout &amp; ESC/POS Printing</li>
-                        <li>Product Catalog &amp; Real-Time Inventory</li>
-                        <li>Customer Directory &amp; Credit Khata Ledger</li>
-                        <li>Suppliers &amp; Purchase Ledger</li>
-                        <li>Sales Analytics &amp; Profit Reports</li>
+                        <li><strong style="color:var(--text-white);">1 Included Terminal &amp; 1 Included Branch</strong></li>
+                        <li>Unlimited Inventory Catalog &amp; Core POS</li>
+                        <li>Offline-First Local Storage Engine</li>
+                        <li>Free CSV / XLS / XLSX Data Import</li>
+                        <li>Optional FBR Tax Capability Boundary</li>
+                        <li>Add extra terminal: PKR 1,200/mo</li>
                       </ul>
                     </div>
-                    <button class="action-btn dm-btn-secondary btn-select-tier" data-tier="STARTER" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase;">Select Starter Plan</button>
+                    <button class="action-btn dm-btn-secondary btn-select-tier" data-tier="STARTER" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.selectPlan('STARTER');" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase;">Select Starter Plan</button>
                   </div>
 
                   <!-- GROWTH / PRO TIER (Featured) -->
@@ -1938,16 +2077,15 @@
                         PKR 6,999 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>
                       </div>
                       <ul style="font-size:12px; color:var(--text-muted); padding-left:18px; margin:0 0 20px; line-height:1.8;">
-                        <li><strong style="color:var(--text-white);">Up to 3 Register Terminals &amp; 1 Store Branch</strong></li>
-                        <li><strong style="color:var(--accent-emerald);">Everything in Starter, plus:</strong></li>
+                        <li><strong style="color:var(--text-white);">2 Included Terminals &amp; 1 Included Branch</strong></li>
                         <li>Multi-Device Real-Time Cloud Sync &amp; Backup</li>
+                        <li>Deals, Combos &amp; Promotional Engine</li>
                         <li>Kitchen &amp; Bar Ticket Routing (KOT)</li>
-                        <li>Staff Security PINs &amp; Audit Logs</li>
                         <li>Automated WhatsApp Digital Receipts</li>
-                        <li>Advanced Margin &amp; Stock Forecasting</li>
+                        <li>Add extra terminal: PKR 1,000/mo | Branch: PKR 3,500/mo</li>
                       </ul>
                     </div>
-                    <button class="action-btn dm-btn-emerald btn-select-tier" data-tier="PRO" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase; box-shadow:0 4px 14px rgba(0,214,143,0.3);">Select Growth Plan</button>
+                    <button class="action-btn dm-btn-emerald btn-select-tier" data-tier="PRO" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.selectPlan('PRO');" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase; box-shadow:0 4px 14px rgba(0,214,143,0.3);">Select Growth Plan</button>
                   </div>
 
                   <!-- ENTERPRISE TIER -->
@@ -1960,21 +2098,21 @@
                         PKR 11,999 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>
                       </div>
                       <ul style="font-size:12px; color:var(--text-muted); padding-left:18px; margin:0 0 20px; line-height:1.8;">
-                        <li><strong style="color:var(--text-white);">Up to 10 Register Terminals &amp; 5 Store Branches</strong></li>
-                        <li><strong style="color:var(--text-white);">Everything in Growth, plus:</strong></li>
-                        <li><strong style="color:var(--accent-emerald);">Official FBR Fiscal POS &amp; PRAL Tax Integration</strong></li>
+                        <li><strong style="color:var(--text-white);">3 Included Terminals &amp; 2 Included Branches</strong></li>
+                        <li>Official FBR Fiscal POS &amp; PRAL Tax Integration</li>
                         <li>Multi-Branch Central HQ Dashboard &amp; Transfers</li>
+                        <li>Enterprise Multi-Branch Analytics &amp; Operations</li>
                         <li>High-Security Audit Logs &amp; Custom Roles</li>
-                        <li>24/7 Priority Support &amp; Onsite Hardware Setup</li>
+                        <li>Add extra terminal: PKR 800/mo | Branch: PKR 3,000/mo</li>
                       </ul>
                     </div>
-                    <button class="action-btn dm-btn-secondary btn-select-tier" data-tier="ENTERPRISE" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase;">Select Enterprise</button>
+                    <button class="action-btn dm-btn-secondary btn-select-tier" data-tier="ENTERPRISE" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.selectPlan('ENTERPRISE');" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase;">Select Enterprise</button>
                   </div>
                 </div>
               </div>
 
               <!-- Sub-Tab Panel: ADD-ONS MARKETPLACE -->
-              <div class="sub-tab-panel" id="sub-panel-addons">
+              <div class="sub-tab-panel" id="sub-panel-addons" hidden aria-hidden="true">
                 <div style="margin-bottom:20px;">
                   <h3 style="margin:0; font-size:18px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">Commercial Add-on Marketplace</h3>
                   <p style="margin:4px 0 0; font-size:13px; color:var(--text-gray);">Enhance your register capability with specialized compliance, multi-store HQ, marketing, and security add-ons.</p>
@@ -1991,7 +2129,7 @@
                       <div style="font-size:20px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:10px;">PKR 2,999 <span style="font-size:11px; font-weight:600; color:var(--text-gray);">/ mo</span></div>
                       <p style="font-size:12px; color:var(--text-gray); line-height:1.5; margin-bottom:16px;">Tier-1 FBR / PRAL digital fiscal invoice tagging with QR code generation &amp; automatic queue syncing.</p>
                     </div>
-                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="FBR_FISCAL" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request FBR Add-on</button>
+                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="FBR_FISCAL" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.selectAddon('FBR_FISCAL');" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request FBR Add-on</button>
                   </div>
 
                   <!-- Multi-Store HQ Add-on -->
@@ -2004,7 +2142,7 @@
                       <div style="font-size:20px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:10px;">PKR 3,999 <span style="font-size:11px; font-weight:600; color:var(--text-gray);">/ mo</span></div>
                       <p style="font-size:12px; color:var(--text-gray); line-height:1.5; margin-bottom:16px;">Centralized HQ stock transfer requests, multi-outlet sales aggregation, and inventory consolidation.</p>
                     </div>
-                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="MULTI_STORE" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request Multi-Store HQ</button>
+                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="MULTI_STORE" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.selectAddon('MULTI_STORE');" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request Multi-Store HQ</button>
                   </div>
 
                   <!-- WhatsApp Receipts Add-on -->
@@ -2017,7 +2155,7 @@
                       <div style="font-size:20px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:10px;">PKR 1,499 <span style="font-size:11px; font-weight:600; color:var(--text-gray);">/ mo</span></div>
                       <p style="font-size:12px; color:var(--text-gray); line-height:1.5; margin-bottom:16px;">Send instant PDF transaction receipts and credit statements directly to customers WhatsApp numbers.</p>
                     </div>
-                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="WHATSAPP_RECEIPTS" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request WhatsApp Add-on</button>
+                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="WHATSAPP_RECEIPTS" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.selectAddon('WHATSAPP_RECEIPTS');" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request WhatsApp Add-on</button>
                   </div>
 
                   <!-- Custom Roles Add-on -->
@@ -2030,7 +2168,7 @@
                       <div style="font-size:20px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:10px;">PKR 1,999 <span style="font-size:11px; font-weight:600; color:var(--text-gray);">/ mo</span></div>
                       <p style="font-size:12px; color:var(--text-gray); line-height:1.5; margin-bottom:16px;">Define custom cashier, supervisor, and inventory manager permissions with immutable audit trails.</p>
                     </div>
-                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="CUSTOM_ROLES" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request Custom RBAC</button>
+                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="CUSTOM_ROLES" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.selectAddon('CUSTOM_ROLES');" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request Custom RBAC</button>
                   </div>
 
                   <!-- Data Portability Add-on -->
@@ -2043,13 +2181,13 @@
                       <div style="font-size:20px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:10px;">PKR 1,499 <span style="font-size:11px; font-weight:600; color:var(--text-gray);">/ mo</span></div>
                       <p style="font-size:12px; color:var(--text-gray); line-height:1.5; margin-bottom:16px;">Automated Google Drive daily database backups and scheduled CSV/Excel business reporting exports.</p>
                     </div>
-                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="DATA_PORTABILITY" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request Data Portability</button>
+                    <button class="action-btn dm-btn-emerald btn-addon-action" data-addon-id="DATA_PORTABILITY" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.selectAddon('DATA_PORTABILITY');" style="width:100%; padding:10px; font-weight:800; font-size:11px; border-radius:8px; text-transform:uppercase;">Request Data Portability</button>
                   </div>
                 </div>
               </div>
 
-              <!-- Sub-Tab Panel 3: NAYAPAY -->
-              <div class="sub-tab-panel" id="sub-panel-nayapay">
+              <!-- Sub-Tab Panel 3: PAYMENT / NAYAPAY -->
+              <div class="sub-tab-panel" id="sub-panel-payment" hidden aria-hidden="true">
                 <div class="cloud-vault-card" id="billing-upgrade-form-container">
                   <h3 style="margin:0 0 16px; font-size:16px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">Submit NayaPay Payment Proof</h3>
 
@@ -2081,7 +2219,7 @@
                     </div>
 
                     <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:180px; border-left:1px solid rgba(255,255,255,0.08); padding-left:24px;">
-                      <span style="font-size:10px; font-weight:800; color:var(--accent-emerald); display:block; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;">Scan QR to Pay via NayaPay</span>
+                      <span style="font-size:10px; font-weight:800; color:var(--accent-emerald); display:block; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;">Scan QR / Payment Instructions</span>
                       <div style="padding:8px; background:#ffffff; border-radius:12px; width:140px; height:140px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 16px rgba(0,0,0,0.3);">
                         <img src="soban_nayapay_qr_code.png" alt="NayaPay QR Code" style="max-width:100%; max-height:100%; border-radius:6px;">
                       </div>
@@ -2121,7 +2259,7 @@
               </div>
 
               <!-- Sub-Tab Panel 4: HISTORY -->
-              <div class="sub-tab-panel" id="sub-panel-history">
+              <div class="sub-tab-panel" id="sub-panel-history" hidden aria-hidden="true">
                 <div class="cloud-vault-card">
                   <h3 style="margin:0 0 16px; font-size:16px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">Upgrade Claims History</h3>
                   <div style="overflow-x:auto;">
@@ -2143,20 +2281,95 @@
                   </div>
                 </div>
               </div>
-            </main>
+        <!-- View 10B: Revenue Control Tower (Admin Commerce Portal) -->
+        <section class="content-view" id="view-admin-commerce">
+          <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <div>
+              <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800;">Revenue Control Tower</h2>
+              <p style="margin: 4px 0 0; font-size: 13px; color: var(--text-gray);">Monetization &amp; Financial Ledger Control — Valenixia Commerce Ecosystem</p>
+            </div>
+            <button class="action-btn action-primary" id="btn-refresh-admin-commerce" style="padding: 8px 16px; font-weight: 800; font-size: 12px; border-radius: 8px;">🔄 Refresh Revenue Metrics</button>
+          </div>
+
+          <!-- Revenue Metrics Grid: Separating MRR from One-Time Revenue -->
+          <div class="kpi-grid" style="margin-bottom: 24px;">
+            <div class="kpi-card accent-emerald" style="display: flex; flex-direction: column; background: rgba(0, 214, 143, 0.05); border: 1px solid rgba(0, 214, 143, 0.2);">
+              <span class="kpi-lbl">MONTHLY RECURRING REVENUE (MRR)</span>
+              <span class="kpi-val" id="admin-mrr-value">PKR 0</span>
+              <span style="font-size: 10px; color: var(--accent-emerald); font-weight: 700; margin-top: 4px;">Active Subscriptions &amp; Add-ons</span>
+            </div>
+            <div class="kpi-card accent-blue" style="display: flex; flex-direction: column; background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2);">
+              <span class="kpi-lbl">ONE-TIME REVENUE (ARR/FBR)</span>
+              <span class="kpi-val" id="admin-onetime-value">PKR 0</span>
+              <span style="font-size: 10px; color: var(--accent-blue); font-weight: 700; margin-top: 4px;">Hardware, FBR Setup &amp; Onboarding Services</span>
+            </div>
+            <div class="kpi-card accent-amber" style="display: flex; flex-direction: column; background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.2);">
+              <span class="kpi-lbl">PENDING PAYMENT CLAIMS</span>
+              <span class="kpi-val" id="admin-pending-claims-count">0</span>
+              <span style="font-size: 10px; color: #f59e0b; font-weight: 700; margin-top: 4px;">Awaiting Admin Decision</span>
+            </div>
+            <div class="kpi-card accent-coral" style="display: flex; flex-direction: column; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2);">
+              <span class="kpi-lbl">ACTIVE IMMUTABLE QUOTES</span>
+              <span class="kpi-val" id="admin-quotes-count">0</span>
+              <span style="font-size: 10px; color: #ef4444; font-weight: 700; margin-top: 4px;">Server-Authoritative Quotes Logged</span>
+            </div>
+          </div>
+
+          <!-- Pending Payment Claims Queue -->
+          <div class="cloud-vault-card" style="margin-bottom: 24px;">
+            <h3 style="margin: 0 0 16px; font-size: 16px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Pending Payment Claims Queue</h3>
+            <div style="overflow-x: auto;">
+              <table class="pos-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                <thead>
+                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); color: var(--text-gray); text-align: left;">
+                    <th style="padding: 10px;">Submitted Date</th>
+                    <th style="padding: 10px;">Claim / Proof ID</th>
+                    <th style="padding: 10px;">Requested Tier</th>
+                    <th style="padding: 10px;">Amount (PKR)</th>
+                    <th style="padding: 10px;">RRN Reference</th>
+                    <th style="padding: 10px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-claims-tbody">
+                  <tr><td colspan="6" style="text-align: center; color: var(--text-dim); padding: 16px;">No pending payment claims in queue.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Quoted Ledger Status Table -->
+          <div class="cloud-vault-card">
+            <h3 style="margin: 0 0 16px; font-size: 16px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Server Quote Ledger Status</h3>
+            <div style="overflow-x: auto;">
+              <table class="pos-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                <thead>
+                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); color: var(--text-gray); text-align: left;">
+                    <th style="padding: 10px;">Quote ID</th>
+                    <th style="padding: 10px;">Org / Account</th>
+                    <th style="padding: 10px;">Period</th>
+                    <th style="padding: 10px;">Total Amount</th>
+                    <th style="padding: 10px;">Expires At</th>
+                    <th style="padding: 10px;">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-quotes-tbody">
+                  <tr><td colspan="6" style="text-align: center; color: var(--text-dim); padding: 16px;">No quotes generated yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
 
         <!-- View 11: Suppliers (Distributors & Purchase Ledger) -->
         <section class="content-view" id="view-suppliers">
           <div class="view-header">
-            <h2>Suppliers & Purchase Ledger</h2>
+            <h2>Suppliers &amp; Purchase Ledger</h2>
             <button class="action-btn action-success" id="btn-suppliers-create">+ Add Supplier</button>
           </div>
           
-          <div class="suppliers-split-grid" style="display: grid; grid-template-columns: 350px 1fr; gap: 24px; height: calc(100vh - 160px); align-items: start;">
+          <div class="suppliers-split-grid" style="display: grid; grid-template-columns: minmax(280px, 340px) 1fr; gap: 20px; min-height: 520px; height: calc(100vh - 160px); width: 100%;">
             <!-- Left panel: List of distributors -->
-            <div class="card-panel-wrapper" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 16px; height: 100%; display: flex; flex-direction: column; gap: 16px; overflow: hidden;">
+            <div class="card-panel-wrapper" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 16px; height: 100%; display: flex; flex-direction: column; gap: 16px; overflow: hidden; box-sizing: border-box;">
               <input type="text" id="supplier-search" class="pos-input" placeholder="Search suppliers..." style="width: 100%;" aria-label="Search suppliers...">
               <div id="supplier-list-container" style="overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;">
                 <!-- dynamic list of suppliers -->
@@ -2165,11 +2378,11 @@
             </div>
 
             <!-- Right panel: Detailed Ledger & Actions -->
-            <div class="card-panel-wrapper" id="supplier-detail-panel" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 24px; height: 100%; display:none; flex-direction: column; gap: 20px; overflow-y: auto;">
+            <div class="card-panel-wrapper" id="supplier-detail-panel" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 24px; height: 100%; display:none; flex-direction: column; gap: 20px; overflow-y: auto; box-sizing: border-box;">
               <!-- Dynamic details rendered here -->
             </div>
             
-            <div class="card-panel-wrapper" id="supplier-detail-empty" style="background: var(--panel-graphite); border: 1px dashed var(--border-titanium); border-radius: 8px; padding: 48px; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text-gray);">
+            <div class="card-panel-wrapper" id="supplier-detail-empty" style="background: var(--panel-graphite); border: 1px dashed var(--border-titanium); border-radius: 8px; padding: 48px; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text-gray); box-sizing: border-box;">
               <div>
                 <div style="display: flex; justify-content: center; margin-bottom: 20px; color: var(--accent-emerald);">
                   <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
@@ -2187,9 +2400,9 @@
             <h2>Credit Book (Udhaar/Khata Ledger)</h2>
           </div>
           
-          <div class="suppliers-split-grid" style="display: grid; grid-template-columns: 350px 1fr; gap: 24px; height: calc(100vh - 160px); align-items: start;">
+          <div class="suppliers-split-grid" style="display: grid; grid-template-columns: minmax(280px, 340px) 1fr; gap: 20px; min-height: 520px; height: calc(100vh - 160px); width: 100%;">
             <!-- Left panel: List of customers with credit -->
-            <div class="card-panel-wrapper" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 16px; height: 100%; display: flex; flex-direction: column; gap: 16px; overflow: hidden;">
+            <div class="card-panel-wrapper" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 16px; height: 100%; display: flex; flex-direction: column; gap: 16px; overflow: hidden; box-sizing: border-box;">
               <input type="text" id="credit-customer-search" class="pos-input" placeholder="Search customer credit ledger..." style="width: 100%;" aria-label="Search customer credit ledger...">
               <div id="credit-customer-list-container" style="overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;">
                 <!-- dynamic list of customers with outstanding balances -->
@@ -2530,6 +2743,8 @@
     </div>
   </div>
 
+
+
   <!-- DIALOG MODAL: DELETE STORE CONFIRMATION -->
   <div class="modal-overlay" id="modal-delete-store">
     <div class="modal-card" style="max-width:480px; border:1px solid rgba(239,68,68,0.2); background:linear-gradient(160deg,#1a1018 0%,#0e0a0d 100%);">
@@ -2622,6 +2837,24 @@
       <div class="modal-footer">
         <button class="action-btn" id="btn-cancel-reset-modal">Cancel</button>
         <button class="action-btn action-danger" id="btn-confirm-reset-modal">EXECUTE DATABASE PURGE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CANONICAL LEGAL DOCUMENT VIEWER MODAL -->
+  <div class="modal-overlay" id="modal-legal-document" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; background: rgba(4, 6, 14, 0.88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); z-index: 12000; align-items: center; justify-content: center; box-sizing: border-box;" role="dialog" aria-modal="true" aria-labelledby="legal-doc-modal-title">
+    <div class="modal-card legal-doc-modal-card" style="max-width: 720px; width: 90%; max-height: 85vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <div>
+          <h3 id="legal-doc-modal-title" style="margin: 0; font-size: 18px; font-weight: 700; color: var(--text-white);">Legal Agreement</h3>
+          <span class="legal-doc-version" id="legal-doc-modal-version" style="font-size: 11px; color: var(--accent-emerald); font-weight: 700;">Version 2.6.0</span>
+        </div>
+        <button type="button" class="btn-close-modal" id="btn-close-legal-modal" aria-label="Close document">×</button>
+      </div>
+      <div class="modal-body legal-doc-body" id="legal-doc-modal-content" style="overflow-y: auto; max-height: 60vh; padding: 16px; font-size: 13px; line-height: 1.6; color: var(--text-light); white-space: pre-wrap; word-break: break-word;"></div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 12px; border-top: 1px solid var(--border-titanium);">
+        <button type="button" class="action-btn" id="btn-close-legal-modal-footer">Close</button>
+        <button type="button" class="action-btn action-success" id="btn-ack-legal-modal">I Understand</button>
       </div>
     </div>
   </div>
@@ -3143,22 +3376,22 @@
           <!-- Interactive Full Legal Documents Section -->
           <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px;">
             <div style="font-size:10px; font-weight:800; color:#8f9cb5; letter-spacing:0.8px; text-transform:uppercase;">Legal Agreements (Tap to Review)</div>
-            <button type="button" data-legal-doc="TERMS_OF_SERVICE" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
+            <button type="button" data-legal-document="TERMS_OF_SERVICE" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
               <span>📄 Terms of Service</span><span id="wiz-legal-tos-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
             </button>
-            <button type="button" data-legal-doc="EULA" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
+            <button type="button" data-legal-document="EULA" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
               <span>📜 End User License (EULA)</span><span id="wiz-legal-eula-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
             </button>
-            <button type="button" data-legal-doc="PRIVACY_POLICY" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
+            <button type="button" data-legal-document="PRIVACY_POLICY" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
               <span>🛡️ Privacy Policy</span><span id="wiz-legal-privacy-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
             </button>
-            <button type="button" data-legal-doc="ACCEPTABLE_USE" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
+            <button type="button" data-legal-document="ACCEPTABLE_USE" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
               <span>⚖️ Acceptable Use Policy</span><span id="wiz-legal-aup-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
             </button>
-            <button type="button" data-legal-doc="FBR_DISCLAIMER" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
+            <button type="button" data-legal-document="FBR_DISCLAIMER" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
               <span>🏛️ FBR Tax Disclaimer</span><span id="wiz-legal-fbr-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
             </button>
-            <button type="button" data-legal-doc="CLOUD_SYNC_TERMS" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
+            <button type="button" data-legal-document="CLOUD_SYNC_TERMS" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
               <span>☁️ Cloud Sync Terms</span><span id="wiz-legal-cloud-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
             </button>
           </div>
@@ -3493,6 +3726,8 @@
   <!-- COMMAND PALETTE — Ctrl+K global quick navigation and product search -->
   <script src="command-palette.js"></script>
   <script src="strings.js"></script>
+  <script src="legal-documents.js"></script>
+  <script src="subscription.js"></script>
   <script src="dompurify.min.js" integrity="sha384-piCcpDdJ7qVeK4Tv8Z6Hpcr3ZBIgP16TxQTPVfsLFdZ5uDgwc3Y8Ho7oUnqf12qu" crossorigin="anonymous"></script>
   <script src="worker-inline.js"></script>
   <!-- DEALS ENGINE — Bundles / Combos / Specials / Kits -->
