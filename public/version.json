@@ -1,7 +1,7 @@
 {
   "version": "2.6.0",
-  "build_id": "v2.6.0-prod-c98f21b",
-  "git_commit": "c98f21b302be7199ca52e30013dc729a5add07c70",
+  "build_id": "v2.6.0-prod-c255f21",
+  "git_commit": "c255f213e0fa21bc99dbd49033e61424054de450",
   "updated_at": "2026-08-12",
   "changelog": "Valenixia POS v2.6.0 Customer Credit Book, Supplier Directory & Sales Analytics Engine Release.",
   "changes": [
