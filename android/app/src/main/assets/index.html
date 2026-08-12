@@ -21,11 +21,12 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   
-  <!-- Premium Font Pairing: Inter (premium navy), Fraunces (boutique headers), Outfit (headers), Manrope (interface/numbers), Literata (receipts) -->
+  <!-- Fonts: Manrope (body), Outfit (display/headings), JetBrains Mono (code) -->
+  <!-- Fraunces and Literata removed — zero usage confirmed in CSS and JS -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Manrope:wght@200..800&family=Outfit:wght@100..900&family=JetBrains+Mono:wght@400;500;700&display=swap">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Manrope:wght@200..800&family=Outfit:wght@100..900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <script src="polyfill.min.js"></script>
   <link rel="stylesheet" href="styles/design-tokens.css?v=1.0.9">
   <link rel="stylesheet" href="styles/themes.css?v=1.0.9">
@@ -3540,7 +3541,7 @@
   </div>
   <!-- DEVICE PAIRING / WHITELIST OVERLAY -->
   <div class="auth-overlay" id="device-pairing-overlay" style="display: none; z-index: 9998;">
-    <div class="auth-card" style="max-width: 480px; width: 90%; padding: 36px; background: #000000; border: 1px solid var(--border-titanium); border-radius: 4px;">
+    <div class="auth-card" style="max-width: 480px; width: 90%; padding: 36px; border: 1px solid var(--border-titanium); border-radius: 4px;">
       <div id="device-pairing-icon" style="margin-bottom: 16px; color: var(--accent-emerald); display: flex; justify-content: center;">
         <svg class="svg-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       </div>

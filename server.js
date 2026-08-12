@@ -4648,45 +4648,22 @@ app.post('/api/system/reset', checkOrigin, requireAdmin, loginLimiter, async (re
 });
 
 // 6.e Device registration and auto-approval (Public)
+// Business logic lives in lib/device-registration-service.js (shared with Vercel serverless).
 app.post('/api/devices/register', loginLimiter, requireBody({ nodeId: 'NODE_ID' }), async (req, res) => {
   const { nodeId, deviceName, userAgent } = req.body;
   if (!nodeId) {
     return res.status(400).json({ error: 'nodeId is required.' });
   }
-
   try {
-    const storeCountRow = await db.get("SELECT COUNT(*) as count FROM stores");
-    const onboarded = storeCountRow && storeCountRow.count > 0;
-
-    let status = await getDeviceStatus(nodeId);
-    // Always auto-approve master nodes regardless of onboarding state or current DB status
-    if (isMasterNode(nodeId)) {
-      status = 'APPROVED';
-    } else if (status !== 'APPROVED') {
-      status = 'PENDING';
-    }
-
-    if (status === 'APPROVED') {
-      const role = isMasterNode(nodeId) ? 'MASTER' : 'TERMINAL';
-      const token = generateToken(nodeId, role);
-      
-      const existing = await db.get("SELECT status FROM approved_devices WHERE node_id = ?", [nodeId]);
-      if (!existing) {
-        await db.run("INSERT INTO approved_devices (node_id, device_name, user_agent, approved_at, status) VALUES (?, ?, ?, ?, 'APPROVED')", [
-          nodeId, deviceName || 'Web Register', userAgent || req.headers['user-agent'] || '', Date.now()
-        ]);
-      } else if (existing.status !== 'APPROVED') {
-        // Upgrade from PENDING → APPROVED if this is a known master node
-        await db.run("UPDATE approved_devices SET status = 'APPROVED' WHERE node_id = ?", [nodeId]);
-      }
-      
-      return res.json({ status: 'APPROVED', token });
-    } else if (status === 'PENDING') {
-      return res.json({ status: 'PENDING', nodeId });
-    } else {
-      await addPendingDevice(nodeId, deviceName || 'Web Register', userAgent || req.headers['user-agent'] || '');
-      return res.json({ status: 'PENDING', nodeId });
-    }
+    const { registerDeviceSQLite } = require('./lib/device-registration-service');
+    const result = await registerDeviceSQLite({
+      nodeId,
+      deviceName,
+      userAgent: userAgent || req.headers['user-agent'] || '',
+      db,
+      jwtSecret,
+    });
+    return res.json(result);
   } catch (err) {
     console.error('[DeviceRegister] HTTP register failed:', err);
     sendError(res, err);

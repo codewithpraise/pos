@@ -9,6 +9,29 @@ function getAllFiles(dir, relativeTo = dir) {
   let results = [];
   if (!fs.existsSync(dir)) return results;
   const list = fs.readdirSync(dir);
+
+  // Debug/test-only filenames that must NEVER be bundled into the production APK
+  const EXCLUDED_FILENAMES = new Set([
+    'dm_panel.png',
+    'delete_modal_shown.png',
+    'delete_modal_shown_real.png',
+    'delete_modal_shown_real_2.png',
+    'delete_modal_step2.png',
+    'delete_pin_error.png',
+    'delete_pin_error_real.png',
+    'delete_store_modal_step1.png',
+    'delete_validation_error.png',
+    'screenshot_after.png',
+    'screenshot_before.png',
+    'screenshot_layout.png',
+    'wizard_light_theme.png',
+    'wizard_sapphire_theme.png',
+    'wizard_step1.png',
+    'wizard_step2.png',
+    'wizard_urdu_rtl.png',
+    'wizard_warm_amber_theme.png',
+  ]);
+
   list.forEach((file) => {
     const filePath = path.join(dir, file);
     const stat = fs.statSync(filePath);
@@ -20,6 +43,9 @@ function getAllFiles(dir, relativeTo = dir) {
       const ext = path.extname(file).toLowerCase();
       if (ext === '.apk' || ext === '.zip' || ext === '.exe' || ext === '.map' || ext === '.tar' || ext === '.gz') {
         return; // Never bundle installer packages or binaries into Android WebView assets
+      }
+      if (EXCLUDED_FILENAMES.has(file)) {
+        return; // Skip debug/test-only screenshots — not needed in production APK
       }
       results.push({
         absolutePath: filePath,

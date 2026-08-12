@@ -828,17 +828,20 @@ window.showLegalDocOverlay = function(docKey) {
   const existing = document.getElementById('__vx-legal-overlay');
   if (existing) existing.remove();
 
+  // Uses semantic CSS classes (vx-legal-overlay, vx-legal-card, etc.)
+  // Light/dark palette is controlled by body.theme-* overrides in components.css
   const overlay = document.createElement('div');
   overlay.id = '__vx-legal-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999999999;background:rgba(5,5,8,0.97);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(10px);';
+  overlay.className = 'vx-legal-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999999999;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);';
   overlay.innerHTML = `
-    <div style="max-width:520px;width:100%;max-height:90vh;background:#0d0d12;border:1px solid rgba(255,255,255,0.12);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 32px 64px rgba(0,0,0,0.8);">
-      <div style="padding:20px 24px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-        <span style="font-size:14px;font-weight:800;color:#fff;">${doc.title}</span>
-        <button id="__vx-legal-close" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#94a3b8;font-size:18px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">×</button>
+    <div class="vx-legal-card" style="max-width:520px;width:100%;max-height:90vh;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;">
+      <div class="vx-legal-header" style="padding:20px 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+        <span class="vx-legal-title" style="font-size:14px;font-weight:800;">${doc.title}</span>
+        <button id="__vx-legal-close" class="vx-legal-close-btn" style="border-radius:8px;font-size:18px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">×</button>
       </div>
-      <div style="overflow-y:auto;padding:20px 24px;flex:1;-webkit-overflow-scrolling:touch;color:#cbd5e1;font-size:12px;line-height:1.6;">${doc.content}</div>
-      <div style="padding:16px 24px;border-top:1px solid rgba(255,255,255,0.08);flex-shrink:0;">
+      <div class="vx-legal-body" style="overflow-y:auto;padding:20px 24px;flex:1;-webkit-overflow-scrolling:touch;font-size:12px;line-height:1.6;">${doc.content}</div>
+      <div class="vx-legal-footer" style="padding:16px 24px;flex-shrink:0;">
         <button id="__vx-legal-ack" style="width:100%;min-height:44px;background:linear-gradient(135deg,#00d68f,#10b981);border:none;border-radius:10px;color:#060d0d;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">✓ I Have Read This Document</button>
       </div>
     </div>`;
@@ -1001,79 +1004,413 @@ window.copyDiagnostics = async function() {
 window.copyValenixiaLogs = window.copyDiagnostics;
 window.copyAllDiagnosticLogs = window.copyDiagnostics;
 
-// SPLASH SCREEN TIMEOUT — Fast Boot & View Router
-(function splashTimeout() {
-  const hideSplash = () => {
-    const loader = document.getElementById('app-boot-loader');
-    if (loader && typeof window.updateBootProgress === 'function') {
-      window.updateBootProgress(100, 'Ready');
+// ============================================================================
+// VALENIXIA BOOTSTRAP STATE MACHINE
+// Single authoritative controller for all bootstrap surfaces.
+// Replaces the former 800ms timer-driven boot with a proper staged machine.
+//
+// States: BOOT → RELEASE_VALIDATION → DATABASE_DISCOVERY → INSTALLATION_DISCOVERY
+//       → DEVICE_DISCOVERY → ACCOUNT_DISCOVERY → STORE_DISCOVERY
+//       → ENTITLEMENT_DISCOVERY → DECISION
+//       → ONBOARDING | AUTH_LOCK | PAIRING_REQUIRED | PAIRING_PENDING | READY
+//       → SERVER_UNAVAILABLE | RECOVERY | ERROR
+// ============================================================================
+(function() {
+  'use strict';
+
+  // ── Surface IDs (ValenixiaBootstrap is the SOLE owner of these) ──────────
+  var SURFACES = {
+    BOOT:     'app-boot-loader',
+    WIZARD:   'first-boot-wizard',
+    LOCK:     'auth-lock-screen',
+    PAIRING:  'device-pairing-overlay',
+    LICENSE:  'license-lockout-overlay',
+    LAYOUT:   'pos-app-layout'
+  };
+
+  // ── Progress milestones per stage ────────────────────────────────────────
+  var STAGE_PROGRESS = {
+    BOOT:                   5,
+    RELEASE_VALIDATION:    15,
+    DATABASE_DISCOVERY:    35,
+    INSTALLATION_DISCOVERY:50,
+    DEVICE_DISCOVERY:      65,
+    ACCOUNT_DISCOVERY:     75,
+    STORE_DISCOVERY:       82,
+    ENTITLEMENT_DISCOVERY: 90,
+    DECISION:             100,
+    ONBOARDING:           100,
+    AUTH_LOCK:            100,
+    PAIRING_REQUIRED:     100,
+    PAIRING_PENDING:      100,
+    READY:                100,
+    SERVER_UNAVAILABLE:   100,
+    RECOVERY:             100,
+    ERROR:                100
+  };
+
+  // ── Internal state ────────────────────────────────────────────────────────
+  var _state           = 'BOOT';
+  var _prevState       = null;
+  var _stateEnteredAt  = Date.now();
+  var _stageTimeout    = null;
+  var _recoveryShown   = false;
+  var _lastApiRequest  = null;
+  var _lastApiStatus   = null;
+  var _activeSurface   = 'BOOT';
+  var _error           = null;
+
+  // ── DOM helper ───────────────────────────────────────────────────────────
+  function el(id) { return document.getElementById(id); }
+
+  // ── Splash dismiss (only called by state machine, never by a timer) ──────
+  function _dismissSplash() {
+    var loader = el('app-boot-loader');
+    var splash = el('splash-screen');
+    [loader, splash].forEach(function(node) {
+      if (!node) return;
+      node.style.transition = 'opacity 0.28s ease';
+      node.style.opacity    = '0';
+      node.style.pointerEvents = 'none';
+      setTimeout(function() {
+        try { node.style.display = 'none'; node.remove(); } catch (_) {}
+      }, 300);
+    });
+    if (document.body) document.body.classList.remove('splash-active');
+    window.bootVisualReady = true;
+  }
+
+  // ── Surface invariant ────────────────────────────────────────────────────
+  // Counts visible bootstrap surfaces and enters RECOVERY if 0 are visible.
+  function _assertSurface() {
+    var visible = 0;
+    var surfaceIds = [
+      SURFACES.BOOT, SURFACES.WIZARD, SURFACES.LOCK,
+      SURFACES.PAIRING, SURFACES.LICENSE, SURFACES.LAYOUT
+    ];
+    surfaceIds.forEach(function(id) {
+      var node = el(id);
+      if (!node) return;
+      var disp = node.style.display ||
+        (window.getComputedStyle ? window.getComputedStyle(node).display : 'none');
+      if (disp !== 'none' && disp !== '') visible++;
+    });
+    if (visible === 0 && _state !== 'BOOT' && !_recoveryShown) {
+      console.warn('[Bootstrap] Surface invariant violated (0 visible). Entering RECOVERY.');
+      ValenixiaBootstrap.enterRecovery('No bootstrap surface visible — state: ' + _state);
     }
-    const splashScreen = document.getElementById('splash-screen');
-    const bootLoader = document.getElementById('app-boot-loader');
-    [splashScreen, bootLoader].forEach(el => {
-      if (el) {
-        el.style.opacity = '0';
-        el.style.transition = 'opacity 0.25s ease';
-        el.style.pointerEvents = 'none';
-        setTimeout(() => {
-          try { el.style.display = 'none'; el.remove(); } catch (_) {}
-        }, 250);
+    return visible;
+  }
+
+  // ── Show exactly one surface ─────────────────────────────────────────────
+  function _showSurface(surfaceKey) {
+    Object.keys(SURFACES).forEach(function(key) {
+      var node = el(SURFACES[key]);
+      if (!node) return;
+      if (key === surfaceKey) {
+        node.style.display = (key === 'LAYOUT') ? 'grid' : 'flex';
+        node.classList.add('active');
+      } else {
+        node.style.display = 'none';
+        node.classList.remove('active');
       }
     });
-    if (document.body && document.body.classList) document.body.classList.remove('splash-active');
-    console.log('[Bootstrap] Splash and boot loaders hidden.');
+    _activeSurface = surfaceKey;
+  }
 
-        // ROUTING: Check if onboarding is completed in localStorage
-        const isSetupComplete = localStorage.getItem('onboarding_complete') === 'true';
-
-        const wiz = document.getElementById('first-boot-wizard');
-        const lock = document.getElementById('auth-lock-screen');
-        const layout = document.getElementById('pos-app-layout');
-
-        if (isSetupComplete) {
-          // Returning user: hide wizard, hide layout, show lock screen for PIN auth
-          if (wiz) { wiz.style.display = 'none'; wiz.classList.remove('active'); }
-          if (layout) layout.style.display = 'none';
-          if (lock)   { lock.classList.add('active'); lock.style.display = 'flex'; }
-        } else {
-          // New install -> Show Setup Wizard Step 1
-          if (wiz) { wiz.style.display = 'flex'; wiz.classList.add('active'); }
-          if (lock)   { lock.style.display = 'none'; lock.classList.remove('active'); }
-          if (layout) layout.style.display = 'none';
-        }
-
-        window.appInitialized = true;
-
-        // SAFETY NET: Ensure app view is initialized cleanly
-        setTimeout(function() {
-          try {
-            if (window.__valenixiaAuthenticated || window.appInitialized) return;
-            const layoutDisp = layout ? (layout.style.display || (window.getComputedStyle ? window.getComputedStyle(layout).display : 'none')) : 'none';
-            const isLayoutVis = layoutDisp !== 'none';
-            const anyVisible = (
-              (wiz && (wiz.style.display === 'flex' || wiz.classList.contains('active'))) ||
-              (lock && (lock.classList.contains('active') || lock.style.display === 'flex')) ||
-              isLayoutVis
-            );
-            if (!anyVisible && !window.__valenixiaAuthenticated) {
-              if (localStorage.getItem('onboarding_complete') === 'true') {
-                const lk = document.getElementById('auth-lock-screen');
-                const lay = document.getElementById('pos-app-layout');
-                if (lk) { lk.classList.add('active'); lk.style.display = 'flex'; }
-                if (lay) lay.style.display = 'none';
-              } else {
-                const wz = document.getElementById('first-boot-wizard');
-                if (wz) { wz.style.display = 'flex'; wz.classList.add('active'); }
-                const p1 = document.getElementById('wiz-panel-1');
-                if (p1) p1.style.display = 'flex';
-              }
-            }
-          } catch(e) { console.error('[Bootstrap] Safety net error:', e); }
-        }, 4000);
+  // ── Recovery overlay (shown if all other surfaces fail) ──────────────────
+  function _showRecoveryOverlay(message, stage, canRetry, canOffline) {
+    _recoveryShown = true;
+    var existing = el('__vx-boot-recovery');
+    if (existing) existing.remove();
+    var overlay = document.createElement('div');
+    overlay.id = '__vx-boot-recovery';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999999999;background:#060609;display:flex;align-items:center;justify-content:center;padding:24px;font-family:sans-serif;';
+    var retryBtn   = canRetry   ? '<button id="__vx-rec-retry" style="flex:1;padding:12px;background:#10b981;border:none;color:#000;font-weight:800;border-radius:6px;cursor:pointer;font-size:13px;min-height:44px;">&nbsp;Retry&nbsp;</button>' : '';
+    var offlineBtn = canOffline ? '<button id="__vx-rec-offline" style="flex:1;padding:12px;background:transparent;border:1px solid rgba(255,255,255,0.2);color:#9ca3af;font-weight:700;border-radius:6px;cursor:pointer;font-size:13px;min-height:44px;">Continue Offline</button>' : '';
+    var copyBtn    = '<button id="__vx-rec-copy" style="flex:1;padding:12px;background:transparent;border:1px solid rgba(255,255,255,0.1);color:#6b7280;font-weight:600;border-radius:6px;cursor:pointer;font-size:11px;min-height:44px;">Copy Diagnostics</button>';
+    overlay.innerHTML = '<div style="max-width:420px;width:100%;background:#0f0f11;border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:28px;">' +
+      '<div style="font-size:22px;margin-bottom:12px;">⚠️</div>' +
+      '<h3 style="color:#fff;font-size:16px;font-weight:800;margin:0 0 8px;">Valenixia couldn\'t complete startup</h3>' +
+      '<p style="color:#6b7280;font-size:11px;margin:0 0 4px;">Stage: <strong style="color:#94a3b8;">' + (stage || _state) + '</strong></p>' +
+      '<p style="color:#9ca3af;font-size:13px;line-height:1.6;white-space:pre-wrap;margin:12px 0 20px;">' + (message || 'An unexpected error occurred during startup.') + '</p>' +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + retryBtn + offlineBtn + copyBtn + '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    var r = el('__vx-rec-retry');
+    var o = el('__vx-rec-offline');
+    var c = el('__vx-rec-copy');
+    if (r) r.onclick = function() { window.location.reload(); };
+    if (o) o.onclick = function() {
+      overlay.remove();
+      _recoveryShown = false;
+      ValenixiaBootstrap.transition('DECISION', { offline: true });
     };
-  
-  // Fast Failsafe: hide splash after 800ms
-  setTimeout(hideSplash, 800);
+    if (c) c.onclick = function() {
+      if (typeof window.copyDiagnostics === 'function') window.copyDiagnostics();
+    };
+  }
+
+  // ── Progress update helper ────────────────────────────────────────────────
+  function _setProgress(state, text) {
+    var pct = STAGE_PROGRESS[state] || 0;
+    if (typeof window.updateBootProgress === 'function') {
+      window.updateBootProgress(pct, text || state.replace(/_/g, ' ').toLowerCase());
+    }
+  }
+
+  // ── Stage timeout helper ──────────────────────────────────────────────────
+  var STAGE_TIMEOUTS = {
+    RELEASE_VALIDATION:    5000,
+    DATABASE_DISCOVERY:   10000,
+    INSTALLATION_DISCOVERY:4000,
+    DEVICE_DISCOVERY:      8000,
+    ACCOUNT_DISCOVERY:     8000,
+    STORE_DISCOVERY:       6000,
+    ENTITLEMENT_DISCOVERY: 8000,
+    DECISION:              3000
+  };
+  function _armTimeout(stage) {
+    _clearTimeout();
+    var ms = STAGE_TIMEOUTS[stage];
+    if (!ms) return;
+    _stageTimeout = setTimeout(function() {
+      if (_state !== stage) return;
+      console.warn('[Bootstrap] Stage timeout: ' + stage);
+      ValenixiaBootstrap.enterRecovery(
+        'Stage "' + stage + '" did not complete within ' + (ms / 1000) + 's.\n\n[Retry] to reconnect or [Continue Offline] to use cached data.',
+        stage, true, stage !== 'DATABASE_DISCOVERY'
+      );
+    }, ms);
+  }
+  function _clearTimeout() {
+    if (_stageTimeout) { clearTimeout(_stageTimeout); _stageTimeout = null; }
+  }
+
+  // ── PUBLIC API ────────────────────────────────────────────────────────────
+  var ValenixiaBootstrap = {
+
+    getState: function() { return _state; },
+
+    // Transition to a new state. Called by app.js and other controllers.
+    // Other controllers MUST use this method — they must not directly toggle surface display.
+    transition: function(newState, context) {
+      if (newState === _state && newState !== 'DECISION') return;
+      _clearTimeout();
+      _prevState = _state;
+      _state     = newState;
+      _stateEnteredAt = Date.now();
+      context = context || {};
+
+      console.log('[Bootstrap] ' + _prevState + ' → ' + newState, context);
+      _setProgress(newState, context.text);
+
+      switch (newState) {
+
+        case 'RELEASE_VALIDATION':
+          _armTimeout('RELEASE_VALIDATION');
+          // Release validation is handled by app.js async chain;
+          // bootstrap just arms the timeout and waits.
+          break;
+
+        case 'DATABASE_DISCOVERY':
+          _armTimeout('DATABASE_DISCOVERY');
+          break;
+
+        case 'INSTALLATION_DISCOVERY':
+          _armTimeout('INSTALLATION_DISCOVERY');
+          break;
+
+        case 'DEVICE_DISCOVERY':
+          _armTimeout('DEVICE_DISCOVERY');
+          break;
+
+        case 'ACCOUNT_DISCOVERY':
+          _armTimeout('ACCOUNT_DISCOVERY');
+          break;
+
+        case 'STORE_DISCOVERY':
+          _armTimeout('STORE_DISCOVERY');
+          break;
+
+        case 'ENTITLEMENT_DISCOVERY':
+          _armTimeout('ENTITLEMENT_DISCOVERY');
+          break;
+
+        case 'DECISION':
+          _clearTimeout();
+          _armTimeout('DECISION');
+          var onboardingDone = (
+            localStorage.getItem('onboarding_complete') === 'true' ||
+            (context && context.onboardingComplete)
+          );
+          var offline = !!(context && context.offline);
+          _dismissSplash();
+          if (!onboardingDone) {
+            ValenixiaBootstrap.transition('ONBOARDING');
+          } else if (context && context.pairingRequired) {
+            ValenixiaBootstrap.transition('PAIRING_REQUIRED');
+          } else if (context && context.pairingPending) {
+            ValenixiaBootstrap.transition('PAIRING_PENDING');
+          } else {
+            ValenixiaBootstrap.transition('AUTH_LOCK');
+          }
+          break;
+
+        case 'ONBOARDING':
+          _clearTimeout();
+          _showSurface('WIZARD');
+          // Init wizard at step 1
+          if (typeof window.executeWizardGoTo === 'function') {
+            window.executeWizardGoTo(1, 'NEW');
+          }
+          setTimeout(_assertSurface, 300);
+          break;
+
+        case 'AUTH_LOCK':
+          _clearTimeout();
+          _showSurface('LOCK');
+          setTimeout(function() {
+            var pin = el('pin-input');
+            if (pin) pin.focus();
+          }, 300);
+          setTimeout(_assertSurface, 300);
+          // Mark fully ready AFTER lock screen is shown
+          window.appReady         = true;
+          window.appInitialized   = true; // backward compat
+          break;
+
+        case 'PAIRING_REQUIRED':
+          _clearTimeout();
+          _showSurface('PAIRING');
+          setTimeout(_assertSurface, 300);
+          break;
+
+        case 'PAIRING_PENDING':
+          _clearTimeout();
+          _showSurface('PAIRING');
+          var pendingEl = el('device-pairing-pending');
+          var formEl    = el('device-pairing-form');
+          if (pendingEl) pendingEl.style.display = 'flex';
+          if (formEl)    formEl.style.display    = 'none';
+          setTimeout(_assertSurface, 300);
+          break;
+
+        case 'READY':
+          _clearTimeout();
+          _showSurface('LAYOUT');
+          window.appReady       = true;
+          window.appInitialized = true;
+          window.__valenixiaAuthenticated = true;
+          setTimeout(_assertSurface, 300);
+          break;
+
+        case 'SERVER_UNAVAILABLE':
+          _clearTimeout();
+          _dismissSplash();
+          _showRecoveryOverlay(
+            'The server is temporarily unavailable.\n\nYou can retry the connection or continue working offline with locally cached data.',
+            context.stage || _prevState, true, true
+          );
+          break;
+
+        case 'RECOVERY':
+          _clearTimeout();
+          _dismissSplash();
+          _showRecoveryOverlay(
+            context.message || 'An unexpected error occurred during startup.',
+            context.stage   || _prevState,
+            context.canRetry  !== false,
+            context.canOffline !== false
+          );
+          break;
+
+        case 'ERROR':
+          _clearTimeout();
+          _dismissSplash();
+          _showRecoveryOverlay(
+            context.message || 'A fatal error occurred. Please reload the application.',
+            context.stage   || _prevState,
+            true, false
+          );
+          break;
+      }
+    },
+
+    // Shorthand for entering RECOVERY
+    enterRecovery: function(message, stage, canRetry, canOffline) {
+      ValenixiaBootstrap.transition('RECOVERY', {
+        message:    message,
+        stage:      stage || _state,
+        canRetry:   canRetry  !== false,
+        canOffline: canOffline !== false
+      });
+    },
+
+    // Record API requests for diagnostics
+    recordApiRequest: function(url, status) {
+      _lastApiRequest = url;
+      _lastApiStatus  = status;
+    },
+
+    // Machine-readable diagnostics — no secrets
+    debug: function() {
+      return {
+        state:            _state,
+        previousState:    _prevState,
+        stateEnteredAt:   _stateEnteredAt,
+        activeSurface:    _activeSurface,
+        visibleSurfaces:  _assertSurface(),
+        bootVisualReady:  !!window.bootVisualReady,
+        appReady:         !!window.appReady,
+        lastApiRequest:   _lastApiRequest,
+        lastApiStatus:    _lastApiStatus,
+        error:            _error
+      };
+    }
+  };
+
+  window.ValenixiaBootstrap = ValenixiaBootstrap;
+
+  // Expose boot debug function
+  window.__VALENIXIA_BOOT_DEBUG__ = function() {
+    var dbg = ValenixiaBootstrap.debug();
+    dbg.serverUrl    = window.__valenixiaServerUrl || null;
+    dbg.installationId = (typeof localStorage !== 'undefined' ? localStorage.getItem('valenixia_installation_id') : null);
+    return dbg;
+  };
+
+  // ── Kick off: enter BOOT state immediately ───────────────────────────────
+  _setProgress('BOOT', 'Initializing...');
+
+  // Hard safety net — if the state machine itself stalls (unhandled exception
+  // in app.js preventing any transition), rescue after 12s.
+  var _hardSafetyTimer = setTimeout(function() {
+    if (window.appReady || window.appInitialized || _recoveryShown) return;
+    var surfaceCount = _assertSurface();
+    if (surfaceCount === 0) {
+      console.warn('[Bootstrap] Hard safety net: no surface visible after 12s. Entering recovery.');
+      ValenixiaBootstrap.enterRecovery(
+        'The application took too long to start.\n\nThis can happen with a slow network or an old cached version.\n\nRetry to reload, or Continue Offline to use your cached data.',
+        _state, true, true
+      );
+    }
+  }, 12000);
+
+  // Cancel safety net when app becomes ready
+  Object.defineProperty(window, 'appReady', {
+    set: function(v) {
+      if (v) {
+        clearTimeout(_hardSafetyTimer);
+        window.bootVisualReady = true;
+      }
+      // Store the value
+      window._appReadyValue = v;
+    },
+    get: function() { return window._appReadyValue || false; },
+    configurable: true
+  });
+
 })();
 
 // OFFLINE HYDRATION FALLBACK — REMOVED to prevent IndexedDB dual database open contention
@@ -1167,30 +1504,36 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
 
 
 
-// Global showModal helper — production-safe with backdrop dismiss, Escape key, and no-leak guarantee
+// Global showModal helper — theme-aware, production-safe, backdrop + Escape + no-leak
+// Uses semantic CSS classes (vx-modal-card, vx-modal-title, vx-modal-body, etc.)
+// so that body.theme-monochrome-ivory overrides in components.css control the palette.
 window.showModal = function({ title, message, type = 'info', actions = [{ id: 'ok', label: 'OK', style: 'primary' }], input = null }) {
   return new Promise((resolve) => {
-    // Unique class so we can find and nuke orphans later
     const OVERLAY_CLASS = '__vx-global-modal-overlay';
 
     const overlay = document.createElement('div');
     overlay.className = OVERLAY_CLASS;
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:999999999;display:flex;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);font-family:sans-serif;';
+    // Backdrop only — actual card background is controlled by CSS classes
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:999999999;display:flex;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);font-family:inherit;';
 
     let inputHtml = '';
     if (input) {
-      inputHtml = '<input id="__modal-input" type="' + escapeHTML(input.type || 'text') + '" placeholder="' + escapeHTML(input.placeholder || '') + '" value="' + escapeHTML(input.defaultValue || '') + '" style="width:100%;margin-top:16px;padding:12px;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:6px;outline:none;font-size:14px;box-sizing:border-box;" />';
+      inputHtml = '<input id="__modal-input" class="vx-modal-input" type="' + escapeHTML(input.type || 'text') + '" placeholder="' + escapeHTML(input.placeholder || '') + '" value="' + escapeHTML(input.defaultValue || '') + '" style="width:100%;margin-top:16px;padding:12px;border-radius:6px;outline:none;font-size:14px;box-sizing:border-box;font-family:inherit;" />';
     }
+
     const buttonsHtml = actions.map(act => {
-      const bg = act.style === 'danger' ? '#ef4444' : (act.style === 'primary' ? '#10b981' : 'transparent');
-      const border = act.style === 'secondary' ? '1px solid rgba(255,255,255,0.15)' : 'none';
-      const color = act.style === 'secondary' ? '#9ca3af' : '#fff';
-      return '<button data-id="' + escapeHTML(act.id) + '" style="flex:1;padding:12px;background:' + bg + ';border:' + border + ';color:' + color + ';font-weight:700;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit;min-height:44px;touch-action:manipulation;">' + escapeHTML(act.label) + '</button>';
+      const btnClass = 'vx-modal-btn vx-modal-btn--' + (act.style || 'secondary');
+      return '<button data-id="' + escapeHTML(act.id) + '" class="' + btnClass + '" style="flex:1;padding:12px;font-weight:700;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit;min-height:44px;touch-action:manipulation;">' + escapeHTML(act.label) + '</button>';
     }).join('');
 
-    overlay.innerHTML = '<div id="__vx-modal-card" style="background:#0f0f11;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:24px;max-width:400px;width:100%;box-shadow:0 20px 40px rgba(0,0,0,0.5);"><h3 style="color:#fff;font-size:16px;font-weight:800;margin-bottom:10px;font-family:inherit;">' + escapeHTML(title) + '</h3><p style="color:#9ca3af;font-size:13px;line-height:1.6;white-space:pre-wrap;margin:0;font-family:inherit;">' + escapeHTML(message) + '</p>' + inputHtml + '<div style="display:flex;gap:12px;margin-top:24px;">' + buttonsHtml + '</div></div>';
+    overlay.innerHTML = '<div class="vx-modal-card" style="border-radius:12px;padding:24px;max-width:400px;width:100%;">' +
+      '<h3 class="vx-modal-title" style="font-size:16px;font-weight:800;margin-bottom:10px;font-family:inherit;">' + escapeHTML(title) + '</h3>' +
+      '<p class="vx-modal-body" style="font-size:13px;line-height:1.6;white-space:pre-wrap;margin:0;font-family:inherit;">' + escapeHTML(message) + '</p>' +
+      inputHtml +
+      '<div style="display:flex;gap:12px;margin-top:24px;">' + buttonsHtml + '</div>' +
+      '</div>';
 
     let settled = false;
     function settle(val) {
@@ -1201,7 +1544,6 @@ window.showModal = function({ title, message, type = 'info', actions = [{ id: 'o
       resolve(val);
     }
 
-    // Button click handlers
     overlay.querySelectorAll('button').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1210,7 +1552,6 @@ window.showModal = function({ title, message, type = 'info', actions = [{ id: 'o
       });
     });
 
-    // Backdrop click (clicking outside the card) → dismiss with first action id (usually 'cancel' or 'ok')
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) {
         const defaultId = (actions.find(a => a.style === 'secondary') || actions[0] || { id: 'cancel' }).id;
@@ -1218,7 +1559,6 @@ window.showModal = function({ title, message, type = 'info', actions = [{ id: 'o
       }
     });
 
-    // Escape key to dismiss
     function onEsc(e) {
       if (e.key === 'Escape') {
         e.preventDefault();

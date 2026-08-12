@@ -336,8 +336,12 @@ window.__realHandlers = window.__realHandlers || {};
     }
   };
 
+  // executeWizardGoTo is owned by bootstrap-init.js (which loads before app.js).
+  // We only define it here as a fallback for environments where bootstrap-init is absent.
+  if (!window.executeWizardGoTo) {
   window.executeWizardGoTo = function(step, path, dir) {
     if (path) window.__wizardCurrentPath = path;
+
     if (window.__wizardCurrentPath === 'JOIN' && step === 3) {
       step = (dir === 'back') ? 2 : 4;
     }
@@ -410,9 +414,11 @@ window.__realHandlers = window.__realHandlers || {};
     // 9. Audio Feedback
     try { if (typeof playAudioSignal === 'function') playAudioSignal('click'); } catch (_) {}
   };
+  } // end if (!window.executeWizardGoTo)
 
   let __lastWizNextTime = 0;
   let __lastWizBackTime = 0;
+
 
   window.executeWizardNext = function() {
     const now = Date.now();
@@ -1807,30 +1813,71 @@ setHtml(overlay, `
         nodeId = terminalName ? terminalName.replace(/\s+/g, '_').toLowerCase() : generateSecureRandomId('web_client_', 7);
         state.nodeId = nodeId;
       }
-      const regResp = await fetchWithTimeout(serverBase + '/api/devices/register', {
+
+      const regUrl = serverBase + '/api/devices/register';
+      if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.recordApiRequest(regUrl, null);
+
+      const regResp = await fetchWithTimeout(regUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nodeId: nodeId, deviceName: terminalName || 'Web Register' })
-      }, 1500);
-      if (regResp.ok) {
-        const regData = await regResp.json();
-        if (regData.status === 'APPROVED' && regData.token) {
-          state.deviceToken = regData.token;
-          await ValenixiaDB.put('local_preferences', {
-            key: 'device_token',
-            value_type: 'STR',
-            value_payload: regData.token,
-            is_idempotent_flag: 0,
-            updated_at: Date.now()
-          });
-          if (window.Android && typeof window.Android.setDeviceToken === 'function') {
-            window.Android.setDeviceToken(regData.token);
-          }
-          return regData.token;
+      }, 5000); // Increased from 1500ms to allow serverless cold start
+
+      if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.recordApiRequest(regUrl, regResp.status);
+
+      if (regResp.status === 404) {
+        // 404 = deployment mismatch (serverless function not deployed)
+        console.error('[App] /api/devices/register returned 404 — deployment configuration error.');
+        if (window.ValenixiaBootstrap) {
+          window.ValenixiaBootstrap.enterRecovery(
+            'The device registration endpoint was not found (HTTP 404).\n\nThis indicates a deployment configuration error. Please contact support or try reloading.\n\nYou can continue offline to use locally cached data.',
+            'DEVICE_DISCOVERY', true, true
+          );
         }
+        return null;
+      }
+
+      if (regResp.status === 429) {
+        console.warn('[App] Device registration rate limited. Will retry on next load.');
+        return null;
+      }
+
+      if (!regResp.ok) {
+        const errBody = await regResp.json().catch(() => ({}));
+        console.error('[App] Device registration failed:', regResp.status, errBody);
+        if (window.ValenixiaBootstrap && regResp.status >= 500) {
+          window.ValenixiaBootstrap.transition('SERVER_UNAVAILABLE', { stage: 'DEVICE_DISCOVERY' });
+        }
+        return null;
+      }
+
+      const regData = await regResp.json();
+      if (regData.status === 'APPROVED' && regData.token) {
+        state.deviceToken = regData.token;
+        await ValenixiaDB.put('local_preferences', {
+          key: 'device_token',
+          value_type: 'STR',
+          value_payload: regData.token,
+          is_idempotent_flag: 0,
+          updated_at: Date.now()
+        });
+        if (window.Android && typeof window.Android.setDeviceToken === 'function') {
+          window.Android.setDeviceToken(regData.token);
+        }
+        return regData.token;
+      }
+
+      if (regData.status === 'PENDING') {
+        console.log('[App] Device registration PENDING — awaiting admin approval.');
+        // Will show pairing/pending surface at DECISION
+        state.devicePending = true;
+        return null;
       }
     } catch (err) {
-      console.warn('[App] Automatic device token refresh skipped/failed:', err.message);
+      console.warn('[App] Device registration network error:', err.message);
+      if (window.ValenixiaBootstrap && (err.name === 'AbortError' || err.message?.includes('timeout'))) {
+        window.ValenixiaBootstrap.transition('SERVER_UNAVAILABLE', { stage: 'DEVICE_DISCOVERY' });
+      }
     }
     return null;
   }
@@ -1856,18 +1903,12 @@ setHtml(overlay, `
       try { if (typeof initPinPad === 'function') initPinPad(); } catch (_) {}
       try { if (typeof initWizardController === 'function') initWizardController(); } catch (_) {}
 
-      // EMERGENCY: If onboarding completed but PIN gate is not active, force it
-      setTimeout(() => {
-        const lScreen = document.getElementById('auth-lock-screen');
-        const posLayout = document.getElementById('pos-app-layout');
-        const wizOverlay = document.getElementById('first-boot-wizard');
-        if (lScreen && (lScreen.style.display === 'none' || getComputedStyle(lScreen).display === 'none') && 
-            posLayout && (posLayout.style.display === 'none' || getComputedStyle(posLayout).display === 'none') &&
-            (!wizOverlay || wizOverlay.style.display === 'none' || getComputedStyle(wizOverlay).display === 'none')) {
-          lScreen.style.display = 'flex';
-          lScreen.classList.add('active');
-        }
-      }, 500);
+
+      // Notify bootstrap state machine: RELEASE_VALIDATION → DATABASE_DISCOVERY
+      if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('RELEASE_VALIDATION', { text: 'Validating release...' });
+      // Brief yield to let progress update render
+      await new Promise(r => setTimeout(r, 50));
+      if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('DATABASE_DISCOVERY', { text: 'Opening database...' });
 
       updateBootProgress(20, 'Initializing database...');
 
@@ -2168,9 +2209,17 @@ setHtml(overlay, `
         } catch (verifyErr) {}
       }
 
+      // Advance: INSTALLATION_DISCOVERY → DEVICE_DISCOVERY
+      if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('DEVICE_DISCOVERY', { text: 'Registering device...' });
+
       if (!deviceToken && location.protocol !== 'file:' && serverBase && serverBase.startsWith('http')) {
         console.log(`[App] Obtaining fresh device token for ${nodeId} via HTTP...`);
         deviceToken = await refreshDeviceToken();
+        // If bootstrap entered RECOVERY or SERVER_UNAVAILABLE, stop init here
+        if (window.ValenixiaBootstrap) {
+          const bState = window.ValenixiaBootstrap.getState();
+          if (bState === 'RECOVERY' || bState === 'SERVER_UNAVAILABLE' || bState === 'ERROR') return;
+        }
       }
       state.deviceToken = deviceToken;
     } catch (e) {
@@ -2277,7 +2326,16 @@ setHtml(overlay, `
       } catch (err) {}
     }, 5 * 60 * 1000);
     updateBootProgress(100, 'Ready');
-    window.appInitialized = true;
+    // Drive state machine to DECISION — it will route to ONBOARDING, AUTH_LOCK, or PAIRING
+    if (window.ValenixiaBootstrap) {
+      window.ValenixiaBootstrap.transition('DECISION', {
+        onboardingComplete: localStorage.getItem('onboarding_complete') === 'true',
+        pairingRequired:    !!(state.devicePending),
+      });
+    } else {
+      // Fallback for environments where state machine unavailable
+      window.appInitialized = true;
+    }
     runAutomatedSystemAudit();
   }
 
