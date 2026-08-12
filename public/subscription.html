@@ -242,9 +242,9 @@
         </div>
 
         <!-- Cycle Switcher Toggle -->
-        <div style="display:flex; gap:6px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:5px; border-radius:12px;" id="billing-cycle-toggle-group">
-          <button type="button" class="billing-cycle-btn active" id="btn-billing-cycle-monthly" data-cycle="subscription" style="padding:8px 16px; font-size:11px; font-weight:800; border:none; border-radius:8px; cursor:pointer; background:var(--accent-emerald); color:#080810; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.2s;">Monthly Subscription</button>
-          <button type="button" class="billing-cycle-btn" id="btn-billing-cycle-lifetime" data-cycle="lifetime" style="padding:8px 16px; font-size:11px; font-weight:800; border:none; border-radius:8px; cursor:pointer; background:transparent; color:var(--text-gray); text-transform:uppercase; letter-spacing:0.5px; transition:all 0.2s;">Perpetual + AMC</button>
+        <div style="display:flex; gap:6px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:5px; border-radius:12px;" id="billing-cycle-toggle-group" class="billing-cycle-toggle">
+          <button type="button" class="billing-cycle-btn active" id="btn-billing-cycle-monthly" data-cycle="subscription" style="padding:8px 16px; font-size:11px; font-weight:800; border:none; border-radius:8px; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.2s;">Monthly Subscription</button>
+          <button type="button" class="billing-cycle-btn" id="btn-billing-cycle-lifetime" data-cycle="lifetime" style="padding:8px 16px; font-size:11px; font-weight:800; border:none; border-radius:8px; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.2s;">Perpetual + AMC</button>
         </div>
       </div>
 
@@ -274,7 +274,7 @@
 
         <!-- GROWTH / PRO TIER (Featured) -->
         <div class="pricing-card featured" data-tier="PRO">
-          <span class="pricing-badge">Most Popular</span>
+          <span class="pricing-badge badge-most-popular">Most Popular</span>
           <div>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
               <h4 style="margin:0; font-size:16px; font-weight:800; color:var(--accent-emerald); font-family:var(--font-display);">GROWTH (PRO)</h4>

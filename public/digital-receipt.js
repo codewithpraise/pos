@@ -41,11 +41,11 @@
 
       const encoder = new TextEncoder();
       
-      // Try canonical serialization variants (id vs transactionId, numeric ts)
+      // Try canonical serialization variants (id vs transactionId, minor vs major units, numeric ts)
       const txId = (data.transactionId || data.id || '').toString();
-      const sub = Number(data.subtotal !== undefined ? data.subtotal : (data.subtotal_minor_units || 0));
-      const txTax = Number(data.tax !== undefined ? data.tax : (data.tax_minor_units || 0));
-      const txTotal = Number(data.total !== undefined ? data.total : (data.total_minor_units || 0));
+      const subRaw = Number(data.subtotal !== undefined ? data.subtotal : (data.subtotal_minor_units || 0));
+      const taxRaw = Number(data.tax !== undefined ? data.tax : (data.tax_minor_units || 0));
+      const totalRaw = Number(data.total !== undefined ? data.total : (data.total_minor_units || 0));
       let ts = 0;
       if (typeof data.timestamp === 'number') ts = data.timestamp;
       else if (typeof data.created_at_epoch === 'number') ts = data.created_at_epoch;
@@ -53,9 +53,21 @@
       else if (data.timestamp) ts = new Date(data.timestamp).getTime();
       else if (data.created_at) ts = new Date(data.created_at).getTime();
 
+      const subMinor = subRaw < 100000 ? Math.round(subRaw * 100) : subRaw;
+      const taxMinor = taxRaw < 100000 ? Math.round(taxRaw * 100) : taxRaw;
+      const totalMinor = totalRaw < 100000 ? Math.round(totalRaw * 100) : totalRaw;
+
+      const subMajor = subRaw >= 100000 ? Math.round(subRaw / 100) : subRaw;
+      const taxMajor = taxRaw >= 100000 ? Math.round(taxRaw / 100) : taxRaw;
+      const totalMajor = totalRaw >= 100000 ? Math.round(totalRaw / 100) : totalRaw;
+
       const payloads = [
-        JSON.stringify({ id: txId, subtotal: sub, tax: txTax, total: txTotal, timestamp: ts }),
-        JSON.stringify({ transactionId: txId, subtotal: sub, tax: txTax, total: txTotal, timestamp: ts })
+        JSON.stringify({ id: txId, subtotal: subRaw, tax: taxRaw, total: totalRaw, timestamp: ts }),
+        JSON.stringify({ transactionId: txId, subtotal: subRaw, tax: taxRaw, total: totalRaw, timestamp: ts }),
+        JSON.stringify({ id: txId, subtotal: subMinor, tax: taxMinor, total: totalMinor, timestamp: ts }),
+        JSON.stringify({ transactionId: txId, subtotal: subMinor, tax: taxMinor, total: totalMinor, timestamp: ts }),
+        JSON.stringify({ id: txId, subtotal: subMajor, tax: taxMajor, total: totalMajor, timestamp: ts }),
+        JSON.stringify({ transactionId: txId, subtotal: subMajor, tax: taxMajor, total: totalMajor, timestamp: ts })
       ];
 
       for (const payload of payloads) {

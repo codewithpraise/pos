@@ -5176,13 +5176,13 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
         currentCycle = cycle;
         if (cycle === 'lifetime') {
           if (btnMonthly) {
-            btnMonthly.style.background = 'transparent';
-            btnMonthly.style.color = 'var(--text-gray)';
+            btnMonthly.style.background = '';
+            btnMonthly.style.color = '';
             btnMonthly.classList.remove('active');
           }
           if (btnLifetime) {
-            btnLifetime.style.background = 'var(--accent-emerald)';
-            btnLifetime.style.color = '#fff';
+            btnLifetime.style.background = '';
+            btnLifetime.style.color = '';
             btnLifetime.classList.add('active');
           }
           if (priceStarter) priceStarter.textContent = pricingData.lifetime.STARTER.text;
@@ -5190,13 +5190,13 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
           if (priceEnterprise) priceEnterprise.textContent = pricingData.lifetime.ENTERPRISE.text;
         } else {
           if (btnLifetime) {
-            btnLifetime.style.background = 'transparent';
-            btnLifetime.style.color = 'var(--text-gray)';
+            btnLifetime.style.background = '';
+            btnLifetime.style.color = '';
             btnLifetime.classList.remove('active');
           }
           if (btnMonthly) {
-            btnMonthly.style.background = 'var(--accent-emerald)';
-            btnMonthly.style.color = '#fff';
+            btnMonthly.style.background = '';
+            btnMonthly.style.color = '';
             btnMonthly.classList.add('active');
           }
           if (priceStarter) priceStarter.textContent = pricingData.subscription.STARTER.text;
@@ -16781,10 +16781,10 @@ setHtml(modal, `
         if (typeof playAudioSignal === 'function') playAudioSignal('click');
         btnMonthly.classList.add('active');
         btnLifetime.classList.remove('active');
-        btnMonthly.style.background = 'var(--accent-emerald)';
-        btnMonthly.style.color = '#fff';
-        btnLifetime.style.background = 'transparent';
-        btnLifetime.style.color = 'var(--text-gray)';
+        btnMonthly.style.background = '';
+        btnMonthly.style.color = '';
+        btnLifetime.style.background = '';
+        btnLifetime.style.color = '';
         currentBillingCycle = 'subscription';
         updatePriceDisplays();
       });
@@ -16793,10 +16793,10 @@ setHtml(modal, `
         if (typeof playAudioSignal === 'function') playAudioSignal('click');
         btnLifetime.classList.add('active');
         btnMonthly.classList.remove('active');
-        btnLifetime.style.background = 'var(--accent-emerald)';
-        btnLifetime.style.color = '#fff';
-        btnMonthly.style.background = 'transparent';
-        btnMonthly.style.color = 'var(--text-gray)';
+        btnLifetime.style.background = '';
+        btnLifetime.style.color = '';
+        btnMonthly.style.background = '';
+        btnMonthly.style.color = '';
         currentBillingCycle = 'lifetime';
         updatePriceDisplays();
       });

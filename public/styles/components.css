@@ -6583,22 +6583,34 @@ body.theme-monochrome-ivory #view-subscription .subscription-sidebar {
 }
 
 body.theme-monochrome-ivory #view-subscription .billing-cycle-toggle,
-body.theme-monochrome-ivory #view-subscription .billing-toggle-btn {
+body.theme-monochrome-ivory #view-subscription #billing-cycle-toggle-group {
   background: #eae8e1 !important;
   border: 1px solid rgba(0, 0, 0, 0.15) !important;
-  color: #111111 !important;
-  font-weight: 800 !important;
 }
 
+body.theme-monochrome-ivory #view-subscription .billing-cycle-btn,
+body.theme-monochrome-ivory #view-subscription .billing-toggle-btn {
+  background: transparent !important;
+  color: #444444 !important;
+  font-weight: 700 !important;
+}
+
+body.theme-monochrome-ivory #view-subscription .billing-cycle-btn.active,
 body.theme-monochrome-ivory #view-subscription .billing-toggle-btn.active {
-  background: #111111 !important;
+  background: #00a86b !important;
   color: #ffffff !important;
+  font-weight: 800 !important;
+  box-shadow: 0 2px 8px rgba(0, 168, 107, 0.25) !important;
 }
 
-body.theme-monochrome-ivory #view-subscription .badge-most-popular {
-  background: #111111 !important;
+body.theme-monochrome-ivory #view-subscription .badge-most-popular,
+body.theme-monochrome-ivory #view-subscription .pricing-badge,
+body.theme-monochrome-ivory #view-subscription .pricing-card.featured > span {
+  background: #00a86b !important;
   color: #ffffff !important;
-  border: 1px solid #111111 !important;
+  font-weight: 800 !important;
+  border: none !important;
+  box-shadow: 0 2px 6px rgba(0, 168, 107, 0.25) !important;
 }
 
 body.theme-monochrome-ivory #view-subscription .sub-nav-item {
