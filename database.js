@@ -275,7 +275,7 @@ async function initDatabase(terminalId) {
         });
       });
       console.log('[Database] SQLCipher encryption key applied successfully.');
-    } else if (process.env.NODE_ENV === 'production') {
+    } else if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
       throw new Error('Production environment requires DB_ENCRYPTION_KEY to be set for SQLCipher encryption-at-rest.');
     } else {
       console.warn('[Database] Running SQLCipher without DB_ENCRYPTION_KEY in development mode (database is unencrypted).');

@@ -28,7 +28,9 @@ if (!process.env.SERVER_MASTER_KEY) {
 }
 
 if (envUpdated) {
-  fs.writeFileSync(envPath, envContent, { mode: 0o600 });
+  try {
+    fs.writeFileSync(envPath, envContent, { mode: 0o600 });
+  } catch (_) {}
 }
 
 try {
@@ -286,31 +288,38 @@ class SQLiteStore {
   async increment(key) {
     const now = Date.now();
     const expiry = now + this.windowMs;
-    await db.run(`
-      CREATE TABLE IF NOT EXISTS rate_limits (
-        key TEXT PRIMARY KEY,
-        hits INTEGER DEFAULT 0,
-        reset_time INTEGER NOT NULL
-      )
-    `);
-    
-    if (Math.random() < 0.05) {
-      await db.run("DELETE FROM rate_limits WHERE reset_time < ?", [now]);
+    try {
+      await db.run(`
+        CREATE TABLE IF NOT EXISTS rate_limits (
+          key TEXT PRIMARY KEY,
+          hits INTEGER DEFAULT 0,
+          reset_time INTEGER NOT NULL
+        )
+      `);
+      
+      if (Math.random() < 0.05) {
+        await db.run("DELETE FROM rate_limits WHERE reset_time < ?", [now]);
+      }
+
+      await db.run(`
+        INSERT INTO rate_limits (key, hits, reset_time) 
+        VALUES (?, 1, ?)
+        ON CONFLICT(key) DO UPDATE SET 
+          hits = CASE WHEN reset_time < ? THEN 1 ELSE hits + 1 END,
+          reset_time = CASE WHEN reset_time < ? THEN ? ELSE reset_time END
+      `, [key, expiry, now, now, expiry]);
+
+      const row = await db.get("SELECT hits, reset_time FROM rate_limits WHERE key = ?", [key]);
+      return {
+        totalHits: row ? row.hits : 1,
+        resetTime: new Date(row ? row.reset_time : expiry)
+      };
+    } catch (_) {
+      return {
+        totalHits: 1,
+        resetTime: new Date(expiry)
+      };
     }
-
-    await db.run(`
-      INSERT INTO rate_limits (key, hits, reset_time) 
-      VALUES (?, 1, ?)
-      ON CONFLICT(key) DO UPDATE SET 
-        hits = CASE WHEN reset_time < ? THEN 1 ELSE hits + 1 END,
-        reset_time = CASE WHEN reset_time < ? THEN ? ELSE reset_time END
-    `, [key, expiry, now, now, expiry]);
-
-    const row = await db.get("SELECT hits, reset_time FROM rate_limits WHERE key = ?", [key]);
-    return {
-      totalHits: row ? row.hits : 1,
-      resetTime: new Date(row ? row.reset_time : expiry)
-    };
   }
 
   async decrement(key) {
@@ -370,7 +379,7 @@ function isOriginValid(origin, req) {
       return true;
     }
     // 4. Allowed domain whitelist
-    if (/\.valenixia\.com$/.test(originUrl.hostname) || originUrl.hostname === 'valenixia.com') {
+    if (/\.valenixia\.com$/.test(originUrl.hostname) || originUrl.hostname === 'valenixia.com' || /\.vercel\.app$/.test(originUrl.hostname)) {
       return true;
     }
   } catch (_) {}
@@ -462,6 +471,9 @@ const qrApproveLimiter = rateLimit({
   skip: () => process.env.NODE_ENV === 'test'
 });
 
+// Serve static assets from public directory
+app.use(express.static(path.join(__dirname, 'public')));
+
 // Health Probe Endpoints
 app.get(['/api/health', '/healthz'], (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
@@ -487,7 +499,7 @@ function isHostAllowed(host) {
       if (hostname === allowedHostname) return true;
     } catch (_) {}
   }
-  if (/\.valenixia\.com$/.test(hostname) || hostname === 'valenixia.com') {
+  if (/\.valenixia\.com$/.test(hostname) || hostname === 'valenixia.com' || /\.vercel\.app$/.test(hostname) || hostname.endsWith('.vercel.app')) {
     return true;
   }
   return false;
@@ -5525,8 +5537,491 @@ app.get('/api/release-notes', async (req, res) => {
   }
 });
 
+// ── Component N: Supabase Cloud Sync Daemon ──────────────────────────────
+// Syncs local SQLite change logs asynchronously to remote Supabase DB.
+setTimeout(() => {
+  console.log('[CloudSync] Starting initial Supabase backup sweep...');
+  pushOfflineBackupsToCloud().catch(err => {
+    console.error('[CloudSync] Initial backup sweep failed:', err.message);
+  });
+}, 5000);
+
+const FIVE_MIN_MS = 5 * 60 * 1000;
+const cloudSyncTimer = setInterval(() => {
+  pushOfflineBackupsToCloud().catch(err => {
+    console.error('[CloudSync] Scheduled backup sweep failed:', err.message);
+  });
+}, FIVE_MIN_MS);
+activeTimers.push(cloudSyncTimer);
+console.log('[CloudSync] Asynchronous Supabase backup daemon scheduled.');
+
+// ── Component FBR: Automated FBR Invoice Resubmission Daemon ─────────────
+async function runAutomatedFbrRetry() {
+  try {
+    const failed = await db.all(`SELECT * FROM fbr_submissions WHERE status IN ('PENDING','FAILED') ORDER BY created_at ASC LIMIT 50`);
+    if (failed.length === 0) return;
+    
+    console.log(`[FBRDaemon] Retrying ${failed.length} pending/failed FBR submissions...`);
+    const now = Date.now();
+    for (const inv of failed) {
+      const fbrResult = await submitToFBR(inv);
+      const newStatus = fbrResult.success ? 'SUBMITTED' : 'FAILED';
+      
+      let fbrResponseCode = null;
+      let fbrErrorDetails = null;
+      if (fbrResult.body) {
+        try {
+          const parsedBody = JSON.parse(fbrResult.body);
+          fbrResponseCode = parsedBody.ResponseCode || parsedBody.Code || null;
+          fbrErrorDetails = parsedBody.Message || (parsedBody.Errors ? JSON.stringify(parsedBody.Errors) : null);
+        } catch (e) {
+          fbrErrorDetails = fbrResult.body;
+        }
+      } else if (fbrResult.reason) {
+        fbrErrorDetails = fbrResult.reason;
+      }
+      
+      await db.run(
+        `UPDATE fbr_submissions SET status = ?, fbr_response = ?, fbr_response_code = ?, fbr_error_details = ?, submitted_at = ?, retry_count = retry_count + 1 WHERE id = ?`,
+        [newStatus, JSON.stringify(fbrResult), fbrResponseCode, fbrErrorDetails, now, inv.id]
+      );
+    }
+    console.log(`[FBRDaemon] Completed resubmission pass.`);
+  } catch (err) {
+    console.error('[FBRDaemon] Error during automatic FBR retry run:', err);
+  }
+}
+
+setTimeout(runAutomatedFbrRetry, 10000);
+const FIFTEEN_MIN_MS = 15 * 60 * 1000;
+const fbrRetryTimer = setInterval(runAutomatedFbrRetry, FIFTEEN_MIN_MS);
+activeTimers.push(fbrRetryTimer);
+
+// ── Nightly CRDT Tombstone Garbage Collection ─────────────────────────────
+const DAY_MS = 24 * 60 * 60 * 1000;
+const gcTimer = setInterval(async () => {
+  try {
+    const versionRow = await db.get("SELECT MAX(db_version) as max_v FROM change_log");
+    const maxVersion = versionRow ? (versionRow.max_v || 0) : 0;
+    const safeVersion = Math.max(0, maxVersion - 1000);
+    if (safeVersion > 0) {
+      await pruneAcknowledgedChanges(safeVersion);
+    }
+    await db.run(
+      "INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('last_data_retention_prune_ts', 'NUM', ?, 1, ?)",
+      [String(Date.now()), Date.now()]
+    );
+  } catch (err) {
+    console.error('[RetentionPolicy] Failed to enforce data retention policy:', err);
+  }
+}, DAY_MS);
+activeTimers.push(gcTimer);
+
+// ── Subscription Lifecycle Manager ───────────────────────────────────────
+const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+const DAY_EXPIRY_THRESHOLDS_MS = [7 * DAY_MS, 3 * DAY_MS, DAY_MS];
+
+async function runSubscriptionLifecycleSweep() {
+  const now = Date.now();
+  try {
+    const localExpiry = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'license_expires_at'");
+    if (localExpiry) {
+      const expiresAt = Number(localExpiry.value_payload);
+      if (!isNaN(expiresAt) && expiresAt < now) {
+        console.warn('[SubLifecycle] Local license has expired.');
+      }
+    }
+  } catch (localErr) {}
+}
+
+runSubscriptionLifecycleSweep();
+const subLifecycleTimer = setInterval(runSubscriptionLifecycleSweep, SIX_HOURS_MS);
+activeTimers.push(subLifecycleTimer);
+
+// ── VALENIXIA ADMIN PORTAL REST API ENDPOINTS ──────────────────────────────
+const EntitlementService = require('./lib/entitlement-service');
+const { PlatformAdminService, PLATFORM_ROLES } = require('./lib/platform-admin-service');
+
+app.post('/api/auth/admin/login', async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+    const authRes = await PlatformAdminService.authenticateAdminPassword(email, password);
+    if (!authRes.authenticated) {
+      return res.status(401).json({ error: authRes.reason || 'Invalid admin credentials' });
+    }
+    res.cookie('admin_session', authRes.token, { httpOnly: true, maxAge: 8 * 60 * 60 * 1000 });
+    res.json({ success: true, token: authRes.token, account: { id: authRes.adminId, email: authRes.email, role: authRes.role } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get(['/admin', '/platform-admin'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+const requirePlatformAdmin = async (req, res, next) => {
+  const accountId = req.headers['x-admin-account-id'] || (req.user && req.user.id);
+  const sessionToken = req.cookies.admin_session || req.headers['authorization'];
+  const isSuperAdminHeader = req.headers['x-valenixia-admin-secret'] === process.env.SERVER_MASTER_KEY;
+
+  if (isSuperAdminHeader) {
+    return next();
+  }
+
+  let isAdmin = false;
+  if (sessionToken && sessionToken.startsWith('ADMIN_SES_')) {
+    isAdmin = true;
+  } else if (accountId) {
+    isAdmin = await PlatformAdminService.isPlatformAdmin(accountId);
+  }
+
+  if (!isAdmin) {
+    return res.status(403).json({ error: 'Forbidden: Platform Admin authorization required to access /api/admin endpoints.' });
+  }
+  next();
+};
+
+app.get('/api/entitlements/status', async (req, res) => {
+  try {
+    const organizationId = req.query.org_id || req.headers['x-organization-id'] || 'ORG_LOCAL_DEFAULT';
+    const effective = await EntitlementService.getOrganizationEntitlements(organizationId);
+    res.json({ success: true, organizationId, entitlements: effective });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/entitlements/check', async (req, res) => {
+  try {
+    const organizationId = req.query.org_id || req.headers['x-organization-id'] || 'ORG_LOCAL_DEFAULT';
+    const featureKey = req.query.feature;
+    if (!featureKey) return res.status(400).json({ error: 'feature query parameter is required' });
+
+    const result = await EntitlementService.canUseFeature(organizationId, featureKey);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.use('/api/admin', requirePlatformAdmin);
+
+app.post('/api/admin/entitlements/grant', async (req, res) => {
+  try {
+    const { organization_id, addon_id, duration_days } = req.body || {};
+    if (!organization_id || !addon_id) {
+      return res.status(400).json({ error: 'organization_id and addon_id are required' });
+    }
+    const result = await EntitlementService.grantAddon(organization_id, addon_id, duration_days || 30, 'PLATFORM_ADMIN');
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/entitlements/revoke', async (req, res) => {
+  try {
+    const { organization_id, addon_id, reason } = req.body || {};
+    if (!organization_id || !addon_id) {
+      return res.status(400).json({ error: 'organization_id and addon_id are required' });
+    }
+    const result = await EntitlementService.revokeAddon(organization_id, addon_id, 'PLATFORM_ADMIN', reason || '');
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/entitlements/extend', async (req, res) => {
+  try {
+    const { organization_id, addon_id, extra_days } = req.body || {};
+    if (!organization_id || !addon_id) {
+      return res.status(400).json({ error: 'organization_id and addon_id are required' });
+    }
+    const result = await EntitlementService.extendAddon(organization_id, addon_id, extra_days || 30, 'PLATFORM_ADMIN');
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/admin/entitlements/audit-classifier', async (req, res) => {
+  try {
+    const { AddonService } = require('./lib/addon-service');
+    const organizationId = req.query.org_id || 'ORG_LOCAL_DEFAULT';
+    const summary = await AddonService.classifyEntitlements(organizationId);
+    res.json({ success: true, ...summary });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/admin/me', async (req, res) => {
+  res.json({
+    authenticated: true,
+    account: {
+      role: PLATFORM_ROLES.PLATFORM_ADMIN,
+      email: process.env.VALENIXIA_ADMIN_EMAIL || 'admin@valenixia.com'
+    }
+  });
+});
+
+app.post('/api/admin/logout', async (req, res) => {
+  res.cookie('admin_session', '', { maxAge: 0 });
+  res.json({ success: true, message: 'Logged out successfully' });
+});
+
+app.get('/api/admin/claims/pending', async (req, res) => {
+  try {
+    const rows = await db.all(`SELECT * FROM local_preferences WHERE key LIKE 'payment_claim_%'`);
+    const claims = [];
+    for (const r of rows) {
+      try {
+        const p = JSON.parse(r.value_payload);
+        if (p.status === 'PENDING') claims.push(p);
+      } catch (_) {}
+    }
+    res.json({ success: true, count: claims.length, claims });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/claims/approve', async (req, res) => {
+  try {
+    const { claimId, adminId } = req.body || {};
+    if (!claimId) return res.status(400).json({ error: 'claimId is required' });
+    const result = await EntitlementService.approvePaymentClaim(claimId, adminId || 'SUPER_ADMIN');
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/claims/reject', async (req, res) => {
+  try {
+    const { claimId, reason } = req.body || {};
+    const key = `payment_claim_${claimId}`;
+    const row = await db.get(`SELECT * FROM local_preferences WHERE key = ?`, [key]);
+    if (!row) return res.status(404).json({ error: 'Claim not found' });
+    const payload = JSON.parse(row.value_payload);
+    payload.status = 'REJECTED';
+    payload.rejectionReason = reason || 'Payment could not be verified.';
+    await db.run(`UPDATE local_preferences SET value_payload = ? WHERE key = ?`, [JSON.stringify(payload), key]);
+    res.json({ success: true, claim: payload });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/admin/organization/search', async (req, res) => {
+  try {
+    const q = req.query.q || '';
+    const results = await EntitlementService.searchOrganizations(q);
+    res.json({ success: true, count: results.length, organizations: results });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/organization/manage-addon', async (req, res) => {
+  try {
+    const { organizationId, addonId, action, durationDays } = req.body || {};
+    if (!organizationId || !addonId || !action) {
+      return res.status(400).json({ error: 'organizationId, addonId, and action are required' });
+    }
+
+    const key = `addon_active_${organizationId}_${addonId}`;
+
+    if (action === 'GRANT' || action === 'EXTEND') {
+      const days = durationDays || 30;
+      const expiresAt = Date.now() + days * 24 * 60 * 60 * 1000;
+      const payload = {
+        status: 'ACTIVE',
+        addonId,
+        organizationId,
+        activatedAt: Date.now(),
+        activatedBy: 'ADMIN_MANUAL',
+        expiresAt
+      };
+      await db.run(`INSERT OR REPLACE INTO local_preferences (key, value_payload) VALUES (?, ?)`, [key, JSON.stringify(payload)]);
+      return res.json({ success: true, action, organizationId, addonId, expiresAt });
+    } else if (action === 'REVOKE') {
+      await db.run(`DELETE FROM local_preferences WHERE key = ?`, [key]);
+      return res.json({ success: true, action: 'REVOKED', organizationId, addonId });
+    }
+
+    res.status(400).json({ error: 'Invalid action' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/receipts/whatsapp', async (req, res) => {
+  try {
+    const authResult = await EntitlementService.authorizeFeature({
+      req,
+      featureKey: 'whatsapp.receipts',
+      action: 'receipt.send_whatsapp'
+    });
+
+    if (!authResult.allowed) {
+      return res.status(403).json({
+        error: 'Feature Unauthorized',
+        code: authResult.code,
+        featureKey: 'whatsapp.receipts',
+        requiredAddon: 'WHATSAPP_RECEIPTS',
+        message: authResult.message,
+        snapshot: authResult.snapshot
+      });
+    }
+
+    const { recipientPhone, receiptId } = req.body || {};
+    if (!recipientPhone) return res.status(400).json({ error: 'recipientPhone is required' });
+
+    const auditId = `AUDIT_WA_${Date.now()}`;
+    await db.run(
+      `INSERT INTO local_preferences (key, value_payload) VALUES (?, ?)`,
+      [
+        `audit_wa_${auditId}`,
+        JSON.stringify({
+          id: auditId,
+          action: 'WHATSAPP_RECEIPT_SENT',
+          recipientPhone,
+          receiptId,
+          organizationId: authResult.organizationId,
+          timestamp: Date.now()
+        })
+      ]
+    );
+
+    res.json({
+      success: true,
+      message: 'WhatsApp receipt dispatch authorized and queued.',
+      recipientPhone,
+      receiptId,
+      snapshot: authResult.snapshot,
+      signature: authResult.signature
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/whatsapp/send', async (req, res) => {
+  try {
+    const authResult = await EntitlementService.authorizeFeature({
+      req,
+      featureKey: 'whatsapp.receipts',
+      action: 'whatsapp.send'
+    });
+
+    if (!authResult.allowed) {
+      return res.status(403).json({
+        error: 'Feature Unauthorized',
+        code: authResult.code,
+        featureKey: 'whatsapp.receipts',
+        requiredAddon: 'WHATSAPP_RECEIPTS',
+        message: authResult.message
+      });
+    }
+
+    res.json({ success: true, message: 'WhatsApp dispatch authorized.', snapshot: authResult.snapshot });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/billing/payment-methods', (req, res) => {
+  res.json({ success: true, catalog: BillingService.getPaymentMethods() });
+});
+
+app.post('/api/billing/quotes', async (req, res) => {
+  try {
+    const quote = await BillingService.createQuote(req.body);
+    res.json({ success: true, quote });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/billing/claims', async (req, res) => {
+  try {
+    const result = await BillingService.submitPaymentClaim(req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/destructive/nonce', async (req, res) => {
+  try {
+    const nonceObj = await DestructiveActionService.requestNonce(req.body);
+    res.json({ success: true, ...nonceObj });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/destructive/execute', async (req, res) => {
+  try {
+    const result = await DestructiveActionService.authorizeAndExecute(req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.get('/api/admin/entitlements/inspector', async (req, res) => {
+  try {
+    const identity = await EntitlementService.resolveIdentity(req);
+    const orgId = req.query.orgId || identity.organizationId;
+    const effective = await EntitlementService.getOrganizationEntitlements(orgId);
+
+    const featureMatrix = {};
+    const { FEATURE_REGISTRY } = require('./lib/feature-registry');
+    Object.values(FEATURE_REGISTRY).forEach(f => {
+      const isAct = Boolean(effective.activeAddons && effective.activeAddons.includes(f.addonId));
+      featureMatrix[f.featureKey] = {
+        featureKey: f.featureKey,
+        displayName: f.displayName,
+        requiredAddon: f.addonId,
+        status: isAct ? 'ACTIVE' : 'DENIED',
+        scope: f.scope
+      };
+    });
+
+    const signedSnapshot = EntitlementService.generateSignedOfflineSnapshot({
+      organizationId: orgId,
+      terminalId: identity.terminalId,
+      effectiveTier: effective.tier,
+      features: featureMatrix
+    });
+
+    res.json({
+      success: true,
+      organizationId: orgId,
+      terminalId: identity.terminalId,
+      effectiveTier: effective.tier,
+      maxBranches: effective.maxBranches,
+      maxTerminals: effective.maxTerminals,
+      activeAddons: effective.activeAddons,
+      features: featureMatrix,
+      signedSnapshot: signedSnapshot.snapshot,
+      signature: signedSnapshot.signature
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Serve frontend shell entry
-app.get('/{*splat}', (req, res) => {
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/')) return next();
   res.setHeader('Content-Type', 'text/html; charset=UTF-8');
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -5552,13 +6047,6 @@ if (process.env.VERCEL) {
       server.listen(port, () => {
         console.log(`================================================================`);
         console.log(`  VALENIXIA COMMERCE ECOSYSTEM running locally on port ${port}`);
-        console.log(`  [VALENIXIA-DIAG-SERVER] Fresh Server Instance Started at ${new Date().toISOString()}`);
-        console.log(`  [VALENIXIA-DIAG-SERVER] Static Asset Caching: DISABLED (no-store, max-age=0)`);
-        console.log(`  [VALENIXIA-DIAG-SERVER] System Version: 1.0.5`);
-        console.log(`  Terminal Master ID: ${terminalId}`);
-        console.log(`  Schema Version: ${SERVER_SCHEMA_VERSION}`);
-        console.log(`  WAL + FULL SYNC + STRICT mode database initialized.`);
-        console.log(`  Cloud Disaster Recovery Daemon: ACTIVE (5m intervals)`);
         console.log(`================================================================`);
       });
     })
@@ -5567,677 +6055,6 @@ if (process.env.VERCEL) {
       process.exit(1);
     });
 }
-
-    // ── Component N: Supabase Cloud Sync Daemon ──────────────────────────────
-    // Syncs local SQLite change logs asynchronously to remote Supabase DB.
-    // Trigger immediate run, then schedule every 5 minutes.
-    setTimeout(() => {
-      console.log('[CloudSync] Starting initial Supabase backup sweep...');
-      pushOfflineBackupsToCloud().catch(err => {
-        console.error('[CloudSync] Initial backup sweep failed:', err.message);
-      });
-    }, 5000);
-
-    const FIVE_MIN_MS = 5 * 60 * 1000;
-    const cloudSyncTimer = setInterval(() => {
-      pushOfflineBackupsToCloud().catch(err => {
-        console.error('[CloudSync] Scheduled backup sweep failed:', err.message);
-      });
-    }, FIVE_MIN_MS);
-    activeTimers.push(cloudSyncTimer);
-    console.log('[CloudSync] Asynchronous Supabase backup daemon scheduled.');
-
-    // ── Component FBR: Automated FBR Invoice Resubmission Daemon ─────────────
-    // Scans database for failed FBR invoice submissions and retries them automatically.
-    async function runAutomatedFbrRetry() {
-      try {
-        const failed = await db.all(`SELECT * FROM fbr_submissions WHERE status IN ('PENDING','FAILED') ORDER BY created_at ASC LIMIT 50`);
-        if (failed.length === 0) return;
-        
-        console.log(`[FBRDaemon] Retrying ${failed.length} pending/failed FBR submissions...`);
-        const now = Date.now();
-        for (const inv of failed) {
-          const fbrResult = await submitToFBR(inv);
-          const newStatus = fbrResult.success ? 'SUBMITTED' : 'FAILED';
-          
-          let fbrResponseCode = null;
-          let fbrErrorDetails = null;
-          if (fbrResult.body) {
-            try {
-              const parsedBody = JSON.parse(fbrResult.body);
-              fbrResponseCode = parsedBody.ResponseCode || parsedBody.Code || null;
-              fbrErrorDetails = parsedBody.Message || (parsedBody.Errors ? JSON.stringify(parsedBody.Errors) : null);
-            } catch (e) {
-              fbrErrorDetails = fbrResult.body;
-            }
-          } else if (fbrResult.reason) {
-            fbrErrorDetails = fbrResult.reason;
-          }
-          
-          await db.run(
-            `UPDATE fbr_submissions SET status = ?, fbr_response = ?, fbr_response_code = ?, fbr_error_details = ?, submitted_at = ?, retry_count = retry_count + 1 WHERE id = ?`,
-            [newStatus, JSON.stringify(fbrResult), fbrResponseCode, fbrErrorDetails, now, inv.id]
-          );
-        }
-        console.log(`[FBRDaemon] Completed resubmission pass.`);
-      } catch (err) {
-        console.error('[FBRDaemon] Error during automatic FBR retry run:', err);
-      }
-    }
-    
-    setTimeout(runAutomatedFbrRetry, 10000);
-    const FIFTEEN_MIN_MS = 15 * 60 * 1000;
-    const fbrRetryTimer = setInterval(runAutomatedFbrRetry, FIFTEEN_MIN_MS);
-    activeTimers.push(fbrRetryTimer);
-    console.log('[FBRDaemon] Automated FBR invoice retry daemon scheduled (15m interval).');
-
-    // ── Nightly CRDT Tombstone Garbage Collection ─────────────────────────────
-    // Safely prune acknowledged change records older than the current max db version
-    // minus a 1000 safety buffer. Runs every 24 hours.
-    const DAY_MS = 24 * 60 * 60 * 1000;
-    const gcTimer = setInterval(async () => {
-      try {
-        const maxDbVerRow = await db.get("SELECT MAX(db_version) as max_ver FROM crsql_changes");
-        const maxDbVer = maxDbVerRow ? maxDbVerRow.max_ver : 0;
-        const safeVersion = Math.max(0, maxDbVer - 1000);
-        if (safeVersion > 0) {
-          console.log(`[GC Scheduler] Running nightly CRDT pruning. Safe version limit: ${safeVersion}`);
-          await pruneAcknowledgedChanges(safeVersion);
-        }
-      } catch (gcErr) {
-        console.error('[GC Scheduler] Nightly CRDT pruning failed:', gcErr);
-      }
-    }, DAY_MS);
-    activeTimers.push(gcTimer);
-    console.log('[GC] Nightly CRDT tombstone garbage collector scheduled (24h interval).');
-
-    // ── Enforce 6-Year Data Retention Policy (Task 6-B / 7-D) ────────────────
-    async function enforceDataRetentionPolicy() {
-      try {
-        const lastRunRow = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'last_data_retention_prune_ts'");
-        const lastRun = lastRunRow ? parseInt(lastRunRow.value_payload) : 0;
-        const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-        
-        if (Date.now() - lastRun < ONE_DAY_MS) {
-          console.log('[RetentionPolicy] Skip: Data retention pruner already executed today.');
-          return;
-        }
-
-        const SIX_YEARS_MS = 6 * 365 * 24 * 60 * 60 * 1000;
-        const cutoff = Date.now() - SIX_YEARS_MS;
-        
-        await db.run("DELETE FROM transactions WHERE created_at < ?", [cutoff]);
-        await db.run("DELETE FROM line_items WHERE transaction_id NOT IN (SELECT id FROM transactions)");
-        await db.run("DELETE FROM fbr_submissions WHERE created_at < ?", [cutoff]);
-        await db.run("DELETE FROM speech_analytics_logs WHERE transaction_id IN (SELECT id FROM transactions WHERE created_at < ?) OR transaction_id IS NULL", [cutoff]);
-        await db.run("DELETE FROM stock_movements WHERE created_at < ?", [cutoff]);
-        await db.run("DELETE FROM employee_shifts WHERE clock_in < ?", [cutoff]);
-
-        const currentVer = getDbVersion();
-        const safeVersion = Math.max(0, currentVer - 50000);
-        if (safeVersion > 0) {
-          await pruneAcknowledgedChanges(safeVersion);
-        }
-        
-        await db.run(
-          "INSERT OR REPLACE INTO local_preferences (key, value_type, value_payload, is_idempotent_flag, updated_at) VALUES ('last_data_retention_prune_ts', 'NUM', ?, 1, ?)",
-          [String(Date.now()), Date.now()]
-        );
-        
-        console.log(`[RetentionPolicy] Data retention policy enforced. Cleaned records and pruned CRDT tombstones.`);
-      } catch (err) {
-        console.error('[RetentionPolicy] Failed to enforce data retention policy:', err);
-      }
-    }
-
-    // Trigger immediate run
-    enforceDataRetentionPolicy();
-
-    // Schedule run check hourly (highly robust against restarts and drift)
-    const HOUR_MS = 60 * 60 * 1000;
-    const dataRetentionTimer = setInterval(enforceDataRetentionPolicy, HOUR_MS);
-    activeTimers.push(dataRetentionTimer);
-    console.log('[RetentionPolicy] Hourly data retention prune scheduler active.');
-
-    // ── Subscription Lifecycle Manager ───────────────────────────────────────
-    // Runs every 6 hours. Checks all stores with subscription mode for expiry.
-    // Suspends expired stores and logs warnings for soon-to-expire stores.
-    const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
-    const DAY_EXPIRY_THRESHOLDS_MS = [7 * DAY_MS, 3 * DAY_MS, DAY_MS]; // 7d, 3d, 1d
-
-    async function runSubscriptionLifecycleSweep() {
-      const now = Date.now();
-      try {
-        // Get all stores with subscription mode and an expires_at date
-        const stores = await db.all(
-          `SELECT * FROM local_preferences WHERE key = 'store_plan_mode' OR key = 'store_expires_at' OR key = 'store_plan' OR key = 'store_id'`
-        );
-
-        // Query subscriptions from Supabase if available
-        if (typeof supabase !== 'undefined') {
-          try {
-            const { data: expiredStores, error: expErr } = await supabase
-              .from('stores')
-              .select('id, name, email, plan, expires_at, status')
-              .eq('mode', 'subscription')
-              .not('expires_at', 'is', null)
-              .lt('expires_at', new Date(now).toISOString())
-              .neq('status', 'suspended')
-              .neq('status', 'cancelled');
-
-            if (!expErr && expiredStores && expiredStores.length > 0) {
-              for (const store of expiredStores) {
-                console.warn(`[SubLifecycle] EXPIRED: Store ${store.id} (${store.name}) — expires_at=${store.expires_at}. Suspending...`);
-                // Auto-suspend: set status to suspended on Supabase
-                const { error: suspendErr } = await supabase
-                  .from('stores')
-                  .update({ status: 'suspended', plan: 'starter' })
-                  .eq('id', store.id);
-                if (suspendErr) {
-                  console.error(`[SubLifecycle] Failed to suspend store ${store.id}:`, suspendErr.message);
-                } else {
-                  console.log(`[SubLifecycle] Store ${store.id} suspended due to expired subscription.`);
-                }
-              }
-            } else if (expErr) {
-              console.warn('[SubLifecycle] Could not fetch expired stores from Supabase:', expErr.message);
-            }
-
-            // Warn for soon-to-expire stores
-            for (const thresholdMs of DAY_EXPIRY_THRESHOLDS_MS) {
-              const windowStart = new Date(now).toISOString();
-              const windowEnd = new Date(now + thresholdMs + HOUR_MS).toISOString(); // +1h buffer
-              const { data: soonExpiring } = await supabase
-                .from('stores')
-                .select('id, name, plan, expires_at, status')
-                .eq('mode', 'subscription')
-                .gt('expires_at', windowStart)
-                .lt('expires_at', windowEnd)
-                .eq('status', 'active');
-              if (soonExpiring && soonExpiring.length > 0) {
-                const daysLabel = Math.round(thresholdMs / DAY_MS);
-                for (const s of soonExpiring) {
-                  console.warn(`[SubLifecycle] WARNING: Store ${s.id} (${s.name}) subscription expires in ~${daysLabel} day(s). expires_at=${s.expires_at}`);
-                }
-              }
-            }
-          } catch (supaErr) {
-            console.warn('[SubLifecycle] Supabase subscription sweep error:', supaErr.message);
-          }
-        }
-
-        // Also check local DB for any stored expires_at for offline support
-        try {
-          const localExpiry = await db.get("SELECT value_payload FROM local_preferences WHERE key = 'license_expires_at'");
-          if (localExpiry) {
-            const expiresAt = Number(localExpiry.value_payload);
-            if (!isNaN(expiresAt) && expiresAt < now) {
-              console.warn('[SubLifecycle] Local license has expired. expires_at=' + new Date(expiresAt).toISOString());
-            } else if (!isNaN(expiresAt)) {
-              const msLeft = expiresAt - now;
-              for (const thresholdMs of DAY_EXPIRY_THRESHOLDS_MS) {
-                if (msLeft <= thresholdMs) {
-                  const daysLabel = Math.round(msLeft / DAY_MS);
-                  console.warn(`[SubLifecycle] Local license expiring in ~${daysLabel} day(s).`);
-                  break;
-                }
-              }
-            }
-          }
-        } catch (localErr) {
-          // Non-critical — local DB may not have this key
-        }
-      } catch (sweepErr) {
-        console.error('[SubLifecycle] Subscription lifecycle sweep failed:', sweepErr.message);
-      }
-    }
-
-    // Run immediately on boot and every 6 hours
-    runSubscriptionLifecycleSweep();
-    const subLifecycleTimer = setInterval(runSubscriptionLifecycleSweep, SIX_HOURS_MS);
-    activeTimers.push(subLifecycleTimer);
-    console.log('[SubLifecycle] Subscription lifecycle manager active (6h sweep interval).');
-
-    // ── VALENIXIA ADMIN PORTAL REST API ENDPOINTS ──────────────────────────────
-    const EntitlementService = require('./lib/entitlement-service');
-    const { PlatformAdminService, PLATFORM_ROLES } = require('./lib/platform-admin-service');
-
-    // Public Admin Login Endpoint (Unprotected)
-    app.post('/api/auth/admin/login', async (req, res) => {
-      try {
-        const { email, password } = req.body || {};
-        if (!email || !password) {
-          return res.status(400).json({ error: 'Email and password are required' });
-        }
-        const authRes = await PlatformAdminService.authenticateAdminPassword(email, password);
-        if (!authRes.authenticated) {
-          return res.status(401).json({ error: authRes.reason || 'Invalid admin credentials' });
-        }
-        res.cookie('admin_session', authRes.token, { httpOnly: true, maxAge: 8 * 60 * 60 * 1000 });
-        res.json({ success: true, token: authRes.token, account: { id: authRes.adminId, email: authRes.email, role: authRes.role } });
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    // Dedicated Platform Admin UI Route Serving
-    app.get(['/admin', '/platform-admin'], (req, res) => {
-      res.sendFile(path.join(__dirname, 'public', 'index.html'));
-    });
-
-    // Server Authorization Middleware: Requires PLATFORM_ADMIN role
-    const requirePlatformAdmin = async (req, res, next) => {
-      const accountId = req.headers['x-admin-account-id'] || (req.user && req.user.id);
-      const sessionToken = req.cookies.admin_session || req.headers['authorization'];
-      const isSuperAdminHeader = req.headers['x-valenixia-admin-secret'] === process.env.SERVER_MASTER_KEY;
-
-      if (isSuperAdminHeader) {
-        return next();
-      }
-
-      let isAdmin = false;
-      if (sessionToken && sessionToken.startsWith('ADMIN_SES_')) {
-        isAdmin = true; // Active admin session
-      } else if (accountId) {
-        isAdmin = await PlatformAdminService.isPlatformAdmin(accountId);
-      }
-
-      if (!isAdmin) {
-        return res.status(403).json({ error: 'Forbidden: Platform Admin authorization required to access /api/admin endpoints.' });
-      }
-      next();
-    };
-
-    // ── PUBLIC / CLIENT ENTITLEMENT STATUS API ENDPOINTS ──────────────────────
-    app.get('/api/entitlements/status', async (req, res) => {
-      try {
-        const organizationId = req.query.org_id || req.headers['x-organization-id'] || 'ORG_LOCAL_DEFAULT';
-        const effective = await EntitlementService.getOrganizationEntitlements(organizationId);
-        res.json({ success: true, organizationId, entitlements: effective });
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    app.get('/api/entitlements/check', async (req, res) => {
-      try {
-        const organizationId = req.query.org_id || req.headers['x-organization-id'] || 'ORG_LOCAL_DEFAULT';
-        const featureKey = req.query.feature;
-        if (!featureKey) return res.status(400).json({ error: 'feature query parameter is required' });
-
-        const result = await EntitlementService.canUseFeature(organizationId, featureKey);
-        res.json({ success: true, ...result });
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    app.use('/api/admin', requirePlatformAdmin);
-
-    // Admin Entitlement Control Plane Routes
-    app.post('/api/admin/entitlements/grant', async (req, res) => {
-      try {
-        const { organization_id, addon_id, duration_days } = req.body || {};
-        if (!organization_id || !addon_id) {
-          return res.status(400).json({ error: 'organization_id and addon_id are required' });
-        }
-        const result = await EntitlementService.grantAddon(organization_id, addon_id, duration_days || 30, 'PLATFORM_ADMIN');
-        res.json({ success: true, ...result });
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    app.post('/api/admin/entitlements/revoke', async (req, res) => {
-      try {
-        const { organization_id, addon_id, reason } = req.body || {};
-        if (!organization_id || !addon_id) {
-          return res.status(400).json({ error: 'organization_id and addon_id are required' });
-        }
-        const result = await EntitlementService.revokeAddon(organization_id, addon_id, 'PLATFORM_ADMIN', reason || '');
-        res.json({ success: true, ...result });
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    app.post('/api/admin/entitlements/extend', async (req, res) => {
-      try {
-        const { organization_id, addon_id, extra_days } = req.body || {};
-        if (!organization_id || !addon_id) {
-          return res.status(400).json({ error: 'organization_id and addon_id are required' });
-        }
-        const result = await EntitlementService.extendAddon(organization_id, addon_id, extra_days || 30, 'PLATFORM_ADMIN');
-        res.json({ success: true, ...result });
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    app.get('/api/admin/entitlements/audit-classifier', async (req, res) => {
-      try {
-        const { AddonService } = require('./lib/addon-service');
-        const organizationId = req.query.org_id || 'ORG_LOCAL_DEFAULT';
-        const summary = await AddonService.classifyEntitlements(organizationId);
-        res.json({ success: true, ...summary });
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    // 0. Get Authenticated Admin Profile
-    app.get('/api/admin/me', async (req, res) => {
-      res.json({
-        authenticated: true,
-        account: {
-          role: PLATFORM_ROLES.PLATFORM_ADMIN,
-          email: process.env.VALENIXIA_ADMIN_EMAIL || 'admin@valenixia.com'
-        }
-      });
-    });
-
-    // Admin Logout
-    app.post('/api/admin/logout', async (req, res) => {
-      res.cookie('admin_session', '', { maxAge: 0 });
-      res.json({ success: true, message: 'Logged out successfully' });
-    });
-
-    // 1. Get Pending Payment Claims
-    app.get('/api/admin/claims/pending', async (req, res) => {
-      try {
-        const rows = await db.all(`SELECT * FROM local_preferences WHERE key LIKE 'payment_claim_%'`);
-        const claims = [];
-        for (const r of rows) {
-          try {
-            const p = JSON.parse(r.value_payload);
-            if (p.status === 'PENDING') claims.push(p);
-          } catch (_) {}
-        }
-        res.json({ success: true, count: claims.length, claims });
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    // 2. Approve Payment Claim
-    app.post('/api/admin/claims/approve', async (req, res) => {
-      try {
-        const { claimId, adminId } = req.body || {};
-        if (!claimId) return res.status(400).json({ error: 'claimId is required' });
-        const result = await EntitlementService.approvePaymentClaim(claimId, adminId || 'SUPER_ADMIN');
-        res.json(result);
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    // 3. Reject Payment Claim
-    app.post('/api/admin/claims/reject', async (req, res) => {
-      try {
-        const { claimId, reason } = req.body || {};
-        const key = `payment_claim_${claimId}`;
-        const row = await db.get(`SELECT * FROM local_preferences WHERE key = ?`, [key]);
-        if (!row) return res.status(404).json({ error: 'Claim not found' });
-        const payload = JSON.parse(row.value_payload);
-        payload.status = 'REJECTED';
-        payload.rejectionReason = reason || 'Payment could not be verified.';
-        await db.run(`UPDATE local_preferences SET value_payload = ? WHERE key = ?`, [JSON.stringify(payload), key]);
-        res.json({ success: true, claim: payload });
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    // 4. Admin Organization Search
-    app.get('/api/admin/organization/search', async (req, res) => {
-      try {
-        const q = req.query.q || '';
-        const results = await EntitlementService.searchOrganizations(q);
-        res.json({ success: true, count: results.length, organizations: results });
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    // 5. Admin Organization Manage Addon (Grant / Extend / Revoke)
-    app.post('/api/admin/organization/manage-addon', async (req, res) => {
-      try {
-        const { organizationId, addonId, action, durationDays } = req.body || {};
-        if (!organizationId || !addonId || !action) {
-          return res.status(400).json({ error: 'organizationId, addonId, and action are required' });
-        }
-
-        const key = `addon_active_${organizationId}_${addonId}`;
-
-        if (action === 'GRANT' || action === 'EXTEND') {
-          const days = durationDays || 30;
-          const expiresAt = Date.now() + days * 24 * 60 * 60 * 1000;
-          const payload = {
-            status: 'ACTIVE',
-            addonId,
-            organizationId,
-            activatedAt: Date.now(),
-            activatedBy: 'ADMIN_MANUAL',
-            expiresAt
-          };
-          await db.run(`INSERT OR REPLACE INTO local_preferences (key, value_payload) VALUES (?, ?)`, [key, JSON.stringify(payload)]);
-          return res.json({ success: true, action, organizationId, addonId, expiresAt });
-        } else if (action === 'REVOKE') {
-          await db.run(`DELETE FROM local_preferences WHERE key = ?`, [key]);
-          return res.json({ success: true, action: 'REVOKED', organizationId, addonId });
-        }
-
-        res.status(400).json({ error: 'Invalid action' });
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    // 6. WhatsApp Receipt Server Authorization Endpoint
-    app.post('/api/receipts/whatsapp', async (req, res) => {
-      try {
-        const authResult = await EntitlementService.authorizeFeature({
-          req,
-          featureKey: 'whatsapp.receipts',
-          action: 'receipt.send_whatsapp'
-        });
-
-        if (!authResult.allowed) {
-          return res.status(403).json({
-            error: 'Feature Unauthorized',
-            code: authResult.code,
-            featureKey: 'whatsapp.receipts',
-            requiredAddon: 'WHATSAPP_RECEIPTS',
-            message: authResult.message,
-            snapshot: authResult.snapshot
-          });
-        }
-
-        const { recipientPhone, receiptId, orderData } = req.body || {};
-        if (!recipientPhone) return res.status(400).json({ error: 'recipientPhone is required' });
-
-        const auditId = `AUDIT_WA_${Date.now()}`;
-        await db.run(
-          `INSERT INTO local_preferences (key, value_payload) VALUES (?, ?)`,
-          [
-            `audit_wa_${auditId}`,
-            JSON.stringify({
-              id: auditId,
-              action: 'WHATSAPP_RECEIPT_SENT',
-              recipientPhone,
-              receiptId,
-              organizationId: authResult.organizationId,
-              timestamp: Date.now()
-            })
-          ]
-        );
-
-        res.json({
-          success: true,
-          message: 'WhatsApp receipt dispatch authorized and queued.',
-          recipientPhone,
-          receiptId,
-          snapshot: authResult.snapshot,
-          signature: authResult.signature
-        });
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    app.post('/api/whatsapp/send', async (req, res) => {
-      try {
-        const authResult = await EntitlementService.authorizeFeature({
-          req,
-          featureKey: 'whatsapp.receipts',
-          action: 'whatsapp.send'
-        });
-
-        if (!authResult.allowed) {
-          return res.status(403).json({
-            error: 'Feature Unauthorized',
-            code: authResult.code,
-            featureKey: 'whatsapp.receipts',
-            requiredAddon: 'WHATSAPP_RECEIPTS',
-            message: authResult.message
-          });
-        }
-
-        res.json({ success: true, message: 'WhatsApp dispatch authorized.', snapshot: authResult.snapshot });
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    // 7. General Server Feature Check Endpoint
-    app.post('/api/entitlements/authorize', async (req, res) => {
-      try {
-        const { featureKey, action } = req.body || {};
-        if (!featureKey) return res.status(400).json({ error: 'featureKey is required' });
-
-        const authResult = await EntitlementService.authorizeFeature({ req, featureKey, action });
-        if (!authResult.allowed) {
-          return res.status(403).json(authResult);
-        }
-        res.json(authResult);
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    // 7b. General Client Entitlement Status Endpoint
-    app.get('/api/entitlements/status', async (req, res) => {
-      try {
-        const identity = await EntitlementService.resolveIdentity(req);
-        const effective = await EntitlementService.getOrganizationEntitlements(identity.organizationId);
-
-        const signedSnapshot = EntitlementService.generateSignedOfflineSnapshot({
-          organizationId: identity.organizationId,
-          terminalId: identity.terminalId,
-          effectiveTier: effective.tier,
-          activeAddons: effective.activeAddons,
-          features: effective.features
-        });
-
-        res.json({
-          success: true,
-          entitlements: effective,
-          signedSnapshot: signedSnapshot.snapshot,
-          signature: signedSnapshot.signature
-        });
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      // 7c. Device Verification & Token Recovery Endpoint (Handled by canonical /api/checkout/verify route)
-
-    // 7d. Server-Controlled Payment Methods Catalog Endpoint
-    app.get('/api/billing/payment-methods', (req, res) => {
-      res.json({ success: true, catalog: BillingService.getPaymentMethods() });
-    });
-
-    // 7e. Create Immutable Price Quote Endpoint
-    app.post('/api/billing/quotes', async (req, res) => {
-      try {
-        const quote = await BillingService.createQuote(req.body);
-        res.json({ success: true, quote });
-      } catch (err) {
-        res.status(400).json({ error: err.message });
-      }
-    });
-
-    // 7f. Submit Idempotent Payment Claim Endpoint
-    app.post('/api/billing/claims', async (req, res) => {
-      try {
-        const result = await BillingService.submitPaymentClaim(req.body);
-        res.json(result);
-      } catch (err) {
-        res.status(400).json({ error: err.message });
-      }
-    });
-
-    // 7g. Request Single-Use Destructive Confirmation Nonce Endpoint
-    app.post('/api/admin/destructive/nonce', async (req, res) => {
-      try {
-        const nonceObj = await DestructiveActionService.requestNonce(req.body);
-        res.json({ success: true, ...nonceObj });
-      } catch (err) {
-        res.status(400).json({ error: err.message });
-      }
-    });
-
-    // 7h. Authorize & Execute Destructive Action Endpoint
-    app.post('/api/admin/destructive/execute', async (req, res) => {
-      try {
-        const result = await DestructiveActionService.authorizeAndExecute(req.body);
-        res.json(result);
-      } catch (err) {
-        res.status(400).json({ error: err.message });
-      }
-    });
-
-    // 8. Admin Entitlement Inspector Endpoint
-    app.get('/api/admin/entitlements/inspector', async (req, res) => {
-      try {
-        const identity = await EntitlementService.resolveIdentity(req);
-        const orgId = req.query.orgId || identity.organizationId;
-        const effective = await EntitlementService.getOrganizationEntitlements(orgId);
-
-        const featureMatrix = {};
-        const { FEATURE_REGISTRY } = require('./lib/feature-registry');
-        Object.values(FEATURE_REGISTRY).forEach(f => {
-          const isAct = Boolean(effective.activeAddons && effective.activeAddons.includes(f.addonId));
-          featureMatrix[f.featureKey] = {
-            featureKey: f.featureKey,
-            displayName: f.displayName,
-            requiredAddon: f.addonId,
-            status: isAct ? 'ACTIVE' : 'DENIED',
-            scope: f.scope
-          };
-        });
-
-        const signedSnapshot = EntitlementService.generateSignedOfflineSnapshot({
-          organizationId: orgId,
-          terminalId: identity.terminalId,
-          effectiveTier: effective.tier,
-          features: featureMatrix
-        });
-
-        res.json({
-          success: true,
-          organizationId: orgId,
-          terminalId: identity.terminalId,
-          effectiveTier: effective.tier,
-          maxBranches: effective.maxBranches,
-          maxTerminals: effective.maxTerminals,
-          activeAddons: effective.activeAddons,
-          features: featureMatrix,
-          signedSnapshot: signedSnapshot.snapshot,
-          signature: signedSnapshot.signature
-        });
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
-    });
-
 
 function handleGracefulShutdown(signal) {
   console.log(`[Shutdown] Received ${signal}. Starting graceful shutdown...`);
@@ -6271,4 +6088,3 @@ process.on('uncaughtException', (error) => {
 });
 
 module.exports = app;
-

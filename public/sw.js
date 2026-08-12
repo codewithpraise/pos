@@ -24,7 +24,7 @@ const ASSETS_TO_CACHE = [
   { url: '/styles/themes.css', integrity: '' },
   { url: '/styles/animations.css', integrity: '' },
   { url: '/styles/components.css', integrity: '' },
-  { url: '/app.js', integrity: '' },
+  { url: '/app.js', integrity: 'sha384-EPGZBnNEFzUw4NMkcg+e9XGmCryYLaX98Tmg69QicLUAhyIdijrUTZalaE93sga9' },
   { url: '/router.js', integrity: '' },
   { url: '/commercial-catalog.js', integrity: '' },
   { url: '/legal-documents.js', integrity: '' },
@@ -34,19 +34,19 @@ const ASSETS_TO_CACHE = [
   { url: '/modules/animations.js', integrity: '' },
   { url: '/modules/offline.js', integrity: '' },
   { url: '/modules/keyboard.js', integrity: '' },
-  { url: '/client-db.js', integrity: '' },
-  { url: '/client-audio.js', integrity: '' },
-  { url: '/client-speech.js', integrity: '' },
-  { url: '/client-sync.js', integrity: '' },
-  { url: '/sync-worker.js', integrity: '' },
+  { url: '/client-db.js', integrity: 'sha384-DlhbRlE7aSOf7OrEUk3xZ0oToM2y94OVHEg6M+WdVOdXgjlyX+r3N3YUh+Avt9LF' },
+  { url: '/client-audio.js', integrity: 'sha384-vSkZxNpW3irRy+M++qqNgiEfTojWAuiVCd2q+cgd1Mny2htbsK82FG+mYLljIbyW' },
+  { url: '/client-speech.js', integrity: 'sha384-7W67xTwgWUVhwx4BuvdTRftJfKk/2TH/JVX0FQy18uTcjM2CFaRvzRq/GRhW5e8k' },
+  { url: '/client-sync.js', integrity: 'sha384-BLDM52n0UDIyk3tECoaeuehzURF/k6MjQLkwUH2DOBoptPkFF4MKptRB47Gf7i3L' },
+  { url: '/sync-worker.js', integrity: 'sha384-7n5/+yZ90f4B6JaQrylPr5l/glM064ZwA8tVyz/w0LVrfsCyu91FWvHXLX9cS8Tt' },
   { url: '/manifest.json', integrity: '' },
   { url: '/icon-192.png', integrity: '' },
   { url: '/icon-512.png', integrity: '' },
-  { url: '/polyfill.min.js', integrity: '' },
+  { url: '/polyfill.min.js', integrity: 'sha384-P1J6VFE0IBOGvQjC3qf5YzjpdKWZ5EkHW4kGwsHnyLXMvhRbGJ01arDKwVqcdkUG' },
   { url: '/NotoNastaliqUrdu-Regular.ttf', integrity: '' },
-  { url: '/dompurify.min.js', integrity: '' },
-  { url: '/jspdf.umd.min.js', integrity: '' },
-  { url: '/zxing.min.js', integrity: '' }
+  { url: '/dompurify.min.js', integrity: 'sha384-piCcpDdJ7qVeK4Tv8Z6Hpcr3ZBIgP16TxQTPVfsLFdZ5uDgwc3Y8Ho7oUnqf12qu' },
+  { url: '/jspdf.umd.min.js', integrity: 'sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk' },
+  { url: '/zxing.min.js', integrity: 'sha384-ET1PhbRYLe6k2AXPuFZAF+LZYXgMwkHwqrsbw4PobRULALuRP1buPYV++5ODebL5' }
 ];
 
 // Helper: build a clean offline JSON response

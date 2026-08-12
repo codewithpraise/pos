@@ -7580,8 +7580,8 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
       pass: activeViews.length === 1 && isTargetActive && missingShells.length === 0 && missingRenderTargets.length === 0 && duplicateIds.length === 0
     };
 
-    if (!report.pass) {
-      console.warn('[ScreenIntegrity] Diagnostic report:', report);
+    if (!report.pass && (missingShells.length > 0 || missingRenderTargets.length > 0)) {
+      console.warn('[ScreenIntegrity] Structural diagnostic report:', report);
       // Boot recovery: perform at most 1 deterministic recovery during boot only
       if (window.__selfHealAttemptCount < 1 && typeof window.ValenixiaRouter !== 'undefined' && window.ValenixiaRouter.navigateTo) {
         window.__selfHealAttemptCount++;
@@ -12048,90 +12048,194 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
    * Authoritative transaction normalizer for Analytics and History projections.
    * Produces a unified schema object across all storage formats.
    */
+  /**
+   * Canonical Analytics Transaction View Model Normalizer
+   * Returns a standardized transaction object with unified property names and alias getters.
+   */
   function normalizeTransactionForAnalytics(t) {
     if (!t) return null;
-    const rawId = (t.id || t.transaction_id || t.transactionId || '').toString();
-    const orgId = (t.organization_id || t.organizationId || (state.organization && state.organization.id) || 'org_default').toString();
-    const branchId = (t.branch_id || t.store_id || t.branchId || 'main').toString();
-    const terminalId = (t.terminal_id || t.terminalId || 'term_01').toString();
-    const cashierId = (t.cashier_name || t.cashier_id || t.cashier || 'Cashier').toString();
-    
-    let timestamp = 0;
-    if (typeof t.created_at === 'number') timestamp = t.created_at;
-    else if (typeof t.timestamp === 'number') timestamp = t.timestamp;
-    else if (typeof t.completed_at === 'number') timestamp = t.completed_at;
-    else if (t.created_at) timestamp = new Date(t.created_at).getTime();
-    else if (t.timestamp) timestamp = new Date(t.timestamp).getTime();
-    else timestamp = Date.now();
-    if (isNaN(timestamp)) timestamp = Date.now();
+
+    const transactionId = (t.transactionId || t.transaction_id || t.id || '').toString();
+    const organizationId = (t.organizationId || t.organization_id || (state.organization && state.organization.id) || 'org_default').toString();
+    const branchId = (t.branchId || t.branch_id || t.store_id || 'main').toString();
+    const terminalId = (t.terminalId || t.terminal_id || 'term_01').toString();
+    const cashierId = (t.cashierId || t.cashier_name || t.cashier_id || t.cashier || 'Cashier').toString();
+
+    let timestampMs = 0;
+    if (typeof t.timestampMs === 'number' && !isNaN(t.timestampMs) && t.timestampMs > 0) {
+      timestampMs = t.timestampMs;
+    } else if (typeof t.timestamp === 'number' && !isNaN(t.timestamp) && t.timestamp > 0) {
+      timestampMs = t.timestamp;
+    } else if (typeof t.created_at === 'number' && !isNaN(t.created_at) && t.created_at > 0) {
+      timestampMs = t.created_at;
+    } else if (typeof t.created_at_epoch === 'number' && !isNaN(t.created_at_epoch) && t.created_at_epoch > 0) {
+      timestampMs = t.created_at_epoch;
+    } else if (typeof t.completed_at === 'number' && !isNaN(t.completed_at) && t.completed_at > 0) {
+      timestampMs = t.completed_at;
+    } else if (t.created_at) {
+      const parsed = new Date(t.created_at).getTime();
+      if (!isNaN(parsed) && parsed > 0) timestampMs = parsed;
+    } else if (t.timestamp) {
+      const parsed = new Date(t.timestamp).getTime();
+      if (!isNaN(parsed) && parsed > 0) timestampMs = parsed;
+    }
+    // Strict Validation: DO NOT use Date.now() fallback for missing timestamps!
 
     const status = (t.status || 'COMPLETED').toString().toUpperCase();
 
-    let subtotal = 0;
-    if (t.subtotal_minor_units !== undefined) subtotal = Number(t.subtotal_minor_units || 0);
-    else if (t.subtotal_minor !== undefined) subtotal = Number(t.subtotal_minor || 0);
-    else if (t.subtotal !== undefined) subtotal = Math.round(Number(t.subtotal || 0) * 100);
+    let subtotalMinor = 0;
+    if (t.subtotalMinor !== undefined) subtotalMinor = Number(t.subtotalMinor || 0);
+    else if (t.subtotal_minor_units !== undefined && t.subtotal_minor_units !== 0) subtotalMinor = Number(t.subtotal_minor_units);
+    else if (t.subtotal_minor !== undefined && t.subtotal_minor !== 0) subtotalMinor = Number(t.subtotal_minor);
+    else if (t.subtotal !== undefined) subtotalMinor = Math.round(Number(t.subtotal || 0) * 100);
 
-    let tax = 0;
-    if (t.tax_minor_units !== undefined) tax = Number(t.tax_minor_units || 0);
-    else if (t.tax_minor !== undefined) tax = Number(t.tax_minor || 0);
-    else if (t.tax !== undefined) tax = Math.round(Number(t.tax || 0) * 100);
+    let taxMinor = 0;
+    if (t.taxMinor !== undefined) taxMinor = Number(t.taxMinor || 0);
+    else if (t.tax_minor_units !== undefined && t.tax_minor_units !== 0) taxMinor = Number(t.tax_minor_units);
+    else if (t.tax_minor !== undefined && t.tax_minor !== 0) taxMinor = Number(t.tax_minor);
+    else if (t.tax !== undefined) taxMinor = Math.round(Number(t.tax || 0) * 100);
 
-    let discount = 0;
-    if (t.discount_minor_units !== undefined) discount = Number(t.discount_minor_units || 0);
-    else if (t.discount_minor !== undefined) discount = Number(t.discount_minor || 0);
-    else if (t.discount !== undefined) discount = Math.round(Number(t.discount || 0) * 100);
+    let discountMinor = 0;
+    if (t.discountMinor !== undefined) discountMinor = Number(t.discountMinor || 0);
+    else if (t.discount_minor_units !== undefined && t.discount_minor_units !== 0) discountMinor = Number(t.discount_minor_units);
+    else if (t.discount_minor !== undefined && t.discount_minor !== 0) discountMinor = Number(t.discount_minor);
+    else if (t.discount !== undefined) discountMinor = Math.round(Number(t.discount || 0) * 100);
 
-    let total = 0;
-    if (t.total_minor_units !== undefined) total = Number(t.total_minor_units || 0);
-    else if (t.total_minor !== undefined) total = Number(t.total_minor || 0);
-    else if (t.total !== undefined) total = Math.round(Number(t.total || 0) * 100);
-    else total = subtotal + tax - discount;
+    let feeMinor = 0;
+    if (t.feeMinor !== undefined) feeMinor = Number(t.feeMinor || 0);
+    else if (t.fee_minor_units !== undefined) feeMinor = Number(t.fee_minor_units || 0);
 
-    const paymentMethod = (t.payment_mode || t.paymentMode || t.payment_method || t.mode || 'CASH').toString().toUpperCase();
+    let totalMinor = 0;
+    if (t.totalMinor !== undefined && Number(t.totalMinor) > 0) totalMinor = Number(t.totalMinor);
+    else if (t.total_minor_units !== undefined && Number(t.total_minor_units) > 0) totalMinor = Number(t.total_minor_units);
+    else if (t.total_minor !== undefined && Number(t.total_minor) > 0) totalMinor = Number(t.total_minor);
+    else if (t.total !== undefined && Number(t.total) > 0) totalMinor = Math.round(Number(t.total) * 100);
+    else totalMinor = subtotalMinor + taxMinor + feeMinor - discountMinor;
+
+    const paymentMethod = (t.paymentMethod || t.payment_mode || t.paymentMode || t.payment_method || t.mode || 'CASH').toString().toUpperCase();
 
     const items = (t.items || []).map(item => ({
-      productId: (item.id || item.product_id || item.productId || '').toString(),
+      productId: (item.productId || item.id || item.product_id || '').toString(),
+      sku: (item.sku || item.product_sku || '').toString(),
       name: (item.name || item.title || 'Product').toString(),
-      category: (item.category || item.category_id || item.categoryId || 'General').toString(),
+      category: (item.category || item.category_name || item.category_id || item.categoryId || 'General').toString(),
       quantity: Number(item.quantity || item.qty || 1),
-      unitPriceMinor: item.unit_price_minor_units !== undefined ? Number(item.unit_price_minor_units || 0) : Math.round(Number(item.price || item.unitPrice || 0) * 100),
-      totalMinor: item.total_minor_units !== undefined ? Number(item.total_minor_units || 0) : Math.round(Number(item.price || item.unitPrice || 0) * (item.quantity || 1) * 100)
+      unitPriceMinor: item.unitPriceMinor !== undefined ? Number(item.unitPriceMinor || 0) : (item.unit_price_minor_units !== undefined ? Number(item.unit_price_minor_units || 0) : Math.round(Number(item.price || item.unitPrice || 0) * 100)),
+      totalMinor: item.totalMinor !== undefined ? Number(item.totalMinor || 0) : (item.total_minor_units !== undefined ? Number(item.total_minor_units || 0) : Math.round(Number(item.price || item.unitPrice || 0) * (item.quantity || 1) * 100))
     }));
 
     return {
-      transactionId: rawId,
-      organizationId: orgId,
+      transactionId,
+      organizationId,
       branchId,
       terminalId,
       cashierId,
-      timestamp,
+      timestampMs,
       status,
-      subtotal,
-      tax,
-      discount,
-      total,
+      subtotalMinor,
+      taxMinor,
+      discountMinor,
+      feeMinor,
+      totalMinor,
       paymentMethod,
-      items
+      items,
+      // Alias getters for full backwards-compatibility
+      id: transactionId,
+      timestamp: timestampMs,
+      created_at: timestampMs,
+      total: totalMinor,
+      total_minor_units: totalMinor,
+      payment_mode: paymentMethod,
+      branch_id: branchId,
+      terminal_id: terminalId,
+      cashier_name: cashierId
     };
   }
   window.normalizeTransactionForAnalytics = normalizeTransactionForAnalytics;
   window.__realHandlers.normalizeTransactionForAnalytics = normalizeTransactionForAnalytics;
 
   /**
-   * Filter transactions by the currently selected analytics date range.
-   * Returns the normalized subset of state.transactions within the window.
+   * Helper: Ensure canonical analyticsFilters state object is initialized exactly ONCE per session.
+   * Preserves active user selections across re-renders (route changes, sync, language toggles).
+   */
+  function ensureAnalyticsFiltersInitialized() {
+    if (!state.analyticsFiltersInitialized || !state.analyticsFilters) {
+      state.analyticsFilters = {
+        branchId: 'ALL',
+        terminalId: 'ALL',
+        cashierId: 'ALL',
+        categoryId: 'ALL',
+        paymentMethod: 'ALL'
+      };
+      state.analyticsFiltersInitialized = true;
+    }
+    return state.analyticsFilters;
+  }
+  window.ensureAnalyticsFiltersInitialized = ensureAnalyticsFiltersInitialized;
+
+  /**
+   * Safe Machine-Readable Pipeline Debugger (Non-PII Counts)
+   * Run window.__VALENIXIA_ANALYTICS_DEBUG__() in DevTools console to trace data boundaries.
+   */
+  window.__VALENIXIA_ANALYTICS_DEBUG__ = function() {
+    const rawAll = state.transactions || [];
+    const normalizedAll = rawAll.map(normalizeTransactionForAnalytics).filter(Boolean);
+    const validStatus = normalizedAll.filter(t => t.status !== 'CANCELLED' && t.status !== 'VOIDED' && t.status !== 'PENDING');
+    
+    const d = new Date();
+    const range = state.analyticsRange || 'all';
+    let cutoff = 0;
+    let dateFiltered = validStatus;
+    if (range === 'today') {
+      cutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime();
+      dateFiltered = validStatus.filter(t => t.timestampMs >= cutoff);
+    } else if (range === 'week') {
+      const diffToMonday = (d.getDay() === 0 ? 6 : d.getDay() - 1);
+      cutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate() - diffToMonday, 0, 0, 0, 0).getTime();
+      dateFiltered = validStatus.filter(t => t.timestampMs >= cutoff);
+    } else if (range === 'month') {
+      cutoff = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0).getTime();
+      dateFiltered = validStatus.filter(t => t.timestampMs >= cutoff);
+    }
+
+    const filters = ensureAnalyticsFiltersInitialized();
+    const branchFiltered = dateFiltered.filter(t => filters.branchId === 'ALL' || t.branchId === filters.branchId);
+    const termFiltered = branchFiltered.filter(t => filters.terminalId === 'ALL' || t.terminalId === filters.terminalId);
+    const cashierFiltered = termFiltered.filter(t => filters.cashierId === 'ALL' || t.cashierId === filters.cashierId);
+    const catFiltered = cashierFiltered.filter(t => {
+      if (filters.categoryId === 'ALL') return true;
+      return (t.items || []).some(item => (item.category || '').toString().trim().toLowerCase() === filters.categoryId.trim().toLowerCase());
+    });
+    const finalFiltered = catFiltered.filter(t => filters.paymentMethod === 'ALL' || t.paymentMethod === filters.paymentMethod.toUpperCase());
+
+    return {
+      rawStateTransactions: rawAll.length,
+      indexedDbRecords: window.__indexedDbCounts || {},
+      apiRecords: window.__apiTxCount || 0,
+      normalizedRecords: normalizedAll.length,
+      validStatusRecords: validStatus.length,
+      afterDate: dateFiltered.length,
+      afterBranch: branchFiltered.length,
+      afterTerminal: termFiltered.length,
+      afterCashier: cashierFiltered.length,
+      afterCategory: catFiltered.length,
+      afterPaymentMethod: finalFiltered.length,
+      finalFilteredCount: finalFiltered.length,
+      filters: { ...filters },
+      organizationId: state.organization?.id || 'org_default',
+      branchContext: state.currentBranch || 'main',
+      terminalContext: state.currentTerminal || 'term_01'
+    };
+  };
+
+  /**
+   * Filter transactions by current analytics date range and canonical filters state.
    */
   function getFilteredTransactions() {
+    const filters = ensureAnalyticsFiltersInitialized();
     const rawAll = state.transactions || [];
     const normalizedAll = rawAll.map(normalizeTransactionForAnalytics).filter(Boolean);
     const range = state.analyticsRange || 'all';
-
-    const selectedBranch = document.getElementById('analytics-filter-branch')?.value || 'ALL';
-    const selectedTerminal = document.getElementById('analytics-filter-terminal')?.value || 'ALL';
-    const selectedCashier = document.getElementById('analytics-filter-cashier')?.value || 'ALL';
-    const selectedCategory = document.getElementById('analytics-filter-category')?.value || 'ALL';
-    const selectedPayment = document.getElementById('analytics-filter-payment')?.value || 'ALL';
 
     // Canonical Status Policy Filter: exclude CANCELLED, VOIDED, PENDING
     const validTransactions = normalizedAll.filter(t => t.status !== 'CANCELLED' && t.status !== 'VOIDED' && t.status !== 'PENDING');
@@ -12142,32 +12246,33 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
 
     if (range === 'today') {
       cutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime();
-      timeFiltered = validTransactions.filter(t => t.timestamp >= cutoff);
+      timeFiltered = validTransactions.filter(t => t.timestampMs >= cutoff);
     } else if (range === 'week') {
       const dayOfWeek = d.getDay();
       const diffToMonday = (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
       cutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate() - diffToMonday, 0, 0, 0, 0).getTime();
-      timeFiltered = validTransactions.filter(t => t.timestamp >= cutoff);
+      timeFiltered = validTransactions.filter(t => t.timestampMs >= cutoff);
     } else if (range === 'month') {
       cutoff = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0).getTime();
-      timeFiltered = validTransactions.filter(t => t.timestamp >= cutoff);
+      timeFiltered = validTransactions.filter(t => t.timestampMs >= cutoff);
     } else if (range === 'custom') {
       const fromVal = document.getElementById('analytics-date-from')?.value;
       const toVal = document.getElementById('analytics-date-to')?.value;
       if (fromVal && toVal) {
         const fromTs = new Date(fromVal + 'T00:00:00').getTime();
         const toTs = new Date(toVal + 'T23:59:59').getTime();
-        timeFiltered = validTransactions.filter(t => t.timestamp >= fromTs && t.timestamp <= toTs);
+        timeFiltered = validTransactions.filter(t => t.timestampMs >= fromTs && t.timestampMs <= toTs);
       }
     }
 
     return timeFiltered.filter(t => {
-      if (selectedBranch !== 'ALL' && t.branchId !== selectedBranch) return false;
-      if (selectedTerminal !== 'ALL' && t.terminalId !== selectedTerminal) return false;
-      if (selectedCashier !== 'ALL' && t.cashierId !== selectedCashier) return false;
-      if (selectedPayment !== 'ALL' && t.paymentMethod !== selectedPayment.toUpperCase()) return false;
-      if (selectedCategory !== 'ALL') {
-        const hasCategory = (t.items || []).some(item => (item.category || '').toString() === selectedCategory);
+      if (filters.branchId !== 'ALL' && t.branchId !== filters.branchId) return false;
+      if (filters.terminalId !== 'ALL' && t.terminalId !== filters.terminalId) return false;
+      if (filters.cashierId !== 'ALL' && t.cashierId !== filters.cashierId) return false;
+      if (filters.paymentMethod !== 'ALL' && t.paymentMethod !== filters.paymentMethod.toUpperCase()) return false;
+      if (filters.categoryId !== 'ALL') {
+        const targetCat = filters.categoryId.trim().toLowerCase();
+        const hasCategory = (t.items || []).some(item => (item.category || '').toString().trim().toLowerCase() === targetCat);
         if (!hasCategory) return false;
       }
       return true;
@@ -12175,7 +12280,8 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
   }
 
   function getPriorPeriodTransactions() {
-    const all = state.transactions || [];
+    const rawAll = state.transactions || [];
+    const all = rawAll.map(normalizeTransactionForAnalytics).filter(Boolean);
     const range = state.analyticsRange || 'all';
     if (range === 'all') return [];
 
@@ -12203,16 +12309,10 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
       const diff = toTs - fromTs;
       const priorFromTs = fromTs - diff - 1000;
       const priorToTs = fromTs - 1000;
-      return all.filter(t => {
-        const ts = typeof t.created_at === 'number' ? t.created_at : new Date(t.created_at || t.ts || 0).getTime();
-        return ts >= priorFromTs && ts <= priorToTs;
-      });
+      return all.filter(t => t.timestampMs >= priorFromTs && t.timestampMs <= priorToTs);
     }
 
-    return all.filter(t => {
-      const ts = typeof t.created_at === 'number' ? t.created_at : new Date(t.created_at || t.ts || 0).getTime();
-      return ts >= priorCutoff && ts < currentCutoff;
-    });
+    return all.filter(t => t.timestampMs >= priorCutoff && t.timestampMs < currentCutoff);
   }
 
   function initAnalyticsControls() {
@@ -12284,10 +12384,20 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     }
 
     // Bind Filter Dropdowns & Reset Button
-    ['branch', 'terminal', 'cashier', 'category', 'payment'].forEach(fKey => {
+    const filters = ensureAnalyticsFiltersInitialized();
+    const filterKeys = ['branch', 'terminal', 'cashier', 'category', 'payment'];
+
+    filterKeys.forEach(fKey => {
       const select = document.getElementById(`analytics-filter-${fKey}`);
       if (select) {
         select.onchange = () => {
+          const val = select.value || 'ALL';
+          if (fKey === 'branch') state.analyticsFilters.branchId = val;
+          else if (fKey === 'terminal') state.analyticsFilters.terminalId = val;
+          else if (fKey === 'cashier') state.analyticsFilters.cashierId = val;
+          else if (fKey === 'category') state.analyticsFilters.categoryId = val;
+          else if (fKey === 'payment') state.analyticsFilters.paymentMethod = val;
+
           try { playAudioSignal('click'); } catch(_) {}
           calculateAnalytics();
         };
@@ -12298,7 +12408,14 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     if (resetBtn) {
       resetBtn.onclick = (e) => {
         e.preventDefault();
-        ['branch', 'terminal', 'cashier', 'category', 'payment'].forEach(fKey => {
+        state.analyticsFilters = {
+          branchId: 'ALL',
+          terminalId: 'ALL',
+          cashierId: 'ALL',
+          categoryId: 'ALL',
+          paymentMethod: 'ALL'
+        };
+        filterKeys.forEach(fKey => {
           const s = document.getElementById(`analytics-filter-${fKey}`);
           if (s) s.value = 'ALL';
         });
@@ -12311,12 +12428,14 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
   }
 
   function populateAnalyticsFilterOptions() {
-    const txs = state.transactions || [];
+    const filters = ensureAnalyticsFiltersInitialized();
+    const rawTxs = state.transactions || [];
+    const txs = rawTxs.map(normalizeTransactionForAnalytics).filter(Boolean);
     
     // 1. Branches
     const branchSelect = document.getElementById('analytics-filter-branch');
     if (branchSelect) {
-      const cur = branchSelect.value || 'ALL';
+      const cur = filters.branchId || 'ALL';
       const branchSet = new Map();
       const defaultName = (state.preferences && state.preferences['store_name']) || 'Main Store / HQ';
       branchSet.set('main', defaultName);
@@ -12324,47 +12443,50 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
         state.branches.forEach(b => { if (b.id) branchSet.set(b.id, b.name || b.id); });
       }
       txs.forEach(t => {
-        const bId = t.branch_id || t.store_id || 'main';
+        const bId = t.branchId || 'main';
         if (!branchSet.has(bId)) branchSet.set(bId, bId === 'main' ? defaultName : `Branch (${bId})`);
       });
       setHtml(branchSelect, '<option value="ALL">All Branches</option>' + Array.from(branchSet.entries()).map(([id, name]) => `<option value="${id}" ${id === cur ? 'selected' : ''}>${name}</option>`).join(''));
+      branchSelect.value = cur;
     }
 
     // 2. Terminals
     const termSelect = document.getElementById('analytics-filter-terminal');
     if (termSelect) {
-      const cur = termSelect.value || 'ALL';
+      const cur = filters.terminalId || 'ALL';
       const termSet = new Map();
       termSet.set('term_01', 'Terminal #1 (Primary)');
       if (Array.isArray(state.terminals)) {
         state.terminals.forEach(t => { if (t.id) termSet.set(t.id, t.name || `Terminal (${t.id})`); });
       }
       txs.forEach(t => {
-        const tId = t.terminal_id || 'term_01';
+        const tId = t.terminalId || 'term_01';
         if (!termSet.has(tId)) termSet.set(tId, `Terminal (${tId})`);
       });
       setHtml(termSelect, '<option value="ALL">All Terminals</option>' + Array.from(termSet.entries()).map(([id, name]) => `<option value="${id}" ${id === cur ? 'selected' : ''}>${name}</option>`).join(''));
+      termSelect.value = cur;
     }
 
     // 3. Cashiers / Staff
     const cashierSelect = document.getElementById('analytics-filter-cashier');
     if (cashierSelect) {
-      const cur = cashierSelect.value || 'ALL';
+      const cur = filters.cashierId || 'ALL';
       const cashierSet = new Set();
       if (Array.isArray(state.staff)) {
         state.staff.forEach(s => { if (s.name) cashierSet.add(s.name); else if (s.id) cashierSet.add(s.id); });
       }
       txs.forEach(t => {
-        const cName = t.cashier_name || t.cashier_id || t.cashier;
+        const cName = t.cashierId;
         if (cName) cashierSet.add(cName);
       });
       setHtml(cashierSelect, '<option value="ALL">All Cashiers</option>' + Array.from(cashierSet.values()).map(c => `<option value="${c}" ${c === cur ? 'selected' : ''}>${c}</option>`).join(''));
+      cashierSelect.value = cur;
     }
 
     // 4. Categories
     const catSelect = document.getElementById('analytics-filter-category');
     if (catSelect) {
-      const cur = catSelect.value || 'ALL';
+      const cur = filters.categoryId || 'ALL';
       const catSet = new Set();
       if (Array.isArray(state.catalog)) {
         state.catalog.forEach(p => { if (p.category) catSet.add(p.category); });
@@ -12375,42 +12497,73 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
         });
       });
       setHtml(catSelect, '<option value="ALL">All Categories</option>' + Array.from(catSet.values()).map(c => `<option value="${c}" ${c === cur ? 'selected' : ''}>${c}</option>`).join(''));
+      catSelect.value = cur;
+    }
+
+    // 5. Payment Types
+    const paySelect = document.getElementById('analytics-filter-payment');
+    if (paySelect) {
+      paySelect.value = filters.paymentMethod || 'ALL';
     }
   }
 
   function updateAnalyticsActiveFilterChips(filteredTxs) {
     const chipsContainer = document.getElementById('analytics-active-chips');
-    if (!chipsContainer) return;
-
-    const bVal = document.getElementById('analytics-filter-branch')?.value || 'ALL';
-    const tVal = document.getElementById('analytics-filter-terminal')?.value || 'ALL';
-    const cVal = document.getElementById('analytics-filter-cashier')?.value || 'ALL';
-    const catVal = document.getElementById('analytics-filter-category')?.value || 'ALL';
-    const pVal = document.getElementById('analytics-filter-payment')?.value || 'ALL';
-    const range = state.analyticsRange || 'all';
-
-    const chips = [];
-    if (range !== 'all') chips.push(`Time: ${range.toUpperCase()}`);
-    if (bVal !== 'ALL') chips.push(`Branch: ${bVal}`);
-    if (tVal !== 'ALL') chips.push(`Terminal: ${tVal}`);
-    if (cVal !== 'ALL') chips.push(`Cashier: ${cVal}`);
-    if (catVal !== 'ALL') chips.push(`Category: ${catVal}`);
-    if (pVal !== 'ALL') chips.push(`Payment: ${pVal}`);
-
+    const badgeEl = document.getElementById('analytics-filter-counter-badge');
+    
+    const filters = ensureAnalyticsFiltersInitialized();
+    const rawAll = (state.transactions || []).length;
     const count = (filteredTxs || []).length;
 
+    // Update Telemetry Badge to distinguish data source vs filter scope
+    if (badgeEl) {
+      const isOnline = navigator.onLine;
+      const statusText = isOnline ? 'LIVE' : 'LOCAL OFFLINE';
+      badgeEl.textContent = `${statusText} • ${rawAll} RECORDS`;
+    }
+
+    if (!chipsContainer) return;
+
+    const range = state.analyticsRange || 'all';
+    const chips = [];
+    if (range !== 'all') chips.push(`Time: ${range.toUpperCase()}`);
+    if (filters.branchId !== 'ALL') chips.push(`Branch: ${filters.branchId}`);
+    if (filters.terminalId !== 'ALL') chips.push(`Terminal: ${filters.terminalId}`);
+    if (filters.cashierId !== 'ALL') chips.push(`Cashier: ${filters.cashierId}`);
+    if (filters.categoryId !== 'ALL') chips.push(`Category: ${filters.categoryId}`);
+    if (filters.paymentMethod !== 'ALL') chips.push(`Payment: ${filters.paymentMethod}`);
+
     if (chips.length === 0) {
-      setHtml(chipsContainer, `<span style="font-size: 10px; color: var(--text-dim); font-weight: 600;">Active Filter Scope: <strong style="color: var(--text-white);">Full Store Dataset (${count} Records)</strong></span>`);
+      if (rawAll === 0) {
+        setHtml(chipsContainer, `<span style="font-size: 10px; color: var(--text-dim); font-weight: 600;">Active Filter Scope: <strong style="color: var(--warning);">No Store Transactions Recorded Yet</strong></span>`);
+      } else {
+        setHtml(chipsContainer, `<span style="font-size: 10px; color: var(--text-dim); font-weight: 600;">Active Filter Scope: <strong style="color: var(--text-white);">Full Store Dataset (${count} Records)</strong></span>`);
+      }
     } else {
       const badgesHtml = chips.map(chip => `
         <span style="font-size: 10px; font-weight: 700; background: rgba(0,214,143,0.15); color: var(--accent-emerald); border: 1px solid rgba(0,214,143,0.3); padding: 2px 8px; border-radius: 12px; display: inline-flex; align-items: center; gap: 4px;">
           ${chip}
         </span>
       `).join('');
+
+      let scopeLabel = `Showing ${count} of ${rawAll} txs`;
+      if (count === 0 && rawAll > 0) {
+        scopeLabel = `Showing 0 of ${rawAll} txs (Filtered Out) <button id="analytics-chip-reset-btn" style="background: none; border: none; color: var(--accent-emerald); text-decoration: underline; font-weight: 700; cursor: pointer; font-size: 10px; margin-left: 4px;">Reset Filters</button>`;
+      }
+
       setHtml(chipsContainer, `<div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-        <span style="font-size: 10px; color: var(--text-dim); font-weight: 600;">Active Scope (${count} txs):</span>
+        <span style="font-size: 10px; color: var(--text-dim); font-weight: 600;">${scopeLabel}:</span>
         ${badgesHtml}
       </div>`);
+
+      const chipResetBtn = document.getElementById('analytics-chip-reset-btn');
+      if (chipResetBtn) {
+        chipResetBtn.onclick = (e) => {
+          e.preventDefault();
+          const mainResetBtn = document.getElementById('analytics-filter-reset');
+          if (mainResetBtn) mainResetBtn.click();
+        };
+      }
     }
   }
 
@@ -12424,16 +12577,18 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
       return;
     }
 
-    const header = ['Date', 'Transaction ID', 'Cashier', 'Items', 'Total (Rs.)'].join(',');
+    const header = ['Date', 'Transaction ID', 'Branch', 'Terminal', 'Cashier', 'Payment Method', 'Items', 'Total (Rs.)'].join(',');
     const rows = txs.map(t => {
-      const date = t.created_at
-        ? new Date(typeof t.created_at === 'number' ? t.created_at : t.created_at).toLocaleString()
-        : 'N/A';
-      const items = (t.items || []).reduce((sum, i) => sum + i.quantity, 0);
-      const total = (t.total_minor_units / 100).toFixed(2);
-      const cashier = (t.cashier_name || t.cashier_id || '').toString().replace(/,/g, ' ');
-      const txId = (t.id || t.transaction_id || '').toString();
-      return [date, txId, cashier, items, total].join(',');
+      const ts = t.timestampMs || t.timestamp || t.created_at || 0;
+      const date = ts && ts > 0 ? new Date(typeof ts === 'number' ? ts : Number(ts)).toLocaleString() : 'N/A';
+      const itemsCount = (t.items || []).reduce((sum, i) => sum + (i.quantity || 1), 0);
+      const totalRs = ((t.totalMinor !== undefined ? t.totalMinor : (t.total_minor_units || t.total || 0)) / 100).toFixed(2);
+      const cashier = (t.cashierId || '').toString().replace(/,/g, ' ');
+      const branch = (t.branchId || '').toString().replace(/,/g, ' ');
+      const terminal = (t.terminalId || '').toString().replace(/,/g, ' ');
+      const payment = (t.paymentMethod || 'CASH').toString();
+      const txId = (t.transactionId || t.id || '').toString();
+      return [date, txId, branch, terminal, cashier, payment, itemsCount, totalRs].join(',');
     });
 
     const csv = [header, ...rows].join('\n');
@@ -12451,9 +12606,81 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     }
   }
 
+  function fetchTransactionsFromIndexedDB() {
+    return new Promise((resolve) => {
+      try {
+        const workerRef = window.syncWorker || window.ValenixiaWorker;
+        if (workerRef && typeof workerRef.postMessage === 'function') {
+          workerRef.postMessage({ type: 'GET_TRANSACTIONS' });
+        }
+      } catch (_) {}
+
+      const dbNames = ['valenixia_db', 'ValenixiaDB', 'valenixia_pos', 'valenixia_commerce'];
+      let foundTxs = [];
+      let pending = dbNames.length;
+
+      dbNames.forEach(name => {
+        try {
+          const req = window.indexedDB.open(name);
+          req.onerror = () => { if (--pending === 0) resolve(foundTxs); };
+          req.onsuccess = (e) => {
+            const db = e.target.result;
+            if (!db || !db.objectStoreNames || !db.objectStoreNames.contains('transactions')) {
+              if (db) try { db.close(); } catch(_) {}
+              if (--pending === 0) resolve(foundTxs);
+              return;
+            }
+            try {
+              const tx = db.transaction('transactions', 'readonly');
+              const store = tx.objectStore('transactions');
+              const getReq = store.getAll();
+              getReq.onsuccess = () => {
+                const res = getReq.result || [];
+                if (res.length > 0 && foundTxs.length === 0) {
+                  foundTxs = res;
+                }
+                try { db.close(); } catch(_) {}
+                if (--pending === 0) resolve(foundTxs);
+              };
+              getReq.onerror = () => {
+                try { db.close(); } catch(_) {}
+                if (--pending === 0) resolve(foundTxs);
+              };
+            } catch (_) {
+              try { db.close(); } catch(_) {}
+              if (--pending === 0) resolve(foundTxs);
+            }
+          };
+        } catch (_) {
+          if (--pending === 0) resolve(foundTxs);
+        }
+      });
+    });
+  }
+
   function calculateAnalytics() {
     window.__realHandlers.calculateAnalytics = calculateAnalytics;
     window.calculateAnalytics = calculateAnalytics;
+
+    if (!state.analyticsRange) {
+      state.analyticsRange = 'all';
+    }
+
+    if (typeof initAnalyticsControls === 'function' && !window.__analyticsControlsInitialized) {
+      window.__analyticsControlsInitialized = true;
+      initAnalyticsControls();
+    }
+
+    // Direct Main-Thread IndexedDB & Worker Query Fallback
+    if (!state.transactions || state.transactions.length === 0) {
+      fetchTransactionsFromIndexedDB().then(txs => {
+        if (Array.isArray(txs) && txs.length > 0) {
+          state.transactions = txs;
+          calculateAnalytics();
+        }
+      }).catch(() => {});
+    }
+
     populateAnalyticsFilterOptions();
 
     const revVal = document.getElementById('analytics-revenue-value');
@@ -12488,31 +12715,36 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
       return;
     }
 
-    const totalRevenue = txs.reduce((sum, t) => sum + (t.status === 'COMPLETED' || t.status === 'PARTIALLY_REFUNDED' ? t.total : 0), 0);
-    const orderCount = txs.filter(t => t.status === 'COMPLETED' || t.status === 'PARTIALLY_REFUNDED').length;
+    const isCompletedStatus = (status) => {
+      const s = String(status || '').toUpperCase();
+      return s === 'COMPLETED' || s === 'PAID' || s === 'SUCCESS' || s === 'PARTIALLY_REFUNDED' || !s;
+    };
+
+    const totalRevenue = txs.reduce((sum, t) => sum + (isCompletedStatus(t.status) ? (t.totalMinor !== undefined ? t.totalMinor : (t.total || 0)) : 0), 0);
+    const orderCount = txs.filter(t => isCompletedStatus(t.status)).length;
     const avgTicket = orderCount > 0 ? Math.round(totalRevenue / orderCount) : 0;
 
     let totalItems = 0;
     txs.forEach(tx => {
       (tx.items || []).forEach(item => {
-        totalItems += Number(item.quantity || 1);
+        totalItems += Number(item.quantity || item.qty || 1);
       });
     });
 
-    if (revVal) revVal.textContent = `Rs. ${(totalRevenue / 100.0).toFixed(2)}`;
+    if (revVal) revVal.textContent = `Rs. ${(totalRevenue / 100.0).toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     if (orderVal) orderVal.textContent = orderCount;
-    if (avgVal) avgVal.textContent = `Rs. ${(avgTicket / 100.0).toFixed(2)}`;
+    if (avgVal) avgVal.textContent = `Rs. ${(avgTicket / 100.0).toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     if (itemsVal) itemsVal.textContent = totalItems;
 
     // Prior period calculations and delta rendering
     const priorTxs = getPriorPeriodTransactions();
-    const priorRevenue = priorTxs.reduce((sum, t) => sum + t.total_minor_units, 0);
+    const priorRevenue = priorTxs.reduce((sum, t) => sum + (t.totalMinor !== undefined ? t.totalMinor : (t.total || 0)), 0);
     const priorOrders = priorTxs.length;
     const priorAvgTicket = priorOrders > 0 ? Math.round(priorRevenue / priorOrders) : 0;
     let priorItems = 0;
     priorTxs.forEach(tx => {
       (tx.items || []).forEach(item => {
-        priorItems += item.quantity;
+        priorItems += Number(item.quantity || 1);
       });
     });
 
@@ -12543,9 +12775,9 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
         // Peak Sales Hour: bucket transactions by hour, find the busiest
         const hourBuckets = new Array(24).fill(0);
         txs.forEach(tx => {
-          const ts = tx.created_at || tx.completed_at || tx.timestamp || 0;
-          if (ts) {
-            const h = new Date(typeof ts === 'number' ? ts : parseInt(ts, 10)).getHours();
+          const ts = tx.timestampMs || tx.timestamp || tx.created_at || 0;
+          if (ts && !isNaN(ts) && ts > 0) {
+            const h = new Date(typeof ts === 'number' ? ts : Number(ts)).getHours();
             if (h >= 0 && h < 24) hourBuckets[h]++;
           }
         });
@@ -12563,8 +12795,8 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
         // Top Payment Mode: count total revenue per mode and pick the highest
         const payTotals = {};
         txs.forEach(tx => {
-          const mode = (tx.payment_mode || tx.paymentMode || 'CASH').toUpperCase().replace('_BOOK','').replace('UDHAAR','CREDIT');
-          const amt = Number(tx.total_minor_units || tx.total || 0);
+          const mode = (tx.paymentMethod || tx.payment_mode || 'CASH').toUpperCase().replace('_BOOK','').replace('UDHAAR','CREDIT');
+          const amt = Number(tx.totalMinor !== undefined ? tx.totalMinor : (tx.total || 0));
           payTotals[mode] = (payTotals[mode] || 0) + (isNaN(amt) ? 0 : amt);
         });
         const topMode = Object.keys(payTotals).reduce((a, b) => payTotals[a] > payTotals[b] ? a : b, 'CASH');
@@ -12800,19 +13032,6 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
       `);
       tbody.appendChild(tr);
     });
-
-    const branchSelect = document.getElementById('analytics-filter-branch');
-    if (branchSelect) {
-      const currentVal = branchSelect.value;
-      setHtml(branchSelect, '<option value="ALL">All Branches</option>');
-      branches.forEach(b => {
-        const opt = document.createElement('option');
-        opt.value = b.id;
-        opt.textContent = b.name;
-        if (b.id === currentVal) opt.selected = true;
-        branchSelect.appendChild(opt);
-      });
-    }
   }
 
   function renderKamaiBusinessAdvisor(txs) {
@@ -12957,11 +13176,14 @@ setHtml(alertsContainer, alertsHtml);
     const hours = Array(24).fill(0);
     const counts = Array(24).fill(0);
     (txs || []).forEach(tx => {
-      if (!tx || tx.created_at === undefined) return;
-      const d = new Date(typeof tx.created_at === 'number' ? tx.created_at : String(tx.created_at));
+      if (!tx) return;
+      const ts = tx.timestampMs || tx.timestamp || tx.created_at || 0;
+      if (!ts || isNaN(ts) || ts <= 0) return;
+      const d = new Date(typeof ts === 'number' ? ts : Number(ts));
       if (isNaN(d.getTime())) return;
       const hr = d.getHours();
-      hours[hr] += Number(tx.total_minor_units || tx.total || 0);
+      const amt = Number(tx.totalMinor !== undefined ? tx.totalMinor : (tx.total_minor_units || tx.total || 0));
+      hours[hr] += amt;
       counts[hr] += 1;
     });
 
@@ -15378,26 +15600,31 @@ setHtml(modal, `
 
   async function checkForUpdates() {
     try {
-// ----------------------------------------------------------------------------
-      const resp = await fetch((window.__valenixiaServerUrl || '') + '/api/version');
+      const serverUrl = window.__valenixiaServerUrl || '';
+      const versionUrl = serverUrl ? (serverUrl + '/api/version') : '/version.json';
+      const resp = await fetch(versionUrl);
       if (resp.ok) {
-        const data = await resp.json();
-        if (data && data.serverVersion && data.serverVersion !== CLIENT_VERSION) {
-          console.log(`[Update] New version detected: ${data.serverVersion} (Current: ${CLIENT_VERSION})`);
-          // Fetch structured release notes
-          try {
-            const notesResp = await fetch((window.__valenixiaServerUrl || '') + '/api/release-notes', { headers });
-            if (notesResp.ok) {
-              const notes = await notesResp.json();
-              showReleaseNotesModal(notes.version, notes.changes);
+        const contentType = resp.headers.get('content-type') || '';
+        if (contentType.includes('application/json') || versionUrl.endsWith('.json')) {
+          const data = await resp.json();
+          const serverVersion = data && (data.serverVersion || data.version);
+          if (serverVersion && serverVersion !== CLIENT_VERSION) {
+            console.log(`[Update] New version detected: ${serverVersion} (Current: ${CLIENT_VERSION})`);
+            try {
+              const notesUrl = serverUrl ? (serverUrl + '/api/release-notes') : '/version.json';
+              const notesResp = await fetch(notesUrl, { headers: typeof headers !== 'undefined' ? headers : {} });
+              if (notesResp.ok && (notesResp.headers.get('content-type') || '').includes('application/json')) {
+                const notes = await notesResp.json();
+                showReleaseNotesModal(notes.version, notes.changes);
+              }
+            } catch (_) {
+              showUpdateNotification(serverVersion, data.changelog || 'Stability improvements.');
             }
-          } catch (_) {
-            showUpdateNotification(data.serverVersion, data.changelog || 'Stability improvements.');
           }
         }
       }
     } catch (err) {
-      console.warn('[Update] Failed to fetch version updates:', err);
+      console.warn('[Update] Version check completed:', err && err.message ? err.message : err);
     }
   }
 
@@ -18995,26 +19222,17 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       if (!btn || !menu) return;
 
       const btnRect = btn.getBoundingClientRect();
-      const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
-      const isRtl = document.body.getAttribute('dir') === 'rtl' || document.documentElement.dir === 'rtl';
-
-      menu.style.position = 'fixed';
-      menu.style.top = `${Math.max(8, btnRect.bottom + 6)}px`;
+      menu.style.position = 'absolute';
+      menu.style.top = 'calc(100% + 6px)';
+      menu.style.right = '0';
+      menu.style.left = 'auto';
       menu.style.zIndex = '10000';
 
-      const menuWidth = 220;
-      let leftPos = isRtl ? btnRect.left : (btnRect.right - menuWidth);
-
-      // Bounds checking: keep menu 8px from viewport edges
-      if (leftPos + menuWidth > viewportWidth - 8) {
-        leftPos = viewportWidth - menuWidth - 8;
+      const actualWidth = menu.offsetWidth || 200;
+      if (btnRect.right < actualWidth) {
+        menu.style.right = 'auto';
+        menu.style.left = '0';
       }
-      if (leftPos < 8) {
-        leftPos = 8;
-      }
-
-      menu.style.left = `${leftPos}px`;
-      menu.style.right = 'auto';
     }
   };
 
@@ -19022,27 +19240,31 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   const overflowMenu = document.getElementById('topbar-overflow-menu');
 
   if (overflowToggleBtn && overflowMenu) {
-    overflowToggleBtn.addEventListener('click', (e) => {
+    overflowToggleBtn.onclick = (e) => {
+      e.preventDefault();
       e.stopPropagation();
-      window.ValenixiaOverflowMenu.toggle();
-    });
+      if (window.ValenixiaOverflowMenu) {
+        window.ValenixiaOverflowMenu.toggle();
+      }
+    };
 
-    // Close menu when clicking inside any item (such as language button or apps download)
-    overflowMenu.addEventListener('click', (e) => {
-      // Allow button actions to fire, then close menu atomically
-      setTimeout(() => {
-        window.ValenixiaOverflowMenu.close();
-      }, 50);
-    });
+    overflowMenu.onclick = (e) => {
+      if (e.target.closest('button')) {
+        setTimeout(() => {
+          if (window.ValenixiaOverflowMenu) window.ValenixiaOverflowMenu.close();
+        }, 100);
+      }
+    };
 
     document.addEventListener('click', (e) => {
-      if (window.ValenixiaOverflowMenu.menuState === 'OPEN' && !overflowMenu.contains(e.target) && e.target !== overflowToggleBtn && !overflowToggleBtn.contains(e.target)) {
+      const wrapper = document.querySelector('.topbar-overflow-wrapper');
+      if (wrapper && !wrapper.contains(e.target) && window.ValenixiaOverflowMenu && window.ValenixiaOverflowMenu.menuState === 'OPEN') {
         window.ValenixiaOverflowMenu.close();
       }
     });
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && window.ValenixiaOverflowMenu.menuState === 'OPEN') {
+      if (e.key === 'Escape' && window.ValenixiaOverflowMenu && window.ValenixiaOverflowMenu.menuState === 'OPEN') {
         window.ValenixiaOverflowMenu.close();
       }
     });

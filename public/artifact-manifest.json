@@ -1,12 +1,12 @@
 {
   "version": "2.6.0",
-  "git_commit": "1f29098ec46ec1a0e7f69c422656aaeda92b2bfc",
-  "build_id": "v2.6.0-prod-1f29098",
+  "git_commit": "868a4f302be7199ca52e30013dc729a5add07c70",
+  "build_id": "v2.6.0-prod-868a4f3",
   "artifacts": {
     "app.js": {
       "path": "app.js",
-      "size": 907428,
-      "sha256": "a2e839c271ec1bb34c499616c9195f384f74063a0b8dcfd967a6339a9b530095"
+      "size": 907847,
+      "sha256": "7834ccf249eeb50b71c291570f5197316b66bb99de9b44cb67c2731f17339af0"
     },
     "barcode-decoder.js": {
       "path": "barcode-decoder.js",
@@ -26,7 +26,7 @@
     "build-id": {
       "path": "build-id",
       "size": 20,
-      "sha256": "fff11aece9b1a12dc0a3dae1ab85e33956f319635d27859c155ec6b240b4cf63"
+      "sha256": "9bc021ad930e0f26ebef1554731a85e0899765d2c10a8808d1422c1369b43d2a"
     },
     "commercial-catalog.js": {
       "path": "commercial-catalog.js",
@@ -56,7 +56,7 @@
     "release-manifest.json": {
       "path": "release-manifest.json",
       "size": 395,
-      "sha256": "5b07b6831cf3811f0bb1bdec4461c2e1dd1b134fc0593b590b45953b525cedb2"
+      "sha256": "4c170f54f883bec1056488d8d6f3ac3e048cb0ddb06712055c498448fe73808c"
     },
     "sw-loader.js": {
       "path": "sw-loader.js",
@@ -71,7 +71,7 @@
     "version.json": {
       "path": "version.json",
       "size": 1105,
-      "sha256": "00d8541563de62690e02733964f11e6e47f5ae9429f4d83e5842bfcea0274c49"
+      "sha256": "87fb02dc022a1524031128812cfa7fe1dd00e6df030862dc563cf5d339000a14"
     }
   }
 }

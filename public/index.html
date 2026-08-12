@@ -271,19 +271,19 @@
 
           <!-- RESPONSIVE UTILITY OVERFLOW MENU -->
           <div class="topbar-overflow-wrapper" style="position: relative;">
-            <button class="topbar-btn" id="btn-topbar-overflow-toggle" aria-expanded="false" aria-controls="topbar-overflow-menu" title="More Utilities" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 4px; border: 1px solid var(--border-titanium); background: transparent; color: var(--text-white); cursor: pointer; font-size: 16px; font-weight: 700;">⋮</button>
-            <div class="topbar-overflow-menu" id="topbar-overflow-menu" style="display: none; position: absolute; top: calc(100% + 8px); right: 0; min-width: 220px; background: rgba(12, 14, 24, 0.95); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 8px; box-shadow: var(--shadow-lg); z-index: 1000; flex-direction: column; gap: 8px;">
-              <button class="topbar-btn" id="lang-toggle-btn" onclick="if(window.toggleAppLanguage)window.toggleAppLanguage();" style="display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 8px 12px; border-radius: 4px; border: 1px solid var(--border-titanium); background: transparent; color: var(--text-white); cursor: pointer; font-size: 11px; font-weight: 700;">
+            <button class="topbar-btn" id="btn-topbar-overflow-toggle" aria-expanded="false" aria-controls="topbar-overflow-menu" title="More Utilities" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--border-titanium); background: transparent; color: var(--text-white); cursor: pointer; font-size: 16px; font-weight: 700;">⋮</button>
+            <div class="topbar-overflow-menu" id="topbar-overflow-menu" style="display: none; position: absolute; top: calc(100% + 6px); right: 0; min-width: 200px; max-width: calc(100vw - 16px); border-radius: 8px; padding: 8px; box-shadow: var(--shadow-lg); z-index: 10000; flex-direction: column; gap: 8px;">
+              <button class="topbar-btn" id="lang-toggle-btn" onclick="if(window.toggleAppLanguage)window.toggleAppLanguage();" style="display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-titanium); background: var(--panel-graphite-mid, rgba(255,255,255,0.05)); color: var(--text-white); cursor: pointer; font-size: 11px; font-weight: 700;">
                 <span>Language</span>
                 <span>اردو / ENG</span>
               </button>
-              <button class="topbar-btn web-only-btn" id="btn-topbar-apps-download" data-screen="apps-download" style="display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 8px 12px; border-radius: 4px; border: 1px solid var(--accent-emerald); background: rgba(0, 214, 143, 0.12); color: var(--accent-emerald); cursor: pointer; font-size: 11px; font-weight: 800; text-transform: uppercase;">
+              <button class="topbar-btn web-only-btn" id="btn-topbar-apps-download" data-screen="apps-download" style="display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--accent-emerald); background: rgba(0, 214, 143, 0.12); color: var(--accent-emerald); cursor: pointer; font-size: 11px; font-weight: 800; text-transform: uppercase;">
                 <span>Native Apps</span>
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               </button>
-              <div class="clock-badge-menu" style="display: flex; flex-direction: column; padding: 8px; background: rgba(255,255,255,0.03); border-radius: 4px;">
+              <div class="clock-badge-menu" style="display: flex; flex-direction: column; padding: 8px; background: var(--panel-graphite-mid, rgba(255,255,255,0.03)); border-radius: 6px;">
                 <span class="badge-lbl" style="font-size: 10px; color: var(--text-gray);">HLC Clock:</span>
-                <span class="badge-val" id="hlc-clock" style="font-size: 10px; font-family: var(--font-mono); color: var(--accent-emerald); word-break: break-all;">0000000000000:000000:web_node</span>
+                <span class="badge-val" id="hlc-clock" style="font-size: 10px; font-family: var(--font-mono); color: var(--accent-emerald); word-break: break-all; overflow-wrap: anywhere;">0000000000000:000000:web_node</span>
               </div>
             </div>
           </div>
@@ -744,14 +744,12 @@
                 <label style="display: block; font-size: 10px; font-weight: 800; color: var(--accent-emerald); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Store Branch</label>
                 <select id="analytics-filter-branch" class="pos-input" style="width: 100%; height: 38px; font-size: 11.5px; font-weight: 700; padding: 0 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.12); color: var(--text-white);" aria-label="Filter by Store Branch">
                   <option value="ALL">All Branches</option>
-                  <option value="main">Main Store / HQ</option>
                 </select>
               </div>
               <div>
                 <label style="display: block; font-size: 10px; font-weight: 800; color: #3b82f6; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">POS Terminal Register</label>
                 <select id="analytics-filter-terminal" class="pos-input" style="width: 100%; height: 38px; font-size: 11.5px; font-weight: 700; padding: 0 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.12); color: var(--text-white);" aria-label="Filter by POS Terminal Register">
                   <option value="ALL">All Terminals</option>
-                  <option value="term_01">Terminal #1 (Primary)</option>
                 </select>
               </div>
               <div>
@@ -959,6 +957,121 @@
                   <!-- dynamic rows inserted by app.js -->
                 </tbody>
               </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- View 9: Suppliers & Accounts Payable Directory -->
+        <section class="content-view" id="view-suppliers">
+          <div class="view-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 18px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+            <div>
+              <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Supplier Directory &amp; Accounts Payable</h2>
+              <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Distributor ledgers, purchase orders, goods receive notes (GRN), and vendor debts</p>
+            </div>
+            <button class="action-btn action-success" onclick="if(window.openSupplierModal)window.openSupplierModal();" style="padding: 10px 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; border-radius: 10px;">+ Add New Supplier</button>
+          </div>
+
+          <div class="suppliers-split-grid" style="display: grid; grid-template-columns: minmax(300px, 360px) 1fr; gap: 20px; min-height: 540px;">
+            <!-- Left Pane: Supplier List -->
+            <div style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+              <input type="text" id="supplier-search-input" class="pos-input" placeholder="Search suppliers by name or phone..." oninput="if(window.renderSuppliersScreen)window.renderSuppliersScreen(this.value.toLowerCase().trim());" style="min-height: 40px; font-size: 12px; padding: 8px 14px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);" aria-label="Search suppliers by name or phone">
+              <div id="supplier-list-container" style="display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex-grow: 1; max-height: 520px;">
+                <!-- Populated dynamically by renderSuppliersScreen() -->
+              </div>
+            </div>
+
+            <!-- Right Pane: Supplier Detail Ledger -->
+            <div style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px; display: flex; flex-direction: column;">
+              <div id="supplier-detail-empty" style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; padding: 60px 20px; text-align: center; color: var(--text-gray);">
+                <div style="font-size: 36px; margin-bottom: 12px;">🏭</div>
+                <h3 style="margin: 0; color: var(--text-white); font-size: 16px;">Select a Supplier</h3>
+                <p style="font-size: 12px; max-width: 320px; margin-top: 6px;">Choose a supplier from the list to view outstanding balance, purchase order history, and payment transactions.</p>
+              </div>
+
+              <div id="supplier-detail-panel" style="display: none; flex-direction: column; gap: 16px; flex-grow: 1;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 14px;">
+                  <div>
+                    <h3 id="supplier-detail-name" style="margin: 0; font-size: 18px; color: var(--text-white); font-family: var(--font-display);">Supplier Name</h3>
+                    <span id="supplier-detail-meta" style="font-size: 11px; color: var(--text-gray);">Phone: — | Email: —</span>
+                  </div>
+                  <div style="text-align: right;">
+                    <span style="font-size: 10px; color: var(--text-gray); text-transform: uppercase; font-weight: 700; display: block;">Outstanding Debt</span>
+                    <strong id="supplier-detail-balance" style="font-size: 18px; color: var(--alert-coral); font-family: var(--font-display);">Rs. 0.00</strong>
+                  </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                  <button class="action-btn action-success" id="btn-supplier-create-po" style="font-size: 11px; padding: 8px 16px; border-radius: 8px;">+ New Purchase Order</button>
+                  <button class="action-btn action-primary" id="btn-supplier-record-payment" style="font-size: 11px; padding: 8px 16px; border-radius: 8px;">💵 Record Vendor Payment</button>
+                  <button class="action-btn action-secondary" id="btn-supplier-edit-profile" style="font-size: 11px; padding: 8px 16px; border-radius: 8px;">✏️ Edit Details</button>
+                </div>
+
+                <!-- Tabs: PO History vs Payments -->
+                <div style="display: flex; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px; margin-top: 8px;">
+                  <button class="action-btn active" id="btn-supplier-tab-pos" style="font-size: 11px; padding: 6px 14px; border-radius: 6px;">Purchase Orders</button>
+                  <button class="action-btn" id="btn-supplier-tab-payments" style="font-size: 11px; padding: 6px 14px; border-radius: 6px; background: transparent; border: 1px solid transparent; color: var(--text-gray);">Payment Ledger</button>
+                </div>
+
+                <div id="supplier-ledger-timeline" style="flex-grow: 1; overflow-y: auto; max-height: 360px;">
+                  <!-- Timeline items populated dynamically -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- View 10: Credit Book (Customer Khata Ledger) -->
+        <section class="content-view" id="view-credit-book">
+          <div class="view-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 18px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+            <div>
+              <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Customer Credit Book (Khata Ledger)</h2>
+              <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Manage customer credit accounts, track receivables, and record cash/online balance repayments</p>
+            </div>
+            <button class="action-btn action-primary" onclick="if(window.openCustomerModal)window.openCustomerModal();" style="padding: 10px 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; border-radius: 10px; background: linear-gradient(135deg, #00d68f 0%, #00a876 100%); color: #060d0d; border: none;">+ Add Customer Account</button>
+          </div>
+
+          <div class="suppliers-split-grid" style="display: grid; grid-template-columns: minmax(300px, 360px) 1fr; gap: 20px; min-height: 540px;">
+            <!-- Left Pane: Customer List -->
+            <div style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+              <input type="text" id="credit-customer-search" class="pos-input" placeholder="Search customer Khata accounts..." oninput="if(window.renderCreditBookScreen)window.renderCreditBookScreen(this.value.toLowerCase().trim());" style="min-height: 40px; font-size: 12px; padding: 8px 14px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);" aria-label="Search customer Khata accounts">
+              <div id="credit-customer-list-container" style="display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex-grow: 1; max-height: 520px;">
+                <!-- Populated dynamically by renderCreditBookScreen() -->
+              </div>
+            </div>
+
+            <!-- Right Pane: Customer Khata Ledger Detail -->
+            <div style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px; display: flex; flex-direction: column;">
+              <div id="credit-detail-empty" style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; padding: 60px 20px; text-align: center; color: var(--text-gray);">
+                <div style="font-size: 36px; margin-bottom: 12px;">📖</div>
+                <h3 style="margin: 0; color: var(--text-white); font-size: 16px;">Select a Khata Account</h3>
+                <p style="font-size: 12px; max-width: 320px; margin-top: 6px;">Select a customer from the left panel to inspect their credit balance, sales history, and record repayments.</p>
+              </div>
+
+              <div id="credit-detail-panel" style="display: none; flex-direction: column; gap: 16px; flex-grow: 1;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 14px;">
+                  <div>
+                    <h3 id="credit-detail-name" style="margin: 0; font-size: 18px; color: var(--text-white); font-family: var(--font-display);">Customer Name</h3>
+                    <span id="credit-detail-phone" style="font-size: 11px; color: var(--text-gray);">Phone: —</span>
+                  </div>
+                  <div style="text-align: right;">
+                    <span style="font-size: 10px; color: var(--text-gray); text-transform: uppercase; font-weight: 700; display: block;">Udhaar Balance Due</span>
+                    <strong id="credit-detail-balance" style="font-size: 18px; color: var(--accent-emerald); font-family: var(--font-display);">Rs. 0.00</strong>
+                  </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                  <button class="action-btn action-success" id="btn-credit-collect-payment" style="font-size: 11px; padding: 8px 16px; border-radius: 8px;">💵 Collect Payment (Wasool)</button>
+                  <button class="action-btn action-warning" id="btn-credit-add-manual" style="font-size: 11px; padding: 8px 16px; border-radius: 8px;">➕ Record Manual Credit (Udhaar)</button>
+                </div>
+
+                <div style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px; margin-top: 8px;">
+                  <h4 style="margin: 0; font-size: 13px; color: var(--text-white); font-family: var(--font-display);">Khata Transaction Timeline</h4>
+                </div>
+
+                <div id="credit-ledger-timeline" style="flex-grow: 1; overflow-y: auto; max-height: 360px;">
+                  <!-- Ledger timeline items populated dynamically -->
+                </div>
+              </div>
             </div>
           </div>
         </section>

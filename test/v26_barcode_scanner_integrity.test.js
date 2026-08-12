@@ -79,7 +79,9 @@ const appScript = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf
 const decoderScript = fs.readFileSync(path.join(__dirname, '../public/barcode-decoder.js'), 'utf8');
 const scannerScript = fs.readFileSync(path.join(__dirname, '../public/barcode-scanner.js'), 'utf8');
 
+window.module = window.module || { exports: {} };
 window.eval(catalogScript);
+window.module = { exports: {} };
 window.eval(currencyScript);
 window.eval(appScript);
 window.eval(decoderScript);

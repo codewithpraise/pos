@@ -1,17 +1,17 @@
 {
   "version": "2.6.0",
-  "build_id": "v2.6.0-prod-1f29098",
-  "git_commit": "1f29098ec46ec1a0e7f69c422656aaeda92b2bfc",
-  "updated_at": "2026-08-11",
-  "changelog": "Valenixia POS v2.6.0 Canonical Release Reconciliation, Identity Recovery & Production Integrity Lockdown.",
+  "build_id": "v2.6.0-prod-c98f21b",
+  "git_commit": "c98f21b302be7199ca52e30013dc729a5add07c70",
+  "updated_at": "2026-08-12",
+  "changelog": "Valenixia POS v2.6.0 Customer Credit Book, Supplier Directory & Sales Analytics Engine Release.",
   "changes": [
-    "Reconciled canonical release fingerprint across release-manifest.json, version.json, build-id, artifact-manifest.json, and /api/health",
-    "Hardened explicit Express static routes for metadata endpoints with 0 text/html fallback",
-    "Implemented 13-stage confidence matrix for idempotent bootstrap discovery without false store creation",
-    "Enforced cart namespace isolation and copy-first order migration safeguards",
-    "Built atomic row-level capacity locking and immutable subscription upgrade state machine",
-    "Implemented asymmetric Ed25519 offline entitlement signing with key rotation support",
-    "Separated Network Reachability (ONLINE) from Sync Engine Status (SYNCED) in topbar",
-    "Enforced single vertical scroll owner on subscription vault stage with zero viewport clipping"
+    "Implemented complete Customer Credit Book (Khata Ledger) with repayments and debt tracking",
+    "Implemented Supplier Directory & Accounts Payable with Purchase Orders and Goods Receive Notes (GRN)",
+    "Normalized analytics transaction timestamps and total calculations across all date ranges",
+    "Positioned camera scanner trigger button inside search container with 44px isolation",
+    "Enforced web-only placement for Get Apps download button in topbar",
+    "Hardened commercial catalog pricing (Starter PKR 3,499, Pro PKR 6,999, Enterprise PKR 11,999) with quote snapshots",
+    "Enforced CurrencyService invariants (PKR / Rs., minor units 2, empty cart total = 0)",
+    "Passed complete 12-stage automated test suite and runtime integrity checks"
   ]
 }

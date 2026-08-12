@@ -321,7 +321,8 @@
     },
 
     async refresh() {
-      const curTier = (typeof window.getActiveTier === 'function' ? window.getActiveTier() : (window.__valenixiaTier || 'GROWTH')).toUpperCase();
+      const rawTier = (typeof window.getActiveTier === 'function' ? window.getActiveTier() : (window.__valenixiaTier || localStorage.getItem('valenixia_tier') || 'STARTER')).toUpperCase();
+      const curTier = rawTier === 'GROWTH' ? 'PRO' : rawTier;
       const isTrialActive = localStorage.getItem('valenixia_trial_active') === 'true';
 
       const badgeEl = document.getElementById('badge-active-tier-pill');
@@ -332,6 +333,66 @@
       const hwidCodeEl = document.getElementById('billing-form-device-hwid');
       const hwidVal = window.__valenixiaHWID || localStorage.getItem('valenixia_hwid') || 'DEV-HWID-LOCAL-NODE';
       if (hwidCodeEl) hwidCodeEl.textContent = hwidVal;
+
+      // ── Dynamic Capacity Calculator Sync ──
+      const catalog = window.COMMERCIAL_CATALOG || {};
+      const rates = catalog.PLAN_RATES || {
+        STARTER: { monthlyPricePKR: 3499, includedTerminals: 1, includedBranches: 1, extraTerminalPricePKR: 1200, extraBranchPricePKR: 0, allowExtraBranches: false },
+        PRO: { monthlyPricePKR: 6999, includedTerminals: 2, includedBranches: 1, extraTerminalPricePKR: 1000, extraBranchPricePKR: 3500, allowExtraBranches: true },
+        ENTERPRISE: { monthlyPricePKR: 11999, includedTerminals: 3, includedBranches: 2, extraTerminalPricePKR: 800, extraBranchPricePKR: 3000, allowExtraBranches: true }
+      };
+
+      const plan = rates[curTier] || rates.STARTER;
+      const extraTerminals = Number(localStorage.getItem('valenixia_extra_terminals') || 0);
+      const extraBranches = Number(localStorage.getItem('valenixia_extra_branches') || 0);
+
+      const termSummaryEl = document.getElementById('cap-terminals-summary');
+      const btnAddTermEl = document.getElementById('btn-add-terminal-capacity');
+      const branchSummaryEl = document.getElementById('cap-branches-summary');
+      const btnAddBranchEl = document.getElementById('btn-add-branch-capacity');
+      const totalEstEl = document.getElementById('cap-total-monthly-estimate');
+
+      if (termSummaryEl) {
+        termSummaryEl.textContent = `${plan.includedTerminals} Included + ${extraTerminals} Extra = ${plan.includedTerminals + extraTerminals} Capacity`;
+      }
+      if (btnAddTermEl) {
+        btnAddTermEl.textContent = `+ Add Terminal (PKR ${plan.extraTerminalPricePKR.toLocaleString()}/mo)`;
+      }
+      if (branchSummaryEl) {
+        const totalB = plan.includedBranches + extraBranches;
+        branchSummaryEl.textContent = `${plan.includedBranches} Included + ${extraBranches} Extra = ${totalB} ${totalB === 1 ? 'Branch' : 'Branches'}`;
+      }
+      if (btnAddBranchEl) {
+        if (plan.allowExtraBranches) {
+          btnAddBranchEl.textContent = `+ Add Branch (PKR ${(plan.extraBranchPricePKR || 3000).toLocaleString()}/mo)`;
+          btnAddBranchEl.classList.remove('dm-btn-secondary');
+          btnAddBranchEl.classList.add('dm-btn-emerald');
+        } else {
+          btnAddBranchEl.textContent = `+ Add Branch (Requires Pro)`;
+          btnAddBranchEl.classList.remove('dm-btn-emerald');
+          btnAddBranchEl.classList.add('dm-btn-secondary');
+        }
+      }
+
+      const monthlyBase = plan.monthlyPricePKR;
+      const monthlyExtraTerminals = extraTerminals * plan.extraTerminalPricePKR;
+      const monthlyExtraBranches = extraBranches * (plan.extraBranchPricePKR || 0);
+      const totalMonthlyCost = monthlyBase + monthlyExtraTerminals + monthlyExtraBranches;
+
+      if (totalEstEl) {
+        totalEstEl.textContent = `PKR ${totalMonthlyCost.toLocaleString()} / month`;
+      }
+
+      // Update Plan Selection Cards with Active Tier Badges
+      document.querySelectorAll('.btn-select-tier').forEach(btn => {
+        const cardTier = (btn.getAttribute('data-tier') || '').toUpperCase();
+        const normCardTier = cardTier === 'GROWTH' ? 'PRO' : cardTier;
+        if (normCardTier === curTier) {
+          btn.textContent = 'CURRENT PLAN (ACTIVE)';
+          btn.disabled = true;
+          btn.style.opacity = '0.75';
+        }
+      });
 
       // Update Addon Marketplace Cards with Real Entitlement Status
       try {

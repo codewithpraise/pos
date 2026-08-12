@@ -6475,6 +6475,240 @@ html {
   font-size: calc(100% * var(--size-scale, 1));
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   TOPBAR OVERFLOW MENU & MULTI-THEME CARD HARDENING
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.topbar-overflow-wrapper {
+  position: relative !important;
+}
+
+.topbar-overflow-menu {
+  background: var(--panel-graphite, rgba(14, 18, 28, 0.96)) !important;
+  border: 1px solid var(--border-titanium, rgba(255, 255, 255, 0.12)) !important;
+  color: var(--text-white, #ffffff) !important;
+  box-shadow: var(--shadow-lg, 0 10px 30px rgba(0, 0, 0, 0.4)) !important;
+}
+
+body.theme-monochrome-ivory .topbar-overflow-menu {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+  color: #111111 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
+}
+
+body.theme-monochrome-ivory .topbar-overflow-menu .topbar-btn {
+  background: #f4f3ef !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  color: #111111 !important;
+}
+
+body.theme-monochrome-ivory .topbar-overflow-menu .clock-badge-menu {
+  background: #f4f3ef !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+body.theme-monochrome-ivory .topbar-overflow-menu .clock-badge-menu .badge-lbl {
+  color: #666666 !important;
+}
+
+body.theme-monochrome-ivory .topbar-overflow-menu .clock-badge-menu .badge-val {
+  color: #1a7a4a !important;
+}
+
+/* Light Mode Overrides for Suppliers, Credit Book, Logs & Customers Panes */
+body.theme-monochrome-ivory #view-suppliers .suppliers-split-grid > div,
+body.theme-monochrome-ivory #view-credit-book .suppliers-split-grid > div,
+body.theme-monochrome-ivory #view-customers .customers-table-wrapper,
+body.theme-monochrome-ivory #view-logs .chart-container-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  color: #111111 !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04) !important;
+}
+
+body.theme-monochrome-ivory #view-suppliers h2,
+body.theme-monochrome-ivory #view-suppliers h3,
+body.theme-monochrome-ivory #view-credit-book h2,
+body.theme-monochrome-ivory #view-credit-book h3,
+body.theme-monochrome-ivory #view-credit-book h4,
+body.theme-monochrome-ivory #view-logs h2,
+body.theme-monochrome-ivory #view-logs h3,
+body.theme-monochrome-ivory #view-customers h2 {
+  color: #111111 !important;
+}
+
+body.theme-monochrome-ivory .supplier-item-card,
+body.theme-monochrome-ivory .credit-item-card {
+  background: #f7f6f3 !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  color: #111111 !important;
+}
+
+body.theme-monochrome-ivory .supplier-item-card.active,
+body.theme-monochrome-ivory .credit-item-card.active {
+  background: #eae8e1 !important;
+  border-color: #111111 !important;
+}
+
+body.theme-monochrome-ivory #view-logs pre,
+body.theme-monochrome-ivory #view-logs .console-log-box {
+  background: #f0eee9 !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  color: #1a1a1a !important;
+}
+
+/* Light Mode Overrides for Subscription Vault Page (#view-subscription) */
+body.theme-monochrome-ivory #view-subscription {
+  background: #f8f7f4 !important;
+  color: #111111 !important;
+}
+
+body.theme-monochrome-ivory #view-subscription h2,
+body.theme-monochrome-ivory #view-subscription h3,
+body.theme-monochrome-ivory #view-subscription h4,
+body.theme-monochrome-ivory #view-subscription .pricing-card-title,
+body.theme-monochrome-ivory #view-subscription .pricing-price {
+  color: #111111 !important;
+}
+
+body.theme-monochrome-ivory #view-subscription .sub-tab-panel,
+body.theme-monochrome-ivory #view-subscription .pricing-card,
+body.theme-monochrome-ivory #view-subscription .cloud-vault-card,
+body.theme-monochrome-ivory #view-subscription .subscription-sidebar {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  color: #111111 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05) !important;
+}
+
+body.theme-monochrome-ivory #view-subscription .billing-cycle-toggle,
+body.theme-monochrome-ivory #view-subscription .billing-toggle-btn {
+  background: #eae8e1 !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+  color: #111111 !important;
+  font-weight: 800 !important;
+}
+
+body.theme-monochrome-ivory #view-subscription .billing-toggle-btn.active {
+  background: #111111 !important;
+  color: #ffffff !important;
+}
+
+body.theme-monochrome-ivory #view-subscription .badge-most-popular {
+  background: #111111 !important;
+  color: #ffffff !important;
+  border: 1px solid #111111 !important;
+}
+
+body.theme-monochrome-ivory #view-subscription .sub-nav-item {
+  color: #444444 !important;
+  background: transparent !important;
+}
+
+body.theme-monochrome-ivory #view-subscription .sub-nav-item.active {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+  font-weight: 800 !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+}
+
+body.theme-monochrome-ivory #view-subscription .pricing-features li {
+  color: #333333 !important;
+}
+
+body.theme-monochrome-ivory #view-subscription .pricing-features li strong {
+  color: #111111 !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ANALYTICS & SUBSCRIPTION LIGHT MODE OVERRIDES
+   ───────────────────────────────────────────────────────────────────────────── */
+
+body.theme-monochrome-ivory #view-analytics {
+  background: #f8f7f4 !important;
+  color: #111111 !important;
+}
+
+body.theme-monochrome-ivory #analytics-multidim-filter-bar {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05) !important;
+}
+
+body.theme-monochrome-ivory #analytics-multidim-filter-bar h4,
+body.theme-monochrome-ivory #analytics-multidim-filter-bar label,
+body.theme-monochrome-ivory #analytics-multidim-filter-bar select,
+body.theme-monochrome-ivory #view-analytics h2,
+body.theme-monochrome-ivory #view-analytics h3,
+body.theme-monochrome-ivory #view-analytics h4 {
+  color: #111111 !important;
+}
+
+body.theme-monochrome-ivory #analytics-multidim-filter-bar select {
+  background: #f4f3ef !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+  color: #111111 !important;
+}
+
+body.theme-monochrome-ivory #analytics-multidim-filter-bar select option {
+  background: #ffffff !important;
+  color: #111111 !important;
+}
+
+body.theme-monochrome-ivory #view-analytics .chart-container-card,
+body.theme-monochrome-ivory #view-analytics .kpi-card,
+body.theme-monochrome-ivory #view-analytics .analytics-grid-row > div {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  color: #111111 !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04) !important;
+}
+
+body.theme-monochrome-ivory #view-analytics .kpi-val,
+body.theme-monochrome-ivory #view-analytics .kpi-lbl {
+  color: #111111 !important;
+}
+
+body.theme-monochrome-ivory #analytics-range-group .analytics-range-btn {
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+  color: #333333 !important;
+  background: #f4f3ef !important;
+}
+
+body.theme-monochrome-ivory #analytics-range-group .analytics-range-btn[aria-pressed="true"] {
+  background: #00d68f !important;
+  color: #060d0d !important;
+  font-weight: 800 !important;
+  border-color: #00d68f !important;
+}
+
+body.theme-monochrome-ivory #analytics-active-chips {
+  background: #f4f3ef !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+body.theme-monochrome-ivory #analytics-filter-reset {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Subscription Vault Page Light Mode Overrides */
+body.theme-monochrome-ivory #view-subscription div[style*="background: rgba(255,255,255,0.02)"],
+body.theme-monochrome-ivory #view-subscription div[style*="background:rgba(255,255,255,0.02)"],
+body.theme-monochrome-ivory #view-subscription div[style*="background: rgba(0,214,143,0.05)"],
+body.theme-monochrome-ivory #view-subscription div[style*="background:rgba(0,214,143,0.05)"] {
+  background: #f4f3ef !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  color: #111111 !important;
+}
+
+body.theme-monochrome-ivory #view-subscription div[style*="background: rgba(0,214,143,0.05)"] div,
+body.theme-monochrome-ivory #view-subscription div[style*="background:rgba(0,214,143,0.05)"] div {
+  color: #111111 !important;
+}
+
 
 
 

@@ -1,27 +1,7 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "server.js",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": ["public/**"]
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/downloads/valenixia-(pos|latest|mobile)\\.apk",
-      "dest": "/downloads/valenixia.apk"
-    },
-    {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/server.js"
-    }
-  ],
+  "outputDirectory": "public",
+  "cleanUrls": true,
   "headers": [
     {
       "source": "/(.*)",
@@ -33,10 +13,28 @@
       ]
     },
     {
-      "source": "/(healthz|api/health|version.json|release-manifest.json|build-id|sw.js)",
+      "source": "/(version.json|release-manifest.json|build-id|sw.js|api/version|api/release-notes)",
       "headers": [
         { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0" }
       ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/version",
+      "destination": "/version.json"
+    },
+    {
+      "source": "/api/release-notes",
+      "destination": "/version.json"
+    },
+    {
+      "source": "/downloads/valenixia-(pos|latest|mobile)\\.apk",
+      "destination": "/downloads/valenixia.apk"
+    },
+    {
+      "source": "/((?!api/|.*\\..*).*)",
+      "destination": "/index.html"
     }
   ]
 }
