@@ -1,12 +1,22 @@
 {
   "version": "2.6.0",
-  "git_commit": "5a1baa6db4e68dcf1c2a8f6a76274cbbad72cfdb",
-  "build_id": "v2.6.0-prod-5a1baa6",
+  "git_commit": "1f29098ec46ec1a0e7f69c422656aaeda92b2bfc",
+  "build_id": "v2.6.0-prod-1f29098",
   "artifacts": {
     "app.js": {
       "path": "app.js",
       "size": 907428,
       "sha256": "a2e839c271ec1bb34c499616c9195f384f74063a0b8dcfd967a6339a9b530095"
+    },
+    "barcode-decoder.js": {
+      "path": "barcode-decoder.js",
+      "size": 2792,
+      "sha256": "927a8066927b30f251029eae66d5f67e953e8b3b227c4bd659ce941d58466398"
+    },
+    "barcode-scanner.js": {
+      "path": "barcode-scanner.js",
+      "size": 14966,
+      "sha256": "975e22ab1ea567a2a2abebc168636c7279c284aec1d7f9137b77b07ca0c92840"
     },
     "bootstrap-init.js": {
       "path": "bootstrap-init.js",
@@ -16,7 +26,7 @@
     "build-id": {
       "path": "build-id",
       "size": 20,
-      "sha256": "86794e4d8a35581a3048f278e0be4c9ca6fa245186cac44782f0418feb4ea5bb"
+      "sha256": "fff11aece9b1a12dc0a3dae1ab85e33956f319635d27859c155ec6b240b4cf63"
     },
     "commercial-catalog.js": {
       "path": "commercial-catalog.js",
@@ -46,7 +56,7 @@
     "release-manifest.json": {
       "path": "release-manifest.json",
       "size": 395,
-      "sha256": "4a0b89729c7de23b98a4069349d84c7c037e060f15b4534d3510b59000b3e118"
+      "sha256": "5b07b6831cf3811f0bb1bdec4461c2e1dd1b134fc0593b590b45953b525cedb2"
     },
     "sw-loader.js": {
       "path": "sw-loader.js",
@@ -55,13 +65,13 @@
     },
     "sw.js": {
       "path": "sw.js",
-      "size": 8683,
-      "sha256": "69ac557127dd39b5e86fc350c887f45f3f258745098e61096486515980015db8"
+      "size": 8795,
+      "sha256": "b85c5b12b29af15608d79894d13ff2162e43c5df043198ea62edf6333261354a"
     },
     "version.json": {
       "path": "version.json",
       "size": 1105,
-      "sha256": "d90dce0cd2a94470a25d9e1500c67f15b9adc51270149f2936593092e4eedf6f"
+      "sha256": "00d8541563de62690e02733964f11e6e47f5ae9429f4d83e5842bfcea0274c49"
     }
   }
 }

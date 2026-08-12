@@ -14,7 +14,7 @@ if (self.location.hostname !== 'localhost' && !self.location.hostname.includes('
 }
 
 const urlParams = new URLSearchParams(self.location.search);
-const buildVersion = urlParams.get('v') || '2.6.6';
+const buildVersion = urlParams.get('v') || 'v2.6.0-prod-5a1baa6';
 const CACHE_NAME = `valenixia-pos-cache-${buildVersion}`;
 const ASSETS_TO_CACHE = [
   { url: '/', integrity: '' },
@@ -28,6 +28,8 @@ const ASSETS_TO_CACHE = [
   { url: '/router.js', integrity: '' },
   { url: '/commercial-catalog.js', integrity: '' },
   { url: '/legal-documents.js', integrity: '' },
+  { url: '/barcode-decoder.js', integrity: '' },
+  { url: '/barcode-scanner.js', integrity: '' },
   { url: '/modules/ui.js', integrity: '' },
   { url: '/modules/animations.js', integrity: '' },
   { url: '/modules/offline.js', integrity: '' },

@@ -15,10 +15,11 @@ const SCHEMA_VERSION = '17';
 
 const publicDir = path.join(__dirname, '..', 'public');
 
-// Files to include in artifact manifest
 const assetFiles = [
   'index.html',
   'app.js',
+  'barcode-decoder.js',
+  'barcode-scanner.js',
   'bootstrap-init.js',
   'sw.js',
   'sw-loader.js',
