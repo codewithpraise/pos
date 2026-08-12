@@ -230,6 +230,10 @@
 
       this.currentScreen = cleanName;
 
+      if (global.ValenixiaOverflowMenu && typeof global.ValenixiaOverflowMenu.close === 'function') {
+        global.ValenixiaOverflowMenu.close();
+      }
+
       if (global.state) {
         global.state.activeScreen = cleanName;
       }

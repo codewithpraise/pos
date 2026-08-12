@@ -6721,6 +6721,96 @@ body.theme-monochrome-ivory #view-subscription div[style*="background:rgba(0,214
   color: #111111 !important;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   SYNC LOGS & SYSTEM HEALTH LIGHT MODE OVERRIDES (#view-logs)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+body.theme-monochrome-ivory #view-logs {
+  background: #f8f7f4 !important;
+  color: #111111 !important;
+}
+
+body.theme-monochrome-ivory #view-logs #sync-logs-feed-container,
+body.theme-monochrome-ivory #view-logs .sync-logs-feed,
+body.theme-monochrome-ivory #view-logs .console-log-box {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  color: #111111 !important;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.03) !important;
+}
+
+body.theme-monochrome-ivory #view-logs #sync-logs-feed-container > div {
+  background: #f4f3ef !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  color: #111111 !important;
+}
+
+body.theme-monochrome-ivory #view-logs #sync-logs-feed-container span,
+body.theme-monochrome-ivory #view-logs #sync-logs-feed-container div {
+  color: #111111 !important;
+}
+
+body.theme-monochrome-ivory #view-logs #sync-logs-feed-container span[style*="color: var(--accent-emerald)"],
+body.theme-monochrome-ivory #view-logs #sync-logs-feed-container span[style*="color:var(--accent-emerald)"] {
+  color: #007a4d !important;
+}
+
+body.theme-monochrome-ivory #view-logs #sync-logs-feed-container span[style*="color: var(--accent-blue)"],
+body.theme-monochrome-ivory #view-logs #sync-logs-feed-container span[style*="color:var(--accent-blue)"] {
+  color: #0284c7 !important;
+}
+
+body.theme-monochrome-ivory #view-logs #logs-tab-health .settings-section {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  color: #111111 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+}
+
+body.theme-monochrome-ivory #view-logs #logs-tab-sync div[style*="background: rgba"],
+body.theme-monochrome-ivory #view-logs #logs-tab-sync div[style*="background:rgba"] {
+  background: #f4f3ef !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  color: #111111 !important;
+}
+
+body.theme-monochrome-ivory #btn-clear-logs-feed {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+}
+
+body.theme-monochrome-ivory #logs-tabs-nav div[style*="background: rgba"],
+body.theme-monochrome-ivory #logs-tabs-nav div[style*="background:rgba"] {
+  background: #eae8e1 !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+}
+
+body.theme-monochrome-ivory #btn-tab-sync-logs.active,
+body.theme-monochrome-ivory #btn-tab-health-logs.active {
+  background: #00a86b !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  border: none !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   APP-WIDE COMPREHENSIVE LIGHT MODE CONTRAST OVERRIDES
+   ───────────────────────────────────────────────────────────────────────────── */
+
+body.theme-monochrome-ivory .content-view {
+  background: #f8f7f4 !important;
+  color: #111111 !important;
+}
+
+body.theme-monochrome-ivory pre,
+body.theme-monochrome-ivory code,
+body.theme-monochrome-ivory .console-box {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  color: #111111 !important;
+}
+
 
 
 
