@@ -627,21 +627,14 @@ window.submitWizard = async function() {
   console.log('[Legal] EULA accepted at', legalTs);
 
   // Transition UI: Hide wizard overlay & Activate Auth Lock Screen (PIN Keypad)
-  const wizOverlay = document.getElementById('first-boot-wizard');
-  const lockScreen = document.getElementById('auth-lock-screen');
-  const posLayout = document.getElementById('pos-app-layout');
-
-  if (wizOverlay) {
-    wizOverlay.style.display = 'none';
-    wizOverlay.classList.remove('active');
-  }
-  if (lockScreen) {
-    lockScreen.style.display = 'flex';
-    lockScreen.classList.add('active');
-  }
-  if (posLayout) {
-    posLayout.style.display = 'none';
-    posLayout.classList.remove('active');
+  // Transition UI: Delegate to ValenixiaBootstrap (authoritative surface controller)
+  if (window.ValenixiaBootstrap) {
+    window.ValenixiaBootstrap.transition('AUTH_LOCK');
+  } else {
+    const wizOverlay = document.getElementById('first-boot-wizard');
+    const lockScreen = document.getElementById('auth-lock-screen');
+    if (wizOverlay) { wizOverlay.style.display = 'none'; wizOverlay.classList.remove('active'); }
+    if (lockScreen) { lockScreen.style.display = 'flex'; lockScreen.classList.add('active'); }
   }
 
   if (typeof showNotificationToast === 'function') {
