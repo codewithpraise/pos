@@ -3219,6 +3219,7 @@
       </div>
     </div>
   </div>
+  <!-- END MAIN POS LAYOUT -->
 
   <!-- FIRST BOOT ONBOARDING WIZARD OVERLAY -->
   <div id="first-boot-wizard" class="auth-overlay wizard-overlay" style="display: none; position: fixed; inset: 0; z-index: 999999; background: #060609; backdrop-filter: blur(20px); flex-direction: column; align-items: center; justify-content: flex-start; overflow-y: auto; padding: 40px 20px;">
@@ -3463,37 +3464,39 @@
 
         <!-- STEP 4: Security -->
         <div class="wiz-panel" id="wiz-panel-4" style="display:none; flex-direction:column; gap:14px;">
-          <div class="wiz-field-group">
-            <label class="wiz-label">Owner PIN <span style="color:#8f9cb5; font-weight:500; font-size:10px;">(4-6 digits)</span></label>
-            <div class="password-wrapper" style="margin-top:6px;">
-              <input type="password" autocomplete="new-password" id="wizard-admin-pin" class="secure-input pos-input" placeholder="Enter 4-6 digit Owner PIN" value="" maxlength="6" minlength="4" inputmode="numeric" pattern="[0-9]*" aria-label="Owner PIN">
-              <button type="button" class="btn-toggle-password" title="Toggle visibility">
-                <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-              </button>
+          <form id="wiz-security-form" onsubmit="event.preventDefault();" style="display:flex; flex-direction:column; gap:14px; margin:0; width:100%;">
+            <div class="wiz-field-group">
+              <label class="wiz-label">Owner PIN <span style="color:#8f9cb5; font-weight:500; font-size:10px;">(4-6 digits)</span></label>
+              <div class="password-wrapper" style="margin-top:6px;">
+                <input type="password" autocomplete="new-password" id="wizard-admin-pin" class="secure-input pos-input" placeholder="Enter 4-6 digit Owner PIN" value="" maxlength="6" minlength="4" inputmode="numeric" pattern="[0-9]*" aria-label="Owner PIN">
+                <button type="button" class="btn-toggle-password" title="Toggle visibility">
+                  <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                </button>
+              </div>
+              <span class="wiz-hint">Required to unlock the register and access admin settings</span>
             </div>
-            <span class="wiz-hint">Required to unlock the register and access admin settings</span>
-          </div>
-          <div class="wiz-field-group">
-            <label class="wiz-label">Network Encryption Key</label>
-            <div class="password-wrapper" style="margin-top:6px;">
-              <input type="password" autocomplete="new-password" id="wizard-sync-passphrase" class="secure-input pos-input" placeholder="Secure passphrase for P2P Wi-Fi sync" value="valenixia-secret" aria-label="Secure passphrase for P2P Wi-Fi sync" pattern="[a-zA-Z0-9_\-]+" title="Only letters, numbers, dashes, and underscores allowed">
-              <button type="button" class="btn-toggle-password" title="Toggle visibility">
-                <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-              </button>
+            <div class="wiz-field-group">
+              <label class="wiz-label">Network Encryption Key</label>
+              <div class="password-wrapper" style="margin-top:6px;">
+                <input type="password" autocomplete="new-password" id="wizard-sync-passphrase" class="secure-input pos-input" placeholder="Secure passphrase for P2P Wi-Fi sync" value="valenixia-secret" aria-label="Secure passphrase for P2P Wi-Fi sync" pattern="[a-zA-Z0-9_\-]+" title="Only letters, numbers, dashes, and underscores allowed">
+                <button type="button" class="btn-toggle-password" title="Toggle visibility">
+                  <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                </button>
+              </div>
+              <span class="wiz-hint">Encrypts all data synced between registers on your local network</span>
             </div>
-            <span class="wiz-hint">Encrypts all data synced between registers on your local network</span>
-          </div>
-          <div id="wiz-passphrase-strength" style="padding:10px 14px; border-radius:8px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04);">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-              <span style="font-size:10px; font-weight:700; color: var(--text-gray); text-transform:uppercase; letter-spacing:0.5px;">Key Strength</span>
-              <span id="wiz-strength-label" style="font-size:10px; font-weight:800; color: var(--accent-emerald);">—</span>
+            <div id="wiz-passphrase-strength" style="padding:10px 14px; border-radius:8px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <span style="font-size:10px; font-weight:700; color: var(--text-gray); text-transform:uppercase; letter-spacing:0.5px;">Key Strength</span>
+                <span id="wiz-strength-label" style="font-size:10px; font-weight:800; color: var(--accent-emerald);">—</span>
+              </div>
+              <div style="height:4px; background:rgba(255,255,255,0.06); border-radius:2px; overflow:hidden;">
+                <div id="wiz-strength-bar" style="height:100%; width:0; background:#00d68f; border-radius:2px; transition:all 0.3s ease;"></div>
+              </div>
             </div>
-            <div style="height:4px; background:rgba(255,255,255,0.06); border-radius:2px; overflow:hidden;">
-              <div id="wiz-strength-bar" style="height:100%; width:0; background:#00d68f; border-radius:2px; transition:all 0.3s ease;"></div>
-            </div>
-          </div>
+          </form>
         </div>
 
         <!-- STEP 5: Review & EULA -->
