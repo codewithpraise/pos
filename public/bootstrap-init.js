@@ -2332,11 +2332,11 @@ window.runBootstrapDiscoveryPipeline = function runBootstrapDiscoveryPipeline() 
   // The runWhenDOMReady / DOMContentLoaded listeners below will call this again
   // once the DOM is fully parsed and elements exist.
   // ──────────────────────────────────────────────────────────────────────────
-  var surfacesReady = !!(
-    document.getElementById('first-boot-wizard') ||
-    document.getElementById('auth-lock-screen')  ||
-    document.getElementById('pos-app-layout')
-  );
+  var hasWizard = !!document.getElementById('first-boot-wizard');
+  var hasLock   = !!document.getElementById('auth-lock-screen');
+  var hasLayout = !!document.getElementById('pos-app-layout');
+
+  var surfacesReady = (hasWizard && hasLock && hasLayout) || document.readyState !== 'loading';
   if (!surfacesReady) {
     console.log('[BootstrapDiscovery] DOM not yet ready — deferring identity evaluation until DOMContentLoaded.');
     return;
