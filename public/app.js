@@ -1110,9 +1110,9 @@ window.__realHandlers = window.__realHandlers || {};
           state.activeCashier = null;
           state.terminalRole = null;
           state.currentPin = '';
-          document.getElementById('auth-lock-screen')?.classList.add('active');
-          const layout = document.getElementById('pos-app-layout');
-          if (layout) layout.style.display = 'none';
+          if (window.ValenixiaBootstrap) {
+            window.ValenixiaBootstrap.transition('AUTH_LOCK');
+          }
         }
       }, 5 * 60 * 1000); // 5 minutes
     }
@@ -2279,8 +2279,10 @@ setHtml(overlay, `
         }
       } catch (err) {}
     }, 5 * 60 * 1000);
-    updateBootProgress(100, 'Ready');
-    // Drive state machine to DECISION — it will route to ONBOARDING, AUTH_LOCK, or PAIRING
+    updateBootProgress(98, 'Finalizing...');
+    // Drive state machine to DECISION — it will route to ONBOARDING, AUTH_LOCK, or PAIRING.
+    // runAutomatedSystemAudit() is deliberately NOT called here — it runs only after
+    // ValenixiaBootstrap reaches READY state (post-authentication).
     if (window.ValenixiaBootstrap) {
       window.ValenixiaBootstrap.transition('DECISION', {
         onboardingComplete: localStorage.getItem('onboarding_complete') === 'true',
@@ -2290,7 +2292,6 @@ setHtml(overlay, `
       // Fallback for environments where state machine unavailable
       window.appInitialized = true;
     }
-    runAutomatedSystemAudit();
   }
 
   // ===== AUTOMATED BUTTON & SYSTEM DIAGNOSTIC SELF-TEST ENGINE =====
@@ -2369,6 +2370,11 @@ setHtml(overlay, `
     }, 1500);
   }
   window.runAutomatedSystemAudit = runAutomatedSystemAudit;
+
+  // Autotest is deliberately deferred until READY state (after PIN authentication).
+  // It must NOT run during ONBOARDING, AUTH_LOCK, or PAIRING bootstrap phases.
+  // The bootstrap-to-READY path in app.js PIN handler will call runAutomatedSystemAudit().
+  // To run manually: window.runAutomatedSystemAudit()
 
   async function checkAndRequestStoragePersist() {
     const badge = document.getElementById('storage-lock-badge');
@@ -5944,9 +5950,8 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
     if (btnCfdExit) {
       btnCfdExit.addEventListener('click', () => {
         playAudioSignal('click');
-        document.getElementById('view-cfd').style.display = 'none';
-        document.getElementById('pos-app-layout').style.display = 'grid';
-        document.getElementById('auth-lock-screen').classList.add('active');
+        const vCfd = document.getElementById('view-cfd'); if (vCfd) vCfd.style.display = 'none';
+        if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('AUTH_LOCK');
         state.terminalRole = null;
         state.currentPin = '';
         updatePinDisplayDots();
@@ -5957,9 +5962,8 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
     if (btnKdsExit) {
       btnKdsExit.addEventListener('click', () => {
         playAudioSignal('click');
-        document.getElementById('view-kds').style.display = 'none';
-        document.getElementById('pos-app-layout').style.display = 'grid';
-        document.getElementById('auth-lock-screen').classList.add('active');
+        const vKds = document.getElementById('view-kds'); if (vKds) vKds.style.display = 'none';
+        if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('AUTH_LOCK');
         state.terminalRole = null;
         state.currentPin = '';
         updatePinDisplayDots();
@@ -7079,20 +7083,20 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
 
     if (selectedRole === 'CFD') {
       state.terminalRole = 'CFD';
-      const lk = document.getElementById('auth-lock-screen');
-      if (lk) { lk.classList.remove('active'); lk.style.display = 'none'; }
-      document.getElementById('view-cfd').style.display = 'block';
-      document.getElementById('pos-app-layout').style.display = 'none';
+      if (window.ValenixiaBootstrap && typeof window.ValenixiaBootstrap._hideAllSurfaces === 'function') {
+        window.ValenixiaBootstrap._hideAllSurfaces();
+      }
+      const vCfd = document.getElementById('view-cfd'); if (vCfd) vCfd.style.display = 'block';
       try { playAudioSignal('login'); } catch(e) {}
       return;
     }
 
     if (selectedRole === 'KDS') {
       state.terminalRole = 'KDS';
-      const lk = document.getElementById('auth-lock-screen');
-      if (lk) { lk.classList.remove('active'); lk.style.display = 'none'; }
-      document.getElementById('view-kds').style.display = 'block';
-      document.getElementById('pos-app-layout').style.display = 'none';
+      if (window.ValenixiaBootstrap && typeof window.ValenixiaBootstrap._hideAllSurfaces === 'function') {
+        window.ValenixiaBootstrap._hideAllSurfaces();
+      }
+      const vKds = document.getElementById('view-kds'); if (vKds) vKds.style.display = 'block';
       try { playAudioSignal('login'); } catch(e) {}
       syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
       return;
@@ -7194,6 +7198,9 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
         
         // Transition surface to READY through ValenixiaBootstrap controller
         if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('READY');
+
+        // Run autotest now that we are in READY state (first post-auth opportunity)
+        try { if (typeof runAutomatedSystemAudit === 'function') setTimeout(runAutomatedSystemAudit, 800); } catch(_) {}
 
         const vCfd = document.getElementById('view-cfd'); if (vCfd) vCfd.style.display = 'none';
         const vKds = document.getElementById('view-kds'); if (vKds) vKds.style.display = 'none';
@@ -7859,6 +7866,8 @@ setHtml(overlay, `
         if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('AUTH_LOCK');
       } else {
         if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('READY');
+        // Run autotest now that we are in READY state (active session resume)
+        try { if (typeof runAutomatedSystemAudit === 'function') setTimeout(runAutomatedSystemAudit, 800); } catch(_) {}
       }
     }
 
@@ -8300,7 +8309,7 @@ setHtml(qrContainer, '<span style="font-size: 8px; color: var(--text-gray); text
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('demo') === 'true') {
       console.log("[License] Register running in persistent demo override mode.");
-      document.getElementById('license-lockout-overlay').style.display = 'none';
+      if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.dismissOverlay('license-lockout-overlay');
       return;
     }
 
@@ -16158,16 +16167,15 @@ setHtml(container, `<p style="color: var(--alert-coral); font-size:12px;">Failed
       EventListenerRegistry.setInterval(checkForUpdates, 3600000); // Check hourly
     }).catch(err => {
       console.error('[Boot] Critical fault during application boot:', err);
-      const loader = document.getElementById('app-boot-loader');
-      if (loader) { try { loader.style.display = 'none'; loader.remove(); } catch (_) {} }
-      const root = document.getElementById('pos-app-layout');
-      if (root) {
-setHtml(root, `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; text-align:center; padding:2rem; font-family:sans-serif; background:#121212; color:#fff; z-index: 999999; position: relative;">
-          <h1 style="color:#ff5555; margin-bottom:1rem; font-size:24px;">System Boot Failure</h1>
-          <p style="margin-bottom:2rem; max-width:600px; line-height:1.5; color:#aaa;">A critical error occurred while initializing the application. Local storage may be blocked or inaccessible in this browser environment.</p>
-          <pre style="background:#000; padding:1rem; border-radius:8px; text-align:left; overflow:auto; max-width:800px; width:100%; color:#f0f0f0; font-size: 12px; border: 1px solid #333;">${err.stack || err.message || err}</pre>
-          <button onclick="location.reload()" style="margin-top:2rem; padding:12px 24px; background:#3482f6; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:16px; font-weight: bold;">Retry Boot Sequence</button>
-        </div>`);
+      // Delegate to ValenixiaBootstrap — it is the sole surface controller.
+      // Do NOT directly write to #pos-app-layout or any other boot surface.
+      if (window.ValenixiaBootstrap && !window.bootstrapDecisionReady) {
+        window.ValenixiaBootstrap.enterRecovery(
+          'A critical error occurred during startup.\n\n' + (err && err.message ? err.message : String(err)) + '\n\nRetry to reload.',
+          'APP_INIT_FATAL_ERROR', true, true
+        );
+      } else {
+        console.error('[Boot] Fatal init error (post-decision):', err);
       }
     });
   });

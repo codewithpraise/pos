@@ -253,8 +253,7 @@ const LicenseEngine = (() => {
 
   // â”€â”€ Hard lockout overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function mountLockoutOverlay(message) {
-    dismissBootLoader();
-    document.getElementById('license-lockout-overlay')?.remove();
+    if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.dismissOverlay('license-lockout-overlay');
     const overlay = document.createElement('div');
     overlay.id = 'license-lockout-overlay';
     overlay.style.cssText = `
@@ -422,7 +421,7 @@ const LicenseEngine = (() => {
         await ValenixiaDB.setSecurePref(STORAGE_KEY_LICENSE, result.token);
         window.__valenixiaTier = result.tier;
         window.__valenixiaHWID = hwid;
-        document.getElementById('license-lockout-overlay')?.remove();
+        if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.dismissOverlay('license-lockout-overlay');
         location.reload();
       } catch (err) {
         if(window.showModal) showModal({ title: 'License', message: '', type: 'warning' }); else console.warn('[License]', '');
@@ -494,8 +493,7 @@ const LicenseEngine = (() => {
 
   // â”€â”€ Pending payment verification overlay with auto-polling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function mountPendingPaymentOverlay(message, token, hwid) {
-    dismissBootLoader();
-    document.getElementById('license-lockout-overlay')?.remove();
+    if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.dismissOverlay('license-lockout-overlay');
     const overlay = document.createElement('div');
     overlay.id = 'license-lockout-overlay';
     overlay.style.cssText = `
@@ -553,8 +551,7 @@ const LicenseEngine = (() => {
   };
 
   function mountClockTamperOverlay(lastKnown, osClock, onBypass) {
-    dismissBootLoader();
-    document.getElementById('license-lockout-overlay')?.remove();
+    if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.dismissOverlay('license-lockout-overlay');
     const overlay = document.createElement('div');
     overlay.id = 'license-lockout-overlay';
     overlay.style.cssText = `

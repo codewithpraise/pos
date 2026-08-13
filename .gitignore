@@ -50,6 +50,7 @@ debug_build_log.txt
 inspect_*.js
 debug_*.js
 check_*.js
+!scripts/check_surface_ownership.js
 open_pos.js
 visual_regression_check.js
 scan.js

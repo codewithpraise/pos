@@ -264,7 +264,8 @@ window.updateBootProgress = function(percent, text) {
 
   const interval = setInterval(() => {
     const loader = document.getElementById('app-boot-loader');
-    if (!loader || loader.style.display === 'none' || window.appInitialized) {
+    // Stop ticker once bootstrap has made its decision (surface committed)
+    if (!loader || loader.style.display === 'none' || window.bootstrapDecisionReady) {
       clearInterval(interval);
       return;
     }
@@ -278,34 +279,9 @@ window.updateBootProgress = function(percent, text) {
   }, 150);
 })();
 
-// HARD MAXIMUM BOOT TIMEOUT: If the async boot chain hangs for any reason (DB migration,
-// network call, license check), force-dismiss the boot overlay after 10 seconds.
-// Without this, a stuck boot loader at z-index:99999 blocks ALL touch input on the screen.
-(function installBootSafetyNet() {
-  var BOOT_MAX_MS = 10000;
-  var bootSafetyTimer = setTimeout(function() {
-    if (window.appInitialized) return; // App finished normally, nothing to do
-    var loader = document.getElementById('app-boot-loader');
-    if (!loader || loader.style.display === 'none') return;
-    console.warn('[BootSafety] Boot exceeded ' + BOOT_MAX_MS + 'ms. Force-dismissing loader to unblock touch input.');
-    try {
-      loader.style.transition = 'opacity 0.4s ease';
-      loader.style.opacity = '0';
-      loader.style.pointerEvents = 'none';
-      setTimeout(function() {
-        try { loader.style.display = 'none'; } catch(_) {}
-      }, 420);
-    } catch(_) {}
-  }, BOOT_MAX_MS);
-  // Cancel the safety timer cleanly if app initializes normally
-  var _origUpdateBoot = window.updateBootProgress;
-  window.updateBootProgress = function(percent, text) {
-    if (_origUpdateBoot) _origUpdateBoot(percent, text);
-    if (parseInt(percent, 10) >= 100) {
-      clearTimeout(bootSafetyTimer);
-    }
-  };
-})();
+// NOTE: Boot safety timeout is now exclusively owned by ValenixiaBootstrap's
+// _hardSafetyTimer (line ~1514). Do NOT add separate boot timers here.
+// ValenixiaBootstrap.enterRecovery() is the only allowed surface-mutation path.
 
 // Baseline Setup Wizard & PIN Navigation Handlers
 window.__wizardCurrentStep = window.__wizardCurrentStep || 1;
@@ -1345,6 +1321,10 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
         case 'ONBOARDING':
           _clearTimeout();
           _showSurface('WIZARD');
+          // Bootstrap decision complete. NOT appReady — user must complete onboarding first.
+          window.bootstrapDecisionReady = true;
+          window.bootstrapReady = true;
+          // appReady intentionally remains false until user completes onboarding + authenticates.
           if (typeof window.executeWizardGoTo === 'function') {
             window.executeWizardGoTo(1, 'NEW');
           }
@@ -1353,23 +1333,30 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
         case 'AUTH_LOCK':
           _clearTimeout();
           _showSurface('LOCK');
+          // Bootstrap decision complete. NOT appReady — user must authenticate with PIN first.
+          window.bootstrapDecisionReady = true;
+          window.bootstrapReady = true;
+          // appReady intentionally remains false until PIN is verified.
           setTimeout(function() {
             var pin = el('pin-input');
             if (pin) pin.focus();
           }, 150);
-          window.bootstrapReady   = true;
-          window.appReady         = true;
-          window.appInitialized   = true;
           break;
 
         case 'PAIRING_REQUIRED':
           _clearTimeout();
           _showSurface('PAIRING');
+          // Bootstrap decision complete. NOT appReady — device must pair first.
+          window.bootstrapDecisionReady = true;
+          window.bootstrapReady = true;
           break;
 
         case 'PAIRING_PENDING':
           _clearTimeout();
           _showSurface('PAIRING');
+          // Bootstrap decision complete. NOT appReady — device pairing is pending.
+          window.bootstrapDecisionReady = true;
+          window.bootstrapReady = true;
           var pendingEl = el('device-pairing-pending');
           var formEl    = el('device-pairing-form');
           if (pendingEl) pendingEl.style.display = 'flex';
@@ -1379,8 +1366,10 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
         case 'READY':
           _clearTimeout();
           _showSurface('LAYOUT');
+          // Both bootstrap decision AND application fully ready.
+          window.bootstrapDecisionReady = true;
           window.bootstrapReady = true;
-          window.appReady       = true;
+          window.appReady = true;
           window.appInitialized = true;
           window.__valenixiaAuthenticated = true;
           break;
@@ -1428,6 +1417,13 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
       });
     },
 
+    dismissOverlay: function(id) {
+      const el = document.getElementById(id);
+      if (el) {
+        try { el.style.display = 'none'; el.remove(); } catch (_) {}
+      }
+    },
+
     // Record API requests for diagnostics
     recordApiRequest: function(url, status) {
       _lastApiRequest = url;
@@ -1437,28 +1433,31 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     // Machine-readable diagnostics — no secrets
     debug: function() {
       return {
-        state:            _state,
-        previousState:    _prevState,
-        stateEnteredAt:   _stateEnteredAt,
-        activeSurface:    _activeSurface,
-        visibleSurfaces:  _assertSurface(),
-        bootVisualReady:  !!window.bootVisualReady,
-        appReady:         !!window.appReady,
-        lastStep:         window.__VALENIXIA_BOOT_LAST_STEP__,
-        lastError:        window.__VALENIXIA_BOOT_LAST_ERROR__,
-        trace:            window.__VALENIXIA_BOOT_TRACE__,
-        lastApiRequest:   _lastApiRequest,
-        lastApiStatus:    _lastApiStatus,
-        error:            _error
+        state:                    _state,
+        previousState:            _prevState,
+        stateEnteredAt:           _stateEnteredAt,
+        activeSurface:            _activeSurface,
+        visibleSurfaces:          _assertSurface(),
+        bootVisualReady:          !!window.bootVisualReady,
+        bootstrapDecisionReady:   !!window.bootstrapDecisionReady,
+        appReady:                 !!window.appReady,
+        lastStep:                 window.__VALENIXIA_BOOT_LAST_STEP__,
+        lastError:                window.__VALENIXIA_BOOT_LAST_ERROR__,
+        trace:                    window.__VALENIXIA_BOOT_TRACE__,
+        lastApiRequest:           _lastApiRequest,
+        lastApiStatus:            _lastApiStatus,
+        error:                    _error
       };
     }
   };
 
   window.ValenixiaBootstrap = ValenixiaBootstrap;
 
-  // Global uncaught error listener to capture bootstrap exceptions
+  // Global uncaught error listener to capture bootstrap exceptions.
+  // Gates on !bootstrapDecisionReady so that post-decision runtime errors don't
+  // incorrectly trigger recovery (e.g. a network error after the POS is open).
   window.addEventListener('error', function(e) {
-    if (!window.appReady && !_recoveryShown) {
+    if (!window.bootstrapDecisionReady && !_recoveryShown) {
       var errStr = e.message || (e.error ? e.error.message : String(e));
       window.__VALENIXIA_BOOT_LAST_ERROR__ = errStr;
       _logStep('UNCAUGHT_ERROR', { error: errStr, filename: e.filename, lineno: e.lineno });
@@ -1467,7 +1466,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
   });
 
   window.addEventListener('unhandledrejection', function(e) {
-    if (!window.appReady && !_recoveryShown) {
+    if (!window.bootstrapDecisionReady && !_recoveryShown) {
       var reasonStr = e.reason ? (e.reason.message || String(e.reason)) : 'Unhandled rejection';
       window.__VALENIXIA_BOOT_LAST_ERROR__ = reasonStr;
       _logStep('UNHANDLED_REJECTION', { reason: reasonStr });
@@ -1510,34 +1509,48 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
   _setProgress('BOOT', 'Initializing...');
 
   // Hard safety net — if the state machine itself stalls (unhandled exception
-  // in app.js preventing any transition), rescue after 10s.
+  // in app.js preventing any DECISION transition), rescue after 10s.
+  // IMPORTANT: Gates on bootstrapDecisionReady, NOT appReady.
+  // appReady is false until PIN auth — firing on appReady would kill first-boot users at ONBOARDING.
   var _hardSafetyTimer = setTimeout(function() {
-    if (window.appReady || window.appInitialized || _recoveryShown) return;
-    console.warn('[Bootstrap] Hard safety net: app not ready after 10s. Forcing recovery.');
-    _logStep('HARD_SAFETY_NET_TRIGGERED');
+    if (window.bootstrapDecisionReady || window.appInitialized || _recoveryShown) return;
+    console.warn('[Bootstrap] Hard safety net: bootstrap decision not reached after 10s. Forcing recovery.');
+    _logStep('HARD_SAFETY_NET_TRIGGERED', { state: _state });
     ValenixiaBootstrap.enterRecovery(
       'The application took too long to start.\n\nThis can happen with a slow network or an old cached version.\n\nRetry to reload, or Continue Offline to use your cached data.',
       _state, true, true
     );
   }, 10000);
 
-  // Periodic surface invariant check (runs every 1s until app is ready)
+  // Periodic surface invariant check (runs every 1s until bootstrap decision is reached)
   var _invariantCheckInterval = setInterval(function() {
-    if (window.appReady || _recoveryShown) {
+    if (window.bootstrapDecisionReady || _recoveryShown) {
       clearInterval(_invariantCheckInterval);
       return;
     }
     _assertSurface();
   }, 1000);
 
-  // Cancel safety net when app becomes ready
-  Object.defineProperty(window, 'appReady', {
+  // Cancel safety net when bootstrap decision is reached.
+  // bootstrapDecisionReady → stop watchdog/invariant loops.
+  // appReady → fully authenticated POS session active (separate concept).
+  Object.defineProperty(window, 'bootstrapDecisionReady', {
     set: function(v) {
       if (v) {
         clearTimeout(_hardSafetyTimer);
         clearInterval(_invariantCheckInterval);
-        window.bootVisualReady = true;
       }
+      window._bootstrapDecisionReadyValue = v;
+    },
+    get: function() { return window._bootstrapDecisionReadyValue || false; },
+    configurable: true
+  });
+
+  // appReady: set externally when PIN authenticated or READY state reached.
+  // Does NOT cancel safety net — bootstrapDecisionReady owns that.
+  Object.defineProperty(window, 'appReady', {
+    set: function(v) {
+      if (v) window.bootVisualReady = true;
       window._appReadyValue = v;
     },
     get: function() { return window._appReadyValue || false; },
@@ -1782,64 +1795,20 @@ document.addEventListener('click', function(e) {
 }, true);
 
 // ══════════════════════════════════════════════════════════════════════════════
-// BOOT WATCHDOG — Prevents stuck loading screen on first install or DB failure
-// If the loader is still visible after 30 seconds, force it away and show the
-// app (which will then show either the wizard or lock screen based on state).
+// BOOT WATCHDOG — CONSOLIDATED INTO ValenixiaBootstrap._hardSafetyTimer
+// The legacy installBootWatchdog() IIFE has been REMOVED.
+//
+// Rationale: Having two separate 10-second timers both directly manipulating
+// #first-boot-wizard, #auth-lock-screen, and #pos-app-layout surfaces caused
+// OWNERSHIP CONFLICT: 2 surfaces visible (Bootstrap Architecture ADR-009).
+//
+// The SINGLE authoritative watchdog lives inside ValenixiaBootstrap (above).
+// It gates on window.bootstrapDecisionReady, NOT window.appReady, so it
+// never fires during a valid ONBOARDING or AUTH_LOCK terminal state.
+//
+// ValenixiaBootstrap.enterRecovery() is the ONLY allowed rescue path.
+// DO NOT add another watchdog here.
 // ══════════════════════════════════════════════════════════════════════════════
-(function installBootWatchdog() {
-  const WATCHDOG_MS = 10000; // 10 seconds maximum fail-safe timeout
-  const watchdogTimer = setTimeout(function() {
-    try {
-      if (document.getElementById('license-lockout-overlay')) {
-        console.log('[Watchdog] License lockout overlay active; skipping watchdog auto-dismissal.');
-        const loader = document.getElementById('app-boot-loader');
-        if (loader) { try { loader.style.display = 'none'; loader.remove(); } catch(_) {} }
-        return;
-      }
-      const splash = document.getElementById('splash-screen');
-      const loader = document.getElementById('app-boot-loader');
-      if (loader || splash) {
-        console.warn('[Watchdog] Boot task incomplete after 10s. Force-dismissing bootloader to prevent frozen screen.');
-        [splash, loader].forEach(el => {
-          if (el && el.style.display !== 'none') {
-            el.style.opacity = '0';
-            el.style.transition = 'opacity 0.2s';
-            setTimeout(() => { try { el.style.display = 'none'; el.remove(); } catch(_) {} }, 200);
-          }
-        });
-
-        // Best-effort: ensure we're showing SOMETHING after loader is gone
-        const lockScreen = document.getElementById('auth-lock-screen');
-        const layout = document.getElementById('pos-app-layout');
-        const wizard = document.getElementById('first-boot-wizard');
-        const isOnboarded = localStorage.getItem('onboarding_complete') === 'true';
-
-        if (!isOnboarded) {
-          if (wizard) wizard.style.display = 'flex';
-        } else {
-          if (lockScreen) lockScreen.classList.add('active');
-          if (layout) layout.style.display = 'none';
-        }
-      }
-    } catch (err) {
-      console.error('[Watchdog] Error in boot watchdog:', err);
-    }
-  }, WATCHDOG_MS);
-
-  // Cancel watchdog if loader is removed normally (app booted fine)
-  const observer = new MutationObserver(function(mutations) {
-    const loader = document.getElementById('app-boot-loader');
-    if (!loader || loader.style.display === 'none') {
-      clearTimeout(watchdogTimer);
-      observer.disconnect();
-    }
-  });
-  window.runWhenDOMReady(function() {
-    const loader = document.getElementById('app-boot-loader');
-    if (loader) observer.observe(loader, { attributes: true, attributeFilter: ['style'] });
-    else clearTimeout(watchdogTimer);
-  });
-})();
 
 // ══════════════════════════════════════════════════════════════════════════════
 // AUTO-DIAGNOSTIC SUITE — Runs 5 seconds after DOMContentLoaded
@@ -2018,45 +1987,51 @@ window.__VALENIXIA_IDENTITY__ = {
   }
 };
 
-// 13-Stage Idempotent Bootstrap Discovery Pipeline with Formal Identity Confidence Matrix
+// ══════════════════════════════════════════════════════════════════════════════
+// BOOTSTRAP DISCOVERY PIPELINE
+// Evaluates local identity state and DELEGATES to ValenixiaBootstrap.transition().
+//
+// CRITICAL: This function MUST NOT directly mutate any boot surface DOM.
+// All surface ownership belongs exclusively to ValenixiaBootstrap.
+// Any direct style.display / classList writes to #first-boot-wizard,
+// #auth-lock-screen, #pos-app-layout, etc. are a SURFACE OWNERSHIP VIOLATION.
+// ══════════════════════════════════════════════════════════════════════════════
 window.runBootstrapDiscoveryPipeline = function runBootstrapDiscoveryPipeline() {
-  console.log('[BootstrapDiscovery v2.5.1] Initiating 13-stage discovery state machine...');
-  const snap = window.__VALENIXIA_IDENTITY__.getSnapshot();
-  
+  console.log('[BootstrapDiscovery v2.6.0] Evaluating identity state...');
+
+  if (!window.ValenixiaBootstrap) {
+    console.error('[BootstrapDiscovery] ValenixiaBootstrap unavailable — cannot make routing decision.');
+    return;
+  }
+
   const hasOnboardingFlag = localStorage.getItem('onboarding_complete') === 'true';
-  const hasHydratedFlag = localStorage.getItem('database_hydrated') === 'true';
-  const hasStoreName = !!localStorage.getItem('store_name');
-  const hasStoreId = !!localStorage.getItem('valenixia_store_id');
-  const hasPin = !!(localStorage.getItem('admin_pin') || localStorage.getItem('employee_pin_hash'));
-  const hasLocalDb = typeof window.ValenixiaDB !== 'undefined';
+  const hasHydratedFlag   = localStorage.getItem('database_hydrated') === 'true';
+  const hasStoreName      = !!localStorage.getItem('store_name');
+  const hasStoreId        = !!localStorage.getItem('valenixia_store_id');
+  const hasPin            = !!(localStorage.getItem('admin_pin') || localStorage.getItem('employee_pin_hash'));
 
-  const wizardOverlay = document.getElementById('first-boot-wizard');
-  const lockScreen = document.getElementById('auth-lock-screen');
-  const posLayout = document.getElementById('pos-app-layout');
+  const hasAnyData  = hasOnboardingFlag || hasHydratedFlag || hasStoreName || hasStoreId || hasPin;
+  const isAllEmpty  = !hasOnboardingFlag && !hasHydratedFlag && !hasStoreName && !hasStoreId && !hasPin;
 
-  // Confidence Matrix Evaluation
-  const hasAnyData = hasOnboardingFlag || hasHydratedFlag || hasStoreName || hasStoreId || hasPin;
-  const isAllEmpty = !hasOnboardingFlag && !hasHydratedFlag && !hasStoreName && !hasStoreId && !hasPin;
-
-  if (hasAnyData) {
-    console.log('[BootstrapDiscovery v2.5.1] Decision: RESTORE_EXISTING_STORE (Data detected in identity graph)');
-    if (wizardOverlay) { wizardOverlay.style.display = 'none'; wizardOverlay.classList.remove('active'); }
-    if (lockScreen) { lockScreen.style.display = 'flex'; lockScreen.classList.add('active'); }
-    if (posLayout) { posLayout.style.display = 'none'; }
-    window.setLifecycleState?.('READY');
-  } else if (isAllEmpty) {
-    console.log('[BootstrapDiscovery v2.5.1] Decision: FIRST_RUN_BOOTSTRAP (Confirmed empty store status)');
-    if (wizardOverlay) { wizardOverlay.style.display = 'flex'; wizardOverlay.classList.add('active'); }
-    if (lockScreen) { lockScreen.style.display = 'none'; lockScreen.classList.remove('active'); }
-    window.setLifecycleState?.('READY');
+  if (isAllEmpty) {
+    console.log('[BootstrapDiscovery] Decision: ONBOARDING (No store data found)');
+    window.ValenixiaBootstrap.transition('DECISION', { onboardingComplete: false });
+  } else if (hasAnyData) {
+    console.log('[BootstrapDiscovery] Decision: AUTH_LOCK (Store data detected)');
+    window.ValenixiaBootstrap.transition('DECISION', { onboardingComplete: hasOnboardingFlag || hasAnyData });
   } else {
-    console.warn('[BootstrapDiscovery v2.5.1] Decision: RECOVERY_REQUIRED (Ambiguous or unreadable identity state)');
-    if (wizardOverlay) { wizardOverlay.style.display = 'none'; wizardOverlay.classList.remove('active'); }
-    if (lockScreen) { lockScreen.style.display = 'flex'; lockScreen.classList.add('active'); }
-    window.setLifecycleState?.('READY');
+    console.warn('[BootstrapDiscovery] Decision: RECOVERY (Ambiguous identity state)');
+    window.ValenixiaBootstrap.enterRecovery(
+      'Bootstrap could not determine store state. Identity matrix is ambiguous.\n\nRetry to reload, or Continue Offline to use cached data.',
+      'INSTALLATION_DISCOVERY', true, true
+    );
   }
 };
 
 window.runWhenDOMReady(function() {
-  window.runBootstrapDiscoveryPipeline();
+  // Only run discovery pipeline if ValenixiaBootstrap hasn't already made a decision
+  // (e.g. app.js may have already driven it to DECISION via its own init() path).
+  if (!window.bootstrapDecisionReady) {
+    window.runBootstrapDiscoveryPipeline();
+  }
 });
