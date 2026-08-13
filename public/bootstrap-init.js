@@ -2328,6 +2328,13 @@ window.runBootstrapDiscoveryPipeline = function runBootstrapDiscoveryPipeline() 
   // The runWhenDOMReady / DOMContentLoaded listeners below will call this again
   // once the DOM is fully parsed and elements exist.
   // ──────────────────────────────────────────────────────────────────────────
+  ['first-boot-wizard', 'auth-lock-screen', 'device-pairing-overlay', 'license-lockout-overlay', 'vx-emergency-recovery'].forEach(function(id) {
+    var node = document.getElementById(id);
+    if (node && node.parentElement && node.parentElement !== document.body) {
+      try { document.body.appendChild(node); } catch (_) {}
+    }
+  });
+
   var hasWizard = !!document.getElementById('first-boot-wizard');
   var hasLock   = !!document.getElementById('auth-lock-screen');
   var hasLayout = !!document.getElementById('pos-app-layout');
