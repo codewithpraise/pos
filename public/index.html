@@ -74,7 +74,7 @@
 
       <!-- Terminal Mode Selector -->
       <div style="margin-bottom: 16px; width: 100%; text-align: left;">
-        <label style="font-size: 10px; color: var(--text-gray); text-transform: uppercase; font-weight: 700; margin-bottom: 4px; display: block;">Terminal Mode:</label>
+        <label for="login-terminal-role" style="font-size: 10px; color: var(--text-gray); text-transform: uppercase; font-weight: 700; margin-bottom: 4px; display: block;">Terminal Mode:</label>
         <select id="login-terminal-role" class="pos-input" style="min-height: 40px; height: 40px; padding: 6px 12px; font-size: 12px;" aria-label="Login Terminal Role">
           <option value="REGISTER">Register Mode (POS Checkout)</option>
           <option value="CFD">Customer Facing Display (CFD)</option>
@@ -757,31 +757,31 @@
             <!-- Dynamic Dropdowns Grid -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px;">
               <div>
-                <label style="display: block; font-size: 10px; font-weight: 800; color: var(--accent-emerald); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Store Branch</label>
+                <label for="analytics-filter-branch" style="display: block; font-size: 10px; font-weight: 800; color: var(--accent-emerald); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Store Branch</label>
                 <select id="analytics-filter-branch" class="pos-input" style="width: 100%; height: 38px; font-size: 11.5px; font-weight: 700; padding: 0 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.12); color: var(--text-white);" aria-label="Filter by Store Branch">
                   <option value="ALL">All Branches</option>
                 </select>
               </div>
               <div>
-                <label style="display: block; font-size: 10px; font-weight: 800; color: #3b82f6; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">POS Terminal Register</label>
+                <label for="analytics-filter-terminal" style="display: block; font-size: 10px; font-weight: 800; color: #3b82f6; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">POS Terminal Register</label>
                 <select id="analytics-filter-terminal" class="pos-input" style="width: 100%; height: 38px; font-size: 11.5px; font-weight: 700; padding: 0 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.12); color: var(--text-white);" aria-label="Filter by POS Terminal Register">
                   <option value="ALL">All Terminals</option>
                 </select>
               </div>
               <div>
-                <label style="display: block; font-size: 10px; font-weight: 800; color: #f59e0b; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Cashier / Staff Member</label>
+                <label for="analytics-filter-cashier" style="display: block; font-size: 10px; font-weight: 800; color: #f59e0b; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Cashier / Staff Member</label>
                 <select id="analytics-filter-cashier" class="pos-input" style="width: 100%; height: 38px; font-size: 11.5px; font-weight: 700; padding: 0 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.12); color: var(--text-white);" aria-label="Filter by Cashier or Staff">
                   <option value="ALL">All Cashiers</option>
                 </select>
               </div>
               <div>
-                <label style="display: block; font-size: 10px; font-weight: 800; color: #ec4899; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Product Category</label>
+                <label for="analytics-filter-category" style="display: block; font-size: 10px; font-weight: 800; color: #ec4899; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Product Category</label>
                 <select id="analytics-filter-category" class="pos-input" style="width: 100%; height: 38px; font-size: 11.5px; font-weight: 700; padding: 0 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.12); color: var(--text-white);" aria-label="Filter by Product Category">
                   <option value="ALL">All Categories</option>
                 </select>
               </div>
               <div>
-                <label style="display: block; font-size: 10px; font-weight: 800; color: #8b5cf6; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Payment Mode Channel</label>
+                <label for="analytics-filter-payment" style="display: block; font-size: 10px; font-weight: 800; color: #8b5cf6; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Payment Mode Channel</label>
                 <select id="analytics-filter-payment" class="pos-input" style="width: 100%; height: 38px; font-size: 11.5px; font-weight: 700; padding: 0 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.12); color: var(--text-white);" aria-label="Filter by Payment Mode Channel">
                   <option value="ALL">All Payment Types</option>
                   <option value="CASH">Cash</option>
@@ -1517,7 +1517,7 @@
                 </button>
               </div>
               <div class="settings-row">
-                <label>Network Relay URL (iOS / non-USB fallback):</label>
+                <label for="setting-printer-relay">Network Relay URL (iOS / non-USB fallback):</label>
                 <input type="url" id="setting-printer-relay" class="pos-input" placeholder="e.g. http://printer-ip:port" / aria-label="e.g. http://printer-ip:port">
               </div>
             </div>
@@ -1755,13 +1755,13 @@
                 <h4 style="margin:0 0 12px; font-size:13px; color:var(--accent-emerald); font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">Onboard / Update Sales Agent</h4>
                 <div style="display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end;">
                   <div style="flex: 2; min-width: 200px;">
-                    <label style="font-size:11px; color:var(--text-gray); display:block; margin-bottom:6px; font-weight:700;">Select Employee:</label>
+                    <label for="comm-agent-employee-select" style="font-size:11px; color:var(--text-gray); display:block; margin-bottom:6px; font-weight:700;">Select Employee:</label>
                     <select id="comm-agent-employee-select" class="pos-input" aria-label="Select Employee for Sales Agent" style="width: 100%; height: 44px;">
                       <option value="">-- Choose Employee --</option>
                     </select>
                   </div>
                   <div style="flex: 1; min-width: 160px;">
-                    <label style="font-size:11px; color:var(--text-gray); display:block; margin-bottom:6px; font-weight:700;">Rate (BPS, 100 = 1%):</label>
+                    <label for="comm-agent-rate-bps" style="font-size:11px; color:var(--text-gray); display:block; margin-bottom:6px; font-weight:700;">Rate (BPS, 100 = 1%):</label>
                     <input type="number" id="comm-agent-rate-bps" class="pos-input" value="300" min="0" max="5000" placeholder="e.g. 300 (3%)" aria-label="Commission Rate in Basis Points" style="width: 100%; height: 44px;">
                   </div>
                   <button type="button" class="action-btn dm-btn-emerald" id="btn-comm-agent-save" style="height: 44px; padding: 0 24px; font-weight: 800; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,214,143,0.25);">Save Agent</button>
@@ -1832,14 +1832,14 @@
                 
                 <div style="display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 18px;">
                   <div>
-                    <label style="font-size:11px; color:var(--text-gray); display:block; margin-bottom:6px; font-weight:700;">Type:</label>
+                    <label for="whitelist-type-select" style="font-size:11px; color:var(--text-gray); display:block; margin-bottom:6px; font-weight:700;">Type:</label>
                     <select id="whitelist-type-select" class="pos-input" style="width: 120px; height: 44px;">
                       <option value="IP">IP Address</option>
                       <option value="HWID">Hardware ID</option>
                     </select>
                   </div>
                   <div style="flex: 1; min-width: 200px;">
-                    <label style="font-size:11px; color:var(--text-gray); display:block; margin-bottom:6px; font-weight:700;">Value:</label>
+                    <label for="whitelist-value-input" style="font-size:11px; color:var(--text-gray); display:block; margin-bottom:6px; font-weight:700;">Value:</label>
                     <input type="text" id="whitelist-value-input" class="pos-input" placeholder="e.g. 192.168.1.50 or DEV-HWID-KEY" autocomplete="off" style="width: 100%; height: 44px;">
                   </div>
                   <button type="button" class="action-btn dm-btn-emerald" id="btn-whitelist-add" style="height: 44px; padding: 0 24px; font-weight: 800; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,214,143,0.25);">Add Whitelist</button>
@@ -2033,7 +2033,7 @@
 
           <!-- Quick context switcher row -->
           <div style="background:var(--panel-graphite);border:1px solid var(--border-titanium);border-radius:8px;padding:18px 20px;max-width:640px;margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-            <label style="font-size:11px;font-weight:700;color:var(--text-white);text-transform:uppercase;white-space:nowrap;">Quick switch:</label>
+            <label for="multi-store-select" style="font-size:11px;font-weight:700;color:var(--text-white);text-transform:uppercase;white-space:nowrap;">Quick switch:</label>
             <select id="multi-store-select" class="pos-input" style="flex:1;font-size:13px;" aria-label="Multi Store Select"></select>
             <button class="action-btn dm-btn-primary" id="btn-switch-store-context" style="min-height:38px;padding:0 18px;white-space:nowrap;">Switch Context</button>
           </div>
@@ -2758,7 +2758,7 @@
 
         <!-- Product Image Upload Section -->
         <div class="form-group" style="margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 12px;">
-          <label>Product Image (Max 150KB - Compressed Offline)</label>
+          <label for="form-product-image-preview">Product Image (Max 150KB - Compressed Offline)</label>
           <div style="display: flex; gap: 12px; align-items: center; margin-top: 4px;">
             <div id="form-product-image-preview" style="width: 48px; height: 48px; border-radius: 6px; border: 1px solid var(--border-titanium); background: rgba(255,255,255,0.02); display: flex; align-items: center; justify-content: center; font-size: 20px; overflow: hidden; background-size: cover; background-position: center; flex-shrink:0;">📦</div>
             <div style="flex: 1;">
@@ -2850,11 +2850,11 @@
       </div>
       <div class="modal-body">
         <div class="settings-row">
-          <label>Employee ID (User ID):</label>
+          <label for="form-employee-id">Employee ID (User ID):</label>
           <input type="text" id="form-employee-id" class="pos-input" placeholder="e.g. emp_lucas" aria-label="e.g. emp_lucas">
         </div>
         <div class="settings-row">
-          <label>Register Security PIN Code (Numeric):</label>
+          <label for="form-employee-pin">Register Security PIN Code (Numeric):</label>
           <div class="password-wrapper">
             <input type="text"  autocomplete="new-password" id="form-employee-pin" class="secure-input pos-input" placeholder="4 to 6-digit PIN number" maxlength="6" minlength="4" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN number">
             <button type="button" class="btn-toggle-password" title="Toggle visibility">
@@ -2864,7 +2864,7 @@
           </div>
         </div>
         <div class="settings-row">
-          <label>Employee Role:</label>
+          <label for="form-employee-role">Employee Role:</label>
           <select id="form-employee-role" class="pos-input" aria-label="Form Employee Role">
             <option value="CASHIER">CASHIER</option>
             <option value="MANAGER">MANAGER</option>
@@ -2925,12 +2925,12 @@
         <div class="modal-body" style="display:flex;flex-direction:column;gap:16px;">
           <p style="font-size:12px;color: var(--text-gray);line-height:1.6;">Type your store name exactly as configured, then enter the Admin PIN to confirm.</p>
           <div class="settings-row">
-            <label style="font-size:11px;font-weight:700;color:var(--text-gray);text-transform:uppercase;letter-spacing:0.5px;">Type Store Name to Confirm</label>
+            <label for="delete-confirm-store-name" style="font-size:11px;font-weight:700;color:var(--text-gray);text-transform:uppercase;letter-spacing:0.5px;">Type Store Name to Confirm</label>
             <input type="text" id="delete-confirm-store-name" class="pos-input" placeholder="e.g. Monochrome Coffee" style="margin-top:6px;" autocomplete="off" aria-label="e.g. Monochrome Coffee">
             <p id="delete-name-hint" style="font-size:10px;color:var(--text-dim);margin-top:4px;">Store name must match exactly (case-insensitive)</p>
           </div>
           <div class="settings-row">
-            <label style="font-size:11px;font-weight:700;color:var(--text-gray);text-transform:uppercase;letter-spacing:0.5px;">Admin PIN</label>
+            <label for="delete-confirm-pin" style="font-size:11px;font-weight:700;color:var(--text-gray);text-transform:uppercase;letter-spacing:0.5px;">Admin PIN</label>
             <div class="password-wrapper" style="margin-top:6px;">
               <input type="text"  autocomplete="new-password" id="delete-confirm-pin" class="secure-input pos-input" placeholder="4 to 6-digit owner PIN" maxlength="6" minlength="4" inputmode="numeric" aria-label="4-digit owner PIN">
               <button type="button" class="btn-toggle-password" title="Toggle"><svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button>
@@ -2959,7 +2959,7 @@
       <div class="modal-body">
         <p>This will erase all sales ledgers, customer receipts, and change logs. It will force a complete database rebuild from seed baseline. This requires Admin authentication.</p>
         <div class="settings-row" style="margin-top: 16px;">
-          <label>Enter Admin PIN Code (e.g. 1234):</label>
+          <label for="reset-admin-pin-auth">Enter Admin PIN Code (e.g. 1234):</label>
           <div class="password-wrapper">
             <input type="text"  autocomplete="new-password" id="reset-admin-pin-auth" class="secure-input pos-input" placeholder="Enter Admin security PIN" inputmode="numeric" pattern="[0-9]*" aria-label="Enter Admin security PIN">
             <button type="button" class="btn-toggle-password" title="Toggle visibility">
@@ -3176,13 +3176,13 @@
       
       <div style="display: flex; flex-direction: column; gap: 16px; width: 100%;">
         <div class="settings-row" style="text-align: left;">
-          <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">LICENSE ACTIVATION KEY:</label>
+          <label for="lockout-license-key" style="font-size: 11px; font-weight: 700; color: var(--text-white);">LICENSE ACTIVATION KEY:</label>
           <input type="text" id="lockout-license-key" class="pos-input" placeholder="e.g. VALENIXIA-PRO-ABCD-EFGH" style="margin-top: 4px; text-transform: uppercase;" aria-label="e.g. VALENIXIA-PRO-ABCD-EFGH">
         </div>
         
         <!-- EasyPaisa/JazzCash OTP Phone Verification option -->
         <div style="border-top: 1px dashed var(--border-titanium); padding-top: 16px; margin-top: 8px; text-align: left;">
-          <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">MOBILE PHONE BINDING (OTP verification):</label>
+          <label for="lockout-phone" style="font-size: 11px; font-weight: 700; color: var(--text-white);">MOBILE PHONE BINDING (OTP verification):</label>
           <div style="display: flex; gap: 8px; margin-top: 4px;">
             <input type="text" id="lockout-phone" class="pos-input" placeholder="03XXXXXXXXX" style="flex-grow: 1;" inputmode="numeric" pattern="[0-9]*" aria-label="03XXXXXXXXX">
             <button class="action-btn action-success" id="btn-lockout-send-otp" style="min-width: 100px; font-size: 11px;">Send OTP</button>
@@ -3190,7 +3190,7 @@
         </div>
 
         <div id="lockout-otp-row" style="display: none; text-align: left;">
-          <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">ENTER 6-DIGIT OTP:</label>
+          <label for="lockout-otp-code" style="font-size: 11px; font-weight: 700; color: var(--text-white);">ENTER 6-DIGIT OTP:</label>
           <input type="text" id="lockout-otp-code" class="pos-input" placeholder="XXXXXX" maxlength="6" style="margin-top: 4px;" inputmode="numeric" pattern="[0-9]*" aria-label="XXXXXX">
         </div>
 
@@ -3221,6 +3221,8 @@
   </div>
   <!-- END MAIN POS LAYOUT -->
 
+</div>
+</div>
   <!-- FIRST BOOT ONBOARDING WIZARD OVERLAY -->
   <div id="first-boot-wizard" class="auth-overlay wizard-overlay" style="display: none; position: fixed; inset: 0; z-index: 999999; background: #060609; backdrop-filter: blur(20px); flex-direction: column; align-items: center; justify-content: flex-start; overflow-y: auto; padding: 40px 20px;">
     <div id="wizard-card" role="region" aria-label="Onboarding setup wizard" aria-live="polite" style="max-width: 520px; width: 92%; margin: auto; flex-shrink: 0; background: linear-gradient(160deg, #1a1a28 0%, #0e0e1a 60%, #080810 100%); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; box-shadow: 0 40px 80px rgba(0,0,0,0.9), 0 0 80px rgba(0,214,143,0.04), inset 0 1px 0 rgba(255,255,255,0.07); overflow: hidden; position: relative;">
@@ -3294,17 +3296,17 @@
               Apply Business Template Presets
             </button>
             <div class="wiz-field-group">
-              <label class="wiz-label">Store Name</label>
+              <label class="wiz-label" for="wizard-store-name">Store Name</label>
               <input type="text" id="wizard-store-name" class="pos-input" placeholder="e.g. Monochrome Coffee" style="margin-top:6px;" aria-label="e.g. Monochrome Coffee">
               <span class="wiz-hint">Appears on receipts and the POS header</span>
             </div>
             <div class="wiz-field-group">
-              <label class="wiz-label">Tax Rate (%)</label>
+              <label class="wiz-label" for="wizard-tax-rate">Tax Rate (%)</label>
               <input type="number" id="wizard-tax-rate" class="pos-input" value="8.0" step="0.1" min="0" max="100" style="margin-top:6px;" aria-label="Wizard Tax Rate">
               <span class="wiz-hint">Applied to taxable items at checkout</span>
             </div>
             <div class="wiz-field-group">
-              <label class="wiz-label">Branding Theme</label>
+              <label class="wiz-label" for="wizard-theme">Branding Theme</label>
               <select id="wizard-theme" class="pos-input" style="margin-top:6px;" aria-label="Wizard Theme">
                 <option value="Obsidian Emerald">Obsidian Emerald (Default)</option>
                 <option value="Midnight Sapphire">Midnight Sapphire</option>
@@ -3331,12 +3333,12 @@
               <div style="flex:1; height:1px; background:rgba(255,255,255,0.06);"></div>
             </div>
             <div class="wiz-field-group">
-              <label class="wiz-label">Master Register URL</label>
+              <label class="wiz-label" for="wizard-join-server-url">Master Register URL</label>
               <input type="url" id="wizard-join-server-url" class="pos-input" placeholder="e.g. http://server-ip:port" style="margin-top:6px;" aria-label="e.g. http://server-ip:port">
               <span class="wiz-hint">Local network IP of the Master PC running Valenixia</span>
             </div>
             <div class="wiz-field-group">
-              <label class="wiz-label">Network Encryption Key</label>
+              <label class="wiz-label" for="wizard-join-passphrase">Network Encryption Key</label>
               <div class="password-wrapper" style="margin-top:6px;">
                 <input type="text"  autocomplete="new-password" id="wizard-join-passphrase" class="secure-input pos-input" placeholder="Shared store passphrase" aria-label="Shared store passphrase" pattern="[a-zA-Z0-9_\-]+" title="Only letters, numbers, dashes, and underscores allowed">
                 <button type="button" class="btn-toggle-password" title="Toggle visibility">
@@ -3466,7 +3468,7 @@
         <div class="wiz-panel" id="wiz-panel-4" style="display:none; flex-direction:column; gap:14px;">
           <form id="wiz-security-form" onsubmit="event.preventDefault();" style="display:flex; flex-direction:column; gap:14px; margin:0; width:100%;">
             <div class="wiz-field-group">
-              <label class="wiz-label">Owner PIN <span style="color:#8f9cb5; font-weight:500; font-size:10px;">(4-6 digits)</span></label>
+              <label class="wiz-label" for="wizard-admin-pin">Owner PIN <span style="color:#8f9cb5; font-weight:500; font-size:10px;">(4-6 digits)</span></label>
               <div class="password-wrapper" style="margin-top:6px;">
                 <input type="password" autocomplete="new-password" id="wizard-admin-pin" class="secure-input pos-input" placeholder="Enter 4-6 digit Owner PIN" value="" maxlength="6" minlength="4" inputmode="numeric" pattern="[0-9]*" aria-label="Owner PIN">
                 <button type="button" class="btn-toggle-password" title="Toggle visibility">
@@ -3477,7 +3479,7 @@
               <span class="wiz-hint">Required to unlock the register and access admin settings</span>
             </div>
             <div class="wiz-field-group">
-              <label class="wiz-label">Network Encryption Key</label>
+              <label class="wiz-label" for="wizard-sync-passphrase">Network Encryption Key</label>
               <div class="password-wrapper" style="margin-top:6px;">
                 <input type="password" autocomplete="new-password" id="wizard-sync-passphrase" class="secure-input pos-input" placeholder="Secure passphrase for P2P Wi-Fi sync" value="valenixia-secret" aria-label="Secure passphrase for P2P Wi-Fi sync" pattern="[a-zA-Z0-9_\-]+" title="Only letters, numbers, dashes, and underscores allowed">
                 <button type="button" class="btn-toggle-password" title="Toggle visibility">
@@ -3535,7 +3537,7 @@
             </button>
           </div>
 
-          <label id="wiz-eula-label" style="display:flex; align-items:flex-start; gap:12px; cursor:pointer; padding:12px 14px; background:rgba(255,255,255,0.02); border-radius:8px; border:1px solid rgba(255,255,255,0.05); transition:all 0.2s ease;">
+          <label for="wiz-eula-label" id="wiz-eula-label" style="display:flex; align-items:flex-start; gap:12px; cursor:pointer; padding:12px 14px; background:rgba(255,255,255,0.02); border-radius:8px; border:1px solid rgba(255,255,255,0.05); transition:all 0.2s ease;">
             <input type="checkbox" id="wizard-eula-checkbox" style="margin-top:1px; accent-color: var(--accent-emerald); width:16px; height:16px; flex-shrink:0;" aria-label="Wizard Eula Checkbox">
             <span style="font-size:11px; color: var(--text-gray); line-height:1.5;">I have read and agree to the EULA &amp; Legal Policies. All business data is my sole responsibility.</span>
           </label>
@@ -3573,11 +3575,11 @@
       
       <div id="device-pairing-form" style="width: 100%; text-align: left; display: flex; flex-direction: column; gap: 16px;">
         <div class="settings-row">
-          <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">DEVICE FRIENDLY NAME:</label>
+          <label for="pairing-device-name" style="font-size: 11px; font-weight: 700; color: var(--text-white);">DEVICE FRIENDLY NAME:</label>
           <input type="text" id="pairing-device-name" class="pos-input" placeholder="e.g. Drive-Thru Tablet" style="margin-top: 4px; border-radius: 4px; width: 100%;" aria-label="e.g. Drive-Thru Tablet">
         </div>
         <div class="settings-row">
-          <label style="font-size: 11px; font-weight: 700; color: var(--text-white);">NETWORK ENCRYPTION KEY (PASSPHRASE):</label>
+          <label for="pairing-sync-passphrase" style="font-size: 11px; font-weight: 700; color: var(--text-white);">NETWORK ENCRYPTION KEY (PASSPHRASE):</label>
           <div class="password-wrapper">
             <input type="text"  autocomplete="new-password" id="pairing-sync-passphrase" class="secure-input pos-input" placeholder="Enter store network key" style="margin-top: 4px; border-radius: 4px; width: 100%;" aria-label="Enter store network key">
             <button type="button" class="btn-toggle-password" title="Toggle visibility">
@@ -3680,7 +3682,7 @@
         <input type="hidden" id="form-po-distributor-id">
         
         <div class="settings-row">
-          <label>Target Supplier:</label>
+          <label for="form-po-distributor-name">Target Supplier:</label>
           <input type="text" id="form-po-distributor-name" class="pos-input" readonly style="opacity: 0.7;" aria-label="Form Po Distributor Name">
         </div>
 
@@ -3715,11 +3717,11 @@
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
           <div class="settings-row">
-            <label>Expected Delivery Date:</label>
+            <label for="form-po-expected-delivery">Expected Delivery Date:</label>
             <input type="date" id="form-po-expected-delivery" class="pos-input" aria-label="Form Po Expected Delivery">
           </div>
           <div class="settings-row">
-            <label>PO Status:</label>
+            <label for="form-po-status">PO Status:</label>
             <select id="form-po-status" class="pos-input" aria-label="Form Po Status">
               <option value="DRAFT">DRAFT</option>
               <option value="SENT">SENT</option>
@@ -3729,7 +3731,7 @@
         </div>
 
         <div class="settings-row">
-          <label>PO Instruction Notes:</label>
+          <label for="form-po-notes">PO Instruction Notes:</label>
           <input type="text" id="form-po-notes" class="pos-input" placeholder="e.g. deliver to back warehouse gate" aria-label="e.g. deliver to back warehouse gate">
         </div>
       </div>
@@ -3750,22 +3752,22 @@
       <div class="modal-body">
         <input type="hidden" id="form-dp-distributor-id">
         <div class="settings-row">
-          <label>Supplier Name:</label>
+          <label for="form-dp-distributor-name">Supplier Name:</label>
           <input type="text" id="form-dp-distributor-name" class="pos-input" readonly style="opacity: 0.7;" aria-label="Form Dp Distributor Name">
         </div>
         <div class="settings-row">
-          <label>Select Purchase Order Reference (Optional):</label>
+          <label for="form-dp-po-id">Select Purchase Order Reference (Optional):</label>
           <select id="form-dp-po-id" class="pos-input" aria-label="Form Dp Po Id">
             <option value="">-- No Direct PO Reference --</option>
             <!-- filled by JS -->
           </select>
         </div>
         <div class="settings-row">
-          <label>Payment Amount (PKR — Pakistani Rupees):</label>
+          <label for="form-dp-amount">Payment Amount (PKR — Pakistani Rupees):</label>
           <input type="number" id="form-dp-amount" class="pos-input" placeholder="e.g. 15000 for Rs. 15,000" min="1" step="0.01" aria-label="e.g. 15000 for Rs. 15,000">
         </div>
         <div class="settings-row">
-          <label>Payment Mode / Account Channel:</label>
+          <label for="form-dp-method">Payment Mode / Account Channel:</label>
           <select id="form-dp-method" class="pos-input" aria-label="Form Dp Method">
             <option value="CASH">Cash Drawer</option>
             <option value="BANK_TRANSFER">Bank HBL/UBL Transfer</option>
@@ -3775,7 +3777,7 @@
           </select>
         </div>
         <div class="settings-row">
-          <label>Reference Note (Receipt # / TX Hash):</label>
+          <label for="form-dp-ref-note">Reference Note (Receipt # / TX Hash):</label>
           <input type="text" id="form-dp-ref-note" class="pos-input" placeholder="e.g. Trans ID: 29420842042" aria-label="e.g. Trans ID: 29420842042">
         </div>
       </div>
