@@ -1765,6 +1765,18 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
   // appReady is false until PIN auth — firing on appReady would kill first-boot users at ONBOARDING.
   var _hardSafetyTimer = setTimeout(function() {
     if (window.bootstrapDecisionReady || window.appInitialized || _recoveryShown) return;
+
+    // Attempt local discovery fallback before giving up to recovery
+    if (typeof window.runBootstrapDiscoveryPipeline === 'function') {
+      try {
+        console.warn('[Bootstrap] Safety net attempting local discovery recovery...');
+        window.runBootstrapDiscoveryPipeline();
+        if (window.bootstrapDecisionReady || _recoveryShown) return;
+      } catch (err) {
+        console.error('[Bootstrap] Local discovery fallback failed:', err);
+      }
+    }
+
     console.warn('[Bootstrap] Hard safety net: bootstrap decision not reached after 10s. Forcing recovery.');
     _logStep('HARD_SAFETY_NET_TRIGGERED', { state: _state });
     ValenixiaBootstrap.enterRecovery(
@@ -2286,3 +2298,15 @@ window.runWhenDOMReady(function() {
     window.runBootstrapDiscoveryPipeline();
   }
 });
+
+// ALSO listen for readystatechange to trigger as early as interactive mode
+document.addEventListener('readystatechange', function() {
+  if ((document.readyState === 'interactive' || document.readyState === 'complete') && !window.bootstrapDecisionReady) {
+    window.runBootstrapDiscoveryPipeline();
+  }
+});
+
+// AND run immediately if DOM is already interactive or complete
+if ((document.readyState === 'interactive' || document.readyState === 'complete') && !window.bootstrapDecisionReady) {
+  window.runBootstrapDiscoveryPipeline();
+}
