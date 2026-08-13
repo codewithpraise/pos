@@ -1429,17 +1429,6 @@ setHtml(overlay, `
     const statusEl = document.getElementById('app-boot-loader-status');
     if (progressEl) progressEl.style.width = percent + '%';
     if (statusEl && text) statusEl.textContent = text;
-    if (percent >= 100) {
-      loader.style.pointerEvents = 'none';
-      loader.style.transition = 'opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1)';
-      loader.style.opacity = '0';
-      setTimeout(() => {
-        try {
-          loader.style.display = 'none';
-          loader.remove();
-        } catch (_) {}
-      }, 500);
-    }
   }
   function isGraceTrialActive() {
     if (window.__vxSession && window.__vxSession.tier) {

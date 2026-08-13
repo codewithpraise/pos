@@ -111,6 +111,12 @@ assert(
   'Pre-decision discovery stages recognize loader as valid surface without false invariant recoveries'
 );
 
+// 9. Verify canonical isSurfaceRenderable function and forensic debug export
+assert(
+  code.includes('function isSurfaceRenderable(node)') && code.includes('window.__VALENIXIA_BOOT_RENDER_DEBUG__'),
+  'Canonical isSurfaceRenderable helper and __VALENIXIA_BOOT_RENDER_DEBUG__ diagnostic function present'
+);
+
 console.log(`\n--------------------------------------------------`);
 console.log(`Results: ${passCount} / ${testCount} assertions passed.`);
 

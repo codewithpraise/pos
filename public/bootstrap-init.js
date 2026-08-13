@@ -1067,6 +1067,39 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     _logStep('SPLASH_DISMISSED');
   }
 
+  // ── Canonical Surface Renderability Check ─────────────────────────────────
+  function isSurfaceRenderable(node) {
+    if (!node || !node.isConnected) return false;
+    try {
+      var cs = window.getComputedStyle ? window.getComputedStyle(node) : (node.style || {});
+      if (cs.display === 'none') return false;
+      if (cs.visibility === 'hidden') return false;
+      if (parseFloat(cs.opacity || '1') <= 0) return false;
+
+      // Ancestor chain check
+      var parent = node.parentElement;
+      while (parent && parent !== document.body && parent !== document.documentElement) {
+        var pcs = window.getComputedStyle ? window.getComputedStyle(parent) : (parent.style || {});
+        if (pcs.display === 'none' || pcs.visibility === 'hidden' || parseFloat(pcs.opacity || '1') <= 0) {
+          return false;
+        }
+        parent = parent.parentElement;
+      }
+
+      // Geometry check: non-zero width & height OR inline display set to flex/grid/block
+      var rect = node.getBoundingClientRect ? node.getBoundingClientRect() : { width: 0, height: 0 };
+      if (rect.width > 0 && rect.height > 0) return true;
+
+      var inlineDisp = node.style.display;
+      if (inlineDisp === 'flex' || inlineDisp === 'grid' || inlineDisp === 'block') {
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   // ── TRUE SURFACE INVARIANT & AUTOMATIC RECOVERY SYSTEM ─────────────────────
   // Rules:
   //   visibleCount === 1 → PASS
@@ -1087,9 +1120,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
       var id   = SURFACES[key];
       var node = el(id);
       if (!node) return;
-      var disp = node.style.display ||
-        (window.getComputedStyle ? window.getComputedStyle(node).display : 'none');
-      if (disp !== 'none' && disp !== '') {
+      if (isSurfaceRenderable(node)) {
         visibleSurfaces.push({ key: key, id: id, node: node });
       }
     });
@@ -1154,10 +1185,11 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
       var node = el(SURFACES[key]);
       if (!node) return;
       if (key === surfaceKey) {
-        node.style.display = (key === 'LAYOUT') ? 'grid' : 'flex';
+        var targetDisp = (key === 'LAYOUT') ? 'grid' : 'flex';
+        node.style.setProperty('display', targetDisp, 'important');
+        node.style.setProperty('visibility', 'visible', 'important');
+        node.style.setProperty('opacity', '1', 'important');
         node.classList.add('active');
-        node.style.visibility = 'visible';
-        node.style.opacity    = '1';
       } else if (key !== 'BOOT') {
         // Retain BOOT loader layer during transition handoff until _dismissSplash() confirms target surface renderability
         node.style.display = 'none';
@@ -1174,22 +1206,25 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
       function _verifyAndDismiss() {
         _dismissAttempts++;
         var targetNode = el(SURFACES[surfaceKey]);
-        var renderable = false;
-        if (targetNode) {
-          var cs = window.getComputedStyle ? window.getComputedStyle(targetNode) : targetNode.style;
-          var rect = targetNode.getBoundingClientRect ? targetNode.getBoundingClientRect() : { width: 0, height: 0 };
-          renderable = (cs.display !== 'none' && cs.visibility !== 'hidden' && parseFloat(cs.opacity || '1') > 0 && rect.width > 0 && rect.height > 0);
-        }
+        var renderable = isSurfaceRenderable(targetNode);
         if (renderable) {
           _logStep('SURFACE_RENDERABLE_CONFIRMED', { surface: surfaceKey, attempt: _dismissAttempts });
           _dismissSplash();
         } else if (_dismissAttempts < 5) {
           // Retry up to 5 times with 40ms intervals (200ms total max wait)
-          // This handles CSS transitions that delay layout calculation
           setTimeout(_verifyAndDismiss, 40);
         } else {
-          console.error('[Bootstrap] Surface commitment check failed for ' + surfaceKey + ' after 5 attempts. Retaining splash and forcing recovery.');
-          _logStep('SURFACE_COMMIT_VERIFICATION_FAILED', { surface: surfaceKey });
+          var diag = {
+            surface: surfaceKey,
+            exists: !!targetNode,
+            display: targetNode ? targetNode.style.display : null,
+            computedDisplay: targetNode && window.getComputedStyle ? window.getComputedStyle(targetNode).display : null,
+            computedVisibility: targetNode && window.getComputedStyle ? window.getComputedStyle(targetNode).visibility : null,
+            computedOpacity: targetNode && window.getComputedStyle ? window.getComputedStyle(targetNode).opacity : null,
+            rect: targetNode && targetNode.getBoundingClientRect ? targetNode.getBoundingClientRect() : null
+          };
+          console.error('[Bootstrap] Surface commitment check failed for ' + surfaceKey + ' after 5 attempts.', diag);
+          _logStep('SURFACE_COMMIT_VERIFICATION_FAILED', diag);
           ValenixiaBootstrap.enterRecovery('Failed to render surface: ' + surfaceKey, _state, true, true);
         }
       }
@@ -1645,21 +1680,31 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     return dbg;
   };
 
-  // Expose surface debug function
-  window.__VALENIXIA_SURFACE_DEBUG__ = function() {
-    var result = {};
+  // Expose full renderability diagnostic helper for production in-browser analysis
+  window.__VALENIXIA_BOOT_RENDER_DEBUG__ = function() {
+    var result = {
+      state: _state,
+      previousState: _prevState,
+      activeSurface: _activeSurface,
+      bootstrapDecisionReady: !!window.bootstrapDecisionReady,
+      appReady: !!window.appReady,
+      surfaces: {}
+    };
     Object.keys(SURFACES).forEach(function(k) {
       var node = el(SURFACES[k]);
       if (!node) {
-        result[k] = { exists: false };
+        result.surfaces[k] = { exists: false };
       } else {
         var comp = window.getComputedStyle ? window.getComputedStyle(node) : {};
-        result[k] = {
+        var rect = node.getBoundingClientRect ? node.getBoundingClientRect() : {};
+        result.surfaces[k] = {
           exists: true,
-          display: node.style.display || comp.display,
-          opacity: node.style.opacity || comp.opacity,
-          visibility: node.style.visibility || comp.visibility,
-          zIndex: node.style.zIndex || comp.zIndex,
+          renderable: isSurfaceRenderable(node),
+          inlineDisplay: node.style.display,
+          computedDisplay: comp.display,
+          computedVisibility: comp.visibility,
+          computedOpacity: comp.opacity,
+          rect: { width: rect.width, height: rect.height },
           active: node.classList.contains('active')
         };
       }
