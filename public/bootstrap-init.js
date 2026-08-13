@@ -1230,6 +1230,12 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
       _pendingSurface = null;
       _logStep('SURFACE_COMMITTED', { surface: surfaceKey });
 
+      if (surfaceKey === 'WIZARD' && typeof window.executeWizardGoTo === 'function') {
+        try {
+          window.executeWizardGoTo(window.__wizardCurrentStep || 1, window.__wizardCurrentPath || 'NEW');
+        } catch (_) {}
+      }
+
       // SPLASH DISMISSAL
       if (surfaceKey !== 'BOOT' && surfaceKey !== 'RECOVERY') {
         if (window.requestAnimationFrame) {
@@ -2396,14 +2402,14 @@ var _domDiscoveryInterval = setInterval(function() {
     return;
   }
 
-  // Before a routing decision has been made, run discovery when key surface
-  // elements appear in the document tree during progressive HTML parsing.
+  // Before a routing decision has been made, run discovery when ALL primary surface
+  // elements exist in the document tree (or when DOM parsing finishes).
   if (!window.bootstrapDecisionReady && typeof window.runBootstrapDiscoveryPipeline === 'function') {
-    var surfacesReady = !!(
-      document.getElementById('first-boot-wizard') ||
-      document.getElementById('auth-lock-screen')  ||
-      document.getElementById('pos-app-layout')
-    );
+    var hasWizard = !!document.getElementById('first-boot-wizard');
+    var hasLock   = !!document.getElementById('auth-lock-screen');
+    var hasLayout = !!document.getElementById('pos-app-layout');
+
+    var surfacesReady = (hasWizard && hasLock && hasLayout) || document.readyState !== 'loading';
     if (surfacesReady) {
       window.runBootstrapDiscoveryPipeline();
     }
