@@ -1045,6 +1045,13 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
   var _lastApiStatus   = null;
   var _activeSurface   = 'BOOT';
   var _error           = null;
+  // Surface commit generation: incremented on every _showSurface call.
+  // Each _verifyAndDismiss loop captures its own generation at creation;
+  // if _surfaceCommitGeneration has advanced, the loop is stale and self-aborts.
+  var _surfaceCommitGeneration    = 0;
+  // Set true while _showSurface is mid-DOM-iteration so _assertSurface
+  // does not misfire on the transient all-surfaces-hidden window.
+  var _surfaceMutationInProgress  = false;
 
   // ── DOM helper ───────────────────────────────────────────────────────────
   function el(id) { return document.getElementById(id); }
@@ -1106,6 +1113,10 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
   //   visibleCount === 0 → AUTO-RECOVER IMMEDIATELY to RECOVERY UI (never leave blank)
   //   visibleCount > 1  → DIAGNOSE ownership conflict, resolve to active target surface
   function _assertSurface() {
+    // Do NOT fire while _showSurface is mid-DOM-iteration; all surfaces are
+    // temporarily hidden during that loop, which would produce a false 0-count.
+    if (_surfaceMutationInProgress) return;
+
     var isPreDecision = (_state === 'BOOT' ||
                          _state === 'RELEASE_VALIDATION' ||
                          _state === 'DATABASE_DISCOVERY' ||
@@ -1181,21 +1192,34 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
 
   // ── Show exactly one surface ─────────────────────────────────────────────
   function _showSurface(surfaceKey) {
-    Object.keys(SURFACES).forEach(function(key) {
-      var node = el(SURFACES[key]);
-      if (!node) return;
-      if (key === surfaceKey) {
-        var targetDisp = (key === 'LAYOUT') ? 'grid' : 'flex';
-        node.style.setProperty('display', targetDisp, 'important');
-        node.style.setProperty('visibility', 'visible', 'important');
-        node.style.setProperty('opacity', '1', 'important');
-        node.classList.add('active');
-      } else if (key !== 'BOOT') {
-        // Retain BOOT loader layer during transition handoff until _dismissSplash() confirms target surface renderability
-        node.style.display = 'none';
-        node.classList.remove('active');
-      }
-    });
+    // Increment the generation counter BEFORE touching the DOM.
+    // Any previously-spawned _verifyAndDismiss loops will detect the stale
+    // generation and self-abort without triggering recovery.
+    _surfaceCommitGeneration++;
+    var myGeneration = _surfaceCommitGeneration;
+
+    // Signal to _assertSurface that a DOM mutation is in progress so it
+    // does not misfire on the transient all-surfaces-hidden window.
+    _surfaceMutationInProgress = true;
+    try {
+      Object.keys(SURFACES).forEach(function(key) {
+        var node = el(SURFACES[key]);
+        if (!node) return;
+        if (key === surfaceKey) {
+          var targetDisp = (key === 'LAYOUT') ? 'grid' : 'flex';
+          node.style.setProperty('display', targetDisp, 'important');
+          node.style.setProperty('visibility', 'visible', 'important');
+          node.style.setProperty('opacity', '1', 'important');
+          node.classList.add('active');
+        } else if (key !== 'BOOT') {
+          // Retain BOOT loader layer during transition handoff until _dismissSplash() confirms target surface renderability
+          node.style.display = 'none';
+          node.classList.remove('active');
+        }
+      });
+    } finally {
+      _surfaceMutationInProgress = false;
+    }
     _activeSurface = surfaceKey;
     _logStep('SURFACE_COMMITTED', { surface: surfaceKey });
 
@@ -1204,6 +1228,12 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     if (surfaceKey !== 'BOOT' && surfaceKey !== 'RECOVERY') {
       var _dismissAttempts = 0;
       function _verifyAndDismiss() {
+        // Stale loop guard: if a newer _showSurface call has already run,
+        // this loop is orphaned — abort silently without triggering recovery.
+        if (myGeneration !== _surfaceCommitGeneration) {
+          _logStep('SURFACE_VERIFY_ABORTED_STALE', { surface: surfaceKey, gen: myGeneration, current: _surfaceCommitGeneration });
+          return;
+        }
         _dismissAttempts++;
         var targetNode = el(SURFACES[surfaceKey]);
         var renderable = isSurfaceRenderable(targetNode);
@@ -1214,6 +1244,8 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
           // Retry up to 5 times with 40ms intervals (200ms total max wait)
           setTimeout(_verifyAndDismiss, 40);
         } else {
+          // Final failure: still stale-guard before entering recovery
+          if (myGeneration !== _surfaceCommitGeneration) return;
           var diag = {
             surface: surfaceKey,
             exists: !!targetNode,
@@ -1455,7 +1487,28 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     // Transition to a new state. Called by bootstrap orchestrator.
     // Other controllers MUST use this method — they must not directly toggle surface display.
     transition: function(newState, context) {
+      // Guard 1: same state, same surface — no-op (except DECISION which must re-evaluate routing).
       if (newState === _state && newState !== 'DECISION') return;
+
+      // Guard 2: post-decision surface transitions (ONBOARDING, AUTH_LOCK, READY, PAIRING_*)
+      // must not re-show the surface if the active surface is already that surface.
+      // This prevents duplicate callers (applyPreferencesFromState, EMPLOYEES_DATA handler, etc.)
+      // from spawning competing _verifyAndDismiss loops after bootstrapDecisionReady is true.
+      var _postDecisionSurfaces = {
+        'ONBOARDING':      'WIZARD',
+        'AUTH_LOCK':       'LOCK',
+        'READY':           'LAYOUT',
+        'PAIRING_REQUIRED':'PAIRING',
+        'PAIRING_PENDING': 'PAIRING'
+      };
+      if (window.bootstrapDecisionReady && _postDecisionSurfaces[newState]) {
+        var expectedSurface = _postDecisionSurfaces[newState];
+        if (_activeSurface === expectedSurface) {
+          // Surface already committed and visible — silently no-op.
+          return;
+        }
+      }
+
       _clearTimeout();
       _prevState = _state;
       _state     = newState;

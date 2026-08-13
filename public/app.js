@@ -3174,7 +3174,7 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
             });
             
             var lockScreenActive = document.getElementById('auth-lock-screen')?.classList.contains('active');
-            if ((!employees || employees.length === 0) && lockScreenActive) {
+            if ((!employees || employees.length === 0) && lockScreenActive && !window.bootstrapDecisionReady) {
               console.warn('[App] Zero active employees found in database. Showing onboarding wizard.');
               if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('ONBOARDING');
             }
@@ -7848,18 +7848,23 @@ setHtml(overlay, `
       }
     }
 
-    // 0.b First Boot Onboarding Check delegated to ValenixiaBootstrap controller
-    if (!onboardingComplete) {
-      if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('ONBOARDING');
-      showPairingOverlay(false);
-      return;
-    } else {
-      if (!state.activeCashier) {
-        if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('AUTH_LOCK');
+    // 0.b First Boot Onboarding Check delegated to ValenixiaBootstrap controller.
+    // Guard: only fire pre-decision. Once bootstrapDecisionReady is true, the
+    // bootstrap pipeline has already committed its surface; these calls must not
+    // re-enter transition() and spawn competing _verifyAndDismiss loops.
+    if (!window.bootstrapDecisionReady) {
+      if (!onboardingComplete) {
+        if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('ONBOARDING');
+        showPairingOverlay(false);
+        return;
       } else {
-        if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('READY');
-        // Run autotest now that we are in READY state (active session resume)
-        try { if (typeof runAutomatedSystemAudit === 'function') setTimeout(runAutomatedSystemAudit, 800); } catch(_) {}
+        if (!state.activeCashier) {
+          if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('AUTH_LOCK');
+        } else {
+          if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('READY');
+          // Run autotest now that we are in READY state (active session resume)
+          try { if (typeof runAutomatedSystemAudit === 'function') setTimeout(runAutomatedSystemAudit, 800); } catch(_) {}
+        }
       }
     }
 
