@@ -2351,3 +2351,20 @@ window.runWhenDOMReady(function() {
     window.runBootstrapDiscoveryPipeline();
   }
 });
+
+// Fast DOM discovery watcher: polls every 20ms as HTML parses until surfaces exist and decision is ready
+var _domDiscoveryInterval = setInterval(function() {
+  if (window.bootstrapDecisionReady) {
+    clearInterval(_domDiscoveryInterval);
+    return;
+  }
+  var surfacesReady = !!(
+    document.getElementById('first-boot-wizard') ||
+    document.getElementById('auth-lock-screen')  ||
+    document.getElementById('pos-app-layout')
+  );
+  if (surfacesReady) {
+    clearInterval(_domDiscoveryInterval);
+    window.runBootstrapDiscoveryPipeline();
+  }
+}, 20);

@@ -3549,6 +3549,11 @@
       <button id="btn-submit-wizard" style="display:none;"></button>
     </div>
   </div>
+  <script>
+    if (window.ValenixiaBootstrap && !window.bootstrapDecisionReady && typeof window.runBootstrapDiscoveryPipeline === 'function') {
+      window.runBootstrapDiscoveryPipeline();
+    }
+  </script>
   <!-- DEVICE PAIRING / WHITELIST OVERLAY -->
   <div class="auth-overlay" id="device-pairing-overlay" style="display: none; z-index: 9998;">
     <div class="auth-card" style="max-width: 480px; width: 90%; padding: 36px; border: 1px solid var(--border-titanium); border-radius: 4px;">
