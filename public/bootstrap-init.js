@@ -1112,12 +1112,14 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
   function _assertSurface() {
     // Do NOT fire while _showSurface is mid-DOM-iteration; all surfaces are
     // temporarily hidden during that loop, which would produce a false 0-count.
-    if (_surfaceMutationInProgress) return;
+    if (_surfaceMutationInProgress || window.bootstrapDecisionReady || _recoveryShown) return;
 
-    // Do NOT fire during initial BOOT state before discovery pipeline completes.
-    if (_state === 'BOOT') return;
+    // Do NOT fire during initial BOOT or DECISION routing states.
+    if (_state === 'BOOT' || _state === 'DECISION') return;
 
-    var isPreDecision = (_state === 'RELEASE_VALIDATION' ||
+    var isPreDecision = (_state === 'BOOT' ||
+                         _state === 'DECISION' ||
+                         _state === 'RELEASE_VALIDATION' ||
                          _state === 'DATABASE_DISCOVERY' ||
                          _state === 'INSTALLATION_DISCOVERY' ||
                          _state === 'DEVICE_DISCOVERY' ||
