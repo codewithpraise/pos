@@ -942,7 +942,12 @@ window.copyDiagnostics = async function() {
     return str;
   }).join('\n\n');
 
-  const payload = `=== VALENIXIA POS DIAGNOSTIC REPORT ===\nTimestamp: ${new Date().toISOString()}\nUser Agent: ${navigator.userAgent}\nActive View: ${document.querySelector('.content-view.active')?.id || 'unknown'}\nStore Name: ${localStorage.getItem('valenixia_store_name') || 'unconfigured'}\n\n--- LOG TRAIL (${logs.length} entries) ---\n${formatted}`;
+  const activeSurface = (window.ValenixiaBootstrap && typeof window.ValenixiaBootstrap.getSurface === 'function') ? window.ValenixiaBootstrap.getSurface() : null;
+  const activeState   = (window.ValenixiaBootstrap && typeof window.ValenixiaBootstrap.getState === 'function') ? window.ValenixiaBootstrap.getState() : null;
+  const activeView    = document.querySelector('.content-view.active')?.id || activeSurface || activeState || 'unknown';
+  const storeName     = localStorage.getItem('store_name') || localStorage.getItem('valenixia_store_name') || (window.state && window.state.preferences && window.state.preferences['store_name']) || 'unconfigured';
+
+  const payload = `=== VALENIXIA POS DIAGNOSTIC REPORT ===\nTimestamp: ${new Date().toISOString()}\nUser Agent: ${navigator.userAgent}\nActive View: ${activeView}\nStore Name: ${storeName}\n\n--- LOG TRAIL (${logs.length} entries) ---\n${formatted}`;
 
   try {
     if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
