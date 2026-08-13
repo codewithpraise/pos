@@ -1274,13 +1274,22 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
       }
     }
 
+    console.error('[BootstrapRecovery] 🚨 EMERGENCY RECOVERY ENTERED!');
+    console.error('[BootstrapRecovery] Stage:', stage || _state);
+    console.error('[BootstrapRecovery] Message:', message);
+    console.error('[BootstrapRecovery] Trace:', window.__VALENIXIA_BOOT_TRACE__);
+
     try {
       // PRIMARY PATH: Target the pre-existing static emergency node in index.html
       // This node is always present in the DOM, independent of app.js/DB/theme state.
-      var staticNode = el('vx-emergency-recovery');
-      var staticMsg  = el('vx-emergency-recovery-message');
+      var staticNode  = el('vx-emergency-recovery');
+      var staticMsg   = el('vx-emergency-recovery-message');
+      var staticStage = el('vx-emergency-recovery-stage');
 
       if (staticNode) {
+        if (staticStage) {
+          try { staticStage.textContent = 'Stage: ' + (stage || _state || 'UNKNOWN'); } catch (_) {}
+        }
         if (staticMsg) {
           try { staticMsg.textContent = message || 'An unexpected error occurred during startup.'; } catch (_) {}
         }
@@ -1400,10 +1409,12 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
   };
   function _armTimeout(stage) {
     _clearTimeout();
+    // Once decision is reached (WIZARD, LOCK, READY committed), stage discovery timeouts must never fire.
+    if (window.bootstrapDecisionReady) return;
     var ms = STAGE_TIMEOUTS[stage];
     if (!ms) return;
     _stageTimeout = setTimeout(function() {
-      if (_state !== stage) return;
+      if (_state !== stage || window.bootstrapDecisionReady) return;
       console.warn('[Bootstrap] Stage timeout: ' + stage);
       _logStep('STAGE_TIMEOUT_TRIGGERED', { stage: stage, durationMs: ms });
       ValenixiaBootstrap.enterRecovery(
@@ -1429,6 +1440,8 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     completeStage: function(stageName, data) {
       _logStep('STAGE_COMPLETED', { stage: stageName, data: data });
       _clearTimeout();
+      // Once bootstrap decision is ready, do not advance pre-decision discovery pipeline.
+      if (window.bootstrapDecisionReady) return;
       var nextStageMap = {
         'RELEASE_VALIDATION':    'DATABASE_DISCOVERY',
         'DATABASE_DISCOVERY':   'INSTALLATION_DISCOVERY',
@@ -1456,6 +1469,15 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     // Transition to a new state. Called by bootstrap orchestrator.
     // Other controllers MUST use this method — they must not directly toggle surface display.
     transition: function(newState, context) {
+      // Guard 0: If bootstrapDecisionReady is true, block transitions into pre-decision discovery stages
+      var preDecisionStages = [
+        'RELEASE_VALIDATION', 'DATABASE_DISCOVERY', 'INSTALLATION_DISCOVERY',
+        'DEVICE_DISCOVERY', 'ACCOUNT_DISCOVERY', 'STORE_DISCOVERY', 'ENTITLEMENT_DISCOVERY'
+      ];
+      if (window.bootstrapDecisionReady && preDecisionStages.indexOf(newState) !== -1) {
+        return;
+      }
+
       // Guard 1: same state, same surface — no-op (except DECISION which must re-evaluate routing).
       if (newState === _state && newState !== 'DECISION') return;
 

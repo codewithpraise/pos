@@ -37,11 +37,15 @@
 </head>
 <body>  <!-- STATIC EMERGENCY RECOVERY FALLBACK (No-JS / Catastrophic Fallback Node) -->
   <div id="vx-emergency-recovery" hidden style="position:fixed;inset:0;z-index:9999999999;background:#060609;display:flex;align-items:center;justify-content:center;padding:24px;font-family:sans-serif;">
-    <div style="max-width:420px;width:100%;background:#0f0f11;border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:28px;">
-      <div style="font-size:22px;margin-bottom:12px;">⚠️</div>
-      <h3 style="color:#fff;font-size:16px;font-weight:800;margin:0 0 8px;">Valenixia couldn't start</h3>
-      <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:12px 0 20px;" id="vx-emergency-recovery-message">A critical initialization fault occurred.</p>
-      <button onclick="location.reload()" style="width:100%;padding:12px;background:#10b981;border:none;color:#000;font-weight:800;border-radius:6px;cursor:pointer;font-size:13px;min-height:44px;">Retry</button>
+    <div style="max-width:480px;width:100%;background:#0f0f11;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:28px;box-shadow:0 20px 40px rgba(0,0,0,0.8);">
+      <div style="font-size:24px;margin-bottom:12px;">⚠️</div>
+      <h3 style="color:#fff;font-size:18px;font-weight:800;margin:0 0 6px;">Valenixia couldn't start</h3>
+      <p style="color:#6b7280;font-size:11px;margin:0 0 8px;font-family:monospace;" id="vx-emergency-recovery-stage">Stage: UNKNOWN</p>
+      <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:12px 0 20px;white-space:pre-wrap;background:rgba(255,255,255,0.03);padding:12px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);" id="vx-emergency-recovery-message">A critical initialization fault occurred.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="location.reload()" style="flex:1;padding:12px;background:#10b981;border:none;color:#000;font-weight:800;border-radius:6px;cursor:pointer;font-size:13px;min-height:44px;">Retry</button>
+        <button onclick="if(typeof window.copyDiagnostics==='function')window.copyDiagnostics();else console.log('[BootTrace]',window.__VALENIXIA_BOOT_TRACE__)" style="flex:1;padding:12px;background:transparent;border:1px solid rgba(255,255,255,0.15);color:#00d68f;font-weight:700;border-radius:6px;cursor:pointer;font-size:12px;min-height:44px;">📋 Copy Diagnostics</button>
+      </div>
     </div>
   </div>
 
