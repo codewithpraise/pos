@@ -1101,10 +1101,10 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
   }
 
   // ── TRUE SURFACE INVARIANT & AUTOMATIC RECOVERY SYSTEM ─────────────────────
-  // Rule:
+  // Rules:
   //   visibleCount === 1 → PASS
   //   visibleCount === 0 → AUTO-RECOVER IMMEDIATELY to RECOVERY UI (never leave blank)
-  //   visibleCount > 1  → DETERMINISTICALLY ENFORCE authoritative surface, hide rest
+  //   visibleCount > 1  → DIAGNOSE ownership conflict, resolve to active target surface
   function _assertSurface() {
     var visibleSurfaces = [];
     Object.keys(SURFACES).forEach(function(key) {
@@ -1128,11 +1128,21 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     }
 
     if (count > 1 && !_recoveryShown) {
-      console.warn('[Bootstrap] INVARIANT WARN: ' + count + ' surfaces visible. Normalizing to authoritative surface: ' + _activeSurface);
-      _logStep('SURFACE_INVARIANT_NORMALIZING', { visible: visibleSurfaces.map(function(s){return s.key;}), target: _activeSurface });
-      // Keep only authoritative surface, hide the rest
+      // Determine if a non-BOOT surface was requested
+      var targetSurface = visibleSurfaces.find(function(s) { return s.key !== 'BOOT'; });
+      var authoritativeKey = targetSurface ? targetSurface.key : _activeSurface;
+      _activeSurface = authoritativeKey;
+
+      console.warn('[Bootstrap] OWNERSHIP CONFLICT: ' + count + ' surfaces visible. Resolving to target surface: ' + authoritativeKey);
+      _logStep('BOOTSTRAP_SURFACE_OWNERSHIP_CONFLICT', {
+        visible: visibleSurfaces.map(function(s){return s.key;}),
+        resolvedTo: authoritativeKey,
+        state: _state
+      });
+
+      // Keep authoritative target surface visible, hide all non-authoritative surfaces
       visibleSurfaces.forEach(function(s) {
-        if (s.key !== _activeSurface) {
+        if (s.key !== authoritativeKey) {
           s.node.style.display = 'none';
           s.node.classList.remove('active');
         }
@@ -1151,6 +1161,8 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
       if (key === surfaceKey) {
         node.style.display = (key === 'LAYOUT') ? 'grid' : 'flex';
         node.classList.add('active');
+        node.style.visibility = 'visible';
+        node.style.opacity    = '1';
       } else {
         node.style.display = 'none';
         node.classList.remove('active');
@@ -1158,6 +1170,19 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     });
     _activeSurface = surfaceKey;
     _logStep('SURFACE_COMMITTED', { surface: surfaceKey });
+
+    // ATOMIC DISMISSAL: Only dismiss splash AFTER non-BOOT surface is committed & verified
+    if (surfaceKey !== 'BOOT' && surfaceKey !== 'RECOVERY') {
+      setTimeout(function() {
+        var cnt = _assertSurface();
+        if (cnt >= 1) {
+          _dismissSplash();
+        } else {
+          console.error('[Bootstrap] Surface commitment check failed for ' + surfaceKey + '. Retaining splash.');
+          ValenixiaBootstrap.enterRecovery('Failed to commit surface: ' + surfaceKey, _state, true, true);
+        }
+      }, 50);
+    }
   }
 
   // ── Recovery overlay (shown if all other surfaces fail) ──────────────────
@@ -1205,14 +1230,14 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
 
   // ── Stage timeout helper ──────────────────────────────────────────────────
   var STAGE_TIMEOUTS = {
-    RELEASE_VALIDATION:    5000,
-    DATABASE_DISCOVERY:   10000,
-    INSTALLATION_DISCOVERY:4000,
-    DEVICE_DISCOVERY:      8000,
-    ACCOUNT_DISCOVERY:     8000,
-    STORE_DISCOVERY:       6000,
-    ENTITLEMENT_DISCOVERY: 8000,
-    DECISION:              3000
+    RELEASE_VALIDATION:    6000,
+    DATABASE_DISCOVERY:   12000,
+    INSTALLATION_DISCOVERY:6000,
+    DEVICE_DISCOVERY:     10000,
+    ACCOUNT_DISCOVERY:    10000,
+    STORE_DISCOVERY:       8000,
+    ENTITLEMENT_DISCOVERY:10000,
+    DECISION:              5000
   };
   function _armTimeout(stage) {
     _clearTimeout();
@@ -1237,7 +1262,26 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
 
     getState: function() { return _state; },
 
-    // Transition to a new state. Called by app.js and other controllers.
+    // Explicit Stage APIs
+    beginStage: function(stageName, text) {
+      ValenixiaBootstrap.transition(stageName, { text: text });
+    },
+
+    completeStage: function(stageName, data) {
+      _logStep('STAGE_COMPLETED', { stage: stageName, data: data });
+      _clearTimeout();
+    },
+
+    failStage: function(stageName, error) {
+      _logStep('STAGE_FAILED', { stage: stageName, error: error ? (error.message || String(error)) : null });
+      _clearTimeout();
+      ValenixiaBootstrap.enterRecovery(
+        'Stage "' + stageName + '" failed: ' + (error ? (error.message || String(error)) : 'Unknown error'),
+        stageName, true, true
+      );
+    },
+
+    // Transition to a new state. Called by bootstrap orchestrator.
     // Other controllers MUST use this method — they must not directly toggle surface display.
     transition: function(newState, context) {
       if (newState === _state && newState !== 'DECISION') return;
@@ -1287,7 +1331,6 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
             localStorage.getItem('onboarding_complete') === 'true' ||
             (context && context.onboardingComplete)
           );
-          _dismissSplash();
           if (!onboardingDone) {
             ValenixiaBootstrap.transition('ONBOARDING');
           } else if (context && context.pairingRequired) {
@@ -1305,7 +1348,6 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
           if (typeof window.executeWizardGoTo === 'function') {
             window.executeWizardGoTo(1, 'NEW');
           }
-          setTimeout(_assertSurface, 150);
           break;
 
         case 'AUTH_LOCK':
@@ -1315,7 +1357,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
             var pin = el('pin-input');
             if (pin) pin.focus();
           }, 150);
-          setTimeout(_assertSurface, 150);
+          window.bootstrapReady   = true;
           window.appReady         = true;
           window.appInitialized   = true;
           break;
@@ -1323,7 +1365,6 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
         case 'PAIRING_REQUIRED':
           _clearTimeout();
           _showSurface('PAIRING');
-          setTimeout(_assertSurface, 150);
           break;
 
         case 'PAIRING_PENDING':
@@ -1333,16 +1374,15 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
           var formEl    = el('device-pairing-form');
           if (pendingEl) pendingEl.style.display = 'flex';
           if (formEl)    formEl.style.display    = 'none';
-          setTimeout(_assertSurface, 150);
           break;
 
         case 'READY':
           _clearTimeout();
           _showSurface('LAYOUT');
+          window.bootstrapReady = true;
           window.appReady       = true;
           window.appInitialized = true;
           window.__valenixiaAuthenticated = true;
-          setTimeout(_assertSurface, 150);
           break;
 
         case 'SERVER_UNAVAILABLE':

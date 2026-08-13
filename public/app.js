@@ -2115,56 +2115,10 @@ setHtml(overlay, `
          localStorage.setItem('database_hydrated', 'true');
       }
       
-      const wizardOverlay = document.getElementById('first-boot-wizard');
-      const lockScreen = document.getElementById('auth-lock-screen');
-      const layout = document.getElementById('pos-app-layout');
-      
-      if (!onboardingComplete) {
-        console.log('[App] No store configuration found on this device. Launching Setup New Store Wizard...');
-        if (wizardOverlay) {
-          wizardOverlay.style.display = 'flex';
-          wizardOverlay.classList.add('active');
-        }
-        if (lockScreen) {
-          lockScreen.style.display = 'none';
-          lockScreen.classList.remove('active');
-        }
-        if (layout) layout.style.display = 'none'; // Keep layout hidden; wizard overlay covers full screen
-        showPairingOverlay(false);
+      // ValenixiaBootstrap is the sole authority over bootstrap surface visibility.
+      // Direct DOM style.display manipulation is removed to prevent surface conflicts.
+      console.log('[App] Installation discovery complete. Onboarding status:', onboardingComplete);
 
-        // Guarantee Wizard initialization without overriding user step choice
-        try {
-          if (typeof window.initWizardController === 'function') {
-            window.initWizardController(true);
-          }
-          const currentStep = window.__wizardCurrentStep || 1;
-          const currentPath = window.__wizardCurrentPath || 'NEW';
-          if (typeof window.executeWizardGoTo === 'function') {
-            window.executeWizardGoTo(currentStep, currentPath);
-          } else {
-            const p1 = document.getElementById('wiz-panel-1');
-            if (p1) p1.style.display = 'flex';
-          }
-        } catch (wizErr) {
-          console.error('[App] Failed initializing wizard step 1:', wizErr);
-          const p1 = document.getElementById('wiz-panel-1');
-          if (p1) p1.style.display = 'flex';
-        }
-      } else {
-        console.log('[App] Existing store configuration detected on device. Loading lock screen...');
-        if (wizardOverlay) {
-          wizardOverlay.style.display = 'none';
-          wizardOverlay.classList.remove('active');
-        }
-        if (lockScreen) {
-          lockScreen.style.display = 'flex';
-          lockScreen.classList.add('active');
-        }
-        if (layout) layout.style.display = 'none';
-      }
-
-      // Instant dismissal of bootloader loader once routing is established
-      updateBootProgress(100, 'Ready');
     } catch (e) {
       console.error('[App] Failed to initialize local database on main thread:', e);
       updateBootProgress(100, 'Ready');
