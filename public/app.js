@@ -15443,10 +15443,13 @@ setHtml(item, `
     }
   }
 
-  const CLIENT_VERSION = '1.0.4';
+  const CLIENT_VERSION = '2.6.0';
 
 // ----------------------------------------------------------------------------
   function showReleaseNotesModal(version, changes) {
+    // Guard: Do not display release notes modal during first-boot onboarding phase
+    if (localStorage.getItem('onboarding_complete') !== 'true') return;
+
     const seenKey = 'valenixia_last_seen_version';
     if (localStorage.getItem(seenKey) === version) return; // Already seen
 
