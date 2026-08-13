@@ -1,9 +1,9 @@
 {
   "product": "VALENIXIA POS",
   "version": "2.6.0",
-  "build_id": "v2.6.0-prod-561a2be",
+  "build_id": "v2.6.0-prod-onnest-final",
   "force_unregister": true,
-  "git_commit": "561a2be",
+  "git_commit": "onnest-final",
   "environment": "production",
   "schema_version": "17",
   "commercial_catalog_version": "2.6.0",

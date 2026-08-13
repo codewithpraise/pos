@@ -36,20 +36,9 @@
   <script src="theme-transfer.js?v=1.0.9"></script>
 </head>
 <body>  <!-- STATIC EMERGENCY RECOVERY FALLBACK (No-JS / Catastrophic Fallback Node) -->
-  <div id="vx-emergency-recovery" class="auth-overlay recovery-overlay" hidden style="position:fixed;inset:0;z-index:9999999999;background:#060609;display:none;align-items:center;justify-content:center;padding:24px;font-family:sans-serif;">
-    <div style="max-width:480px;width:100%;background:#0f0f11;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:28px;box-shadow:0 20px 40px rgba(0,0,0,0.8);">
-      <div style="font-size:24px;margin-bottom:12px;">⚠️</div>
-      <h3 style="color:#fff;font-size:18px;font-weight:800;margin:0 0 6px;">Valenixia couldn't start</h3>
-      <p style="color:#6b7280;font-size:11px;margin:0 0 8px;font-family:monospace;" id="vx-emergency-recovery-stage">Stage: UNKNOWN</p>
-      <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:12px 0 20px;white-space:pre-wrap;background:rgba(255,255,255,0.03);padding:12px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);" id="vx-emergency-recovery-message">A critical initialization fault occurred.</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button onclick="location.reload()" style="flex:1;padding:12px;background:#10b981;border:none;color:#000;font-weight:800;border-radius:6px;cursor:pointer;font-size:13px;min-height:44px;">Retry</button>
-        <button onclick="if(typeof window.copyDiagnostics==='function')window.copyDiagnostics();else console.log('[BootTrace]',window.__VALENIXIA_BOOT_TRACE__)" style="flex:1;padding:12px;background:transparent;border:1px solid rgba(255,255,255,0.15);color:#00d68f;font-weight:700;border-radius:6px;cursor:pointer;font-size:12px;min-height:44px;">📋 Copy Diagnostics</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ELEGANT BOOTSTRAPPING SPLASH OVERLAY WITH DIAGNOSTIC TERMINAL -->
+  
+<!-- MOVED vx-emergency-recovery -->
+<!-- ELEGANT BOOTSTRAPPING SPLASH OVERLAY WITH DIAGNOSTIC TERMINAL -->
   <div id="app-boot-loader" style="position:fixed;inset:0;z-index:99999;background:#060609;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-family:'Manrope',sans-serif;transition:opacity 0.3s ease, visibility 0.3s ease;padding:20px;box-sizing:border-box;">
     <div style="font-family:'Outfit',sans-serif;font-size:24px;font-weight:900;background:linear-gradient(135deg,#00d68f,#10b981);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:2px;">Valenixia POS</div>
     <div style="font-size:11px;color:#6b7280;letter-spacing:0.05em;text-transform:uppercase;" id="app-boot-loader-status">Initializing local runtime...</div>
@@ -64,15 +53,9 @@
 
 
   <!-- AUTH LOCK SCREEN (Centered login PIN pad overlay) -->
-  <div class="auth-overlay" id="auth-lock-screen" style="display:none;">
-    <div class="auth-card" role="region" aria-label="PIN authorization panel" aria-live="polite">
-      <div class="security-shield" style="display: flex; justify-content: center; margin-bottom: 16px; color: var(--accent-emerald);">
-        <svg class="svg-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-      </div>
-      <h3>SECURE REGISTER LOGIN</h3>
-      <p>Enter Cashier Security PIN to open shift register</p>
-
-      <!-- Terminal Mode Selector -->
+  
+<!-- MOVED auth-lock-screen -->
+<!-- Terminal Mode Selector -->
       <div style="margin-bottom: 16px; width: 100%; text-align: left;">
         <label for="login-terminal-role" style="font-size: 10px; color: var(--text-gray); text-transform: uppercase; font-weight: 700; margin-bottom: 4px; display: block;">Terminal Mode:</label>
         <select id="login-terminal-role" class="pos-input" style="min-height: 40px; height: 40px; padding: 6px 12px; font-size: 12px;" aria-label="Login Terminal Role">
@@ -318,8 +301,9 @@
       <div class="pos-content-pane">
         
         <!-- View 1: Checkout (active class assigned by router after bootstrap READY, not baked in HTML) -->
-        <section class="content-view" id="view-checkout">
-          <div class="checkout-tabs-mobile" id="checkout-tabs-mobile-nav" style="display: none; width: 100%; border-bottom: 1px solid var(--border-titanium); padding: 8px 16px; gap: 8px; box-sizing: border-box; background: var(--panel-graphite); flex-shrink: 0;">
+        
+<section class="content-view" id="view-checkout">
+<div class="checkout-tabs-mobile" id="checkout-tabs-mobile-nav" style="display: none; width: 100%; border-bottom: 1px solid var(--border-titanium); padding: 8px 16px; gap: 8px; box-sizing: border-box; background: var(--panel-graphite); flex-shrink: 0;">
             <button type="button" class="checkout-tab-btn" data-tab="catalog" style="flex: 1; min-height: 40px; border-radius: 6px; font-weight: 700; font-size: 12px; background: transparent; border: 1px solid transparent; color: var(--text-gray); cursor: pointer; transition: all 0.2s ease;">Catalog</button>
             <button type="button" class="checkout-tab-btn active" data-tab="cart" style="flex: 1; min-height: 40px; border-radius: 6px; font-weight: 700; font-size: 12px; background: var(--panel-graphite-light); border: 1px solid var(--border-titanium); color: var(--text-white); cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 6px;">Cart <span id="mobile-cart-badge" style="background: var(--alert-coral); color: white; border-radius: 10px; padding: 2px 6px; font-size: 9px; font-weight: 800; display: inline-block; min-width: 12px; text-align: center;">0</span></button>
             <button type="button" class="checkout-tab-btn" data-tab="payment" style="flex: 1; min-height: 40px; border-radius: 6px; font-weight: 700; font-size: 12px; background: transparent; border: 1px solid transparent; color: var(--text-gray); cursor: pointer; transition: all 0.2s ease;">Payment</button>
@@ -521,11 +505,15 @@
 
             </div>
           </div>
-        </section>
+        
 
         <!-- View Apps & Companion Downloads (Web App Specific) -->
-        <section class="content-view" id="view-apps-download">
-          <div style="max-width: 900px; margin: 0 auto; padding: 24px 16px; display: flex; flex-direction: column; gap: 24px;">
+</section>
+
+
+</section>
+<section class="content-view" id="view-apps-download">
+<div style="max-width: 900px; margin: 0 auto; padding: 24px 16px; display: flex; flex-direction: column; gap: 24px;">
             <div class="view-header" style="display:flex; flex-direction:column; gap:4px; border-bottom: 1px solid var(--border-titanium); padding-bottom: 16px;">
               <h2 style="font-size: 22px; font-weight: 800; color: var(--text-white); margin: 0; display: flex; align-items: center; gap: 10px;">
                 <svg class="svg-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--accent-emerald)" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -601,11 +589,15 @@
               </div>
             </div>
           </div>
-        </section>
+        
 
         <!-- View 2: Quick-Access Catalog (For Mobile) -->
-        <section class="content-view" id="view-catalog">
-          <div class="quick-catalog-mobile-view" style="padding: 20px; display: flex; flex-direction: column; gap: 16px; height: 100%; overflow: hidden;">
+</section>
+
+
+</section>
+<section class="content-view" id="view-catalog">
+<div class="quick-catalog-mobile-view" style="padding: 20px; display: flex; flex-direction: column; gap: 16px; height: 100%; overflow: hidden;">
             <div class="quick-catalog-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-titanium); padding-bottom: 12px; flex-shrink: 0;">
               <div>
                 <h2 style="font-family: var(--font-display); font-size: 20px; color: var(--text-white); font-weight: 800; margin: 0; text-transform: uppercase;">Quick Products</h2>
@@ -622,11 +614,15 @@
               <!-- dynamic product cards -->
             </div>
           </div>
-        </section>
+        
 
         <!-- View 2.b: Catalog Manager -->
-        <section class="content-view" id="view-catalog-manager">
-          <div class="view-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;">
+</section>
+
+
+</section>
+<section class="content-view" id="view-catalog-manager">
+<div class="view-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;">
             <h2>Inventory Ledger</h2>
             <button class="action-btn action-success" id="btn-catalog-create-product" style="flex-shrink:0;">+ Add Product</button>
           </div>
@@ -657,11 +653,15 @@
               </div>
             </div>
           </div>
-        </section>
+        
 
         <!-- View 3: Sales History -->
-        <section class="content-view" id="view-history">
-          <div class="history-layout">
+</section>
+
+
+</section>
+<section class="content-view" id="view-history">
+<div class="history-layout">
             
             <!-- Left Column: completed transactions list -->
             <div class="history-list-pane">
@@ -698,21 +698,29 @@
               </div>
             </div>
           </div>
-        </section>
+        
 
         <!-- View 3b: Deals / Bundles / Combos (Deals Engine v1.0) -->
-        <section class="content-view" id="view-deals">
-          <div class="view-header" style="border-bottom:1px solid var(--border-titanium);padding-bottom:16px;margin-bottom:20px;">
+</section>
+
+
+</section>
+<section class="content-view" id="view-deals">
+<div class="view-header" style="border-bottom:1px solid var(--border-titanium);padding-bottom:16px;margin-bottom:20px;">
             <h2 id="deals-view-title">Deals &amp; Bundles</h2>
             <button class="action-btn action-success" id="btn-deals-create" style="min-height:38px;padding:0 20px;">+ Create Deal</button>
           </div>
           <!-- Deals engine renders into this container -->
           <div id="deals-list-container" style="padding:0 20px 20px;"></div>
-        </section>
+        
 
         <!-- View 4: Performance Analytics -->
-        <section class="content-view" id="view-analytics">
-          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+</section>
+
+
+</section>
+<section class="content-view" id="view-analytics">
+<div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
             <h2 style="margin: 0;">Sales Dashboard &amp; Telemetry</h2>
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
               <!-- Date range pills -->
@@ -940,11 +948,15 @@
               </div>
             </div>
           </div>
-        </section>
+        
 
         <!-- View 5: Customer Directory -->
-        <section class="content-view" id="view-customers">
-          <div class="view-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 18px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+</div></section>
+
+
+</section>
+<section class="content-view" id="view-customers">
+<div class="view-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 18px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
             <div>
               <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Customer &amp; Khata Directory</h2>
               <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Loyalty profiles, purchase history, and customer credit ledger</p>
@@ -975,11 +987,15 @@
               </table>
             </div>
           </div>
-        </section>
+        
 
         <!-- View 9: Suppliers & Accounts Payable Directory -->
-        <section class="content-view" id="view-suppliers">
-          <div class="view-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 18px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+</section>
+
+
+</section>
+<section class="content-view" id="view-suppliers">
+<div class="view-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 18px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
             <div>
               <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Supplier Directory &amp; Accounts Payable</h2>
               <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Distributor ledgers, purchase orders, goods receive notes (GRN), and vendor debts</p>
@@ -1034,11 +1050,15 @@
               </div>
             </div>
           </div>
-        </section>
+        
 
         <!-- View 10: Credit Book (Customer Khata Ledger) -->
-        <section class="content-view" id="view-credit-book">
-          <div class="view-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 18px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+</section>
+
+
+</section>
+<section class="content-view" id="view-credit-book">
+<div class="view-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 18px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
             <div>
               <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Customer Credit Book (Khata Ledger)</h2>
               <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Manage customer credit accounts, track receivables, and record cash/online balance repayments</p>
@@ -1090,11 +1110,15 @@
               </div>
             </div>
           </div>
-        </section>
+        
 
         <!-- View 6: Staff Management -->
-        <section class="content-view" id="view-staff">
-          <div class="view-header">
+</section>
+
+
+</section>
+<section class="content-view" id="view-staff">
+<div class="view-header">
             <h2>System Employees & Cashiers</h2>
             <button class="action-btn action-success" id="btn-staff-create">+ Add Employee</button>
           </div>
@@ -1115,12 +1139,16 @@
               </tbody>
             </table>
           </div>
-        </section>
+        
 
         <!-- View 7: CRDT Sync Stream & System Health Logs -->
         <!-- View 8: System Health & Logs -->
-        <section class="content-view" id="view-logs">
-          <div class="view-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 18px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+</section>
+
+
+</section>
+<section class="content-view" id="view-logs">
+<div class="view-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 18px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
             <div>
               <h2 style="margin:0; font-size: 20px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">System Health &amp; Logs</h2>
               <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Real-time CRDT replication stream &amp; local database diagnostics</p>
@@ -1246,11 +1274,15 @@
             <!-- Hidden textarea fallback for Android WebViews without navigator.clipboard -->
             <textarea id="diagnostic-log-copy-buffer" style="position: absolute; left: -9999px; top: -9999px; width: 1px; height: 1px;" aria-label="Diagnostic Log Copy Buffer"></textarea>
           </div>
-        </section>
+        
 
         <!-- View 8: Global Configuration settings -->
-        <section class="content-view" id="view-settings">
-          <h2>Terminal Preferences & Settings</h2>
+</section>
+
+
+</section>
+<section class="content-view" id="view-settings">
+<h2>Terminal Preferences & Settings</h2>
           
           <div class="settings-grid">
             <div class="settings-section">
@@ -1976,11 +2008,15 @@
               </div>
             </div>
           </div>
-        </section>
+        
 
         <!-- View 8.b: FBR Fiscal Hub (Enterprise Exclusive) -->
-        <section class="content-view" id="view-fbr-fiscal">
-          <div class="view-header">
+</section>
+
+
+</section>
+<section class="content-view" id="view-fbr-fiscal">
+<div class="view-header">
             <h2>FBR Fiscal Integration Hub</h2>
             <button class="action-btn action-success" id="btn-flush-fbr-now">Flush Queue (Rule 150XC)</button>
           </div>
@@ -2017,11 +2053,15 @@
               </tbody>
             </table>
           </div>
-        </section>
+        
 
         <!-- View 8.c: Multi-Store Context Dashboard (Enterprise Exclusive) -->
-        <section class="content-view" id="view-multi-store">
-          <div class="view-header" style="border-bottom:1px solid var(--border-titanium);padding-bottom:16px;margin-bottom:20px;">
+</section>
+
+
+</section>
+<section class="content-view" id="view-multi-store">
+<div class="view-header" style="border-bottom:1px solid var(--border-titanium);padding-bottom:16px;margin-bottom:20px;">
             <div>
               <h2 style="margin:0 0 4px;">Multi-Branch Register Management
                 <span id="location-count-badge" style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;font-size:10px;font-weight:800;border-radius:999px;background:rgba(16,185,129,0.15);color:var(--accent-emerald);border:1px solid rgba(16,185,129,0.3);margin-left:8px;vertical-align:middle;">1</span>
@@ -2042,11 +2082,15 @@
           <div id="location-cards-container" style="display:flex;flex-direction:column;gap:10px;max-width:800px;">
             <!-- Populated by JS -->
           </div>
-        </section>
+        
 
         <!-- View 8.d: Data Portability Suite (Enterprise Exclusive) -->
-        <section class="content-view" id="view-data-portability">
-          <div class="view-header">
+</section>
+
+
+</section>
+<section class="content-view" id="view-data-portability">
+<div class="view-header">
             <h2>Data Portability &amp; Schema Migration Suite</h2>
           </div>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-top: 16px;">
@@ -2066,11 +2110,15 @@
               <button class="action-btn dm-btn-primary" id="btn-migration-export-ledger" style="width: 100%;">Export Accounting Ledger</button>
             </div>
           </div>
-        </section>
+        
 
         <!-- View: Subscription & Billing Vault (Native View) -->
-        <section class="content-view" id="view-subscription">
-          <div class="screen-shell subscription-layout sub-vault-layout">
+</section>
+
+
+</section>
+<section class="content-view" id="view-subscription">
+<div class="screen-shell subscription-layout sub-vault-layout">
             <!-- Subscription Sub-Navigation Sidebar -->
             <aside class="subscription-sidebar sub-vault-sidebar">
               <div class="sub-vault-header">
@@ -2418,8 +2466,12 @@
                 </div>
               </div>
         <!-- View 10B: Revenue Control Tower (Admin Commerce Portal) -->
-        <section class="content-view" id="view-admin-commerce">
-          <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+</main></div></section>
+
+
+</section>
+<section class="content-view" id="view-admin-commerce">
+<div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
             <div>
               <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800;">Revenue Control Tower</h2>
               <p style="margin: 4px 0 0; font-size: 13px; color: var(--text-gray);">Monetization &amp; Financial Ledger Control — Valenixia Commerce Ecosystem</p>
@@ -2494,11 +2546,15 @@
               </table>
             </div>
           </div>
-        </section>
+        
 
         <!-- View 11: Suppliers (Distributors & Purchase Ledger) -->
-        <section class="content-view" id="view-suppliers">
-          <div class="view-header">
+</section>
+
+
+</section>
+<section class="content-view" id="view-suppliers">
+<div class="view-header">
             <h2>Suppliers &amp; Purchase Ledger</h2>
             <button class="action-btn action-success" id="btn-suppliers-create">+ Add Supplier</button>
           </div>
@@ -2528,11 +2584,15 @@
               </div>
             </div>
           </div>
-        </section>
+        
 
         <!-- View 12: Credit Book (Udhaar/Customer Credit ledger) -->
-        <section class="content-view" id="view-credit-book">
-          <div class="view-header">
+</section>
+
+
+</section>
+<section class="content-view" id="view-credit-book">
+<div class="view-header">
             <h2>Credit Book (Udhaar/Khata Ledger)</h2>
           </div>
           
@@ -2560,11 +2620,15 @@
               </div>
             </div>
           </div>
-        </section>
+        
 
         <!-- View: Platform Admin -->
-        <section class="content-view" id="view-platform-admin">
-          <div style="max-width:1100px; margin:0 auto; padding:20px; display:flex; flex-direction:column; gap:20px;">
+</section>
+
+
+</section>
+<section class="content-view" id="view-platform-admin">
+<div style="max-width:1100px; margin:0 auto; padding:20px; display:flex; flex-direction:column; gap:20px;">
             <div class="cloud-vault-card">
               <h2 style="margin:0 0 8px; font-size:18px; font-weight:800; color:var(--text-white);">Platform Admin Control Center</h2>
               <div style="overflow-x:auto;">
@@ -2588,21 +2652,16 @@
               </div>
             </div>
           </div>
-        </section>
-      </div>
+        
+      </section></div>
     </div>
   </div>
 
 
   <!-- DIALOG MODAL 1: ADD/EDIT PRODUCT -->
-  <div class="modal-overlay" id="modal-product">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3 id="modal-product-title">Add New Product</h3>
-        <button class="btn-close-modal" id="btn-close-product-modal">×</button>
-      </div>
-      <div class="modal-body">
-        <!-- ⚡ Quick Preset Bar — filled dynamically for new products -->
+  
+<!-- MOVED modal-product -->
+<!-- ⚡ Quick Preset Bar — filled dynamically for new products -->
         <div id="form-product-presets-container" style="margin-bottom: 16px; padding: 12px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 8px; display: none;"></div>
 
         <div class="form-grid-2col">
@@ -2781,57 +2840,12 @@
   </div>
 
   <!-- DIALOG MODAL 2: ADD/EDIT CUSTOMER -->
-  <div class="modal-overlay" id="modal-customer">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3 id="modal-customer-title">Create Loyalty Customer</h3>
-        <button class="btn-close-modal" id="btn-close-customer-modal">×</button>
-      </div>
-      <div class="modal-body">
-        <input type="hidden" id="form-customer-id">
-        <div class="form-group">
-          <label for="form-customer-name">Customer Full Name</label>
-          <input type="text" id="form-customer-name" class="pos-input" placeholder="e.g. Lucas Vance" aria-label="Customer Full Name">
-        </div>
-        <div class="form-grid-2col">
-          <div class="form-group">
-            <label for="form-customer-phone">Phone Number</label>
-            <input type="text" id="form-customer-phone" class="pos-input" placeholder="e.g. 03001234567" inputmode="numeric" pattern="[0-9]*" aria-label="Phone Number">
-          </div>
-          <div class="form-group">
-            <label for="form-customer-email">Email Address</label>
-            <input type="email" id="form-customer-email" class="pos-input" placeholder="name@example.com" aria-label="Email Address">
-          </div>
-        </div>
-        <div class="form-grid-2col" id="form-customer-spend-row" style="display:none;">
-          <div class="form-group">
-            <label for="form-customer-spend">Total Spend Balance (PKR)</label>
-            <input type="number" id="form-customer-spend" step="0.01" min="0" class="pos-input" aria-label="Total Spend Balance">
-          </div>
-          <div class="form-group">
-            <label for="form-customer-visits">Visits Counter</label>
-            <input type="number" id="form-customer-visits" class="pos-input" aria-label="Visits Counter">
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="action-btn" id="btn-cancel-customer-modal">Cancel</button>
-        <button class="action-btn action-success" id="btn-submit-customer-modal">Save Customer</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- DIALOG MODAL 3: ATTACH CUSTOMER FINDER -->
-  <div class="modal-overlay" id="modal-customer-link">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3>Link loyalty customer profile</h3>
-        <button class="btn-close-modal" id="btn-close-customer-link-modal">×</button>
-      </div>
-      <div class="modal-body">
-        <input type="text" id="customer-link-search" class="pos-input" placeholder="Search customer name or phone..." aria-label="Search customer name or phone...">
-        <div class="customer-results-list" id="customer-link-results-list" style="margin-top: 12px; max-height: 250px; overflow-y: auto;">
-          <!-- dynamic results items -->
+  
+<!-- MOVED modal-customer -->
+<!-- DIALOG MODAL 3: ATTACH CUSTOMER FINDER -->
+  
+<!-- MOVED modal-customer-link -->
+<!-- dynamic results items -->
         </div>
       </div>
       <div class="modal-footer">
@@ -2842,49 +2856,12 @@
   </div>
 
   <!-- DIALOG MODAL 4: ADD EMPLOYEE -->
-  <div class="modal-overlay" id="modal-employee">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3>Register Employee</h3>
-        <button class="btn-close-modal" id="btn-close-employee-modal">×</button>
-      </div>
-      <div class="modal-body">
-        <div class="settings-row">
-          <label for="form-employee-id">Employee ID (User ID):</label>
-          <input type="text" id="form-employee-id" class="pos-input" placeholder="e.g. emp_lucas" aria-label="e.g. emp_lucas">
-        </div>
-        <div class="settings-row">
-          <label for="form-employee-pin">Register Security PIN Code (Numeric):</label>
-          <div class="password-wrapper">
-            <input type="text"  autocomplete="new-password" id="form-employee-pin" class="secure-input pos-input" placeholder="4 to 6-digit PIN number" maxlength="6" minlength="4" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN number">
-            <button type="button" class="btn-toggle-password" title="Toggle visibility">
-              <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-            </button>
-          </div>
-        </div>
-        <div class="settings-row">
-          <label for="form-employee-role">Employee Role:</label>
-          <select id="form-employee-role" class="pos-input" aria-label="Form Employee Role">
-            <option value="CASHIER">CASHIER</option>
-            <option value="MANAGER">MANAGER</option>
-            <option value="ADMIN">ADMIN</option>
-          </select>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="action-btn" id="btn-cancel-employee-modal">Cancel</button>
-        <button class="action-btn action-success" id="btn-submit-employee-modal">Create Employee</button>
-      </div>
-    </div>
-  </div>
-
-
-
-  <!-- DIALOG MODAL: DELETE STORE CONFIRMATION -->
-  <div class="modal-overlay" id="modal-delete-store">
-    <div class="modal-card" style="max-width:480px; border:1px solid rgba(239,68,68,0.2); background:linear-gradient(160deg,#1a1018 0%,#0e0a0d 100%);">
-      <!-- Step 1: Warning -->
+  
+<!-- MOVED modal-employee -->
+<!-- DIALOG MODAL: DELETE STORE CONFIRMATION -->
+  
+<!-- MOVED modal-delete-store -->
+<!-- Step 1: Warning -->
       <div id="delete-store-step1">
         <div class="modal-header" style="border-bottom-color:rgba(239,68,68,0.1);">
           <div style="display:flex;align-items:center;gap:10px;"><div style="width:32px;height:32px;background:rgba(239,68,68,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></polyline></svg></div><h3 style="color:#ef4444;font-size:16px;font-weight:800;">Delete Store</h3></div>
@@ -2950,168 +2927,24 @@
   </div>
 
   <!-- DIALOG MODAL 5: GRAND DESTRUCTIVE RESET -->
-  <div class="modal-overlay" id="modal-reset">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3 class="text-coral">DESTRUCTIVE GRAND RESET</h3>
-        <button class="btn-close-modal" id="btn-close-reset-modal">×</button>
-      </div>
-      <div class="modal-body">
-        <p>This will erase all sales ledgers, customer receipts, and change logs. It will force a complete database rebuild from seed baseline. This requires Admin authentication.</p>
-        <div class="settings-row" style="margin-top: 16px;">
-          <label for="reset-admin-pin-auth">Enter Admin PIN Code (e.g. 1234):</label>
-          <div class="password-wrapper">
-            <input type="text"  autocomplete="new-password" id="reset-admin-pin-auth" class="secure-input pos-input" placeholder="Enter Admin security PIN" inputmode="numeric" pattern="[0-9]*" aria-label="Enter Admin security PIN">
-            <button type="button" class="btn-toggle-password" title="Toggle visibility">
-              <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-            </button>
-          </div>
-        </div>
-        <div class="auth-error-msg" id="reset-modal-error"></div>
-      </div>
-      <div class="modal-footer">
-        <button class="action-btn" id="btn-cancel-reset-modal">Cancel</button>
-        <button class="action-btn action-danger" id="btn-confirm-reset-modal">EXECUTE DATABASE PURGE</button>
-      </div>
-    </div>
-  </div>
+  
+<!-- MOVED modal-reset -->
+<!-- CANONICAL LEGAL DOCUMENT VIEWER MODAL -->
+  
+<!-- MOVED modal-legal-document -->
+<!-- DIALOG MODAL 6: BLIND SHIFT RECONCILIATION Z-REPORT -->
+  
+<!-- MOVED modal-shift-reconcile -->
+<!-- DIALOG MODAL 7: DYNAMIC QR PAYMENT PRESENTER -->
+  
+<!-- MOVED modal-qr-pay -->
+<!-- View 9: CFD Mode (Customer Facing Display) -->
+</section>
 
-  <!-- CANONICAL LEGAL DOCUMENT VIEWER MODAL -->
-  <div class="modal-overlay" id="modal-legal-document" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; background: rgba(4, 6, 14, 0.88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); z-index: 12000; align-items: center; justify-content: center; box-sizing: border-box;" role="dialog" aria-modal="true" aria-labelledby="legal-doc-modal-title">
-    <div class="modal-card legal-doc-modal-card" style="max-width: 720px; width: 90%; max-height: 85vh; display: flex; flex-direction: column;">
-      <div class="modal-header">
-        <div>
-          <h3 id="legal-doc-modal-title" style="margin: 0; font-size: 18px; font-weight: 700; color: var(--text-white);">Legal Agreement</h3>
-          <span class="legal-doc-version" id="legal-doc-modal-version" style="font-size: 11px; color: var(--accent-emerald); font-weight: 700;">Version 2.6.0</span>
-        </div>
-        <button type="button" class="btn-close-modal" id="btn-close-legal-modal" aria-label="Close document">×</button>
-      </div>
-      <div class="modal-body legal-doc-body" id="legal-doc-modal-content" style="overflow-y: auto; max-height: 60vh; padding: 16px; font-size: 13px; line-height: 1.6; color: var(--text-light); white-space: pre-wrap; word-break: break-word;"></div>
-      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 12px; border-top: 1px solid var(--border-titanium);">
-        <button type="button" class="action-btn" id="btn-close-legal-modal-footer">Close</button>
-        <button type="button" class="action-btn action-success" id="btn-ack-legal-modal">I Understand</button>
-      </div>
-    </div>
-  </div>
 
-  <!-- DIALOG MODAL 6: BLIND SHIFT RECONCILIATION Z-REPORT -->
-  <div class="modal-overlay" id="modal-shift-reconcile">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3>Shift Close & Z-Report</h3>
-        <button class="btn-close-modal" id="btn-close-shift-reconcile-modal">×</button>
-      </div>
-      <div class="modal-body">
-        <p style="margin-bottom: 16px; font-size: 12px; color: var(--text-gray);">
-          <strong>Security Protocol:</strong> Count all cash in the drawer and declare below. Calculated system totals are hidden to prevent theft.
-        </p>
-        
-        <div class="reconcile-denominations-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
-          <div class="settings-row">
-            <label>Rs. 5000 Notes:</label>
-            <input type="number" class="pos-input denom-input" data-val="5000" placeholder="0" min="0" aria-label="0">
-          </div>
-          <div class="settings-row">
-            <label>Rs. 1000 Notes:</label>
-            <input type="number" class="pos-input denom-input" data-val="1000" placeholder="0" min="0" aria-label="0">
-          </div>
-          <div class="settings-row">
-            <label>Rs. 500 Notes:</label>
-            <input type="number" class="pos-input denom-input" data-val="500" placeholder="0" min="0" aria-label="0">
-          </div>
-          <div class="settings-row">
-            <label>Rs. 100 Notes:</label>
-            <input type="number" class="pos-input denom-input" data-val="100" placeholder="0" min="0" aria-label="0">
-          </div>
-          <div class="settings-row">
-            <label>Rs. 50 Notes:</label>
-            <input type="number" class="pos-input denom-input" data-val="50" placeholder="0" min="0" aria-label="0">
-          </div>
-          <div class="settings-row">
-            <label>Rs. 20 Notes:</label>
-            <input type="number" class="pos-input denom-input" data-val="20" placeholder="0" min="0" aria-label="0">
-          </div>
-          <div class="settings-row">
-            <label>Rs. 10 Notes:</label>
-            <input type="number" class="pos-input denom-input" data-val="10" placeholder="0" min="0" aria-label="0">
-          </div>
-          <div class="settings-row">
-            <label>Coins & Small Cash:</label>
-            <input type="number" class="pos-input denom-input" data-val="1" placeholder="0" min="0" step="0.01" aria-label="0">
-          </div>
-        </div>
-
-        <div style="margin-top: 20px; padding: 12px; background: rgba(255,255,255,0.02); border: 1px dashed var(--border-titanium); border-radius: 8px; text-align: center;">
-          <span style="font-size: 11px; color: var(--text-gray); display: block; margin-bottom: 4px;">DECLARED DRAWER CASH</span>
-          <span style="font-size: 24px; font-weight: 800; color: var(--text-white);" id="shift-reconcile-total-declared">Rs. 0.00</span>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="action-btn" id="btn-cancel-shift-reconcile-modal">Cancel</button>
-        <button class="action-btn action-success" id="btn-submit-shift-reconcile-modal">Confirm & Lock Shift</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- DIALOG MODAL 7: DYNAMIC QR PAYMENT PRESENTER -->
-  <div class="modal-overlay" id="modal-qr-pay">
-    <div class="modal-card" style="max-width: 440px;">
-      <div class="modal-header" style="border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:16px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:36px;height:36px;background:linear-gradient(135deg,#00d68f,#00a876);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#060d0d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
-          </div>
-          <div>
-            <h3 style="margin:0;font-size:15px;font-weight:800;color:var(--text-white);">Digital QR Wallet Payment</h3>
-            <p style="margin:0;font-size:11px;color:var(--text-gray);">JazzCash · EasyPaisa · Raast · Any Bank App</p>
-          </div>
-        </div>
-        <button class="btn-close-modal" id="btn-close-qr-pay-modal" aria-label="Close QR payment">×</button>
-      </div>
-      <div class="modal-body" style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:0;padding:20px 24px;">
-        <div style="margin-bottom:16px;">
-          <div style="font-size:11px;color:var(--text-gray);font-weight:600;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px;">Amount Due</div>
-          <div style="font-size:32px;font-weight:900;color:var(--accent-emerald);font-family:var(--font-display);" id="qr-pay-amount-label">Rs. 0.00</div>
-        </div>
-        <div style="padding:14px;background:#ffffff;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(0,214,143,0.2),0 4px 12px rgba(0,0,0,0.5);margin-bottom:16px;">
-          <div id="qr-pay-canvas-container" style="width:192px;height:192px;display:flex;align-items:center;justify-content:center;"></div>
-        </div>
-        <div style="display:flex;gap:8px;margin-bottom:16px;justify-content:center;flex-wrap:wrap;">
-          <span style="background:rgba(0,214,143,0.12);border:1px solid rgba(0,214,143,0.3);color:#00d68f;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.5px;">JAZZCASH</span>
-          <span style="background:rgba(79,158,255,0.12);border:1px solid rgba(79,158,255,0.3);color:#4f9eff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.5px;">EASYPAISA</span>
-          <span style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);color:#f59e0b;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.5px;">RAAST</span>
-          <span style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:var(--text-gray);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.5px;">ANY BANK APP</span>
-        </div>
-        <div style="width:100%;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px;text-align:left;margin-bottom:16px;">
-          <div style="font-size:10px;font-weight:800;color:#8f9cb5;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:10px;">Customer Instructions</div>
-          <div style="display:flex;flex-direction:column;gap:8px;">
-            <div style="display:flex;align-items:flex-start;gap:10px;"><div style="width:20px;height:20px;background:rgba(0,214,143,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#00d68f;flex-shrink:0;">1</div><span style="font-size:12px;color:var(--text-white);line-height:1.4;">Open your <strong>JazzCash</strong>, <strong>EasyPaisa</strong>, or any bank app</span></div>
-            <div style="display:flex;align-items:flex-start;gap:10px;"><div style="width:20px;height:20px;background:rgba(0,214,143,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#00d68f;flex-shrink:0;">2</div><span style="font-size:12px;color:var(--text-white);line-height:1.4;">Tap <strong>Scan QR</strong> and point camera at this code</span></div>
-            <div style="display:flex;align-items:flex-start;gap:10px;"><div style="width:20px;height:20px;background:rgba(0,214,143,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#00d68f;flex-shrink:0;">3</div><span style="font-size:12px;color:var(--text-white);line-height:1.4;">Confirm the amount and tap <strong>Pay</strong> in your app</span></div>
-          </div>
-        </div>
-        <div id="qr-setup-notice" style="display:none;width:100%;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:12px;text-align:left;margin-bottom:16px;">
-          <div style="font-size:11px;color:#f59e0b;font-weight:700;margin-bottom:4px;">⚙️ QR Account Not Configured</div>
-          <div style="font-size:11px;color:var(--text-gray);line-height:1.5;">Showing generic QR. For direct payments to your wallet, go to <strong style="color:var(--text-white);">Settings → Payment → QR Setup</strong> and enter your merchant Till ID.</div>
-        </div>
-        <div style="width:100%;background:rgba(0,214,143,0.05);border:1px solid rgba(0,214,143,0.15);border-radius:10px;padding:14px;text-align:center;">
-          <div style="font-size:11px;color:var(--text-gray);margin-bottom:10px;">Once the customer completes payment on their device, tap below:</div>
-          <button id="btn-qr-mark-paid" style="width:100%;min-height:52px;background:linear-gradient(135deg,#00d68f,#00a876);border:none;border-radius:10px;color:#060d0d;font-family:var(--font-display);font-weight:800;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;cursor:pointer;touch-action:manipulation;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 16px rgba(0,214,143,0.35);">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            Payment Received — Complete Order
-          </button>
-        </div>
-      </div>
-      <div class="modal-footer" style="border-top:1px solid rgba(255,255,255,0.04);padding-top:12px;">
-        <button class="action-btn" id="btn-close-qr-pay-modal-footer" style="min-height:40px;font-size:12px;color:var(--text-gray);">Cancel Payment</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- View 9: CFD Mode (Customer Facing Display) -->
-  <section class="content-view" id="view-cfd" style="background: var(--bg-obsidian); height: 100vh; width: 100vw; position: fixed; top: 0; left: 0; z-index: 1000; display: none; padding: 32px; box-sizing: border-box;">
-    <button id="btn-cfd-exit" style="position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.05); color: var(--text-gray); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 6px 12px; font-size: 10px; cursor: pointer; z-index: 1001;">EXIT CFD</button>
+</section>
+<section class="content-view" id="view-cfd" style="background: var(--bg-obsidian); height: 100vh; width: 100vw; position: fixed; top: 0; left: 0; z-index: 1000; display: none; padding: 32px; box-sizing: border-box;">
+<button id="btn-cfd-exit" style="position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.05); color: var(--text-gray); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 6px 12px; font-size: 10px; cursor: pointer; z-index: 1001;">EXIT CFD</button>
     <div style="display: grid; grid-template-columns: 1.2fr 1fr; height: 100%; gap: 32px;">
       <!-- Left Pane: live updating cart -->
       <div style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 16px; padding: 32px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden;">
@@ -3151,11 +2984,15 @@
         </div>
       </div>
     </div>
-  </section>
+  
 
   <!-- View 10: KDS Mode (Kitchen Display System) -->
-  <section class="content-view" id="view-kds" style="background: var(--bg-obsidian); height: 100vh; width: 100vw; position: fixed; top: 0; left: 0; z-index: 1000; display: none; padding: 32px; box-sizing: border-box; overflow-y: auto;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--border-titanium); padding-bottom: 16px;">
+</section>
+
+
+</section>
+<section class="content-view" id="view-kds" style="background: var(--bg-obsidian); height: 100vh; width: 100vw; position: fixed; top: 0; left: 0; z-index: 1000; display: none; padding: 32px; box-sizing: border-box; overflow-y: auto;">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--border-titanium); padding-bottom: 16px;">
       <h2 style="font-family: var(--font-display); font-size: 26px; color: var(--text-white); font-weight: 800; margin: 0;">KITCHEN ORDERS MONITOR</h2>
       <button class="btn-lock-shift" id="btn-kds-exit" style="padding: 8px 16px; font-size: 12px;">EXIT KDS MODE</button>
     </div>
@@ -3163,24 +3000,12 @@
       <!-- dynamic ticket cards -->
       <p class="text-muted" style="grid-column: 1/-1; text-align: center; margin-top: 100px;">No pending kitchen orders.</p>
     </div>
-  </section>
+  
 
   <!-- LICENSE / LOCKOUT SYSTEM OVERLAY -->
-  <div id="license-lockout-overlay" class="auth-overlay license-overlay" style="display: none; position: fixed; inset: 0; z-index: 9999999; background: #050508; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); flex-direction: column; align-items: center; justify-content: flex-start; overflow-y: auto; padding: 40px 20px;">
-    <div class="auth-card" style="max-width: 480px; width: 90%; padding: 36px; border: 2px solid var(--alert-coral); box-shadow: 0 20px 50px rgba(0,0,0,0.8);">
-      <div style="display: flex; justify-content: center; margin-bottom: 20px; color: var(--alert-coral);">
-        <svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-      </div>
-      <h3 style="font-family: var(--font-display); font-size: 22px; color: var(--text-white); font-weight: 800; margin-bottom: 8px; text-transform: uppercase; text-align: center;" id="license-lockout-title">REGISTER SYSTEM LOCKED</h3>
-      <p style="font-size: 12px; color: var(--text-gray); margin-bottom: 24px; line-height: 1.5; text-align: center;" id="license-lockout-desc">Your Valenixia trial license has expired. Please enter a valid activation key or bind a phone number to continue operations.</p>
-      
-      <div style="display: flex; flex-direction: column; gap: 16px; width: 100%;">
-        <div class="settings-row" style="text-align: left;">
-          <label for="lockout-license-key" style="font-size: 11px; font-weight: 700; color: var(--text-white);">LICENSE ACTIVATION KEY:</label>
-          <input type="text" id="lockout-license-key" class="pos-input" placeholder="e.g. VALENIXIA-PRO-ABCD-EFGH" style="margin-top: 4px; text-transform: uppercase;" aria-label="e.g. VALENIXIA-PRO-ABCD-EFGH">
-        </div>
-        
-        <!-- EasyPaisa/JazzCash OTP Phone Verification option -->
+  
+<!-- MOVED license-lockout-overlay -->
+<!-- EasyPaisa/JazzCash OTP Phone Verification option -->
         <div style="border-top: 1px dashed var(--border-titanium); padding-top: 16px; margin-top: 8px; text-align: left;">
           <label for="lockout-phone" style="font-size: 11px; font-weight: 700; color: var(--text-white);">MOBILE PHONE BINDING (OTP verification):</label>
           <div style="display: flex; gap: 8px; margin-top: 4px;">
@@ -3223,11 +3048,27 @@
 
 </div>
 </div>
-  <!-- FIRST BOOT ONBOARDING WIZARD OVERLAY -->
-  <div id="first-boot-wizard" class="auth-overlay wizard-overlay" style="display: none; position: fixed; inset: 0; z-index: 999999; background: #060609; backdrop-filter: blur(20px); flex-direction: column; align-items: center; justify-content: flex-start; overflow-y: auto; padding: 40px 20px;">
-    <div id="wizard-card" role="region" aria-label="Onboarding setup wizard" aria-live="polite" style="max-width: 520px; width: 92%; margin: auto; flex-shrink: 0; background: linear-gradient(160deg, #1a1a28 0%, #0e0e1a 60%, #080810 100%); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; box-shadow: 0 40px 80px rgba(0,0,0,0.9), 0 0 80px rgba(0,214,143,0.04), inset 0 1px 0 rgba(255,255,255,0.07); overflow: hidden; position: relative;">
+<!-- END POS APP LAYOUT -->
 
-      <!-- Wizard Header -->
+
+</section>
+</div><!-- end pos-content-pane -->
+</div><!-- end pos-main-container -->
+</div><!-- end pos-app-layout -->
+
+
+</div>
+</div>
+</div>
+<!-- END POS APP LAYOUT -->
+
+
+<!-- END POS APP LAYOUT CLEAN -->
+
+<!-- FIRST BOOT ONBOARDING WIZARD OVERLAY -->
+  
+<!-- MOVED first-boot-wizard -->
+<!-- Wizard Header -->
       <div style="padding: 28px 32px 0; text-align: center;">
         <div style="width: 52px; height: 52px; background: linear-gradient(135deg, #00d68f 0%, #00a876 100%); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; box-shadow: 0 0 30px rgba(0,214,143,0.35), 0 6px 12px rgba(0,0,0,0.5); font-family: var(--font-display); font-size: 24px; font-weight: 900; color: #060d0d;">V</div>
         <h2 style="font-family: var(--font-display); font-size: 22px; font-weight: 800; color: var(--text-white); letter-spacing: -0.3px; margin-bottom: 6px;">Valenixia Setup</h2>
@@ -3565,7 +3406,224 @@
     }
   </script>
   <!-- DEVICE PAIRING / WHITELIST OVERLAY -->
-  <div class="auth-overlay" id="device-pairing-overlay" style="display: none; z-index: 9998;">
+  
+<!-- MOVED device-pairing-overlay -->
+<!-- DIALOG MODAL 11: ADD/EDIT SUPPLIER (DISTRIBUTOR) -->
+  
+<!-- MOVED modal-supplier -->
+<!-- DIALOG MODAL 12: CREATE PURCHASE ORDER -->
+  
+<!-- MOVED modal-po -->
+<!-- filled by JS -->
+            </select>
+            <input type="number" id="form-po-item-qty" class="pos-input" placeholder="Qty" style="width: 80px;" min="1" value="10" aria-label="Qty">
+            <input type="number" id="form-po-item-cost" class="pos-input" placeholder="Cost price" style="width: 100px;" aria-label="Cost price">
+            <button class="action-btn action-success" id="btn-po-add-item-row" style="min-height: 40px; padding: 6px 12px;">Add</button>
+          </div>
+
+          <table class="cart-table" style="font-size: 11px;">
+            <thead>
+              <tr>
+                <th style="width: 40%;">Product</th>
+                <th style="width: 15%; text-align: center;">Qty</th>
+                <th style="width: 20%; text-align: right;">Unit Cost</th>
+                <th style="width: 20%; text-align: right;">Subtotal</th>
+                <th style="width: 5%; text-align: center;"></th>
+              </tr>
+            </thead>
+            <tbody id="po-items-tbody">
+              <!-- items inserted here -->
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="settings-row">
+            <label for="form-po-expected-delivery">Expected Delivery Date:</label>
+            <input type="date" id="form-po-expected-delivery" class="pos-input" aria-label="Form Po Expected Delivery">
+          </div>
+          <div class="settings-row">
+            <label for="form-po-status">PO Status:</label>
+            <select id="form-po-status" class="pos-input" aria-label="Form Po Status">
+              <option value="DRAFT">DRAFT</option>
+              <option value="SENT">SENT</option>
+              <option value="CONFIRMED">CONFIRMED</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="settings-row">
+          <label for="form-po-notes">PO Instruction Notes:</label>
+          <input type="text" id="form-po-notes" class="pos-input" placeholder="e.g. deliver to back warehouse gate" aria-label="e.g. deliver to back warehouse gate">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="action-btn" id="btn-cancel-po-modal">Cancel</button>
+        <button class="action-btn action-success" id="btn-submit-po-modal">Generate Purchase Order</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIALOG MODAL 13: RECORD DISTRIBUTOR PAYMENT -->
+  
+<!-- MOVED modal-distributor-payment -->
+<!-- filled by JS -->
+          </select>
+        </div>
+        <div class="settings-row">
+          <label for="form-dp-amount">Payment Amount (PKR — Pakistani Rupees):</label>
+          <input type="number" id="form-dp-amount" class="pos-input" placeholder="e.g. 15000 for Rs. 15,000" min="1" step="0.01" aria-label="e.g. 15000 for Rs. 15,000">
+        </div>
+        <div class="settings-row">
+          <label for="form-dp-method">Payment Mode / Account Channel:</label>
+          <select id="form-dp-method" class="pos-input" aria-label="Form Dp Method">
+            <option value="CASH">Cash Drawer</option>
+            <option value="BANK_TRANSFER">Bank HBL/UBL Transfer</option>
+            <option value="RAAST">Raast Direct Pay</option>
+            <option value="EASYPAISA">EasyPaisa Wallet</option>
+            <option value="JAZZCASH">JazzCash Wallet</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <label for="form-dp-ref-note">Reference Note (Receipt # / TX Hash):</label>
+          <input type="text" id="form-dp-ref-note" class="pos-input" placeholder="e.g. Trans ID: 29420842042" aria-label="e.g. Trans ID: 29420842042">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="action-btn" id="btn-cancel-distributor-payment-modal">Cancel</button>
+        <button class="action-btn action-success" id="btn-submit-distributor-payment-modal">Post Supplier Payment</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIALOG MODAL 14: GOODS RECEIPT NOTE (GRN) PO RECEIVAL -->
+  
+<!-- MOVED modal-po-receive -->
+<!-- dynamic items -->
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button class="action-btn" id="btn-cancel-po-receive-modal">Cancel</button>
+        <button class="action-btn action-success" id="btn-submit-po-receive-modal">Approve GRN & Update Inventory</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FLOATING SCANNER FAB (Mobile only) -->
+  <button class="floating-scanner-fab" id="btn-mobile-scanner-fab" title="Scan Barcode" style="display: none; align-items: center; justify-content: center;">
+    <span class="fab-icon" style="display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;">
+      <svg class="svg-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+    </span>
+  </button>
+
+  <!-- CAMERA BARCODE SCANNER MODAL -->
+  
+<!-- MOVED modal-mobile-scanner -->
+<!-- ZXING BARCODE DECODER LIBRARY — deferred/lazy-loaded on first scanner use (P1-41 code splitting) -->
+  <script src="zxing-loader.js"></script>
+  <!-- DATABASE MANAGER -->
+  <script src="client-db.js"></script>
+  <!-- AUDIO FEEDBACK BRIDGE -->
+  <script src="client-audio.js"></script>
+  <!-- SPEECH ANALYTICS PROCESSOR -->
+  <script src="client-speech.js"></script>
+  <!-- OFFLINE QR CODE ENGINE -->
+  <script src="qrcode.min.js"></script>
+  <script src="emvco-qr.js"></script>
+  <!-- CENTRALIZED LICENSE CONFIGURATION -->
+  <script src="license-config.js"></script>
+  <!-- CRYPTOGRAPHIC LICENSE ENGINE — must load before app.js -->
+  <script src="license-engine.js"></script>
+  <!-- FREEMIUM TIER ENGINE — plan limits, can(), checkLimit(), upgrade modal -->
+  <script src="freemium-engine.js"></script>
+  <!-- VIRTUAL LIST WINDOWING ENGINE — 60fps for large catalogs -->
+  <script src="virtual-list.js"></script>
+  <!-- ESC/POS THERMAL PRINTER ENGINE — WebUSB direct printing -->
+  <script src="escpos-engine.js"></script>
+  <!-- CHECKOUT & TAX CALCULATIONS ENGINE -->
+  <script src="checkout-engine.js"></script>
+  <!-- MAIN CONTROLLER REGISTER -->
+  <!-- PREMIUM UI MODULAR EXTENSIONS -->
+  <script src="modules/ui.js"></script>
+  <script src="modules/animations.js"></script>
+  <script src="modules/offline.js"></script>
+  <script src="modules/keyboard.js"></script>
+  <!-- COMMAND PALETTE — Ctrl+K global quick navigation and product search -->
+  <script src="command-palette.js"></script>
+  <script src="strings.js"></script>
+  <script src="legal-documents.js"></script>
+  <script src="subscription.js"></script>
+  <script src="dompurify.min.js" integrity="sha384-piCcpDdJ7qVeK4Tv8Z6Hpcr3ZBIgP16TxQTPVfsLFdZ5uDgwc3Y8Ho7oUnqf12qu" crossorigin="anonymous"></script>
+  <script src="worker-inline.js"></script>
+  <!-- DEALS ENGINE — Bundles / Combos / Specials / Kits -->
+  <script src="modules/deals-engine.js"></script>
+  <script src="app.js"></script>
+
+  <script src="sw-loader.js"></script>
+
+  <!-- Confetti Canvas (Phase 6) -->
+  <canvas id="confetti-canvas" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 13000; display: none;"></canvas>
+
+  <!-- Template Library Modal (Phase 6) -->
+  
+<!-- MOVED modal-wizard-templates -->
+
+  <script src="barcode-decoder.js"></script>
+  <script src="barcode-scanner.js"></script>
+
+
+<div class="auth-overlay" id="auth-lock-screen" style="display:none;">
+    <div class="auth-card" role="region" aria-label="PIN authorization panel" aria-live="polite">
+      <div class="security-shield" style="display: flex; justify-content: center; margin-bottom: 16px; color: var(--accent-emerald);">
+        <svg class="svg-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      <h3>SECURE REGISTER LOGIN</h3>
+      <p>Enter Cashier Security PIN to open shift register</p>
+
+
+
+</div>
+</div>
+</div>
+<!-- END POS APP LAYOUT -->
+
+
+<!-- MOVED WIZARD -->
+
+
+<div 
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</div>
+<!-- END ALL MAIN VIEWS & POS LAYOUT -->
+
+
+</div><!-- end pos-content-pane -->
+</div><!-- end pos-main-container -->
+</div><!-- end pos-app-layout -->
+
+<div id="first-boot-wizard" class="auth-overlay wizard-overlay" style="display: none; position: fixed; inset: 0; z-index: 999999; background: #060609; backdrop-filter: blur(20px); flex-direction: column; align-items: center; justify-content: flex-start; overflow-y: auto; padding: 40px 20px;">
+    <div id="wizard-card" role="region" aria-label="Onboarding setup wizard" aria-live="polite" style="max-width: 520px; width: 92%; margin: auto; flex-shrink: 0; background: linear-gradient(160deg, #1a1a28 0%, #0e0e1a 60%, #080810 100%); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; box-shadow: 0 40px 80px rgba(0,0,0,0.9), 0 0 80px rgba(0,214,143,0.04), inset 0 1px 0 rgba(255,255,255,0.07); overflow: hidden; position: relative;">
+
+<div class="auth-overlay" id="device-pairing-overlay" style="display: none; z-index: 9998;">
     <div class="auth-card" style="max-width: 480px; width: 90%; padding: 36px; border: 1px solid var(--border-titanium); border-radius: 4px;">
       <div id="device-pairing-icon" style="margin-bottom: 16px; color: var(--accent-emerald); display: flex; justify-content: center;">
         <svg class="svg-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -3628,8 +3686,288 @@
 
   </div>
 
-  <!-- DIALOG MODAL 11: ADD/EDIT SUPPLIER (DISTRIBUTOR) -->
-  <div class="modal-overlay" id="modal-supplier">
+<div id="license-lockout-overlay" class="auth-overlay license-overlay" style="display: none; position: fixed; inset: 0; z-index: 9999999; background: #050508; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); flex-direction: column; align-items: center; justify-content: flex-start; overflow-y: auto; padding: 40px 20px;">
+    <div class="auth-card" style="max-width: 480px; width: 90%; padding: 36px; border: 2px solid var(--alert-coral); box-shadow: 0 20px 50px rgba(0,0,0,0.8);">
+      <div style="display: flex; justify-content: center; margin-bottom: 20px; color: var(--alert-coral);">
+        <svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <h3 style="font-family: var(--font-display); font-size: 22px; color: var(--text-white); font-weight: 800; margin-bottom: 8px; text-transform: uppercase; text-align: center;" id="license-lockout-title">REGISTER SYSTEM LOCKED</h3>
+      <p style="font-size: 12px; color: var(--text-gray); margin-bottom: 24px; line-height: 1.5; text-align: center;" id="license-lockout-desc">Your Valenixia trial license has expired. Please enter a valid activation key or bind a phone number to continue operations.</p>
+      
+      <div style="display: flex; flex-direction: column; gap: 16px; width: 100%;">
+        <div class="settings-row" style="text-align: left;">
+          <label for="lockout-license-key" style="font-size: 11px; font-weight: 700; color: var(--text-white);">LICENSE ACTIVATION KEY:</label>
+          <input type="text" id="lockout-license-key" class="pos-input" placeholder="e.g. VALENIXIA-PRO-ABCD-EFGH" style="margin-top: 4px; text-transform: uppercase;" aria-label="e.g. VALENIXIA-PRO-ABCD-EFGH">
+        </div>
+
+<div id="vx-emergency-recovery" class="auth-overlay recovery-overlay" hidden style="position:fixed;inset:0;z-index:9999999999;background:#060609;display:none;align-items:center;justify-content:center;padding:24px;font-family:sans-serif;">
+    <div style="max-width:480px;width:100%;background:#0f0f11;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:28px;box-shadow:0 20px 40px rgba(0,0,0,0.8);">
+      <div style="font-size:24px;margin-bottom:12px;">⚠️</div>
+      <h3 style="color:#fff;font-size:18px;font-weight:800;margin:0 0 6px;">Valenixia couldn't start</h3>
+      <p style="color:#6b7280;font-size:11px;margin:0 0 8px;font-family:monospace;" id="vx-emergency-recovery-stage">Stage: UNKNOWN</p>
+      <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:12px 0 20px;white-space:pre-wrap;background:rgba(255,255,255,0.03);padding:12px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);" id="vx-emergency-recovery-message">A critical initialization fault occurred.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="location.reload()" style="flex:1;padding:12px;background:#10b981;border:none;color:#000;font-weight:800;border-radius:6px;cursor:pointer;font-size:13px;min-height:44px;">Retry</button>
+        <button onclick="if(typeof window.copyDiagnostics==='function')window.copyDiagnostics();else console.log('[BootTrace]',window.__VALENIXIA_BOOT_TRACE__)" style="flex:1;padding:12px;background:transparent;border:1px solid rgba(255,255,255,0.15);color:#00d68f;font-weight:700;border-radius:6px;cursor:pointer;font-size:12px;min-height:44px;">📋 Copy Diagnostics</button>
+      </div>
+    </div>
+  </div>
+
+<div class="modal-overlay" id="modal-product">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-product-title">Add New Product</h3>
+        <button class="btn-close-modal" id="btn-close-product-modal">×</button>
+      </div>
+      <div class="modal-body">
+
+<div class="modal-overlay" id="modal-customer">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-customer-title">Create Loyalty Customer</h3>
+        <button class="btn-close-modal" id="btn-close-customer-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="form-customer-id">
+        <div class="form-group">
+          <label for="form-customer-name">Customer Full Name</label>
+          <input type="text" id="form-customer-name" class="pos-input" placeholder="e.g. Lucas Vance" aria-label="Customer Full Name">
+        </div>
+        <div class="form-grid-2col">
+          <div class="form-group">
+            <label for="form-customer-phone">Phone Number</label>
+            <input type="text" id="form-customer-phone" class="pos-input" placeholder="e.g. 03001234567" inputmode="numeric" pattern="[0-9]*" aria-label="Phone Number">
+          </div>
+          <div class="form-group">
+            <label for="form-customer-email">Email Address</label>
+            <input type="email" id="form-customer-email" class="pos-input" placeholder="name@example.com" aria-label="Email Address">
+          </div>
+        </div>
+        <div class="form-grid-2col" id="form-customer-spend-row" style="display:none;">
+          <div class="form-group">
+            <label for="form-customer-spend">Total Spend Balance (PKR)</label>
+            <input type="number" id="form-customer-spend" step="0.01" min="0" class="pos-input" aria-label="Total Spend Balance">
+          </div>
+          <div class="form-group">
+            <label for="form-customer-visits">Visits Counter</label>
+            <input type="number" id="form-customer-visits" class="pos-input" aria-label="Visits Counter">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="action-btn" id="btn-cancel-customer-modal">Cancel</button>
+        <button class="action-btn action-success" id="btn-submit-customer-modal">Save Customer</button>
+      </div>
+    </div>
+  </div>
+
+<div class="modal-overlay" id="modal-customer-link">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Link loyalty customer profile</h3>
+        <button class="btn-close-modal" id="btn-close-customer-link-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="customer-link-search" class="pos-input" placeholder="Search customer name or phone..." aria-label="Search customer name or phone...">
+        <div class="customer-results-list" id="customer-link-results-list" style="margin-top: 12px; max-height: 250px; overflow-y: auto;">
+
+<div class="modal-overlay" id="modal-employee">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Register Employee</h3>
+        <button class="btn-close-modal" id="btn-close-employee-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-row">
+          <label for="form-employee-id">Employee ID (User ID):</label>
+          <input type="text" id="form-employee-id" class="pos-input" placeholder="e.g. emp_lucas" aria-label="e.g. emp_lucas">
+        </div>
+        <div class="settings-row">
+          <label for="form-employee-pin">Register Security PIN Code (Numeric):</label>
+          <div class="password-wrapper">
+            <input type="text"  autocomplete="new-password" id="form-employee-pin" class="secure-input pos-input" placeholder="4 to 6-digit PIN number" maxlength="6" minlength="4" inputmode="numeric" pattern="[0-9]*" aria-label="4-digit PIN number">
+            <button type="button" class="btn-toggle-password" title="Toggle visibility">
+              <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label for="form-employee-role">Employee Role:</label>
+          <select id="form-employee-role" class="pos-input" aria-label="Form Employee Role">
+            <option value="CASHIER">CASHIER</option>
+            <option value="MANAGER">MANAGER</option>
+            <option value="ADMIN">ADMIN</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="action-btn" id="btn-cancel-employee-modal">Cancel</button>
+        <button class="action-btn action-success" id="btn-submit-employee-modal">Create Employee</button>
+      </div>
+    </div>
+  </div>
+
+<div class="modal-overlay" id="modal-delete-store">
+    <div class="modal-card" style="max-width:480px; border:1px solid rgba(239,68,68,0.2); background:linear-gradient(160deg,#1a1018 0%,#0e0a0d 100%);">
+
+<div class="modal-overlay" id="modal-reset">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="text-coral">DESTRUCTIVE GRAND RESET</h3>
+        <button class="btn-close-modal" id="btn-close-reset-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <p>This will erase all sales ledgers, customer receipts, and change logs. It will force a complete database rebuild from seed baseline. This requires Admin authentication.</p>
+        <div class="settings-row" style="margin-top: 16px;">
+          <label for="reset-admin-pin-auth">Enter Admin PIN Code (e.g. 1234):</label>
+          <div class="password-wrapper">
+            <input type="text"  autocomplete="new-password" id="reset-admin-pin-auth" class="secure-input pos-input" placeholder="Enter Admin security PIN" inputmode="numeric" pattern="[0-9]*" aria-label="Enter Admin security PIN">
+            <button type="button" class="btn-toggle-password" title="Toggle visibility">
+              <svg class="svg-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="svg-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="auth-error-msg" id="reset-modal-error"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="action-btn" id="btn-cancel-reset-modal">Cancel</button>
+        <button class="action-btn action-danger" id="btn-confirm-reset-modal">EXECUTE DATABASE PURGE</button>
+      </div>
+    </div>
+  </div>
+
+<div class="modal-overlay" id="modal-legal-document" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; background: rgba(4, 6, 14, 0.88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); z-index: 12000; align-items: center; justify-content: center; box-sizing: border-box;" role="dialog" aria-modal="true" aria-labelledby="legal-doc-modal-title">
+    <div class="modal-card legal-doc-modal-card" style="max-width: 720px; width: 90%; max-height: 85vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <div>
+          <h3 id="legal-doc-modal-title" style="margin: 0; font-size: 18px; font-weight: 700; color: var(--text-white);">Legal Agreement</h3>
+          <span class="legal-doc-version" id="legal-doc-modal-version" style="font-size: 11px; color: var(--accent-emerald); font-weight: 700;">Version 2.6.0</span>
+        </div>
+        <button type="button" class="btn-close-modal" id="btn-close-legal-modal" aria-label="Close document">×</button>
+      </div>
+      <div class="modal-body legal-doc-body" id="legal-doc-modal-content" style="overflow-y: auto; max-height: 60vh; padding: 16px; font-size: 13px; line-height: 1.6; color: var(--text-light); white-space: pre-wrap; word-break: break-word;"></div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 12px; border-top: 1px solid var(--border-titanium);">
+        <button type="button" class="action-btn" id="btn-close-legal-modal-footer">Close</button>
+        <button type="button" class="action-btn action-success" id="btn-ack-legal-modal">I Understand</button>
+      </div>
+    </div>
+  </div>
+
+<div class="modal-overlay" id="modal-shift-reconcile">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Shift Close & Z-Report</h3>
+        <button class="btn-close-modal" id="btn-close-shift-reconcile-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 16px; font-size: 12px; color: var(--text-gray);">
+          <strong>Security Protocol:</strong> Count all cash in the drawer and declare below. Calculated system totals are hidden to prevent theft.
+        </p>
+        
+        <div class="reconcile-denominations-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+          <div class="settings-row">
+            <label>Rs. 5000 Notes:</label>
+            <input type="number" class="pos-input denom-input" data-val="5000" placeholder="0" min="0" aria-label="0">
+          </div>
+          <div class="settings-row">
+            <label>Rs. 1000 Notes:</label>
+            <input type="number" class="pos-input denom-input" data-val="1000" placeholder="0" min="0" aria-label="0">
+          </div>
+          <div class="settings-row">
+            <label>Rs. 500 Notes:</label>
+            <input type="number" class="pos-input denom-input" data-val="500" placeholder="0" min="0" aria-label="0">
+          </div>
+          <div class="settings-row">
+            <label>Rs. 100 Notes:</label>
+            <input type="number" class="pos-input denom-input" data-val="100" placeholder="0" min="0" aria-label="0">
+          </div>
+          <div class="settings-row">
+            <label>Rs. 50 Notes:</label>
+            <input type="number" class="pos-input denom-input" data-val="50" placeholder="0" min="0" aria-label="0">
+          </div>
+          <div class="settings-row">
+            <label>Rs. 20 Notes:</label>
+            <input type="number" class="pos-input denom-input" data-val="20" placeholder="0" min="0" aria-label="0">
+          </div>
+          <div class="settings-row">
+            <label>Rs. 10 Notes:</label>
+            <input type="number" class="pos-input denom-input" data-val="10" placeholder="0" min="0" aria-label="0">
+          </div>
+          <div class="settings-row">
+            <label>Coins & Small Cash:</label>
+            <input type="number" class="pos-input denom-input" data-val="1" placeholder="0" min="0" step="0.01" aria-label="0">
+          </div>
+        </div>
+
+        <div style="margin-top: 20px; padding: 12px; background: rgba(255,255,255,0.02); border: 1px dashed var(--border-titanium); border-radius: 8px; text-align: center;">
+          <span style="font-size: 11px; color: var(--text-gray); display: block; margin-bottom: 4px;">DECLARED DRAWER CASH</span>
+          <span style="font-size: 24px; font-weight: 800; color: var(--text-white);" id="shift-reconcile-total-declared">Rs. 0.00</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="action-btn" id="btn-cancel-shift-reconcile-modal">Cancel</button>
+        <button class="action-btn action-success" id="btn-submit-shift-reconcile-modal">Confirm & Lock Shift</button>
+      </div>
+    </div>
+  </div>
+
+<div class="modal-overlay" id="modal-qr-pay">
+    <div class="modal-card" style="max-width: 440px;">
+      <div class="modal-header" style="border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:36px;height:36px;background:linear-gradient(135deg,#00d68f,#00a876);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#060d0d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+          </div>
+          <div>
+            <h3 style="margin:0;font-size:15px;font-weight:800;color:var(--text-white);">Digital QR Wallet Payment</h3>
+            <p style="margin:0;font-size:11px;color:var(--text-gray);">JazzCash · EasyPaisa · Raast · Any Bank App</p>
+          </div>
+        </div>
+        <button class="btn-close-modal" id="btn-close-qr-pay-modal" aria-label="Close QR payment">×</button>
+      </div>
+      <div class="modal-body" style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:0;padding:20px 24px;">
+        <div style="margin-bottom:16px;">
+          <div style="font-size:11px;color:var(--text-gray);font-weight:600;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px;">Amount Due</div>
+          <div style="font-size:32px;font-weight:900;color:var(--accent-emerald);font-family:var(--font-display);" id="qr-pay-amount-label">Rs. 0.00</div>
+        </div>
+        <div style="padding:14px;background:#ffffff;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(0,214,143,0.2),0 4px 12px rgba(0,0,0,0.5);margin-bottom:16px;">
+          <div id="qr-pay-canvas-container" style="width:192px;height:192px;display:flex;align-items:center;justify-content:center;"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:16px;justify-content:center;flex-wrap:wrap;">
+          <span style="background:rgba(0,214,143,0.12);border:1px solid rgba(0,214,143,0.3);color:#00d68f;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.5px;">JAZZCASH</span>
+          <span style="background:rgba(79,158,255,0.12);border:1px solid rgba(79,158,255,0.3);color:#4f9eff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.5px;">EASYPAISA</span>
+          <span style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);color:#f59e0b;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.5px;">RAAST</span>
+          <span style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:var(--text-gray);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.5px;">ANY BANK APP</span>
+        </div>
+        <div style="width:100%;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px;text-align:left;margin-bottom:16px;">
+          <div style="font-size:10px;font-weight:800;color:#8f9cb5;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:10px;">Customer Instructions</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;align-items:flex-start;gap:10px;"><div style="width:20px;height:20px;background:rgba(0,214,143,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#00d68f;flex-shrink:0;">1</div><span style="font-size:12px;color:var(--text-white);line-height:1.4;">Open your <strong>JazzCash</strong>, <strong>EasyPaisa</strong>, or any bank app</span></div>
+            <div style="display:flex;align-items:flex-start;gap:10px;"><div style="width:20px;height:20px;background:rgba(0,214,143,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#00d68f;flex-shrink:0;">2</div><span style="font-size:12px;color:var(--text-white);line-height:1.4;">Tap <strong>Scan QR</strong> and point camera at this code</span></div>
+            <div style="display:flex;align-items:flex-start;gap:10px;"><div style="width:20px;height:20px;background:rgba(0,214,143,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#00d68f;flex-shrink:0;">3</div><span style="font-size:12px;color:var(--text-white);line-height:1.4;">Confirm the amount and tap <strong>Pay</strong> in your app</span></div>
+          </div>
+        </div>
+        <div id="qr-setup-notice" style="display:none;width:100%;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:12px;text-align:left;margin-bottom:16px;">
+          <div style="font-size:11px;color:#f59e0b;font-weight:700;margin-bottom:4px;">⚙️ QR Account Not Configured</div>
+          <div style="font-size:11px;color:var(--text-gray);line-height:1.5;">Showing generic QR. For direct payments to your wallet, go to <strong style="color:var(--text-white);">Settings → Payment → QR Setup</strong> and enter your merchant Till ID.</div>
+        </div>
+        <div style="width:100%;background:rgba(0,214,143,0.05);border:1px solid rgba(0,214,143,0.15);border-radius:10px;padding:14px;text-align:center;">
+          <div style="font-size:11px;color:var(--text-gray);margin-bottom:10px;">Once the customer completes payment on their device, tap below:</div>
+          <button id="btn-qr-mark-paid" style="width:100%;min-height:52px;background:linear-gradient(135deg,#00d68f,#00a876);border:none;border-radius:10px;color:#060d0d;font-family:var(--font-display);font-weight:800;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;cursor:pointer;touch-action:manipulation;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 16px rgba(0,214,143,0.35);">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Payment Received — Complete Order
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer" style="border-top:1px solid rgba(255,255,255,0.04);padding-top:12px;">
+        <button class="action-btn" id="btn-close-qr-pay-modal-footer" style="min-height:40px;font-size:12px;color:var(--text-gray);">Cancel Payment</button>
+      </div>
+    </div>
+  </div>
+
+<div class="modal-overlay" id="modal-supplier">
     <div class="modal-card">
       <div class="modal-header">
         <h3 id="modal-supplier-title">Add New Supplier</h3>
@@ -3671,8 +4009,7 @@
     </div>
   </div>
 
-  <!-- DIALOG MODAL 12: CREATE PURCHASE ORDER -->
-  <div class="modal-overlay" id="modal-po">
+<div class="modal-overlay" id="modal-po">
     <div class="modal-card" style="max-width: 600px;">
       <div class="modal-header">
         <h3>Create Purchase Order (PO)</h3>
@@ -3692,58 +4029,8 @@
           <div style="display: flex; gap: 8px; margin-bottom: 12px;">
             <select id="form-po-item-sku-select" class="pos-input" style="flex-grow: 1;" aria-label="Form Po Item Sku Select">
               <option value="">-- Select Product --</option>
-              <!-- filled by JS -->
-            </select>
-            <input type="number" id="form-po-item-qty" class="pos-input" placeholder="Qty" style="width: 80px;" min="1" value="10" aria-label="Qty">
-            <input type="number" id="form-po-item-cost" class="pos-input" placeholder="Cost price" style="width: 100px;" aria-label="Cost price">
-            <button class="action-btn action-success" id="btn-po-add-item-row" style="min-height: 40px; padding: 6px 12px;">Add</button>
-          </div>
 
-          <table class="cart-table" style="font-size: 11px;">
-            <thead>
-              <tr>
-                <th style="width: 40%;">Product</th>
-                <th style="width: 15%; text-align: center;">Qty</th>
-                <th style="width: 20%; text-align: right;">Unit Cost</th>
-                <th style="width: 20%; text-align: right;">Subtotal</th>
-                <th style="width: 5%; text-align: center;"></th>
-              </tr>
-            </thead>
-            <tbody id="po-items-tbody">
-              <!-- items inserted here -->
-            </tbody>
-          </table>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <div class="settings-row">
-            <label for="form-po-expected-delivery">Expected Delivery Date:</label>
-            <input type="date" id="form-po-expected-delivery" class="pos-input" aria-label="Form Po Expected Delivery">
-          </div>
-          <div class="settings-row">
-            <label for="form-po-status">PO Status:</label>
-            <select id="form-po-status" class="pos-input" aria-label="Form Po Status">
-              <option value="DRAFT">DRAFT</option>
-              <option value="SENT">SENT</option>
-              <option value="CONFIRMED">CONFIRMED</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="settings-row">
-          <label for="form-po-notes">PO Instruction Notes:</label>
-          <input type="text" id="form-po-notes" class="pos-input" placeholder="e.g. deliver to back warehouse gate" aria-label="e.g. deliver to back warehouse gate">
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="action-btn" id="btn-cancel-po-modal">Cancel</button>
-        <button class="action-btn action-success" id="btn-submit-po-modal">Generate Purchase Order</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- DIALOG MODAL 13: RECORD DISTRIBUTOR PAYMENT -->
-  <div class="modal-overlay" id="modal-distributor-payment">
+<div class="modal-overlay" id="modal-distributor-payment">
     <div class="modal-card">
       <div class="modal-header">
         <h3>Record Supplier Payment</h3>
@@ -3759,37 +4046,8 @@
           <label for="form-dp-po-id">Select Purchase Order Reference (Optional):</label>
           <select id="form-dp-po-id" class="pos-input" aria-label="Form Dp Po Id">
             <option value="">-- No Direct PO Reference --</option>
-            <!-- filled by JS -->
-          </select>
-        </div>
-        <div class="settings-row">
-          <label for="form-dp-amount">Payment Amount (PKR — Pakistani Rupees):</label>
-          <input type="number" id="form-dp-amount" class="pos-input" placeholder="e.g. 15000 for Rs. 15,000" min="1" step="0.01" aria-label="e.g. 15000 for Rs. 15,000">
-        </div>
-        <div class="settings-row">
-          <label for="form-dp-method">Payment Mode / Account Channel:</label>
-          <select id="form-dp-method" class="pos-input" aria-label="Form Dp Method">
-            <option value="CASH">Cash Drawer</option>
-            <option value="BANK_TRANSFER">Bank HBL/UBL Transfer</option>
-            <option value="RAAST">Raast Direct Pay</option>
-            <option value="EASYPAISA">EasyPaisa Wallet</option>
-            <option value="JAZZCASH">JazzCash Wallet</option>
-          </select>
-        </div>
-        <div class="settings-row">
-          <label for="form-dp-ref-note">Reference Note (Receipt # / TX Hash):</label>
-          <input type="text" id="form-dp-ref-note" class="pos-input" placeholder="e.g. Trans ID: 29420842042" aria-label="e.g. Trans ID: 29420842042">
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="action-btn" id="btn-cancel-distributor-payment-modal">Cancel</button>
-        <button class="action-btn action-success" id="btn-submit-distributor-payment-modal">Post Supplier Payment</button>
-      </div>
-    </div>
-  </div>
 
-  <!-- DIALOG MODAL 14: GOODS RECEIPT NOTE (GRN) PO RECEIVAL -->
-  <div class="modal-overlay" id="modal-po-receive">
+<div class="modal-overlay" id="modal-po-receive">
     <div class="modal-card" style="max-width: 500px;">
       <div class="modal-header">
         <h3>Goods Receipt Note (GRN) Entry</h3>
@@ -3809,26 +4067,8 @@
             </tr>
           </thead>
           <tbody id="po-receive-tbody">
-            <!-- dynamic items -->
-          </tbody>
-        </table>
-      </div>
-      <div class="modal-footer">
-        <button class="action-btn" id="btn-cancel-po-receive-modal">Cancel</button>
-        <button class="action-btn action-success" id="btn-submit-po-receive-modal">Approve GRN & Update Inventory</button>
-      </div>
-    </div>
-  </div>
 
-  <!-- FLOATING SCANNER FAB (Mobile only) -->
-  <button class="floating-scanner-fab" id="btn-mobile-scanner-fab" title="Scan Barcode" style="display: none; align-items: center; justify-content: center;">
-    <span class="fab-icon" style="display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;">
-      <svg class="svg-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-    </span>
-  </button>
-
-  <!-- CAMERA BARCODE SCANNER MODAL -->
-  <div class="modal-overlay scanner-overlay" id="modal-mobile-scanner">
+<div class="modal-overlay scanner-overlay" id="modal-mobile-scanner">
     <div class="scanner-viewport">
       <video id="scanner-video" autoplay playsinline muted></video>
       <div class="scanner-laser"></div>
@@ -3840,53 +4080,7 @@
     </div>
   </div>
 
-  <!-- ZXING BARCODE DECODER LIBRARY — deferred/lazy-loaded on first scanner use (P1-41 code splitting) -->
-  <script src="zxing-loader.js"></script>
-  <!-- DATABASE MANAGER -->
-  <script src="client-db.js"></script>
-  <!-- AUDIO FEEDBACK BRIDGE -->
-  <script src="client-audio.js"></script>
-  <!-- SPEECH ANALYTICS PROCESSOR -->
-  <script src="client-speech.js"></script>
-  <!-- OFFLINE QR CODE ENGINE -->
-  <script src="qrcode.min.js"></script>
-  <script src="emvco-qr.js"></script>
-  <!-- CENTRALIZED LICENSE CONFIGURATION -->
-  <script src="license-config.js"></script>
-  <!-- CRYPTOGRAPHIC LICENSE ENGINE — must load before app.js -->
-  <script src="license-engine.js"></script>
-  <!-- FREEMIUM TIER ENGINE — plan limits, can(), checkLimit(), upgrade modal -->
-  <script src="freemium-engine.js"></script>
-  <!-- VIRTUAL LIST WINDOWING ENGINE — 60fps for large catalogs -->
-  <script src="virtual-list.js"></script>
-  <!-- ESC/POS THERMAL PRINTER ENGINE — WebUSB direct printing -->
-  <script src="escpos-engine.js"></script>
-  <!-- CHECKOUT & TAX CALCULATIONS ENGINE -->
-  <script src="checkout-engine.js"></script>
-  <!-- MAIN CONTROLLER REGISTER -->
-  <!-- PREMIUM UI MODULAR EXTENSIONS -->
-  <script src="modules/ui.js"></script>
-  <script src="modules/animations.js"></script>
-  <script src="modules/offline.js"></script>
-  <script src="modules/keyboard.js"></script>
-  <!-- COMMAND PALETTE — Ctrl+K global quick navigation and product search -->
-  <script src="command-palette.js"></script>
-  <script src="strings.js"></script>
-  <script src="legal-documents.js"></script>
-  <script src="subscription.js"></script>
-  <script src="dompurify.min.js" integrity="sha384-piCcpDdJ7qVeK4Tv8Z6Hpcr3ZBIgP16TxQTPVfsLFdZ5uDgwc3Y8Ho7oUnqf12qu" crossorigin="anonymous"></script>
-  <script src="worker-inline.js"></script>
-  <!-- DEALS ENGINE — Bundles / Combos / Specials / Kits -->
-  <script src="modules/deals-engine.js"></script>
-  <script src="app.js"></script>
-
-  <script src="sw-loader.js"></script>
-
-  <!-- Confetti Canvas (Phase 6) -->
-  <canvas id="confetti-canvas" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 13000; display: none;"></canvas>
-
-  <!-- Template Library Modal (Phase 6) -->
-  <div class="pos-modal-backdrop" id="modal-wizard-templates" style="display: none; align-items: center; justify-content: center; z-index: 12000; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);">
+<div class="pos-modal-backdrop" id="modal-wizard-templates" style="display: none; align-items: center; justify-content: center; z-index: 12000; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);">
     <div style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 12px; padding: 28px; width: 560px; max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.6);">
       <h3 style="margin-top: 0; font-family: var(--font-display); text-transform: uppercase; color: var(--text-white); font-size: 16px; letter-spacing: 0.5px;">Business Template Library</h3>
       <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 20px;">Choose a pre-packaged template to instantly configure taxes, receipt structure, and shop settings.</p>
@@ -3923,7 +4117,7 @@
       </div>
     </div>
   </div>
-  <script src="barcode-decoder.js"></script>
-  <script src="barcode-scanner.js"></script>
+
 </body>
 </html>
+</section>
