@@ -1093,15 +1093,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
         parent = parent.parentElement;
       }
 
-      // Geometry check: non-zero width & height OR inline display set to flex/grid/block
-      var rect = node.getBoundingClientRect ? node.getBoundingClientRect() : { width: 0, height: 0 };
-      if (rect.width > 0 && rect.height > 0) return true;
-
-      var inlineDisp = node.style.display;
-      if (inlineDisp === 'flex' || inlineDisp === 'grid' || inlineDisp === 'block') {
-        return true;
-      }
-      return false;
+      return true;
     } catch (_) {
       return false;
     }
@@ -1549,6 +1541,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
           break;
 
         case 'DECISION':
+          if (window.bootstrapDecisionReady) break;
           _clearTimeout();
           _armTimeout('DECISION');
           var onboardingDone = (
