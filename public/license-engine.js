@@ -242,12 +242,16 @@ const LicenseEngine = (() => {
   }
 
   function dismissBootLoader() {
+    // SURFACE OWNERSHIP: ValenixiaBootstrap is the sole authority over boot loader visibility.
+    // license-engine.js must NOT directly manipulate #app-boot-loader.
+    // Delegate to the bootstrap state machine; it will dismiss the loader only after
+    // verifying that a destination or recovery surface is actually renderable.
+    // This function is intentionally a no-op — the loader is dismissed by _dismissSplash()
+    // inside ValenixiaBootstrap after surface commitment verification.
     try {
       if (typeof window.updateBootProgress === 'function') {
-        window.updateBootProgress(100, 'Ready');
+        window.updateBootProgress(99, 'License verified');
       }
-      const loader = document.getElementById('app-boot-loader');
-      if (loader) { loader.style.display = 'none'; loader.remove(); }
     } catch (_) {}
   }
 

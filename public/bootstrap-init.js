@@ -233,7 +233,7 @@ criticalFns.forEach(fnName => {
 });
 
 
-// Smooth Boot Progress Engine
+// Smooth Boot Progress Engine — Progress information display only. DOES NOT manipulate loader visibility.
 window.updateBootProgress = function(percent, text) {
   const loader = document.getElementById('app-boot-loader');
   if (!loader) return;
@@ -243,15 +243,6 @@ window.updateBootProgress = function(percent, text) {
 
   if (progressEl) progressEl.style.width = targetPct + '%';
   if (statusEl && text) statusEl.textContent = text;
-
-  if (targetPct >= 100) {
-    loader.style.pointerEvents = 'none';
-    loader.style.transition = 'opacity 0.35s ease';
-    loader.style.opacity = '0';
-    setTimeout(() => {
-      try { loader.style.display = 'none'; loader.remove(); } catch (_) {}
-    }, 350);
-  }
 };
 
 // Automatic Smooth Progress Ticker on App Launch — Initial visual feedback without premature dismissal
@@ -1033,7 +1024,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     ACCOUNT_DISCOVERY:     75,
     STORE_DISCOVERY:       82,
     ENTITLEMENT_DISCOVERY: 90,
-    DECISION:             100,
+    DECISION:              98,
     ONBOARDING:           100,
     AUTH_LOCK:            100,
     PAIRING_REQUIRED:     100,
@@ -1123,20 +1114,29 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     }
 
     if (count > 1 && !_recoveryShown) {
-      // Determine if a non-BOOT surface was requested
-      var targetSurface = visibleSurfaces.find(function(s) { return s.key !== 'BOOT'; });
+      // Determine non-BOOT destination surfaces
+      var destinationSurfaces = visibleSurfaces.filter(function(s) { return s.key !== 'BOOT'; });
+      // If there is exactly 1 destination surface and BOOT loader is still present, this is valid transition handoff
+      if (destinationSurfaces.length <= 1) {
+        var activeDest = destinationSurfaces[0] ? destinationSurfaces[0].key : _activeSurface;
+        _activeSurface = activeDest;
+        return destinationSurfaces.length;
+      }
+
+      // Conflict: multiple DESTINATION surfaces visible (e.g. WIZARD + LOCK)
+      var targetSurface = destinationSurfaces[0];
       var authoritativeKey = targetSurface ? targetSurface.key : _activeSurface;
       _activeSurface = authoritativeKey;
 
-      console.warn('[Bootstrap] OWNERSHIP CONFLICT: ' + count + ' surfaces visible. Resolving to target surface: ' + authoritativeKey);
+      console.warn('[Bootstrap] OWNERSHIP CONFLICT: ' + destinationSurfaces.length + ' destination surfaces visible. Resolving to target surface: ' + authoritativeKey);
       _logStep('BOOTSTRAP_SURFACE_OWNERSHIP_CONFLICT', {
         visible: visibleSurfaces.map(function(s){return s.key;}),
         resolvedTo: authoritativeKey,
         state: _state
       });
 
-      // Keep authoritative target surface visible, hide all non-authoritative surfaces
-      visibleSurfaces.forEach(function(s) {
+      // Keep authoritative target surface visible, hide all non-authoritative destination surfaces
+      destinationSurfaces.forEach(function(s) {
         if (s.key !== authoritativeKey) {
           s.node.style.display = 'none';
           s.node.classList.remove('active');
@@ -1158,7 +1158,8 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
         node.classList.add('active');
         node.style.visibility = 'visible';
         node.style.opacity    = '1';
-      } else {
+      } else if (key !== 'BOOT') {
+        // Retain BOOT loader layer during transition handoff until _dismissSplash() confirms target surface renderability
         node.style.display = 'none';
         node.classList.remove('active');
       }
@@ -1166,78 +1167,179 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     _activeSurface = surfaceKey;
     _logStep('SURFACE_COMMITTED', { surface: surfaceKey });
 
-    // ATOMIC DISMISSAL: Only dismiss splash AFTER non-BOOT surface is committed & verified
+    // ATOMIC DISMISSAL: Only dismiss splash AFTER non-BOOT target surface is committed & verified renderable
+    // BOOT loader must remain visible until the destination surface has a non-zero bounding box.
     if (surfaceKey !== 'BOOT' && surfaceKey !== 'RECOVERY') {
-      setTimeout(function() {
-        var cnt = _assertSurface();
-        if (cnt >= 1) {
-          _dismissSplash();
-        } else {
-          console.error('[Bootstrap] Surface commitment check failed for ' + surfaceKey + '. Retaining splash.');
-          ValenixiaBootstrap.enterRecovery('Failed to commit surface: ' + surfaceKey, _state, true, true);
+      var _dismissAttempts = 0;
+      function _verifyAndDismiss() {
+        _dismissAttempts++;
+        var targetNode = el(SURFACES[surfaceKey]);
+        var renderable = false;
+        if (targetNode) {
+          var cs = window.getComputedStyle ? window.getComputedStyle(targetNode) : targetNode.style;
+          var rect = targetNode.getBoundingClientRect ? targetNode.getBoundingClientRect() : { width: 0, height: 0 };
+          renderable = (cs.display !== 'none' && cs.visibility !== 'hidden' && parseFloat(cs.opacity || '1') > 0 && rect.width > 0 && rect.height > 0);
         }
-      }, 50);
+        if (renderable) {
+          _logStep('SURFACE_RENDERABLE_CONFIRMED', { surface: surfaceKey, attempt: _dismissAttempts });
+          _dismissSplash();
+        } else if (_dismissAttempts < 5) {
+          // Retry up to 5 times with 40ms intervals (200ms total max wait)
+          // This handles CSS transitions that delay layout calculation
+          setTimeout(_verifyAndDismiss, 40);
+        } else {
+          console.error('[Bootstrap] Surface commitment check failed for ' + surfaceKey + ' after 5 attempts. Retaining splash and forcing recovery.');
+          _logStep('SURFACE_COMMIT_VERIFICATION_FAILED', { surface: surfaceKey });
+          ValenixiaBootstrap.enterRecovery('Failed to render surface: ' + surfaceKey, _state, true, true);
+        }
+      }
+      // First attempt after a single rAF tick to allow the browser to lay out the newly-shown surface
+      if (window.requestAnimationFrame) {
+        requestAnimationFrame(function() { setTimeout(_verifyAndDismiss, 16); });
+      } else {
+        setTimeout(_verifyAndDismiss, 50);
+      }
     }
   }
 
   // ── Recovery overlay (shown if all other surfaces fail) ──────────────────
+  // INVARIANT: Boot loader must remain visible until recovery surface is confirmed renderable.
+  // This function NEVER dismisses the splash before verifying recovery is shown.
   function _showRecoveryOverlay(message, stage, canRetry, canOffline) {
     _recoveryShown = true;
     _activeSurface = 'RECOVERY';
+    var _recoveryRendered = false;
+
+    function _dismissLoaderAfterRecovery(recoveryNode) {
+      // Verify the recovery node is actually visible before dismissing the boot loader
+      try {
+        if (!recoveryNode) { return; }
+        var cs   = window.getComputedStyle ? window.getComputedStyle(recoveryNode) : recoveryNode.style;
+        var rect = recoveryNode.getBoundingClientRect ? recoveryNode.getBoundingClientRect() : { width: 0, height: 0 };
+        var visible = (cs.display !== 'none' && cs.visibility !== 'hidden' &&
+                       parseFloat(cs.opacity || '1') > 0 && rect.width > 0 && rect.height > 0);
+        if (visible) {
+          _dismissSplash();
+          _logStep('RECOVERY_LOADER_DISMISSED', { stage: stage });
+        } else {
+          // Recovery node exists but isn't laid out yet — wait one more frame
+          if (window.requestAnimationFrame) {
+            requestAnimationFrame(function() {
+              try {
+                var r2   = recoveryNode.getBoundingClientRect();
+                if (r2.width > 0 && r2.height > 0) { _dismissSplash(); }
+                // If still not visible, keep the boot loader — never leave a blank screen
+              } catch (_) {}
+            });
+          }
+        }
+      } catch (_) {
+        // Safest outcome: keep the boot loader visible if we can't verify recovery
+      }
+    }
+
     try {
-      // 1. Target pre-existing static emergency node in index.html if present
+      // PRIMARY PATH: Target the pre-existing static emergency node in index.html
+      // This node is always present in the DOM, independent of app.js/DB/theme state.
       var staticNode = el('vx-emergency-recovery');
       var staticMsg  = el('vx-emergency-recovery-message');
+
       if (staticNode) {
-        if (staticMsg) staticMsg.textContent = message || 'An unexpected error occurred during startup.';
+        if (staticMsg) {
+          try { staticMsg.textContent = message || 'An unexpected error occurred during startup.'; } catch (_) {}
+        }
         staticNode.removeAttribute('hidden');
-        staticNode.style.display = 'flex';
-        staticNode.style.zIndex  = '9999999999';
+        staticNode.style.display     = 'flex';
+        staticNode.style.zIndex      = '9999999999';
+        staticNode.style.visibility  = 'visible';
+        staticNode.style.opacity     = '1';
         _logStep('RECOVERY_SURFACE_SHOWN_STATIC', { stage: stage, message: message });
+        _recoveryRendered = true;
+        // Dismiss boot loader AFTER verifying the static node is actually rendered
+        if (window.requestAnimationFrame) {
+          requestAnimationFrame(function() { _dismissLoaderAfterRecovery(staticNode); });
+        } else {
+          setTimeout(function() { _dismissLoaderAfterRecovery(staticNode); }, 50);
+        }
         return;
       }
 
-      // 2. Dynamic fallback
+      // SECONDARY PATH: Dynamic overlay creation
+      // Only reached if the static node is somehow absent from the DOM.
       var existing = el('__vx-boot-recovery');
-      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+      if (existing && existing.parentNode) { try { existing.parentNode.removeChild(existing); } catch (_) {} }
+
       var overlay = document.createElement('div');
       overlay.id = '__vx-boot-recovery';
       overlay.style.cssText = 'position:fixed;inset:0;z-index:9999999999;background:#060609;display:flex;align-items:center;justify-content:center;padding:24px;font-family:sans-serif;';
+
       var retryBtn   = canRetry   ? '<button id="__vx-rec-retry" style="flex:1;padding:12px;background:#10b981;border:none;color:#000;font-weight:800;border-radius:6px;cursor:pointer;font-size:13px;min-height:44px;">&nbsp;Retry&nbsp;</button>' : '';
       var offlineBtn = canOffline ? '<button id="__vx-rec-offline" style="flex:1;padding:12px;background:transparent;border:1px solid rgba(255,255,255,0.2);color:#9ca3af;font-weight:700;border-radius:6px;cursor:pointer;font-size:13px;min-height:44px;">Continue Offline</button>' : '';
       var copyBtn    = '<button id="__vx-rec-copy" style="flex:1;padding:12px;background:transparent;border:1px solid rgba(255,255,255,0.1);color:#6b7280;font-weight:600;border-radius:6px;cursor:pointer;font-size:11px;min-height:44px;">Copy Diagnostics</button>';
-      overlay.innerHTML = '<div style="max-width:420px;width:100%;background:#0f0f11;border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:28px;">' +
+
+      overlay.innerHTML =
+        '<div style="max-width:420px;width:100%;background:#0f0f11;border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:28px;">' +
         '<div style="font-size:22px;margin-bottom:12px;">⚠️</div>' +
         '<h3 style="color:#fff;font-size:16px;font-weight:800;margin:0 0 8px;">Valenixia couldn\'t complete startup</h3>' +
-        '<p style="color:#6b7280;font-size:11px;margin:0 0 4px;">Stage: <strong style="color:#94a3b8;">' + (stage || _state) + '</strong></p>' +
-        '<p style="color:#9ca3af;font-size:13px;line-height:1.6;white-space:pre-wrap;margin:12px 0 20px;">' + (message || 'An unexpected error occurred during startup.') + '</p>' +
+        '<p style="color:#6b7280;font-size:11px;margin:0 0 4px;">Stage: <strong style="color:#94a3b8;">' + escapeHTML(String(stage || _state)) + '</strong></p>' +
+        '<p style="color:#9ca3af;font-size:13px;line-height:1.6;white-space:pre-wrap;margin:12px 0 20px;">' + escapeHTML(String(message || 'An unexpected error occurred during startup.')) + '</p>' +
         '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + retryBtn + offlineBtn + copyBtn + '</div>' +
         '</div>';
 
-      var targetParent = document.body || document.documentElement;
+      // Only attempt DOM insertion if a valid parent exists
+      var targetParent = (document.readyState !== 'loading') ? (document.body || document.documentElement) : null;
       if (targetParent) {
         targetParent.appendChild(overlay);
+        _recoveryRendered = true;
+        _logStep('RECOVERY_SURFACE_SHOWN_DYNAMIC', { stage: stage, message: message });
+        if (window.requestAnimationFrame) {
+          requestAnimationFrame(function() { _dismissLoaderAfterRecovery(overlay); });
+        } else {
+          setTimeout(function() { _dismissLoaderAfterRecovery(overlay); }, 50);
+        }
       } else {
+        // DOM not ready — defer insertion, keep loader visible in the meantime
+        _logStep('RECOVERY_DEFERRED_DOM_NOT_READY', { stage: stage });
         document.addEventListener('DOMContentLoaded', function() {
-          var p = document.body || document.documentElement;
-          if (p) p.appendChild(overlay);
+          try {
+            var p = document.body || document.documentElement;
+            if (p) {
+              p.appendChild(overlay);
+              _recoveryRendered = true;
+              _dismissLoaderAfterRecovery(overlay);
+            }
+          } catch (_) {}
         });
       }
-      _logStep('RECOVERY_SURFACE_SHOWN_DYNAMIC', { stage: stage, message: message });
+
       var r = el('__vx-rec-retry');
       var o = el('__vx-rec-offline');
       var c = el('__vx-rec-copy');
       if (r) r.onclick = function() { window.location.reload(); };
       if (o) o.onclick = function() {
-        if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        if (overlay && overlay.parentNode) { try { overlay.parentNode.removeChild(overlay); } catch (_) {} }
         _recoveryShown = false;
         ValenixiaBootstrap.transition('DECISION', { offline: true });
       };
       if (c) c.onclick = function() {
         if (typeof window.copyDiagnostics === 'function') window.copyDiagnostics();
       };
+
     } catch (recErr) {
-      console.error('[Bootstrap] Emergency recovery renderer fallback error:', recErr);
+      // TERTIARY FAILSAFE: The recovery renderer itself crashed.
+      // Log it and keep the boot loader visible rather than leaving a blank screen.
+      console.error('[Bootstrap] Recovery renderer failed — keeping boot loader visible:', recErr);
+      _logStep('RECOVERY_RENDERER_CRASHED', { error: recErr ? recErr.message : String(recErr), stage: stage });
+      try {
+        // Last-ditch: try to show the static node without any fancy verification
+        var sn = document.getElementById('vx-emergency-recovery');
+        if (sn) {
+          sn.removeAttribute('hidden');
+          sn.style.display = 'flex';
+          sn.style.zIndex  = '9999999999';
+        }
+      } catch (_) {}
+      // Do NOT call _dismissSplash() here — the boot loader is our last line of defense
     }
   }
 
@@ -1434,7 +1536,8 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
 
         case 'SERVER_UNAVAILABLE':
           _clearTimeout();
-          _dismissSplash();
+          // NOTE: Do NOT call _dismissSplash() here.
+          // _showRecoveryOverlay() dismisses the splash ONLY after verifying recovery is renderable.
           _showRecoveryOverlay(
             'The server is temporarily unavailable.\n\nYou can retry the connection or continue working offline with locally cached data.',
             context.stage || _prevState, true, true
@@ -1443,7 +1546,8 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
 
         case 'RECOVERY':
           _clearTimeout();
-          _dismissSplash();
+          // NOTE: Do NOT call _dismissSplash() here.
+          // _showRecoveryOverlay() dismisses the splash ONLY after verifying recovery is renderable.
           _showRecoveryOverlay(
             context.message || 'An unexpected error occurred during startup.',
             context.stage   || _prevState,
@@ -1454,7 +1558,8 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
 
         case 'ERROR':
           _clearTimeout();
-          _dismissSplash();
+          // NOTE: Do NOT call _dismissSplash() here.
+          // _showRecoveryOverlay() dismisses the splash ONLY after verifying recovery is renderable.
           _showRecoveryOverlay(
             context.message || 'A fatal error occurred. Please reload the application.',
             context.stage   || _prevState,
