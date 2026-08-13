@@ -1700,6 +1700,27 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
         lastApiStatus:            _lastApiStatus,
         error:                    _error
       };
+    },
+
+    // Called by the external _domDiscoveryInterval every 20ms.
+    // If a surface commit was attempted while the target DOM node did not yet
+    // exist (because HTML parsing hadn't reached it), this method retries the
+    // commit and returns true once the surface is successfully painted.
+    retryPendingSurface: function() {
+      if (!_pendingSurface) return !!(window.bootVisualReady);
+      var node = document.getElementById(SURFACES[_pendingSurface]);
+      if (node) {
+        var key = _pendingSurface;
+        _pendingSurface = null;
+        _showSurface(key);
+        return true;
+      }
+      return false;
+    },
+
+    // Exposes whether a surface commit is pending (target node not yet in DOM)
+    hasPendingSurface: function() {
+      return !!_pendingSurface;
     }
   };
 
@@ -2355,26 +2376,29 @@ window.runWhenDOMReady(function() {
   }
 });
 
-// Fast DOM discovery watcher: polls every 20ms as HTML parses until surfaces exist and destination surface is painted
+// Fast DOM discovery watcher: polls every 20ms while HTML streams in.
+// IMPORTANT: This code is OUTSIDE the ValenixiaBootstrap IIFE closure.
+// It must ONLY use window-globals and the public ValenixiaBootstrap API.
+// Never reference private closure vars (_pendingSurface, _activeSurface, SURFACES, el, _showSurface) here.
 var _domDiscoveryInterval = setInterval(function() {
-  if (window.bootVisualReady && !_pendingSurface) {
+  var vxb = window.ValenixiaBootstrap;
+
+  // Stop once the boot visuals are committed and no surface is pending.
+  if (window.bootVisualReady && vxb && !vxb.hasPendingSurface()) {
     clearInterval(_domDiscoveryInterval);
     return;
   }
 
-  // If a surface commit was attempted but its DOM node was missing (e.g. WIZARD before line 3219),
-  // retry committing the surface as soon as its DOM element enters the document tree.
-  var targetKey = _pendingSurface || (_activeSurface !== 'BOOT' ? _activeSurface : null);
-  if (targetKey && SURFACES[targetKey]) {
-    var node = el(SURFACES[targetKey]);
-    if (node) {
-      _pendingSurface = null;
-      _showSurface(targetKey);
-      return;
-    }
+  // If a surface commit is pending (target DOM node wasn't available when
+  // the state machine tried to show it), retry via the public API.
+  if (vxb && vxb.hasPendingSurface()) {
+    vxb.retryPendingSurface();
+    return;
   }
 
-  if (!window.bootstrapDecisionReady) {
+  // Before a routing decision has been made, run discovery when key surface
+  // elements appear in the document tree during progressive HTML parsing.
+  if (!window.bootstrapDecisionReady && typeof window.runBootstrapDiscoveryPipeline === 'function') {
     var surfacesReady = !!(
       document.getElementById('first-boot-wizard') ||
       document.getElementById('auth-lock-screen')  ||
