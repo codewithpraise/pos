@@ -1,9 +1,9 @@
 {
   "product": "VALENIXIA POS",
   "version": "2.6.0",
-  "build_id": "v2.6.0-prod-wiz-before-layout-v1",
+  "build_id": "v2.6.0-prod-closed-wizard-v1",
   "force_unregister": true,
-  "git_commit": "wiz-before-layout-v1",
+  "git_commit": "closed-wizard-v1",
   "environment": "production",
   "schema_version": "17",
   "commercial_catalog_version": "2.6.0",
