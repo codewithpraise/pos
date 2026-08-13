@@ -1207,8 +1207,19 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
           node.style.setProperty('visibility',  'visible',   'important');
           node.style.setProperty('opacity',     '1',         'important');
           node.classList.add('active');
-          if (node.parentElement && node.parentElement !== document.body && key !== 'LAYOUT' && key !== 'BOOT') {
-            try { document.body.appendChild(node); } catch (_) {}
+          if (key !== 'LAYOUT' && key !== 'BOOT') {
+            var targetNodeToMove = node;
+            if (document.body) {
+              if (targetNodeToMove.parentElement !== document.body) {
+                try { document.body.appendChild(targetNodeToMove); } catch (_) {}
+              }
+            } else {
+              document.addEventListener('DOMContentLoaded', function() {
+                if (targetNodeToMove.parentElement !== document.body) {
+                  try { document.body.appendChild(targetNodeToMove); } catch (_) {}
+                }
+              });
+            }
           }
           targetCommitted = true;
         } else if (key !== 'BOOT') {
