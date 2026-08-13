@@ -2291,22 +2291,26 @@ window.runBootstrapDiscoveryPipeline = function runBootstrapDiscoveryPipeline() 
   }
 };
 
+// 1. Immediate execution attempt at script load time (reads localStorage synchronously)
+if (!window.bootstrapDecisionReady) {
+  try {
+    window.runBootstrapDiscoveryPipeline();
+  } catch (e) {
+    console.warn('[Bootstrap] Immediate discovery deferred:', e);
+  }
+}
+
+// 2. Re-verify surface commitment as soon as DOM is ready / interactive
 window.runWhenDOMReady(function() {
-  // Only run discovery pipeline if ValenixiaBootstrap hasn't already made a decision
-  // (e.g. app.js may have already driven it to DECISION via its own init() path).
   if (!window.bootstrapDecisionReady) {
     window.runBootstrapDiscoveryPipeline();
   }
 });
 
-// ALSO listen for readystatechange to trigger as early as interactive mode
 document.addEventListener('readystatechange', function() {
-  if ((document.readyState === 'interactive' || document.readyState === 'complete') && !window.bootstrapDecisionReady) {
-    window.runBootstrapDiscoveryPipeline();
+  if (document.readyState === 'interactive' || document.readyState === 'complete') {
+    if (!window.bootstrapDecisionReady) {
+      window.runBootstrapDiscoveryPipeline();
+    }
   }
 });
-
-// AND run immediately if DOM is already interactive or complete
-if ((document.readyState === 'interactive' || document.readyState === 'complete') && !window.bootstrapDecisionReady) {
-  window.runBootstrapDiscoveryPipeline();
-}
