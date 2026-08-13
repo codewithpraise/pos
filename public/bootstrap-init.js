@@ -1082,6 +1082,15 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
   //   visibleCount === 0 → AUTO-RECOVER IMMEDIATELY to RECOVERY UI (never leave blank)
   //   visibleCount > 1  → DIAGNOSE ownership conflict, resolve to active target surface
   function _assertSurface() {
+    var isPreDecision = (_state === 'BOOT' ||
+                         _state === 'RELEASE_VALIDATION' ||
+                         _state === 'DATABASE_DISCOVERY' ||
+                         _state === 'INSTALLATION_DISCOVERY' ||
+                         _state === 'DEVICE_DISCOVERY' ||
+                         _state === 'ACCOUNT_DISCOVERY' ||
+                         _state === 'STORE_DISCOVERY' ||
+                         _state === 'ENTITLEMENT_DISCOVERY');
+
     var visibleSurfaces = [];
     Object.keys(SURFACES).forEach(function(key) {
       var id   = SURFACES[key];
@@ -1097,6 +1106,16 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     var count = visibleSurfaces.length;
 
     if (count === 0 && !_recoveryShown) {
+      if (isPreDecision) {
+        // Pre-decision discovery stage: app-boot-loader is expected transition loader. Ensure visible.
+        var bootNode = el(SURFACES.BOOT);
+        if (bootNode) {
+          bootNode.style.display = 'flex';
+          bootNode.style.visibility = 'visible';
+          bootNode.style.opacity = '1';
+          return 1;
+        }
+      }
       console.error('[Bootstrap] INVARIANT VIOLATED: 0 visible surfaces in state "' + _state + '". Forcing RECOVERY.');
       _logStep('SURFACE_INVARIANT_VIOLATION_ZERO', { state: _state });
       ValenixiaBootstrap.enterRecovery('Bootstrap surface missing in state "' + _state + '".', _state, true, true);
@@ -1165,35 +1184,61 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
   function _showRecoveryOverlay(message, stage, canRetry, canOffline) {
     _recoveryShown = true;
     _activeSurface = 'RECOVERY';
-    var existing = el('__vx-boot-recovery');
-    if (existing) existing.remove();
-    var overlay = document.createElement('div');
-    overlay.id = '__vx-boot-recovery';
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999999999;background:#060609;display:flex;align-items:center;justify-content:center;padding:24px;font-family:sans-serif;';
-    var retryBtn   = canRetry   ? '<button id="__vx-rec-retry" style="flex:1;padding:12px;background:#10b981;border:none;color:#000;font-weight:800;border-radius:6px;cursor:pointer;font-size:13px;min-height:44px;">&nbsp;Retry&nbsp;</button>' : '';
-    var offlineBtn = canOffline ? '<button id="__vx-rec-offline" style="flex:1;padding:12px;background:transparent;border:1px solid rgba(255,255,255,0.2);color:#9ca3af;font-weight:700;border-radius:6px;cursor:pointer;font-size:13px;min-height:44px;">Continue Offline</button>' : '';
-    var copyBtn    = '<button id="__vx-rec-copy" style="flex:1;padding:12px;background:transparent;border:1px solid rgba(255,255,255,0.1);color:#6b7280;font-weight:600;border-radius:6px;cursor:pointer;font-size:11px;min-height:44px;">Copy Diagnostics</button>';
-    overlay.innerHTML = '<div style="max-width:420px;width:100%;background:#0f0f11;border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:28px;">' +
-      '<div style="font-size:22px;margin-bottom:12px;">⚠️</div>' +
-      '<h3 style="color:#fff;font-size:16px;font-weight:800;margin:0 0 8px;">Valenixia couldn\'t complete startup</h3>' +
-      '<p style="color:#6b7280;font-size:11px;margin:0 0 4px;">Stage: <strong style="color:#94a3b8;">' + (stage || _state) + '</strong></p>' +
-      '<p style="color:#9ca3af;font-size:13px;line-height:1.6;white-space:pre-wrap;margin:12px 0 20px;">' + (message || 'An unexpected error occurred during startup.') + '</p>' +
-      '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + retryBtn + offlineBtn + copyBtn + '</div>' +
-      '</div>';
-    document.body.appendChild(overlay);
-    _logStep('RECOVERY_SURFACE_SHOWN', { stage: stage, message: message });
-    var r = el('__vx-rec-retry');
-    var o = el('__vx-rec-offline');
-    var c = el('__vx-rec-copy');
-    if (r) r.onclick = function() { window.location.reload(); };
-    if (o) o.onclick = function() {
-      overlay.remove();
-      _recoveryShown = false;
-      ValenixiaBootstrap.transition('DECISION', { offline: true });
-    };
-    if (c) c.onclick = function() {
-      if (typeof window.copyDiagnostics === 'function') window.copyDiagnostics();
-    };
+    try {
+      // 1. Target pre-existing static emergency node in index.html if present
+      var staticNode = el('vx-emergency-recovery');
+      var staticMsg  = el('vx-emergency-recovery-message');
+      if (staticNode) {
+        if (staticMsg) staticMsg.textContent = message || 'An unexpected error occurred during startup.';
+        staticNode.removeAttribute('hidden');
+        staticNode.style.display = 'flex';
+        staticNode.style.zIndex  = '9999999999';
+        _logStep('RECOVERY_SURFACE_SHOWN_STATIC', { stage: stage, message: message });
+        return;
+      }
+
+      // 2. Dynamic fallback
+      var existing = el('__vx-boot-recovery');
+      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+      var overlay = document.createElement('div');
+      overlay.id = '__vx-boot-recovery';
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:9999999999;background:#060609;display:flex;align-items:center;justify-content:center;padding:24px;font-family:sans-serif;';
+      var retryBtn   = canRetry   ? '<button id="__vx-rec-retry" style="flex:1;padding:12px;background:#10b981;border:none;color:#000;font-weight:800;border-radius:6px;cursor:pointer;font-size:13px;min-height:44px;">&nbsp;Retry&nbsp;</button>' : '';
+      var offlineBtn = canOffline ? '<button id="__vx-rec-offline" style="flex:1;padding:12px;background:transparent;border:1px solid rgba(255,255,255,0.2);color:#9ca3af;font-weight:700;border-radius:6px;cursor:pointer;font-size:13px;min-height:44px;">Continue Offline</button>' : '';
+      var copyBtn    = '<button id="__vx-rec-copy" style="flex:1;padding:12px;background:transparent;border:1px solid rgba(255,255,255,0.1);color:#6b7280;font-weight:600;border-radius:6px;cursor:pointer;font-size:11px;min-height:44px;">Copy Diagnostics</button>';
+      overlay.innerHTML = '<div style="max-width:420px;width:100%;background:#0f0f11;border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:28px;">' +
+        '<div style="font-size:22px;margin-bottom:12px;">⚠️</div>' +
+        '<h3 style="color:#fff;font-size:16px;font-weight:800;margin:0 0 8px;">Valenixia couldn\'t complete startup</h3>' +
+        '<p style="color:#6b7280;font-size:11px;margin:0 0 4px;">Stage: <strong style="color:#94a3b8;">' + (stage || _state) + '</strong></p>' +
+        '<p style="color:#9ca3af;font-size:13px;line-height:1.6;white-space:pre-wrap;margin:12px 0 20px;">' + (message || 'An unexpected error occurred during startup.') + '</p>' +
+        '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + retryBtn + offlineBtn + copyBtn + '</div>' +
+        '</div>';
+
+      var targetParent = document.body || document.documentElement;
+      if (targetParent) {
+        targetParent.appendChild(overlay);
+      } else {
+        document.addEventListener('DOMContentLoaded', function() {
+          var p = document.body || document.documentElement;
+          if (p) p.appendChild(overlay);
+        });
+      }
+      _logStep('RECOVERY_SURFACE_SHOWN_DYNAMIC', { stage: stage, message: message });
+      var r = el('__vx-rec-retry');
+      var o = el('__vx-rec-offline');
+      var c = el('__vx-rec-copy');
+      if (r) r.onclick = function() { window.location.reload(); };
+      if (o) o.onclick = function() {
+        if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        _recoveryShown = false;
+        ValenixiaBootstrap.transition('DECISION', { offline: true });
+      };
+      if (c) c.onclick = function() {
+        if (typeof window.copyDiagnostics === 'function') window.copyDiagnostics();
+      };
+    } catch (recErr) {
+      console.error('[Bootstrap] Emergency recovery renderer fallback error:', recErr);
+    }
   }
 
   // ── Progress update helper ────────────────────────────────────────────────
@@ -1246,6 +1291,19 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     completeStage: function(stageName, data) {
       _logStep('STAGE_COMPLETED', { stage: stageName, data: data });
       _clearTimeout();
+      var nextStageMap = {
+        'RELEASE_VALIDATION':    'DATABASE_DISCOVERY',
+        'DATABASE_DISCOVERY':   'INSTALLATION_DISCOVERY',
+        'INSTALLATION_DISCOVERY':'DEVICE_DISCOVERY',
+        'DEVICE_DISCOVERY':     'ACCOUNT_DISCOVERY',
+        'ACCOUNT_DISCOVERY':    'STORE_DISCOVERY',
+        'STORE_DISCOVERY':       'ENTITLEMENT_DISCOVERY',
+        'ENTITLEMENT_DISCOVERY': 'DECISION'
+      };
+      var next = nextStageMap[stageName];
+      if (next) {
+        ValenixiaBootstrap.transition(next, data);
+      }
     },
 
     failStage: function(stageName, error) {

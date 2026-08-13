@@ -95,8 +95,20 @@ assert(
 
 // 6. Verify emergency recovery fallback support in HTML & JS
 assert(
-  html.includes('id="vx-emergency-recovery"') && (code.includes('vx-emergency-recovery') || code.includes('enterRecovery')),
-  'Static emergency recovery fallback container supported in bootstrap error handler'
+  html.includes('id="vx-emergency-recovery"') && code.includes('vx-emergency-recovery') && code.includes('RECOVERY_SURFACE_SHOWN_STATIC'),
+  'Static emergency recovery fallback container supported and targeted in bootstrap error handler'
+);
+
+// 7. Verify stage completion pipeline auto-advancement
+assert(
+  code.includes('completeStage: function(stageName') && code.includes('nextStageMap'),
+  'completeStage API auto-advances pipeline stages under single bootstrap authority'
+);
+
+// 8. Verify pre-decision surface invariant protection
+assert(
+  code.includes('isPreDecision') && code.includes('Pre-decision discovery stage'),
+  'Pre-decision discovery stages recognize loader as valid surface without false invariant recoveries'
 );
 
 console.log(`\n--------------------------------------------------`);
@@ -109,3 +121,4 @@ if (passCount === testCount) {
   console.error(`🚨 Architectural test suite failed!`);
   process.exit(1);
 }
+

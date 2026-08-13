@@ -347,8 +347,24 @@ async function initializeSyncEngine(serverUrl) {
   return bootstrapPromise;
 }
 
-// Queue for messages received before the sync engine is bootstrapped
+// Bounded & Idempotent pre-boot queue (max 50 items)
 const _preBootQueue = [];
+const MAX_PREBOOT_QUEUE_SIZE = 50;
+
+function _enqueuePreBoot(msg) {
+  if (!msg || !msg.type) return;
+  // Deduplicate identical queued requests by type and key/id
+  const key = msg.payload && (msg.payload.key || msg.payload.id || '');
+  const existingIdx = _preBootQueue.findIndex(item => item.type === msg.type && ((item.payload && (item.payload.key || item.payload.id || '')) === key));
+  if (existingIdx !== -1) {
+    _preBootQueue[existingIdx] = msg; // Update existing entry in-place
+    return;
+  }
+  if (_preBootQueue.length >= MAX_PREBOOT_QUEUE_SIZE) {
+    _preBootQueue.shift(); // Evict oldest entry to prevent memory growth
+  }
+  _preBootQueue.push(msg);
+}
 
 // Replay queued messages after bootstrap completes
 async function replayPreBootQueue() {
@@ -377,6 +393,7 @@ self.onmessage = async (event) => {
   // Handle terminate instruction
   if (type === 'TERMINATE') {
     console.warn('[SyncWorker] TERMINATE received. Closing database and WebSocket connections...');
+    _preBootQueue.length = 0; // Invalidate and clear queued messages
     if (syncClient) {
       if (syncClient.ws) {
         try { syncClient.ws.close(); } catch (_) {}
@@ -393,12 +410,16 @@ self.onmessage = async (event) => {
   }
 
   // Guard: Reject non-INIT messages if not bootstrapped
-  // Exception: queue SAVE_PREFERENCE and GET_PREFERENCE for replay after boot
+  // Exception: queue safe I/O, preferences, and durable outbox restoration for replay after boot
   if (type !== 'INIT' && !isBootstrapped) {
-    const canQueue = type === 'SAVE_PREFERENCE' || type === 'GET_PREFERENCE' || type === 'SET_ONLINE_STATE' || (typeof type === 'string' && type.startsWith('GET_'));
+    const canQueue = type === 'SAVE_PREFERENCE' ||
+                     type === 'GET_PREFERENCE' ||
+                     type === 'RESTORE_DURABLE_OUTBOX' ||
+                     type === 'SET_ONLINE_STATE' ||
+                     (typeof type === 'string' && type.startsWith('GET_'));
     if (canQueue) {
-      _preBootQueue.push(event.data);
-      console.log(`[SyncWorker] Queued "${type}" for replay after engine bootstrap.`);
+      _enqueuePreBoot(event.data);
+      console.log(`[SyncWorker] Queued "${type}" for bounded replay after engine bootstrap.`);
       return;
     }
     console.warn(`[SyncWorker] Rejected message type "${type}" — engine not bootstrapped yet`);

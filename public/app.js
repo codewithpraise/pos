@@ -1918,6 +1918,9 @@ setHtml(overlay, `
           if (dbResult) {
             dbInitialized = true;
             console.log(`[App] IndexedDB initialized successfully on attempt ${attempt + 1}`);
+            if (window.ValenixiaBootstrap) {
+              window.ValenixiaBootstrap.completeStage('DATABASE_DISCOVERY', { source: 'ValenixiaDB' });
+            }
             try {
               const clockOverridePref = await ValenixiaDB.get('local_preferences', 'clock_override_active_until');
               if (clockOverridePref && parseInt(clockOverridePref.value_payload, 10) > Date.now()) {
