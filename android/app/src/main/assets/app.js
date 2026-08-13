@@ -3178,10 +3178,7 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
             var lockScreenActive = document.getElementById('auth-lock-screen')?.classList.contains('active');
             if ((!employees || employees.length === 0) && lockScreenActive) {
               console.warn('[App] Zero active employees found in database. Showing onboarding wizard.');
-              var wizardOverlay = document.getElementById('first-boot-wizard');
-              var lockScreen = document.getElementById('auth-lock-screen');
-              if (wizardOverlay) wizardOverlay.style.display = 'flex';
-              if (lockScreen) lockScreen.classList.remove('active');
+              if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('ONBOARDING');
             }
           } catch (err) {
             console.warn('[SyncWorker] Employees UI render warning:', err);
@@ -3567,7 +3564,7 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
   };
 
   window.executeStartNewStore = function() {
-    try { if (typeof playAudioSignal === 'function') playAudioSignal('click'); } catch(_) {}
+    try { if (typeof playAudioSignal === 'function') playAudioSignal('click'); } catch (_) {}
     console.log('[App] User requested Setup New Store Wizard from lock screen.');
     localStorage.removeItem('onboarding_complete');
     try {
@@ -3579,13 +3576,13 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
         updated_at: Date.now()
       });
     } catch (_) {}
-    const wizardOverlay = document.getElementById('first-boot-wizard');
-    const lockScreen = document.getElementById('auth-lock-screen');
-    const layout = document.getElementById('pos-app-layout');
-    if (wizardOverlay) wizardOverlay.style.display = 'flex';
-    if (lockScreen) lockScreen.classList.remove('active');
-    if (layout) layout.style.display = 'grid';
+    if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('ONBOARDING');
   };
+
+  window.showWizard = function() {
+    if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('ONBOARDING');
+  };
+
 
   var pinPadInitialized = false;
   function initPinPad() {
@@ -4055,14 +4052,8 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
         document.documentElement.classList.remove('session-authenticated');
       } catch (_) {}
       updatePinDisplayDots();
-      // Show auth lock screen, hide main layout
-      const lockScreen = document.getElementById('auth-lock-screen');
-      if (lockScreen) {
-        lockScreen.classList.add('active');
-        lockScreen.style.display = 'flex';
-      }
-      const layout = document.getElementById('pos-app-layout');
-      if (layout) layout.style.display = 'none';
+      // Transition surface through ValenixiaBootstrap controller
+      if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('AUTH_LOCK');
       // Re-focus new input for native keyboard
       setTimeout(function() { 
         const pinInput = document.getElementById('pin-input');
@@ -7201,30 +7192,11 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
         updatePinDisplayDots(); // Update display to show empty
         document.documentElement.classList.add('session-authenticated');
         
-        // Hide all lock screens, pairing overlays, and bootstrapping wizards
-        const lockScreen = document.getElementById('auth-lock-screen');
-        if (lockScreen) {
-          lockScreen.classList.remove('active');
-          lockScreen.style.display = 'none';
-        }
-        const wizOverlay = document.getElementById('first-boot-wizard');
-        if (wizOverlay) {
-          wizOverlay.classList.remove('active');
-          wizOverlay.style.display = 'none';
-        }
-        const pairOverlay = document.getElementById('device-pairing-overlay');
-        if (pairOverlay) {
-          pairOverlay.classList.remove('active');
-          pairOverlay.style.display = 'none';
-        }
+        // Transition surface to READY through ValenixiaBootstrap controller
+        if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('READY');
 
         const vCfd = document.getElementById('view-cfd'); if (vCfd) vCfd.style.display = 'none';
         const vKds = document.getElementById('view-kds'); if (vKds) vKds.style.display = 'none';
-        const pLayout = document.getElementById('pos-app-layout');
-        if (pLayout) {
-          pLayout.classList.add('active');
-          pLayout.style.display = '';
-        }
 
         const nameEl = document.getElementById('cashier-display-name');
         const roleDispEl = document.getElementById('cashier-display-role');
@@ -7877,30 +7849,16 @@ setHtml(overlay, `
       }
     }
 
-    // 0.b First Boot Onboarding Check
-    const wizardOverlay = document.getElementById('first-boot-wizard');
-    const lockScreen = document.getElementById('auth-lock-screen');
-    const layout = document.getElementById('pos-app-layout');
-
+    // 0.b First Boot Onboarding Check delegated to ValenixiaBootstrap controller
     if (!onboardingComplete) {
-      if (wizardOverlay) wizardOverlay.style.display = 'flex';
-      if (lockScreen) lockScreen.classList.remove('active');
-      if (layout) layout.style.display = 'none'; // Hide layout while wizard is active
-      showPairingOverlay(false); // Hide pairing screen if onboarding is active
+      if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('ONBOARDING');
+      showPairingOverlay(false);
       return;
     } else {
-      if (wizardOverlay) wizardOverlay.style.display = 'none';
       if (!state.activeCashier) {
-        // POS Terminal Security: Re-enforce PIN authentication on fresh app initialisation / hard-refresh
-        if (lockScreen) lockScreen.classList.add('active');
-        if (layout) layout.style.display = 'none';
-        setTimeout(() => {
-          const pinInput = document.getElementById('pin-input');
-          if (pinInput) pinInput.focus();
-        }, 300);
+        if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('AUTH_LOCK');
       } else {
-        if (lockScreen) lockScreen.classList.remove('active');
-        if (layout) layout.style.display = 'grid';
+        if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('READY');
       }
     }
 
