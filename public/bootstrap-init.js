@@ -1016,7 +1016,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     PAIRING:  'device-pairing-overlay',
     LICENSE:  'license-lockout-overlay',
     LAYOUT:   'pos-app-layout',
-    RECOVERY: '__vx-boot-recovery'
+    RECOVERY: 'vx-emergency-recovery'
   };
 
   // ── Progress milestones per stage ────────────────────────────────────────
@@ -1049,6 +1049,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
   var _lastApiRequest  = null;
   var _lastApiStatus   = null;
   var _activeSurface   = 'BOOT';
+  var _pendingSurface  = null;
   var _error           = null;
   // Surface commit generation: incremented on every _showSurface call.
   // Each _verifyAndDismiss loop captures its own generation at creation;
@@ -1226,6 +1227,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
 
     if (targetCommitted || surfaceKey === 'BOOT') {
       _activeSurface = surfaceKey;
+      _pendingSurface = null;
       _logStep('SURFACE_COMMITTED', { surface: surfaceKey });
 
       // SPLASH DISMISSAL
@@ -1240,6 +1242,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
         }
       }
     } else {
+      _pendingSurface = surfaceKey;
       console.warn('[Bootstrap] _showSurface target node for "' + surfaceKey + '" not found in DOM yet. Retaining boot loader.');
     }
   }
@@ -2352,19 +2355,33 @@ window.runWhenDOMReady(function() {
   }
 });
 
-// Fast DOM discovery watcher: polls every 20ms as HTML parses until surfaces exist and decision is ready
+// Fast DOM discovery watcher: polls every 20ms as HTML parses until surfaces exist and destination surface is painted
 var _domDiscoveryInterval = setInterval(function() {
-  if (window.bootstrapDecisionReady) {
+  if (window.bootVisualReady && !_pendingSurface) {
     clearInterval(_domDiscoveryInterval);
     return;
   }
-  var surfacesReady = !!(
-    document.getElementById('first-boot-wizard') ||
-    document.getElementById('auth-lock-screen')  ||
-    document.getElementById('pos-app-layout')
-  );
-  if (surfacesReady) {
-    clearInterval(_domDiscoveryInterval);
-    window.runBootstrapDiscoveryPipeline();
+
+  // If a surface commit was attempted but its DOM node was missing (e.g. WIZARD before line 3219),
+  // retry committing the surface as soon as its DOM element enters the document tree.
+  var targetKey = _pendingSurface || (_activeSurface !== 'BOOT' ? _activeSurface : null);
+  if (targetKey && SURFACES[targetKey]) {
+    var node = el(SURFACES[targetKey]);
+    if (node) {
+      _pendingSurface = null;
+      _showSurface(targetKey);
+      return;
+    }
+  }
+
+  if (!window.bootstrapDecisionReady) {
+    var surfacesReady = !!(
+      document.getElementById('first-boot-wizard') ||
+      document.getElementById('auth-lock-screen')  ||
+      document.getElementById('pos-app-layout')
+    );
+    if (surfacesReady) {
+      window.runBootstrapDiscoveryPipeline();
+    }
   }
 }, 20);
