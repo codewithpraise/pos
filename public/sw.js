@@ -14,7 +14,7 @@ if (self.location.hostname !== 'localhost' && !self.location.hostname.includes('
 }
 
 const urlParams = new URLSearchParams(self.location.search);
-const buildVersion = urlParams.get('v') || 'v2.6.9-dom-ready-discovery-guard';
+const buildVersion = urlParams.get('v') || 'v2.7.0-target-committed-surface-fix';
 const CACHE_NAME = `valenixia-pos-cache-${buildVersion}`;
 const ASSETS_TO_CACHE = [
   { url: '/', integrity: '' },

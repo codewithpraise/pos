@@ -1189,9 +1189,10 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
 
   // ── Show exactly one surface ─────────────────────────────────────────────
   function _showSurface(surfaceKey) {
-    // Guard: If this surface is already the active committed surface, do not
-    // re-run the DOM mutation or re-dismiss the splash.
-    if (_activeSurface === surfaceKey && window.bootVisualReady) return;
+    var targetNode = el(SURFACES[surfaceKey]);
+
+    // Guard: If this surface is already active, DOM element exists and is displayed visible, do not re-run.
+    if (_activeSurface === surfaceKey && window.bootVisualReady && targetNode && targetNode.style.display !== 'none' && targetNode.style.display !== '') return;
 
     // Increment generation counter. Any pending async tasks tied to a previous
     // _showSurface call will see the counter has advanced and abort silently.
@@ -1200,6 +1201,8 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     // Signal to _assertSurface that a DOM mutation is in progress so it does
     // not misfire on the transient all-surfaces-hidden window.
     _surfaceMutationInProgress = true;
+    var targetCommitted = false;
+
     try {
       Object.keys(SURFACES).forEach(function(key) {
         var node = el(SURFACES[key]);
@@ -1210,6 +1213,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
           node.style.setProperty('visibility',  'visible',   'important');
           node.style.setProperty('opacity',     '1',         'important');
           node.classList.add('active');
+          targetCommitted = true;
         } else if (key !== 'BOOT') {
           // Retain the BOOT loader until the destination surface is on-screen.
           node.style.display = 'none';
@@ -1220,26 +1224,23 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
       _surfaceMutationInProgress = false;
     }
 
-    _activeSurface = surfaceKey;
-    _logStep('SURFACE_COMMITTED', { surface: surfaceKey });
+    if (targetCommitted || surfaceKey === 'BOOT') {
+      _activeSurface = surfaceKey;
+      _logStep('SURFACE_COMMITTED', { surface: surfaceKey });
 
-    // SPLASH DISMISSAL
-    // The surface DOM writes above are synchronous and use !important, so the
-    // surface IS visible the moment this function returns. We do NOT retry or
-    // enter recovery based on any subsequent re-check — that is the exact pattern
-    // that caused the 'Surface commitment check failed' crash loop.
-    //
-    // We wait one rAF so the browser has painted the new surface before we
-    // fade out the boot loader, giving a smooth visual handoff.
-    if (surfaceKey !== 'BOOT' && surfaceKey !== 'RECOVERY') {
-      if (window.requestAnimationFrame) {
-        requestAnimationFrame(function() {
-          _logStep('SURFACE_PAINT_COMMITTED', { surface: surfaceKey });
-          _dismissSplash();
-        });
-      } else {
-        setTimeout(_dismissSplash, 32);
+      // SPLASH DISMISSAL
+      if (surfaceKey !== 'BOOT' && surfaceKey !== 'RECOVERY') {
+        if (window.requestAnimationFrame) {
+          requestAnimationFrame(function() {
+            _logStep('SURFACE_PAINT_COMMITTED', { surface: surfaceKey });
+            _dismissSplash();
+          });
+        } else {
+          setTimeout(_dismissSplash, 32);
+        }
       }
+    } else {
+      console.warn('[Bootstrap] _showSurface target node for "' + surfaceKey + '" not found in DOM yet. Retaining boot loader.');
     }
   }
 
