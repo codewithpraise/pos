@@ -1773,7 +1773,30 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
   var _hardSafetyTimer = setTimeout(function() {
     if (window.bootstrapDecisionReady || window.appInitialized || _recoveryShown) return;
 
-    // Attempt local discovery fallback before giving up to recovery
+    // If the DOM hasn't finished parsing yet (e.g. large app.js still downloading),
+    // the discovery pipeline cannot safely run (surface elements don't exist).
+    // Re-arm a shorter follow-up check rather than forcing recovery prematurely.
+    if (document.readyState === 'loading') {
+      console.warn('[Bootstrap] Safety net fired but DOM not ready yet. Re-arming for 8s...');
+      setTimeout(function() {
+        if (window.bootstrapDecisionReady || _recoveryShown) return;
+        if (typeof window.runBootstrapDiscoveryPipeline === 'function') {
+          try {
+            window.runBootstrapDiscoveryPipeline();
+            if (window.bootstrapDecisionReady || _recoveryShown) return;
+          } catch (e) {}
+        }
+        console.warn('[Bootstrap] Hard safety net: bootstrap decision still not reached. Forcing recovery.');
+        _logStep('HARD_SAFETY_NET_TRIGGERED', { state: _state });
+        ValenixiaBootstrap.enterRecovery(
+          'The application took too long to start.\n\nThis can happen with a slow network or an old cached version.\n\nRetry to reload, or Continue Offline to use your cached data.',
+          _state, true, true
+        );
+      }, 8000);
+      return;
+    }
+
+    // DOM is ready — attempt local discovery fallback before giving up to recovery
     if (typeof window.runBootstrapDiscoveryPipeline === 'function') {
       try {
         console.warn('[Bootstrap] Safety net attempting local discovery recovery...');
@@ -2267,7 +2290,26 @@ window.__VALENIXIA_IDENTITY__ = {
 // #auth-lock-screen, #pos-app-layout, etc. are a SURFACE OWNERSHIP VIOLATION.
 // ══════════════════════════════════════════════════════════════════════════════
 window.runBootstrapDiscoveryPipeline = function runBootstrapDiscoveryPipeline() {
-  console.log('[BootstrapDiscovery v2.6.0] Evaluating identity state...');
+  // ── DOM READINESS GUARD ────────────────────────────────────────────────────
+  // This function may be invoked before the <body> has been parsed (e.g. from
+  // <head> at script load time). In that case the surface DOM elements do not
+  // exist yet. Running the pipeline would fire _showSurface() on null nodes
+  // (silent no-ops), set bootstrapDecisionReady=true, and then _dismissSplash()
+  // would hide the boot loader — leaving a blank screen with no surface shown.
+  //
+  // Solution: abort early if key surface elements are not yet in the DOM.
+  // The runWhenDOMReady / DOMContentLoaded listeners below will call this again
+  // once the DOM is fully parsed and elements exist.
+  // ──────────────────────────────────────────────────────────────────────────
+  var surfacesReady = !!(
+    document.getElementById('first-boot-wizard') ||
+    document.getElementById('auth-lock-screen')  ||
+    document.getElementById('pos-app-layout')
+  );
+  if (!surfacesReady) {
+    console.log('[BootstrapDiscovery] DOM not yet ready — deferring identity evaluation until DOMContentLoaded.');
+    return;
+  }
 
   if (!window.ValenixiaBootstrap) {
     console.error('[BootstrapDiscovery] ValenixiaBootstrap unavailable — cannot make routing decision.');
@@ -2298,26 +2340,13 @@ window.runBootstrapDiscoveryPipeline = function runBootstrapDiscoveryPipeline() 
   }
 };
 
-// 1. Immediate execution attempt at script load time (reads localStorage synchronously)
-if (!window.bootstrapDecisionReady) {
-  try {
-    window.runBootstrapDiscoveryPipeline();
-  } catch (e) {
-    console.warn('[Bootstrap] Immediate discovery deferred:', e);
-  }
-}
-
-// 2. Re-verify surface commitment as soon as DOM is ready / interactive
+// Run discovery pipeline as soon as the DOM is fully parsed.
+// Do NOT attempt to run it at script load time (readyState === 'loading') —
+// the surface elements (#first-boot-wizard, #auth-lock-screen, etc.) do not
+// exist yet, and premature invocation sets bootstrapDecisionReady=true /
+// dismisses the splash while surfaces are still null.
 window.runWhenDOMReady(function() {
   if (!window.bootstrapDecisionReady) {
     window.runBootstrapDiscoveryPipeline();
-  }
-});
-
-document.addEventListener('readystatechange', function() {
-  if (document.readyState === 'interactive' || document.readyState === 'complete') {
-    if (!window.bootstrapDecisionReady) {
-      window.runBootstrapDiscoveryPipeline();
-    }
   }
 });
