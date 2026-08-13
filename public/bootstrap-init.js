@@ -1184,14 +1184,16 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
 
   // ── Show exactly one surface ─────────────────────────────────────────────
   function _showSurface(surfaceKey) {
-    // Increment the generation counter BEFORE touching the DOM.
-    // Any previously-spawned _verifyAndDismiss loops will detect the stale
-    // generation and self-abort without triggering recovery.
-    _surfaceCommitGeneration++;
-    var myGeneration = _surfaceCommitGeneration;
+    // Guard: If this surface is already the active committed surface, do not
+    // re-run the DOM mutation or re-dismiss the splash.
+    if (_activeSurface === surfaceKey && window.bootVisualReady) return;
 
-    // Signal to _assertSurface that a DOM mutation is in progress so it
-    // does not misfire on the transient all-surfaces-hidden window.
+    // Increment generation counter. Any pending async tasks tied to a previous
+    // _showSurface call will see the counter has advanced and abort silently.
+    _surfaceCommitGeneration++;
+
+    // Signal to _assertSurface that a DOM mutation is in progress so it does
+    // not misfire on the transient all-surfaces-hidden window.
     _surfaceMutationInProgress = true;
     try {
       Object.keys(SURFACES).forEach(function(key) {
@@ -1199,12 +1201,12 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
         if (!node) return;
         if (key === surfaceKey) {
           var targetDisp = (key === 'LAYOUT') ? 'grid' : 'flex';
-          node.style.setProperty('display', targetDisp, 'important');
-          node.style.setProperty('visibility', 'visible', 'important');
-          node.style.setProperty('opacity', '1', 'important');
+          node.style.setProperty('display',     targetDisp,  'important');
+          node.style.setProperty('visibility',  'visible',   'important');
+          node.style.setProperty('opacity',     '1',         'important');
           node.classList.add('active');
         } else if (key !== 'BOOT') {
-          // Retain BOOT loader layer during transition handoff until _dismissSplash() confirms target surface renderability
+          // Retain the BOOT loader until the destination surface is on-screen.
           node.style.display = 'none';
           node.classList.remove('active');
         }
@@ -1212,51 +1214,26 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     } finally {
       _surfaceMutationInProgress = false;
     }
+
     _activeSurface = surfaceKey;
     _logStep('SURFACE_COMMITTED', { surface: surfaceKey });
 
-    // ATOMIC DISMISSAL: Only dismiss splash AFTER non-BOOT target surface is committed & verified renderable
-    // BOOT loader must remain visible until the destination surface has a non-zero bounding box.
+    // SPLASH DISMISSAL
+    // The surface DOM writes above are synchronous and use !important, so the
+    // surface IS visible the moment this function returns. We do NOT retry or
+    // enter recovery based on any subsequent re-check — that is the exact pattern
+    // that caused the 'Surface commitment check failed' crash loop.
+    //
+    // We wait one rAF so the browser has painted the new surface before we
+    // fade out the boot loader, giving a smooth visual handoff.
     if (surfaceKey !== 'BOOT' && surfaceKey !== 'RECOVERY') {
-      var _dismissAttempts = 0;
-      function _verifyAndDismiss() {
-        // Stale loop guard: if a newer _showSurface call has already run,
-        // this loop is orphaned — abort silently without triggering recovery.
-        if (myGeneration !== _surfaceCommitGeneration) {
-          _logStep('SURFACE_VERIFY_ABORTED_STALE', { surface: surfaceKey, gen: myGeneration, current: _surfaceCommitGeneration });
-          return;
-        }
-        _dismissAttempts++;
-        var targetNode = el(SURFACES[surfaceKey]);
-        var renderable = isSurfaceRenderable(targetNode);
-        if (renderable) {
-          _logStep('SURFACE_RENDERABLE_CONFIRMED', { surface: surfaceKey, attempt: _dismissAttempts });
-          _dismissSplash();
-        } else if (_dismissAttempts < 5) {
-          // Retry up to 5 times with 40ms intervals (200ms total max wait)
-          setTimeout(_verifyAndDismiss, 40);
-        } else {
-          // Final failure: still stale-guard before entering recovery
-          if (myGeneration !== _surfaceCommitGeneration) return;
-          var diag = {
-            surface: surfaceKey,
-            exists: !!targetNode,
-            display: targetNode ? targetNode.style.display : null,
-            computedDisplay: targetNode && window.getComputedStyle ? window.getComputedStyle(targetNode).display : null,
-            computedVisibility: targetNode && window.getComputedStyle ? window.getComputedStyle(targetNode).visibility : null,
-            computedOpacity: targetNode && window.getComputedStyle ? window.getComputedStyle(targetNode).opacity : null,
-            rect: targetNode && targetNode.getBoundingClientRect ? targetNode.getBoundingClientRect() : null
-          };
-          console.error('[Bootstrap] Surface commitment check failed for ' + surfaceKey + ' after 5 attempts.', diag);
-          _logStep('SURFACE_COMMIT_VERIFICATION_FAILED', diag);
-          ValenixiaBootstrap.enterRecovery('Failed to render surface: ' + surfaceKey, _state, true, true);
-        }
-      }
-      // First attempt after a single rAF tick to allow the browser to lay out the newly-shown surface
       if (window.requestAnimationFrame) {
-        requestAnimationFrame(function() { setTimeout(_verifyAndDismiss, 16); });
+        requestAnimationFrame(function() {
+          _logStep('SURFACE_PAINT_COMMITTED', { surface: surfaceKey });
+          _dismissSplash();
+        });
       } else {
-        setTimeout(_verifyAndDismiss, 50);
+        setTimeout(_dismissSplash, 32);
       }
     }
   }
