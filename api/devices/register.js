@@ -28,7 +28,7 @@
 'use strict';
 
 const { createClient } = require('@supabase/supabase-js');
-const { registerDeviceSupabase } = require('../lib/device-registration-service');
+const { registerDeviceSupabase } = require('../../lib/device-registration-service');
 
 // Rate limiting — simple in-memory per-IP (resets on cold start, acceptable for serverless)
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
