@@ -1207,6 +1207,9 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
           node.style.setProperty('visibility',  'visible',   'important');
           node.style.setProperty('opacity',     '1',         'important');
           node.classList.add('active');
+          if (node.parentElement && node.parentElement !== document.body && key !== 'LAYOUT' && key !== 'BOOT') {
+            try { document.body.appendChild(node); } catch (_) {}
+          }
           targetCommitted = true;
         } else if (key !== 'BOOT') {
           // Retain the BOOT loader until the destination surface is on-screen.

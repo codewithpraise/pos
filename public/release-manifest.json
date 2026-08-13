@@ -1,9 +1,9 @@
 {
   "product": "VALENIXIA POS",
   "version": "2.6.0",
-  "build_id": "v2.6.0-prod-top-wizard-v2",
+  "build_id": "v2.6.0-prod-onnest-guaranteed",
   "force_unregister": true,
-  "git_commit": "top-wizard-v2",
+  "git_commit": "onnest-guaranteed",
   "environment": "production",
   "schema_version": "17",
   "commercial_catalog_version": "2.6.0",
