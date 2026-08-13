@@ -3270,20 +3270,8 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
             }
             console.log('[Worker] Database initialization safely completed.');
 
-            const wizOverlay  = document.getElementById('first-boot-wizard');
-            const lScreen     = document.getElementById('auth-lock-screen');
-            const posLayout   = document.getElementById('pos-app-layout');
-            if (wizOverlay) {
-              wizOverlay.style.display = 'none';
-              wizOverlay.classList.remove('active');
-            }
-            if (lScreen) {
-              lScreen.style.display = 'flex';
-              lScreen.classList.add('active');
-            }
-            if (posLayout) {
-              posLayout.style.display = 'none';
-              posLayout.classList.remove('active');
+            if (window.ValenixiaBootstrap) {
+              window.ValenixiaBootstrap.transition('AUTH_LOCK');
             }
             
             if (typeof showNotificationToast === 'function') {
@@ -5795,21 +5783,8 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
             localStorage.setItem('onboarding_complete', 'true');
             localStorage.setItem('database_hydrated', 'true');
 
-            // Immediate transition: Hide Wizard and activate Lock Screen
-            const wizOverlay  = document.getElementById('first-boot-wizard');
-            const lScreen     = document.getElementById('auth-lock-screen');
-            const posLayout   = document.getElementById('pos-app-layout');
-            if (wizOverlay) {
-              wizOverlay.style.display = 'none';
-              wizOverlay.classList.remove('active');
-            }
-            if (lScreen) {
-              lScreen.style.display = 'flex';
-              lScreen.classList.add('active');
-            }
-            if (posLayout) {
-              posLayout.style.display = 'none';
-              posLayout.classList.remove('active');
+            if (window.ValenixiaBootstrap) {
+              window.ValenixiaBootstrap.transition('AUTH_LOCK');
             }
 
             if (typeof showNotificationToast === 'function') {
@@ -5911,12 +5886,9 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
                     is_idempotent_flag: 0, updated_at: Date.now()
                   });
                 }
-                const wizOverlay = document.getElementById('first-boot-wizard');
-                const lScreen    = document.getElementById('auth-lock-screen');
-                const posLayout  = document.getElementById('pos-app-layout');
-                if (wizOverlay) wizOverlay.style.display = 'none';
-                if (lScreen)    lScreen.classList.add('active');
-                if (posLayout)  posLayout.style.display = 'none';
+                if (window.ValenixiaBootstrap) {
+                  window.ValenixiaBootstrap.transition('AUTH_LOCK');
+                }
                 if (typeof showNotificationToast === 'function') {
                   showNotificationToast('Network joined. Please enter your PIN.', 'success', 3000);
                 }

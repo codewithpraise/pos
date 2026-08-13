@@ -1109,8 +1109,10 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     // temporarily hidden during that loop, which would produce a false 0-count.
     if (_surfaceMutationInProgress) return;
 
-    var isPreDecision = (_state === 'BOOT' ||
-                         _state === 'RELEASE_VALIDATION' ||
+    // Do NOT fire during initial BOOT state before discovery pipeline completes.
+    if (_state === 'BOOT') return;
+
+    var isPreDecision = (_state === 'RELEASE_VALIDATION' ||
                          _state === 'DATABASE_DISCOVERY' ||
                          _state === 'INSTALLATION_DISCOVERY' ||
                          _state === 'DEVICE_DISCOVERY' ||
@@ -1132,14 +1134,10 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
 
     if (count === 0 && !_recoveryShown) {
       if (isPreDecision) {
-        // Pre-decision discovery stage: app-boot-loader is expected transition loader. Ensure visible.
-        var bootNode = el(SURFACES.BOOT);
-        if (bootNode) {
-          bootNode.style.display = 'flex';
-          bootNode.style.visibility = 'visible';
-          bootNode.style.opacity = '1';
-          return 1;
-        }
+        // Pre-decision discovery stage: do not force recovery on transient zero counts during loading.
+        // The 10s hard safety net watchdog handles real initialization hangs.
+        console.warn('[Bootstrap] Pre-decision surface check: 0 visible surfaces in stage "' + _state + '". Retaining loading state.');
+        return 0;
       }
       console.error('[Bootstrap] INVARIANT VIOLATED: 0 visible surfaces in state "' + _state + '". Forcing RECOVERY.');
       _logStep('SURFACE_INVARIANT_VIOLATION_ZERO', { state: _state });
