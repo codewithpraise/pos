@@ -1,9 +1,9 @@
 {
   "product": "VALENIXIA POS",
   "version": "2.6.0",
-  "build_id": "v2.6.0-prod-bulletproof-wizard-v1",
+  "build_id": "v2.6.0-prod-perfect-html5-balance",
   "force_unregister": true,
-  "git_commit": "bulletproof-wizard-v1",
+  "git_commit": "perfect-html5-balance",
   "environment": "production",
   "schema_version": "17",
   "commercial_catalog_version": "2.6.0",
