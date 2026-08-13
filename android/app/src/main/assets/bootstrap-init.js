@@ -1018,6 +1018,24 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
 (function() {
   'use strict';
 
+  // ── Global Trace Log ─────────────────────────────────────────────────────
+  window.__VALENIXIA_BOOT_TRACE__      = window.__VALENIXIA_BOOT_TRACE__ || [];
+  window.__VALENIXIA_BOOT_LAST_STEP__  = 'BOOT_SCRIPT_LOAD';
+  window.__VALENIXIA_BOOT_LAST_ERROR__ = null;
+
+  function _logStep(stepName, details) {
+    window.__VALENIXIA_BOOT_LAST_STEP__ = stepName;
+    var entry = {
+      timestamp:  new Date().toISOString(),
+      step:       stepName,
+      details:    details || null,
+      state:      _state,
+      surface:    _activeSurface
+    };
+    window.__VALENIXIA_BOOT_TRACE__.push(entry);
+    console.log('[BootTrace] ' + stepName, details || '');
+  }
+
   // ── Surface IDs (ValenixiaBootstrap is the SOLE owner of these) ──────────
   var SURFACES = {
     BOOT:     'app-boot-loader',
@@ -1025,7 +1043,8 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     LOCK:     'auth-lock-screen',
     PAIRING:  'device-pairing-overlay',
     LICENSE:  'license-lockout-overlay',
-    LAYOUT:   'pos-app-layout'
+    LAYOUT:   'pos-app-layout',
+    RECOVERY: '__vx-boot-recovery'
   };
 
   // ── Progress milestones per stage ────────────────────────────────────────
@@ -1078,28 +1097,50 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     });
     if (document.body) document.body.classList.remove('splash-active');
     window.bootVisualReady = true;
+    _logStep('SPLASH_DISMISSED');
   }
 
-  // ── Surface invariant ────────────────────────────────────────────────────
-  // Counts visible bootstrap surfaces and enters RECOVERY if 0 are visible.
+  // ── TRUE SURFACE INVARIANT & AUTOMATIC RECOVERY SYSTEM ─────────────────────
+  // Rule:
+  //   visibleCount === 1 → PASS
+  //   visibleCount === 0 → AUTO-RECOVER IMMEDIATELY to RECOVERY UI (never leave blank)
+  //   visibleCount > 1  → DETERMINISTICALLY ENFORCE authoritative surface, hide rest
   function _assertSurface() {
-    var visible = 0;
-    var surfaceIds = [
-      SURFACES.BOOT, SURFACES.WIZARD, SURFACES.LOCK,
-      SURFACES.PAIRING, SURFACES.LICENSE, SURFACES.LAYOUT
-    ];
-    surfaceIds.forEach(function(id) {
+    var visibleSurfaces = [];
+    Object.keys(SURFACES).forEach(function(key) {
+      var id   = SURFACES[key];
       var node = el(id);
       if (!node) return;
       var disp = node.style.display ||
         (window.getComputedStyle ? window.getComputedStyle(node).display : 'none');
-      if (disp !== 'none' && disp !== '') visible++;
+      if (disp !== 'none' && disp !== '') {
+        visibleSurfaces.push({ key: key, id: id, node: node });
+      }
     });
-    if (visible === 0 && _state !== 'BOOT' && !_recoveryShown) {
-      console.warn('[Bootstrap] Surface invariant violated (0 visible). Entering RECOVERY.');
-      ValenixiaBootstrap.enterRecovery('No bootstrap surface visible — state: ' + _state);
+
+    var count = visibleSurfaces.length;
+
+    if (count === 0 && !_recoveryShown) {
+      console.error('[Bootstrap] INVARIANT VIOLATED: 0 visible surfaces in state "' + _state + '". Forcing RECOVERY.');
+      _logStep('SURFACE_INVARIANT_VIOLATION_ZERO', { state: _state });
+      ValenixiaBootstrap.enterRecovery('Bootstrap surface missing in state "' + _state + '".', _state, true, true);
+      return 0;
     }
-    return visible;
+
+    if (count > 1 && !_recoveryShown) {
+      console.warn('[Bootstrap] INVARIANT WARN: ' + count + ' surfaces visible. Normalizing to authoritative surface: ' + _activeSurface);
+      _logStep('SURFACE_INVARIANT_NORMALIZING', { visible: visibleSurfaces.map(function(s){return s.key;}), target: _activeSurface });
+      // Keep only authoritative surface, hide the rest
+      visibleSurfaces.forEach(function(s) {
+        if (s.key !== _activeSurface) {
+          s.node.style.display = 'none';
+          s.node.classList.remove('active');
+        }
+      });
+      return 1;
+    }
+
+    return count;
   }
 
   // ── Show exactly one surface ─────────────────────────────────────────────
@@ -1116,11 +1157,13 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
       }
     });
     _activeSurface = surfaceKey;
+    _logStep('SURFACE_COMMITTED', { surface: surfaceKey });
   }
 
   // ── Recovery overlay (shown if all other surfaces fail) ──────────────────
   function _showRecoveryOverlay(message, stage, canRetry, canOffline) {
     _recoveryShown = true;
+    _activeSurface = 'RECOVERY';
     var existing = el('__vx-boot-recovery');
     if (existing) existing.remove();
     var overlay = document.createElement('div');
@@ -1137,6 +1180,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
       '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + retryBtn + offlineBtn + copyBtn + '</div>' +
       '</div>';
     document.body.appendChild(overlay);
+    _logStep('RECOVERY_SURFACE_SHOWN', { stage: stage, message: message });
     var r = el('__vx-rec-retry');
     var o = el('__vx-rec-offline');
     var c = el('__vx-rec-copy');
@@ -1177,6 +1221,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     _stageTimeout = setTimeout(function() {
       if (_state !== stage) return;
       console.warn('[Bootstrap] Stage timeout: ' + stage);
+      _logStep('STAGE_TIMEOUT_TRIGGERED', { stage: stage, durationMs: ms });
       ValenixiaBootstrap.enterRecovery(
         'Stage "' + stage + '" did not complete within ' + (ms / 1000) + 's.\n\n[Retry] to reconnect or [Continue Offline] to use cached data.',
         stage, true, stage !== 'DATABASE_DISCOVERY'
@@ -1202,15 +1247,13 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
       _stateEnteredAt = Date.now();
       context = context || {};
 
-      console.log('[Bootstrap] ' + _prevState + ' → ' + newState, context);
+      _logStep('TRANSITION', { from: _prevState, to: newState, context: context });
       _setProgress(newState, context.text);
 
       switch (newState) {
 
         case 'RELEASE_VALIDATION':
           _armTimeout('RELEASE_VALIDATION');
-          // Release validation is handled by app.js async chain;
-          // bootstrap just arms the timeout and waits.
           break;
 
         case 'DATABASE_DISCOVERY':
@@ -1244,7 +1287,6 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
             localStorage.getItem('onboarding_complete') === 'true' ||
             (context && context.onboardingComplete)
           );
-          var offline = !!(context && context.offline);
           _dismissSplash();
           if (!onboardingDone) {
             ValenixiaBootstrap.transition('ONBOARDING');
@@ -1260,11 +1302,10 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
         case 'ONBOARDING':
           _clearTimeout();
           _showSurface('WIZARD');
-          // Init wizard at step 1
           if (typeof window.executeWizardGoTo === 'function') {
             window.executeWizardGoTo(1, 'NEW');
           }
-          setTimeout(_assertSurface, 300);
+          setTimeout(_assertSurface, 150);
           break;
 
         case 'AUTH_LOCK':
@@ -1273,17 +1314,16 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
           setTimeout(function() {
             var pin = el('pin-input');
             if (pin) pin.focus();
-          }, 300);
-          setTimeout(_assertSurface, 300);
-          // Mark fully ready AFTER lock screen is shown
+          }, 150);
+          setTimeout(_assertSurface, 150);
           window.appReady         = true;
-          window.appInitialized   = true; // backward compat
+          window.appInitialized   = true;
           break;
 
         case 'PAIRING_REQUIRED':
           _clearTimeout();
           _showSurface('PAIRING');
-          setTimeout(_assertSurface, 300);
+          setTimeout(_assertSurface, 150);
           break;
 
         case 'PAIRING_PENDING':
@@ -1293,7 +1333,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
           var formEl    = el('device-pairing-form');
           if (pendingEl) pendingEl.style.display = 'flex';
           if (formEl)    formEl.style.display    = 'none';
-          setTimeout(_assertSurface, 300);
+          setTimeout(_assertSurface, 150);
           break;
 
         case 'READY':
@@ -1302,7 +1342,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
           window.appReady       = true;
           window.appInitialized = true;
           window.__valenixiaAuthenticated = true;
-          setTimeout(_assertSurface, 300);
+          setTimeout(_assertSurface, 150);
           break;
 
         case 'SERVER_UNAVAILABLE':
@@ -1339,6 +1379,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
 
     // Shorthand for entering RECOVERY
     enterRecovery: function(message, stage, canRetry, canOffline) {
+      _logStep('ENTER_RECOVERY_CALLED', { message: message, stage: stage });
       ValenixiaBootstrap.transition('RECOVERY', {
         message:    message,
         stage:      stage || _state,
@@ -1363,6 +1404,9 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
         visibleSurfaces:  _assertSurface(),
         bootVisualReady:  !!window.bootVisualReady,
         appReady:         !!window.appReady,
+        lastStep:         window.__VALENIXIA_BOOT_LAST_STEP__,
+        lastError:        window.__VALENIXIA_BOOT_LAST_ERROR__,
+        trace:            window.__VALENIXIA_BOOT_TRACE__,
         lastApiRequest:   _lastApiRequest,
         lastApiStatus:    _lastApiStatus,
         error:            _error
@@ -1372,6 +1416,25 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
 
   window.ValenixiaBootstrap = ValenixiaBootstrap;
 
+  // Global uncaught error listener to capture bootstrap exceptions
+  window.addEventListener('error', function(e) {
+    if (!window.appReady && !_recoveryShown) {
+      var errStr = e.message || (e.error ? e.error.message : String(e));
+      window.__VALENIXIA_BOOT_LAST_ERROR__ = errStr;
+      _logStep('UNCAUGHT_ERROR', { error: errStr, filename: e.filename, lineno: e.lineno });
+      ValenixiaBootstrap.enterRecovery('JavaScript Error: ' + errStr, _state, true, true);
+    }
+  });
+
+  window.addEventListener('unhandledrejection', function(e) {
+    if (!window.appReady && !_recoveryShown) {
+      var reasonStr = e.reason ? (e.reason.message || String(e.reason)) : 'Unhandled rejection';
+      window.__VALENIXIA_BOOT_LAST_ERROR__ = reasonStr;
+      _logStep('UNHANDLED_REJECTION', { reason: reasonStr });
+      ValenixiaBootstrap.enterRecovery('Async Failure: ' + reasonStr, _state, true, true);
+    }
+  });
+
   // Expose boot debug function
   window.__VALENIXIA_BOOT_DEBUG__ = function() {
     var dbg = ValenixiaBootstrap.debug();
@@ -1380,31 +1443,61 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     return dbg;
   };
 
+  // Expose surface debug function
+  window.__VALENIXIA_SURFACE_DEBUG__ = function() {
+    var result = {};
+    Object.keys(SURFACES).forEach(function(k) {
+      var node = el(SURFACES[k]);
+      if (!node) {
+        result[k] = { exists: false };
+      } else {
+        var comp = window.getComputedStyle ? window.getComputedStyle(node) : {};
+        result[k] = {
+          exists: true,
+          display: node.style.display || comp.display,
+          opacity: node.style.opacity || comp.opacity,
+          visibility: node.style.visibility || comp.visibility,
+          zIndex: node.style.zIndex || comp.zIndex,
+          active: node.classList.contains('active')
+        };
+      }
+    });
+    return result;
+  };
+
   // ── Kick off: enter BOOT state immediately ───────────────────────────────
+  _logStep('BOOTSTRAP_INITIALIZED');
   _setProgress('BOOT', 'Initializing...');
 
   // Hard safety net — if the state machine itself stalls (unhandled exception
-  // in app.js preventing any transition), rescue after 12s.
+  // in app.js preventing any transition), rescue after 10s.
   var _hardSafetyTimer = setTimeout(function() {
     if (window.appReady || window.appInitialized || _recoveryShown) return;
-    var surfaceCount = _assertSurface();
-    if (surfaceCount === 0) {
-      console.warn('[Bootstrap] Hard safety net: no surface visible after 12s. Entering recovery.');
-      ValenixiaBootstrap.enterRecovery(
-        'The application took too long to start.\n\nThis can happen with a slow network or an old cached version.\n\nRetry to reload, or Continue Offline to use your cached data.',
-        _state, true, true
-      );
+    console.warn('[Bootstrap] Hard safety net: app not ready after 10s. Forcing recovery.');
+    _logStep('HARD_SAFETY_NET_TRIGGERED');
+    ValenixiaBootstrap.enterRecovery(
+      'The application took too long to start.\n\nThis can happen with a slow network or an old cached version.\n\nRetry to reload, or Continue Offline to use your cached data.',
+      _state, true, true
+    );
+  }, 10000);
+
+  // Periodic surface invariant check (runs every 1s until app is ready)
+  var _invariantCheckInterval = setInterval(function() {
+    if (window.appReady || _recoveryShown) {
+      clearInterval(_invariantCheckInterval);
+      return;
     }
-  }, 12000);
+    _assertSurface();
+  }, 1000);
 
   // Cancel safety net when app becomes ready
   Object.defineProperty(window, 'appReady', {
     set: function(v) {
       if (v) {
         clearTimeout(_hardSafetyTimer);
+        clearInterval(_invariantCheckInterval);
         window.bootVisualReady = true;
       }
-      // Store the value
       window._appReadyValue = v;
     },
     get: function() { return window._appReadyValue || false; },
