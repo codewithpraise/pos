@@ -98,10 +98,43 @@ img, video, svg, canvas, iframe, table {
   height: auto;
 }
 
+/* Use overflow-x: clip instead of hidden so that scrollable children
+   (e.g. the hourly chart wrapper with overflow-x:auto) can still display
+   their own horizontal scrollbar. 'clip' paints identically to 'hidden'
+   but does NOT establish a new scroll container on the ancestor. */
 #app, .app-container, main, .main-content {
   width: 100%;
   max-width: 100vw;
-  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+/* ── Hourly Sales Chart Scrollable Wrapper ─────────────────────────────────
+   Ensure the chart wrapper can actually scroll horizontally even when
+   ancestor containers use overflow-x:clip.
+   'contain: paint layout' creates an isolated stacking context so that
+   overflow-x:scroll is respected within the wrapper itself. */
+.bar-chart-visual-wrapper {
+  overflow-x: scroll !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  /* Always show scrollbar so users know content is scrollable */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 214, 143, 0.4) rgba(255,255,255,0.05);
+}
+.bar-chart-visual-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+.bar-chart-visual-wrapper::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.04);
+  border-radius: 3px;
+}
+.bar-chart-visual-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(0, 214, 143, 0.45);
+  border-radius: 3px;
+}
+.bar-chart-visual-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 214, 143, 0.7);
 }
 
 table, .data-table, .inventory-grid, .catalog-grid, .table-responsive {

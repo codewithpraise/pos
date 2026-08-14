@@ -833,8 +833,8 @@
                 <!-- Dynamic badges for Peak Hour & Average Volume -->
               </div>
             </div>
-            <div class="bar-chart-visual-wrapper" style="width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; background: rgba(0,0,0,0.25); padding: 20px 14px 10px; border: 1px solid rgba(255,255,255,0.05); box-sizing: border-box;">
-              <div class="bar-chart-visual" id="analytics-histogram-bars" style="display: flex; align-items: flex-end; gap: 12px; min-width: 900px; height: 180px; box-sizing: border-box;">
+            <div class="bar-chart-visual-wrapper" style="width: 100%; overflow-x: scroll; overflow-y: hidden; -webkit-overflow-scrolling: touch; border-radius: 8px; background: rgba(0,0,0,0.25); padding: 24px 14px 14px; border: 1px solid rgba(255,255,255,0.05); box-sizing: border-box;">
+              <div class="bar-chart-visual" id="analytics-histogram-bars" style="display: flex; align-items: flex-end; gap: 12px; min-width: 900px; height: 180px; box-sizing: border-box; padding-bottom: 4px;">
                 <!-- Render columns dynamically -->
               </div>
             </div>
@@ -3468,10 +3468,11 @@
             </button>
           </div>
 
-          <label id="wiz-eula-label" style="display:flex; align-items:flex-start; gap:12px; cursor:pointer; padding:12px 14px; background:rgba(255,255,255,0.02); border-radius:8px; border:1px solid rgba(255,255,255,0.05); transition:all 0.2s ease;">
-            <input type="checkbox" id="wizard-eula-checkbox" style="margin-top:1px; accent-color: var(--accent-emerald); width:16px; height:16px; flex-shrink:0;" aria-label="Wizard Eula Checkbox">
+          <label id="wiz-eula-label" style="display:flex; align-items:flex-start; gap:12px; cursor:not-allowed; opacity:0.5; padding:12px 14px; background:rgba(255,255,255,0.02); border-radius:8px; border:1px solid rgba(255,255,255,0.05); transition:all 0.2s ease;">
+            <input type="checkbox" id="wizard-eula-checkbox" disabled style="margin-top:1px; accent-color: var(--accent-emerald); width:16px; height:16px; flex-shrink:0; cursor:not-allowed;" aria-label="Wizard Eula Checkbox">
             <span style="font-size:11px; color: var(--text-gray); line-height:1.5;">I have read and agree to the EULA &amp; Legal Policies. All business data is my sole responsibility.</span>
           </label>
+          <p id="wiz-legal-hint" style="font-size:10px; color:#64748b; text-align:center; margin:4px 0 0; line-height:1.4;">⬆ Read all 6 documents above to unlock this checkbox.</p>
         </div>
 
       </div><!-- /panels -->

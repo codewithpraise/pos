@@ -277,7 +277,7 @@
     min-width: 0 !important;
     box-sizing: border-box !important;
   }
-  .pos-table, .data-table, .report-table {
+  .pos-table, .data-table, .report-table, .bar-chart-visual-wrapper {
     display: block !important;
     width: 100% !important;
     overflow-x: auto !important;

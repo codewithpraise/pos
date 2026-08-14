@@ -19120,9 +19120,13 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
         contentEl.innerHTML = formattedHtml;
       }
 
+      // Track which doc is currently open so acknowledge handler can mark it read
+      modal.dataset.currentDocKey = canonicalKey;
+
       modal.classList.add('active');
       modal.style.display = 'flex';
-      modal.style.zIndex = '999999';
+      // z-index MUST exceed wizard overlay (z-index: 999999) — use 9999999
+      modal.style.zIndex = '9999999';
       modal.setAttribute('aria-hidden', 'false');
       document.body.classList.add('modal-open');
       document.body.style.overflow = 'hidden';
@@ -19158,6 +19162,85 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     window.__realHandlers.closeLegalDocumentModal = closeLegalDocumentModal;
   }
 
+  // ── Wizard Legal Doc Status Tracking ──────────────────────────────────────
+  // When user clicks "I Understand" in the canonical modal, mark the
+  // corresponding wizard step-5 status badge as READ and unlock EULA checkbox.
+  const WIZ_DOC_STATUS_MAP = {
+    TERMS_OF_SERVICE: 'wiz-legal-tos-status',
+    EULA: 'wiz-legal-eula-status',
+    PRIVACY_POLICY: 'wiz-legal-privacy-status',
+    ACCEPTABLE_USE: 'wiz-legal-aup-status',
+    FBR_DISCLAIMER: 'wiz-legal-fbr-status',
+    CLOUD_SYNC_TERMS: 'wiz-legal-cloud-status'
+  };
+  const WIZ_ALL_DOC_KEYS = Object.keys(WIZ_DOC_STATUS_MAP);
+  // Set to track which docs have been acknowledged
+  const wizReadDocs = new Set();
+
+  function markWizardDocRead(canonicalKey) {
+    if (!canonicalKey) return;
+    wizReadDocs.add(canonicalKey);
+    // Update status badge
+    const statusId = WIZ_DOC_STATUS_MAP[canonicalKey];
+    if (statusId) {
+      const statusEl = document.getElementById(statusId);
+      if (statusEl) {
+        statusEl.textContent = '✓ READ';
+        statusEl.style.color = '#00d68f';
+      }
+      // Also update the button border to show it's been read
+      const btn = document.querySelector(`[data-legal-document="${canonicalKey}"]`);
+      if (btn) {
+        btn.style.borderColor = 'rgba(0,214,143,0.4)';
+        btn.style.background = 'rgba(0,214,143,0.05)';
+      }
+    }
+    // Update hint text with progress
+    const hint = document.getElementById('wiz-legal-hint');
+    const remaining = WIZ_ALL_DOC_KEYS.filter(k => !wizReadDocs.has(k)).length;
+    // Check if all docs read => unlock EULA checkbox
+    const allRead = remaining === 0;
+    if (hint) {
+      if (allRead) {
+        hint.textContent = '✓ All documents read. Tick the checkbox above to continue.';
+        hint.style.color = '#00d68f';
+      } else {
+        hint.textContent = `⬆ ${remaining} document${remaining !== 1 ? 's' : ''} left to read before you can proceed.`;
+        hint.style.color = '#64748b';
+      }
+    }
+    if (allRead) {
+      const eulaCheckbox = document.getElementById('wizard-eula-checkbox');
+      const eulaLabel = document.getElementById('wiz-eula-label');
+      if (eulaCheckbox) {
+        eulaCheckbox.disabled = false;
+        eulaCheckbox.style.cursor = 'pointer';
+      }
+      if (eulaLabel) {
+        eulaLabel.style.opacity = '1';
+        eulaLabel.style.cursor = 'pointer';
+      }
+    }
+  }
+
+  // Hook into the "I Understand" button on the canonical legal modal
+  const ackBtn = document.getElementById('btn-ack-legal-modal');
+  if (ackBtn) {
+    ackBtn.addEventListener('click', () => {
+      const modal = document.getElementById('modal-legal-document');
+      const key = modal ? modal.dataset.currentDocKey : null;
+      if (key) markWizardDocRead(key);
+      closeLegalDocumentModal();
+    });
+  }
+
+  // Also hook into close buttons so closing counts as having opened the doc
+  // (user saw it even if they didn't click "I Understand")
+  // Actually: only mark read on explicit acknowledge (ackBtn), not just close.
+
+  window.markWizardDocRead = markWizardDocRead;
+  window.wizReadDocs = wizReadDocs;
+
   document.addEventListener('click', (e) => {
     const trigger = e.target.closest('[data-legal-document], .btn-open-legal-doc, [data-doc-key], [data-legal-doc]');
     if (!trigger) return;
@@ -19176,7 +19259,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     }
   });
 
-  ['btn-close-legal-modal', 'btn-close-legal-modal-footer', 'btn-ack-legal-modal'].forEach(id => {
+  ['btn-close-legal-modal', 'btn-close-legal-modal-footer'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener('click', closeLegalDocumentModal);
