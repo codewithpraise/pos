@@ -25,7 +25,6 @@
   <!-- Fraunces and Literata removed — zero usage confirmed in CSS and JS -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <script src="polyfill.min.js"></script>
   <link rel="stylesheet" href="styles/design-tokens.css?v=1.0.9">
@@ -37,6 +36,19 @@
   <script src="theme-transfer.js?v=1.0.9"></script>
 </head>
 <body>
+  <!-- STATIC EMERGENCY RECOVERY FALLBACK (No-JS / Catastrophic Fallback Node) -->
+  <div id="vx-emergency-recovery" hidden style="position:fixed;inset:0;z-index:9999999999;background:#060609;display:none;align-items:center;justify-content:center;padding:24px;font-family:sans-serif;">
+    <div style="max-width:480px;width:100%;background:#0f0f11;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:28px;box-shadow:0 20px 40px rgba(0,0,0,0.8);">
+      <div style="font-size:24px;margin-bottom:12px;">⚠️</div>
+      <h3 style="color:#fff;font-size:18px;font-weight:800;margin:0 0 6px;">Valenixia couldn't start</h3>
+      <p style="color:#6b7280;font-size:11px;margin:0 0 8px;font-family:monospace;" id="vx-emergency-recovery-stage">Stage: UNKNOWN</p>
+      <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:12px 0 20px;white-space:pre-wrap;background:rgba(255,255,255,0.03);padding:12px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);" id="vx-emergency-recovery-message">A critical initialization fault occurred.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="location.reload()" style="flex:1;padding:12px;background:#10b981;border:none;color:#000;font-weight:800;border-radius:6px;cursor:pointer;font-size:13px;min-height:44px;">Retry</button>
+        <button onclick="if(typeof window.copyDiagnostics==='function')window.copyDiagnostics();else console.log('[BootTrace]',window.__VALENIXIA_BOOT_TRACE__)" style="flex:1;padding:12px;background:transparent;border:1px solid rgba(255,255,255,0.15);color:#00d68f;font-weight:700;border-radius:6px;cursor:pointer;font-size:12px;min-height:44px;">📋 Copy Diagnostics</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ELEGANT BOOTSTRAPPING SPLASH OVERLAY WITH DIAGNOSTIC TERMINAL -->
   <div id="app-boot-loader" style="position:fixed;inset:0;z-index:99999;background:#060609;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-family:'Manrope',sans-serif;transition:opacity 0.3s ease, visibility 0.3s ease;padding:20px;box-sizing:border-box;">
@@ -45,7 +57,6 @@
     <div style="width:180px;height:3px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;margin-top:2px;">
       <div id="app-boot-loader-progress" style="width:30%;height:100%;background:linear-gradient(90deg,#00d68f,#10b981);border-radius:99px;transition:width 0.3s ease;"></div>
     </div>
-
   </div>
 
   <!-- AUTH LOCK SCREEN (Centered login PIN pad overlay) -->
@@ -302,8 +313,8 @@
       <!-- SCREEN WRAPPERS -->
       <div class="pos-content-pane">
         
-        <!-- View 1: Checkout -->
-        <section class="content-view active" id="view-checkout">
+        <!-- View 1: Checkout (active class assigned by router after bootstrap READY, not baked in HTML) -->
+        <section class="content-view" id="view-checkout">
           <div class="checkout-tabs-mobile" id="checkout-tabs-mobile-nav" style="display: none; width: 100%; border-bottom: 1px solid var(--border-titanium); padding: 8px 16px; gap: 8px; box-sizing: border-box; background: var(--panel-graphite); flex-shrink: 0;">
             <button type="button" class="checkout-tab-btn" data-tab="catalog" style="flex: 1; min-height: 40px; border-radius: 6px; font-weight: 700; font-size: 12px; background: transparent; border: 1px solid transparent; color: var(--text-gray); cursor: pointer; transition: all 0.2s ease;">Catalog</button>
             <button type="button" class="checkout-tab-btn active" data-tab="cart" style="flex: 1; min-height: 40px; border-radius: 6px; font-weight: 700; font-size: 12px; background: var(--panel-graphite-light); border: 1px solid var(--border-titanium); color: var(--text-white); cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 6px;">Cart <span id="mobile-cart-badge" style="background: var(--alert-coral); color: white; border-radius: 10px; padding: 2px 6px; font-size: 9px; font-weight: 800; display: inline-block; min-width: 12px; text-align: center;">0</span></button>
@@ -2482,70 +2493,10 @@
         </section>
 
         <!-- View 11: Suppliers (Distributors & Purchase Ledger) -->
-        <section class="content-view" id="view-suppliers">
-          <div class="view-header">
-            <h2>Suppliers &amp; Purchase Ledger</h2>
-            <button class="action-btn action-success" id="btn-suppliers-create">+ Add Supplier</button>
-          </div>
-          
-          <div class="suppliers-split-grid" style="display: grid; grid-template-columns: minmax(280px, 340px) 1fr; gap: 20px; min-height: 520px; height: calc(100vh - 160px); width: 100%;">
-            <!-- Left panel: List of distributors -->
-            <div class="card-panel-wrapper" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 16px; height: 100%; display: flex; flex-direction: column; gap: 16px; overflow: hidden; box-sizing: border-box;">
-              <input type="text" id="supplier-search" class="pos-input" placeholder="Search suppliers..." style="width: 100%;" aria-label="Search suppliers...">
-              <div id="supplier-list-container" style="overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;">
-                <!-- dynamic list of suppliers -->
-                <p class="text-center text-muted" style="margin-top: 50px;">No suppliers registered.</p>
-              </div>
-            </div>
-
-            <!-- Right panel: Detailed Ledger & Actions -->
-            <div class="card-panel-wrapper" id="supplier-detail-panel" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 24px; height: 100%; display:none; flex-direction: column; gap: 20px; overflow-y: auto; box-sizing: border-box;">
-              <!-- Dynamic details rendered here -->
-            </div>
-            
-            <div class="card-panel-wrapper" id="supplier-detail-empty" style="background: var(--panel-graphite); border: 1px dashed var(--border-titanium); border-radius: 8px; padding: 48px; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text-gray); box-sizing: border-box;">
-              <div>
-                <div style="display: flex; justify-content: center; margin-bottom: 20px; color: var(--accent-emerald);">
-                  <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-                </div>
-                <h3>Supplier Ledger Workspace</h3>
-                <p style="font-size: 12px; max-width: 320px; margin: 8px auto 0;">Select a supplier to manage purchase orders, view invoices, and track accounts payable balances.</p>
-              </div>
-            </div>
-          </div>
-        </section>
+        
 
         <!-- View 12: Credit Book (Udhaar/Customer Credit ledger) -->
-        <section class="content-view" id="view-credit-book">
-          <div class="view-header">
-            <h2>Credit Book (Udhaar/Khata Ledger)</h2>
-          </div>
-          
-          <div class="suppliers-split-grid" style="display: grid; grid-template-columns: minmax(280px, 340px) 1fr; gap: 20px; min-height: 520px; height: calc(100vh - 160px); width: 100%;">
-            <!-- Left panel: List of customers with credit -->
-            <div class="card-panel-wrapper" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 16px; height: 100%; display: flex; flex-direction: column; gap: 16px; overflow: hidden; box-sizing: border-box;">
-              <input type="text" id="credit-customer-search" class="pos-input" placeholder="Search customer credit ledger..." style="width: 100%;" aria-label="Search customer credit ledger...">
-              <div id="credit-customer-list-container" style="overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;">
-                <!-- dynamic list of customers with outstanding balances -->
-                <p class="text-center text-muted" style="margin-top: 50px;">No customer credit accounts active.</p>
-              </div>
-            </div>
-
-            <!-- Right panel: Ledger details -->
-            <div class="card-panel-wrapper" id="credit-detail-panel" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 24px; height: 100%; display:none; flex-direction: column; gap: 20px; overflow-y: auto;">
-              <!-- Dynamic credit ledger statements rendered here -->
-            </div>
-
-            <div class="card-panel-wrapper" id="credit-detail-empty" style="background: var(--panel-graphite); border: 1px dashed var(--border-titanium); border-radius: 8px; padding: 48px; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text-gray);">
-              <div>
-                <div style="display: flex; justify-content: center; margin-bottom: 20px; color: var(--accent-emerald);">
-                  <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z"/></svg>
-                </div>
-                <h3>Accounts Receivable Ledger</h3>
-              </div>
-            </div>
-          </div>
-        </section>
+        
 
         <!-- View: Platform Admin -->
         <section class="content-view" id="view-platform-admin">
@@ -3539,6 +3490,11 @@
       <button id="btn-submit-wizard" style="display:none;"></button>
     </div>
   </div>
+  <script>
+    if (window.ValenixiaBootstrap && !window.bootstrapDecisionReady && typeof window.runBootstrapDiscoveryPipeline === 'function') {
+      window.runBootstrapDiscoveryPipeline();
+    }
+  </script>
   <!-- DEVICE PAIRING / WHITELIST OVERLAY -->
   <div class="auth-overlay" id="device-pairing-overlay" style="display: none; z-index: 9998;">
     <div class="auth-card" style="max-width: 480px; width: 90%; padding: 36px; border: 1px solid var(--border-titanium); border-radius: 4px;">
@@ -3900,5 +3856,21 @@
   </div>
   <script src="barcode-decoder.js"></script>
   <script src="barcode-scanner.js"></script>
+<script>
+/* INLINE WIZARD BODY-MOUNT GUARD */
+(function() {
+  function ensureWizardOnBody() {
+    var wiz = document.getElementById('first-boot-wizard');
+    if (wiz && document.body && wiz.parentElement !== document.body) {
+      try { document.body.appendChild(wiz); } catch (_) {}
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ensureWizardOnBody);
+  } else {
+    ensureWizardOnBody();
+  }
+})();
+</script>
 </body>
 </html>

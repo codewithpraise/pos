@@ -1110,9 +1110,9 @@ window.__realHandlers = window.__realHandlers || {};
           state.activeCashier = null;
           state.terminalRole = null;
           state.currentPin = '';
-          document.getElementById('auth-lock-screen')?.classList.add('active');
-          const layout = document.getElementById('pos-app-layout');
-          if (layout) layout.style.display = 'none';
+          if (window.ValenixiaBootstrap) {
+            window.ValenixiaBootstrap.transition('AUTH_LOCK');
+          }
         }
       }, 5 * 60 * 1000); // 5 minutes
     }
@@ -1429,17 +1429,6 @@ setHtml(overlay, `
     const statusEl = document.getElementById('app-boot-loader-status');
     if (progressEl) progressEl.style.width = percent + '%';
     if (statusEl && text) statusEl.textContent = text;
-    if (percent >= 100) {
-      loader.style.pointerEvents = 'none';
-      loader.style.transition = 'opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1)';
-      loader.style.opacity = '0';
-      setTimeout(() => {
-        try {
-          loader.style.display = 'none';
-          loader.remove();
-        } catch (_) {}
-      }, 500);
-    }
   }
   function isGraceTrialActive() {
     if (window.__vxSession && window.__vxSession.tier) {
@@ -1844,10 +1833,10 @@ setHtml(overlay, `
 
       if (!regResp.ok) {
         const errBody = await regResp.json().catch(() => ({}));
-        console.error('[App] Device registration failed:', regResp.status, errBody);
-        if (window.ValenixiaBootstrap && regResp.status >= 500) {
-          window.ValenixiaBootstrap.transition('SERVER_UNAVAILABLE', { stage: 'DEVICE_DISCOVERY' });
-        }
+        console.warn('[App] Device registration failed:', regResp.status, errBody);
+        // On 5xx (server unavailable / not deployed on this host), silently continue offline.
+        // This is normal on Vercel static deployments where the Node API server is not running.
+        // Do NOT block the user with SERVER_UNAVAILABLE — let bootstrap continue to onboarding/login.
         return null;
       }
 
@@ -1867,6 +1856,12 @@ setHtml(overlay, `
         return regData.token;
       }
 
+      if (regData.status === 'OFFLINE_MODE') {
+        // Server is up but Supabase not configured — continue in local/offline mode silently
+        console.log('[App] Device registration: OFFLINE_MODE — continuing with local data.');
+        return null;
+      }
+
       if (regData.status === 'PENDING') {
         console.log('[App] Device registration PENDING — awaiting admin approval.');
         // Will show pairing/pending surface at DECISION
@@ -1874,10 +1869,8 @@ setHtml(overlay, `
         return null;
       }
     } catch (err) {
-      console.warn('[App] Device registration network error:', err.message);
-      if (window.ValenixiaBootstrap && (err.name === 'AbortError' || err.message?.includes('timeout'))) {
-        window.ValenixiaBootstrap.transition('SERVER_UNAVAILABLE', { stage: 'DEVICE_DISCOVERY' });
-      }
+      // Network/timeout errors — silently continue in offline mode, do NOT block with SERVER_UNAVAILABLE
+      console.warn('[App] Device registration network error (offline mode):', err.message);
     }
     return null;
   }
@@ -1918,6 +1911,9 @@ setHtml(overlay, `
           if (dbResult) {
             dbInitialized = true;
             console.log(`[App] IndexedDB initialized successfully on attempt ${attempt + 1}`);
+            if (window.ValenixiaBootstrap) {
+              window.ValenixiaBootstrap.completeStage('DATABASE_DISCOVERY', { source: 'ValenixiaDB' });
+            }
             try {
               const clockOverridePref = await ValenixiaDB.get('local_preferences', 'clock_override_active_until');
               if (clockOverridePref && parseInt(clockOverridePref.value_payload, 10) > Date.now()) {
@@ -2279,8 +2275,10 @@ setHtml(overlay, `
         }
       } catch (err) {}
     }, 5 * 60 * 1000);
-    updateBootProgress(100, 'Ready');
-    // Drive state machine to DECISION — it will route to ONBOARDING, AUTH_LOCK, or PAIRING
+    updateBootProgress(98, 'Finalizing...');
+    // Drive state machine to DECISION — it will route to ONBOARDING, AUTH_LOCK, or PAIRING.
+    // runAutomatedSystemAudit() is deliberately NOT called here — it runs only after
+    // ValenixiaBootstrap reaches READY state (post-authentication).
     if (window.ValenixiaBootstrap) {
       window.ValenixiaBootstrap.transition('DECISION', {
         onboardingComplete: localStorage.getItem('onboarding_complete') === 'true',
@@ -2290,7 +2288,6 @@ setHtml(overlay, `
       // Fallback for environments where state machine unavailable
       window.appInitialized = true;
     }
-    runAutomatedSystemAudit();
   }
 
   // ===== AUTOMATED BUTTON & SYSTEM DIAGNOSTIC SELF-TEST ENGINE =====
@@ -2369,6 +2366,11 @@ setHtml(overlay, `
     }, 1500);
   }
   window.runAutomatedSystemAudit = runAutomatedSystemAudit;
+
+  // Autotest is deliberately deferred until READY state (after PIN authentication).
+  // It must NOT run during ONBOARDING, AUTH_LOCK, or PAIRING bootstrap phases.
+  // The bootstrap-to-READY path in app.js PIN handler will call runAutomatedSystemAudit().
+  // To run manually: window.runAutomatedSystemAudit()
 
   async function checkAndRequestStoragePersist() {
     const badge = document.getElementById('storage-lock-badge');
@@ -3176,7 +3178,7 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
             });
             
             var lockScreenActive = document.getElementById('auth-lock-screen')?.classList.contains('active');
-            if ((!employees || employees.length === 0) && lockScreenActive) {
+            if ((!employees || employees.length === 0) && lockScreenActive && !window.bootstrapDecisionReady) {
               console.warn('[App] Zero active employees found in database. Showing onboarding wizard.');
               if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('ONBOARDING');
             }
@@ -3272,20 +3274,8 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
             }
             console.log('[Worker] Database initialization safely completed.');
 
-            const wizOverlay  = document.getElementById('first-boot-wizard');
-            const lScreen     = document.getElementById('auth-lock-screen');
-            const posLayout   = document.getElementById('pos-app-layout');
-            if (wizOverlay) {
-              wizOverlay.style.display = 'none';
-              wizOverlay.classList.remove('active');
-            }
-            if (lScreen) {
-              lScreen.style.display = 'flex';
-              lScreen.classList.add('active');
-            }
-            if (posLayout) {
-              posLayout.style.display = 'none';
-              posLayout.classList.remove('active');
+            if (window.ValenixiaBootstrap) {
+              window.ValenixiaBootstrap.transition('AUTH_LOCK');
             }
             
             if (typeof showNotificationToast === 'function') {
@@ -5797,21 +5787,8 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
             localStorage.setItem('onboarding_complete', 'true');
             localStorage.setItem('database_hydrated', 'true');
 
-            // Immediate transition: Hide Wizard and activate Lock Screen
-            const wizOverlay  = document.getElementById('first-boot-wizard');
-            const lScreen     = document.getElementById('auth-lock-screen');
-            const posLayout   = document.getElementById('pos-app-layout');
-            if (wizOverlay) {
-              wizOverlay.style.display = 'none';
-              wizOverlay.classList.remove('active');
-            }
-            if (lScreen) {
-              lScreen.style.display = 'flex';
-              lScreen.classList.add('active');
-            }
-            if (posLayout) {
-              posLayout.style.display = 'none';
-              posLayout.classList.remove('active');
+            if (window.ValenixiaBootstrap) {
+              window.ValenixiaBootstrap.transition('AUTH_LOCK');
             }
 
             if (typeof showNotificationToast === 'function') {
@@ -5913,12 +5890,9 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
                     is_idempotent_flag: 0, updated_at: Date.now()
                   });
                 }
-                const wizOverlay = document.getElementById('first-boot-wizard');
-                const lScreen    = document.getElementById('auth-lock-screen');
-                const posLayout  = document.getElementById('pos-app-layout');
-                if (wizOverlay) wizOverlay.style.display = 'none';
-                if (lScreen)    lScreen.classList.add('active');
-                if (posLayout)  posLayout.style.display = 'none';
+                if (window.ValenixiaBootstrap) {
+                  window.ValenixiaBootstrap.transition('AUTH_LOCK');
+                }
                 if (typeof showNotificationToast === 'function') {
                   showNotificationToast('Network joined. Please enter your PIN.', 'success', 3000);
                 }
@@ -5944,9 +5918,8 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
     if (btnCfdExit) {
       btnCfdExit.addEventListener('click', () => {
         playAudioSignal('click');
-        document.getElementById('view-cfd').style.display = 'none';
-        document.getElementById('pos-app-layout').style.display = 'grid';
-        document.getElementById('auth-lock-screen').classList.add('active');
+        const vCfd = document.getElementById('view-cfd'); if (vCfd) vCfd.style.display = 'none';
+        if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('AUTH_LOCK');
         state.terminalRole = null;
         state.currentPin = '';
         updatePinDisplayDots();
@@ -5957,9 +5930,8 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
     if (btnKdsExit) {
       btnKdsExit.addEventListener('click', () => {
         playAudioSignal('click');
-        document.getElementById('view-kds').style.display = 'none';
-        document.getElementById('pos-app-layout').style.display = 'grid';
-        document.getElementById('auth-lock-screen').classList.add('active');
+        const vKds = document.getElementById('view-kds'); if (vKds) vKds.style.display = 'none';
+        if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('AUTH_LOCK');
         state.terminalRole = null;
         state.currentPin = '';
         updatePinDisplayDots();
@@ -7079,20 +7051,20 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
 
     if (selectedRole === 'CFD') {
       state.terminalRole = 'CFD';
-      const lk = document.getElementById('auth-lock-screen');
-      if (lk) { lk.classList.remove('active'); lk.style.display = 'none'; }
-      document.getElementById('view-cfd').style.display = 'block';
-      document.getElementById('pos-app-layout').style.display = 'none';
+      if (window.ValenixiaBootstrap && typeof window.ValenixiaBootstrap._hideAllSurfaces === 'function') {
+        window.ValenixiaBootstrap._hideAllSurfaces();
+      }
+      const vCfd = document.getElementById('view-cfd'); if (vCfd) vCfd.style.display = 'block';
       try { playAudioSignal('login'); } catch(e) {}
       return;
     }
 
     if (selectedRole === 'KDS') {
       state.terminalRole = 'KDS';
-      const lk = document.getElementById('auth-lock-screen');
-      if (lk) { lk.classList.remove('active'); lk.style.display = 'none'; }
-      document.getElementById('view-kds').style.display = 'block';
-      document.getElementById('pos-app-layout').style.display = 'none';
+      if (window.ValenixiaBootstrap && typeof window.ValenixiaBootstrap._hideAllSurfaces === 'function') {
+        window.ValenixiaBootstrap._hideAllSurfaces();
+      }
+      const vKds = document.getElementById('view-kds'); if (vKds) vKds.style.display = 'block';
       try { playAudioSignal('login'); } catch(e) {}
       syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
       return;
@@ -7195,6 +7167,9 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
         // Transition surface to READY through ValenixiaBootstrap controller
         if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('READY');
 
+        // Run autotest now that we are in READY state (first post-auth opportunity)
+        try { if (typeof runAutomatedSystemAudit === 'function') setTimeout(runAutomatedSystemAudit, 800); } catch(_) {}
+
         const vCfd = document.getElementById('view-cfd'); if (vCfd) vCfd.style.display = 'none';
         const vKds = document.getElementById('view-kds'); if (vKds) vKds.style.display = 'none';
 
@@ -7210,15 +7185,17 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
         // Request fresh baseline datasets on register unlock to guarantee 100% data persistence
         try {
           restoreActiveCartSession();
-          syncWorker.postMessage({ type: 'GET_PREFERENCES' });
-          syncWorker.postMessage({ type: 'GET_CATALOG' });
-          syncWorker.postMessage({ type: 'GET_CUSTOMERS' });
-          syncWorker.postMessage({ type: 'GET_EMPLOYEES' });
-          syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
-          syncWorker.postMessage({ type: 'GET_DISTRIBUTORS' });
-          syncWorker.postMessage({ type: 'GET_PURCHASE_ORDERS' });
-          syncWorker.postMessage({ type: 'GET_DISTRIBUTOR_PAYMENTS' });
-          syncWorker.postMessage({ type: 'GET_CUSTOMER_CREDIT' });
+          if (typeof syncWorker !== 'undefined' && syncWorker && typeof syncWorker.postMessage === 'function') {
+            syncWorker.postMessage({ type: 'GET_PREFERENCES' });
+            syncWorker.postMessage({ type: 'GET_CATALOG' });
+            syncWorker.postMessage({ type: 'GET_CUSTOMERS' });
+            syncWorker.postMessage({ type: 'GET_EMPLOYEES' });
+            syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
+            syncWorker.postMessage({ type: 'GET_DISTRIBUTORS' });
+            syncWorker.postMessage({ type: 'GET_PURCHASE_ORDERS' });
+            syncWorker.postMessage({ type: 'GET_DISTRIBUTOR_PAYMENTS' });
+            syncWorker.postMessage({ type: 'GET_CUSTOMER_CREDIT' });
+          }
         } catch (e) {
           console.warn('Post-login data fetch warning:', e);
         }
@@ -7849,16 +7826,23 @@ setHtml(overlay, `
       }
     }
 
-    // 0.b First Boot Onboarding Check delegated to ValenixiaBootstrap controller
-    if (!onboardingComplete) {
-      if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('ONBOARDING');
-      showPairingOverlay(false);
-      return;
-    } else {
-      if (!state.activeCashier) {
-        if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('AUTH_LOCK');
+    // 0.b First Boot Onboarding Check delegated to ValenixiaBootstrap controller.
+    // Guard: only fire pre-decision. Once bootstrapDecisionReady is true, the
+    // bootstrap pipeline has already committed its surface; these calls must not
+    // re-enter transition() and spawn competing _verifyAndDismiss loops.
+    if (!window.bootstrapDecisionReady) {
+      if (!onboardingComplete) {
+        if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('ONBOARDING');
+        showPairingOverlay(false);
+        return;
       } else {
-        if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('READY');
+        if (!state.activeCashier) {
+          if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('AUTH_LOCK');
+        } else {
+          if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('READY');
+          // Run autotest now that we are in READY state (active session resume)
+          try { if (typeof runAutomatedSystemAudit === 'function') setTimeout(runAutomatedSystemAudit, 800); } catch(_) {}
+        }
       }
     }
 
@@ -8300,7 +8284,7 @@ setHtml(qrContainer, '<span style="font-size: 8px; color: var(--text-gray); text
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('demo') === 'true') {
       console.log("[License] Register running in persistent demo override mode.");
-      document.getElementById('license-lockout-overlay').style.display = 'none';
+      if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.dismissOverlay('license-lockout-overlay');
       return;
     }
 
@@ -9403,6 +9387,20 @@ setHtml(tr, `
       mobileCartBadge.style.display = totalQty > 0 ? 'inline-block' : 'none';
     }
   }
+
+  function getCartStorageKey() {
+    try {
+      const snap = window.__VALENIXIA_IDENTITY__ ? window.__VALENIXIA_IDENTITY__.getSnapshot() : {};
+      const acc = snap.accountId || localStorage.getItem('valenixia_account_id') || 'acc_default';
+      const org = snap.organizationId || localStorage.getItem('valenixia_org_id') || 'org_default';
+      const store = snap.storeId || localStorage.getItem('valenixia_store_id') || 'store_default';
+      const term = snap.terminalId || localStorage.getItem('valenixia_terminal_id') || 'term_default';
+      return `valenixia:${acc}:${org}:${store}:${term}:cart`;
+    } catch (_) {
+      return 'valenixia_active_cart';
+    }
+  }
+  window.getCartStorageKey = getCartStorageKey;
 
   // Calculate sum totals
   function calculateSubtotal() {
@@ -15465,10 +15463,13 @@ setHtml(item, `
     }
   }
 
-  const CLIENT_VERSION = '1.0.4';
+  const CLIENT_VERSION = '2.6.0';
 
 // ----------------------------------------------------------------------------
   function showReleaseNotesModal(version, changes) {
+    // Guard: Do not display release notes modal during first-boot onboarding phase
+    if (localStorage.getItem('onboarding_complete') !== 'true') return;
+
     const seenKey = 'valenixia_last_seen_version';
     if (localStorage.getItem(seenKey) === version) return; // Already seen
 
@@ -16158,16 +16159,15 @@ setHtml(container, `<p style="color: var(--alert-coral); font-size:12px;">Failed
       EventListenerRegistry.setInterval(checkForUpdates, 3600000); // Check hourly
     }).catch(err => {
       console.error('[Boot] Critical fault during application boot:', err);
-      const loader = document.getElementById('app-boot-loader');
-      if (loader) { try { loader.style.display = 'none'; loader.remove(); } catch (_) {} }
-      const root = document.getElementById('pos-app-layout');
-      if (root) {
-setHtml(root, `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; text-align:center; padding:2rem; font-family:sans-serif; background:#121212; color:#fff; z-index: 999999; position: relative;">
-          <h1 style="color:#ff5555; margin-bottom:1rem; font-size:24px;">System Boot Failure</h1>
-          <p style="margin-bottom:2rem; max-width:600px; line-height:1.5; color:#aaa;">A critical error occurred while initializing the application. Local storage may be blocked or inaccessible in this browser environment.</p>
-          <pre style="background:#000; padding:1rem; border-radius:8px; text-align:left; overflow:auto; max-width:800px; width:100%; color:#f0f0f0; font-size: 12px; border: 1px solid #333;">${err.stack || err.message || err}</pre>
-          <button onclick="location.reload()" style="margin-top:2rem; padding:12px 24px; background:#3482f6; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:16px; font-weight: bold;">Retry Boot Sequence</button>
-        </div>`);
+      // Delegate to ValenixiaBootstrap — it is the sole surface controller.
+      // Do NOT directly write to #pos-app-layout or any other boot surface.
+      if (window.ValenixiaBootstrap && !window.bootstrapDecisionReady) {
+        window.ValenixiaBootstrap.enterRecovery(
+          'A critical error occurred during startup.\n\n' + (err && err.message ? err.message : String(err)) + '\n\nRetry to reload.',
+          'APP_INIT_FATAL_ERROR', true, true
+        );
+      } else {
+        console.error('[Boot] Fatal init error (post-decision):', err);
       }
     });
   });

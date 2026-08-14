@@ -33,6 +33,10 @@
       "source": "/downloads/valenixia-(pos|latest|mobile)\\.apk",
       "destination": "/downloads/valenixia.apk"
     },
+    {
+      "source": "/downloads/valenixia-(pos-desktop|desktop|latest)\\.exe",
+      "destination": "/downloads/valenixia.exe"
+    },
 
     {
       "source": "/((?!api/|.*\\..*).*)",

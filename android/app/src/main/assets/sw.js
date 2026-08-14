@@ -14,7 +14,7 @@ if (self.location.hostname !== 'localhost' && !self.location.hostname.includes('
 }
 
 const urlParams = new URLSearchParams(self.location.search);
-const buildVersion = urlParams.get('v') || 'v2.6.3-zero-surface-fix';
+const buildVersion = urlParams.get('v') || 'v2.6.0-prod-closed-wizard-v1';
 const CACHE_NAME = `valenixia-pos-cache-${buildVersion}`;
 const ASSETS_TO_CACHE = [
   { url: '/', integrity: '' },
@@ -24,7 +24,7 @@ const ASSETS_TO_CACHE = [
   { url: '/styles/themes.css', integrity: '' },
   { url: '/styles/animations.css', integrity: '' },
   { url: '/styles/components.css', integrity: '' },
-  { url: '/app.js', integrity: 'sha384-ZHHAshr/6/FAGLqhKjAKyqIuT832Mu9JZVWzmktcllbFSxbfodUdU/OWPwzHzr8z' },
+  { url: '/app.js', integrity: 'sha384-A5XcoHuq3YOX330hr4YYeg0Xr0Df1Ni/CSpPSQg9WSaALnE/aNpGZCtxUlWvZU7o' },
   { url: '/router.js', integrity: '' },
   { url: '/commercial-catalog.js', integrity: '' },
   { url: '/legal-documents.js', integrity: '' },
