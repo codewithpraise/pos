@@ -234,7 +234,11 @@ criticalFns.forEach(fnName => {
         const canonicalKey = keyAliasMap[(docKey || '').toLowerCase()] || docKey;
         const modal = document.getElementById('modal-legal-document');
         if (modal) {
-          if (document.body && modal.parentElement !== document.body) {
+          const wiz = document.getElementById('first-boot-wizard');
+          const isWizActive = wiz && (wiz.style.display === 'flex' || wiz.classList.contains('active'));
+          if (isWizActive && wiz) {
+            try { wiz.appendChild(modal); } catch (_) {}
+          } else if (document.body) {
             try { document.body.appendChild(modal); } catch (_) {}
           }
           const titleEl = document.getElementById('legal-doc-modal-title');
@@ -244,7 +248,12 @@ criticalFns.forEach(fnName => {
           if (contentEl) contentEl.innerHTML = '<p style="color:#e2e8f0;line-height:1.6;">Valenixia Commercial Ecosystem Terms &amp; Regulatory Compliance Documentation.<br>All rights reserved © 2026 Valenixia Systems.</p>';
           modal.classList.add('active');
           modal.style.display = 'flex';
-          modal.style.zIndex = '999999';
+          modal.style.position = 'fixed';
+          modal.style.top = '0';
+          modal.style.left = '0';
+          modal.style.width = '100vw';
+          modal.style.height = '100vh';
+          modal.style.zIndex = '2147483647';
           document.body.style.overflow = 'hidden';
           return;
         }

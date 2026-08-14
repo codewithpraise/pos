@@ -446,6 +446,7 @@ window.__realHandlers = window.__realHandlers || {};
         window.executeWizardGoTo(nextStep, path, 'forward');
       }
     } else {
+      if (typeof window.closeLegalDocumentModal === 'function') window.closeLegalDocumentModal();
       if (typeof window.submitWizard === 'function') {
         window.submitWizard();
       } else {
@@ -19079,9 +19080,15 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     const registry = (typeof getLegalRegistry === 'function' ? getLegalRegistry() : null) || window.__LEGAL_REGISTRY__ || {};
     let modal = document.getElementById('modal-legal-document');
     
-    // ALWAYS re-append modal to document.body to ensure it is the VERY LAST child in DOM tree order
-    if (modal && document.body) {
-      try { document.body.appendChild(modal); } catch (_) {}
+    // Attach modal inside #first-boot-wizard if wizard is active, else to document.body
+    const wiz = document.getElementById('first-boot-wizard');
+    const isWizActive = wiz && (wiz.style.display === 'flex' || wiz.classList.contains('active'));
+    if (modal) {
+      if (isWizActive && wiz) {
+        try { wiz.appendChild(modal); } catch (_) {}
+      } else if (document.body) {
+        try { document.body.appendChild(modal); } catch (_) {}
+      }
     }
 
     const titleEl = document.getElementById('legal-doc-modal-title');
@@ -19147,6 +19154,8 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
         try { activeElementBeforeLegalModal.focus(); } catch (_) {}
       }
     }
+    const overlay = document.getElementById('__vx-legal-overlay');
+    if (overlay) overlay.remove();
   }
 
   window.openLegalDocumentModal = openLegalDocumentModal;
