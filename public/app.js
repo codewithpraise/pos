@@ -1856,6 +1856,12 @@ setHtml(overlay, `
         return regData.token;
       }
 
+      if (regData.status === 'OFFLINE_MODE') {
+        // Server is up but Supabase not configured — continue in local/offline mode silently
+        console.log('[App] Device registration: OFFLINE_MODE — continuing with local data.');
+        return null;
+      }
+
       if (regData.status === 'PENDING') {
         console.log('[App] Device registration PENDING — awaiting admin approval.');
         // Will show pairing/pending surface at DECISION
@@ -1863,10 +1869,8 @@ setHtml(overlay, `
         return null;
       }
     } catch (err) {
-      console.warn('[App] Device registration network error:', err.message);
-      if (window.ValenixiaBootstrap && (err.name === 'AbortError' || err.message?.includes('timeout'))) {
-        window.ValenixiaBootstrap.transition('SERVER_UNAVAILABLE', { stage: 'DEVICE_DISCOVERY' });
-      }
+      // Network/timeout errors — silently continue in offline mode, do NOT block with SERVER_UNAVAILABLE
+      console.warn('[App] Device registration network error (offline mode):', err.message);
     }
     return null;
   }

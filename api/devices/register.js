@@ -11,23 +11,14 @@
 //
 // Response:
 //   200: { status: "APPROVED", token: "<jwt>", nodeId }
-//   200: { status: "PENDING",  nodeId }
+//   200: { status: "OFFLINE_MODE" }   ← when Supabase/JWT not configured
 //   400: { error: "nodeId is required." }
 //   405: (method not allowed)
 //   500: { error: "Internal server error." }
-//
-// Bootstrap error mapping (consumed by ValenixiaBootstrap state machine):
-//   404 → RELEASE_MISMATCH   (this function missing from deployment)
-//   401 → AUTH_FAILURE
-//   403 → REGISTRATION_UNAUTHORIZED
-//   409 → IDENTITY_CONFLICT
-//   500/503 → SERVER_UNAVAILABLE
-//   timeout  → SERVER_UNAVAILABLE
 // ============================================================================
 
 'use strict';
 
-const { createClient } = require('@supabase/supabase-js');
 const { registerDeviceSupabase } = require('../../lib/device-registration-service');
 
 // Rate limiting — simple in-memory per-IP (resets on cold start, acceptable for serverless)
@@ -47,6 +38,25 @@ function isRateLimited(ip) {
   return false;
 }
 
+// Parse request body — Vercel auto-parses JSON bodies but this ensures compatibility
+async function parseBody(req) {
+  // If Vercel already parsed the body, use it directly
+  if (req.body && typeof req.body === 'object') return req.body;
+
+  // Otherwise read raw stream
+  return new Promise((resolve) => {
+    let data = '';
+    req.on('data', chunk => { data += chunk; });
+    req.on('end', () => {
+      try { resolve(JSON.parse(data)); }
+      catch (_) { resolve({}); }
+    });
+    req.on('error', () => resolve({}));
+    // Safety timeout
+    setTimeout(() => resolve({}), 3000);
+  });
+}
+
 module.exports = async function handler(req, res) {
   // CORS headers — allow the Vercel deployment origin
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -63,12 +73,14 @@ module.exports = async function handler(req, res) {
   }
 
   // Rate limiting
-  const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+  const clientIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
   if (isRateLimited(clientIp)) {
     return res.status(429).json({ error: 'Too many registration requests. Please wait before retrying.' });
   }
 
-  const { nodeId, deviceName, platform, userAgent } = req.body || {};
+  // Parse body with fallback
+  const body = await parseBody(req);
+  const { nodeId, deviceName, platform, userAgent } = body;
 
   if (!nodeId || typeof nodeId !== 'string' || nodeId.trim().length === 0) {
     return res.status(400).json({ error: 'nodeId is required.' });
@@ -80,28 +92,27 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'nodeId contains invalid characters.' });
   }
 
-  // Validate env vars — fail fast with a clear error
-  const SUPABASE_URL  = process.env.SUPABASE_URL;
-  const SUPABASE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
-  const JWT_SECRET    = process.env.JWT_SECRET;
+  // Validate env vars — if missing, return OFFLINE_MODE (200) so the client can continue gracefully
+  const SUPABASE_URL = process.env.SUPABASE_URL;
+  const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  const JWT_SECRET   = process.env.JWT_SECRET;
 
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
-    console.error('[DeviceRegister] Missing Supabase env vars.');
-    return res.status(503).json({ error: 'Service temporarily unavailable. Configuration error.' });
-  }
-  if (!JWT_SECRET) {
-    console.error('[DeviceRegister] Missing JWT_SECRET env var.');
-    return res.status(503).json({ error: 'Service temporarily unavailable. Configuration error.' });
+  if (!SUPABASE_URL || !SUPABASE_KEY || !JWT_SECRET) {
+    // Not a fatal error — client should continue in offline/local mode
+    console.warn('[DeviceRegister] Supabase/JWT env vars not configured — returning OFFLINE_MODE.');
+    return res.status(200).json({ status: 'OFFLINE_MODE', nodeId: sanitizedNodeId });
   }
 
   let supabase;
   try {
+    const { createClient } = require('@supabase/supabase-js');
     supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false }
     });
   } catch (err) {
     console.error('[DeviceRegister] Supabase client creation failed:', err.message);
-    return res.status(503).json({ error: 'Service temporarily unavailable.' });
+    // Return OFFLINE_MODE gracefully instead of 503
+    return res.status(200).json({ status: 'OFFLINE_MODE', nodeId: sanitizedNodeId });
   }
 
   try {
@@ -119,7 +130,7 @@ module.exports = async function handler(req, res) {
 
   } catch (err) {
     console.error('[DeviceRegister] Registration failed:', err.message);
-    // Do not leak internal error details to client
-    return res.status(500).json({ error: 'Internal server error. Please retry or contact support.' });
+    // Return OFFLINE_MODE instead of 500 — client can still work locally
+    return res.status(200).json({ status: 'OFFLINE_MODE', nodeId: sanitizedNodeId });
   }
 };
