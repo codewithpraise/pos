@@ -5685,7 +5685,7 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
       if (!doc) return;
       const overlay = document.createElement('div');
       overlay.id = '__vx-legal-overlay';
-      overlay.style.cssText = 'position:fixed;inset:0;z-index:9999999;background:rgba(5,5,8,0.97);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(10px);';
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(5,5,8,0.97);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(10px);';
       overlay.innerHTML = `
         <div style="max-width:520px;width:100%;max-height:90vh;background:#0d0d12;border:1px solid rgba(255,255,255,0.1);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 32px 64px rgba(0,0,0,0.8);">
           <div style="padding:20px 24px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
@@ -5702,7 +5702,6 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
       document.getElementById('__vx-legal-close').onclick = () => overlay.remove();
       document.getElementById('__vx-legal-acknowledge').onclick = () => {
         overlay.remove();
-        // Mark doc as read
         const btn = document.querySelector(`[data-legal-doc="${docKey}"]`);
         if (btn) {
           btn.dataset.read = '1';
@@ -5714,19 +5713,10 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
             statusEl.style.color = 'var(--accent-emerald,#00d68f)';
           }
         }
-        // Check if all 3 docs are read
-        const allRead = ['tos','privacy','refund'].every(k => {
-          const b = document.querySelector(`[data-legal-doc="${k}"]`);
-          return b && b.dataset.read === '1';
-        });
-        if (allRead) {
-          const eulaCheckbox = document.getElementById('wizard-eula-checkbox');
-          const eulaLabel = document.getElementById('wiz-eula-label');
-          const hint = document.getElementById('wiz-legal-hint');
-          if (eulaCheckbox) { eulaCheckbox.disabled = false; eulaCheckbox.style.cursor = 'pointer'; }
-          if (eulaLabel) { eulaLabel.style.opacity = '1'; eulaLabel.style.cursor = 'pointer'; }
-          if (hint) { hint.textContent = '✓ All documents read. Tick the checkbox above to proceed.'; hint.style.color = 'var(--accent-emerald,#00d68f)'; }
-        }
+        const eulaCheckbox = document.getElementById('wizard-eula-checkbox');
+        const eulaLabel = document.getElementById('wiz-eula-label');
+        if (eulaCheckbox) { eulaCheckbox.disabled = false; eulaCheckbox.style.cursor = 'pointer'; }
+        if (eulaLabel) { eulaLabel.style.opacity = '1'; eulaLabel.style.cursor = 'pointer'; }
       };
     }
     window.showLegalDocOverlay = showLegalDocOverlay;
@@ -13198,8 +13188,9 @@ setHtml(alertsContainer, alertsHtml);
       const col = document.createElement('div');
       col.className = 'chart-bar-col' + (isPeak ? ' peak-bar' : '');
       col.style.height = `${Math.max(pct, 6)}%`;
-      col.style.width = '32px';
-      col.style.minWidth = '32px';
+      col.style.flex = '1 1 0%';
+      col.style.minWidth = '14px';
+      col.style.boxSizing = 'border-box';
       col.style.display = 'flex';
       col.style.flexDirection = 'column';
       col.style.justifyContent = 'space-between';
@@ -19088,8 +19079,8 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     const registry = (typeof getLegalRegistry === 'function' ? getLegalRegistry() : null) || window.__LEGAL_REGISTRY__ || {};
     let modal = document.getElementById('modal-legal-document');
     
-    // Ensure modal is directly attached to document.body
-    if (modal && document.body && modal.parentElement !== document.body) {
+    // ALWAYS re-append modal to document.body to ensure it is the VERY LAST child in DOM tree order
+    if (modal && document.body) {
       try { document.body.appendChild(modal); } catch (_) {}
     }
 
@@ -19125,8 +19116,13 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
 
       modal.classList.add('active');
       modal.style.display = 'flex';
-      // z-index MUST exceed wizard overlay (z-index: 999999) — use 9999999
-      modal.style.zIndex = '9999999';
+      modal.style.position = 'fixed';
+      modal.style.top = '0';
+      modal.style.left = '0';
+      modal.style.width = '100vw';
+      modal.style.height = '100vh';
+      // Maximum 32-bit integer z-index so it ALWAYS renders on top of the setup wizard overlay
+      modal.style.zIndex = '2147483647';
       modal.setAttribute('aria-hidden', 'false');
       document.body.classList.add('modal-open');
       document.body.style.overflow = 'hidden';
@@ -19163,8 +19159,6 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   }
 
   // ── Wizard Legal Doc Status Tracking ──────────────────────────────────────
-  // When user clicks "I Understand" in the canonical modal, mark the
-  // corresponding wizard step-5 status badge as READ and unlock EULA checkbox.
   const WIZ_DOC_STATUS_MAP = {
     TERMS_OF_SERVICE: 'wiz-legal-tos-status',
     EULA: 'wiz-legal-eula-status',
@@ -19173,14 +19167,11 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     FBR_DISCLAIMER: 'wiz-legal-fbr-status',
     CLOUD_SYNC_TERMS: 'wiz-legal-cloud-status'
   };
-  const WIZ_ALL_DOC_KEYS = Object.keys(WIZ_DOC_STATUS_MAP);
-  // Set to track which docs have been acknowledged
   const wizReadDocs = new Set();
 
   function markWizardDocRead(canonicalKey) {
     if (!canonicalKey) return;
     wizReadDocs.add(canonicalKey);
-    // Update status badge
     const statusId = WIZ_DOC_STATUS_MAP[canonicalKey];
     if (statusId) {
       const statusEl = document.getElementById(statusId);
@@ -19188,38 +19179,22 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
         statusEl.textContent = '✓ READ';
         statusEl.style.color = '#00d68f';
       }
-      // Also update the button border to show it's been read
       const btn = document.querySelector(`[data-legal-document="${canonicalKey}"]`);
       if (btn) {
         btn.style.borderColor = 'rgba(0,214,143,0.4)';
         btn.style.background = 'rgba(0,214,143,0.05)';
       }
     }
-    // Update hint text with progress
-    const hint = document.getElementById('wiz-legal-hint');
-    const remaining = WIZ_ALL_DOC_KEYS.filter(k => !wizReadDocs.has(k)).length;
-    // Check if all docs read => unlock EULA checkbox
-    const allRead = remaining === 0;
-    if (hint) {
-      if (allRead) {
-        hint.textContent = '✓ All documents read. Tick the checkbox above to continue.';
-        hint.style.color = '#00d68f';
-      } else {
-        hint.textContent = `⬆ ${remaining} document${remaining !== 1 ? 's' : ''} left to read before you can proceed.`;
-        hint.style.color = '#64748b';
-      }
+    // EULA Checkbox is always enabled and accessible by user choice.
+    const eulaCheckbox = document.getElementById('wizard-eula-checkbox');
+    const eulaLabel = document.getElementById('wiz-eula-label');
+    if (eulaCheckbox) {
+      eulaCheckbox.disabled = false;
+      eulaCheckbox.style.cursor = 'pointer';
     }
-    if (allRead) {
-      const eulaCheckbox = document.getElementById('wizard-eula-checkbox');
-      const eulaLabel = document.getElementById('wiz-eula-label');
-      if (eulaCheckbox) {
-        eulaCheckbox.disabled = false;
-        eulaCheckbox.style.cursor = 'pointer';
-      }
-      if (eulaLabel) {
-        eulaLabel.style.opacity = '1';
-        eulaLabel.style.cursor = 'pointer';
-      }
+    if (eulaLabel) {
+      eulaLabel.style.opacity = '1';
+      eulaLabel.style.cursor = 'pointer';
     }
   }
 
