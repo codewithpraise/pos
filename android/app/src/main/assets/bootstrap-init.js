@@ -218,7 +218,8 @@ const criticalFns = [
   'setAnalyticsRange', 'exportAnalyticsCsv', 'openCreditEntryModal',
   'openProductEditModal', 'openCustomerCreateModal', 'openSupplierModal',
   'openEmployeeModal', 'openPurchaseOrderModal', 'handleCheckoutSubmit',
-  'showCheckoutModal', 'setLanguage', 'applyI18n'
+  'showCheckoutModal', 'setLanguage', 'applyI18n',
+  'openLegalDocumentModal', 'showLegalDocOverlay', 'closeLegalDocumentModal'
 ];
 
 criticalFns.forEach(fnName => {
@@ -226,6 +227,27 @@ criticalFns.forEach(fnName => {
     window[fnName] = function(...args) {
       if (window.__realHandlers && typeof window.__realHandlers[fnName] === 'function') {
         return window.__realHandlers[fnName](...args);
+      }
+      if (fnName === 'openLegalDocumentModal' || fnName === 'showLegalDocOverlay') {
+        const docKey = args[0] || 'TERMS_OF_SERVICE';
+        const keyAliasMap = { tos:'TERMS_OF_SERVICE', eula:'EULA', privacy:'PRIVACY_POLICY', refund:'EULA', aup:'ACCEPTABLE_USE', fbr:'FBR_DISCLAIMER', cloud:'CLOUD_SYNC_TERMS' };
+        const canonicalKey = keyAliasMap[(docKey || '').toLowerCase()] || docKey;
+        const modal = document.getElementById('modal-legal-document');
+        if (modal) {
+          if (document.body && modal.parentElement !== document.body) {
+            try { document.body.appendChild(modal); } catch (_) {}
+          }
+          const titleEl = document.getElementById('legal-doc-modal-title');
+          const contentEl = document.getElementById('legal-doc-modal-content');
+          const titles = { TERMS_OF_SERVICE:'Terms of Service (TOS)', EULA:'End User License Agreement (EULA)', PRIVACY_POLICY:'Privacy Policy', ACCEPTABLE_USE:'Acceptable Use Policy', FBR_DISCLAIMER:'FBR Disclaimer', CLOUD_SYNC_TERMS:'Cloud Sync Terms' };
+          if (titleEl) titleEl.textContent = titles[canonicalKey] || canonicalKey.replace(/_/g, ' ');
+          if (contentEl) contentEl.innerHTML = '<p style="color:#e2e8f0;line-height:1.6;">Valenixia Commercial Ecosystem Terms &amp; Regulatory Compliance Documentation.<br>All rights reserved © 2026 Valenixia Systems.</p>';
+          modal.classList.add('active');
+          modal.style.display = 'flex';
+          modal.style.zIndex = '999999';
+          document.body.style.overflow = 'hidden';
+          return;
+        }
       }
       console.warn(`[EarlyCall] ${fnName} invoked before app initialization; call registered.`);
     };

@@ -4036,25 +4036,20 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
       state.currentPin = '';
       try {
         sessionStorage.removeItem('valenixia_session_authenticated');
-      } catch (_) {}
-      if (window.ValenixiaBootstrap) {
-        window.ValenixiaBootstrap.transition('AUTH_LOCK');
-      }
-    }
-    window.__realHandlers.performLogout = performLogout;
-    window.performLogout = performLogout;
         sessionStorage.removeItem('valenixia_active_cashier');
         document.documentElement.classList.remove('session-authenticated');
       } catch (_) {}
       updatePinDisplayDots();
-      // Transition surface through ValenixiaBootstrap controller
-      if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('AUTH_LOCK');
-      // Re-focus new input for native keyboard
+      if (window.ValenixiaBootstrap) {
+        window.ValenixiaBootstrap.transition('AUTH_LOCK');
+      }
       setTimeout(function() { 
         const pinInput = document.getElementById('pin-input');
         if (pinInput) pinInput.focus();
       }, 300);
     }
+    window.__realHandlers.performLogout = performLogout;
+    window.performLogout = performLogout;
 
 
 
