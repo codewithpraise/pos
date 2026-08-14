@@ -33,10 +33,7 @@
       "source": "/downloads/valenixia-(pos|latest|mobile)\\.apk",
       "destination": "/downloads/valenixia.apk"
     },
-    {
-      "source": "/api/devices/:path*",
-      "destination": "/api/devices/:path*"
-    },
+
     {
       "source": "/((?!api/|.*\\..*).*)",
       "destination": "/index.html"
