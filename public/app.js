@@ -1833,10 +1833,10 @@ setHtml(overlay, `
 
       if (!regResp.ok) {
         const errBody = await regResp.json().catch(() => ({}));
-        console.error('[App] Device registration failed:', regResp.status, errBody);
-        if (window.ValenixiaBootstrap && regResp.status >= 500) {
-          window.ValenixiaBootstrap.transition('SERVER_UNAVAILABLE', { stage: 'DEVICE_DISCOVERY' });
-        }
+        console.warn('[App] Device registration failed:', regResp.status, errBody);
+        // On 5xx (server unavailable / not deployed on this host), silently continue offline.
+        // This is normal on Vercel static deployments where the Node API server is not running.
+        // Do NOT block the user with SERVER_UNAVAILABLE — let bootstrap continue to onboarding/login.
         return null;
       }
 
