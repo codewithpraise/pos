@@ -1185,8 +1185,8 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
   function _showSurface(surfaceKey) {
     var targetNode = el(SURFACES[surfaceKey]);
 
-    // Guard: If this surface is already active, DOM element exists and is displayed visible, do not re-run.
-    if (_activeSurface === surfaceKey && window.bootVisualReady && targetNode && targetNode.style.display !== 'none' && targetNode.style.display !== '') return;
+    // Guard: If this surface is already active and confirmed renderable on-screen, do not re-run.
+    if (_activeSurface === surfaceKey && window.bootVisualReady && targetNode && isSurfaceRenderable(targetNode)) return;
 
     // Increment generation counter. Any pending async tasks tied to a previous
     // _showSurface call will see the counter has advanced and abort silently.
