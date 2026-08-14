@@ -13,9 +13,10 @@
       ]
     },
     {
-      "source": "/(version.json|release-manifest.json|build-id|sw.js|api/version|api/release-notes)",
+      "source": "/(version.json|release-manifest.json|build-id|sw.js|index.html|api/version|api/release-notes)",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0" }
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0" },
+        { "key": "Surrogate-Control", "value": "no-store" }
       ]
     }
   ],
