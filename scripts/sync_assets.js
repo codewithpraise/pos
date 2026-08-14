@@ -44,8 +44,11 @@ function getAllFiles(dir, relativeTo = dir) {
       if (ext === '.apk' || ext === '.zip' || ext === '.exe' || ext === '.map' || ext === '.tar' || ext === '.gz') {
         return; // Never bundle installer packages or binaries into Android WebView assets
       }
-      if (EXCLUDED_FILENAMES.has(file)) {
-        return; // Skip debug/test-only screenshots — not needed in production APK
+      if (EXCLUDED_FILENAMES.has(file) || file.startsWith('wizard_') || file.startsWith('delete_') || file.startsWith('screenshot_') || file.endsWith('.png')) {
+        // Skip unneeded screenshots and debug images in Android WebView assets
+        if (file !== 'icon-192.png' && file !== 'icon-512.png' && file !== 'app-icon.png' && file !== 'soban_nayapay_qr_code.png') {
+          return;
+        }
       }
       results.push({
         absolutePath: filePath,
