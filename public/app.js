@@ -7181,15 +7181,17 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
         // Request fresh baseline datasets on register unlock to guarantee 100% data persistence
         try {
           restoreActiveCartSession();
-          syncWorker.postMessage({ type: 'GET_PREFERENCES' });
-          syncWorker.postMessage({ type: 'GET_CATALOG' });
-          syncWorker.postMessage({ type: 'GET_CUSTOMERS' });
-          syncWorker.postMessage({ type: 'GET_EMPLOYEES' });
-          syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
-          syncWorker.postMessage({ type: 'GET_DISTRIBUTORS' });
-          syncWorker.postMessage({ type: 'GET_PURCHASE_ORDERS' });
-          syncWorker.postMessage({ type: 'GET_DISTRIBUTOR_PAYMENTS' });
-          syncWorker.postMessage({ type: 'GET_CUSTOMER_CREDIT' });
+          if (typeof syncWorker !== 'undefined' && syncWorker && typeof syncWorker.postMessage === 'function') {
+            syncWorker.postMessage({ type: 'GET_PREFERENCES' });
+            syncWorker.postMessage({ type: 'GET_CATALOG' });
+            syncWorker.postMessage({ type: 'GET_CUSTOMERS' });
+            syncWorker.postMessage({ type: 'GET_EMPLOYEES' });
+            syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
+            syncWorker.postMessage({ type: 'GET_DISTRIBUTORS' });
+            syncWorker.postMessage({ type: 'GET_PURCHASE_ORDERS' });
+            syncWorker.postMessage({ type: 'GET_DISTRIBUTOR_PAYMENTS' });
+            syncWorker.postMessage({ type: 'GET_CUSTOMER_CREDIT' });
+          }
         } catch (e) {
           console.warn('Post-login data fetch warning:', e);
         }
@@ -9381,6 +9383,20 @@ setHtml(tr, `
       mobileCartBadge.style.display = totalQty > 0 ? 'inline-block' : 'none';
     }
   }
+
+  function getCartStorageKey() {
+    try {
+      const snap = window.__VALENIXIA_IDENTITY__ ? window.__VALENIXIA_IDENTITY__.getSnapshot() : {};
+      const acc = snap.accountId || localStorage.getItem('valenixia_account_id') || 'acc_default';
+      const org = snap.organizationId || localStorage.getItem('valenixia_org_id') || 'org_default';
+      const store = snap.storeId || localStorage.getItem('valenixia_store_id') || 'store_default';
+      const term = snap.terminalId || localStorage.getItem('valenixia_terminal_id') || 'term_default';
+      return `valenixia:${acc}:${org}:${store}:${term}:cart`;
+    } catch (_) {
+      return 'valenixia_active_cart';
+    }
+  }
+  window.getCartStorageKey = getCartStorageKey;
 
   // Calculate sum totals
   function calculateSubtotal() {
