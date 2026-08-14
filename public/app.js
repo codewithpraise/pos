@@ -4031,13 +4031,18 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
     });
 
     function performLogout() {
-      window.__realHandlers.performLogout = performLogout;
-      window.performLogout = performLogout;
       state.activeCashier = null;
       state.terminalRole = null;
       state.currentPin = '';
       try {
         sessionStorage.removeItem('valenixia_session_authenticated');
+      } catch (_) {}
+      if (window.ValenixiaBootstrap) {
+        window.ValenixiaBootstrap.transition('AUTH_LOCK');
+      }
+    }
+    window.__realHandlers.performLogout = performLogout;
+    window.performLogout = performLogout;
         sessionStorage.removeItem('valenixia_active_cashier');
         document.documentElement.classList.remove('session-authenticated');
       } catch (_) {}
@@ -19075,8 +19080,24 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
 
   function openLegalDocumentModal(docKey) {
     if (!docKey) return;
-    const registry = getLegalRegistry();
-    const modal = document.getElementById('modal-legal-document');
+    const keyAliasMap = {
+      tos: 'TERMS_OF_SERVICE',
+      eula: 'EULA',
+      privacy: 'PRIVACY_POLICY',
+      refund: 'EULA',
+      aup: 'ACCEPTABLE_USE',
+      fbr: 'FBR_DISCLAIMER',
+      cloud: 'CLOUD_SYNC_TERMS'
+    };
+    const canonicalKey = keyAliasMap[(docKey || '').toLowerCase()] || docKey;
+    const registry = (typeof getLegalRegistry === 'function' ? getLegalRegistry() : null) || window.__LEGAL_REGISTRY__ || {};
+    let modal = document.getElementById('modal-legal-document');
+    
+    // Ensure modal is directly attached to document.body
+    if (modal && document.body && modal.parentElement !== document.body) {
+      try { document.body.appendChild(modal); } catch (_) {}
+    }
+
     const titleEl = document.getElementById('legal-doc-modal-title');
     const verEl = document.getElementById('legal-doc-modal-version');
     const contentEl = document.getElementById('legal-doc-modal-content');
@@ -19093,15 +19114,20 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     activeElementBeforeLegalModal = document.activeElement;
 
     if (modal && contentEl) {
-      if (titleEl) titleEl.textContent = titles[docKey] || docKey.replace(/_/g, ' ');
+      if (titleEl) titleEl.textContent = titles[canonicalKey] || canonicalKey.replace(/_/g, ' ');
       if (verEl) verEl.textContent = `Version ${registry.VERSION || '2.6.0'} • Effective ${registry.EFFECTIVE_DATE || '2026-08-11'}`;
       
-      const docText = (registry[docKey] || 'This document is currently unavailable.').trim();
-      const formattedHtml = renderMarkdownToHtml(docText);
-      setHtml(contentEl, formattedHtml);
+      const docText = (registry[canonicalKey] || 'This document is currently being updated. Please consult support@valenixia.com for official regulatory copy.').trim();
+      const formattedHtml = typeof renderMarkdownToHtml === 'function' ? renderMarkdownToHtml(docText) : docText.replace(/\n/g, '<br>');
+      if (typeof setHtml === 'function') {
+        setHtml(contentEl, formattedHtml);
+      } else {
+        contentEl.innerHTML = formattedHtml;
+      }
 
       modal.classList.add('active');
       modal.style.display = 'flex';
+      modal.style.zIndex = '999999';
       modal.setAttribute('aria-hidden', 'false');
       document.body.classList.add('modal-open');
       document.body.style.overflow = 'hidden';
@@ -19109,9 +19135,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       const closeBtn = document.getElementById('btn-close-legal-modal');
       if (closeBtn) closeBtn.focus();
     } else {
-      if (typeof showNotificationToast === 'function') {
-        showNotificationToast('Unable to open legal document modal container.', 'error', 3500);
-      }
+      showLegalDocOverlay(canonicalKey);
     }
   }
 
@@ -19132,6 +19156,12 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
 
   window.openLegalDocumentModal = openLegalDocumentModal;
   window.closeLegalDocumentModal = closeLegalDocumentModal;
+  window.showLegalDocOverlay = openLegalDocumentModal;
+  if (window.__realHandlers) {
+    window.__realHandlers.openLegalDocumentModal = openLegalDocumentModal;
+    window.__realHandlers.showLegalDocOverlay = openLegalDocumentModal;
+    window.__realHandlers.closeLegalDocumentModal = closeLegalDocumentModal;
+  }
 
   document.addEventListener('click', (e) => {
     const trigger = e.target.closest('[data-legal-document], .btn-open-legal-doc, [data-doc-key], [data-legal-doc]');

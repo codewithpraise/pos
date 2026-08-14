@@ -6191,6 +6191,66 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
   }
 }
 
+/* ==========================================================================
+   ANALYTICS CHART & RESPONSIVE SCROLLBAR ENGINE
+   ========================================================================== */
+.bar-chart-visual-wrapper,
+.table-responsive-wrapper,
+.overflow-x-touch {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: var(--accent-emerald, #00d68f) rgba(255, 255, 255, 0.05) !important;
+  box-sizing: border-box !important;
+}
+
+.bar-chart-visual-wrapper::-webkit-scrollbar,
+.table-responsive-wrapper::-webkit-scrollbar,
+.overflow-x-touch::-webkit-scrollbar {
+  height: 8px !important;
+  display: block !important;
+}
+
+.bar-chart-visual-wrapper::-webkit-scrollbar-track,
+.table-responsive-wrapper::-webkit-scrollbar-track,
+.overflow-x-touch::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.4) !important;
+  border-radius: 4px !important;
+}
+
+.bar-chart-visual-wrapper::-webkit-scrollbar-thumb,
+.table-responsive-wrapper::-webkit-scrollbar-thumb,
+.overflow-x-touch::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, #00d68f, #10b981) !important;
+  border-radius: 4px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+@media (max-width: 768px) {
+  #analytics-histogram-bars {
+    min-width: 720px !important;
+    gap: 8px !important;
+  }
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  #analytics-histogram-bars {
+    min-width: 620px !important;
+    gap: 6px !important;
+  }
+  .kpi-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+}
+
 /* Single Scrollbar & Full Height Enforcement for Catalog Manager & FBR Fiscal Hub */
 #view-catalog-manager.active {
   display: block !important;
