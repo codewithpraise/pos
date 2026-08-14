@@ -1243,15 +1243,27 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
         } catch (_) {}
       }
 
-      // SPLASH DISMISSAL
+      // SPLASH DISMISSAL GUARD
       if (surfaceKey !== 'BOOT' && surfaceKey !== 'RECOVERY') {
+        var verifyAndDismiss = function() {
+          var activeNode = el(SURFACES[surfaceKey]);
+          if (activeNode) {
+            // Unconditional runtime safeguard: Ensure node is direct child of body
+            if (document.body && activeNode.parentElement !== document.body && surfaceKey !== 'LAYOUT') {
+              try { document.body.appendChild(activeNode); } catch (_) {}
+            }
+            activeNode.style.setProperty('display', (surfaceKey === 'LAYOUT') ? 'grid' : 'flex', 'important');
+            activeNode.style.setProperty('visibility', 'visible', 'important');
+            activeNode.style.setProperty('opacity', '1', 'important');
+          }
+          _logStep('SURFACE_PAINT_COMMITTED', { surface: surfaceKey });
+          _dismissSplash();
+        };
+
         if (window.requestAnimationFrame) {
-          requestAnimationFrame(function() {
-            _logStep('SURFACE_PAINT_COMMITTED', { surface: surfaceKey });
-            _dismissSplash();
-          });
+          requestAnimationFrame(verifyAndDismiss);
         } else {
-          setTimeout(_dismissSplash, 32);
+          setTimeout(verifyAndDismiss, 32);
         }
       }
     } else {
@@ -2342,7 +2354,13 @@ window.runBootstrapDiscoveryPipeline = function runBootstrapDiscoveryPipeline() 
   ['first-boot-wizard', 'auth-lock-screen', 'device-pairing-overlay', 'license-lockout-overlay', 'vx-emergency-recovery'].forEach(function(id) {
     var node = document.getElementById(id);
     if (node && node.parentElement && node.parentElement !== document.body) {
-      try { document.body.appendChild(node); } catch (_) {}
+      if (document.body) {
+        try { document.body.appendChild(node); } catch (_) {}
+      } else {
+        document.addEventListener('DOMContentLoaded', function() {
+          try { if (document.body && node.parentElement !== document.body) document.body.appendChild(node); } catch (_) {}
+        });
+      }
     }
   });
 
