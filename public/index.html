@@ -614,6 +614,20 @@
     </div>
   </div>
 <!-- END FIRST BOOT ONBOARDING WIZARD OVERLAY -->
+<script>
+(function() {
+  function ensureWizardMountedOnBody() {
+    var wiz = document.getElementById('first-boot-wizard');
+    if (wiz && document.body && wiz.parentElement !== document.body) {
+      try { document.body.appendChild(wiz); } catch (_) {}
+    }
+  }
+  ensureWizardMountedOnBody();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ensureWizardMountedOnBody);
+  }
+})();
+</script>
 
 <div class="pos-app-layout" id="pos-app-layout" style="display:none;">
     
