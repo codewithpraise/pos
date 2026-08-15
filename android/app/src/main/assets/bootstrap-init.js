@@ -254,7 +254,15 @@ criticalFns.forEach(fnName => {
           modal.style.width = '100vw';
           modal.style.height = '100vh';
           modal.style.zIndex = '2147483647';
-          document.body.style.overflow = 'hidden';
+          modal.style.overflowY = 'auto';
+          modal.style.webkitOverflowScrolling = 'touch';
+          document.body.classList.add('legal-modal-open');
+          // Close/ACK buttons restore body overflow
+          const _restoreBody = () => { document.body.classList.remove('legal-modal-open'); };
+          const _closeEl = modal.querySelector('#legal-modal-close-btn, .btn-close-modal, [data-modal-close]');
+          const _ackEl = modal.querySelector('#legal-modal-ack, .btn-legal-ack');
+          if (_closeEl) { const _orig = _closeEl.onclick; _closeEl.onclick = (e) => { _restoreBody(); if (_orig) _orig(e); }; }
+          if (_ackEl) { const _orig2 = _ackEl.onclick; _ackEl.onclick = (e) => { _restoreBody(); if (_orig2) _orig2(e); }; }
           return;
         }
       }
@@ -824,25 +832,32 @@ window.showLegalDocOverlay = function(docKey) {
   const overlay = document.createElement('div');
   overlay.id = '__vx-legal-overlay';
   overlay.className = 'vx-legal-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999999999;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);';
+  // Mobile-safe: use overflow-y scroll + -webkit-overflow-scrolling for iOS momentum
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999999999;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;box-sizing:border-box;';
   overlay.innerHTML = `
-    <div class="vx-legal-card" style="max-width:520px;width:100%;max-height:90vh;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;">
+    <div class="vx-legal-card" style="max-width:520px;width:100%;max-height:88vh;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;">
       <div class="vx-legal-header" style="padding:20px 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
         <span class="vx-legal-title" style="font-size:14px;font-weight:800;">${doc.title}</span>
-        <button id="__vx-legal-close" class="vx-legal-close-btn" style="border-radius:8px;font-size:18px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">×</button>
+        <button id="__vx-legal-close" class="vx-legal-close-btn" style="border-radius:8px;font-size:18px;width:44px;height:44px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;touch-action:manipulation;">×</button>
       </div>
-      <div class="vx-legal-body" style="overflow-y:auto;padding:20px 24px;flex:1;-webkit-overflow-scrolling:touch;font-size:12px;line-height:1.6;">${doc.content}</div>
-      <div class="vx-legal-footer" style="padding:16px 24px;flex-shrink:0;">
-        <button id="__vx-legal-ack" style="width:100%;min-height:44px;background:linear-gradient(135deg,#00d68f,#10b981);border:none;border-radius:10px;color:#060d0d;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">✓ I Have Read This Document</button>
+      <div class="vx-legal-body" style="overflow-y:auto;padding:16px 20px;flex:1;-webkit-overflow-scrolling:touch;touch-action:pan-y;font-size:12px;line-height:1.6;overscroll-behavior-y:contain;">${doc.content}</div>
+      <div class="vx-legal-footer" style="padding:16px 20px;flex-shrink:0;">
+        <button id="__vx-legal-ack" style="width:100%;min-height:48px;background:linear-gradient(135deg,#00d68f,#10b981);border:none;border-radius:10px;color:#060d0d;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;touch-action:manipulation;">✓ I Have Read This Document</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
+  document.body.classList.add('legal-modal-open');
+
+  const _removeLegal = () => {
+    overlay.remove();
+    document.body.classList.remove('legal-modal-open');
+  };
 
   const closeBtn = document.getElementById('__vx-legal-close');
   const ackBtn = document.getElementById('__vx-legal-ack');
-  if (closeBtn) closeBtn.onclick = () => overlay.remove();
+  if (closeBtn) closeBtn.onclick = () => _removeLegal();
   if (ackBtn) ackBtn.onclick = () => {
-    overlay.remove();
+    _removeLegal();
     const btn = document.querySelector(`[data-legal-doc="${docKey}"]`);
     const statusEl = document.getElementById(`wiz-legal-${docKey}-status`);
     if (btn) {
@@ -1267,6 +1282,21 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
       _activeSurface = surfaceKey;
       _pendingSurface = null;
       _logStep('SURFACE_COMMITTED', { surface: surfaceKey });
+
+      // Manage body.wizard-active class for CSS-based scroll lock control
+      try {
+        if (surfaceKey === 'WIZARD') {
+          document.body.classList.add('wizard-active');
+        } else {
+          document.body.classList.remove('wizard-active');
+          // Ensure body scroll is restored when leaving wizard/lock/etc.
+          if (surfaceKey === 'LAYOUT' || surfaceKey === 'LOCK') {
+            document.body.style.overflow = '';
+            document.body.style.position = '';
+            document.body.style.width = '';
+          }
+        }
+      } catch (_) {}
 
       if (surfaceKey === 'WIZARD' && typeof window.executeWizardGoTo === 'function') {
         try {

@@ -1,17 +1,16 @@
 {
-  "version": "2.6.0",
-  "build_id": "v2.6.0-prod-c255f21",
-  "git_commit": "c255f213e0fa21bc99dbd49033e61424054de450",
-  "updated_at": "2026-08-12",
-  "changelog": "Valenixia POS v2.6.0 Customer Credit Book, Supplier Directory & Sales Analytics Engine Release.",
+  "version": "2.7.0",
+  "build_id": "v2.7.0-prod-43727b0",
+  "git_commit": "43727b02e1067683cbddc314269de1fe521d70df",
+  "updated_at": "2026-08-15",
+  "changelog": "Valenixia POS v2.7.0 Mobile Onboarding Scroll Hardening, Responsive Layout & Universal Download Packages Release.",
   "changes": [
-    "Implemented complete Customer Credit Book (Khata Ledger) with repayments and debt tracking",
-    "Implemented Supplier Directory & Accounts Payable with Purchase Orders and Goods Receive Notes (GRN)",
-    "Normalized analytics transaction timestamps and total calculations across all date ranges",
-    "Positioned camera scanner trigger button inside search container with 44px isolation",
-    "Enforced web-only placement for Get Apps download button in topbar",
-    "Hardened commercial catalog pricing (Starter PKR 3,499, Pro PKR 6,999, Enterprise PKR 11,999) with quote snapshots",
-    "Enforced CurrencyService invariants (PKR / Rs., minor units 2, empty cart total = 0)",
-    "Passed complete 12-stage automated test suite and runtime integrity checks"
+    "Fixed onboarding/bootstrapping setup wizard overlay touch-scroll and overflow containment across all mobile browsers and webviews",
+    "Removed clipping overflow:hidden on wizard-card and normalized dynamic vertical sizing on small touch displays",
+    "Added -webkit-overflow-scrolling:touch, touch-action:pan-y, and overscroll-behavior-y:contain to all overlays and modal bodies",
+    "Implemented safe CSS-driven body scroll locking without unresettable body.style.overflow overrides",
+    "Rebuilt clean, unbloated 15MB Android APK (valenixia.apk) and desktop package (valenixia.exe)",
+    "Enhanced download center (download.html) with direct desktop and mobile installation links",
+    "Passed all 28 automated mobile scroll and runtime architecture validation checks"
   ]
 }

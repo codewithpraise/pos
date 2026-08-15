@@ -4,7 +4,7 @@ const crypto = require('crypto');
 
 const { execSync } = require('child_process');
 
-const VERSION = '2.6.0';
+const VERSION = '2.7.0';
 let GIT_COMMIT = 'badda34f768186762f400ba553eef5e7dc46a5b8';
 try {
   GIT_COMMIT = execSync('git rev-parse HEAD', { cwd: path.join(__dirname, '..') }).toString().trim();
@@ -53,17 +53,16 @@ const versionJson = {
   version: VERSION,
   build_id: BUILD_ID,
   git_commit: GIT_COMMIT,
-  updated_at: '2026-08-11',
-  changelog: `Valenixia POS v${VERSION} Canonical Release Reconciliation, Identity Recovery & Production Integrity Lockdown.`,
+  updated_at: '2026-08-15',
+  changelog: `Valenixia POS v${VERSION} Mobile Onboarding Scroll Hardening, Responsive Layout & Universal Download Packages Release.`,
   changes: [
-    'Reconciled canonical release fingerprint across release-manifest.json, version.json, build-id, artifact-manifest.json, and /api/health',
-    'Hardened explicit Express static routes for metadata endpoints with 0 text/html fallback',
-    'Implemented 13-stage confidence matrix for idempotent bootstrap discovery without false store creation',
-    'Enforced cart namespace isolation and copy-first order migration safeguards',
-    'Built atomic row-level capacity locking and immutable subscription upgrade state machine',
-    'Implemented asymmetric Ed25519 offline entitlement signing with key rotation support',
-    'Separated Network Reachability (ONLINE) from Sync Engine Status (SYNCED) in topbar',
-    'Enforced single vertical scroll owner on subscription vault stage with zero viewport clipping'
+    'Fixed onboarding/bootstrapping setup wizard overlay touch-scroll and overflow containment across all mobile browsers and webviews',
+    'Removed clipping overflow:hidden on wizard-card and normalized dynamic vertical sizing on small touch displays',
+    'Added -webkit-overflow-scrolling:touch, touch-action:pan-y, and overscroll-behavior-y:contain to all overlays and modal bodies',
+    'Implemented safe CSS-driven body scroll locking without unresettable body.style.overflow overrides',
+    'Rebuilt clean, unbloated 15MB Android APK (valenixia.apk) and desktop package (valenixia.exe)',
+    'Enhanced download center (download.html) with direct desktop and mobile installation links',
+    'Passed all 28 automated mobile scroll and runtime architecture validation checks'
   ]
 };
 fs.writeFileSync(path.join(publicDir, 'version.json'), JSON.stringify(versionJson, null, 2) + '\n');
