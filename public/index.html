@@ -200,6 +200,54 @@
           </span>
           <span class="nav-label">Staff</span>
         </button>
+        <button class="nav-item" data-screen="kds" id="nav-kds">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </span>
+          <span class="nav-label">Kitchen Display</span>
+        </button>
+        <button class="nav-item" data-screen="petty-cash" id="nav-petty-cash">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
+          </span>
+          <span class="nav-label">Petty Cash &amp; Float</span>
+        </button>
+        <button class="nav-item" data-screen="attendance" id="nav-attendance">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+          </span>
+          <span class="nav-label">Time &amp; Payroll</span>
+        </button>
+        <button class="nav-item" data-screen="label-designer" id="nav-label-designer">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3M4 17v3h16v-3M9 11h6M9 14h6"/></svg>
+          </span>
+          <span class="nav-label">Barcode Studio</span>
+        </button>
+        <button class="nav-item" data-screen="inventory-ai" id="nav-inventory-ai">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+          </span>
+          <span class="nav-label">AI Inventory</span>
+        </button>
+        <button class="nav-item" data-screen="loyalty" id="nav-loyalty">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </span>
+          <span class="nav-label">VIP Loyalty</span>
+        </button>
+        <button class="nav-item" data-screen="marketing" id="nav-marketing">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </span>
+          <span class="nav-label">Marketing Studio</span>
+        </button>
+        <button class="nav-item" data-screen="stock-transfer" id="nav-stock-transfer">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V4M7 4L3 8M7 4L11 8M17 8V20M17 20L21 16M17 20L13 16"/></svg>
+          </span>
+          <span class="nav-label">Stock Transfer</span>
+        </button>
         <button class="nav-item" data-screen="logs" id="nav-logs">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -2525,6 +2573,369 @@
             </div>
           </div>
         </section>
+
+        <!-- View: Kitchen Display System (KDS) -->
+        <section class="content-view" id="view-kds">
+          <div style="padding: 20px; max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 22px;">Live Kitchen Display System (KDS)</h2>
+                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Real-time kitchen order dispatch, preparation pipeline &amp; bump bar</p>
+              </div>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <div style="display: flex; gap: 4px; background: rgba(255,255,255,0.04); padding: 4px; border-radius: 8px; border: 1px solid var(--border-titanium);">
+                  <button type="button" class="action-btn kds-filter-btn active" data-filter="all" style="padding: 6px 12px; font-size: 11px; font-weight: 700; border-radius: 6px;">All Orders</button>
+                  <button type="button" class="action-btn kds-filter-btn" data-filter="QUEUED" style="padding: 6px 12px; font-size: 11px; font-weight: 700; border-radius: 6px;">⏳ Queued</button>
+                  <button type="button" class="action-btn kds-filter-btn" data-filter="PREPARING" style="padding: 6px 12px; font-size: 11px; font-weight: 700; border-radius: 6px;">🍳 Cooking</button>
+                  <button type="button" class="action-btn kds-filter-btn" data-filter="READY" style="padding: 6px 12px; font-size: 11px; font-weight: 700; border-radius: 6px;">✅ Ready</button>
+                </div>
+                <button class="action-btn action-primary" id="btn-kds-new-ticket" style="padding: 8px 14px; font-size: 11px; font-weight: 800; border-radius: 8px;">+ Test Order Ticket</button>
+              </div>
+            </div>
+
+            <!-- KDS Active Ticket Grid -->
+            <div id="kds-ticket-board" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin-top: 8px;">
+              <!-- Dynamic tickets populated by renderKdsScreen -->
+            </div>
+          </div>
+        </section>
+
+        <!-- View: Petty Cash & Daily Register Float Reconciliation -->
+        <section class="content-view" id="view-petty-cash">
+          <div style="padding: 20px; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 22px;">Petty Cash &amp; Daily Register Reconciliation</h2>
+                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Shift float tracking, daily shop expense ledger &amp; End-of-Day Blind Till Z-Report</p>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button class="action-btn action-primary" id="btn-petty-add-cash" style="padding: 8px 14px; font-size: 11px; font-weight: 800; border-radius: 8px;">+ Add Cash Float</button>
+                <button class="action-btn action-danger" id="btn-petty-record-expense" style="padding: 8px 14px; font-size: 11px; font-weight: 800; border-radius: 8px;">− Record Shop Expense</button>
+                <button class="action-btn action-success" id="btn-petty-print-zreport" style="padding: 8px 14px; font-size: 11px; font-weight: 800; border-radius: 8px;">📋 End-of-Day Z-Report</button>
+              </div>
+            </div>
+
+            <!-- Petty Cash KPI Row -->
+            <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+              <div class="kpi-card accent-blue">
+                <span class="kpi-lbl">OPENING FLOAT</span>
+                <span class="kpi-val" id="petty-opening-float">Rs. 0.00</span>
+                <span style="font-size: 10px; color: var(--accent-blue); font-weight: 700; margin-top: 4px;">Initial Register Cash</span>
+              </div>
+              <div class="kpi-card accent-emerald">
+                <span class="kpi-lbl">CASH SALES IN</span>
+                <span class="kpi-val" id="petty-cash-sales-in">Rs. 0.00</span>
+                <span style="font-size: 10px; color: var(--accent-emerald); font-weight: 700; margin-top: 4px;">Today's Cash Inflows</span>
+              </div>
+              <div class="kpi-card accent-coral">
+                <span class="kpi-lbl">EXPENSES / PETTY OUT</span>
+                <span class="kpi-val" id="petty-expenses-out">Rs. 0.00</span>
+                <span style="font-size: 10px; color: var(--alert-coral); font-weight: 700; margin-top: 4px;">Chai, Cleaning, Repairs</span>
+              </div>
+              <div class="kpi-card accent-amber">
+                <span class="kpi-lbl">EXPECTED CASH IN TILL</span>
+                <span class="kpi-val" id="petty-expected-till">Rs. 0.00</span>
+                <span style="font-size: 10px; color: #f59e0b; font-weight: 700; margin-top: 4px;">Float + Sales − Out</span>
+              </div>
+            </div>
+
+            <!-- Blind Till Reconciliation Card -->
+            <div class="cloud-vault-card" style="padding: 18px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 12px;">
+              <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 800; color: var(--text-white);">💵 Blind Cash Drawer Count (X-Report Audit)</h3>
+              <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 14px;">Cashier enters physical note counts to audit for drawer shortage or surplus without viewing expected total.</p>
+              
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;" id="till-note-counters">
+                <div class="form-group"><label style="font-size:10px; color:var(--text-gray);">Rs. 5,000 Notes</label><input type="number" min="0" class="pos-input till-count-input" data-multiplier="5000" placeholder="0" value="0"></div>
+                <div class="form-group"><label style="font-size:10px; color:var(--text-gray);">Rs. 1,000 Notes</label><input type="number" min="0" class="pos-input till-count-input" data-multiplier="1000" placeholder="0" value="0"></div>
+                <div class="form-group"><label style="font-size:10px; color:var(--text-gray);">Rs. 500 Notes</label><input type="number" min="0" class="pos-input till-count-input" data-multiplier="500" placeholder="0" value="0"></div>
+                <div class="form-group"><label style="font-size:10px; color:var(--text-gray);">Rs. 100 Notes</label><input type="number" min="0" class="pos-input till-count-input" data-multiplier="100" placeholder="0" value="0"></div>
+                <div class="form-group"><label style="font-size:10px; color:var(--text-gray);">Rs. 50 / 20 / 10</label><input type="number" min="0" class="pos-input till-count-input" data-multiplier="1" placeholder="Coins/Small" value="0"></div>
+              </div>
+
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-titanium);">
+                <div>
+                  <span style="font-size: 11px; color: var(--text-gray);">PHYSICAL COUNTED TOTAL:</span>
+                  <span style="font-size: 16px; font-weight: 800; color: var(--text-white); margin-left: 8px;" id="till-counted-total">Rs. 0.00</span>
+                </div>
+                <div id="till-variance-badge" style="font-size: 12px; font-weight: 800; padding: 4px 12px; border-radius: 6px; background: rgba(16,185,129,0.15); color: var(--accent-emerald);">
+                  Variance: Rs. 0.00 (Balanced)
+                </div>
+              </div>
+            </div>
+
+            <!-- Petty Cash Transactions History -->
+            <div class="cloud-vault-card">
+              <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 800; color: var(--text-white);">Petty Cash Float &amp; Expense Ledger</h3>
+              <div style="overflow-x: auto;">
+                <table class="pos-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                  <thead>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); color: var(--text-gray); text-align: left;">
+                      <th style="padding: 10px;">Time</th>
+                      <th style="padding: 10px;">Type</th>
+                      <th style="padding: 10px;">Category / Description</th>
+                      <th style="padding: 10px;">Logged By</th>
+                      <th style="padding: 10px; text-align: right;">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody id="petty-cash-tbody">
+                    <!-- populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- View: Staff Time Clock, Attendance & Payroll Commission -->
+        <section class="content-view" id="view-attendance">
+          <div style="padding: 20px; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 22px;">Staff Time Clock &amp; Payroll Commission</h2>
+                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Terminal punch clock-in/out, live shift duration &amp; cashier sales commission tracker</p>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button class="action-btn action-success" id="btn-clock-in-punch" style="padding: 8px 14px; font-size: 11px; font-weight: 800; border-radius: 8px;">🟢 Clock IN (Punch Start)</button>
+                <button class="action-btn action-danger" id="btn-clock-out-punch" style="padding: 8px 14px; font-size: 11px; font-weight: 800; border-radius: 8px;">🔴 Clock OUT (Punch End)</button>
+              </div>
+            </div>
+
+            <!-- Active Shift Status Card -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">
+              <div class="cloud-vault-card" style="padding: 20px; background: linear-gradient(135deg, rgba(0,214,143,0.06), rgba(0,0,0,0.5)); border: 1px solid rgba(0,214,143,0.25); border-radius: 14px;">
+                <span style="font-size: 10px; font-weight: 800; color: var(--accent-emerald); text-transform: uppercase; letter-spacing: 1px;">ACTIVE CASHIER SHIFT</span>
+                <h3 style="margin: 8px 0 4px; font-size: 20px; font-weight: 900; color: var(--text-white);" id="shift-active-cashier">Muhammad Usman</h3>
+                <div style="font-size: 12px; color: var(--text-gray);" id="shift-start-time">Shift Started: 09:00 AM Today</div>
+                <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 14px;">
+                  <span style="font-size: 28px; font-weight: 900; font-family: monospace; color: var(--accent-emerald);" id="shift-live-timer">04:32:15</span>
+                  <span style="font-size: 11px; color: var(--text-gray);">Live Shift Elapsed</span>
+                </div>
+              </div>
+
+              <div class="cloud-vault-card" style="padding: 20px; border: 1px solid var(--border-titanium); border-radius: 14px;">
+                <span style="font-size: 10px; font-weight: 800; color: #3b82f6; text-transform: uppercase; letter-spacing: 1px;">CASHIER COMMISSION EARNINGS</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                  <div>
+                    <div style="font-size: 11px; color: var(--text-gray);">Shift Sales Volume:</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--text-white);" id="shift-sales-vol">Rs. 45,800.00</div>
+                  </div>
+                  <div>
+                    <div style="font-size: 11px; color: var(--text-gray);">Commission (2.0%):</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--accent-emerald);" id="shift-commission-earned">Rs. 916.00</div>
+                  </div>
+                </div>
+                <div style="margin-top: 14px; font-size: 11px; color: var(--text-gray);">Hourly Rate Base: <strong>Rs. 250/hr</strong> | Total Projected Shift Pay: <strong style="color:var(--text-white);" id="shift-total-projected">Rs. 2,041.00</strong></div>
+              </div>
+            </div>
+
+            <!-- Attendance History Table -->
+            <div class="cloud-vault-card">
+              <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 800; color: var(--text-white);">Shift Attendance &amp; Payroll Log</h3>
+              <div style="overflow-x: auto;">
+                <table class="pos-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                  <thead>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); color: var(--text-gray); text-align: left;">
+                      <th style="padding: 10px;">Date</th>
+                      <th style="padding: 10px;">Staff Member</th>
+                      <th style="padding: 10px;">Clock In</th>
+                      <th style="padding: 10px;">Clock Out</th>
+                      <th style="padding: 10px;">Total Hours</th>
+                      <th style="padding: 10px;">Sales Handled</th>
+                      <th style="padding: 10px; text-align: right;">Total Payout</th>
+                    </tr>
+                  </thead>
+                  <tbody id="attendance-tbody">
+                    <!-- populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- View: Barcode Label & Price Tag Designer Studio -->
+        <section class="content-view" id="view-label-designer">
+          <div style="padding: 20px; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 22px;">Barcode &amp; Price Tag Studio</h2>
+                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Customizable sticker designer for thermal rolls, A4 barcode sheets &amp; shelf talkers</p>
+              </div>
+              <button class="action-btn action-primary" id="btn-print-labels" style="padding: 8px 16px; font-size: 11px; font-weight: 800; border-radius: 8px;">🖨️ Print Labels to Thermal Printer / PDF</button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: minmax(280px, 360px) 1fr; gap: 20px; align-items: start;">
+              <!-- Label Controls -->
+              <div class="cloud-vault-card" style="padding: 18px; border-radius: 12px; border: 1px solid var(--border-titanium); display: flex; flex-direction: column; gap: 12px;">
+                <h4 style="margin: 0; font-size: 14px; font-weight: 800; color: var(--text-white);">Label Configuration</h4>
+                
+                <div class="form-group">
+                  <label style="font-size:11px; color:var(--text-gray);">Select Product to Print</label>
+                  <select id="label-product-select" class="pos-input" style="font-size: 12px;">
+                    <!-- dynamic options -->
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label style="font-size:11px; color:var(--text-gray);">Sticker Format Template</label>
+                  <select id="label-format-select" class="pos-input" style="font-size: 12px;">
+                    <option value="50x30">Thermal Roll (50mm × 30mm Standard)</option>
+                    <option value="40x25">Thermal Roll (40mm × 25mm Compact)</option>
+                    <option value="a4_65">A4 Sheet (65 Labels - 38.1mm × 21.2mm)</option>
+                    <option value="shelf_talker">Shelf Talker Tag (Large Price Display)</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label style="font-size:11px; color:var(--text-gray);">Barcode Symbology</label>
+                  <select id="label-symbology-select" class="pos-input" style="font-size: 12px;">
+                    <option value="code128">Code-128 (Standard Alpha-Numeric)</option>
+                    <option value="ean13">EAN-13 (13-Digit Retail Barcode)</option>
+                    <option value="qr">QR Code (2D Matrix with Product Info)</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label style="font-size:11px; color:var(--text-gray);">Number of Copies to Print</label>
+                  <input type="number" min="1" max="1000" id="label-print-qty" class="pos-input" value="12">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                  <label style="display:flex; align-items:center; gap:8px; font-size:11px; color:var(--text-gray); cursor:pointer;">
+                    <input type="checkbox" id="label-show-store-name" checked class="pos-checkbox"> Include Store Name
+                  </label>
+                  <label style="display:flex; align-items:center; gap:8px; font-size:11px; color:var(--text-gray); cursor:pointer;">
+                    <input type="checkbox" id="label-show-price" checked class="pos-checkbox"> Include Retail Price (Rs.)
+                  </label>
+                  <label style="display:flex; align-items:center; gap:8px; font-size:11px; color:var(--text-gray); cursor:pointer;">
+                    <input type="checkbox" id="label-show-sku" checked class="pos-checkbox"> Include Product SKU
+                  </label>
+                </div>
+              </div>
+
+              <!-- Live Visual Sticker Preview -->
+              <div class="cloud-vault-card" style="padding: 24px; border-radius: 12px; border: 1px solid var(--border-titanium); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 380px;">
+                <span style="font-size: 10px; font-weight: 800; color: var(--text-gray); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px;">LIVE LABEL PRINT PREVIEW</span>
+                
+                <div id="label-designer-preview" style="width: 260px; height: 160px; background: #ffffff; color: #000000; border-radius: 8px; padding: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; justify-content: space-between; align-items: center; text-align: center; box-sizing: border-box;">
+                  <!-- dynamically rendered label -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- View: AI Smart Inventory Reorder & Dead-Stock Predictor -->
+        <section class="content-view" id="view-inventory-ai">
+          <div style="padding: 20px; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 22px;">AI Smart Inventory &amp; Demand Forecasting</h2>
+                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Predictive stockout dates, dead-stock markdown engine &amp; 1-click PO generator</p>
+              </div>
+              <button class="action-btn action-primary" id="btn-ai-auto-po" style="padding: 8px 16px; font-size: 11px; font-weight: 800; border-radius: 8px;">⚡ Generate Draft Reorder Purchase Orders</button>
+            </div>
+
+            <!-- AI Inventory Cards -->
+            <div id="inventory-ai-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
+              <!-- dynamically populated by renderInventoryAiScreen -->
+            </div>
+          </div>
+        </section>
+
+        <!-- View: Customer Loyalty Club & VIP Cashback Points -->
+        <section class="content-view" id="view-loyalty">
+          <div style="padding: 20px; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 22px;">VIP Loyalty &amp; Cashback Rewards Club</h2>
+                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Automated point ledger, customer tier perks &amp; checkout discount redemption</p>
+              </div>
+              <button class="action-btn action-primary" id="btn-loyalty-add-points" style="padding: 8px 14px; font-size: 11px; font-weight: 800; border-radius: 8px;">+ Award Promotional Bonus Points</button>
+            </div>
+
+            <!-- Loyalty Tiers Grid -->
+            <div id="loyalty-tiers-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px;">
+              <!-- populated dynamically -->
+            </div>
+
+            <!-- Customer Loyalty Balances Table -->
+            <div class="cloud-vault-card">
+              <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 800; color: var(--text-white);">Customer Rewards Wallet Balances</h3>
+              <div style="overflow-x: auto;">
+                <table class="pos-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                  <thead>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); color: var(--text-gray); text-align: left;">
+                      <th style="padding: 10px;">Customer Name</th>
+                      <th style="padding: 10px;">VIP Level</th>
+                      <th style="padding: 10px;">Total Spend (LTV)</th>
+                      <th style="padding: 10px;">Points Balance</th>
+                      <th style="padding: 10px;">Redeemable Cash Value</th>
+                      <th style="padding: 10px; text-align: right;">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="loyalty-customers-tbody">
+                    <!-- populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- View: Marketing Campaign & WhatsApp Broadcast Studio -->
+        <section class="content-view" id="view-marketing">
+          <div style="padding: 20px; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 22px;">SMS &amp; WhatsApp Marketing Broadcast Studio</h2>
+                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">One-click customer promotions, flash discount alerts &amp; winback campaigns</p>
+              </div>
+            </div>
+
+            <!-- Campaign Templates Grid -->
+            <div id="marketing-templates-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">
+              <!-- dynamic templates rendered by renderMarketingScreen -->
+            </div>
+          </div>
+        </section>
+
+        <!-- View: Inter-Branch Stock Transfer (STN) -->
+        <section class="content-view" id="view-stock-transfer">
+          <div style="padding: 20px; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 22px;">Inter-Branch Stock Transfer (STN)</h2>
+                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Create, dispatch and receive inventory manifests across multiple stores</p>
+              </div>
+              <button class="action-btn action-primary" id="btn-new-stock-transfer" style="padding: 8px 14px; font-size: 11px; font-weight: 800; border-radius: 8px;">+ Create Stock Transfer Note</button>
+            </div>
+
+            <!-- Stock Transfer Manifest List -->
+            <div class="cloud-vault-card">
+              <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 800; color: var(--text-white);">Active Transfer Manifests</h3>
+              <div style="overflow-x: auto;">
+                <table class="pos-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                  <thead>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); color: var(--text-gray); text-align: left;">
+                      <th style="padding: 10px;">STN Number</th>
+                      <th style="padding: 10px;">From Branch</th>
+                      <th style="padding: 10px;">To Branch</th>
+                      <th style="padding: 10px;">Item / SKU</th>
+                      <th style="padding: 10px;">Quantity</th>
+                      <th style="padding: 10px;">Date</th>
+                      <th style="padding: 10px;">Status</th>
+                      <th style="padding: 10px; text-align: right;">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="stock-transfer-list">
+                    <!-- populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   </div>
@@ -3156,8 +3567,8 @@
     </div>
   </div>
 
-  <div id="first-boot-wizard" style="display: none; position: fixed; inset: 0; z-index: 999999; background: rgba(6, 6, 8, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior-y: auto; touch-action: pan-y; padding: max(env(safe-area-inset-top, 20px), 20px) 16px max(env(safe-area-inset-bottom, 40px), 90px) 16px; box-sizing: border-box;">
-    <div id="wizard-card" role="region" aria-label="Onboarding setup wizard" aria-live="polite" style="max-width: 520px; width: 100%; margin: 0 auto; display: block; background: linear-gradient(160deg, #1a1a28 0%, #0e0e1a 60%, #080810 100%); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; box-shadow: 0 40px 80px rgba(0,0,0,0.9), 0 0 80px rgba(0,214,143,0.04), inset 0 1px 0 rgba(255,255,255,0.07); overflow: visible; position: relative; box-sizing: border-box;">
+  <div id="first-boot-wizard" style="display: none; position: fixed; inset: 0; z-index: 999999; background: rgba(6, 6, 8, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior-y: auto; touch-action: pan-y; padding: max(env(safe-area-inset-top, 16px), 16px) 12px max(env(safe-area-inset-bottom, 36px), 36px) 12px; box-sizing: border-box;">
+    <div id="wizard-card" class="wizard-card" role="region" aria-label="Onboarding setup wizard" aria-live="polite" style="max-width: 520px; width: 100%; max-height: calc(100dvh - 32px); max-height: calc(100vh - 32px); margin: 0 auto; display: block; background: linear-gradient(160deg, #1a1a28 0%, #0e0e1a 60%, #080810 100%); border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; box-shadow: 0 40px 80px rgba(0,0,0,0.9), 0 0 80px rgba(0,214,143,0.06), inset 0 1px 0 rgba(255,255,255,0.07); overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; touch-action: pan-y; position: relative; box-sizing: border-box;">
 
       <!-- Wizard Header -->
       <div style="padding: 28px 32px 0; text-align: center;">

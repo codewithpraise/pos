@@ -5693,6 +5693,7 @@ table.report-table * {
 /* Modal and card layout safeguards for narrow mobile viewports */
 .auth-card,
 .wizard-card,
+#wizard-card,
 .dialog-card,
 .modal-content,
 .action-card {
@@ -5700,6 +5701,38 @@ table.report-table * {
   box-sizing: border-box !important;
   margin: auto 0 !important;
   flex-shrink: 0 !important;
+}
+
+/* Dedicated styled scrollbar for onboarding setup wizard card */
+#wizard-card,
+.wizard-card {
+  max-height: calc(100dvh - 32px) !important;
+  max-height: calc(100vh - 32px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;
+  overscroll-behavior-y: auto !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(0, 214, 143, 0.6) rgba(255, 255, 255, 0.06) !important;
+}
+
+#wizard-card::-webkit-scrollbar,
+.wizard-card::-webkit-scrollbar {
+  width: 6px !important;
+  display: block !important;
+}
+
+#wizard-card::-webkit-scrollbar-thumb,
+.wizard-card::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #00d68f 0%, #00a876 100%) !important;
+  border-radius: 4px !important;
+}
+
+#wizard-card::-webkit-scrollbar-track,
+.wizard-card::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-radius: 4px !important;
 }
 
 /* ===== UNIVERSAL SCROLLABLE & CENTERED POPUP MODALS & FORMS ===== */

@@ -1,16 +1,16 @@
 {
-  "version": "2.8.0",
-  "build_id": "v2.8.0-prod-valenixia-pos",
-  "git_commit": "e5c709a8",
+  "version": "2.9.0",
+  "build_id": "v2.9.0-prod-valenixia-pos",
+  "git_commit": "a91f43cb",
   "updated_at": "2026-08-16",
-  "changelog": "Valenixia POS v2.8.0 Enterprise Licensing, KYC Merchant Identity Binding, Zero-Loophole Entitlement Enforcement & Universal Packaging Release.",
+  "changelog": "Valenixia POS v2.9.0 Enterprise Feature Suite, Precision Khata Ledger Overhaul, 8 New Commercial Engines & Mobile Bootstrapping Scroll Experience Release.",
   "changes": [
-    "Integrated merchant KYC profile capture (Owner Name, Verified WhatsApp/Phone, Business Email, Operating City, and Tax NTN) with cryptographic HWID device attestation in First-Boot Wizard",
-    "Implemented zero-loophole fail-closed licensing: premium features strictly locked on Free tier until admin verifies and approves upgrade claim",
-    "Enhanced frictionless self-service payment proof submission in subscription.html with real-time polling to auto-activate upon admin 1-click license minting",
-    "Secured Admin Control Plane in admin.html with cryptographic Ed25519 token generation bound to terminal hardware ID",
+    "Overhauled Customer Credit Ledger (Khata): debits increase debt, repayments decrease debt, crystal-clear advance deposit badges with zero negative sign confusion, and 0ms reactive in-memory synchronization",
+    "Added 8 New High-Value Pro & Enterprise Screen Views and Interactive Controllers: Kitchen Display System (KDS), Petty Cash Float & Z-Report Reconciliation, Staff Time Clock & Payroll Commission, Barcode Label & Shelf Tag Studio, AI Smart Inventory Reorder & Dead-Stock Forecast, VIP Customer Loyalty Club & Cashback Wallet, SMS & WhatsApp Marketing Broadcast Studio, and Inter-Branch Stock Transfer (STN) Manifests",
+    "Resolved inner rectangular setup wizard card scrolling on mobile devices with dedicated pan-y touch action and custom scrollbar geometry",
+    "Updated Commercial Catalog and Legal Subscription documents with high-converting tier packaging to maximize SaaS revenue",
     "Standardized universal release packages: valenixia-pos.apk (Android) and valenixia-pos.exe (Desktop) in download center and in-app portals",
-    "Resolved flexbox centering negative-coordinate clipping across all bootstrapping overlays and modal viewports on mobile devices",
-    "Passed all 80 unit tests, 15 database integration tests, 8 mobile scroll tests, 11 bootstrap architecture tests, and 29 runtime acceptance checks"
+    "Secured Admin Control Plane in admin.html with instant cryptographic Ed25519 token generation bound to terminal hardware ID",
+    "Passed full test suite: unit tests, database integrity, mobile bootstrap scrolling, runtime acceptance, and surface ownership checks"
   ]
 }

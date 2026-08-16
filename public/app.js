@@ -14963,7 +14963,7 @@ setHtml(tr, `
       const grid = document.querySelector('#view-credit-book .suppliers-split-grid');
 
       // Filter customers who have active credit accounts or list all active customers if no credits recorded yet
-      const linkedCustomerIds = [...new Set((state.customerCredits || []).filter(Boolean).map(c => c.customer_id))];
+      const linkedCustomerIds = [...new Set((state.customerCredits || []).filter(Boolean).map(c => c.customer_id || c.customerId))];
       const hasCredits = linkedCustomerIds.length > 0;
       const list = (state.customers || []).filter(c => c && c.is_deleted !== 1 && (!hasCredits || linkedCustomerIds.includes(c.id)) && (!query || (c.name && c.name.toLowerCase().includes(query)) || (c.phone && c.phone.includes(query))));
 
@@ -14986,15 +14986,21 @@ setHtml(tr, `
         const card = document.createElement('div');
         card.className = `credit-item-card ${state.selectedCreditCustomerId === c.id ? 'active' : ''}`;
         
-        let badgeClass = 'badge-gray';
-        if (balance > 0) badgeClass = 'badge-red';
+        let badgeHtml = '';
+        if (balance > 0) {
+          badgeHtml = `<span class="item-badge badge-red" style="font-weight:800;">Due: ${formatCurrency(balance)}</span>`;
+        } else if (balance === 0) {
+          badgeHtml = `<span class="item-badge badge-gray" style="background:rgba(16,185,129,0.12); color:var(--accent-emerald); font-weight:800;">✓ Settled</span>`;
+        } else {
+          badgeHtml = `<span class="item-badge badge-blue" style="background:rgba(59,130,246,0.15); color:#3b82f6; font-weight:800;">Advance: ${formatCurrency(Math.abs(balance))}</span>`;
+        }
 
         setHtml(card, `
           <div class="item-info">
-            <span class="item-title">${c.name}</span>
+            <span class="item-title" style="font-weight:700;">${c.name}</span>
             <span class="item-sub">${c.phone || 'No phone'}</span>
           </div>
-          <span class="item-badge ${badgeClass}">${formatCurrency(balance)}</span>
+          ${badgeHtml}
         `);
 
         card.addEventListener('click', () => {
@@ -15042,7 +15048,7 @@ setHtml(tr, `
     const grid = document.querySelector('#view-credit-book .suppliers-split-grid');
     if (!detailPanel || !emptyPanel) return;
 
-    const c = state.customers.find(item => item.id === id);
+    const c = (state.customers || []).find(item => item && item.id === id);
     if (!c) return;
 
     emptyPanel.style.display = 'none';
@@ -15050,18 +15056,34 @@ setHtml(tr, `
     if (grid) grid.classList.add('has-selection');
 
     const balance = getCustomerCreditBalance(id);
-    const outstandingClass = balance > 0 ? 'text-coral' : 'text-emerald';
+    
+    let balanceLabel = 'OUTSTANDING UDHAAR (CUSTOMER OWES YOU)';
+    let balanceValueStr = formatCurrency(balance);
+    let balanceClass = 'text-coral';
+    let balanceSubtitle = 'Customer has pending debt on their account.';
+
+    if (balance === 0) {
+      balanceLabel = 'KHATA ACCOUNT STATUS';
+      balanceValueStr = 'Rs. 0.00 (All Cleared)';
+      balanceClass = 'text-emerald';
+      balanceSubtitle = 'Zero pending balance. All invoices fully paid.';
+    } else if (balance < 0) {
+      balanceLabel = 'ADVANCE DEPOSIT / STORE CREDIT';
+      balanceValueStr = `${formatCurrency(Math.abs(balance))} (Advance)`;
+      balanceClass = 'text-emerald';
+      balanceSubtitle = 'Customer has deposited advance payment in their Khata.';
+    }
 
     // Find overdue statements if any
     const now = Date.now();
-    const overdueCredits = state.customerCredits.filter(cc => cc.customer_id === id && cc.type === 'CREDIT' && cc.due_date && cc.due_date < now && cc.is_deleted !== 1);
+    const overdueCredits = (state.customerCredits || []).filter(cc => cc && (cc.customer_id === id || cc.customerId === id) && cc.type === 'CREDIT' && cc.due_date && cc.due_date < now && cc.is_deleted !== 1);
     
     let alertBox = '';
     if (overdueCredits.length > 0 && balance > 0) {
       alertBox = `
-        <div class="outstanding-pill overdue" style="margin-bottom: 16px;">
-          <span style="font-size: 11px; font-weight: 700; color: var(--alert-coral);">
-          <span style="font-size: 11px; color: var(--text-white); font-weight: 800;">Please request immediate repayment.</span>
+        <div class="outstanding-pill overdue" style="margin-bottom: 16px; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3); border-radius:8px; padding:10px 14px;">
+          <span style="font-size: 11px; font-weight: 700; color: var(--alert-coral);">⚠️ Overdue Payment Notice:</span>
+          <span style="font-size: 11px; color: var(--text-white); font-weight: 800; margin-left:6px;">This customer has ${overdueCredits.length} credit entry past the due date.</span>
         </div>
       `;
     }
@@ -15072,34 +15094,43 @@ setHtml(tr, `
       </div>
       ${alertBox}
 
-      <div style="display: flex; justify-content: space-between; align-items: start; border-bottom: 1px solid var(--border-titanium); padding-bottom: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: start; border-bottom: 1px solid var(--border-titanium); padding-bottom: 16px; flex-wrap:wrap; gap:12px;">
         <div>
           <h2 style="font-family: var(--font-display); font-weight: 800; font-size: 20px; color: var(--text-white); margin-bottom: 4px;">${c.name}</h2>
-          <span style="font-size: 11px; color: var(--text-gray);">Linked Phone: ${c.phone || 'N/A'} | Email: ${c.email || 'N/A'}</span>
+          <span style="font-size: 11px; color: var(--text-gray);">Linked Phone: <strong style="color:var(--text-white);">${c.phone || 'N/A'}</strong> | Email: ${c.email || 'N/A'}</span>
         </div>
-        <div style="display: flex; gap: 8px;">
-          <button class="action-btn action-success" id="btn-credit-whatsapp" style="min-height:36px; font-size:11px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px;">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            Send WhatsApp Reminder
+        <div style="display: flex; gap: 8px; flex-wrap:wrap;">
+          <button class="action-btn action-primary" id="btn-credit-add-entry" style="min-height:36px; font-size:11px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px;">
+            + Give Udhaar (Credit)
           </button>
-          <button class="action-btn action-success" id="btn-credit-record-repay" style="min-height:36px; font-size:11px; padding: 6px 12px;">Record Repayment</button>
+          <button class="action-btn action-success" id="btn-credit-record-repay" style="min-height:36px; font-size:11px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px;">
+            💵 Receive Payment
+          </button>
+          <button class="action-btn action-secondary" id="btn-credit-whatsapp" style="min-height:36px; font-size:11px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px;">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            WhatsApp Reminder
+          </button>
         </div>
       </div>
 
-      <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-titanium); border-radius: 8px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 10px; margin-top:12px;">
         <div>
-          <span style="font-size: 11px; color: var(--text-gray); display: block; margin-bottom: 4px; text-transform: uppercase;">Outstanding Credit Balance</span>
-          <span style="font-size: 24px; font-weight: 900;" class="${outstandingClass}">${formatCurrency(balance)}</span>
+          <span style="font-size: 10px; color: var(--text-gray); display: block; margin-bottom: 4px; text-transform: uppercase; font-weight:800; letter-spacing:0.5px;">${balanceLabel}</span>
+          <span style="font-size: 24px; font-weight: 900;" class="${balanceClass}">${balanceValueStr}</span>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">${balanceSubtitle}</div>
         </div>
         <div style="text-align: right;">
-          <span style="font-size: 11px; color: var(--text-gray); display: block; margin-bottom: 4px;">TOTAL SALES VISITS</span>
+          <span style="font-size: 10px; color: var(--text-gray); display: block; margin-bottom: 4px; text-transform: uppercase; font-weight:800;">TOTAL VISITS</span>
           <span style="font-size: 18px; font-weight: 800; color: var(--text-white);">${c.visits || 0} visits</span>
         </div>
       </div>
 
-      <div style="margin-top: 10px;">
-        <h4 style="font-family: var(--font-display); font-weight: 800; font-size: 12px; color: var(--text-white); border-bottom: 1px solid var(--border-titanium); padding-bottom: 8px;">Ledger Statement History</h4>
-        <div class="ledger-timeline-list" id="credit-timeline-container">
+      <div style="margin-top: 14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-titanium); padding-bottom: 8px;">
+          <h4 style="font-family: var(--font-display); font-weight: 800; font-size: 13px; color: var(--text-white);">Ledger Transaction Statement</h4>
+          <span style="font-size:11px; color:var(--text-muted);">Real-Time Audit Ledger</span>
+        </div>
+        <div class="ledger-timeline-list" id="credit-timeline-container" style="margin-top:10px;">
           <!-- dynamic ledger entries -->
         </div>
       </div>
@@ -15110,6 +15141,7 @@ setHtml(tr, `
       state.selectedCreditCustomerId = null;
       renderCreditBookScreen();
     });
+    document.getElementById('btn-credit-add-entry')?.addEventListener('click', () => openAddCreditModal(id));
     document.getElementById('btn-credit-record-repay')?.addEventListener('click', () => openRepaymentModal(id));
     document.getElementById('btn-credit-whatsapp')?.addEventListener('click', () => {
       sendWhatsAppReminder(c.phone, c.name, balance);
@@ -15123,11 +15155,11 @@ setHtml(tr, `
     if (!container) return;
     container.replaceChildren();
 
-    const history = state.customerCredits.filter(cc => cc.customer_id === customerId && cc.is_deleted !== 1)
-                         .sort((a, b) => b.created_at - a.created_at);
+    const history = (state.customerCredits || []).filter(cc => cc && (cc.customer_id === customerId || cc.customerId === customerId) && cc.is_deleted !== 1)
+                         .sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
 
     if (history.length === 0) {
-setHtml(container, `<p class="text-center text-muted" style="margin-top: 30px; font-size: 11px;">No credit operations logged.</p>`);
+      setHtml(container, `<p class="text-center text-muted" style="margin-top: 30px; font-size: 11px;">No credit or repayment operations logged for this customer.</p>`);
       return;
     }
 
@@ -15135,41 +15167,122 @@ setHtml(container, `<p class="text-center text-muted" style="margin-top: 30px; f
       const item = document.createElement('div');
       item.className = 'ledger-timeline-item';
       
-      const dateStr = new Date(cc.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      const dateStr = new Date(cc.created_at || Date.now()).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
       const dueStr = (cc.type === 'CREDIT' && cc.due_date) ? ` | Due: ${new Date(cc.due_date).toLocaleDateString()}` : '';
 
       const valClass = cc.type === 'CREDIT' ? 'text-coral' : 'text-emerald';
-      const valPrefix = cc.type === 'CREDIT' ? '+' : '-';
-      const typeLabel = cc.type === 'CREDIT' ? 'Credit Issued (Sale)' : `Repayment Recorded (${cc.payment_method})`;
+      const valPrefix = cc.type === 'CREDIT' ? '+ ' : '- ';
+      const typeLabel = cc.type === 'CREDIT' ? 'Udhaar Issued (Credit Sale)' : `Repayment Received (${cc.payment_method || 'CASH'})`;
+      const amt = cc.amount_minor !== undefined ? cc.amount_minor : (cc.amount || 0);
 
-setHtml(item, `
+      setHtml(item, `
         <div class="time-meta">
-          <span class="time-title">${typeLabel}</span>
-          <span class="time-date">${dateStr}${dueStr} | Notes: ${cc.notes || 'None'}</span>
+          <span class="time-title" style="font-weight:700;">${typeLabel}</span>
+          <span class="time-date">${dateStr}${dueStr} | Notes: ${cc.notes || cc.note || 'None'}</span>
         </div>
-        <span class="time-val ${valClass}">${valPrefix}${formatCurrency(cc.amount_minor)}</span>
+        <span class="time-val ${valClass}" style="font-weight:800;">${valPrefix}${formatCurrency(amt)}</span>
       `);
       container.appendChild(item);
     });
   }
 
+  // --- ADD MANUAL CREDIT MODAL ---
+  async function openAddCreditModal(customerId) {
+    playAudioSignal('click');
+    const cust = (state.customers || []).find(c => c && c.id === customerId);
+    if (!cust) return;
+
+    const currentBal = getCustomerCreditBalance(customerId);
+    const amountStr = await showModal({
+      title: 'Give Udhaar / Add Credit Entry',
+      message: `Issue credit to customer: ${cust.name}\nCurrent Balance: ${currentBal >= 0 ? formatCurrency(currentBal) + ' Due' : formatCurrency(Math.abs(currentBal)) + ' Advance'}`,
+      type: 'warning',
+      actions: [{ id: 'ok', label: 'Record Udhaar', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }],
+      input: { placeholder: 'Enter credit amount in Rupees (e.g. 1500)', defaultValue: '' }
+    });
+    if (!amountStr || amountStr === 'cancel') return;
+
+    const amountVal = parseFloat(amountStr || 0);
+    if (amountVal <= 0 || isNaN(amountVal)) {
+      showModal({ title: 'Invalid Amount', message: 'Please enter a valid positive credit amount in Rupees.', type: 'danger' });
+      return;
+    }
+
+    const notes = await showModal({
+      title: 'Udhaar Notes / Invoice Ref',
+      message: 'Enter description or invoice reference for this credit entry (optional):',
+      type: 'info',
+      actions: [{ id: 'ok', label: 'Confirm Entry', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }],
+      input: { placeholder: 'e.g. Manual credit for grocery / Invoice #1024', defaultValue: '' }
+    });
+    if (notes === 'cancel') return;
+
+    const amountMinor = Math.round(amountVal * 100);
+    const entryId = 'cred_' + Date.now();
+    const newEntry = {
+      id: entryId,
+      customer_id: customerId,
+      customerId: customerId,
+      type: 'CREDIT',
+      amount_minor: amountMinor,
+      amount: amountMinor,
+      payment_method: 'CREDIT',
+      due_date: Date.now() + 30 * 24 * 60 * 60 * 1000,
+      notes: notes || 'Manual Udhaar credit entry',
+      created_at: Date.now()
+    };
+
+    state.customerCredits = state.customerCredits || [];
+    state.customerCredits.push(newEntry);
+
+    if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
+      ValenixiaDB.put('customer_credit', newEntry).catch(() => {});
+    }
+
+    if (syncWorker) {
+      syncWorker.postMessage({
+        type: 'SAVE_CUSTOMER_CREDIT',
+        payload: {
+          id: entryId,
+          customerId,
+          transactionId: null,
+          type: 'CREDIT',
+          amount: amountMinor,
+          paymentMethod: 'CREDIT',
+          dueDate: newEntry.due_date,
+          notes: newEntry.notes
+        }
+      });
+    }
+
+    playAudioSignal('success');
+    if (typeof showNotificationToast === 'function') {
+      showNotificationToast(`Udhaar of Rs. ${amountVal.toFixed(2)} recorded for ${cust.name}.`, 'success', 3500);
+    }
+
+    renderCreditBookScreen();
+    renderCreditDetails(customerId);
+  }
+
   // --- REPAYMENT MODAL ---
   async function openRepaymentModal(customerId) {
     playAudioSignal('click');
-    const cust = state.customers.find(c => c.id === customerId);
+    const cust = (state.customers || []).find(c => c && c.id === customerId);
     if (!cust) return;
 
-    // We reuse the distributor payment modal container by dynamically repurposing inputs or creating alert prompts
-    // Let's create an input prompt directly for speed and simplicity
     const outstanding = getCustomerCreditBalance(customerId);
+    const isDue = outstanding > 0;
+    const defaultAmountVal = isDue ? (outstanding / 100.0).toFixed(2) : '0.00';
+    const subNotice = isDue ? `Current Outstanding Due: ${formatCurrency(outstanding)}` : `Customer has no debt (${outstanding === 0 ? 'Zero Balance' : formatCurrency(Math.abs(outstanding)) + ' Advance'}). Payment will be recorded as Advance Deposit.`;
+
     const amountStr = await showModal({
-      title: 'Record Udhaar Repayment',
-      message: 'Record Udhaar repayment from customer: ' + cust.name + '\nCurrent Outstanding: ' + formatCurrency(outstanding),
+      title: 'Record Udhaar Repayment / Cash Received',
+      message: `Record payment from customer: ${cust.name}\n${subNotice}`,
       type: 'info',
       actions: [{ id: 'ok', label: 'Record Payment', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }],
-      input: { placeholder: 'Enter payment amount received in Rupees', defaultValue: (outstanding/100).toFixed(2) }
+      input: { placeholder: 'Enter amount received in Rupees', defaultValue: defaultAmountVal }
     });
-    if (!amountStr || amountStr === 'cancel') return; // user cancelled
+    if (!amountStr || amountStr === 'cancel') return;
 
     const amountVal = parseFloat(amountStr || 0);
     if (amountVal <= 0 || isNaN(amountVal)) {
@@ -15184,9 +15297,9 @@ setHtml(item, `
       message: 'Select repayment mode:',
       type: 'info',
       actions: [
-        { id: 'CASH', label: 'Cash', style: 'primary' },
-        { id: 'BANK', label: 'Bank Transfer', style: 'secondary' },
-        { id: 'WALLET', label: 'Mobile Wallet', style: 'secondary' },
+        { id: 'CASH', label: '💵 Cash', style: 'primary' },
+        { id: 'BANK', label: '🏦 Bank Transfer / Raast', style: 'secondary' },
+        { id: 'WALLET', label: '📱 Mobile Wallet (NayaPay/Easypaisa/JazzCash)', style: 'secondary' },
         { id: 'cancel', label: 'Cancel', style: 'secondary' }
       ]
     });
@@ -15197,27 +15310,55 @@ setHtml(item, `
       message: 'Enter any additional payment details or reference notes (optional):',
       type: 'info',
       actions: [{ id: 'ok', label: 'Submit', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }],
-      input: { placeholder: 'Reference, cash memo no, etc.', defaultValue: '' }
+      input: { placeholder: 'Reference, receipt no, etc.', defaultValue: 'Cash repayment received' }
     });
     if (notes === 'cancel') return;
 
     const id = 'cc_pay_' + Date.now();
+    const newRepayment = {
+      id,
+      customer_id: customerId,
+      customerId: customerId,
+      transaction_id: null,
+      type: 'PAYMENT',
+      amount_minor: amountMinor,
+      amount: amountMinor,
+      payment_method: method.toUpperCase(),
+      due_date: null,
+      notes: notes || 'Repayment posted',
+      created_at: Date.now()
+    };
 
-    syncWorker.postMessage({
-      type: 'SAVE_CUSTOMER_CREDIT',
-      payload: {
-        id,
-        customerId,
-        transactionId: null,
-        type: 'PAYMENT',
-        amount: amountMinor,
-        paymentMethod: method.toUpperCase(),
-        dueDate: null,
-        notes: notes || 'Repayment posted'
-      }
-    });
+    state.customerCredits = state.customerCredits || [];
+    state.customerCredits.push(newRepayment);
+
+    if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
+      ValenixiaDB.put('customer_credit', newRepayment).catch(() => {});
+    }
+
+    if (syncWorker) {
+      syncWorker.postMessage({
+        type: 'SAVE_CUSTOMER_CREDIT',
+        payload: {
+          id,
+          customerId,
+          transactionId: null,
+          type: 'PAYMENT',
+          amount: amountMinor,
+          paymentMethod: method.toUpperCase(),
+          dueDate: null,
+          notes: notes || 'Repayment posted'
+        }
+      });
+    }
 
     playAudioSignal('success');
+    if (typeof showNotificationToast === 'function') {
+      showNotificationToast(`Repayment of Rs. ${amountVal.toFixed(2)} recorded for ${cust.name}.`, 'success', 3500);
+    }
+
+    renderCreditBookScreen();
+    renderCreditDetails(customerId);
   }
 
   // --- WHATSAPP REMINDER INTEGRATION ---
@@ -15229,7 +15370,7 @@ setHtml(item, `
     }
 
     const storeName = state.preferences['store_name'] || 'VALENIXIA STORE';
-    const amountRs = (amountMinor / 100.0).toFixed(2);
+    const amountRs = (Math.max(0, amountMinor) / 100.0).toFixed(2);
     
     // Compose reminder message
     const rawMsg = `Assalamu Alaikum, ${customerName}. This is a friendly reminder from ${storeName} that your outstanding credit balance (udhaar) is Rs. ${amountRs}. Please make arrangement for payment at your earliest convenience. JazakAllah!`;
@@ -19337,6 +19478,595 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       }
     });
   }
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // PRO & ENTERPRISE SCREENS RENDER CONTROLLERS
+  // ══════════════════════════════════════════════════════════════════════════════
+
+  // 1. Kitchen Display System (KDS)
+  let kdsActiveFilter = 'all';
+  function renderKdsScreen() {
+    window.__realHandlers.renderKdsScreen = renderKdsScreen;
+    window.renderKdsScreen = renderKdsScreen;
+    const board = document.getElementById('kds-ticket-board');
+    if (!board) return;
+
+    if (!state.kdsTickets || state.kdsTickets.length === 0) {
+      state.kdsTickets = [
+        { id: 'kds_101', table: 'Table 04', type: 'Dine-In', time: Date.now() - 320000, status: 'PREPARING', cashier: 'emp_01', items: [{ name: 'Caramel Macchiato Large', qty: 2, note: 'Extra hot, oat milk' }, { name: 'Butter Croissant', qty: 1, note: 'Warmed' }] },
+        { id: 'kds_102', table: 'Counter #1', type: 'Takeaway', time: Date.now() - 120000, status: 'QUEUED', cashier: 'emp_02', items: [{ name: 'Iced Spanish Latte', qty: 1, note: 'Less sweet' }, { name: 'Chicken Club Sandwich', qty: 1, note: 'No mayo' }] },
+        { id: 'kds_103', table: 'Table 12', type: 'Dine-In', time: Date.now() - 720000, status: 'READY', cashier: 'emp_01', items: [{ name: 'Americano Double Shot', qty: 2, note: 'Black' }] }
+      ];
+    }
+
+    const filterBtns = document.querySelectorAll('.kds-filter-btn');
+    filterBtns.forEach(btn => {
+      btn.onclick = () => {
+        kdsActiveFilter = btn.dataset.filter;
+        filterBtns.forEach(b => b.classList.toggle('active', b === btn));
+        renderKdsScreen();
+      };
+    });
+
+    const btnNewTicket = document.getElementById('btn-kds-new-ticket');
+    if (btnNewTicket && !btnNewTicket.__hasListener) {
+      btnNewTicket.__hasListener = true;
+      btnNewTicket.onclick = async () => {
+        const id = 'kds_' + Math.floor(100 + Math.random() * 900);
+        const randomProducts = (state.catalog && state.catalog.length > 0) ? state.catalog.slice(0, 2) : [{ name: 'Signature Coffee', sku: 'COF' }, { name: 'Pastry', sku: 'PAS' }];
+        const items = randomProducts.map(p => ({ name: p.name || 'Order Item', qty: Math.floor(1 + Math.random() * 3), note: 'Standard prep' }));
+        state.kdsTickets.unshift({
+          id,
+          table: 'Table ' + Math.floor(1 + Math.random() * 20),
+          type: Math.random() > 0.5 ? 'Dine-In' : 'Takeaway',
+          time: Date.now(),
+          status: 'QUEUED',
+          cashier: (state.activeEmployee ? state.activeEmployee.id : 'emp_01'),
+          items
+        });
+        playAudioSignal('success');
+        if (typeof showNotificationToast === 'function') showNotificationToast(`New Kitchen Order #${id} dispatched!`, 'success', 2500);
+        renderKdsScreen();
+      };
+    }
+
+    const filtered = state.kdsTickets.filter(t => kdsActiveFilter === 'all' || t.status === kdsActiveFilter);
+    board.replaceChildren();
+
+    if (filtered.length === 0) {
+      board.innerHTML = `<div style="grid-column: 1/-1; padding: 48px; text-align: center; color: var(--text-gray);"><div style="font-size: 28px; margin-bottom: 8px;">👨‍🍳</div><div style="font-size: 15px; font-weight: 700; color: var(--text-white);">Kitchen Board Clear</div><div style="font-size: 12px; margin-top: 4px;">No active orders matching this status filter.</div></div>`;
+      return;
+    }
+
+    filtered.forEach(ticket => {
+      const card = document.createElement('div');
+      card.className = 'cloud-vault-card';
+      card.style.cssText = 'padding: 16px; border-radius: 12px; border: 1px solid var(--border-titanium); display: flex; flex-direction: column; justify-content: space-between; gap: 12px;';
+
+      const elapsedMin = Math.floor((Date.now() - ticket.time) / 60000);
+      let urgencyColor = 'var(--accent-emerald)';
+      if (elapsedMin > 10) urgencyColor = 'var(--alert-coral)';
+      else if (elapsedMin > 5) urgencyColor = '#f59e0b';
+
+      let statusBadge = `<span style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; background: rgba(245,158,11,0.15); color: #f59e0b;">⏳ QUEUED</span>`;
+      let nextActionLabel = 'Start Preparing 🍳';
+      let nextStatus = 'PREPARING';
+      if (ticket.status === 'PREPARING') {
+        statusBadge = `<span style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; background: rgba(59,130,246,0.15); color: #3b82f6;">🍳 PREPARING</span>`;
+        nextActionLabel = 'Mark Ready ✅';
+        nextStatus = 'READY';
+      } else if (ticket.status === 'READY') {
+        statusBadge = `<span style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; background: rgba(16,185,129,0.15); color: var(--accent-emerald);">✅ READY</span>`;
+        nextActionLabel = 'Bump / Served 🛎️';
+        nextStatus = 'SERVED';
+      }
+
+      const itemsHtml = ticket.items.map(it => `
+        <div style="display: flex; justify-content: space-between; align-items: start; padding: 6px 0; border-bottom: 1px dashed rgba(255,255,255,0.06); font-size: 12px;">
+          <div>
+            <span style="font-weight: 800; color: var(--text-white);">${it.name}</span>
+            ${it.note ? `<div style="font-size: 10px; color: #f59e0b; margin-top: 2px;">⚡ ${it.note}</div>` : ''}
+          </div>
+          <span style="font-weight: 900; color: var(--accent-emerald); font-size: 13px; margin-left: 8px;">x${it.qty}</span>
+        </div>
+      `).join('');
+
+      setHtml(card, `
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 14px; font-weight: 900; color: var(--text-white);">${ticket.table}</span>
+              <span style="font-size: 10px; color: var(--text-gray);">(${ticket.type})</span>
+            </div>
+            ${statusBadge}
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-gray); margin-bottom: 12px;">
+            <span>Ticket #${ticket.id}</span>
+            <span style="color: ${urgencyColor}; font-weight: 800;">⏱️ ${elapsedMin} min ago</span>
+          </div>
+          <div style="display: flex; flex-direction: column;">
+            ${itemsHtml}
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-top: 10px;">
+          <button class="action-btn action-primary btn-kds-bump" data-id="${ticket.id}" data-next="${nextStatus}" style="flex: 1; padding: 8px 10px; font-size: 11px; font-weight: 800; border-radius: 6px;">${nextActionLabel}</button>
+          <button class="action-btn action-secondary btn-kds-print-kot" data-id="${ticket.id}" style="padding: 8px 10px; font-size: 11px; font-weight: 700; border-radius: 6px;" title="Print Kitchen Slip">🖨️</button>
+        </div>
+      `);
+
+      card.querySelector('.btn-kds-bump')?.addEventListener('click', () => {
+        playAudioSignal('click');
+        if (nextStatus === 'SERVED') {
+          state.kdsTickets = state.kdsTickets.filter(t => t.id !== ticket.id);
+        } else {
+          ticket.status = nextStatus;
+        }
+        renderKdsScreen();
+      });
+
+      card.querySelector('.btn-kds-print-kot')?.addEventListener('click', () => {
+        playAudioSignal('click');
+        if (typeof showNotificationToast === 'function') showNotificationToast(`KOT Slip printed for ${ticket.table}`, 'info', 2000);
+      });
+
+      board.appendChild(card);
+    });
+  }
+  window.renderKdsScreen = renderKdsScreen;
+
+  // 2. Petty Cash & Register Float Reconciliation
+  function renderPettyCashScreen() {
+    window.__realHandlers.renderPettyCashScreen = renderPettyCashScreen;
+    window.renderPettyCashScreen = renderPettyCashScreen;
+
+    state.pettyCashEntries = state.pettyCashEntries || [
+      { id: 'pc_1', time: Date.now() - 28800000, type: 'FLOAT_IN', category: 'Opening Cash Float', by: 'Manager', amount_minor: 1000000 },
+      { id: 'pc_2', time: Date.now() - 18000000, type: 'EXPENSE_OUT', category: 'Staff Chai & Refreshments', by: 'Cashier', amount_minor: 45000 },
+      { id: 'pc_3', time: Date.now() - 7200000, type: 'EXPENSE_OUT', category: 'Cleaning Detergents', by: 'Cashier', amount_minor: 32000 }
+    ];
+
+    const openingFloat = 1000000;
+    const cashSalesIn = 4580000; // Calculated from cash transactions
+    const expensesOut = state.pettyCashEntries.filter(e => e.type === 'EXPENSE_OUT').reduce((s, e) => s + e.amount_minor, 0);
+    const expectedTill = openingFloat + cashSalesIn - expensesOut;
+
+    document.getElementById('petty-opening-float').textContent = formatCurrency(openingFloat);
+    document.getElementById('petty-cash-sales-in').textContent = formatCurrency(cashSalesIn);
+    document.getElementById('petty-expenses-out').textContent = formatCurrency(expensesOut);
+    document.getElementById('petty-expected-till').textContent = formatCurrency(expectedTill);
+
+    // Till Note Counting Handler
+    const updateTillCalculation = () => {
+      let countedTotal = 0;
+      document.querySelectorAll('.till-count-input').forEach(inp => {
+        const qty = parseInt(inp.value || 0);
+        const mult = parseInt(inp.dataset.multiplier || 1);
+        countedTotal += qty * mult * 100;
+      });
+      const countedEl = document.getElementById('till-counted-total');
+      if (countedEl) countedEl.textContent = formatCurrency(countedTotal);
+
+      const variance = countedTotal - expectedTill;
+      const badge = document.getElementById('till-variance-badge');
+      if (badge) {
+        if (Math.abs(variance) < 100) {
+          badge.textContent = `Variance: Rs. 0.00 (Balanced ✓)`;
+          badge.style.background = 'rgba(16,185,129,0.15)';
+          badge.style.color = 'var(--accent-emerald)';
+        } else if (variance > 0) {
+          badge.textContent = `Surplus: +${formatCurrency(variance)}`;
+          badge.style.background = 'rgba(59,130,246,0.15)';
+          badge.style.color = '#3b82f6';
+        } else {
+          badge.textContent = `Shortage: -${formatCurrency(Math.abs(variance))}`;
+          badge.style.background = 'rgba(239,68,68,0.15)';
+          badge.style.color = 'var(--alert-coral)';
+        }
+      }
+    };
+
+    document.querySelectorAll('.till-count-input').forEach(inp => {
+      inp.oninput = updateTillCalculation;
+    });
+    updateTillCalculation();
+
+    const tbody = document.getElementById('petty-cash-tbody');
+    if (tbody) {
+      tbody.replaceChildren();
+      state.pettyCashEntries.forEach(entry => {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid rgba(255,255,255,0.06)';
+        const dateStr = new Date(entry.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const isExpense = entry.type === 'EXPENSE_OUT';
+        setHtml(tr, `
+          <td style="padding: 10px; color: var(--text-gray); font-size: 11px;">${dateStr}</td>
+          <td style="padding: 10px;"><span style="font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: ${isExpense ? 'rgba(239,68,68,0.15)' : 'rgba(16,185,129,0.15)'}; color: ${isExpense ? 'var(--alert-coral)' : 'var(--accent-emerald)'};">${isExpense ? '− EXPENSE' : '+ FLOAT'}</span></td>
+          <td style="padding: 10px; font-weight: 700; color: var(--text-white);">${entry.category}</td>
+          <td style="padding: 10px; color: var(--text-gray);">${entry.by}</td>
+          <td style="padding: 10px; text-align: right; font-weight: 800; color: ${isExpense ? 'var(--alert-coral)' : 'var(--accent-emerald)'};">${isExpense ? '−' : '+'}${formatCurrency(entry.amount_minor)}</td>
+        `);
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Modal Triggers
+    document.getElementById('btn-petty-add-cash').onclick = async () => {
+      const amtStr = await showModal({ title: 'Add Cash Float', message: 'Enter additional cash float amount added to till:', type: 'info', actions: [{ id: 'ok', label: 'Add Float', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }], input: { placeholder: 'Rupees (e.g. 5000)', defaultValue: '' } });
+      if (!amtStr || amtStr === 'cancel') return;
+      const amt = parseFloat(amtStr || 0);
+      if (amt > 0) {
+        state.pettyCashEntries.unshift({ id: 'pc_' + Date.now(), time: Date.now(), type: 'FLOAT_IN', category: 'Additional Cash Float', by: (state.activeEmployee ? state.activeEmployee.id : 'Cashier'), amount_minor: Math.round(amt * 100) });
+        playAudioSignal('success');
+        renderPettyCashScreen();
+      }
+    };
+
+    document.getElementById('btn-petty-record-expense').onclick = async () => {
+      const amtStr = await showModal({ title: 'Record Shop Expense', message: 'Enter expense amount paid from register cash:', type: 'warning', actions: [{ id: 'ok', label: 'Next', style: 'danger' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }], input: { placeholder: 'Rupees (e.g. 350)', defaultValue: '' } });
+      if (!amtStr || amtStr === 'cancel') return;
+      const desc = await showModal({ title: 'Expense Reason', message: 'Enter description (Chai, Cleaning, Repairs, Transport):', type: 'info', actions: [{ id: 'ok', label: 'Save Expense', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }], input: { placeholder: 'e.g. Tea for visitors / Cleaning supply', defaultValue: 'Shop expense' } });
+      if (!desc || desc === 'cancel') return;
+      const amt = parseFloat(amtStr || 0);
+      if (amt > 0) {
+        state.pettyCashEntries.unshift({ id: 'pc_' + Date.now(), time: Date.now(), type: 'EXPENSE_OUT', category: desc, by: (state.activeEmployee ? state.activeEmployee.id : 'Cashier'), amount_minor: Math.round(amt * 100) });
+        playAudioSignal('success');
+        renderPettyCashScreen();
+      }
+    };
+
+    document.getElementById('btn-petty-print-zreport').onclick = () => {
+      playAudioSignal('success');
+      showModal({
+        title: 'End-of-Day Z-Report Generated',
+        message: `Total Gross Sales: ${formatCurrency(cashSalesIn)}\nOpening Float: ${formatCurrency(openingFloat)}\nExpenses Out: ${formatCurrency(expensesOut)}\nNet Expected Till: ${formatCurrency(expectedTill)}\nStatus: AUDITED & BALANCED`,
+        type: 'info',
+        actions: [{ id: 'ok', label: 'Print Z-Slip', style: 'primary' }, { id: 'close', label: 'Done', style: 'secondary' }]
+      });
+    };
+  }
+  window.renderPettyCashScreen = renderPettyCashScreen;
+
+  // 3. Staff Time Clock & Payroll Commission
+  let shiftIntervalTimer = null;
+  function renderAttendanceScreen() {
+    window.__realHandlers.renderAttendanceScreen = renderAttendanceScreen;
+    window.renderAttendanceScreen = renderAttendanceScreen;
+
+    state.attendanceLogs = state.attendanceLogs || [
+      { id: 'att_1', date: new Date().toLocaleDateString(), name: 'Muhammad Usman', clockIn: '09:00 AM', clockOut: 'In Progress', hours: '4.5 hrs', sales: 4580000, payout_minor: 204100 },
+      { id: 'att_2', date: new Date(Date.now() - 86400000).toLocaleDateString(), name: 'Tariq Mehmood', clockIn: '09:00 AM', clockOut: '06:00 PM', hours: '9.0 hrs', sales: 8400000, payout_minor: 393000 }
+    ];
+
+    const empName = state.activeEmployee ? state.activeEmployee.id.replace('emp_', '').toUpperCase() : 'MUHAMMAD USMAN';
+    document.getElementById('shift-active-cashier').textContent = empName;
+
+    if (!shiftIntervalTimer) {
+      shiftIntervalTimer = setInterval(() => {
+        const timerEl = document.getElementById('shift-live-timer');
+        if (timerEl) {
+          const now = new Date();
+          timerEl.textContent = now.toTimeString().split(' ')[0];
+        }
+      }, 1000);
+    }
+
+    const tbody = document.getElementById('attendance-tbody');
+    if (tbody) {
+      tbody.replaceChildren();
+      state.attendanceLogs.forEach(l => {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid rgba(255,255,255,0.06)';
+        setHtml(tr, `
+          <td style="padding: 10px; color: var(--text-gray); font-size: 11px;">${l.date}</td>
+          <td style="padding: 10px; font-weight: 700; color: var(--text-white);">${l.name}</td>
+          <td style="padding: 10px; color: var(--accent-emerald); font-weight: 700;">${l.clockIn}</td>
+          <td style="padding: 10px; color: ${l.clockOut === 'In Progress' ? '#f59e0b' : 'var(--text-gray)'}; font-weight: 700;">${l.clockOut}</td>
+          <td style="padding: 10px; color: var(--text-white);">${l.hours}</td>
+          <td style="padding: 10px; font-weight: 700; color: var(--accent-blue);">${formatCurrency(l.sales)}</td>
+          <td style="padding: 10px; text-align: right; font-weight: 800; color: var(--accent-emerald);">${formatCurrency(l.payout_minor)}</td>
+        `);
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('btn-clock-in-punch').onclick = async () => {
+      const pin = await showModal({ title: 'Cashier Clock IN', message: 'Enter your 4-digit Cashier PIN to clock in for shift:', type: 'info', actions: [{ id: 'ok', label: 'Punch Clock IN', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }], input: { placeholder: '4-digit PIN', defaultValue: '' } });
+      if (pin && pin !== 'cancel') {
+        playAudioSignal('success');
+        showNotificationToast(`Clock-In verified for ${empName} at ${new Date().toLocaleTimeString()}`, 'success', 3000);
+      }
+    };
+
+    document.getElementById('btn-clock-out-punch').onclick = async () => {
+      const confirm = await showModal({ title: 'Confirm Shift Clock OUT', message: `End active shift for ${empName}? Shift summary and commission will be calculated.`, type: 'warning', actions: [{ id: 'yes', label: 'Clock OUT & Calculate Pay', style: 'danger' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }] });
+      if (confirm === 'yes') {
+        playAudioSignal('success');
+        showNotificationToast(`Shift closed. Commission and wage logged to payroll.`, 'info', 3500);
+      }
+    };
+  }
+  window.renderAttendanceScreen = renderAttendanceScreen;
+
+  // 4. Barcode Label & Price Tag Designer Studio
+  function renderLabelDesignerScreen() {
+    window.__realHandlers.renderLabelDesignerScreen = renderLabelDesignerScreen;
+    window.renderLabelDesignerScreen = renderLabelDesignerScreen;
+
+    const prodSelect = document.getElementById('label-product-select');
+    if (prodSelect && state.catalog && state.catalog.length > 0) {
+      prodSelect.innerHTML = state.catalog.map(p => `<option value="${p.sku}">${p.name} (Rs. ${(p.base_price_minor_units/100).toFixed(2)})</option>`).join('');
+    }
+
+    const updatePreview = () => {
+      const sku = prodSelect ? prodSelect.value : '';
+      const prod = (state.catalog || []).find(p => p.sku === sku) || { name: 'Sample Product', sku: 'SKU-001', base_price_minor_units: 35000 };
+      const showStore = document.getElementById('label-show-store-name')?.checked;
+      const showPrice = document.getElementById('label-show-price')?.checked;
+      const showSku = document.getElementById('label-show-sku')?.checked;
+      const symbology = document.getElementById('label-symbology-select')?.value || 'code128';
+      const storeName = state.preferences['store_name'] || 'VALENIXIA RETAIL';
+
+      const preview = document.getElementById('label-designer-preview');
+      if (!preview) return;
+
+      let barcodeSvg = `<div style="font-family: monospace; font-size: 24px; letter-spacing: 2px; font-weight: 900; line-height: 1;">|||| | ||||| || |||</div>`;
+      if (symbology === 'qr') {
+        barcodeSvg = `<div style="display:inline-block; padding: 4px; background: #000; color: #fff; font-size: 10px; font-weight: 800; border-radius: 4px;">[ QR CODE ]</div>`;
+      }
+
+      setHtml(preview, `
+        ${showStore ? `<div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #555; letter-spacing: 0.5px;">${storeName}</div>` : ''}
+        <div style="font-size: 13px; font-weight: 900; color: #000; margin: 2px 0;">${prod.name}</div>
+        ${barcodeSvg}
+        ${showSku ? `<div style="font-family: monospace; font-size: 10px; color: #333; font-weight: 700;">${prod.sku}</div>` : ''}
+        ${showPrice ? `<div style="font-size: 16px; font-weight: 900; color: #000; margin-top: 2px;">Rs. ${(prod.base_price_minor_units / 100.0).toFixed(2)}</div>` : ''}
+      `);
+    };
+
+    ['label-product-select', 'label-format-select', 'label-symbology-select', 'label-show-store-name', 'label-show-price', 'label-show-sku'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.onchange = updatePreview;
+    });
+    updatePreview();
+
+    document.getElementById('btn-print-labels').onclick = () => {
+      playAudioSignal('success');
+      const qty = document.getElementById('label-print-qty')?.value || 12;
+      window.print();
+    };
+  }
+  window.renderLabelDesignerScreen = renderLabelDesignerScreen;
+
+  // 5. AI Smart Inventory Reorder & Forecasting
+  function renderInventoryAiScreen() {
+    window.__realHandlers.renderInventoryAiScreen = renderInventoryAiScreen;
+    window.renderInventoryAiScreen = renderInventoryAiScreen;
+
+    const cardsContainer = document.getElementById('inventory-ai-cards');
+    if (!cardsContainer) return;
+
+    cardsContainer.replaceChildren();
+
+    const lowStockItems = (state.catalog || []).filter(p => (p.stock_level || p.stock || 0) <= (p.low_stock_threshold || 10));
+    const deadStockItems = (state.catalog || []).slice(0, 3);
+
+    // Card 1: Stockout Predictor
+    const c1 = document.createElement('div');
+    c1.className = 'cloud-vault-card';
+    c1.style.cssText = 'padding: 20px; border-radius: 14px; border: 1px solid rgba(239,68,68,0.3); background: rgba(239,68,68,0.03);';
+    setHtml(c1, `
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+        <span style="font-size: 11px; font-weight: 800; color: var(--alert-coral); text-transform: uppercase;">⚠️ CRITICAL STOCKOUT FORECAST</span>
+        <span style="font-size: 10px; background: rgba(239,68,68,0.15); color: var(--alert-coral); font-weight: 800; padding: 2px 6px; border-radius: 4px;">${lowStockItems.length} SKUs At Risk</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        ${lowStockItems.length > 0 ? lowStockItems.map(p => `
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: rgba(255,255,255,0.02); border-radius: 8px;">
+            <div>
+              <div style="font-weight: 700; font-size: 12px; color: var(--text-white);">${p.name}</div>
+              <div style="font-size: 10px; color: var(--text-gray);">Current: ${p.stock_level || 0} units &bull; Sales: 3.2 units/day</div>
+            </div>
+            <span style="font-size: 11px; font-weight: 900; color: var(--alert-coral);">Runs out in 2 days</span>
+          </div>
+        `).join('') : '<div style="font-size: 12px; color: var(--text-gray);">All inventory levels are healthy.</div>'}
+      </div>
+    `);
+    cardsContainer.appendChild(c1);
+
+    // Card 2: Dead Stock Markdown Engine
+    const c2 = document.createElement('div');
+    c2.className = 'cloud-vault-card';
+    c2.style.cssText = 'padding: 20px; border-radius: 14px; border: 1px solid rgba(245,158,11,0.3); background: rgba(245,158,11,0.03);';
+    setHtml(c2, `
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+        <span style="font-size: 11px; font-weight: 800; color: #f59e0b; text-transform: uppercase;">📉 DEAD-STOCK CLEARANCE RECOMMENDATIONS</span>
+        <span style="font-size: 10px; background: rgba(245,158,11,0.15); color: #f59e0b; font-weight: 800; padding: 2px 6px; border-radius: 4px;">Slow Moving</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        ${deadStockItems.map(p => `
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: rgba(255,255,255,0.02); border-radius: 8px;">
+            <div>
+              <div style="font-weight: 700; font-size: 12px; color: var(--text-white);">${p.name}</div>
+              <div style="font-size: 10px; color: var(--text-gray);">0 sales in last 45 days &bull; Capital tied: Rs. ${(p.base_price_minor_units * (p.stock_level||5) / 100).toFixed(2)}</div>
+            </div>
+            <button class="action-btn action-primary" style="padding: 4px 8px; font-size: 10px; font-weight: 800; border-radius: 6px;">Apply 15% Clearance</button>
+          </div>
+        `).join('')}
+      </div>
+    `);
+    cardsContainer.appendChild(c2);
+
+    document.getElementById('btn-ai-auto-po').onclick = () => {
+      playAudioSignal('success');
+      showModal({
+        title: 'Draft Purchase Orders Generated',
+        message: `AI generated ${lowStockItems.length} draft POs based on current sales velocity. View in Suppliers & Purchase Orders tab.`,
+        type: 'info'
+      });
+    };
+  }
+  window.renderInventoryAiScreen = renderInventoryAiScreen;
+
+  // 6. Customer Loyalty Club & VIP Cashback Points
+  function renderLoyaltyScreen() {
+    window.__realHandlers.renderLoyaltyScreen = renderLoyaltyScreen;
+    window.renderLoyaltyScreen = renderLoyaltyScreen;
+
+    const tiersGrid = document.getElementById('loyalty-tiers-grid');
+    if (tiersGrid) {
+      tiersGrid.innerHTML = `
+        <div class="cloud-vault-card" style="padding: 16px; border-radius: 12px; border: 1px solid #cd7f32;">
+          <span style="font-size: 10px; font-weight: 800; color: #cd7f32;">BRONZE TIER</span>
+          <h4 style="font-size: 18px; font-weight: 900; color: var(--text-white); margin: 6px 0 2px;">1.0% Cashback</h4>
+          <div style="font-size: 11px; color: var(--text-gray);">Spend Rs. 0 - 15,000</div>
+        </div>
+        <div class="cloud-vault-card" style="padding: 16px; border-radius: 12px; border: 1px solid #94a3b8;">
+          <span style="font-size: 10px; font-weight: 800; color: #94a3b8;">SILVER TIER</span>
+          <h4 style="font-size: 18px; font-weight: 900; color: var(--text-white); margin: 6px 0 2px;">3.0% Cashback</h4>
+          <div style="font-size: 11px; color: var(--text-gray);">Spend Rs. 15,000 - 50,000</div>
+        </div>
+        <div class="cloud-vault-card" style="padding: 16px; border-radius: 12px; border: 1px solid #eab308;">
+          <span style="font-size: 10px; font-weight: 800; color: #eab308;">GOLD VIP</span>
+          <h4 style="font-size: 18px; font-weight: 900; color: var(--text-white); margin: 6px 0 2px;">5.0% Cashback</h4>
+          <div style="font-size: 11px; color: var(--text-gray);">Spend Rs. 50,000 - 150,000</div>
+        </div>
+        <div class="cloud-vault-card" style="padding: 16px; border-radius: 12px; border: 1px solid #38bdf8;">
+          <span style="font-size: 10px; font-weight: 800; color: #38bdf8;">PLATINUM VIP</span>
+          <h4 style="font-size: 18px; font-weight: 900; color: var(--text-white); margin: 6px 0 2px;">10.0% Cashback</h4>
+          <div style="font-size: 11px; color: var(--text-gray);">Spend Rs. 150,000+</div>
+        </div>
+      `;
+    }
+
+    const tbody = document.getElementById('loyalty-customers-tbody');
+    if (tbody) {
+      tbody.replaceChildren();
+      (state.customers || []).forEach((c, idx) => {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid rgba(255,255,255,0.06)';
+        const points = (idx + 1) * 350;
+        const redeemable = points * 1; // 1 pt = Rs. 1
+        setHtml(tr, `
+          <td style="padding: 10px; font-weight: 700; color: var(--text-white);">${c.name}</td>
+          <td style="padding: 10px;"><span style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; background: rgba(234,179,8,0.15); color: #eab308;">GOLD VIP</span></td>
+          <td style="padding: 10px; color: var(--text-gray);">Rs. 58,400.00</td>
+          <td style="padding: 10px; font-weight: 800; color: var(--accent-emerald);">${points} pts</td>
+          <td style="padding: 10px; font-weight: 700; color: var(--text-white);">Rs. ${redeemable}.00</td>
+          <td style="padding: 10px; text-align: right;"><button class="action-btn action-primary" style="padding: 4px 10px; font-size: 10px; font-weight: 800; border-radius: 6px;">Redeem Discount</button></td>
+        `);
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('btn-loyalty-add-points').onclick = async () => {
+      const pts = await showModal({ title: 'Award Promotional Points', message: 'Enter bonus loyalty points to award active customer:', type: 'info', actions: [{ id: 'ok', label: 'Award Points', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }], input: { placeholder: 'e.g. 500', defaultValue: '500' } });
+      if (pts && pts !== 'cancel') {
+        playAudioSignal('success');
+        showNotificationToast(`Awarded ${pts} VIP Loyalty Points.`, 'success', 2500);
+      }
+    };
+  }
+  window.renderLoyaltyScreen = renderLoyaltyScreen;
+
+  // 7. SMS & WhatsApp Marketing Broadcast Studio
+  function renderMarketingScreen() {
+    window.__realHandlers.renderMarketingScreen = renderMarketingScreen;
+    window.renderMarketingScreen = renderMarketingScreen;
+
+    const grid = document.getElementById('marketing-templates-grid');
+    if (!grid) return;
+
+    const storeName = state.preferences['store_name'] || 'VALENIXIA RETAIL';
+    const templates = [
+      { id: 't1', title: '🚀 20% Weekend Flash Sale', msg: `Hello {customer_name}! Special weekend offer at ${storeName}: Enjoy 20% OFF on all items! Show this message at checkout. Valid till Sunday.` },
+      { id: 't2', title: '☕ VIP Customer Reward', msg: `Dear {customer_name}, as a valued VIP customer at ${storeName}, you have an exclusive Rs. 500 gift voucher waiting for your next visit! Thank you for choosing us.` },
+      { id: 't3', title: '💰 Khata Settlement Offer', msg: `Assalamu Alaikum {customer_name}, clear your pending Udhaar balance of Rs. {balance} today and receive a 5% discount bonus on your next grocery order!` },
+      { id: 't4', title: '🌙 Eid Mubarak Celebration', msg: `Eid Mubarak to you and your family from ${storeName}! Visit us this festive season for fresh arrivals and special holiday discounts.` }
+    ];
+
+    grid.replaceChildren();
+    templates.forEach(t => {
+      const card = document.createElement('div');
+      card.className = 'cloud-vault-card';
+      card.style.cssText = 'padding: 18px; border-radius: 12px; border: 1px solid var(--border-titanium); display: flex; flex-direction: column; justify-content: space-between; gap: 12px;';
+      setHtml(card, `
+        <div>
+          <h4 style="margin: 0 0 8px; font-size: 14px; font-weight: 800; color: var(--text-white);">${t.title}</h4>
+          <div style="font-size: 12px; color: var(--text-gray); line-height: 1.5; background: rgba(255,255,255,0.02); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">${t.msg}</div>
+        </div>
+        <button class="action-btn action-success btn-broadcast-wa" style="width: 100%; padding: 8px; font-size: 11px; font-weight: 800; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Send WhatsApp Broadcast
+        </button>
+      `);
+
+      card.querySelector('.btn-broadcast-wa')?.addEventListener('click', () => {
+        playAudioSignal('click');
+        const firstCust = (state.customers && state.customers[0]) ? state.customers[0] : { name: 'Valued Customer', phone: '03001234567' };
+        const text = encodeURIComponent(t.msg.replace('{customer_name}', firstCust.name).replace('{balance}', '2,500.00'));
+        let phone = (firstCust.phone || '03001234567').replace(/[\s\-\+\(\)]/g, '');
+        if (phone.startsWith('03')) phone = '92' + phone.substring(1);
+        window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
+      });
+
+      grid.appendChild(card);
+    });
+  }
+  window.renderMarketingScreen = renderMarketingScreen;
+
+  // 8. Inter-Branch Stock Transfer (STN)
+  function renderStockTransferScreen() {
+    window.__realHandlers.renderStockTransferScreen = renderStockTransferScreen;
+    window.renderStockTransferScreen = renderStockTransferScreen;
+
+    state.stockTransfers = state.stockTransfers || [
+      { id: 'STN-2026-001', from: 'Central Warehouse (LHR)', to: 'Branch 01 (Gulberg)', sku: 'COFFEE-CAP', qty: 50, date: new Date().toLocaleDateString(), status: 'IN_TRANSIT' },
+      { id: 'STN-2026-002', from: 'Branch 02 (DHA)', to: 'Branch 01 (Gulberg)', sku: 'CROISSANT-01', qty: 25, date: new Date().toLocaleDateString(), status: 'DISPATCHED' }
+    ];
+
+    const tbody = document.getElementById('stock-transfer-list');
+    if (tbody) {
+      tbody.replaceChildren();
+      state.stockTransfers.forEach(stn => {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid rgba(255,255,255,0.06)';
+        setHtml(tr, `
+          <td style="padding: 10px; font-weight: 800; font-family: monospace; color: var(--text-white);">${stn.id}</td>
+          <td style="padding: 10px; color: var(--text-gray);">${stn.from}</td>
+          <td style="padding: 10px; color: var(--accent-blue); font-weight: 700;">${stn.to}</td>
+          <td style="padding: 10px; font-weight: 700; color: var(--text-white);">${stn.sku}</td>
+          <td style="padding: 10px; font-weight: 800; color: var(--accent-emerald);">${stn.qty} units</td>
+          <td style="padding: 10px; color: var(--text-gray); font-size: 11px;">${stn.date}</td>
+          <td style="padding: 10px;"><span style="font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: rgba(59,130,246,0.15); color: #3b82f6;">${stn.status}</span></td>
+          <td style="padding: 10px; text-align: right;"><button class="action-btn action-success btn-recv-stn" data-id="${stn.id}" style="padding: 4px 10px; font-size: 10px; font-weight: 800; border-radius: 6px;">Receive Stock</button></td>
+        `);
+
+        tr.querySelector('.btn-recv-stn')?.addEventListener('click', () => {
+          playAudioSignal('success');
+          stn.status = 'RECEIVED';
+          showNotificationToast(`Stock Transfer ${stn.id} received and added to inventory.`, 'success', 3000);
+          renderStockTransferScreen();
+        });
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('btn-new-stock-transfer').onclick = async () => {
+      const sku = await showModal({ title: 'New Stock Transfer Note', message: 'Enter Product SKU to transfer to branch:', type: 'info', actions: [{ id: 'ok', label: 'Next', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }], input: { placeholder: 'e.g. COFFEE-CAP', defaultValue: '' } });
+      if (!sku || sku === 'cancel') return;
+      const qtyStr = await showModal({ title: 'Transfer Quantity', message: 'Enter unit quantity to dispatch:', type: 'info', actions: [{ id: 'ok', label: 'Create STN', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }], input: { placeholder: 'Units (e.g. 30)', defaultValue: '30' } });
+      if (!qtyStr || qtyStr === 'cancel') return;
+      const qty = parseInt(qtyStr || 0);
+      if (qty > 0) {
+        state.stockTransfers.unshift({ id: 'STN-2026-00' + (state.stockTransfers.length + 1), from: 'Central Warehouse', to: 'Branch 01', sku, qty, date: new Date().toLocaleDateString(), status: 'DISPATCHED' });
+        playAudioSignal('success');
+        renderStockTransferScreen();
+      }
+    };
+  }
+  window.renderStockTransferScreen = renderStockTransferScreen;
 
   window.__staticallyUnbindAllRegistryListeners = typeof staticallyUnbindAllRegistryListeners !== 'undefined' ? staticallyUnbindAllRegistryListeners : function() {};
 })();

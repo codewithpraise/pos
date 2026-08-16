@@ -239,14 +239,23 @@
     overscroll-behavior-y: auto !important;
   }
 
-  .modal-card, .pos-modal, .auth-modal-box, .auth-card, .wizard-card, .dialog-card {
-    width: calc(100vw - 24px) !important;
-    max-width: calc(100vw - 24px) !important;
+  .modal-card, .pos-modal, .auth-modal-box, .auth-card, .wizard-card, #wizard-card, .dialog-card {
+    width: calc(100vw - 20px) !important;
+    max-width: calc(100vw - 20px) !important;
+    max-height: calc(100dvh - 28px) !important;
+    max-height: calc(100vh - 28px) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+    overscroll-behavior-y: auto !important;
     border-radius: var(--vx-radius-lg) !important;
-    padding: var(--vx-space-xl) !important;
+    padding: var(--vx-space-lg) var(--vx-space-md) !important;
     box-sizing: border-box !important;
     margin: auto 0 !important;
     flex-shrink: 0 !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(0, 214, 143, 0.6) rgba(255, 255, 255, 0.06) !important;
   }
 
   /* Toasts */

@@ -107,6 +107,54 @@
       renderer: 'renderSubscriptionScreen',
       renderTargets: ['billing-history-tbody']
     },
+    'kds': {
+      viewId: 'view-kds',
+      title: 'Kitchen Display (KDS)',
+      renderer: 'renderKdsScreen',
+      renderTargets: ['kds-ticket-board']
+    },
+    'petty-cash': {
+      viewId: 'view-petty-cash',
+      title: 'Petty Cash & Float Ledger',
+      renderer: 'renderPettyCashScreen',
+      renderTargets: ['petty-cash-tbody']
+    },
+    'attendance': {
+      viewId: 'view-attendance',
+      title: 'Staff Time Clock & Payroll',
+      renderer: 'renderAttendanceScreen',
+      renderTargets: ['attendance-tbody']
+    },
+    'label-designer': {
+      viewId: 'view-label-designer',
+      title: 'Barcode Label & Tag Studio',
+      renderer: 'renderLabelDesignerScreen',
+      renderTargets: ['label-designer-preview']
+    },
+    'inventory-ai': {
+      viewId: 'view-inventory-ai',
+      title: 'AI Smart Inventory & Forecast',
+      renderer: 'renderInventoryAiScreen',
+      renderTargets: ['inventory-ai-cards']
+    },
+    'loyalty': {
+      viewId: 'view-loyalty',
+      title: 'VIP Loyalty & Cashback Wallet',
+      renderer: 'renderLoyaltyScreen',
+      renderTargets: ['loyalty-tiers-grid']
+    },
+    'marketing': {
+      viewId: 'view-marketing',
+      title: 'Marketing Broadcast Studio',
+      renderer: 'renderMarketingScreen',
+      renderTargets: ['marketing-templates-grid']
+    },
+    'stock-transfer': {
+      viewId: 'view-stock-transfer',
+      title: 'Inter-Branch Stock Transfer',
+      renderer: 'renderStockTransferScreen',
+      renderTargets: ['stock-transfer-list']
+    },
     'fbr-fiscal': {
       viewId: 'view-fbr-fiscal',
       title: 'FBR Fiscal Integration',
