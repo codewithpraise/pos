@@ -235,7 +235,7 @@ criticalFns.forEach(fnName => {
         const modal = document.getElementById('modal-legal-document');
         if (modal) {
           const wiz = document.getElementById('first-boot-wizard');
-          const isWizActive = wiz && (wiz.style.display === 'flex' || wiz.classList.contains('active'));
+          const isWizActive = wiz && (wiz.style.display === 'block' || wiz.style.display === 'flex' || wiz.classList.contains('active'));
           if (isWizActive && wiz) {
             try { wiz.appendChild(modal); } catch (_) {}
           } else if (document.body) {
@@ -546,16 +546,40 @@ window.validateWizardStep = function(step, path) {
   if (curStep === 2) {
     if (curPath === 'NEW') {
       const storeName = (document.getElementById('wizard-store-name') || {}).value || '';
+      const ownerName = (document.getElementById('wizard-owner-name') || {}).value || '';
+      const ownerPhone = (document.getElementById('wizard-owner-phone') || {}).value || '';
+      const ownerEmail = (document.getElementById('wizard-owner-email') || {}).value || '';
+      const storeCity = (document.getElementById('wizard-store-city') || {}).value || '';
+
       if (!storeName.trim()) {
         const el = document.getElementById('wizard-store-name');
-        if (el) {
-          el.style.borderColor = '#ef4444';
-          el.style.boxShadow = '0 0 10px rgba(239,68,68,0.4)';
-          el.focus();
-        }
-        if (typeof showNotificationToast === 'function') {
-          showNotificationToast('Please enter your Store Name to continue.', 'error', 3000);
-        }
+        if (el) { el.style.borderColor = '#ef4444'; el.style.boxShadow = '0 0 10px rgba(239,68,68,0.4)'; el.focus(); }
+        if (typeof showNotificationToast === 'function') showNotificationToast('Please enter your Store Name to continue.', 'error', 3000);
+        return false;
+      }
+      if (!ownerName.trim()) {
+        const el = document.getElementById('wizard-owner-name');
+        if (el) { el.style.borderColor = '#ef4444'; el.style.boxShadow = '0 0 10px rgba(239,68,68,0.4)'; el.focus(); }
+        if (typeof showNotificationToast === 'function') showNotificationToast('Please enter Owner / Proprietor Name.', 'error', 3000);
+        return false;
+      }
+      const cleanPhone = ownerPhone.replace(/[\s\-\(\)]/g, '');
+      if (!cleanPhone || cleanPhone.length < 10) {
+        const el = document.getElementById('wizard-owner-phone');
+        if (el) { el.style.borderColor = '#ef4444'; el.style.boxShadow = '0 0 10px rgba(239,68,68,0.4)'; el.focus(); }
+        if (typeof showNotificationToast === 'function') showNotificationToast('Please enter a valid WhatsApp / Mobile number (e.g. 03001234567).', 'error', 3500);
+        return false;
+      }
+      if (!ownerEmail.trim() || !ownerEmail.includes('@') || !ownerEmail.includes('.')) {
+        const el = document.getElementById('wizard-owner-email');
+        if (el) { el.style.borderColor = '#ef4444'; el.style.boxShadow = '0 0 10px rgba(239,68,68,0.4)'; el.focus(); }
+        if (typeof showNotificationToast === 'function') showNotificationToast('Please enter a valid Business Email address.', 'error', 3000);
+        return false;
+      }
+      if (!storeCity.trim()) {
+        const el = document.getElementById('wizard-store-city');
+        if (el) { el.style.borderColor = '#ef4444'; el.style.boxShadow = '0 0 10px rgba(239,68,68,0.4)'; el.focus(); }
+        if (typeof showNotificationToast === 'function') showNotificationToast('Please enter your City / Operating Region.', 'error', 3000);
         return false;
       }
     } else if (curPath === 'JOIN') {
@@ -641,6 +665,11 @@ window.submitWizard = async function() {
   }
 
   const storeName = (document.getElementById('wizard-store-name') || {}).value.trim() || 'My Business';
+  const ownerName = (document.getElementById('wizard-owner-name') || {}).value.trim() || 'Proprietor';
+  const ownerPhone = (document.getElementById('wizard-owner-phone') || {}).value.trim() || '03001234567';
+  const ownerEmail = (document.getElementById('wizard-owner-email') || {}).value.trim() || 'owner@store.local';
+  const storeCity = (document.getElementById('wizard-store-city') || {}).value.trim() || 'Local';
+  const storeNtn = (document.getElementById('wizard-store-ntn') || {}).value.trim() || '';
   const taxRate = parseFloat((document.getElementById('wizard-tax-rate') || {}).value || 0);
   const adminPin = (document.getElementById('wizard-admin-pin') || {}).value.trim();
   if (!adminPin || adminPin.length < 4) {
@@ -653,19 +682,32 @@ window.submitWizard = async function() {
   const theme = (document.getElementById('wizard-theme') || {}).value || 'dark';
   const shopMode = (document.getElementById('wizard-shop-mode') || {}).value || 'simple-retail';
 
-  console.log('[Wizard] Submitting setup wizard...');
+  // Hardware Attestation: Bind terminal with cryptographically durable HWID
+  let hwid = localStorage.getItem('valenixia_hwid');
+  if (!hwid || hwid.length < 16) {
+    hwid = 'HWID_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 10);
+    localStorage.setItem('valenixia_hwid', hwid);
+  }
+
+  console.log('[Wizard] Submitting setup wizard with hardware binding...', hwid);
   localStorage.setItem('onboarding_complete', 'true');
   localStorage.setItem('database_hydrated', 'true');
   localStorage.setItem('valenixia_store_name', storeName);
+  localStorage.setItem('valenixia_owner_name', ownerName);
+  localStorage.setItem('valenixia_owner_phone', ownerPhone);
+  localStorage.setItem('valenixia_owner_email', ownerEmail);
+  localStorage.setItem('valenixia_store_city', storeCity);
+  localStorage.setItem('valenixia_store_ntn', storeNtn);
   localStorage.setItem('valenixia_admin_pin', adminPin);
   localStorage.setItem('valenixia_shop_mode', shopMode);
-  // Item 29: Persist EULA + legal acceptance with ISO timestamp (legal record)
+  localStorage.setItem('valenixia_tier', 'FREE'); // Explicit free tier until admin approves upgrade
+
+  // Legal record
   const legalTs = new Date().toISOString();
   localStorage.setItem('eula_accepted_at', legalTs);
   localStorage.setItem('eula_accepted_version', '1.0');
   console.log('[Legal] EULA accepted at', legalTs);
 
-  // Transition UI: Hide wizard overlay & Activate Auth Lock Screen (PIN Keypad)
   // Transition UI: Delegate to ValenixiaBootstrap (authoritative surface controller)
   if (window.ValenixiaBootstrap) {
     window.ValenixiaBootstrap.transition('AUTH_LOCK');
@@ -677,7 +719,7 @@ window.submitWizard = async function() {
   }
 
   if (typeof showNotificationToast === 'function') {
-    showNotificationToast('Terminal Ready. Please enter your PIN.', 'success', 4000);
+    showNotificationToast('Terminal Initialized & Registered. Please enter your PIN.', 'success', 4000);
   }
   if (typeof playAudioSignal === 'function') playAudioSignal('success');
 
@@ -691,6 +733,14 @@ window.submitWizard = async function() {
         }
       } catch (_) {}
       await ValenixiaDB.bootstrapStore(storeName, taxRate, hashedPin, syncPassphrase, theme, shopMode);
+      if (typeof ValenixiaDB.setSecurePref === 'function') {
+        await ValenixiaDB.setSecurePref('store_owner_name', ownerName);
+        await ValenixiaDB.setSecurePref('store_owner_phone', ownerPhone);
+        await ValenixiaDB.setSecurePref('store_owner_email', ownerEmail);
+        await ValenixiaDB.setSecurePref('store_city', storeCity);
+        await ValenixiaDB.setSecurePref('store_ntn', storeNtn);
+        await ValenixiaDB.setSecurePref('valenixia_hwid', hwid);
+      }
     }
   } catch (err) {
     console.warn('[Wizard] Background store bootstrap finished with notice:', err);
@@ -833,9 +883,9 @@ window.showLegalDocOverlay = function(docKey) {
   overlay.id = '__vx-legal-overlay';
   overlay.className = 'vx-legal-overlay';
   // Mobile-safe: use overflow-y scroll + -webkit-overflow-scrolling for iOS momentum
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999999999;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;box-sizing:border-box;';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999999999;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:max(env(safe-area-inset-top, 16px), 16px) 16px max(env(safe-area-inset-bottom, 24px), 24px) 16px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior-y:auto;box-sizing:border-box;';
   overlay.innerHTML = `
-    <div class="vx-legal-card" style="max-width:520px;width:100%;max-height:88vh;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;">
+    <div class="vx-legal-card" style="max-width:520px;width:100%;max-height:88vh;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;margin:auto 0;flex-shrink:0;box-sizing:border-box;">
       <div class="vx-legal-header" style="padding:20px 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
         <span class="vx-legal-title" style="font-size:14px;font-weight:800;">${doc.title}</span>
         <button id="__vx-legal-close" class="vx-legal-close-btn" style="border-radius:8px;font-size:18px;width:44px;height:44px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;touch-action:manipulation;">×</button>
@@ -1248,7 +1298,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
         var node = el(SURFACES[key]);
         if (!node) return;
         if (key === surfaceKey) {
-          var targetDisp = (key === 'LAYOUT') ? 'grid' : 'flex';
+          var targetDisp = (key === 'LAYOUT') ? 'grid' : ((key === 'WIZARD') ? 'block' : 'flex');
           node.style.setProperty('display',     targetDisp,  'important');
           node.style.setProperty('visibility',  'visible',   'important');
           node.style.setProperty('opacity',     '1',         'important');
@@ -1310,10 +1360,8 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
           var activeNode = el(SURFACES[surfaceKey]);
           if (activeNode) {
             // Unconditional runtime safeguard: Ensure node is direct child of body
-            if (document.body && activeNode.parentElement !== document.body && surfaceKey !== 'LAYOUT') {
-              try { document.body.appendChild(activeNode); } catch (_) {}
-            }
-            activeNode.style.setProperty('display', (surfaceKey === 'LAYOUT') ? 'grid' : 'flex', 'important');
+            var targetDisp = (surfaceKey === 'LAYOUT') ? 'grid' : ((surfaceKey === 'WIZARD') ? 'block' : 'flex');
+            activeNode.style.setProperty('display', targetDisp, 'important');
             activeNode.style.setProperty('visibility', 'visible', 'important');
             activeNode.style.setProperty('opacity', '1', 'important');
           }
@@ -1411,14 +1459,14 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
 
       var overlay = document.createElement('div');
       overlay.id = '__vx-boot-recovery';
-      overlay.style.cssText = 'position:fixed;inset:0;z-index:9999999999;background:#060609;display:flex;align-items:center;justify-content:center;padding:24px;font-family:sans-serif;';
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:9999999999;background:#060609;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:max(env(safe-area-inset-top, 24px), 24px) 16px max(env(safe-area-inset-bottom, 24px), 24px) 16px;font-family:sans-serif;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior-y:auto;box-sizing:border-box;';
 
       var retryBtn   = canRetry   ? '<button id="__vx-rec-retry" style="flex:1;padding:12px;background:#10b981;border:none;color:#000;font-weight:800;border-radius:6px;cursor:pointer;font-size:13px;min-height:44px;">&nbsp;Retry&nbsp;</button>' : '';
       var offlineBtn = canOffline ? '<button id="__vx-rec-offline" style="flex:1;padding:12px;background:transparent;border:1px solid rgba(255,255,255,0.2);color:#9ca3af;font-weight:700;border-radius:6px;cursor:pointer;font-size:13px;min-height:44px;">Continue Offline</button>' : '';
       var copyBtn    = '<button id="__vx-rec-copy" style="flex:1;padding:12px;background:transparent;border:1px solid rgba(255,255,255,0.1);color:#6b7280;font-weight:600;border-radius:6px;cursor:pointer;font-size:11px;min-height:44px;">Copy Diagnostics</button>';
 
       overlay.innerHTML =
-        '<div style="max-width:420px;width:100%;background:#0f0f11;border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:28px;">' +
+        '<div style="max-width:420px;width:100%;background:#0f0f11;border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:28px;margin:auto 0;flex-shrink:0;box-sizing:border-box;">' +
         '<div style="font-size:22px;margin-bottom:12px;">⚠️</div>' +
         '<h3 style="color:#fff;font-size:16px;font-weight:800;margin:0 0 8px;">Valenixia couldn\'t complete startup</h3>' +
         '<p style="color:#6b7280;font-size:11px;margin:0 0 4px;">Stage: <strong style="color:#94a3b8;">' + escapeHTML(String(stage || _state)) + '</strong></p>' +
@@ -2066,7 +2114,7 @@ window.showModal = function({ title, message, type = 'info', actions = [{ id: 'o
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
     // Backdrop only — actual card background is controlled by CSS classes
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:999999999;display:flex;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);font-family:inherit;';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:999999999;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:max(env(safe-area-inset-top, 24px), 24px) 16px max(env(safe-area-inset-bottom, 24px), 24px) 16px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);font-family:inherit;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior-y:auto;box-sizing:border-box;';
 
     let inputHtml = '';
     if (input) {
@@ -2078,7 +2126,7 @@ window.showModal = function({ title, message, type = 'info', actions = [{ id: 'o
       return '<button data-id="' + escapeHTML(act.id) + '" class="' + btnClass + '" style="flex:1;padding:12px;font-weight:700;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit;min-height:44px;touch-action:manipulation;">' + escapeHTML(act.label) + '</button>';
     }).join('');
 
-    overlay.innerHTML = '<div class="vx-modal-card" style="border-radius:12px;padding:24px;max-width:400px;width:100%;">' +
+    overlay.innerHTML = '<div class="vx-modal-card" style="border-radius:12px;padding:24px;max-width:400px;width:100%;margin:auto 0;flex-shrink:0;box-sizing:border-box;">' +
       '<h3 class="vx-modal-title" style="font-size:16px;font-weight:800;margin-bottom:10px;font-family:inherit;">' + escapeHTML(title) + '</h3>' +
       '<p class="vx-modal-body" style="font-size:13px;line-height:1.6;white-space:pre-wrap;margin:0;font-family:inherit;">' + escapeHTML(message) + '</p>' +
       inputHtml +

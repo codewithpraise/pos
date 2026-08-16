@@ -263,11 +263,13 @@ const LicenseEngine = (() => {
     overlay.style.cssText = `
       position: fixed; inset: 0; z-index: 999999;
       background: #060608;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      font-family: 'Manrope', sans-serif; padding: 32px;
+      display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+      font-family: 'Manrope', sans-serif;
+      padding: max(env(safe-area-inset-top, 24px), 24px) 16px max(env(safe-area-inset-bottom, 32px), 32px) 16px;
+      overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; touch-action: pan-y; overscroll-behavior-y: auto; box-sizing: border-box;
     `;
     overlay.innerHTML = `
-      <div style="max-width: 480px; width: 100%; text-align: center;">
+      <div style="max-width: 480px; width: 100%; text-align: center; margin: auto 0; flex-shrink: 0; box-sizing: border-box;">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 24px;">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
           <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
@@ -495,19 +497,21 @@ const LicenseEngine = (() => {
     });
   }
 
-  // â”€â”€ Pending payment verification overlay with auto-polling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  function mountPendingPaymentOverlay(message, token, hwid) {
+  // ————————————————————————————————————————————————————————
+  function mountPendingOverlay(hwid, token, message) {
     if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.dismissOverlay('license-lockout-overlay');
     const overlay = document.createElement('div');
     overlay.id = 'license-lockout-overlay';
     overlay.style.cssText = `
       position: fixed; inset: 0; z-index: 999999;
       background: #060608;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      font-family: 'Manrope', sans-serif; padding: 32px;
+      display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+      font-family: 'Manrope', sans-serif;
+      padding: max(env(safe-area-inset-top, 24px), 24px) 16px max(env(safe-area-inset-bottom, 32px), 32px) 16px;
+      overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; touch-action: pan-y; overscroll-behavior-y: auto; box-sizing: border-box;
     `;
     overlay.innerHTML = `
-      <div style="max-width: 480px; width: 100%; text-align: center;">
+      <div style="max-width: 480px; width: 100%; text-align: center; margin: auto 0; flex-shrink: 0; box-sizing: border-box;">
         <div style="position: relative; width: 64px; height: 64px; margin: 0 auto 24px auto;">
           <div style="position: absolute; inset: 0; border: 4px solid rgba(251,191,36,0.1); border-radius: 50%;"></div>
           <div style="position: absolute; inset: 0; border: 4px solid #fbbf24; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
@@ -561,11 +565,13 @@ const LicenseEngine = (() => {
     overlay.style.cssText = `
       position: fixed; inset: 0; z-index: 999999;
       background: #0a0005;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      font-family: 'Manrope', sans-serif; padding: 32px;
+      display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+      font-family: 'Manrope', sans-serif;
+      padding: max(env(safe-area-inset-top, 24px), 24px) 16px max(env(safe-area-inset-bottom, 32px), 32px) 16px;
+      overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; touch-action: pan-y; overscroll-behavior-y: auto; box-sizing: border-box;
     `;
     overlay.innerHTML = `
-      <div style="max-width: 480px; width: 100%; text-align: center;">
+      <div style="max-width: 480px; width: 100%; text-align: center; margin: auto 0; flex-shrink: 0; box-sizing: border-box;">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 24px;">
           <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
           <line x1="12" y1="16" x2="12.01" y2="16"/>

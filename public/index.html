@@ -37,8 +37,8 @@
 </head>
 <body>
   <!-- STATIC EMERGENCY RECOVERY FALLBACK (No-JS / Catastrophic Fallback Node) -->
-  <div id="vx-emergency-recovery" hidden style="position:fixed;inset:0;z-index:9999999999;background:#060609;display:none;align-items:center;justify-content:center;padding:24px;font-family:sans-serif;">
-    <div style="max-width:480px;width:100%;background:#0f0f11;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:28px;box-shadow:0 20px 40px rgba(0,0,0,0.8);">
+  <div id="vx-emergency-recovery" hidden style="position:fixed;inset:0;z-index:9999999999;background:#060609;display:none;flex-direction:column;align-items:center;justify-content:flex-start;padding:max(env(safe-area-inset-top, 24px), 24px) 16px max(env(safe-area-inset-bottom, 24px), 24px) 16px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior-y:auto;box-sizing:border-box;font-family:sans-serif;">
+    <div style="max-width:480px;width:100%;background:#0f0f11;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:28px;box-shadow:0 20px 40px rgba(0,0,0,0.8);margin:auto 0;flex-shrink:0;box-sizing:border-box;">
       <div style="font-size:24px;margin-bottom:12px;">⚠️</div>
       <h3 style="color:#fff;font-size:18px;font-weight:800;margin:0 0 6px;">Valenixia couldn't start</h3>
       <p style="color:#6b7280;font-size:11px;margin:0 0 8px;font-family:monospace;" id="vx-emergency-recovery-stage">Stage: UNKNOWN</p>
@@ -51,7 +51,7 @@
   </div>
 
   <!-- ELEGANT BOOTSTRAPPING SPLASH OVERLAY WITH DIAGNOSTIC TERMINAL -->
-  <div id="app-boot-loader" style="position:fixed;inset:0;z-index:99999;background:#060609;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-family:'Manrope',sans-serif;transition:opacity 0.3s ease, visibility 0.3s ease;padding:20px;box-sizing:border-box;">
+  <div id="app-boot-loader" style="position:fixed;inset:0;z-index:99999;background:#060609;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-family:'Manrope',sans-serif;transition:opacity 0.3s ease, visibility 0.3s ease;padding:20px;box-sizing:border-box;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;">
     <div style="font-family:'Outfit',sans-serif;font-size:24px;font-weight:900;background:linear-gradient(135deg,#00d68f,#10b981);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:2px;">Valenixia POS</div>
     <div style="font-size:11px;color:#6b7280;letter-spacing:0.05em;text-transform:uppercase;" id="app-boot-loader-status">Initializing local runtime...</div>
     <div style="width:180px;height:3px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;margin-top:2px;">
@@ -553,9 +553,9 @@
                     <li>Unified Real-Time Sync with Web Register</li>
                   </ul>
                 </div>
-                <a href="/downloads/valenixia.apk" download="valenixia.apk" class="action-btn action-success" style="display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; padding: 12px 20px; font-weight: 800; border-radius: 10px;">
+                <a href="/downloads/valenixia-pos.apk" download="valenixia-pos.apk" class="action-btn action-success" style="display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; padding: 12px 20px; font-weight: 800; border-radius: 10px;">
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  DOWNLOAD ANDROID APK
+                  DOWNLOAD ANDROID APK (valenixia-pos.apk)
                 </a>
               </div>
 
@@ -580,9 +580,9 @@
                     <li>Seamless auto-discovery for mobile terminals</li>
                   </ul>
                 </div>
-                <a href="/downloads/valenixia.exe" download="valenixia.exe" class="action-btn" style="background: #3b82f6; color: #ffffff; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; padding: 12px 20px; font-weight: 800; border-radius: 10px;">
+                <a href="/downloads/valenixia-pos.exe" download="valenixia-pos.exe" class="action-btn" style="background: #3b82f6; color: #ffffff; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; padding: 12px 20px; font-weight: 800; border-radius: 10px;">
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  DOWNLOAD DESKTOP APP
+                  DOWNLOAD DESKTOP APP (valenixia-pos.exe)
                 </a>
               </div>
 
@@ -980,7 +980,7 @@
               <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Supplier Directory &amp; Accounts Payable</h2>
               <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Distributor ledgers, purchase orders, goods receive notes (GRN), and vendor debts</p>
             </div>
-            <button class="action-btn action-success" onclick="if(window.openSupplierModal)window.openSupplierModal();" style="padding: 10px 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; border-radius: 10px;">+ Add New Supplier</button>
+            <button class="action-btn action-success" id="btn-suppliers-create" onclick="if(window.openSupplierModal)window.openSupplierModal();" style="padding: 10px 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; border-radius: 10px;">+ Add New Supplier</button>
           </div>
 
           <div class="suppliers-split-grid" style="display: grid; grid-template-columns: minmax(300px, 360px) 1fr; gap: 20px; min-height: 540px;">
@@ -3102,8 +3102,8 @@
   </section>
 
   <!-- LICENSE / LOCKOUT SYSTEM OVERLAY -->
-  <div id="license-lockout-overlay" style="display: none; position: fixed; inset: 0; z-index: 9999999; background: rgba(5,5,8,0.98); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); flex-direction: column; align-items: center; justify-content: flex-start; overflow-y: auto; padding: 40px 20px;">
-    <div class="auth-card" style="max-width: 480px; width: 90%; padding: 36px; border: 2px solid var(--alert-coral); box-shadow: 0 20px 50px rgba(0,0,0,0.8);">
+  <div id="license-lockout-overlay" style="display: none; position: fixed; inset: 0; z-index: 9999999; background: rgba(5,5,8,0.98); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); flex-direction: column; align-items: center; justify-content: flex-start; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; touch-action: pan-y; overscroll-behavior-y: auto; padding: max(env(safe-area-inset-top, 24px), 24px) 16px max(env(safe-area-inset-bottom, 32px), 32px) 16px; box-sizing: border-box;">
+    <div class="auth-card" style="max-width: 480px; width: 100%; padding: 32px 24px; border: 2px solid var(--alert-coral); box-shadow: 0 20px 50px rgba(0,0,0,0.8); margin: auto 0; flex-shrink: 0; box-sizing: border-box;">
       <div style="display: flex; justify-content: center; margin-bottom: 20px; color: var(--alert-coral);">
         <svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
       </div>
@@ -3156,9 +3156,8 @@
     </div>
   </div>
 
-  <!-- FIRST BOOT ONBOARDING WIZARD OVERLAY -->
-  <div id="first-boot-wizard" style="display: none; position: fixed; inset: 0; z-index: 999999; background: rgba(6, 6, 8, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); flex-direction: column; align-items: center; justify-content: flex-start; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; touch-action: pan-y; padding: 24px 16px; box-sizing: border-box;">
-    <div id="wizard-card" role="region" aria-label="Onboarding setup wizard" aria-live="polite" style="max-width: 520px; width: 100%; margin: auto; flex-shrink: 0; background: linear-gradient(160deg, #1a1a28 0%, #0e0e1a 60%, #080810 100%); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; box-shadow: 0 40px 80px rgba(0,0,0,0.9), 0 0 80px rgba(0,214,143,0.04), inset 0 1px 0 rgba(255,255,255,0.07); overflow: visible; position: relative;">
+  <div id="first-boot-wizard" style="display: none; position: fixed; inset: 0; z-index: 999999; background: rgba(6, 6, 8, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior-y: auto; touch-action: pan-y; padding: max(env(safe-area-inset-top, 20px), 20px) 16px max(env(safe-area-inset-bottom, 40px), 90px) 16px; box-sizing: border-box;">
+    <div id="wizard-card" role="region" aria-label="Onboarding setup wizard" aria-live="polite" style="max-width: 520px; width: 100%; margin: 0 auto; display: block; background: linear-gradient(160deg, #1a1a28 0%, #0e0e1a 60%, #080810 100%); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; box-shadow: 0 40px 80px rgba(0,0,0,0.9), 0 0 80px rgba(0,214,143,0.04), inset 0 1px 0 rgba(255,255,255,0.07); overflow: visible; position: relative; box-sizing: border-box;">
 
       <!-- Wizard Header -->
       <div style="padding: 28px 32px 0; text-align: center;">
@@ -3222,25 +3221,50 @@
           <select id="wizard-setup-type" style="display:none;" aria-label="Wizard Setup Type"><option value="NEW">New</option><option value="JOIN">Join</option></select>
         </div>
 
-        <!-- STEP 2a: Store Details (NEW path) -->
+        <!-- STEP 2a: Store & Owner KYC Details (NEW path) -->
         <div class="wiz-panel" id="wiz-panel-2a" style="display:none; flex-direction:column; gap:14px;">
-          <div id="wizard-new-store-fields" style="display:flex; flex-direction:column; gap:14px;">
+          <div id="wizard-new-store-fields" style="display:flex; flex-direction:column; gap:12px;">
             <button type="button" id="btn-wizard-open-templates" class="action-btn action-primary" style="width:100%; min-height:36px; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; border-radius:8px;">
               Apply Business Template Presets
             </button>
             <div class="wiz-field-group">
-              <label class="wiz-label">Store Name</label>
-              <input type="text" id="wizard-store-name" class="pos-input" placeholder="e.g. Monochrome Coffee" style="margin-top:6px;" aria-label="e.g. Monochrome Coffee">
-              <span class="wiz-hint">Appears on receipts and the POS header</span>
+              <label class="wiz-label" for="wizard-store-name">Store / Trade Name <span style="color:var(--accent-emerald);">*</span></label>
+              <input type="text" id="wizard-store-name" class="pos-input" placeholder="e.g. Apex Supermart &amp; Retail" style="margin-top:4px;" required>
+              <span class="wiz-hint">Appears on customer receipts and the POS header</span>
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+              <div class="wiz-field-group">
+                <label class="wiz-label" for="wizard-owner-name">Owner / Proprietor Name <span style="color:var(--accent-emerald);">*</span></label>
+                <input type="text" id="wizard-owner-name" class="pos-input" placeholder="e.g. Muhammad Ali" style="margin-top:4px;" required>
+              </div>
+              <div class="wiz-field-group">
+                <label class="wiz-label" for="wizard-owner-phone">WhatsApp / Mobile <span style="color:var(--accent-emerald);">*</span></label>
+                <input type="tel" id="wizard-owner-phone" class="pos-input" placeholder="03001234567" style="margin-top:4px;" pattern="[0-9+ ]*" required>
+              </div>
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+              <div class="wiz-field-group">
+                <label class="wiz-label" for="wizard-owner-email">Business Email <span style="color:var(--accent-emerald);">*</span></label>
+                <input type="email" id="wizard-owner-email" class="pos-input" placeholder="owner@business.com" style="margin-top:4px;" required>
+              </div>
+              <div class="wiz-field-group">
+                <label class="wiz-label" for="wizard-store-city">City / Operating Region <span style="color:var(--accent-emerald);">*</span></label>
+                <input type="text" id="wizard-store-city" class="pos-input" placeholder="e.g. Lahore / Karachi" style="margin-top:4px;" required>
+              </div>
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+              <div class="wiz-field-group">
+                <label class="wiz-label" for="wizard-store-ntn">NTN / STRN / CNIC (Optional)</label>
+                <input type="text" id="wizard-store-ntn" class="pos-input" placeholder="Tax ID / NTN for FBR" style="margin-top:4px;">
+              </div>
+              <div class="wiz-field-group">
+                <label class="wiz-label" for="wizard-tax-rate">Tax Rate (%)</label>
+                <input type="number" id="wizard-tax-rate" class="pos-input" value="8.0" step="0.1" min="0" max="100" style="margin-top:4px;">
+              </div>
             </div>
             <div class="wiz-field-group">
-              <label class="wiz-label">Tax Rate (%)</label>
-              <input type="number" id="wizard-tax-rate" class="pos-input" value="8.0" step="0.1" min="0" max="100" style="margin-top:6px;" aria-label="Wizard Tax Rate">
-              <span class="wiz-hint">Applied to taxable items at checkout</span>
-            </div>
-            <div class="wiz-field-group">
-              <label class="wiz-label">Branding Theme</label>
-              <select id="wizard-theme" class="pos-input" style="margin-top:6px;" aria-label="Wizard Theme">
+              <label class="wiz-label" for="wizard-theme">Branding Theme</label>
+              <select id="wizard-theme" class="pos-input" style="margin-top:4px;">
                 <option value="Obsidian Emerald">Obsidian Emerald (Default)</option>
                 <option value="Midnight Sapphire">Midnight Sapphire</option>
                 <option value="Warm Amber">Warm Amber</option>
@@ -3248,7 +3272,6 @@
                 <option value="Monochrome Ivory">Monochrome Ivory (Light)</option>
                 <option value="Premium Navy">Premium Navy ✦</option>
               </select>
-              <span class="wiz-hint">Color palette for the entire POS interface</span>
             </div>
           </div>
         </div>
@@ -3288,7 +3311,7 @@
         <div class="wiz-panel" id="wiz-panel-3" style="display:none; flex-direction:column; gap:12px; width: 100%;">
           <div style="font-size:11px; font-weight:800; color:var(--text-white); text-transform:uppercase; letter-spacing:0.5px;">Select Your Store Business Model</div>
           <p style="font-size:10px; color:var(--text-gray); margin:-6px 0 4px;">Tailors inventory fields, POS layout, and features to your domain.</p>
-          <div class="shop-modes-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; max-height: 240px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; touch-action: pan-y; padding: 2px;">
+          <div class="shop-modes-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; touch-action: pan-y; padding: 2px;">
             <!-- Mode 1: Simple Retail -->
             <div class="shop-mode-card active" data-mode="simple-retail" style="background: rgba(255,255,255,0.03); border: 2px solid var(--accent-emerald); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
               <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">🛒 Simple Retail</h4>
@@ -3497,8 +3520,8 @@
     }
   </script>
   <!-- DEVICE PAIRING / WHITELIST OVERLAY -->
-  <div class="auth-overlay" id="device-pairing-overlay" style="display: none; z-index: 9998;">
-    <div class="auth-card" style="max-width: 480px; width: 90%; padding: 36px; border: 1px solid var(--border-titanium); border-radius: 4px;">
+  <div class="auth-overlay" id="device-pairing-overlay" style="display: none; z-index: 9998; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; touch-action: pan-y; overscroll-behavior-y: auto; box-sizing: border-box;">
+    <div class="auth-card" style="max-width: 480px; width: 100%; padding: 32px 24px; border: 1px solid var(--border-titanium); border-radius: 12px; margin: auto 0; flex-shrink: 0; box-sizing: border-box;">
       <div id="device-pairing-icon" style="margin-bottom: 16px; color: var(--accent-emerald); display: flex; justify-content: center;">
         <svg class="svg-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       </div>
@@ -3818,8 +3841,8 @@
   <canvas id="confetti-canvas" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 13000; display: none;"></canvas>
 
   <!-- Template Library Modal (Phase 6) -->
-  <div class="pos-modal-backdrop" id="modal-wizard-templates" style="display: none; align-items: center; justify-content: center; z-index: 12000; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);">
-    <div style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 12px; padding: 28px; width: 560px; max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.6);">
+  <div class="pos-modal-backdrop" id="modal-wizard-templates" style="display: none; flex-direction: column; align-items: center; justify-content: flex-start; z-index: 12000; position: fixed; inset: 0; width: 100vw; height: 100%; height: 100dvh; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; touch-action: pan-y; overscroll-behavior-y: auto; padding: max(env(safe-area-inset-top, 24px), 24px) 16px max(env(safe-area-inset-bottom, 24px), 24px) 16px; box-sizing: border-box;">
+    <div style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 12px; padding: 28px; width: 560px; max-width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,0.6); margin: auto 0; flex-shrink: 0; box-sizing: border-box;">
       <h3 style="margin-top: 0; font-family: var(--font-display); text-transform: uppercase; color: var(--text-white); font-size: 16px; letter-spacing: 0.5px;">Business Template Library</h3>
       <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 20px;">Choose a pre-packaged template to instantly configure taxes, receipt structure, and shop settings.</p>
       

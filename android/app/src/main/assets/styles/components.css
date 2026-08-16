@@ -2416,23 +2416,27 @@ button:not(:disabled):active,
    AUTH LOCK SCREEN OVERLAY STYLES
    ============================================================================ */
 .auth-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  inset: 0; /* Modern shorthand, better mobile support */
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  inset: 0 !important;
   background: var(--bg-obsidian);
   z-index: 9999;
   display: none;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding: 40px 16px;
-  box-sizing: border-box;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  min-height: 100dvh; /* Dynamic viewport height: accounts for mobile browser chrome */
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;
+  overscroll-behavior-y: auto !important;
+  padding: max(env(safe-area-inset-top, 24px), 24px) 16px max(env(safe-area-inset-bottom, 28px), 28px) 16px !important;
+  box-sizing: border-box !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  min-height: 100% !important;
+  min-height: 100dvh !important;
 }
 
 .auth-overlay.active {
@@ -2454,13 +2458,13 @@ button:not(:disabled):active,
 /* Ensure auth card never overflows on tiny screens */
 @media (max-height: 700px) {
   .auth-overlay {
-    align-items: flex-start;
-    padding: 16px;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    padding: max(env(safe-area-inset-top, 12px), 12px) 12px max(env(safe-area-inset-bottom, 20px), 20px) 12px !important;
   }
   .auth-card {
-    max-height: calc(100dvh - 32px);
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    margin: auto 0 !important;
+    overflow: visible !important;
   }
 }
 
@@ -2485,14 +2489,16 @@ button:not(:disabled):active,
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: var(--radius-xl);
   width: 100%;
-  max-width: 360px;
+  max-width: 380px;
   padding: 32px 26px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   box-shadow: 0 30px 60px rgba(0,0,0,0.8), 0 0 60px rgba(0, 214, 143, 0.04), inset 0 1px 0 rgba(255,255,255,0.06);
-  margin: auto;
+  margin: auto 0 !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
 }
 
 .security-shield {
@@ -3953,8 +3959,8 @@ button:not(:disabled):active,
 #btn-wiz-back.visible { display:flex !important; }
 
 @media (max-width:600px) {
-  .auth-overlay#first-boot-wizard { align-items:flex-end !important; padding:0 !important; }
-  #wizard-card { max-width:100% !important; width:100% !important; border-radius:20px 20px 0 0 !important; border-bottom:none !important; max-height:92dvh; overflow-y:auto; }
+  #first-boot-wizard { padding: 16px 12px 80px 12px !important; }
+  #wizard-card { max-width:100% !important; width:100% !important; border-radius:16px !important; height:auto !important; max-height:none !important; overflow:visible !important; }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -5692,16 +5698,24 @@ table.report-table * {
 .action-card {
   max-width: 100% !important;
   box-sizing: border-box !important;
+  margin: auto 0 !important;
+  flex-shrink: 0 !important;
 }
 
-/* ===== UNIVERSAL CENTERED POPUP MODALS & FORMS ===== */
+/* ===== UNIVERSAL SCROLLABLE & CENTERED POPUP MODALS & FORMS ===== */
 .modal-overlay.active,
 .pos-modal-backdrop.active,
 .auth-overlay.active {
   display: flex !important;
+  flex-direction: column !important;
   align-items: center !important;
-  justify-content: center !important;
-  padding: 16px !important;
+  justify-content: flex-start !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;
+  overscroll-behavior-y: auto !important;
+  padding: max(env(safe-area-inset-top, 16px), 16px) 16px max(env(safe-area-inset-bottom, 24px), 24px) 16px !important;
   box-sizing: border-box !important;
 }
 
