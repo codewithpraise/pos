@@ -530,17 +530,27 @@ const LicenseEngine = (() => {
     `;
     document.body.appendChild(overlay);
 
-    // Poll server every 5 seconds for approval
+    // Poll server every 10 seconds for approval (graceful, non-reloading on 404/offline)
     const pollInterval = setInterval(async () => {
       try {
         const serverBase = (window.__valenixiaServerUrl || location.origin);
         const response = await fetch(serverBase + '/api/license/check', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-        if (response.status === 401 || response.status === 404) {
-          clearInterval(pollInterval);
-          await ValenixiaDB.setSecurePref(STORAGE_KEY_LICENSE, null);
-          location.reload();
+        if (response.status === 404) {
+          // Endpoint not deployed on static host — do not reload or crash
+          return;
+        }
+        if (response.status === 401) {
+          try {
+            const errData = await response.json();
+            if (errData && errData.revoked) {
+              clearInterval(pollInterval);
+              await ValenixiaDB.setSecurePref(STORAGE_KEY_LICENSE, null);
+              window.location.reload();
+              return;
+            }
+          } catch (_) {}
           return;
         }
         if (!response.ok) return;
@@ -550,12 +560,12 @@ const LicenseEngine = (() => {
           clearInterval(pollInterval);
           console.log('[License] License approved! Saving new token and booting app...');
           await ValenixiaDB.setSecurePref(STORAGE_KEY_LICENSE, result.token);
-          location.reload();
+          window.location.reload();
         }
       } catch (err) {
-        console.warn('[License] Failed to check activation status:', err.message);
+        // Silent offline tolerance
       }
-    }, 5000);
+    }, 10000);
   };
 
   function mountClockTamperOverlay(lastKnown, osClock, onBypass) {
@@ -1061,18 +1071,27 @@ const LicenseEngine = (() => {
     return false; // Block app
   }
 
-  // Silent background checking API logic
+  // Silent background checking API logic (offline resilient, zero reload loops)
   async function pollLicenseUpdate(currentToken, hwid) {
     try {
       const serverBase = (window.__valenixiaServerUrl || location.origin);
       const response = await fetch(serverBase + '/api/license/check', {
         headers: { 'Authorization': `Bearer ${currentToken}` }
       });
-      if (response.status === 401 || response.status === 404) {
-        // Token revoked, suspended, or deleted
-        console.warn('[License] Active token was revoked or deleted on server. Locking.');
-        await ValenixiaDB.setSecurePref(STORAGE_KEY_LICENSE, null);
-        location.reload();
+      if (response.status === 404) {
+        // Endpoint not deployed on static origin — retain verified local license
+        return;
+      }
+      if (response.status === 401) {
+        try {
+          const errData = await response.json();
+          if (errData && errData.revoked) {
+            console.warn('[License] Active token was explicitly revoked on server. Locking.');
+            await ValenixiaDB.setSecurePref(STORAGE_KEY_LICENSE, null);
+            window.location.reload();
+            return;
+          }
+        } catch (_) {}
         return;
       }
       if (!response.ok) return;
@@ -1084,10 +1103,10 @@ const LicenseEngine = (() => {
       if (result.updated && result.token) {
         console.log('[License] Detected license configuration update on server. Syncing...');
         await ValenixiaDB.setSecurePref(STORAGE_KEY_LICENSE, result.token);
-        location.reload();
+        window.location.reload();
       }
     } catch (err) {
-      console.warn('[License] Failed to check for license updates:', err.message);
+      // Non-fatal offline tolerance
     }
   }
 

@@ -13,10 +13,12 @@
       ]
     },
     {
-      "source": "/(version.json|release-manifest.json|build-id|sw.js|index.html|api/version|api/release-notes)",
+      "source": "/(.*\\.(html|js|css|json|ttf|woff2|txt))",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0" },
-        { "key": "Surrogate-Control", "value": "no-store" }
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0" },
+        { "key": "Surrogate-Control", "value": "no-store" },
+        { "key": "Pragma", "value": "no-cache" },
+        { "key": "Expires", "value": "0" }
       ]
     }
   ],
@@ -30,14 +32,13 @@
       "destination": "/version.json"
     },
     {
-      "source": "/downloads/valenixia-(pos|latest|mobile)\\.apk",
-      "destination": "/downloads/valenixia.apk"
+      "source": "/downloads/valenixia.apk",
+      "destination": "/downloads/valenixia-pos.apk"
     },
     {
-      "source": "/downloads/valenixia-(pos-desktop|desktop|latest)\\.exe",
-      "destination": "/downloads/valenixia.exe"
+      "source": "/downloads/valenixia.exe",
+      "destination": "/downloads/valenixia-pos.exe"
     },
-
     {
       "source": "/((?!api/|.*\\..*).*)",
       "destination": "/index.html"
