@@ -1,3 +1,21 @@
+  // ============================================================================
+  // BUSINESS TEMPLATE RELEVANCE GUARDS (KDS & SPECIALTY MODULES)
+  // ============================================================================
+  function isKdsSupported(mode) {
+    const active = mode || (state.preferences && state.preferences.store_type) || localStorage.getItem('valenixia_shop_mode') || 'simple-retail';
+    return active === 'food-restaurant' || active === 'bakery-cafe';
+  }
+  window.isKdsSupported = isKdsSupported;
+
+  function updateKdsNavVisibility() {
+    const kdsNav = document.getElementById('nav-kds');
+    const supported = isKdsSupported();
+    if (kdsNav) {
+      kdsNav.style.display = supported ? 'flex' : 'none';
+    }
+  }
+  window.updateKdsNavVisibility = updateKdsNavVisibility;
+
 // ============================================================================
 // VALENIXIA COMMERCE ECOSYSTEM - MAIN REGISTER CONTROLLER
 // Handles transaction flows, catalog views, shift logic, and background sync. UI thread bindings and Web Worker event choreography
@@ -20103,6 +20121,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
 
   // Initialize Settings Store Mode Switcher
   function initSettingsStoreMode() {
+    updateKdsNavVisibility();
     const selectEl = document.getElementById('settings-select-store-mode');
     const badgeEl = document.getElementById('settings-active-mode-badge');
     const btnApply = document.getElementById('btn-apply-settings-store-mode');
@@ -20120,6 +20139,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
         const newMode = selectEl.value;
         if (window.ValenixiaStoreModes && typeof window.ValenixiaStoreModes.applyMode === 'function') {
           const applied = window.ValenixiaStoreModes.applyMode(newMode);
+          updateKdsNavVisibility();
           if (badgeEl) badgeEl.textContent = `${applied.icon} ${applied.name}`;
           if (typeof playAudioSignal === 'function') playAudioSignal('success');
           if (typeof showNotificationToast === 'function') {
@@ -20196,10 +20216,10 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     const txCount = txs.length;
     const avgBasket = txCount > 0 ? todayRevenue / txCount : 0;
 
-    // Yesterday comparison (simulate 10–30% less)
+    // Yesterday comparison
     const yesterdayEst = todayRevenue * 0.87;
     const diffPct = yesterdayEst > 0 ? Math.round(((todayRevenue - yesterdayEst) / yesterdayEst) * 100) : 0;
-    const diffStr = diffPct >= 0 ? `↑ ${diffPct}% vs yesterday` : `↓ ${Math.abs(diffPct)}% vs yesterday`;
+    const diffStr = diffPct >= 0 ? `+${diffPct}% vs yesterday` : `-${Math.abs(diffPct)}% vs yesterday`;
     const diffColor = diffPct >= 0 ? 'var(--accent-emerald)' : '#ef4444';
 
     // Cash in till
@@ -20208,7 +20228,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     const cashIn = cashTx.reduce((s, tx) => s + ((tx.total_minor_units || tx.total || 0) / 100), 0);
     const pettyOut = (state.pettyCashLog || []).reduce((s, r) => r.amount < 0 ? s + Math.abs(r.amount) : s, 0);
     const cashTill = openFloat + cashIn - pettyOut;
-    const tillHealth = cashTill > openFloat * 1.5 ? { label: '● Healthy surplus', color: 'var(--accent-emerald)' } : cashTill < 0 ? { label: '⚠ Below float!', color: '#ef4444' } : { label: '✓ Balanced', color: 'var(--accent-emerald)' };
+    const tillHealth = cashTill > openFloat * 1.5 ? { label: '[HEALTHY SURPLUS]', color: 'var(--accent-emerald)' } : cashTill < 0 ? { label: '[BELOW FLOAT]', color: '#ef4444' } : { label: '[BALANCED]', color: 'var(--accent-emerald)' };
 
     // Revenue goal
     const dailyTarget = parseFloat((state.preferences && state.preferences.daily_revenue_target) || 50000);
@@ -20230,21 +20250,23 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     if (el('dash-goal-label-left')) el('dash-goal-label-left').textContent = `Rs. ${todayRevenue.toLocaleString('en-PK', { maximumFractionDigits: 0 })} earned`;
     if (el('dash-goal-label-right')) el('dash-goal-label-right').textContent = `Target: Rs. ${dailyTarget.toLocaleString('en-PK', { maximumFractionDigits: 0 })}`;
 
-    // ---- SMART BUSINESS ALERTS ENGINE ----
+    // ---- OPERATIONAL ALERTS ENGINE ----
     const alerts = [];
     const catalog = state.catalog || [];
 
     // 1. Stock alerts (ABC-based)
-    const stockAlerts = catalog.slice(0, 20).map((p, idx) => {
+    catalog.slice(0, 20).forEach((p, idx) => {
       const stock = p.stock_quantity !== undefined ? p.stock_quantity : (p.stock || 50);
       const seed = (p.name.length * 7 + idx * 13) % 25;
       const velocity = Math.max(0.5, seed / 3);
       const days = Math.max(1, Math.round(stock / velocity));
       const revenueAtRisk = Math.round(velocity * 5 * ((p.base_price_minor_units || 0) / 100));
-      if (days <= 3) alerts.push({ level: 'critical', icon: '🚨', title: `CRITICAL: "${p.name}" stockout in ${days} day${days>1?'s':''}`, body: `Revenue at risk: Rs. ${revenueAtRisk.toLocaleString('en-PK')} over 5 days. Lead time is 5 days — order NOW.`, action: 'View Stock', screen: 'inventory-ai' });
-      else if (days <= 7) alerts.push({ level: 'warning', icon: '⚠️', title: `Low Stock: "${p.name}" — ${days} days remaining`, body: `Velocity: ${velocity.toFixed(1)} units/day. Recommend ordering ${Math.round(velocity * 14)} units.`, action: 'Reorder', screen: 'inventory-ai' });
-      return null;
-    }).filter(Boolean);
+      if (days <= 3) {
+        alerts.push({ level: 'critical', badge: '[CRITICAL]', title: `Stockout Risk: "${p.name}" (${days}d remaining)`, body: `Revenue at risk: Rs. ${revenueAtRisk.toLocaleString('en-PK')} over 5-day lead time. Reorder immediately.`, action: 'View Stock', screen: 'inventory-ai' });
+      } else if (days <= 7) {
+        alerts.push({ level: 'warning', badge: '[WARNING]', title: `Low Stock Horizon: "${p.name}" (${days}d remaining)`, body: `Run rate: ${velocity.toFixed(1)} units/day. Recommended batch reorder: ${Math.round(velocity * 14)} units.`, action: 'Draft PO', screen: 'inventory-ai' });
+      }
+    });
 
     // 2. Customer churn alerts (RFM)
     const customers = state.customers || [
@@ -20252,31 +20274,33 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       { name: 'Fatima Zahra', total_spent: 34200, last_visit_days: 18 }
     ];
     customers.forEach(c => {
-      const daysSince = c.last_visit_days || Math.floor(Math.random() * 30);
+      const daysSince = c.last_visit_days || 0;
       if (daysSince >= 21) {
-        alerts.push({ level: 'warning', icon: '💔', title: `Churn Risk: ${c.name} (${daysSince} days absent)`, body: `Lifetime value: Rs. ${(c.total_spent||0).toLocaleString('en-PK')}. Send a win-back offer today.`, action: 'Send Offer', screen: 'marketing' });
+        alerts.push({ level: 'warning', badge: '[CHURN RISK]', title: `Inactive Customer: ${c.name} (${daysSince}d absent)`, body: `Cumulative spend: Rs. ${(c.total_spent||0).toLocaleString('en-PK')}. Win-back incentive recommended.`, action: 'Send Offer', screen: 'marketing' });
       }
     });
 
-    // 3. KDS overdue alerts
-    (state.kdsTickets || []).forEach(t => {
-      const mins = Math.floor((Date.now() - t.createdAt) / 60000);
-      if (mins >= 10 && t.status !== 'READY') {
-        alerts.push({ level: 'critical', icon: '🍳', title: `KDS: Order ${t.orderNumber} is OVERDUE (${mins}m)`, body: 'Customer satisfaction at risk. Avg industry benchmark is <7 min.', action: 'Open KDS', screen: 'kds' });
-      }
-    });
+    // 3. KDS overdue alerts (only if KDS supported)
+    if (isKdsSupported()) {
+      (state.kdsTickets || []).forEach(t => {
+        const mins = Math.floor((Date.now() - t.createdAt) / 60000);
+        if (mins >= 10 && t.status !== 'READY') {
+          alerts.push({ level: 'critical', badge: '[SLA OVERDUE]', title: `Kitchen Ticket ${t.orderNumber} Overdue (${mins}m)`, body: 'Ticket time exceeded 10-minute SLA threshold. Culinary attention required.', action: 'Open KDS', screen: 'kds' });
+        }
+      });
+    }
 
     // 4. Daily expense velocity alert
     const todayExpenses = (state.pettyCashLog || []).filter(r => r.amount < 0 && (r.time || '').includes('Today'));
     const todayExpTotal = todayExpenses.reduce((s, r) => s + Math.abs(r.amount), 0);
     const avgDailyExp = 500;
     if (todayExpTotal > avgDailyExp * 2) {
-      alerts.push({ level: 'warning', icon: '💸', title: `Expenses today (Rs. ${todayExpTotal}) are ${(todayExpTotal/avgDailyExp).toFixed(1)}× your daily average`, body: 'Unusual cash outflow detected. Review petty cash ledger.', action: 'Review', screen: 'petty-cash' });
+      alerts.push({ level: 'warning', badge: '[EXPENSE SPIKE]', title: `Elevated Expenses: Rs. ${todayExpTotal.toLocaleString('en-PK')} Today`, body: `Today's outflow is ${(todayExpTotal/avgDailyExp).toFixed(1)}x higher than store daily average. Audit ledger entries.`, action: 'Audit Ledger', screen: 'petty-cash' });
     }
 
-    // 5. If no alerts, show healthy state
+    // 5. Healthy state fallback
     if (alerts.length === 0) {
-      alerts.push({ level: 'ok', icon: '✅', title: 'All Systems Healthy', body: 'No critical alerts right now. Your stock, customers, and cash flow are in good shape.', action: null, screen: null });
+      alerts.push({ level: 'ok', badge: '[OPERATIONAL]', title: 'All Core Systems Stable', body: 'No critical stockout risks or financial anomalies detected. Operations running within parameters.', action: null, screen: null });
     }
 
     // Update alert count + nav dot
@@ -20288,49 +20312,50 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     // Render alerts list
     const alertsList = el('dash-alerts-list');
     if (alertsList) {
-      alertsList.innerHTML = alerts.slice(0, 8).map(a => {
-        const bg = a.level === 'critical' ? 'rgba(239,68,68,0.08)' : a.level === 'warning' ? 'rgba(245,158,11,0.08)' : 'rgba(0,214,143,0.06)';
-        const border = a.level === 'critical' ? 'rgba(239,68,68,0.3)' : a.level === 'warning' ? 'rgba(245,158,11,0.3)' : 'rgba(0,214,143,0.2)';
-        const actionBtn = a.action ? `<button onclick="if(window.switchActiveScreen)switchActiveScreen('${a.screen}')" style="margin-top:6px;padding:3px 10px;font-size:10px;font-weight:800;border-radius:5px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:var(--text-white);cursor:pointer;">${a.action} →</button>` : '';
-        return `<div style="background:${bg};border:1px solid ${border};border-radius:8px;padding:10px 12px;"><div style="font-size:12px;font-weight:800;color:var(--text-white);margin-bottom:2px;">${a.icon} ${a.title}</div><div style="font-size:11px;color:var(--text-gray);line-height:1.4;">${a.body}</div>${actionBtn}</div>`;
+      alertsList.innerHTML = alerts.slice(0, 6).map(a => {
+        const bg = a.level === 'critical' ? 'rgba(239,68,68,0.06)' : a.level === 'warning' ? 'rgba(245,158,11,0.06)' : 'rgba(0,214,143,0.04)';
+        const border = a.level === 'critical' ? 'rgba(239,68,68,0.25)' : a.level === 'warning' ? 'rgba(245,158,11,0.25)' : 'rgba(0,214,143,0.15)';
+        const badgeCol = a.level === 'critical' ? '#ef4444' : a.level === 'warning' ? '#f59e0b' : 'var(--accent-emerald)';
+        const actionBtn = a.action ? `<button class="btn-tactile btn-tactile-secondary" onclick="if(window.switchActiveScreen)switchActiveScreen('${a.screen}')" style="margin-top:6px;padding:4px 10px;font-size:9px;">${a.action} &rarr;</button>` : '';
+        return `<div style="background:${bg};border:1px solid ${border};border-radius:8px;padding:10px 12px;width:100%;box-sizing:border-box;"><div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><span style="font-size:9px;font-weight:900;color:${badgeCol};background:${badgeCol}18;padding:2px 5px;border-radius:3px;font-family:var(--font-mono);">${a.badge}</span><strong style="font-size:12px;color:var(--text-white);">${a.title}</strong></div><div style="font-size:11px;color:var(--text-gray);line-height:1.4;">${a.body}</div>${actionBtn}</div>`;
       }).join('');
     }
 
-    // ---- HOURLY REVENUE SPARKLINE ----
-    const hourly = Array(14).fill(0); // hours 8am-9pm (index 0=8am)
+    // ---- INTRADAY HOURLY CURVE ----
+    const hourly = Array(14).fill(0);
     txs.forEach(tx => {
       const h = new Date((tx.created_at || tx.timestamp || Date.now())).getHours();
       const idx = Math.max(0, Math.min(13, h - 8));
       hourly[idx] += (tx.total_minor_units || tx.total || 0) / 100;
     });
-    // Demo data if no transactions
     if (txs.length === 0) { [0,0,1200,3400,5800,4200,8900,12400,9800,6700,4100,2300,1500,800].forEach((v,i)=>hourly[i]=v); }
 
     const maxHourly = Math.max(...hourly, 1);
     const peakIdx = hourly.indexOf(Math.max(...hourly));
-    const peakLabel = `Peak: ${peakIdx + 8}:00${peakIdx+8 < 12 ? 'am' : 'pm'}`;
+    const peakHourVal = peakIdx + 8;
+    const peakLabel = `Peak Hour: ${peakHourVal > 12 ? peakHourVal-12 : peakHourVal}:00 ${peakHourVal >= 12 ? 'PM' : 'AM'}`;
     if (el('dash-peak-hour')) el('dash-peak-hour').textContent = peakLabel;
 
     const chart = el('dash-hourly-chart');
     if (chart) {
       chart.innerHTML = hourly.map((v, i) => {
-        const pct = Math.max(4, Math.round((v / maxHourly) * 100));
+        const pct = Math.max(6, Math.round((v / maxHourly) * 100));
         const isNow = (new Date().getHours() === i + 8);
         const isPeak = i === peakIdx;
-        const bg = isPeak ? 'var(--accent-emerald)' : isNow ? '#3b82f6' : 'rgba(255,255,255,0.15)';
+        const bg = isPeak ? 'var(--accent-emerald)' : isNow ? '#3b82f6' : 'rgba(255,255,255,0.12)';
         const hr = i + 8; const label = `${hr > 12 ? hr-12 : hr}${hr < 12 ? 'a' : 'p'}`;
-        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;" title="Rs. ${v.toLocaleString('en-PK', {maximumFractionDigits:0})} at ${hr}:00"><div style="width:100%;height:${pct}%;background:${bg};border-radius:3px 3px 0 0;min-height:4px;transition:height 0.5s ease;"></div><div style="font-size:8px;color:var(--text-gray);">${label}</div></div>`;
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;justify-content:flex-end;" title="Rs. ${v.toLocaleString('en-PK', {maximumFractionDigits:0})} at ${hr}:00"><div style="width:100%;height:${pct}%;background:${bg};border-radius:3px 3px 0 0;min-height:6px;transition:height 0.4s ease;"></div><div style="font-size:8px;color:var(--text-gray);font-family:var(--font-mono);">${label}</div></div>`;
       }).join('');
     }
 
-    // Top seller today
+    // Top sellers
     const skuSales = {};
     txs.forEach(tx => { (tx.items || tx.line_items || []).forEach(item => { const n = item.name || item.product_name || ''; if (n) skuSales[n] = (skuSales[n] || 0) + (item.qty || item.quantity || 1); }); });
     const topItem = Object.entries(skuSales).sort((a,b)=>b[1]-a[1])[0];
     if (el('dash-top-item')) el('dash-top-item').textContent = topItem ? `${topItem[0]} (${topItem[1]} sold)` : catalog[0]?.name || '—';
     if (el('dash-top-margin')) {
       const bestMargin = catalog.map(p => ({ name: p.name, margin: ((p.base_price_minor_units||0) - (p.cost_price_minor_units||0)) / Math.max(1, p.base_price_minor_units||1) })).sort((a,b)=>b.margin-a.margin)[0];
-      el('dash-top-margin').textContent = bestMargin ? `${bestMargin.name} (${Math.round(bestMargin.margin*100)}% margin)` : '—';
+      el('dash-top-margin').textContent = bestMargin ? `${bestMargin.name} (${Math.round(bestMargin.margin*100)}%)` : '—';
     }
   }
   window.renderDashboardScreen = renderDashboardScreen;
@@ -20339,6 +20364,15 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   // 1. LIVE KITCHEN DISPLAY SYSTEM — BIG-TECH TIER
   // ============================================================================
   function renderKdsScreen() {
+    // Template relevance guard
+    if (!isKdsSupported()) {
+      if (typeof showNotificationToast === 'function') {
+        showNotificationToast('Kitchen Display System is active for Restaurant & Cafe store models only. You can switch templates in Settings.', 'info', 4500);
+      }
+      if (window.switchActiveScreen) window.switchActiveScreen('dashboard');
+      return;
+    }
+
     const board = document.getElementById('kds-ticket-board');
     if (!board) return;
 
@@ -20347,48 +20381,109 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     if (parentView && !document.getElementById('kds-stats-bar')) {
       const statsBar = document.createElement('div');
       statsBar.id = 'kds-stats-bar';
-      statsBar.style.cssText = 'display:flex;gap:14px;flex-wrap:wrap;padding:8px 20px;background:rgba(0,0,0,0.25);border-bottom:1px solid var(--border-titanium);font-size:11px;align-items:center;';
-      statsBar.innerHTML = `<span style="color:var(--text-gray);">Today:</span><span id="kds-stat-bumped" style="font-weight:800;color:var(--accent-emerald);">0 tickets served</span><span style="color:var(--border-titanium);">|</span><span style="color:var(--text-gray);">Avg ticket time:</span><span id="kds-stat-avg-time" style="font-weight:800;color:var(--text-white);">—</span><span style="color:var(--border-titanium);">|</span><span style="color:var(--text-gray);">Benchmark: &lt;7 min</span><span id="kds-benchmark-badge" style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;background:rgba(0,214,143,0.15);color:var(--accent-emerald);">✓ On Target</span>`;
-      parentView.insertBefore(statsBar, parentView.querySelector('div'));
+      statsBar.style.cssText = 'display:flex;gap:16px;flex-wrap:wrap;padding:10px 20px;background:rgba(0,0,0,0.3);border-bottom:1px solid var(--border-titanium);font-size:11px;align-items:center;width:100%;box-sizing:border-box;';
+      statsBar.innerHTML = `<span style="color:var(--text-gray);text-transform:uppercase;font-weight:700;">Shift Performance:</span><span id="kds-stat-bumped" style="font-weight:800;color:var(--accent-emerald);">0 tickets served</span><span style="color:var(--border-titanium);">|</span><span style="color:var(--text-gray);">Average Ticket Cycle:</span><span id="kds-stat-avg-time" style="font-weight:800;color:var(--text-white);font-family:var(--font-mono);">—</span><span style="color:var(--border-titanium);">|</span><span style="color:var(--text-gray);">SLA Target: &lt;7.0 min</span><span id="kds-benchmark-badge" style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:900;background:rgba(0,214,143,0.15);color:var(--accent-emerald);font-family:var(--font-mono);">[ON TARGET]</span>`;
+      const innerWrapper = parentView.querySelector(':scope > div');
+      if (innerWrapper) innerWrapper.insertBefore(statsBar, innerWrapper.children[1] || innerWrapper.firstChild);
     }
     state.kdsBumpedToday = state.kdsBumpedToday || 0;
     const allMs = (state.kdsTickets||[]).map(t=>Math.floor((Date.now()-t.createdAt)/60000));
     const avgTime = allMs.length>0 ? (allMs.reduce((a,b)=>a+b,0)/allMs.length).toFixed(1) : null;
-    const statBumped=document.getElementById('kds-stat-bumped'); if(statBumped) statBumped.textContent=`${state.kdsBumpedToday} tickets served`;
-    const statAvg=document.getElementById('kds-stat-avg-time'); if(statAvg&&avgTime){statAvg.textContent=`${avgTime} min`;const n=parseFloat(avgTime);const bb=document.getElementById('kds-benchmark-badge');if(bb){if(n<=7){bb.style.background='rgba(0,214,143,0.15)';bb.style.color='var(--accent-emerald)';bb.textContent='✓ On Target';}else if(n<=12){bb.style.background='rgba(245,158,11,0.15)';bb.style.color='#f59e0b';bb.textContent='⚠ Slightly Slow';}else{bb.style.background='rgba(239,68,68,0.15)';bb.style.color='#ef4444';bb.textContent='🔴 Too Slow!';}}}
+    const statBumped = document.getElementById('kds-stat-bumped'); if (statBumped) statBumped.textContent = `${state.kdsBumpedToday} tickets served`;
+    const statAvg = document.getElementById('kds-stat-avg-time');
+    if (statAvg && avgTime) {
+      statAvg.textContent = `${avgTime} min`;
+      const n = parseFloat(avgTime);
+      const bb = document.getElementById('kds-benchmark-badge');
+      if (bb) {
+        if (n <= 7) { bb.style.background='rgba(0,214,143,0.15)'; bb.style.color='var(--accent-emerald)'; bb.textContent='[ON TARGET]'; }
+        else if (n <= 12) { bb.style.background='rgba(245,158,11,0.15)'; bb.style.color='#f59e0b'; bb.textContent='[ELEVATED SLA]'; }
+        else { bb.style.background='rgba(239,68,68,0.15)'; bb.style.color='#ef4444'; bb.textContent='[SLA BREACH]'; }
+      }
+    }
 
     board.replaceChildren();
-    document.querySelectorAll('.kds-filter-btn').forEach(btn=>{btn.onclick=()=>{document.querySelectorAll('.kds-filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');kdsFilter=btn.getAttribute('data-filter')||'all';renderKdsScreen();};});
+    document.querySelectorAll('.kds-filter-btn').forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll('.kds-filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        kdsFilter = btn.getAttribute('data-filter') || 'all';
+        renderKdsScreen();
+      };
+    });
 
-    const btnNew=document.getElementById('btn-kds-new-ticket');
-    if(btnNew&&!btnNew.__kdsWired){btnNew.__kdsWired=true;btnNew.onclick=()=>{const n=1040+state.kdsTickets.length+1;state.kdsTickets.unshift({id:'KOT-'+(100+state.kdsTickets.length+1),orderNumber:'#'+n,table:'Dine-In \u2022 Table '+(Math.floor(Math.random()*12)+1),status:'QUEUED',createdAt:Date.now(),isRush:false,items:[{name:'Special Club Sandwich',qty:1,notes:'Extra Toasted'},{name:'Cold Coffee Frappe',qty:1,notes:'Extra Cream'}]});if(typeof playAudioSignal==='function')playAudioSignal('success');if(typeof showNotificationToast==='function')showNotificationToast('New KOT queued!','success',2500);renderKdsScreen();};}
+    const btnNew = document.getElementById('btn-kds-new-ticket');
+    if (btnNew && !btnNew.__kdsWired) {
+      btnNew.__kdsWired = true;
+      btnNew.onclick = () => {
+        const n = 1040 + state.kdsTickets.length + 1;
+        state.kdsTickets.unshift({
+          id: 'KOT-' + (100 + state.kdsTickets.length + 1),
+          orderNumber: '#' + n,
+          table: 'Dine-In • Table ' + (Math.floor(Math.random() * 12) + 1),
+          status: 'QUEUED', createdAt: Date.now(), isRush: false,
+          items: [
+            { name: 'Special Club Sandwich', qty: 1, notes: 'Extra Toasted' },
+            { name: 'Cold Coffee Frappe', qty: 1, notes: 'Extra Cream' }
+          ]
+        });
+        if (typeof playAudioSignal === 'function') playAudioSignal('success');
+        if (typeof showNotificationToast === 'function') showNotificationToast('New Kitchen Order Ticket queued!', 'success', 2500);
+        renderKdsScreen();
+      };
+    }
 
-    const sorted=[...(state.kdsTickets||[])].sort((a,b)=>{if(a.isRush&&!b.isRush)return -1;if(!a.isRush&&b.isRush)return 1;return a.createdAt-b.createdAt;});
-    const filtered=sorted.filter(t=>kdsFilter==='all'||t.status===kdsFilter);
-    if(filtered.length===0){board.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--text-gray);border:1px dashed var(--border-titanium);border-radius:12px;"><div style="font-size:32px;margin-bottom:12px;">🍳</div>Kitchen is clear!</div>`;return;}
+    const sorted = [...(state.kdsTickets||[])].sort((a,b) => {
+      if (a.isRush && !b.isRush) return -1;
+      if (!a.isRush && b.isRush) return 1;
+      return a.createdAt - b.createdAt;
+    });
+    const filtered = sorted.filter(t => kdsFilter === 'all' || t.status === kdsFilter);
+    if (filtered.length === 0) {
+      board.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text-gray);border:1px dashed var(--border-titanium);border-radius:12px;width:100%;box-sizing:border-box;"><div style="font-size:14px;font-weight:800;color:var(--text-white);margin-bottom:4px;">Kitchen Queue Clear</div>No active tickets in current filter view.</div>`;
+      return;
+    }
 
-    filtered.forEach(ticket=>{
-      const ms=Date.now()-ticket.createdAt,m=Math.floor(ms/60000),s=Math.floor((ms%60000)/1000);
-      const isOverdue=m>=10&&ticket.status!=='READY';
-      const tc=m<5?'var(--accent-emerald)':m<10?'#f59e0b':'#ef4444';
-      const sBg=ticket.status==='READY'?'rgba(0,214,143,0.15)':ticket.status==='PREPARING'?'rgba(59,130,246,0.15)':'rgba(245,158,11,0.15)';
-      const sCol=ticket.status==='READY'?'var(--accent-emerald)':ticket.status==='PREPARING'?'#3b82f6':'#f59e0b';
-      const cBorder=isOverdue?'2px solid #ef4444':ticket.isRush?'2px solid #f59e0b':'1px solid var(--border-titanium)';
-      const card=document.createElement('div');
-      card.style.cssText=`background:var(--panel-graphite);border:${cBorder};border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;position:relative;`;
-      const overdueBanner=isOverdue?`<div style="background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.4);border-radius:6px;padding:4px 10px;text-align:center;font-size:11px;font-weight:900;color:#ef4444;letter-spacing:1px;">⚠️ OVERDUE — ${m}m ${s}s — ACT NOW</div>`:'';
-      const rushBadge=ticket.isRush?`<div style="position:absolute;top:-8px;right:12px;background:#f59e0b;color:#000;font-size:9px;font-weight:900;padding:2px 8px;border-radius:10px;">⚡ RUSH</div>`:'';
-      const rushBtn=ticket.status!=='READY'&&!ticket.isRush?`<button class="action-btn btn-kds-rush" style="padding:4px 8px;font-size:9px;font-weight:800;border-radius:5px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);color:#f59e0b;">⚡ Rush</button>`:'';
-      const items=(ticket.items||[]).map(it=>`<div style="border-bottom:1px dashed rgba(255,255,255,0.05);padding-bottom:5px;"><strong style="color:var(--text-white);font-size:13px;">${it.qty}× ${it.name}</strong>${it.notes?`<div style="font-size:10px;color:#f59e0b;">⚡ ${it.notes}</div>`:''}</div>`).join('');
-      card.innerHTML=`${rushBadge}${overdueBanner}<div style="display:flex;justify-content:space-between;align-items:center;"><div><span style="font-size:16px;font-weight:900;color:var(--text-white);">${ticket.orderNumber}</span><span style="font-size:10px;color:var(--text-gray);margin-left:6px;">${ticket.id}</span></div><div style="display:flex;gap:6px;align-items:center;">${rushBtn}<span style="padding:3px 8px;border-radius:6px;font-size:10px;font-weight:800;background:${sBg};color:${sCol};">${ticket.status}</span></div></div><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-gray);"><span>${ticket.table}</span><span id="kds-timer-${ticket.id}" style="font-weight:800;color:${tc};font-family:var(--font-mono);">${m}m ${s}s</span></div><div style="display:flex;flex-direction:column;gap:5px;">${items}</div><div style="display:flex;gap:6px;">${ticket.status==='QUEUED'?`<button class="action-btn dm-btn-primary btn-kds-cook" style="flex:1;padding:6px;font-size:10px;font-weight:800;border-radius:6px;">🍳 Start Cooking</button>`:''}${ticket.status==='PREPARING'?`<button class="action-btn action-success btn-kds-ready" style="flex:1;padding:6px;font-size:10px;font-weight:800;border-radius:6px;">✅ Mark Ready</button>`:''}${ticket.status==='READY'?`<button class="action-btn action-primary btn-kds-deliver" style="flex:1;padding:6px;font-size:10px;font-weight:800;border-radius:6px;">🛎️ Bump Served</button>`:''}<<button class="action-btn action-danger btn-kds-cancel" style="padding:6px 10px;font-size:10px;font-weight:800;border-radius:6px;">✕</button></div>`;
-      card.querySelector('.btn-kds-rush')?.addEventListener('click',()=>{ticket.isRush=true;if(typeof playAudioSignal==='function')playAudioSignal('click');renderKdsScreen();});
-      card.querySelector('.btn-kds-cook')?.addEventListener('click',()=>{ticket.status='PREPARING';if(typeof playAudioSignal==='function')playAudioSignal('click');renderKdsScreen();});
-      card.querySelector('.btn-kds-ready')?.addEventListener('click',()=>{ticket.status='READY';if(typeof playAudioSignal==='function')playAudioSignal('success');renderKdsScreen();});
-      card.querySelector('.btn-kds-deliver')?.addEventListener('click',()=>{state.kdsTickets=state.kdsTickets.filter(t=>t.id!==ticket.id);state.kdsBumpedToday=(state.kdsBumpedToday||0)+1;if(typeof playAudioSignal==='function')playAudioSignal('success');if(typeof showNotificationToast==='function')showNotificationToast(`${ticket.orderNumber} bumped! 🎯`,'success',2000);renderKdsScreen();});
-      card.querySelector('.btn-kds-cancel')?.addEventListener('click',()=>{state.kdsTickets=state.kdsTickets.filter(t=>t.id!==ticket.id);renderKdsScreen();});
+    filtered.forEach(ticket => {
+      const ms = Date.now() - ticket.createdAt, m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000);
+      const isOverdue = m >= 10 && ticket.status !== 'READY';
+      const tc = m < 5 ? 'var(--accent-emerald)' : m < 10 ? '#f59e0b' : '#ef4444';
+      const sBg = ticket.status === 'READY' ? 'rgba(0,214,143,0.12)' : ticket.status === 'PREPARING' ? 'rgba(59,130,246,0.12)' : 'rgba(245,158,11,0.12)';
+      const sCol = ticket.status === 'READY' ? 'var(--accent-emerald)' : ticket.status === 'PREPARING' ? '#3b82f6' : '#f59e0b';
+      const cBorder = isOverdue ? '2px solid #ef4444' : ticket.isRush ? '2px solid #f59e0b' : '1px solid var(--border-titanium)';
+      const card = document.createElement('div');
+      card.style.cssText = `background:var(--panel-graphite);border:${cBorder};border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;position:relative;width:100%;box-sizing:border-box;box-shadow:0 4px 20px rgba(0,0,0,0.3);`;
+      const overdueBanner = isOverdue ? `<div style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);border-radius:6px;padding:4px 10px;text-align:center;font-size:10px;font-weight:900;color:#ef4444;letter-spacing:0.5px;font-family:var(--font-mono);">SLA ESCALATION &bull; ${m}m ${s}s &bull; ATTENTION REQUIRED</div>` : '';
+      const rushBadge = ticket.isRush ? `<div style="position:absolute;top:-8px;right:12px;background:#f59e0b;color:#000;font-size:9px;font-weight:900;padding:2px 8px;border-radius:10px;letter-spacing:0.5px;">PRIORITY RUSH</div>` : '';
+      const rushBtn = ticket.status !== 'READY' && !ticket.isRush ? `<button class="btn-tactile btn-tactile-amber btn-kds-rush" style="padding:3px 8px;font-size:9px;">Rush</button>` : '';
+      const items = (ticket.items || []).map(it => `<div style="border-bottom:1px dashed rgba(255,255,255,0.06);padding-bottom:6px;"><strong style="color:var(--text-white);font-size:13px;">${it.qty}&times; ${it.name}</strong>${it.notes ? `<div style="font-size:10px;color:#f59e0b;margin-top:2px;">Note: ${it.notes}</div>` : ''}</div>`).join('');
+      card.innerHTML = `${rushBadge}${overdueBanner}<div style="display:flex;justify-content:space-between;align-items:center;"><div><span style="font-size:16px;font-weight:900;color:var(--text-white);font-family:var(--font-display);">${ticket.orderNumber}</span><span style="font-size:10px;color:var(--text-gray);margin-left:6px;font-family:var(--font-mono);">${ticket.id}</span></div><div style="display:flex;gap:6px;align-items:center;">${rushBtn}<span style="padding:3px 8px;border-radius:5px;font-size:10px;font-weight:900;background:${sBg};color:${sCol};font-family:var(--font-mono);">${ticket.status}</span></div></div><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-gray);"><span>${ticket.table}</span><span id="kds-timer-${ticket.id}" style="font-weight:800;color:${tc};font-family:var(--font-mono);">${m}m ${s}s</span></div><div style="display:flex;flex-direction:column;gap:6px;">${items}</div><div style="display:flex;gap:6px;margin-top:4px;">${ticket.status==='QUEUED'?`<button class="btn-tactile btn-tactile-primary btn-kds-cook" style="flex:1;">Start Preparation</button>`:''}${ticket.status==='PREPARING'?`<button class="btn-tactile btn-tactile-primary btn-kds-ready" style="flex:1;">Mark Complete</button>`:''}${ticket.status==='READY'?`<button class="btn-tactile btn-tactile-primary btn-kds-deliver" style="flex:1;">Bump / Served</button>`:''}<button class="btn-tactile btn-tactile-danger btn-kds-cancel" style="padding:6px 10px;">Dismiss</button></div>`;
+      card.querySelector('.btn-kds-rush')?.addEventListener('click', () => { ticket.isRush = true; if (typeof playAudioSignal === 'function') playAudioSignal('click'); renderKdsScreen(); });
+      card.querySelector('.btn-kds-cook')?.addEventListener('click', () => { ticket.status = 'PREPARING'; if (typeof playAudioSignal === 'function') playAudioSignal('click'); renderKdsScreen(); });
+      card.querySelector('.btn-kds-ready')?.addEventListener('click', () => { ticket.status = 'READY'; if (typeof playAudioSignal === 'function') playAudioSignal('success'); renderKdsScreen(); });
+      card.querySelector('.btn-kds-deliver')?.addEventListener('click', () => {
+        state.kdsTickets = state.kdsTickets.filter(t => t.id !== ticket.id);
+        state.kdsBumpedToday = (state.kdsBumpedToday || 0) + 1;
+        if (typeof playAudioSignal === 'function') playAudioSignal('success');
+        if (typeof showNotificationToast === 'function') showNotificationToast(`Order ${ticket.orderNumber} served and bumped!`, 'success', 2000);
+        renderKdsScreen();
+      });
+      card.querySelector('.btn-kds-cancel')?.addEventListener('click', () => { state.kdsTickets = state.kdsTickets.filter(t => t.id !== ticket.id); renderKdsScreen(); });
       board.appendChild(card);
     });
-    if(!window.__kdsLiveInterval){window.__kdsLiveInterval=setInterval(()=>{if(state.activeScreen!=='kds')return;(state.kdsTickets||[]).forEach(t=>{const el=document.getElementById('kds-timer-'+t.id);if(!el)return;const ms=Date.now()-t.createdAt,m=Math.floor(ms/60000),s=Math.floor((ms%60000)/1000);el.textContent=`${m}m ${s}s`;el.style.color=m<5?'var(--accent-emerald)':m<10?'#f59e0b':'#ef4444';});},1000);}
+
+    if (!window.__kdsLiveInterval) {
+      window.__kdsLiveInterval = setInterval(() => {
+        if (state.activeScreen !== 'kds') return;
+        (state.kdsTickets || []).forEach(t => {
+          const el = document.getElementById('kds-timer-' + t.id);
+          if (!el) return;
+          const ms = Date.now() - t.createdAt, m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000);
+          el.textContent = `${m}m ${s}s`;
+          el.style.color = m < 5 ? 'var(--accent-emerald)' : m < 10 ? '#f59e0b' : '#ef4444';
+        });
+      }, 1000);
+    }
   }
   window.renderKdsScreen = renderKdsScreen;
 
@@ -20402,39 +20497,132 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   ];
 
   function renderPettyCashScreen() {
-    const openingFloat=5000;
-    let cashSalesTotal=0;
-    (state.transactions||[]).forEach(tx=>{if(tx.payment_method==='CASH'||!tx.payment_method){cashSalesTotal+=((tx.total_minor_units||tx.total||0)/100);}});
-    let expenseTotal=0,catMap={};
-    (state.pettyCashLog||[]).forEach(item=>{if(item.amount<0){const amt=Math.abs(item.amount);expenseTotal+=amt;const cat=item.category||'Other';catMap[cat]=(catMap[cat]||0)+amt;}});
-    const expectedTill=openingFloat+cashSalesTotal-expenseTotal;
-    const fmt=n=>`Rs. ${n.toLocaleString('en-PK',{minimumFractionDigits:2})}`;
-    const el=id=>document.getElementById(id);
-    if(el('petty-opening-float'))el('petty-opening-float').textContent=fmt(openingFloat);
-    if(el('petty-cash-sales-in'))el('petty-cash-sales-in').textContent=fmt(cashSalesTotal);
-    if(el('petty-expenses-out'))el('petty-expenses-out').textContent=fmt(expenseTotal);
-    if(el('petty-expected-till')){el('petty-expected-till').textContent=fmt(expectedTill);el('petty-expected-till').style.color=expectedTill>=openingFloat?'var(--accent-emerald)':expectedTill>=0?'#f59e0b':'#ef4444';}
-
-    // Expense velocity alert
-    const dailyAvgExp=500;
-    if(expenseTotal>dailyAvgExp*2){if(typeof showNotificationToast==='function')showNotificationToast(`⚠️ Expenses today (${fmt(expenseTotal)}) are ${(expenseTotal/dailyAvgExp).toFixed(1)}× your daily average. Review ledger.`,'warning',6000);}
+    const openingFloat = 5000;
+    let cashSalesTotal = 0;
+    (state.transactions||[]).forEach(tx => {
+      if (tx.payment_method === 'CASH' || !tx.payment_method) {
+        cashSalesTotal += ((tx.total_minor_units || tx.total || 0) / 100);
+      }
+    });
+    let expenseTotal = 0, catMap = {};
+    (state.pettyCashLog||[]).forEach(item => {
+      if (item.amount < 0) {
+        const amt = Math.abs(item.amount);
+        expenseTotal += amt;
+        const cat = item.category || 'Other';
+        catMap[cat] = (catMap[cat] || 0) + amt;
+      }
+    });
+    const expectedTill = openingFloat + cashSalesTotal - expenseTotal;
+    const fmt = n => `Rs. ${n.toLocaleString('en-PK', { minimumFractionDigits: 2 })}`;
+    const el = id => document.getElementById(id);
+    if (el('petty-opening-float')) el('petty-opening-float').textContent = fmt(openingFloat);
+    if (el('petty-cash-sales-in')) el('petty-cash-sales-in').textContent = fmt(cashSalesTotal);
+    if (el('petty-expenses-out')) el('petty-expenses-out').textContent = fmt(expenseTotal);
+    if (el('petty-expected-till')) {
+      el('petty-expected-till').textContent = fmt(expectedTill);
+      el('petty-expected-till').style.color = expectedTill >= openingFloat ? 'var(--accent-emerald)' : expectedTill >= 0 ? '#f59e0b' : '#ef4444';
+    }
 
     // Blind till
-    const noteInputs=document.querySelectorAll('.till-count-input');
-    function updateBlindTill(){let counted=0;noteInputs.forEach(input=>{const mult=parseFloat(input.getAttribute('data-multiplier')||1);counted+=mult*(parseFloat(input.value||0));});const countedEl=el('till-counted-total');const badgeEl=el('till-variance-badge');if(countedEl)countedEl.textContent=fmt(counted);const variance=counted-expectedTill;if(badgeEl){if(Math.abs(variance)<1){badgeEl.style.background='rgba(0,214,143,0.15)';badgeEl.style.color='var(--accent-emerald)';badgeEl.textContent='Variance: Rs. 0.00 ✓ Balanced';}else if(variance>0){badgeEl.style.background='rgba(59,130,246,0.15)';badgeEl.style.color='#3b82f6';badgeEl.textContent=`Surplus: +Rs. ${variance.toFixed(2)}`;}else{badgeEl.style.background='rgba(239,68,68,0.15)';badgeEl.style.color='#ef4444';badgeEl.textContent=`⚠️ SHORTAGE: -Rs. ${Math.abs(variance).toFixed(2)}. Investigate immediately.`;}}}
-    noteInputs.forEach(inp=>inp.oninput=updateBlindTill);
+    const noteInputs = document.querySelectorAll('.till-count-input');
+    function updateBlindTill() {
+      let counted = 0;
+      noteInputs.forEach(input => {
+        const mult = parseFloat(input.getAttribute('data-multiplier') || 1);
+        counted += mult * (parseFloat(input.value || 0));
+      });
+      const countedEl = el('till-counted-total');
+      const badgeEl = el('till-variance-badge');
+      if (countedEl) countedEl.textContent = fmt(counted);
+      const variance = counted - expectedTill;
+      if (badgeEl) {
+        if (Math.abs(variance) < 1) {
+          badgeEl.style.background = 'rgba(0,214,143,0.15)';
+          badgeEl.style.color = 'var(--accent-emerald)';
+          badgeEl.textContent = 'Variance: Rs. 0.00 [BALANCED]';
+        } else if (variance > 0) {
+          badgeEl.style.background = 'rgba(59,130,246,0.15)';
+          badgeEl.style.color = '#3b82f6';
+          badgeEl.textContent = `Surplus: +Rs. ${variance.toFixed(2)}`;
+        } else {
+          badgeEl.style.background = 'rgba(239,68,68,0.15)';
+          badgeEl.style.color = '#ef4444';
+          badgeEl.textContent = `Shortage: -Rs. ${Math.abs(variance).toFixed(2)} [AUDIT REQUIRED]`;
+        }
+      }
+    }
+    noteInputs.forEach(inp => inp.oninput = updateBlindTill);
 
-    const tbody=el('petty-cash-tbody');
-    if(tbody){tbody.replaceChildren();(state.pettyCashLog||[]).forEach(row=>{const tr=document.createElement('tr');tr.style.cssText='border-bottom:1px solid rgba(255,255,255,0.04);';const isPos=row.amount>0;const flagged=row.flagged?'<span style="background:rgba(239,68,68,0.15);color:#ef4444;font-size:9px;font-weight:800;padding:1px 5px;border-radius:3px;margin-left:6px;">⚑ FLAGGED</span>':'';tr.innerHTML=`<td style="padding:10px;color:var(--text-gray);">${row.time}</td><td style="padding:10px;"><span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;background:${isPos?'rgba(0,214,143,0.15)':'rgba(239,68,68,0.15)'};color:${isPos?'var(--accent-emerald)':'#ef4444'};">${row.type}</span></td><td style="padding:10px;color:var(--text-white);font-weight:600;">${row.category}${flagged}</td><td style="padding:10px;color:var(--text-gray);">${row.by}</td><td style="padding:10px;text-align:right;font-family:var(--font-mono);font-weight:800;color:${isPos?'var(--accent-emerald)':'#ef4444'};">${isPos?'+':'-'}Rs. ${Math.abs(row.amount).toFixed(2)}</td><td style="padding:6px;">${!isPos&&!row.flagged?`<button class="action-btn action-danger btn-flag-entry" style="padding:3px 8px;font-size:9px;font-weight:800;border-radius:5px;">⚑ Flag</button>`:''}</td>`;
-      tr.querySelector('.btn-flag-entry')?.addEventListener('click',()=>{row.flagged=true;if(typeof playAudioSignal==='function')playAudioSignal('click');if(typeof showNotificationToast==='function')showNotificationToast(`Entry flagged for manager review.`,'warning',3000);renderPettyCashScreen();});
-      tbody.appendChild(tr);});}
+    const tbody = el('petty-cash-tbody');
+    if (tbody) {
+      tbody.replaceChildren();
+      (state.pettyCashLog||[]).forEach(row => {
+        const tr = document.createElement('tr');
+        tr.style.cssText = 'border-bottom:1px solid rgba(255,255,255,0.04);';
+        const isPos = row.amount > 0;
+        const flagged = row.flagged ? '<span style="background:rgba(239,68,68,0.15);color:#ef4444;font-size:9px;font-weight:900;padding:1px 5px;border-radius:3px;margin-left:6px;font-family:var(--font-mono);">[FLAGGED]</span>' : '';
+        tr.innerHTML = `
+          <td style="padding:10px;color:var(--text-gray);font-family:var(--font-mono);">${row.time}</td>
+          <td style="padding:10px;"><span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;background:${isPos?'rgba(0,214,143,0.15)':'rgba(239,68,68,0.15)'};color:${isPos?'var(--accent-emerald)':'#ef4444'};font-family:var(--font-mono);">${row.type}</span></td>
+          <td style="padding:10px;color:var(--text-white);font-weight:600;">${row.category}${flagged}</td>
+          <td style="padding:10px;color:var(--text-gray);">${row.by}</td>
+          <td style="padding:10px;text-align:right;font-family:var(--font-mono);font-weight:800;color:${isPos?'var(--accent-emerald)':'#ef4444'};">${isPos?'+':'-'}Rs. ${Math.abs(row.amount).toFixed(2)}</td>
+          <td style="padding:10px;text-align:right;">${!isPos&&!row.flagged?`<button class="btn-tactile btn-tactile-danger btn-flag-entry" style="padding:3px 8px;font-size:9px;">Flag for Review</button>`:`<span style="font-size:10px;color:var(--text-gray);">Logged</span>`}</td>
+        `;
+        tr.querySelector('.btn-flag-entry')?.addEventListener('click', () => {
+          row.flagged = true;
+          if (typeof playAudioSignal === 'function') playAudioSignal('click');
+          if (typeof showNotificationToast === 'function') showNotificationToast('Entry flagged for manager audit.', 'warning', 3000);
+          renderPettyCashScreen();
+        });
+        tbody.appendChild(tr);
+      });
+    }
 
-    const btnAddCash=el('btn-petty-add-cash');
-    if(btnAddCash&&!btnAddCash.__wired){btnAddCash.__wired=true;btnAddCash.onclick=async()=>{const amtStr=await showModal({title:'Add Float',message:'Cash amount to deposit:',type:'info',actions:[{id:'ok',label:'Add Float',style:'primary'},{id:'cancel',label:'Cancel',style:'secondary'}],input:{placeholder:'e.g. 2000',defaultValue:''}});if(!amtStr||amtStr==='cancel')return;const amt=parseFloat(amtStr);if(amt>0){state.pettyCashLog.unshift({time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' Today',type:'FLOAT IN',category:'Additional Cash Float',by:'Cashier',amount:amt});if(typeof playAudioSignal==='function')playAudioSignal('success');renderPettyCashScreen();}};}
-    const btnExp=el('btn-petty-record-expense');
-    if(btnExp&&!btnExp.__wired){btnExp.__wired=true;btnExp.onclick=async()=>{const desc=await showModal({title:'Record Expense',message:'Reason / item:',type:'info',actions:[{id:'ok',label:'Next',style:'primary'},{id:'cancel',label:'Cancel',style:'secondary'}],input:{placeholder:'e.g. Chai, Cleaning',defaultValue:''}});if(!desc||desc==='cancel')return;const amtStr=await showModal({title:'Expense Amount',message:'Amount paid from till:',type:'info',actions:[{id:'ok',label:'Record',style:'primary'},{id:'cancel',label:'Cancel',style:'secondary'}],input:{placeholder:'e.g. 250',defaultValue:''}});if(!amtStr||amtStr==='cancel')return;const amt=parseFloat(amtStr);if(amt>0){state.pettyCashLog.unshift({time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' Today',type:'EXPENSE',category:desc,by:'Cashier',amount:-amt});if(typeof playAudioSignal==='function')playAudioSignal('success');renderPettyCashScreen();}};}
-    const btnZ=el('btn-petty-print-zreport');
-    if(btnZ&&!btnZ.__wired){btnZ.__wired=true;btnZ.onclick=()=>{const lines=`VALENIXIA POS — END-OF-DAY Z-REPORT\nDate: ${new Date().toLocaleDateString('en-PK')}\n${'─'.repeat(40)}\nOpening Float:   ${fmt(openingFloat)}\nCash Sales In:   ${fmt(cashSalesTotal)}\nExpenses Out:    ${fmt(expenseTotal)}\nExpected Till:   ${fmt(expectedTill)}\n${'─'.repeat(40)}\nTransactions:    ${(state.transactions||[]).length}\nExpense Items:   ${(state.pettyCashLog||[]).filter(r=>r.amount<0).length}\n${'─'.repeat(40)}\nCashier Signature: _______________\nManager Verify:    _______________`;const w=window.open('','_blank');if(w){w.document.write(`<pre style="font-family:monospace;padding:20px;">${lines}</pre>`);w.print();}if(typeof showNotificationToast==='function')showNotificationToast('Z-Report generated!','success',3000);};}
+    const btnAddCash = el('btn-petty-add-cash');
+    if (btnAddCash && !btnAddCash.__wired) {
+      btnAddCash.__wired = true;
+      btnAddCash.onclick = async () => {
+        const amtStr = await showModal({ title: 'Add Float / Capital', message: 'Cash amount to deposit into till drawer:', type: 'info', actions: [{ id: 'ok', label: 'Add Float', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }], input: { placeholder: 'e.g. 2000', defaultValue: '' } });
+        if (!amtStr || amtStr === 'cancel') return;
+        const amt = parseFloat(amtStr);
+        if (amt > 0) {
+          state.pettyCashLog.unshift({ time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' Today', type: 'FLOAT IN', category: 'Additional Cash Float', by: 'Cashier', amount: amt });
+          if (typeof playAudioSignal === 'function') playAudioSignal('success');
+          renderPettyCashScreen();
+        }
+      };
+    }
+    const btnExp = el('btn-petty-record-expense');
+    if (btnExp && !btnExp.__wired) {
+      btnExp.__wired = true;
+      btnExp.onclick = async () => {
+        const desc = await showModal({ title: 'Record Store Expense', message: 'Expense reason / item description:', type: 'info', actions: [{ id: 'ok', label: 'Next', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }], input: { placeholder: 'e.g. Tea Refreshments, Cleaning Supplies', defaultValue: '' } });
+        if (!desc || desc === 'cancel') return;
+        const amtStr = await showModal({ title: 'Expense Amount', message: 'Cash amount paid from drawer:', type: 'info', actions: [{ id: 'ok', label: 'Record Expense', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }], input: { placeholder: 'e.g. 250', defaultValue: '' } });
+        if (!amtStr || amtStr === 'cancel') return;
+        const amt = parseFloat(amtStr);
+        if (amt > 0) {
+          state.pettyCashLog.unshift({ time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' Today', type: 'EXPENSE', category: desc, by: 'Cashier', amount: -amt });
+          if (typeof playAudioSignal === 'function') playAudioSignal('success');
+          renderPettyCashScreen();
+        }
+      };
+    }
+    const btnZ = el('btn-petty-print-zreport');
+    if (btnZ && !btnZ.__wired) {
+      btnZ.__wired = true;
+      btnZ.onclick = () => {
+        const lines = `VALENIXIA COMMERCE POS - END-OF-DAY Z-REPORT\nGenerated: ${new Date().toLocaleString('en-PK')}\n${'='.repeat(45)}\nOpening Float:     ${fmt(openingFloat)}\nCash Sales In:     ${fmt(cashSalesTotal)}\nExpenses Out:      ${fmt(expenseTotal)}\nExpected In Till:  ${fmt(expectedTill)}\n${'='.repeat(45)}\nTotal Transactions: ${(state.transactions||[]).length}\nExpense Line Items: ${(state.pettyCashLog||[]).filter(r=>r.amount<0).length}\n${'='.repeat(45)}\nCashier Signature: _____________________\nManager Audit:     _____________________`;
+        const w = window.open('', '_blank');
+        if (w) {
+          w.document.write(`<pre style="font-family:monospace;padding:24px;line-height:1.6;font-size:13px;">${lines}</pre>`);
+          w.print();
+        }
+        if (typeof showNotificationToast === 'function') showNotificationToast('End-of-Day Z-Report generated.', 'success', 3000);
+      };
+    }
   }
   window.renderPettyCashScreen = renderPettyCashScreen;
 
@@ -20450,49 +20638,81 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   let shiftTimerInterval = null;
 
   function renderAttendanceScreen() {
-    const curCashier=(state.activeCashier&&state.activeCashier.name)||'Active Register Cashier';
-    const el=id=>document.getElementById(id);
-    if(el('shift-active-cashier'))el('shift-active-cashier').textContent=curCashier;
-    let shiftSales=0;
-    (state.transactions||[]).forEach(tx=>{shiftSales+=((tx.total_minor_units||tx.total||0)/100);});
-    const commission=shiftSales*0.02;
-    const shiftHrs=4.5;
-    const basePay=250*shiftHrs;
-    const totalProj=basePay+commission;
-    if(el('shift-sales-vol'))el('shift-sales-vol').textContent=`Rs. ${shiftSales.toLocaleString('en-PK',{minimumFractionDigits:2})}`;
-    if(el('shift-commission-earned'))el('shift-commission-earned').textContent=`Rs. ${commission.toLocaleString('en-PK',{minimumFractionDigits:2})}`;
-    if(el('shift-total-projected'))el('shift-total-projected').textContent=`Rs. ${totalProj.toLocaleString('en-PK',{minimumFractionDigits:2})}`;
+    const curCashier = (state.activeCashier && state.activeCashier.name) || 'Active Register Cashier';
+    const el = id => document.getElementById(id);
+    if (el('shift-active-cashier')) el('shift-active-cashier').textContent = curCashier;
+    let shiftSales = 0;
+    (state.transactions||[]).forEach(tx => { shiftSales += ((tx.total_minor_units || tx.total || 0) / 100); });
+    const commission = shiftSales * 0.02;
+    const shiftHrs = 4.5;
+    const basePay = 250 * shiftHrs;
+    const totalProj = basePay + commission;
+    if (el('shift-sales-vol')) el('shift-sales-vol').textContent = `Rs. ${shiftSales.toLocaleString('en-PK', { minimumFractionDigits: 2 })}`;
+    if (el('shift-commission-earned')) el('shift-commission-earned').textContent = `Rs. ${commission.toLocaleString('en-PK', { minimumFractionDigits: 2 })}`;
+    if (el('shift-total-projected')) el('shift-total-projected').textContent = `Rs. ${totalProj.toLocaleString('en-PK', { minimumFractionDigits: 2 })}`;
 
-    const tbody=el('attendance-tbody');
-    if(tbody){tbody.replaceChildren();
-    // Augmented attendance log with performance metrics
-    const augmented=(state.attendanceLog||[]).map((row,i)=>{
-      const hrs=parseFloat(row.hours)||9;
-      const salesPerHr=Math.round(row.sales/hrs);
-      const isLate=row.clockIn&&row.clockIn!=='In Progress'&&i===0; // first entry is today
-      const isOT=hrs>9;
-      const otPay=isOT?(hrs-9)*250*1.5:0;
-      return {...row,salesPerHr,isLate,isOT,otPay,hrs};
-    });
-    // Sort by salesPerHr desc for leaderboard
-    const sorted=[...augmented].sort((a,b)=>b.salesPerHr-a.salesPerHr);
-    const topSalesPerHr=sorted[0]?.salesPerHr||0;
-    augmented.forEach(row=>{
-      const tr=document.createElement('tr');tr.style.cssText='border-bottom:1px solid rgba(255,255,255,0.04);';
-      const lateBadge=row.isLate?'<span style="background:rgba(239,68,68,0.15);color:#ef4444;font-size:9px;font-weight:800;padding:1px 5px;border-radius:3px;margin-left:6px;">LATE</span>':'';
-      const otBadge=row.isOT?'<span style="background:rgba(245,158,11,0.15);color:#f59e0b;font-size:9px;font-weight:800;padding:1px 5px;border-radius:3px;margin-left:6px;">OT</span>':'';
-      const isTopPerformer=row.salesPerHr===topSalesPerHr;
-      const perfBadge=isTopPerformer?'🏆':'';
-      const perfColor=row.salesPerHr>=10000?'var(--accent-emerald)':row.salesPerHr>=7000?'#f59e0b':'var(--text-gray)';
-      const netPayout=(row.payout||0)+(row.otPay||0);
-      tr.innerHTML=`<td style="padding:10px;color:var(--text-gray);">${row.date}</td><td style="padding:10px;font-weight:700;color:var(--text-white);">${perfBadge} ${row.name}${lateBadge}${otBadge}</td><td style="padding:10px;color:var(--accent-emerald);">${row.clockIn}</td><td style="padding:10px;color:var(--text-gray);">${row.clockOut}</td><td style="padding:10px;font-family:var(--font-mono);">${row.hours}</td><td style="padding:10px;font-family:var(--font-mono);color:${perfColor};font-weight:700;">Rs. ${row.salesPerHr.toLocaleString('en-PK')}/hr</td><td style="padding:10px;text-align:right;font-family:var(--font-mono);font-weight:800;color:var(--accent-emerald);">Rs. ${netPayout.toLocaleString('en-PK')}</td>`;
-      tbody.appendChild(tr);
-    });}
+    const tbody = el('attendance-tbody');
+    if (tbody) {
+      tbody.replaceChildren();
+      const augmented = (state.attendanceLog||[]).map((row, i) => {
+        const hrs = parseFloat(row.hours) || 9;
+        const salesPerHr = Math.round(row.sales / hrs);
+        const isLate = row.clockIn && row.clockIn !== 'In Progress' && i === 0;
+        const isOT = hrs > 9;
+        const otPay = isOT ? (hrs - 9) * 250 * 1.5 : 0;
+        return { ...row, salesPerHr, isLate, isOT, otPay, hrs };
+      });
+      const topSalesPerHr = Math.max(...augmented.map(r => r.salesPerHr), 0);
+      augmented.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.style.cssText = 'border-bottom:1px solid rgba(255,255,255,0.04);';
+        const lateBadge = row.isLate ? '<span style="background:rgba(239,68,68,0.15);color:#ef4444;font-size:9px;font-weight:900;padding:1px 5px;border-radius:3px;margin-left:6px;font-family:var(--font-mono);">[LATE]</span>' : '';
+        const otBadge = row.isOT ? '<span style="background:rgba(245,158,11,0.15);color:#f59e0b;font-size:9px;font-weight:900;padding:1px 5px;border-radius:3px;margin-left:6px;font-family:var(--font-mono);">[OVERTIME]</span>' : '';
+        const topBadge = (row.salesPerHr === topSalesPerHr && topSalesPerHr > 0) ? '<span style="background:rgba(0,214,143,0.15);color:var(--accent-emerald);font-size:9px;font-weight:900;padding:1px 5px;border-radius:3px;margin-right:6px;font-family:var(--font-mono);">[TOP PERFORMER]</span>' : '';
+        const perfColor = row.salesPerHr >= 10000 ? 'var(--accent-emerald)' : row.salesPerHr >= 7000 ? '#f59e0b' : 'var(--text-gray)';
+        const netPayout = (row.payout || 0) + (row.otPay || 0);
+        tr.innerHTML = `
+          <td style="padding:10px;color:var(--text-gray);font-family:var(--font-mono);">${row.date}</td>
+          <td style="padding:10px;font-weight:700;color:var(--text-white);">${topBadge}${row.name}${lateBadge}${otBadge}</td>
+          <td style="padding:10px;color:var(--accent-emerald);font-family:var(--font-mono);">${row.clockIn}</td>
+          <td style="padding:10px;color:var(--text-gray);font-family:var(--font-mono);">${row.clockOut}</td>
+          <td style="padding:10px;font-family:var(--font-mono);">${row.hours}</td>
+          <td style="padding:10px;font-family:var(--font-mono);color:${perfColor};font-weight:700;">Rs. ${row.salesPerHr.toLocaleString('en-PK')}/hr</td>
+          <td style="padding:10px;text-align:right;font-family:var(--font-mono);font-weight:800;color:var(--accent-emerald);">Rs. ${netPayout.toLocaleString('en-PK')}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
 
-    if(!shiftTimerInterval){const shiftStart=Date.now()-(shiftHrs*3600000);shiftTimerInterval=setInterval(()=>{const timerEl=el('shift-live-timer');if(!timerEl)return;const diff=Date.now()-shiftStart;const hrs=String(Math.floor(diff/3600000)).padStart(2,'0');const mins=String(Math.floor((diff%3600000)/60000)).padStart(2,'0');const secs=String(Math.floor((diff%60000)/1000)).padStart(2,'0');timerEl.textContent=`${hrs}:${mins}:${secs}`;},1000);}
+    if (!shiftTimerInterval) {
+      const shiftStart = Date.now() - (shiftHrs * 3600000);
+      shiftTimerInterval = setInterval(() => {
+        const timerEl = el('shift-live-timer');
+        if (!timerEl) return;
+        const diff = Date.now() - shiftStart;
+        const hrs = String(Math.floor(diff / 3600000)).padStart(2, '0');
+        const mins = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
+        const secs = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
+        timerEl.textContent = `${hrs}:${mins}:${secs}`;
+      }, 1000);
+    }
 
-    const btnIn=el('btn-clock-in-punch');if(btnIn&&!btnIn.__wired){btnIn.__wired=true;btnIn.onclick=()=>{if(typeof playAudioSignal==='function')playAudioSignal('success');if(typeof showNotificationToast==='function')showNotificationToast(`Clocked IN at ${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`,'success',3000);};}
-    const btnOut=el('btn-clock-out-punch');if(btnOut&&!btnOut.__wired){btnOut.__wired=true;btnOut.onclick=()=>{if(typeof playAudioSignal==='function')playAudioSignal('click');if(typeof showNotificationToast==='function')showNotificationToast('Shift Ended & Clocked OUT. Payroll summary saved.','info',3500);};}
+    const btnIn = el('btn-clock-in-punch');
+    if (btnIn && !btnIn.__wired) {
+      btnIn.__wired = true;
+      btnIn.onclick = () => {
+        if (typeof playAudioSignal === 'function') playAudioSignal('success');
+        if (typeof showNotificationToast === 'function') showNotificationToast(`Clocked IN at ${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`, 'success', 3000);
+      };
+    }
+    const btnOut = el('btn-clock-out-punch');
+    if (btnOut && !btnOut.__wired) {
+      btnOut.__wired = true;
+      btnOut.onclick = () => {
+        if (typeof playAudioSignal === 'function') playAudioSignal('click');
+        if (typeof showNotificationToast === 'function') showNotificationToast('Shift ended & Clocked OUT. Payroll log updated.', 'info', 3500);
+      };
+    }
   }
   window.renderAttendanceScreen = renderAttendanceScreen;
 
@@ -20500,46 +20720,80 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   // 4. BARCODE LABEL & PRICE TAG DESIGNER ENGINE
   // ============================================================================
   function renderLabelDesignerScreen() {
-    const select=document.getElementById('label-product-select');
-    const preview=document.getElementById('label-designer-preview');
-    if(!select||!preview)return;
+    const select = document.getElementById('label-product-select');
+    const preview = document.getElementById('label-designer-preview');
+    if (!select || !preview) return;
     select.replaceChildren();
-    (state.catalog||[]).forEach(p=>{const opt=document.createElement('option');opt.value=p.sku;opt.textContent=`${p.name} — Rs. ${((p.base_price_minor_units||0)/100).toFixed(2)} (${p.sku})`;select.appendChild(opt);});
+    (state.catalog||[]).forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.sku;
+      opt.textContent = `${p.name} - Rs. ${((p.base_price_minor_units||0)/100).toFixed(2)} (${p.sku})`;
+      select.appendChild(opt);
+    });
 
-    function updateLabelPreview(){
-      const sku=select.value;
-      const prod=(state.catalog||[]).find(p=>p.sku===sku)||state.catalog[0]||{name:'Sample Item',sku:'SKU-001',base_price_minor_units:10000};
-      const showStore=document.getElementById('label-show-store-name')?.checked!==false;
-      const showPrice=document.getElementById('label-show-price')?.checked!==false;
-      const showSku=document.getElementById('label-show-sku')?.checked!==false;
-      const storeName=(state.preferences&&state.preferences.store_name)||'VALENIXIA MART';
-      const price=((prod.base_price_minor_units||0)/100).toFixed(2);
-      const isSaleMode=document.getElementById('label-sale-mode')?.checked;
-      const salePrice=isSaleMode?((prod.base_price_minor_units||0)/100*0.85).toFixed(2):null;
-      const expiryVal=document.getElementById('label-expiry-date')?.value;
-      const customText=document.getElementById('label-custom-text')?.value||'';
-      const saleBanner=isSaleMode?`<div style="background:#ef4444;color:#fff;font-size:9px;font-weight:900;padding:2px 6px;border-radius:3px;letter-spacing:1px;transform:rotate(-2deg);display:inline-block;">SALE</div>`:'';
-      const priceDisplay=isSaleMode?`<span style="text-decoration:line-through;color:#999;font-size:10px;">Rs.${price}</span> <strong style="font-size:15px;color:#ef4444;">Rs.${salePrice}</strong>`:`<strong style="font-size:14px;color:#000;">Rs. ${price}</strong>`;
-      preview.innerHTML=`<div style="font-weight:800;font-size:11px;text-transform:uppercase;color:#111;letter-spacing:0.5px;">${showStore?storeName:''} ${saleBanner}</div><div style="font-weight:700;font-size:12px;color:#000;margin:3px 0;max-width:90%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${prod.name}</div><div style="margin:4px 0;"><svg viewBox="0 0 160 34" width="150" height="28"><rect width="160" height="34" fill="#fff"/><g fill="#000"><rect x="10" y="2" width="3" height="28"/><rect x="16" y="2" width="2" height="28"/><rect x="22" y="2" width="4" height="28"/><rect x="29" y="2" width="2" height="28"/><rect x="34" y="2" width="5" height="28"/><rect x="42" y="2" width="2" height="28"/><rect x="48" y="2" width="3" height="28"/><rect x="54" y="2" width="6" height="28"/><rect x="63" y="2" width="2" height="28"/><rect x="68" y="2" width="4" height="28"/><rect x="75" y="2" width="3" height="28"/><rect x="81" y="2" width="5" height="28"/><rect x="89" y="2" width="2" height="28"/><rect x="94" y="2" width="4" height="28"/><rect x="101" y="2" width="3" height="28"/><rect x="107" y="2" width="5" height="28"/></g></svg></div><div style="display:flex;justify-content:space-between;width:100%;font-size:10px;color:#333;">${showSku?`<span>${prod.sku}</span>`:'<span></span>'}${showPrice?priceDisplay:''}</div>${expiryVal?`<div style="font-size:9px;color:#666;margin-top:2px;">Best Before: ${new Date(expiryVal).toLocaleDateString('en-PK')}</div>`:''} ${customText?`<div style="font-size:9px;color:#555;font-weight:700;margin-top:1px;">${customText}</div>`:''}`;
+    function updateLabelPreview() {
+      const sku = select.value;
+      const prod = (state.catalog||[]).find(p => p.sku === sku) || state.catalog[0] || { name: 'Sample Item', sku: 'SKU-001', base_price_minor_units: 10000 };
+      const showStore = document.getElementById('label-show-store-name')?.checked !== false;
+      const showPrice = document.getElementById('label-show-price')?.checked !== false;
+      const showSku = document.getElementById('label-show-sku')?.checked !== false;
+      const storeName = (state.preferences && state.preferences.store_name) || 'VALENIXIA COMMERCE';
+      const price = ((prod.base_price_minor_units || 0) / 100).toFixed(2);
+      const isSaleMode = document.getElementById('label-sale-mode')?.checked;
+      const salePrice = isSaleMode ? ((prod.base_price_minor_units || 0) / 100 * 0.85).toFixed(2) : null;
+      const expiryVal = document.getElementById('label-expiry-date')?.value;
+      const customText = document.getElementById('label-custom-text')?.value || '';
+      const saleBanner = isSaleMode ? `<span style="background:#ef4444;color:#fff;font-size:9px;font-weight:900;padding:1px 5px;border-radius:3px;letter-spacing:0.5px;font-family:var(--font-mono);margin-left:4px;">[SALE 15% OFF]</span>` : '';
+      const priceDisplay = isSaleMode ? `<span style="text-decoration:line-through;color:#999;font-size:10px;">Rs. ${price}</span> <strong style="font-size:15px;color:#ef4444;">Rs. ${salePrice}</strong>` : `<strong style="font-size:14px;color:#000;">Rs. ${price}</strong>`;
+      
+      preview.innerHTML = `
+        <div style="font-weight:800;font-size:11px;text-transform:uppercase;color:#111;letter-spacing:0.5px;">${showStore ? storeName : ''} ${saleBanner}</div>
+        <div style="font-weight:700;font-size:12px;color:#000;margin:3px 0;max-width:90%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${prod.name}</div>
+        <div style="margin:4px 0;">
+          <svg viewBox="0 0 160 34" width="150" height="28">
+            <rect width="160" height="34" fill="#fff"/>
+            <g fill="#000">
+              <rect x="10" y="2" width="3" height="28"/><rect x="16" y="2" width="2" height="28"/><rect x="22" y="2" width="4" height="28"/><rect x="29" y="2" width="2" height="28"/><rect x="34" y="2" width="5" height="28"/><rect x="42" y="2" width="2" height="28"/><rect x="48" y="2" width="3" height="28"/><rect x="54" y="2" width="6" height="28"/><rect x="63" y="2" width="2" height="28"/><rect x="68" y="2" width="4" height="28"/><rect x="75" y="2" width="3" height="28"/><rect x="81" y="2" width="5" height="28"/><rect x="89" y="2" width="2" height="28"/><rect x="94" y="2" width="4" height="28"/><rect x="101" y="2" width="3" height="28"/><rect x="107" y="2" width="5" height="28"/>
+            </g>
+          </svg>
+        </div>
+        <div style="display:flex;justify-content:space-between;width:100%;font-size:10px;color:#333;font-family:var(--font-mono);">
+          ${showSku ? `<span>${prod.sku}</span>` : '<span></span>'}
+          ${showPrice ? priceDisplay : ''}
+        </div>
+        ${expiryVal ? `<div style="font-size:9px;color:#666;margin-top:2px;font-family:var(--font-mono);">Best Before: ${new Date(expiryVal).toLocaleDateString('en-PK')}</div>` : ''}
+        ${customText ? `<div style="font-size:9px;color:#555;font-weight:700;margin-top:1px;">${customText}</div>` : ''}
+      `;
     }
 
-    // Inject extra controls if not present
-    const controls=document.querySelector('#view-label-designer .cloud-vault-card');
-    if(controls&&!document.getElementById('label-sale-mode')){
-      const extra=document.createElement('div');extra.style.cssText='display:flex;flex-direction:column;gap:8px;margin-top:4px;padding-top:10px;border-top:1px solid var(--border-titanium);';
-      extra.innerHTML=`<label style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-gray);cursor:pointer;"><input type="checkbox" id="label-sale-mode" class="pos-checkbox"> 🏷️ Sale Mode (Show 15% discount)</label><div class="form-group"><label style="font-size:11px;color:var(--text-gray);">Expiry Date (Optional)</label><input type="date" id="label-expiry-date" class="pos-input" style="font-size:12px;"></div><div class="form-group"><label style="font-size:11px;color:var(--text-gray);">Custom Tag Line</label><input type="text" id="label-custom-text" class="pos-input" placeholder='e.g. "Imported", "No Added Sugar"' style="font-size:12px;"></div>`;
+    const controls = document.querySelector('#view-label-designer .cloud-vault-card');
+    if (controls && !document.getElementById('label-sale-mode')) {
+      const extra = document.createElement('div');
+      extra.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:4px;padding-top:10px;border-top:1px solid var(--border-titanium);width:100%;box-sizing:border-box;';
+      extra.innerHTML = `<label style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-gray);cursor:pointer;"><input type="checkbox" id="label-sale-mode" class="pos-checkbox"> Sale Promotion Badge (15% Off Display)</label><div class="form-group"><label style="font-size:11px;color:var(--text-gray);">Batch Expiry Date (Optional)</label><input type="date" id="label-expiry-date" class="pos-input" style="font-size:12px;width:100%;"></div><div class="form-group"><label style="font-size:11px;color:var(--text-gray);">Custom Shelf Subtitle / Tagline</label><input type="text" id="label-custom-text" class="pos-input" placeholder='e.g. Premium Selection' style="font-size:12px;width:100%;"></div>`;
       controls.appendChild(extra);
-      document.getElementById('label-sale-mode').onchange=updateLabelPreview;
-      document.getElementById('label-expiry-date').onchange=updateLabelPreview;
-      document.getElementById('label-custom-text').oninput=updateLabelPreview;
+      document.getElementById('label-sale-mode').onchange = updateLabelPreview;
+      document.getElementById('label-expiry-date').onchange = updateLabelPreview;
+      document.getElementById('label-custom-text').oninput = updateLabelPreview;
     }
 
-    select.onchange=updateLabelPreview;
-    ['label-format-select','label-symbology-select','label-show-store-name','label-show-price','label-show-sku'].forEach(id=>{const e=document.getElementById(id);if(e)e.onchange=updateLabelPreview;});
+    select.onchange = updateLabelPreview;
+    ['label-format-select', 'label-symbology-select', 'label-show-store-name', 'label-show-price', 'label-show-sku'].forEach(id => {
+      const e = document.getElementById(id);
+      if (e) e.onchange = updateLabelPreview;
+    });
     updateLabelPreview();
 
-    const btnPrint=document.getElementById('btn-print-labels');
-    if(btnPrint&&!btnPrint.__wired){btnPrint.__wired=true;btnPrint.onclick=()=>{const qty=parseInt(document.getElementById('label-print-qty')?.value||1);if(typeof playAudioSignal==='function')playAudioSignal('success');if(typeof showNotificationToast==='function')showNotificationToast(`Sending ${qty} label${qty>1?'s':''} to printer...`,'success',3000);window.print();};}
+    const btnPrint = document.getElementById('btn-print-labels');
+    if (btnPrint && !btnPrint.__wired) {
+      btnPrint.__wired = true;
+      btnPrint.onclick = () => {
+        const qty = parseInt(document.getElementById('label-print-qty')?.value || 1);
+        if (typeof playAudioSignal === 'function') playAudioSignal('success');
+        if (typeof showNotificationToast === 'function') showNotificationToast(`Dispatching ${qty} label${qty>1?'s':''} to printer spooler...`, 'success', 3000);
+        window.print();
+      };
+    }
   }
   window.renderLabelDesignerScreen = renderLabelDesignerScreen;
 
@@ -20547,56 +20801,89 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   // 5. STATISTICAL STOCK VELOCITY & DEMAND FORECAST ENGINE (Pure Mathematics)
   // ============================================================================
   function renderInventoryAiScreen() {
-    const cards=document.getElementById('inventory-ai-cards');
-    const tbody=document.getElementById('inventory-velocity-tbody');
-    if(!cards||!tbody)return;
-    cards.replaceChildren();tbody.replaceChildren();
-    const catalog=state.catalog||[];
-    let critCount=0,warnCount=0,deadVal=0;
+    const cards = document.getElementById('inventory-ai-cards');
+    const tbody = document.getElementById('inventory-velocity-tbody');
+    if (!cards || !tbody) return;
+    cards.replaceChildren(); tbody.replaceChildren();
+    const catalog = state.catalog || [];
+    let critCount = 0, warnCount = 0, deadVal = 0;
 
-    // Calculate velocity + revenue contribution for ABC classification
-    const velData=catalog.map((p,idx)=>{
-      const stock=p.stock_quantity!==undefined?p.stock_quantity:(p.stock||50);
-      const price=(p.base_price_minor_units||0)/100;
-      const cost=(p.cost_price_minor_units||0)/100;
-      const seed=(p.name.length*7+idx*13)%25;
-      const velocity=Math.max(0.5,seed/3);
-      const daysLeft=Math.max(1,Math.round(stock/velocity));
-      const dailyRev=velocity*price;
-      const revenueAtRisk=Math.round(velocity*5*price); // 5-day lead time
-      const overstockCost=daysLeft>60?Math.round(stock*cost):0;
-      let risk='HEALTHY',rc='var(--accent-emerald)',rb='rgba(0,214,143,0.15)';
-      if(daysLeft<=3){risk='CRITICAL';rc='#ef4444';rb='rgba(239,68,68,0.15)';critCount++;}
-      else if(daysLeft<=7){risk='WARNING';rc='#f59e0b';rb='rgba(245,158,11,0.15)';warnCount++;}
-      else if(daysLeft>60){risk='OVERSTOCKED';rc='#3b82f6';rb='rgba(59,130,246,0.15)';deadVal+=overstockCost;}
-      const reorder=Math.round(velocity*14);
-      return{prod:p,stock,price,cost,velocity,daysLeft,risk,rc,rb,dailyRev,revenueAtRisk,overstockCost,reorder};
+    const velData = catalog.map((p, idx) => {
+      const stock = p.stock_quantity !== undefined ? p.stock_quantity : (p.stock || 50);
+      const price = (p.base_price_minor_units || 0) / 100;
+      const cost = (p.cost_price_minor_units || 0) / 100;
+      const seed = (p.name.length * 7 + idx * 13) % 25;
+      const velocity = Math.max(0.5, seed / 3);
+      const daysLeft = Math.max(1, Math.round(stock / velocity));
+      const dailyRev = velocity * price;
+      const revenueAtRisk = Math.round(velocity * 5 * price);
+      const overstockCost = daysLeft > 60 ? Math.round(stock * cost) : 0;
+      let risk = 'HEALTHY', rc = 'var(--accent-emerald)', rb = 'rgba(0,214,143,0.12)';
+      if (daysLeft <= 3) { risk = 'CRITICAL'; rc = '#ef4444'; rb = 'rgba(239,68,68,0.15)'; critCount++; }
+      else if (daysLeft <= 7) { risk = 'WARNING'; rc = '#f59e0b'; rb = 'rgba(245,158,11,0.15)'; warnCount++; }
+      else if (daysLeft > 60) { risk = 'OVERSTOCKED'; rc = '#3b82f6'; rb = 'rgba(59,130,246,0.15)'; deadVal += overstockCost; }
+      const reorder = Math.round(velocity * 14);
+      return { prod: p, stock, price, cost, velocity, daysLeft, risk, rc, rb, dailyRev, revenueAtRisk, overstockCost, reorder };
     });
 
-    // ABC Classification: sort by daily revenue contribution
-    const sorted=[...velData].sort((a,b)=>b.dailyRev-a.dailyRev);
-    const total=sorted.reduce((s,r)=>s+r.dailyRev,0)||1;
-    let cumRev=0;
-    sorted.forEach(r=>{cumRev+=r.dailyRev;r.abc=cumRev/total<=0.8?'A':cumRev/total<=0.95?'B':'C';});
+    const sorted = [...velData].sort((a,b) => b.dailyRev - a.dailyRev);
+    const total = sorted.reduce((s,r) => s + r.dailyRev, 0) || 1;
+    let cumRev = 0;
+    sorted.forEach(r => { cumRev += r.dailyRev; r.abc = cumRev / total <= 0.8 ? 'A' : cumRev / total <= 0.95 ? 'B' : 'C'; });
 
-    // KPI cards
-    const totalDailyRev=total.toFixed(0);
-    const topA=sorted.filter(r=>r.abc==='A').slice(0,3).map(r=>r.prod.name).join(', ')||'—';
-    cards.innerHTML=`<div class="cloud-vault-card" style="padding:18px;border-radius:12px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.04);"><span style="font-size:10px;font-weight:800;color:#ef4444;text-transform:uppercase;">CRITICAL STOCKOUT RISK</span><div style="font-size:26px;font-weight:900;color:#ef4444;font-family:var(--font-mono);margin:6px 0;">${critCount} SKUs</div><span style="font-size:11px;color:var(--text-gray);">Depletion ≤ 3 days at current sales velocity</span></div><div class="cloud-vault-card" style="padding:18px;border-radius:12px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.04);"><span style="font-size:10px;font-weight:800;color:#f59e0b;text-transform:uppercase;">WARNING — LOW STOCK</span><div style="font-size:26px;font-weight:900;color:#f59e0b;font-family:var(--font-mono);margin:6px 0;">${warnCount} SKUs</div><span style="font-size:11px;color:var(--text-gray);">4–7 days remaining. Order this week.</span></div><div class="cloud-vault-card" style="padding:18px;border-radius:12px;border:1px solid rgba(59,130,246,0.3);background:rgba(59,130,246,0.04);"><span style="font-size:10px;font-weight:800;color:#3b82f6;text-transform:uppercase;">CAPITAL TIED IN OVERSTOCK</span><div style="font-size:26px;font-weight:900;color:var(--text-white);font-family:var(--font-mono);margin:6px 0;">Rs. ${deadVal.toLocaleString('en-PK',{maximumFractionDigits:0})}</div><span style="font-size:11px;color:var(--text-gray);">&gt;60 days stock. Consider 10–15% promo to recover capital.</span></div><div class="cloud-vault-card" style="padding:18px;border-radius:12px;border:1px solid rgba(0,214,143,0.3);background:rgba(0,214,143,0.04);"><span style="font-size:10px;font-weight:800;color:var(--accent-emerald);text-transform:uppercase;">TOP REVENUE DRIVERS (A-CLASS)</span><div style="font-size:13px;font-weight:800;color:var(--accent-emerald);margin:6px 0;line-height:1.5;">${topA}</div><span style="font-size:11px;color:var(--text-gray);">NEVER let these stockout. 80% of revenue.</span></div>`;
+    const topA = sorted.filter(r => r.abc === 'A').slice(0, 3).map(r => r.prod.name).join(', ') || 'None';
+    cards.innerHTML = `
+      <div class="cloud-vault-card" style="padding:18px;border-radius:12px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.03);width:100%;box-sizing:border-box;">
+        <span style="font-size:10px;font-weight:900;color:#ef4444;text-transform:uppercase;letter-spacing:0.5px;font-family:var(--font-mono);">CRITICAL STOCKOUT RISK</span>
+        <div style="font-size:26px;font-weight:900;color:#ef4444;font-family:var(--font-mono);margin:6px 0;">${critCount} SKUs</div>
+        <span style="font-size:11px;color:var(--text-gray);">Depletion horizon &le; 3 days at current sales run rate</span>
+      </div>
+      <div class="cloud-vault-card" style="padding:18px;border-radius:12px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.03);width:100%;box-sizing:border-box;">
+        <span style="font-size:10px;font-weight:900;color:#f59e0b;text-transform:uppercase;letter-spacing:0.5px;font-family:var(--font-mono);">LOW STOCK HORIZON</span>
+        <div style="font-size:26px;font-weight:900;color:#f59e0b;font-family:var(--font-mono);margin:6px 0;">${warnCount} SKUs</div>
+        <span style="font-size:11px;color:var(--text-gray);">4-7 days remaining. Lead time window closing.</span>
+      </div>
+      <div class="cloud-vault-card" style="padding:18px;border-radius:12px;border:1px solid rgba(59,130,246,0.3);background:rgba(59,130,246,0.03);width:100%;box-sizing:border-box;">
+        <span style="font-size:10px;font-weight:900;color:#3b82f6;text-transform:uppercase;letter-spacing:0.5px;font-family:var(--font-mono);">TIED OVERSTOCK CAPITAL</span>
+        <div style="font-size:26px;font-weight:900;color:var(--text-white);font-family:var(--font-mono);margin:6px 0;">Rs. ${deadVal.toLocaleString('en-PK',{maximumFractionDigits:0})}</div>
+        <span style="font-size:11px;color:var(--text-gray);">&gt;60 days inventory holding without turnover</span>
+      </div>
+      <div class="cloud-vault-card" style="padding:18px;border-radius:12px;border:1px solid rgba(0,214,143,0.3);background:rgba(0,214,143,0.03);width:100%;box-sizing:border-box;">
+        <span style="font-size:10px;font-weight:900;color:var(--accent-emerald);text-transform:uppercase;letter-spacing:0.5px;font-family:var(--font-mono);">CLASS-A REVENUE DRIVERS</span>
+        <div style="font-size:13px;font-weight:800;color:var(--accent-emerald);margin:6px 0;line-height:1.4;">${topA}</div>
+        <span style="font-size:11px;color:var(--text-gray);">80% revenue contribution - prioritize zero stockout</span>
+      </div>
+    `;
 
-    // Velocity table with ABC badge + contextual reorder alert
-    velData.forEach(row=>{
-      const tr=document.createElement('tr');tr.style.cssText='border-bottom:1px solid rgba(255,255,255,0.04);';
-      const abcColor=row.abc==='A'?'var(--accent-emerald)':row.abc==='B'?'#f59e0b':'var(--text-gray)';
-      const urgencyNote=row.daysLeft<=3?` <span style="font-size:9px;font-weight:900;color:#ef4444;">← ORDER NOW. Rs.${row.revenueAtRisk.toLocaleString('en-PK')} at risk!</span>`:'';
-      const overstockNote=row.daysLeft>60?` <span style="font-size:9px;color:#3b82f6;font-weight:700;">← Promo to recover Rs.${row.overstockCost.toLocaleString('en-PK')}</span>`:'';
-      tr.innerHTML=`<td style="padding:10px;font-weight:700;color:var(--text-white);">${row.prod.name}</td><td style="padding:10px;"><span style="font-size:10px;font-weight:900;color:${abcColor};background:${abcColor}22;padding:2px 6px;border-radius:4px;">${row.abc}</span></td><td style="padding:10px;font-family:var(--font-mono);">${row.stock}</td><td style="padding:10px;font-family:var(--font-mono);color:var(--accent-emerald);">${row.velocity.toFixed(1)}/day</td><td style="padding:10px;font-family:var(--font-mono);font-weight:800;color:${row.rc};">${row.daysLeft}d${urgencyNote}${overstockNote}</td><td style="padding:10px;"><span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;background:${row.rb};color:${row.rc};">${row.risk}</span></td><td style="padding:10px;text-align:right;"><button class="action-btn action-success btn-po-draft" style="padding:4px 10px;font-size:10px;font-weight:800;border-radius:6px;">+ PO (${row.reorder} units)</button></td>`;
-      tr.querySelector('.btn-po-draft')?.addEventListener('click',()=>{if(typeof playAudioSignal==='function')playAudioSignal('success');if(typeof showNotificationToast==='function')showNotificationToast(`Draft PO created: ${row.prod.name} — ${row.reorder} units`,'success',3000);});
+    velData.forEach(row => {
+      const tr = document.createElement('tr');
+      tr.style.cssText = 'border-bottom:1px solid rgba(255,255,255,0.04);';
+      const abcColor = row.abc === 'A' ? 'var(--accent-emerald)' : row.abc === 'B' ? '#f59e0b' : 'var(--text-gray)';
+      const consequence = row.daysLeft <= 3 ? `<div style="font-size:9px;font-weight:800;color:#ef4444;font-family:var(--font-mono);">Rs. ${row.revenueAtRisk.toLocaleString('en-PK')} at risk</div>` : '';
+      tr.innerHTML = `
+        <td style="padding:10px;font-weight:700;color:var(--text-white);">${row.prod.name}</td>
+        <td style="padding:10px;"><span style="font-size:10px;font-weight:900;color:${abcColor};background:${abcColor}18;padding:2px 6px;border-radius:4px;font-family:var(--font-mono);">[CLASS ${row.abc}]</span></td>
+        <td style="padding:10px;font-family:var(--font-mono);">${row.stock}</td>
+        <td style="padding:10px;font-family:var(--font-mono);color:var(--accent-emerald);">${row.velocity.toFixed(1)}/day</td>
+        <td style="padding:10px;font-family:var(--font-mono);font-weight:800;color:${row.rc};">${row.daysLeft} days${consequence}</td>
+        <td style="padding:10px;"><span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:900;background:${row.rb};color:${row.rc};font-family:var(--font-mono);">${row.risk}</span></td>
+        <td style="padding:10px;text-align:right;"><button class="btn-tactile btn-tactile-primary btn-po-draft" style="padding:4px 10px;font-size:9px;">+ Draft PO (${row.reorder} units)</button></td>
+      `;
+      tr.querySelector('.btn-po-draft')?.addEventListener('click', () => {
+        if (typeof playAudioSignal === 'function') playAudioSignal('success');
+        if (typeof showNotificationToast === 'function') showNotificationToast(`Draft Purchase Order created for ${row.prod.name} (${row.reorder} units)`, 'success', 3000);
+      });
       tbody.appendChild(tr);
     });
 
-    const btnAutoPo=document.getElementById('btn-ai-auto-po');
-    if(btnAutoPo&&!btnAutoPo.__wired){btnAutoPo.__wired=true;btnAutoPo.onclick=()=>{if(typeof playAudioSignal==='function')playAudioSignal('success');if(typeof showNotificationToast==='function')showNotificationToast(`Batch POs calculated for ${critCount+warnCount} at-risk SKUs!`,'success',4000);};}
+    const btnAutoPo = document.getElementById('btn-ai-auto-po');
+    if (btnAutoPo && !btnAutoPo.__wired) {
+      btnAutoPo.__wired = true;
+      btnAutoPo.onclick = () => {
+        if (typeof playAudioSignal === 'function') playAudioSignal('success');
+        if (typeof showNotificationToast === 'function') showNotificationToast(`Batch Purchase Orders calculated for ${critCount+warnCount} at-risk SKUs.`, 'success', 4000);
+      };
+    }
   }
   window.renderInventoryAiScreen = renderInventoryAiScreen;
 
@@ -20604,55 +20891,108 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   // 6. VIP LOYALTY & REWARDS WALLET ENGINE
   // ============================================================================
   function renderLoyaltyScreen() {
-    const tiersGrid=document.getElementById('loyalty-tiers-grid');
-    const tbody=document.getElementById('loyalty-customers-tbody');
-    if(!tiersGrid||!tbody)return;
+    const tiersGrid = document.getElementById('loyalty-tiers-grid');
+    const tbody = document.getElementById('loyalty-customers-tbody');
+    if (!tiersGrid || !tbody) return;
 
-    tiersGrid.innerHTML=`<div class="cloud-vault-card" style="padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><h4 style="margin:0;font-size:14px;font-weight:800;color:#d1d5db;">🥈 Silver Member</h4><span style="font-size:10px;font-weight:800;color:var(--accent-emerald);background:rgba(0,214,143,0.15);padding:2px 6px;border-radius:4px;">1 pt / Rs. 100</span></div><p style="font-size:11px;color:var(--text-gray);margin:0 0 6px;">Entry tier. Unlock with Rs. 0 spend.</p><div style="background:rgba(255,255,255,0.06);border-radius:4px;height:4px;"><div style="width:100%;height:100%;background:var(--accent-emerald);border-radius:4px;"></div></div></div><div class="cloud-vault-card" style="padding:18px;border-radius:12px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.03);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><h4 style="margin:0;font-size:14px;font-weight:800;color:#f59e0b;">🥇 Gold VIP</h4><span style="font-size:10px;font-weight:800;color:#f59e0b;background:rgba(245,158,11,0.15);padding:2px 6px;border-radius:4px;">2 pts / Rs. 100</span></div><p style="font-size:11px;color:var(--text-gray);margin:0 0 6px;">Spend &gt; Rs. 25,000. Double points + priority checkout.</p><div style="font-size:10px;color:#f59e0b;font-weight:700;">Next tier unlock: Rs. 25,000 cumulative spend</div></div><div class="cloud-vault-card" style="padding:18px;border-radius:12px;border:1px solid rgba(139,92,246,0.3);background:rgba(139,92,246,0.03);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><h4 style="margin:0;font-size:14px;font-weight:800;color:#a78bfa;">💎 Platinum Elite</h4><span style="font-size:10px;font-weight:800;color:#a78bfa;background:rgba(139,92,246,0.15);padding:2px 6px;border-radius:4px;">3 pts / Rs. 100</span></div><p style="font-size:11px;color:var(--text-gray);margin:0 0 6px;">Spend &gt; Rs. 75,000. 5% direct cashback + free delivery.</p><div style="font-size:10px;color:#a78bfa;font-weight:700;">The elite circle — your most valuable customers</div></div>`;
+    tiersGrid.innerHTML = `
+      <div class="cloud-vault-card" style="padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:var(--panel-graphite);width:100%;box-sizing:border-box;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <h4 style="margin:0;font-size:13px;font-weight:900;color:#d1d5db;text-transform:uppercase;letter-spacing:0.5px;">Silver Member</h4>
+          <span style="font-size:10px;font-weight:900;color:var(--accent-emerald);background:rgba(0,214,143,0.12);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);">1 pt / Rs. 100</span>
+        </div>
+        <p style="font-size:11px;color:var(--text-gray);margin:0 0 10px;">Entry tier for all registered shoppers. Unlock at Rs. 0 spend.</p>
+        <div style="font-size:10px;color:var(--text-white);font-weight:700;">100 Points = Rs. 100 Discount Value</div>
+      </div>
+      <div class="cloud-vault-card" style="padding:18px;border-radius:12px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.02);width:100%;box-sizing:border-box;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <h4 style="margin:0;font-size:13px;font-weight:900;color:#f59e0b;text-transform:uppercase;letter-spacing:0.5px;">Gold VIP</h4>
+          <span style="font-size:10px;font-weight:900;color:#f59e0b;background:rgba(245,158,11,0.12);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);">2 pts / Rs. 100</span>
+        </div>
+        <p style="font-size:11px;color:var(--text-gray);margin:0 0 10px;">Spend &gt; Rs. 25,000. Double points multiplier &amp; priority checkout.</p>
+        <div style="font-size:10px;color:#f59e0b;font-weight:700;">Double Point Multiplier Active</div>
+      </div>
+      <div class="cloud-vault-card" style="padding:18px;border-radius:12px;border:1px solid rgba(139,92,246,0.3);background:rgba(139,92,246,0.02);width:100%;box-sizing:border-box;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <h4 style="margin:0;font-size:13px;font-weight:900;color:#a78bfa;text-transform:uppercase;letter-spacing:0.5px;">Platinum Elite</h4>
+          <span style="font-size:10px;font-weight:900;color:#a78bfa;background:rgba(139,92,246,0.12);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);">3 pts / Rs. 100</span>
+        </div>
+        <p style="font-size:11px;color:var(--text-gray);margin:0 0 10px;">Spend &gt; Rs. 75,000. 5% direct cashback &amp; exclusive seasonal specials.</p>
+        <div style="font-size:10px;color:#a78bfa;font-weight:700;">Free Delivery &amp; VIP Perks</div>
+      </div>
+    `;
 
     tbody.replaceChildren();
-    const customers=state.customers||[
-      {name:'Dr. Tariq Mahmood',phone:'0300-1122334',total_spent:85400,points:2560,visits:18,last_visit_days:24,birthday_month:new Date().getMonth()+1},
-      {name:'Fatima Zahra',phone:'0321-9988776',total_spent:34200,points:684,visits:12,last_visit_days:8,birthday_month:null},
-      {name:'Hamza Sheikh',phone:'0333-5544332',total_spent:12800,points:128,visits:5,last_visit_days:45,birthday_month:null}
+    const customers = state.customers || [
+      { name: 'Dr. Tariq Mahmood', phone: '0300-1122334', total_spent: 85400, points: 2560, visits: 18, last_visit_days: 24, birthday_month: new Date().getMonth() + 1 },
+      { name: 'Fatima Zahra', phone: '0321-9988776', total_spent: 34200, points: 684, visits: 12, last_visit_days: 8, birthday_month: null },
+      { name: 'Hamza Sheikh', phone: '0333-5544332', total_spent: 12800, points: 128, visits: 5, last_visit_days: 45, birthday_month: null }
     ];
-    const GOLD_THRESHOLD=25000, PLAT_THRESHOLD=75000;
+    const GOLD_THRESHOLD = 25000, PLAT_THRESHOLD = 75000;
 
-    customers.forEach(cust=>{
-      const spend=cust.total_spent||0;
-      const points=cust.points||Math.round(spend/100);
-      const visits=cust.visits||1;
-      const daysSince=cust.last_visit_days||0;
-      const tier=spend>PLAT_THRESHOLD?{name:'Platinum Elite 💎',color:'#a78bfa',next:null,nextThreshold:null}:spend>GOLD_THRESHOLD?{name:'Gold VIP 🥇',color:'#f59e0b',next:'Platinum',nextThreshold:PLAT_THRESHOLD}:{name:'Silver 🥈',color:'#d1d5db',next:'Gold',nextThreshold:GOLD_THRESHOLD};
+    customers.forEach(cust => {
+      const spend = cust.total_spent || 0;
+      const points = cust.points || Math.round(spend / 100);
+      const visits = cust.visits || 1;
+      const daysSince = cust.last_visit_days || 0;
+      const tier = spend > PLAT_THRESHOLD ? { name: 'Platinum Elite', color: '#a78bfa', next: null, nextThreshold: null } : spend > GOLD_THRESHOLD ? { name: 'Gold VIP', color: '#f59e0b', next: 'Platinum', nextThreshold: PLAT_THRESHOLD } : { name: 'Silver Member', color: '#d1d5db', next: 'Gold', nextThreshold: GOLD_THRESHOLD };
 
-      // RFM Score (0-100)
-      const R=Math.max(0,100-daysSince*3); // recency
-      const F=Math.min(100,visits*8); // frequency
-      const M=Math.min(100,Math.round(spend/2000)); // monetary
-      const rfm=Math.round((R+F+M)/3);
+      const R = Math.max(0, 100 - daysSince * 3);
+      const F = Math.min(100, visits * 8);
+      const M = Math.min(100, Math.round(spend / 2000));
+      const rfm = Math.round((R + F + M) / 3);
 
-      // Churn risk
-      const isAtRisk=daysSince>=21;
-      const isBirthday=cust.birthday_month===new Date().getMonth()+1;
+      const isAtRisk = daysSince >= 21;
+      const isBirthday = cust.birthday_month === new Date().getMonth() + 1;
+      const progressToNext = tier.nextThreshold ? Math.min(100, Math.round((spend / tier.nextThreshold) * 100)) : 100;
+      const ptsToNextTier = tier.nextThreshold ? Math.max(0, tier.nextThreshold - spend) : 0;
 
-      // Tier progress
-      const progressToNext=tier.nextThreshold?Math.min(100,Math.round((spend/tier.nextThreshold)*100)):100;
-      const ptsToNextTier=tier.nextThreshold?Math.max(0,tier.nextThreshold-spend):0;
+      const churnBadge = isAtRisk ? `<span style="background:rgba(239,68,68,0.15);color:#ef4444;font-size:9px;font-weight:900;padding:1px 5px;border-radius:3px;margin-left:6px;font-family:var(--font-mono);">[AT RISK (${daysSince}d)]</span>` : '';
+      const bdayBadge = isBirthday ? `<span style="background:rgba(245,158,11,0.15);color:#f59e0b;font-size:9px;font-weight:900;padding:1px 5px;border-radius:3px;margin-left:4px;font-family:var(--font-mono);">[BIRTHDAY MONTH]</span>` : '';
+      const rfmColor = rfm >= 70 ? 'var(--accent-emerald)' : rfm >= 40 ? '#f59e0b' : '#ef4444';
 
-      const churnBadge=isAtRisk?`<span style="background:rgba(239,68,68,0.15);color:#ef4444;font-size:9px;font-weight:800;padding:1px 5px;border-radius:3px;margin-left:6px;">⚠ AT RISK (${daysSince}d)</span>`:'';
-      const bdayBadge=isBirthday?`<span style="background:rgba(245,158,11,0.15);color:#f59e0b;font-size:9px;font-weight:800;padding:1px 5px;border-radius:3px;margin-left:4px;">🎂 Birthday</span>`:'';
-      const rfmColor=rfm>=70?'var(--accent-emerald)':rfm>=40?'#f59e0b':'#ef4444';
-
-      const tr=document.createElement('tr');tr.style.cssText='border-bottom:1px solid rgba(255,255,255,0.04);';
-      tr.innerHTML=`<td style="padding:10px;"><div style="font-weight:700;color:var(--text-white);">${cust.name}${churnBadge}${bdayBadge}</div><div style="font-size:10px;color:var(--text-gray);">${cust.phone||''}</div></td><td style="padding:10px;"><div style="font-weight:700;font-size:11px;color:${tier.color};">${tier.name}</div>${tier.nextThreshold?`<div style="margin-top:4px;"><div style="background:rgba(255,255,255,0.08);border-radius:3px;height:4px;overflow:hidden;"><div style="width:${progressToNext}%;height:100%;background:${tier.color};"></div></div><div style="font-size:9px;color:var(--text-gray);margin-top:2px;">Rs. ${ptsToNextTier.toLocaleString('en-PK')} to ${tier.next}</div></div>`:''}</td><td style="padding:10px;font-family:var(--font-mono);color:var(--text-white);">Rs. ${spend.toLocaleString('en-PK')}</td><td style="padding:10px;"><div style="font-size:11px;font-weight:800;color:${rfmColor};">VIP Score: ${rfm}/100</div><div style="font-size:9px;color:var(--text-gray);">R:${Math.round(R)} F:${Math.round(F)} M:${Math.round(M)}</div></td><td style="padding:10px;font-family:var(--font-mono);font-weight:800;color:#f59e0b;">${points} pts<div style="font-size:10px;color:var(--accent-emerald);font-weight:700;">= Rs. ${points.toFixed(0)} disc.</div></td><td style="padding:10px;text-align:right;display:flex;flex-direction:column;gap:4px;">${isAtRisk?`<button class="action-btn action-danger btn-wa-winback" style="padding:3px 8px;font-size:9px;font-weight:800;border-radius:5px;">💔 Win-Back WA</button>`:''}<button class="action-btn dm-btn-primary btn-award-pt" style="padding:3px 8px;font-size:9px;font-weight:800;border-radius:5px;">+ Award Pts</button>${isBirthday?`<button class="action-btn action-success btn-bday-offer" style="padding:3px 8px;font-size:9px;font-weight:800;border-radius:5px;">🎂 Send Coupon</button>`:''}</td>`;
-      const storeName=(state.preferences&&state.preferences.store_name)||'our store';
-      tr.querySelector('.btn-wa-winback')?.addEventListener('click',()=>{const msg=encodeURIComponent(`Assalam-o-Alaikum ${cust.name}! We miss you at ${storeName}. Show this message on your next visit for a special 10% exclusive discount. We'd love to see you again! 🌟`);window.open(`https://wa.me/${(cust.phone||'').replace(/\D/g,'')}?text=${msg}`,'_blank');});
-      tr.querySelector('.btn-award-pt')?.addEventListener('click',async()=>{const p=await showModal({title:`Award Points to ${cust.name}`,message:'Bonus points to credit:',type:'info',actions:[{id:'ok',label:'Credit',style:'primary'},{id:'cancel',label:'Cancel',style:'secondary'}],input:{placeholder:'e.g. 500',defaultValue:'500'}});if(!p||p==='cancel')return;cust.points=(cust.points||0)+parseInt(p||0);if(typeof playAudioSignal==='function')playAudioSignal('success');if(typeof showNotificationToast==='function')showNotificationToast(`Credited ${p} points to ${cust.name}!`,'success',3000);renderLoyaltyScreen();});
-      tr.querySelector('.btn-bday-offer')?.addEventListener('click',()=>{const msg=encodeURIComponent(`🎂 Happy Birthday ${cust.name}! As our valued VIP customer, enjoy a special 10% Birthday Discount on your next visit to ${storeName}. Valid this month only! 🎁`);window.open(`https://wa.me/${(cust.phone||'').replace(/\D/g,'')}?text=${msg}`,'_blank');});
+      const tr = document.createElement('tr');
+      tr.style.cssText = 'border-bottom:1px solid rgba(255,255,255,0.04);';
+      tr.innerHTML = `
+        <td style="padding:10px;"><div style="font-weight:700;color:var(--text-white);">${cust.name}${churnBadge}${bdayBadge}</div><div style="font-size:10px;color:var(--text-gray);font-family:var(--font-mono);">${cust.phone||''}</div></td>
+        <td style="padding:10px;"><div style="font-weight:800;font-size:11px;color:${tier.color};">${tier.name}</div>${tier.nextThreshold ? `<div style="margin-top:4px;"><div style="background:rgba(255,255,255,0.08);border-radius:3px;height:4px;overflow:hidden;"><div style="width:${progressToNext}%;height:100%;background:${tier.color};"></div></div><div style="font-size:9px;color:var(--text-gray);margin-top:2px;">Rs. ${ptsToNextTier.toLocaleString('en-PK')} to ${tier.next}</div></div>` : ''}</td>
+        <td style="padding:10px;font-family:var(--font-mono);color:var(--text-white);">Rs. ${spend.toLocaleString('en-PK')}</td>
+        <td style="padding:10px;"><div style="font-size:11px;font-weight:800;color:${rfmColor};font-family:var(--font-mono);">Score: ${rfm}/100</div><div style="font-size:9px;color:var(--text-gray);font-family:var(--font-mono);">R:${Math.round(R)} F:${Math.round(F)} M:${Math.round(M)}</div></td>
+        <td style="padding:10px;font-family:var(--font-mono);font-weight:800;color:#f59e0b;">${points} pts<div style="font-size:10px;color:var(--accent-emerald);font-weight:700;">= Rs. ${points.toFixed(0)}</div></td>
+        <td style="padding:10px;text-align:right;"><div style="display:flex;gap:4px;justify-content:flex-end;flex-wrap:wrap;">${isAtRisk ? `<button class="btn-tactile btn-tactile-danger btn-wa-winback" style="padding:3px 8px;font-size:9px;">Win-Back Notice</button>` : ''}<button class="btn-tactile btn-tactile-primary btn-award-pt" style="padding:3px 8px;font-size:9px;">+ Points</button>${isBirthday ? `<button class="btn-tactile btn-tactile-amber btn-bday-offer" style="padding:3px 8px;font-size:9px;">Birthday Coupon</button>` : ''}</div></td>
+      `;
+      const storeName = (state.preferences && state.preferences.store_name) || 'our store';
+      tr.querySelector('.btn-wa-winback')?.addEventListener('click', () => {
+        const msg = encodeURIComponent(`Assalam-o-Alaikum ${cust.name}! We have not seen you in a while at ${storeName}. Present this message on your next visit to receive a 10% loyalty discount. We look forward to serving you.`);
+        window.open(`https://wa.me/${(cust.phone||'').replace(/\D/g,'')}?text=${msg}`, '_blank');
+      });
+      tr.querySelector('.btn-award-pt')?.addEventListener('click', async () => {
+        const p = await showModal({ title: `Award Points to ${cust.name}`, message: 'Bonus loyalty points to credit:', type: 'info', actions: [{ id: 'ok', label: 'Credit Points', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }], input: { placeholder: 'e.g. 500', defaultValue: '500' } });
+        if (!p || p === 'cancel') return;
+        cust.points = (cust.points || 0) + parseInt(p || 0);
+        if (typeof playAudioSignal === 'function') playAudioSignal('success');
+        if (typeof showNotificationToast === 'function') showNotificationToast(`Credited ${p} points to ${cust.name}.`, 'success', 3000);
+        renderLoyaltyScreen();
+      });
+      tr.querySelector('.btn-bday-offer')?.addEventListener('click', () => {
+        const msg = encodeURIComponent(`Happy Birthday ${cust.name}! As a valued VIP member at ${storeName}, enjoy an exclusive 10% Birthday Discount on your purchases this month.`);
+        window.open(`https://wa.me/${(cust.phone||'').replace(/\D/g,'')}?text=${msg}`, '_blank');
+      });
       tbody.appendChild(tr);
     });
 
-    const btnAll=document.getElementById('btn-loyalty-add-points');if(btnAll&&!btnAll.__wired){btnAll.__wired=true;btnAll.onclick=async()=>{const p=await showModal({title:'Promotional Points Drop',message:'Award points to ALL enrolled customers:',type:'info',actions:[{id:'ok',label:'Broadcast',style:'primary'},{id:'cancel',label:'Cancel',style:'secondary'}],input:{placeholder:'e.g. 200',defaultValue:'200'}});if(!p||p==='cancel')return;customers.forEach(c=>{c.points=(c.points||0)+parseInt(p||0);});if(typeof playAudioSignal==='function')playAudioSignal('success');if(typeof showNotificationToast==='function')showNotificationToast(`Awarded ${p} bonus points to all VIP customers!`,'success',3500);renderLoyaltyScreen();};}
+    const btnAll = document.getElementById('btn-loyalty-add-points');
+    if (btnAll && !btnAll.__wired) {
+      btnAll.__wired = true;
+      btnAll.onclick = async () => {
+        const p = await showModal({ title: 'Promotional Points Broadcast', message: 'Award bonus points to all enrolled members:', type: 'info', actions: [{ id: 'ok', label: 'Broadcast', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }], input: { placeholder: 'e.g. 200', defaultValue: '200' } });
+        if (!p || p === 'cancel') return;
+        customers.forEach(c => { c.points = (c.points || 0) + parseInt(p || 0); });
+        if (typeof playAudioSignal === 'function') playAudioSignal('success');
+        if (typeof showNotificationToast === 'function') showNotificationToast(`Awarded ${p} bonus points to all VIP customers!`, 'success', 3500);
+        renderLoyaltyScreen();
+      };
+    }
   }
   window.renderLoyaltyScreen = renderLoyaltyScreen;
 
@@ -20660,47 +21000,58 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   // 7. MARKETING & WHATSAPP BROADCAST STUDIO
   // ============================================================================
   function renderMarketingScreen() {
-    const grid=document.getElementById('marketing-templates-grid');
-    if(!grid)return;
-    const storeName=(state.preferences&&state.preferences.store_name)||'Our Store';
-    const customerCount=(state.customers||[]).length||47;
-    const now=new Date();
+    const grid = document.getElementById('marketing-templates-grid');
+    if (!grid) return;
+    const storeName = (state.preferences && state.preferences.store_name) || 'Our Store';
+    const customerCount = (state.customers||[]).length || 47;
 
-    state.marketingCampaignLog=state.marketingCampaignLog||{};
+    state.marketingCampaignLog = state.marketingCampaignLog || {};
 
-    const templates=[
-      {id:'flash_sale',icon:'🏷️',title:'Weekend Flash Sale (15% Off)',audience:'All Customers',audienceCount:customerCount,msg:`Assalam-o-Alaikum! 🎉 Weekend Flash Sale at ${storeName}! Get flat 15% OFF on all products this Saturday & Sunday. Limited time — visit us today!`,bestTime:'Saturday 10:00 AM',segment:'all'},
-      {id:'vip_double_pts',icon:'💎',title:'VIP Loyalty — Double Points Weekend',audience:'Gold & Platinum VIPs',audienceCount:Math.round(customerCount*0.3),msg:`Dear VIP Customer, earn DOUBLE reward points on every purchase at ${storeName} this weekend. Thank you for being our most valued customer!`,bestTime:'Friday 6:00 PM',segment:'vip'},
-      {id:'winback',icon:'💔',title:'Win-Back: We Miss You!',audience:'Inactive 21+ Days',audienceCount:Math.round(customerCount*0.25),msg:`Assalam-o-Alaikum! We haven't seen you in a while at ${storeName}. Show this message on your next visit for a surprise gift with your purchase!`,bestTime:'Monday 11:00 AM',segment:'inactive'},
-      {id:'new_stock',icon:'📦',title:'New Stock Arrival & Fresh Catalog',audience:'All Registered Customers',audienceCount:customerCount,msg:`Fresh new stock just arrived at ${storeName}! Check out our latest collection and seasonal specials — now at the best market prices!`,bestTime:'Thursday 10:00 AM',segment:'all'},
-      {id:'eid_special',icon:'🌙',title:'Seasonal / Eid Special Offer',audience:'All Customers',audienceCount:customerCount,msg:`Eid Mubarak from the team at ${storeName}! 🌙✨ Celebrate with our special Eid discounts — available for a limited time. Visit us today!`,bestTime:'2 days before Eid',segment:'all'},
+    const templates = [
+      { id: 'flash_sale', title: 'Weekend Flash Sale (15% Off)', audience: 'All Registered Customers', audienceCount: customerCount, msg: `Assalam-o-Alaikum! Exclusive Weekend Flash Sale at ${storeName}! Enjoy flat 15% OFF across all items this Saturday & Sunday. Visit us today!`, bestTime: 'Saturday 10:00 AM' },
+      { id: 'vip_double_pts', title: 'VIP Loyalty Double Points Weekend', audience: 'Gold & Platinum VIP Members', audienceCount: Math.round(customerCount * 0.3), msg: `Dear VIP Member, earn DOUBLE reward points on every purchase at ${storeName} this weekend. Thank you for your continued loyalty!`, bestTime: 'Friday 6:00 PM' },
+      { id: 'winback', title: 'Customer Win-Back Campaign', audience: 'Inactive 21+ Days', audienceCount: Math.round(customerCount * 0.25), msg: `Assalam-o-Alaikum! We have missed you at ${storeName}. Present this message on your next visit to claim a special welcome gift with your order.`, bestTime: 'Monday 11:00 AM' },
+      { id: 'new_stock', title: 'New Catalog & Fresh Stock Arrival', audience: 'All Registered Customers', audienceCount: customerCount, msg: `Fresh stock has just arrived at ${storeName}! Discover our latest collection and seasonal arrivals at the best market prices.`, bestTime: 'Thursday 10:00 AM' },
+      { id: 'eid_special', title: 'Seasonal Festival & Eid Promotion', audience: 'All Registered Customers', audienceCount: customerCount, msg: `Eid Mubarak from ${storeName}! Celebrate with our special seasonal discounts available for a limited time. Visit us today.`, bestTime: '2 Days Before Eid' }
     ];
 
     grid.replaceChildren();
-    templates.forEach(tmpl=>{
-      const lastSent=state.marketingCampaignLog[tmpl.id];
-      const daysSinceSent=lastSent?Math.floor((Date.now()-lastSent)/86400000):null;
-      const isSafe=daysSinceSent===null||daysSinceSent>=7;
-      const lastSentLabel=lastSent?`Last sent: ${daysSinceSent} day${daysSinceSent!==1?'s':''} ago ${isSafe?'✅ Safe to resend':'⚠️ Sent recently'}`:'Never sent';
-      const lastSentColor=isSafe?'var(--accent-emerald)':'#f59e0b';
+    templates.forEach(tmpl => {
+      const lastSent = state.marketingCampaignLog[tmpl.id];
+      const daysSinceSent = lastSent ? Math.floor((Date.now() - lastSent) / 86400000) : null;
+      const isSafe = daysSinceSent === null || daysSinceSent >= 7;
+      const lastSentLabel = lastSent ? `Last broadcast: ${daysSinceSent}d ago [${isSafe ? 'SAFE TO SEND' : 'RECENTLY SENT'}]` : 'Never broadcasted';
+      const lastSentColor = isSafe ? 'var(--accent-emerald)' : '#f59e0b';
 
-      const card=document.createElement('div');
-      card.className='cloud-vault-card';
-      card.style.cssText='padding:18px;border-radius:14px;border:1px solid var(--border-titanium);background:var(--panel-graphite);display:flex;flex-direction:column;gap:12px;';
-      card.innerHTML=`<div style="display:flex;align-items:flex-start;gap:10px;"><span style="font-size:24px;flex-shrink:0;">${tmpl.icon}</span><div style="flex:1;"><h4 style="margin:0 0 2px;font-size:13px;font-weight:800;color:var(--text-white);">${tmpl.title}</h4><div style="font-size:10px;color:var(--accent-emerald);font-weight:700;">👥 ~${tmpl.audienceCount} customers will receive this</div><div style="font-size:10px;font-weight:700;margin-top:2px;color:${lastSentColor};">${lastSentLabel}</div><div style="font-size:10px;color:var(--text-gray);margin-top:1px;">⏰ Best time: ${tmpl.bestTime}</div></div></div><textarea class="pos-input campaign-editor" style="font-size:11px;color:var(--text-white);background:rgba(0,0,0,0.25);border:1px solid var(--border-titanium);border-radius:6px;padding:8px;min-height:80px;resize:vertical;line-height:1.5;">${tmpl.msg}</textarea><div style="display:flex;gap:8px;"><button class="action-btn dm-btn-emerald btn-send-wa" style="flex:1;padding:9px;font-size:11px;font-weight:800;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:6px;">📲 Broadcast via WhatsApp</button><button class="action-btn btn-schedule-campaign" style="padding:9px 12px;font-size:11px;font-weight:800;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid var(--border-titanium);" title="Schedule for later">⏰</button></div>`;
-      card.querySelector('.btn-send-wa')?.addEventListener('click',()=>{
-        const msg=card.querySelector('.campaign-editor')?.value||tmpl.msg;
-        const encoded=encodeURIComponent(msg);
-        window.open(`https://wa.me/?text=${encoded}`,'_blank');
-        state.marketingCampaignLog[tmpl.id]=Date.now();
-        if(typeof playAudioSignal==='function')playAudioSignal('success');
-        if(typeof showNotificationToast==='function')showNotificationToast(`Campaign launched to ~${tmpl.audienceCount} customers!`,'success',4000);
+      const card = document.createElement('div');
+      card.className = 'cloud-vault-card';
+      card.style.cssText = 'padding:18px;border-radius:12px;border:1px solid var(--border-titanium);background:var(--panel-graphite);display:flex;flex-direction:column;gap:12px;width:100%;box-sizing:border-box;';
+      card.innerHTML = `
+        <div>
+          <h4 style="margin:0 0 4px;font-size:13px;font-weight:900;color:var(--text-white);letter-spacing:0.3px;">${tmpl.title}</h4>
+          <div style="font-size:10px;color:var(--accent-emerald);font-weight:800;font-family:var(--font-mono);">Audience: ~${tmpl.audienceCount} Customers (${tmpl.audience})</div>
+          <div style="font-size:10px;font-weight:800;margin-top:2px;color:${lastSentColor};font-family:var(--font-mono);">${lastSentLabel}</div>
+          <div style="font-size:10px;color:var(--text-gray);margin-top:2px;">Recommended Schedule: ${tmpl.bestTime}</div>
+        </div>
+        <textarea class="pos-input campaign-editor" style="font-size:11px;color:var(--text-white);background:rgba(0,0,0,0.3);border:1px solid var(--border-titanium);border-radius:6px;padding:10px;min-height:80px;resize:vertical;line-height:1.5;width:100%;box-sizing:border-box;">${tmpl.msg}</textarea>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-tactile btn-tactile-primary btn-send-wa" style="flex:1;">Broadcast via WhatsApp</button>
+          <button class="btn-tactile btn-tactile-secondary btn-schedule-campaign" title="Set Schedule Reminder">Schedule</button>
+        </div>
+      `;
+      card.querySelector('.btn-send-wa')?.addEventListener('click', () => {
+        const msg = card.querySelector('.campaign-editor')?.value || tmpl.msg;
+        const encoded = encodeURIComponent(msg);
+        window.open(`https://wa.me/?text=${encoded}`, '_blank');
+        state.marketingCampaignLog[tmpl.id] = Date.now();
+        if (typeof playAudioSignal === 'function') playAudioSignal('success');
+        if (typeof showNotificationToast === 'function') showNotificationToast(`Campaign dispatched to ~${tmpl.audienceCount} customers.`, 'success', 3500);
         renderMarketingScreen();
       });
-      card.querySelector('.btn-schedule-campaign')?.addEventListener('click',async()=>{
-        const timeStr=await showModal({title:'Schedule Campaign',message:`When should "${tmpl.title}" be sent?`,type:'info',actions:[{id:'ok',label:'Set Reminder',style:'primary'},{id:'cancel',label:'Cancel',style:'secondary'}],input:{placeholder:'e.g. Tomorrow 10:00 AM',defaultValue:tmpl.bestTime}});
-        if(!timeStr||timeStr==='cancel')return;
-        if(typeof showNotificationToast==='function')showNotificationToast(`Reminder set: "${tmpl.title}" at ${timeStr}`,'success',4000);
+      card.querySelector('.btn-schedule-campaign')?.addEventListener('click', async () => {
+        const timeStr = await showModal({ title: 'Schedule Campaign Reminder', message: `Set execution reminder for "${tmpl.title}":`, type: 'info', actions: [{ id: 'ok', label: 'Save Reminder', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }], input: { placeholder: 'e.g. Tomorrow 10:00 AM', defaultValue: tmpl.bestTime } });
+        if (!timeStr || timeStr === 'cancel') return;
+        if (typeof showNotificationToast === 'function') showNotificationToast(`Reminder scheduled for "${tmpl.title}" at ${timeStr}.`, 'success', 3500);
       });
       grid.appendChild(card);
     });
@@ -20716,60 +21067,100 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   ];
 
   function renderStockTransferScreen() {
-    const tbody=document.getElementById('stock-transfer-list');
-    if(!tbody)return;
+    const tbody = document.getElementById('stock-transfer-list');
+    if (!tbody) return;
 
-    // Branch comparison panel (inject once)
-    const parentView=document.getElementById('view-stock-transfer');
-    if(parentView&&!document.getElementById('branch-comparison-panel')){
-      const bcPanel=document.createElement('div');
-      bcPanel.id='branch-comparison-panel';
-      bcPanel.className='cloud-vault-card';
-      bcPanel.style.cssText='padding:16px;border-radius:12px;border:1px solid rgba(0,214,143,0.2);background:rgba(0,214,143,0.03);margin:0 20px;';
-      bcPanel.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><span style="font-size:12px;font-weight:800;color:var(--text-white);">🏪 Branch Stock Comparison</span><span style="font-size:10px;color:var(--text-gray);">Real-time surplus detection</span></div><div id="branch-comparison-rows" style="display:flex;flex-direction:column;gap:8px;"></div>`;
-      const contentDiv=parentView.querySelector(':scope > div');
-      if(contentDiv)contentDiv.insertBefore(bcPanel,contentDiv.children[1]);
+    // Branch comparison panel (inject once with zero horizontal overflow)
+    const parentView = document.getElementById('view-stock-transfer');
+    if (parentView && !document.getElementById('branch-comparison-panel')) {
+      const bcPanel = document.createElement('div');
+      bcPanel.id = 'branch-comparison-panel';
+      bcPanel.className = 'cloud-vault-card';
+      bcPanel.style.cssText = 'padding:16px;border-radius:12px;border:1px solid rgba(0,214,143,0.2);background:rgba(0,214,143,0.02);width:100%;box-sizing:border-box;margin:0 0 16px;';
+      bcPanel.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span style="font-size:12px;font-weight:900;color:var(--text-white);text-transform:uppercase;letter-spacing:0.5px;">Multi-Branch Inventory Balance</span><span style="font-size:10px;color:var(--text-gray);font-family:var(--font-mono);">Surplus Rebalance Detection</span></div><div id="branch-comparison-rows" style="display:flex;flex-direction:column;gap:8px;width:100%;"></div>`;
+      const innerWrap = parentView.querySelector(':scope > div');
+      if (innerWrap) innerWrap.insertBefore(bcPanel, innerWrap.children[1]);
 
-      // Populate branch comparison
-      const catalog=state.catalog||[];
-      const rows=document.getElementById('branch-comparison-rows');
-      if(rows){
-        catalog.slice(0,5).forEach(p=>{
-          const b1=Math.round(((p.stock_quantity||50)*0.3));
-          const b2=Math.round(((p.stock_quantity||50)*0.7));
-          const surplus=b2-b1;
-          const hasSurplus=surplus>50;
-          rows.innerHTML+=`<div style="display:flex;align-items:center;gap:8px;font-size:11px;"><div style="flex:2;color:var(--text-white);font-weight:600;">${p.name}</div><div style="flex:1;color:var(--text-gray);">Branch 1: <strong style="color:${b1<20?'#ef4444':'var(--text-white)'};">${b1} units</strong></div><div style="flex:1;color:var(--text-gray);">Branch 2: <strong style="color:var(--accent-emerald);">${b2} units</strong></div>${hasSurplus?`<button onclick="if(window.switchActiveScreen)switchActiveScreen('stock-transfer')" style="padding:3px 8px;font-size:9px;font-weight:800;border-radius:5px;background:rgba(0,214,143,0.12);border:1px solid rgba(0,214,143,0.3);color:var(--accent-emerald);cursor:pointer;">Transfer ${Math.round(surplus/2)} →</button>`:''}</div>`;
+      const catalog = state.catalog || [];
+      const rows = document.getElementById('branch-comparison-rows');
+      if (rows) {
+        catalog.slice(0, 4).forEach(p => {
+          const b1 = Math.round(((p.stock_quantity || 50) * 0.35));
+          const b2 = Math.round(((p.stock_quantity || 50) * 0.65));
+          const surplus = b2 - b1;
+          const hasSurplus = surplus > 20;
+          rows.innerHTML += `<div style="display:flex;align-items:center;gap:10px;font-size:11px;flex-wrap:wrap;border-bottom:1px solid rgba(255,255,255,0.04);padding-bottom:6px;"><div style="flex:2;min-width:140px;color:var(--text-white);font-weight:700;">${p.name}</div><div style="flex:1;min-width:100px;color:var(--text-gray);">Branch 1: <strong style="color:${b1<20?'#ef4444':'var(--text-white)'};font-family:var(--font-mono);">${b1} units</strong></div><div style="flex:1;min-width:100px;color:var(--text-gray);">Branch 2: <strong style="color:var(--accent-emerald);font-family:var(--font-mono);">${b2} units</strong></div>${hasSurplus ? `<button class="btn-tactile btn-tactile-primary" onclick="if(window.switchActiveScreen)switchActiveScreen('stock-transfer')" style="padding:3px 8px;font-size:9px;">Rebalance ${Math.round(surplus/2)} units &rarr;</button>` : ''}</div>`;
         });
       }
     }
 
-    // In-transit value
-    const inTransitSTNs=(state.stockTransfers||[]).filter(s=>s.status==='IN TRANSIT');
-    const inTransitVal=inTransitSTNs.reduce((sum,stn)=>{const p=(state.catalog||[]).find(c=>c.sku===stn.sku);const price=(p?.base_price_minor_units||1000)/100;return sum+(stn.qty*price);},0);
-    const hdrEl=document.getElementById('view-stock-transfer')?.querySelector('h2');
-    let inTransitBadge=document.getElementById('stn-intransit-val');
-    if(!inTransitBadge&&hdrEl){inTransitBadge=document.createElement('span');inTransitBadge.id='stn-intransit-val';inTransitBadge.style.cssText='font-size:10px;font-weight:700;color:#f59e0b;background:rgba(245,158,11,0.12);padding:2px 8px;border-radius:5px;margin-left:12px;vertical-align:middle;';hdrEl.appendChild(inTransitBadge);}
-    if(inTransitBadge)inTransitBadge.textContent=`Rs. ${inTransitVal.toLocaleString('en-PK',{maximumFractionDigits:0})} in transit`;
+    const inTransitSTNs = (state.stockTransfers || []).filter(s => s.status === 'IN TRANSIT');
+    const inTransitVal = inTransitSTNs.reduce((sum, stn) => {
+      const p = (state.catalog || []).find(c => c.sku === stn.sku);
+      const price = (p?.base_price_minor_units || 1000) / 100;
+      return sum + (stn.qty * price);
+    }, 0);
+    const hdrEl = document.getElementById('view-stock-transfer')?.querySelector('h2');
+    let inTransitBadge = document.getElementById('stn-intransit-val');
+    if (!inTransitBadge && hdrEl) {
+      inTransitBadge = document.createElement('span');
+      inTransitBadge.id = 'stn-intransit-val';
+      inTransitBadge.style.cssText = 'font-size:10px;font-weight:800;color:#f59e0b;background:rgba(245,158,11,0.12);padding:2px 8px;border-radius:4px;margin-left:10px;vertical-align:middle;font-family:var(--font-mono);';
+      hdrEl.appendChild(inTransitBadge);
+    }
+    if (inTransitBadge) inTransitBadge.textContent = `In Transit: Rs. ${inTransitVal.toLocaleString('en-PK', { maximumFractionDigits: 0 })}`;
 
     tbody.replaceChildren();
-    (state.stockTransfers||[]).forEach(stn=>{
-      const tr=document.createElement('tr');tr.style.cssText='border-bottom:1px solid rgba(255,255,255,0.04);';
-      const isRecv=stn.status==='RECEIVED';
-      const isPending=stn.status==='PENDING APPROVAL';
-      const statusBg=isRecv?'rgba(0,214,143,0.15)':isPending?'rgba(59,130,246,0.15)':'rgba(245,158,11,0.15)';
-      const statusCol=isRecv?'var(--accent-emerald)':isPending?'#3b82f6':'#f59e0b';
-      const prod=(state.catalog||[]).find(p=>p.sku===stn.sku);
-      const unitVal=prod?((prod.base_price_minor_units||1000)/100):100;
-      const stnValue=stn.qty*unitVal;
-      tr.innerHTML=`<td style="padding:10px;font-family:var(--font-mono);font-weight:800;color:var(--text-white);">${stn.id}</td><td style="padding:10px;color:var(--text-gray);">${stn.from}</td><td style="padding:10px;color:var(--text-white);font-weight:600;">${stn.to}</td><td style="padding:10px;font-family:var(--font-mono);color:var(--accent-emerald);">${stn.sku}</td><td style="padding:10px;font-family:var(--font-mono);font-weight:800;">${stn.qty} units<div style="font-size:9px;color:var(--text-gray);">Val: Rs. ${stnValue.toLocaleString('en-PK',{maximumFractionDigits:0})}</div></td><td style="padding:10px;color:var(--text-gray);">${stn.date}</td><td style="padding:10px;"><span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;background:${statusBg};color:${statusCol};">${stn.status}</span></td><td style="padding:10px;text-align:right;display:flex;flex-direction:column;gap:4px;">${!isRecv&&!isPending?`<button class="action-btn action-success btn-recv-stn" style="padding:3px 8px;font-size:9px;font-weight:800;border-radius:5px;">✓ Receive</button>`:''}${!isRecv?`<button class="action-btn btn-wa-stn" style="padding:3px 8px;font-size:9px;font-weight:800;border-radius:5px;background:rgba(37,211,102,0.12);border:1px solid rgba(37,211,102,0.3);color:#25d366;">📲 WA Note</button>`:''}</td>`;
-      tr.querySelector('.btn-recv-stn')?.addEventListener('click',()=>{if(typeof playAudioSignal==='function')playAudioSignal('success');stn.status='RECEIVED';if(typeof showNotificationToast==='function')showNotificationToast(`${stn.id} received & logged to branch inventory!`,'success',3000);renderStockTransferScreen();});
-      tr.querySelector('.btn-wa-stn')?.addEventListener('click',()=>{const msg=encodeURIComponent(`📦 STOCK TRANSFER NOTE\n${stn.id}\nFrom: ${stn.from}\nTo: ${stn.to}\nSKU: ${stn.sku} | Qty: ${stn.qty} units\nValue: Rs. ${stnValue.toLocaleString('en-PK',{maximumFractionDigits:0})}\nDate: ${stn.date}\n\nPlease confirm receipt. — Valenixia POS`);window.open(`https://wa.me/?text=${msg}`,'_blank');});
+    (state.stockTransfers || []).forEach(stn => {
+      const tr = document.createElement('tr');
+      tr.style.cssText = 'border-bottom:1px solid rgba(255,255,255,0.04);';
+      const isRecv = stn.status === 'RECEIVED';
+      const isPending = stn.status === 'PENDING APPROVAL';
+      const statusBg = isRecv ? 'rgba(0,214,143,0.12)' : isPending ? 'rgba(59,130,246,0.12)' : 'rgba(245,158,11,0.12)';
+      const statusCol = isRecv ? 'var(--accent-emerald)' : isPending ? '#3b82f6' : '#f59e0b';
+      const prod = (state.catalog || []).find(p => p.sku === stn.sku);
+      const unitVal = prod ? ((prod.base_price_minor_units || 1000) / 100) : 100;
+      const stnValue = stn.qty * unitVal;
+      tr.innerHTML = `
+        <td style="padding:10px;font-family:var(--font-mono);font-weight:800;color:var(--text-white);">${stn.id}</td>
+        <td style="padding:10px;color:var(--text-gray);">${stn.from}</td>
+        <td style="padding:10px;color:var(--text-white);font-weight:600;">${stn.to}</td>
+        <td style="padding:10px;font-family:var(--font-mono);color:var(--accent-emerald);">${stn.sku}</td>
+        <td style="padding:10px;font-family:var(--font-mono);font-weight:800;">${stn.qty} units<div style="font-size:9px;color:var(--text-gray);">Val: Rs. ${stnValue.toLocaleString('en-PK',{maximumFractionDigits:0})}</div></td>
+        <td style="padding:10px;color:var(--text-gray);font-family:var(--font-mono);">${stn.date}</td>
+        <td style="padding:10px;"><span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:900;background:${statusBg};color:${statusCol};font-family:var(--font-mono);">[${stn.status}]</span></td>
+        <td style="padding:10px;text-align:right;"><div style="display:flex;gap:4px;justify-content:flex-end;flex-wrap:wrap;">${!isRecv&&!isPending?`<button class="btn-tactile btn-tactile-primary btn-recv-stn" style="padding:3px 8px;font-size:9px;">Confirm Receipt</button>`:''}${!isRecv?`<button class="btn-tactile btn-tactile-secondary btn-wa-stn" style="padding:3px 8px;font-size:9px;">WhatsApp Manifest</button>`:''}</div></td>
+      `;
+      tr.querySelector('.btn-recv-stn')?.addEventListener('click', () => {
+        if (typeof playAudioSignal === 'function') playAudioSignal('success');
+        stn.status = 'RECEIVED';
+        if (typeof showNotificationToast === 'function') showNotificationToast(`Transfer ${stn.id} received & logged to branch inventory.`, 'success', 3000);
+        renderStockTransferScreen();
+      });
+      tr.querySelector('.btn-wa-stn')?.addEventListener('click', () => {
+        const msg = encodeURIComponent(`STOCK TRANSFER NOTE: ${stn.id}\nFrom: ${stn.from}\nTo: ${stn.to}\nItem: ${stn.sku}\nQuantity: ${stn.qty} units\nValue: Rs. ${stnValue.toLocaleString('en-PK',{maximumFractionDigits:0})}\nDate: ${stn.date}\n\nPlease verify and confirm delivery receipt in Valenixia POS.`);
+        window.open(`https://wa.me/?text=${msg}`, '_blank');
+      });
       tbody.appendChild(tr);
     });
 
-    const btnNew=document.getElementById('btn-new-stock-transfer');
-    if(btnNew&&!btnNew.__wired){btnNew.__wired=true;btnNew.onclick=async()=>{const sku=await showModal({title:'New Stock Transfer',message:'Enter Product SKU to transfer:',type:'info',actions:[{id:'ok',label:'Next',style:'primary'},{id:'cancel',label:'Cancel',style:'secondary'}],input:{placeholder:'e.g. SKU-WAT-001',defaultValue:''}});if(!sku||sku==='cancel')return;const qtyStr=await showModal({title:'Transfer Quantity',message:'Units to dispatch:',type:'info',actions:[{id:'ok',label:'Create STN',style:'primary'},{id:'cancel',label:'Cancel',style:'secondary'}],input:{placeholder:'e.g. 50',defaultValue:'50'}});if(!qtyStr||qtyStr==='cancel')return;const qty=parseInt(qtyStr||0);if(qty>0){state.stockTransfers.unshift({id:'STN-2026-00'+(state.stockTransfers.length+1),from:'Central Warehouse',to:'Branch 01 (Main Mall)',sku,qty,date:'Today',status:'IN TRANSIT'});if(typeof playAudioSignal==='function')playAudioSignal('success');if(typeof showNotificationToast==='function')showNotificationToast(`STN created: ${qty} units of ${sku} dispatched`,'success',3000);renderStockTransferScreen();}};}
+    const btnNew = document.getElementById('btn-new-stock-transfer');
+    if (btnNew && !btnNew.__wired) {
+      btnNew.__wired = true;
+      btnNew.onclick = async () => {
+        const sku = await showModal({ title: 'New Stock Transfer Note', message: 'Enter Product SKU to transfer:', type: 'info', actions: [{ id: 'ok', label: 'Next', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }], input: { placeholder: 'e.g. SKU-WAT-001', defaultValue: '' } });
+        if (!sku || sku === 'cancel') return;
+        const qtyStr = await showModal({ title: 'Transfer Quantity', message: 'Unit quantity to dispatch:', type: 'info', actions: [{ id: 'ok', label: 'Create STN', style: 'primary' }, { id: 'cancel', label: 'Cancel', style: 'secondary' }], input: { placeholder: 'e.g. 50', defaultValue: '50' } });
+        if (!qtyStr || qtyStr === 'cancel') return;
+        const qty = parseInt(qtyStr || 0);
+        if (qty > 0) {
+          state.stockTransfers.unshift({ id: 'STN-2026-00' + (state.stockTransfers.length + 1), from: 'Central Warehouse', to: 'Branch 01 (Main Mall)', sku, qty, date: 'Today', status: 'IN TRANSIT' });
+          if (typeof playAudioSignal === 'function') playAudioSignal('success');
+          if (typeof showNotificationToast === 'function') showNotificationToast(`STN created: ${qty} units of ${sku} dispatched.`, 'success', 3000);
+          renderStockTransferScreen();
+        }
+      };
+    }
   }
   window.renderStockTransferScreen = renderStockTransferScreen;
 

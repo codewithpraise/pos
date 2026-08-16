@@ -52,7 +52,7 @@
 
   <!-- ELEGANT BOOTSTRAPPING SPLASH OVERLAY WITH DIAGNOSTIC TERMINAL -->
   <div id="app-boot-loader" style="position:fixed;inset:0;z-index:99999;background:#060609;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-family:'Manrope',sans-serif;transition:opacity 0.3s ease, visibility 0.3s ease;padding:20px;box-sizing:border-box;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;">
-    <div style="font-family:'Outfit',sans-serif;font-size:24px;font-weight:900;background:linear-gradient(135deg,#00d68f,#10b981);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:2px;">Valenixia POS <span style="font-size:12px; font-weight:800; color:#10b981; vertical-align:middle; letter-spacing:0;">v2.9.0</span></div>
+    <div style="font-family:'Outfit',sans-serif;font-size:24px;font-weight:900;background:linear-gradient(135deg,#00d68f,#10b981);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:2px;">Valenixia POS <span style="font-size:12px; font-weight:800; color:#10b981; vertical-align:middle; letter-spacing:0;">v3.0.0</span></div>
     <div style="font-size:11px;color:#6b7280;letter-spacing:0.05em;text-transform:uppercase;" id="app-boot-loader-status">Initializing local runtime...</div>
     <div style="width:180px;height:3px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;margin-top:2px;">
       <div id="app-boot-loader-progress" style="width:30%;height:100%;background:linear-gradient(90deg,#00d68f,#10b981);border-radius:99px;transition:width 0.3s ease;"></div>
@@ -118,11 +118,12 @@
     
     <!-- SIDEBAR (Desktop / Tablet viewports) -->
     <aside class="pos-sidebar" id="app-sidebar">
-      <div class="sidebar-brand">
-        <div class="sidebar-logo-emoji">☕</div>
+        <div class="sidebar-logo-icon" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,rgba(0,214,143,0.2),rgba(0,214,143,0.05));border:1px solid rgba(0,214,143,0.3);">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--accent-emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        </div>
         <div class="brand-text">
           <h1 id="sidebar-store-name">VALENIXIA</h1>
-          <span>Point of Sale <span style="font-size:9px; background:rgba(0,214,143,0.15); color:var(--accent-emerald); padding:1px 5px; border-radius:4px; font-weight:800; border:1px solid rgba(0,214,143,0.3); margin-left:4px;">v2.9.0</span></span>
+          <span>Point of Sale <span style="font-size:9px; background:rgba(0,214,143,0.15); color:var(--accent-emerald); padding:1px 5px; border-radius:4px; font-weight:800; border:1px solid rgba(0,214,143,0.3); margin-left:4px;">v3.0.0</span></span>
         </div>
       </div>
       
@@ -370,24 +371,24 @@
         
         <!-- View: Business Health Command Center (Dashboard) -->
         <section class="content-view" id="view-dashboard">
-          <div style="padding: 20px; max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; height: 100%; box-sizing: border-box; overflow-y: auto;">
+          <div style="padding: 20px; max-width: 1400px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; box-sizing: border-box; overflow-x: hidden;">
 
             <!-- Dashboard Header -->
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
               <div>
-                <h2 style="margin: 0; font-family: var(--font-display); font-weight: 900; font-size: 22px; color: var(--text-white);">Business Health Command Center</h2>
+                <h2 style="margin: 0; font-family: var(--font-display); font-weight: 900; font-size: 22px; color: var(--text-white); letter-spacing: -0.3px;">Business Health Command Center</h2>
                 <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Real-time intelligence across all operations — <span id="dash-live-time" style="color: var(--accent-emerald); font-family: var(--font-mono); font-weight: 700;"></span></p>
               </div>
               <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <button class="action-btn dm-btn-primary" onclick="if(window.switchActiveScreen)switchActiveScreen('checkout')" style="padding: 8px 14px; font-size: 11px; font-weight: 800; border-radius: 8px; display:flex;align-items:center;gap:6px;">⚡ New Sale</button>
-                <button class="action-btn action-success" onclick="if(window.switchActiveScreen)switchActiveScreen('inventory-ai')" style="padding: 8px 14px; font-size: 11px; font-weight: 800; border-radius: 8px;">📦 Check Stock</button>
-                <button class="action-btn action-primary" onclick="if(window.switchActiveScreen)switchActiveScreen('marketing')" style="padding: 8px 14px; font-size: 11px; font-weight: 800; border-radius: 8px;">📲 Campaign</button>
-                <button class="action-btn" onclick="if(window.switchActiveScreen)switchActiveScreen('analytics')" style="padding: 8px 14px; font-size: 11px; font-weight: 800; border-radius: 8px; background:rgba(255,255,255,0.06); border:1px solid var(--border-titanium);">📊 Reports</button>
+                <button class="btn-tactile btn-tactile-primary" onclick="if(window.switchActiveScreen)switchActiveScreen('checkout')">New Sale</button>
+                <button class="btn-tactile btn-tactile-secondary" onclick="if(window.switchActiveScreen)switchActiveScreen('inventory-ai')">Inventory Audit</button>
+                <button class="btn-tactile btn-tactile-secondary" onclick="if(window.switchActiveScreen)switchActiveScreen('marketing')">Marketing Studio</button>
+                <button class="btn-tactile btn-tactile-secondary" onclick="if(window.switchActiveScreen)switchActiveScreen('analytics')">Analytics</button>
               </div>
             </div>
 
             <!-- KPI Row -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px;">
               <div class="kpi-card accent-emerald" style="position:relative;">
                 <span class="kpi-lbl">TODAY'S REVENUE</span>
                 <span class="kpi-val" id="dash-today-revenue">Rs. 0</span>
@@ -413,52 +414,50 @@
             <!-- Revenue Goal Progress Bar -->
             <div class="cloud-vault-card" style="padding: 16px; border-radius: 12px; border: 1px solid var(--border-titanium);">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <span style="font-size: 11px; font-weight: 800; color: var(--text-white);">📈 Daily Revenue Progress</span>
+                <span style="font-size: 11px; font-weight: 800; color: var(--text-white); text-transform: uppercase; letter-spacing: 0.5px;">Daily Revenue Velocity</span>
                 <span id="dash-goal-pct-text" style="font-size: 11px; font-weight: 700; color: var(--accent-emerald);">0% of daily target</span>
               </div>
-              <div style="background: rgba(255,255,255,0.06); border-radius: 6px; height: 10px; overflow: hidden;">
+              <div style="background: rgba(255,255,255,0.06); border-radius: 6px; height: 8px; overflow: hidden;">
                 <div id="dash-goal-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent-emerald), #34d399); border-radius: 6px; transition: width 0.8s ease;"></div>
               </div>
-              <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-gray); margin-top: 6px;">
+              <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-gray); margin-top: 6px; font-family: var(--font-mono);">
                 <span id="dash-goal-label-left">Rs. 0 earned</span>
                 <span id="dash-goal-label-right">Target: Rs. 50,000</span>
               </div>
             </div>
 
-            <!-- Two-column: Alerts + Hourly Sparkline -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; flex: 1; min-height: 0;">
+            <!-- Responsive 2-column Grid (Fluid Auto-Fit Stacking) -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 14px; width: 100%; box-sizing: border-box;">
 
-              <!-- CRITICAL ALERTS PANEL -->
-              <div class="cloud-vault-card" style="padding: 18px; border-radius: 12px; border: 1px solid rgba(239,68,68,0.2); background: rgba(239,68,68,0.03); display: flex; flex-direction: column; gap: 10px;">
+              <!-- OPERATIONAL ALERTS PANEL -->
+              <div class="cloud-vault-card" style="padding: 18px; border-radius: 12px; border: 1px solid rgba(239,68,68,0.2); background: rgba(239,68,68,0.02); display: flex; flex-direction: column; gap: 10px; width: 100%; box-sizing: border-box;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                  <span style="font-size: 12px; font-weight: 800; color: var(--text-white);">⚠️ Smart Business Alerts</span>
-                  <span style="font-size: 10px; color: var(--text-gray);">Live · Auto-refreshes</span>
+                  <span style="font-size: 12px; font-weight: 800; color: var(--text-white); text-transform: uppercase; letter-spacing: 0.5px;">Operational Intelligence &amp; Alerts</span>
+                  <span style="font-size: 10px; color: var(--text-gray);">Live Stream</span>
                 </div>
                 <div id="dash-alerts-list" style="display: flex; flex-direction: column; gap: 8px; overflow-y: auto; max-height: 320px;">
-                  <!-- dynamically populated -->
                   <div style="text-align:center; padding: 20px; color: var(--text-gray); font-size: 12px;">
-                    <div style="font-size: 24px; margin-bottom: 8px;">✅</div>
-                    Loading business intelligence...
+                    Analyzing live store operations...
                   </div>
                 </div>
               </div>
 
-              <!-- HOURLY REVENUE SPARKLINE -->
-              <div class="cloud-vault-card" style="padding: 18px; border-radius: 12px; border: 1px solid var(--border-titanium); display: flex; flex-direction: column; gap: 10px;">
+              <!-- INTRADAY REVENUE SPARKLINE -->
+              <div class="cloud-vault-card" style="padding: 18px; border-radius: 12px; border: 1px solid var(--border-titanium); display: flex; flex-direction: column; gap: 10px; width: 100%; box-sizing: border-box;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                  <span style="font-size: 12px; font-weight: 800; color: var(--text-white);">⏱️ Revenue by Hour (Today)</span>
+                  <span style="font-size: 12px; font-weight: 800; color: var(--text-white); text-transform: uppercase; letter-spacing: 0.5px;">Intraday Revenue Curve</span>
                   <span id="dash-peak-hour" style="font-size: 10px; color: var(--accent-emerald); font-weight: 700;"></span>
                 </div>
-                <div id="dash-hourly-chart" style="display: flex; align-items: flex-end; gap: 4px; height: 120px; padding: 0 4px;">
+                <div id="dash-hourly-chart" style="display: flex; align-items: flex-end; gap: 4px; height: 120px; padding: 0 4px; width: 100%; box-sizing: border-box;">
                   <!-- populated dynamically as bar chart -->
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--border-titanium);">
                   <div>
-                    <div style="font-size: 10px; color: var(--text-gray);">🏆 Top Selling Item</div>
+                    <div style="font-size: 10px; color: var(--text-gray); text-transform: uppercase;">Top Velocity SKU</div>
                     <div style="font-size: 12px; font-weight: 800; color: var(--text-white); margin-top: 2px;" id="dash-top-item">—</div>
                   </div>
                   <div>
-                    <div style="font-size: 10px; color: var(--text-gray);">💰 Highest Margin Item</div>
+                    <div style="font-size: 10px; color: var(--text-gray); text-transform: uppercase;">Highest Margin SKU</div>
                     <div style="font-size: 12px; font-weight: 800; color: var(--accent-emerald); margin-top: 2px;" id="dash-top-margin">—</div>
                   </div>
                 </div>
@@ -2738,25 +2737,25 @@
 
         <!-- View: Kitchen Display System (KDS) -->
         <section class="content-view" id="view-kds">
-          <div style="padding: 20px; max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;">
+          <div style="padding: 20px; max-width: 1400px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; box-sizing: border-box; overflow-x: hidden;">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
               <div>
                 <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 22px;">Live Kitchen Display System (KDS)</h2>
-                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Real-time kitchen order dispatch, preparation pipeline &amp; bump bar</p>
+                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Real-time kitchen order dispatch, culinary preparation pipeline &amp; bump bar</p>
               </div>
-              <div style="display: flex; gap: 8px; align-items: center;">
-                <div style="display: flex; gap: 4px; background: rgba(255,255,255,0.04); padding: 4px; border-radius: 8px; border: 1px solid var(--border-titanium);">
+              <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <div style="display: flex; gap: 4px; background: rgba(255,255,255,0.04); padding: 4px; border-radius: 8px; border: 1px solid var(--border-titanium); flex-wrap: wrap;">
                   <button type="button" class="action-btn kds-filter-btn active" data-filter="all" style="padding: 6px 12px; font-size: 11px; font-weight: 700; border-radius: 6px;">All Orders</button>
-                  <button type="button" class="action-btn kds-filter-btn" data-filter="QUEUED" style="padding: 6px 12px; font-size: 11px; font-weight: 700; border-radius: 6px;">⏳ Queued</button>
-                  <button type="button" class="action-btn kds-filter-btn" data-filter="PREPARING" style="padding: 6px 12px; font-size: 11px; font-weight: 700; border-radius: 6px;">🍳 Cooking</button>
-                  <button type="button" class="action-btn kds-filter-btn" data-filter="READY" style="padding: 6px 12px; font-size: 11px; font-weight: 700; border-radius: 6px;">✅ Ready</button>
+                  <button type="button" class="action-btn kds-filter-btn" data-filter="QUEUED" style="padding: 6px 12px; font-size: 11px; font-weight: 700; border-radius: 6px;">Queued</button>
+                  <button type="button" class="action-btn kds-filter-btn" data-filter="PREPARING" style="padding: 6px 12px; font-size: 11px; font-weight: 700; border-radius: 6px;">In Preparation</button>
+                  <button type="button" class="action-btn kds-filter-btn" data-filter="READY" style="padding: 6px 12px; font-size: 11px; font-weight: 700; border-radius: 6px;">Ready for Dispatch</button>
                 </div>
-                <button class="action-btn action-primary" id="btn-kds-new-ticket" style="padding: 8px 14px; font-size: 11px; font-weight: 800; border-radius: 8px;">+ Test Order Ticket</button>
+                <button class="btn-tactile btn-tactile-primary" id="btn-kds-new-ticket">+ Create Order Ticket</button>
               </div>
             </div>
 
             <!-- KDS Active Ticket Grid -->
-            <div id="kds-ticket-board" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin-top: 8px;">
+            <div id="kds-ticket-board" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 14px; margin-top: 8px; width: 100%; box-sizing: border-box;">
               <!-- Dynamic tickets populated by renderKdsScreen -->
             </div>
           </div>
@@ -2764,21 +2763,21 @@
 
         <!-- View: Petty Cash & Daily Register Float Reconciliation -->
         <section class="content-view" id="view-petty-cash">
-          <div style="padding: 20px; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
+          <div style="padding: 20px; max-width: 1200px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; overflow-x: hidden;">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
               <div>
                 <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 22px;">Petty Cash &amp; Daily Register Reconciliation</h2>
-                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Shift float tracking, daily shop expense ledger &amp; End-of-Day Blind Till Z-Report</p>
+                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Shift float tracking, daily expense ledger &amp; End-of-Day Blind Till Z-Report</p>
               </div>
-              <div style="display: flex; gap: 8px;">
-                <button class="action-btn action-primary" id="btn-petty-add-cash" style="padding: 8px 14px; font-size: 11px; font-weight: 800; border-radius: 8px;">+ Add Cash Float</button>
-                <button class="action-btn action-danger" id="btn-petty-record-expense" style="padding: 8px 14px; font-size: 11px; font-weight: 800; border-radius: 8px;">− Record Shop Expense</button>
-                <button class="action-btn action-success" id="btn-petty-print-zreport" style="padding: 8px 14px; font-size: 11px; font-weight: 800; border-radius: 8px;">📋 End-of-Day Z-Report</button>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button class="btn-tactile btn-tactile-primary" id="btn-petty-add-cash">+ Add Cash Float</button>
+                <button class="btn-tactile btn-tactile-danger" id="btn-petty-record-expense">Record Expense</button>
+                <button class="btn-tactile btn-tactile-secondary" id="btn-petty-print-zreport">End-of-Day Z-Report</button>
               </div>
             </div>
 
             <!-- Petty Cash KPI Row -->
-            <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+            <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px;">
               <div class="kpi-card accent-blue">
                 <span class="kpi-lbl">OPENING FLOAT</span>
                 <span class="kpi-val" id="petty-opening-float">Rs. 0.00</span>
@@ -2792,7 +2791,7 @@
               <div class="kpi-card accent-coral">
                 <span class="kpi-lbl">EXPENSES / PETTY OUT</span>
                 <span class="kpi-val" id="petty-expenses-out">Rs. 0.00</span>
-                <span style="font-size: 10px; color: var(--alert-coral); font-weight: 700; margin-top: 4px;">Chai, Cleaning, Repairs</span>
+                <span style="font-size: 10px; color: var(--alert-coral); font-weight: 700; margin-top: 4px;">Operational Outflows</span>
               </div>
               <div class="kpi-card accent-amber">
                 <span class="kpi-lbl">EXPECTED CASH IN TILL</span>
@@ -2802,11 +2801,11 @@
             </div>
 
             <!-- Blind Till Reconciliation Card -->
-            <div class="cloud-vault-card" style="padding: 18px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 12px;">
-              <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 800; color: var(--text-white);">💵 Blind Cash Drawer Count (X-Report Audit)</h3>
+            <div class="cloud-vault-card" style="padding: 18px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 12px; width: 100%; box-sizing: border-box;">
+              <h3 style="margin: 0 0 8px; font-size: 15px; font-weight: 800; color: var(--text-white);">Blind Cash Drawer Audit (X-Report)</h3>
               <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 14px;">Cashier enters physical note counts to audit for drawer shortage or surplus without viewing expected total.</p>
               
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;" id="till-note-counters">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 120px), 1fr)); gap: 10px; width: 100%; box-sizing: border-box;" id="till-note-counters">
                 <div class="form-group"><label style="font-size:10px; color:var(--text-gray);">Rs. 5,000 Notes</label><input type="number" min="0" class="pos-input till-count-input" data-multiplier="5000" placeholder="0" value="0"></div>
                 <div class="form-group"><label style="font-size:10px; color:var(--text-gray);">Rs. 1,000 Notes</label><input type="number" min="0" class="pos-input till-count-input" data-multiplier="1000" placeholder="0" value="0"></div>
                 <div class="form-group"><label style="font-size:10px; color:var(--text-gray);">Rs. 500 Notes</label><input type="number" min="0" class="pos-input till-count-input" data-multiplier="500" placeholder="0" value="0"></div>
@@ -2814,10 +2813,10 @@
                 <div class="form-group"><label style="font-size:10px; color:var(--text-gray);">Rs. 50 / 20 / 10</label><input type="number" min="0" class="pos-input till-count-input" data-multiplier="1" placeholder="Coins/Small" value="0"></div>
               </div>
 
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-titanium);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-titanium); flex-wrap: wrap; gap: 10px;">
                 <div>
-                  <span style="font-size: 11px; color: var(--text-gray);">PHYSICAL COUNTED TOTAL:</span>
-                  <span style="font-size: 16px; font-weight: 800; color: var(--text-white); margin-left: 8px;" id="till-counted-total">Rs. 0.00</span>
+                  <span style="font-size: 11px; color: var(--text-gray); text-transform: uppercase;">PHYSICAL COUNTED TOTAL:</span>
+                  <span style="font-size: 16px; font-weight: 800; color: var(--text-white); margin-left: 8px; font-family: var(--font-mono);" id="till-counted-total">Rs. 0.00</span>
                 </div>
                 <div id="till-variance-badge" style="font-size: 12px; font-weight: 800; padding: 4px 12px; border-radius: 6px; background: rgba(16,185,129,0.15); color: var(--accent-emerald);">
                   Variance: Rs. 0.00 (Balanced)
@@ -2826,10 +2825,10 @@
             </div>
 
             <!-- Petty Cash Transactions History -->
-            <div class="cloud-vault-card">
+            <div class="cloud-vault-card" style="width: 100%; box-sizing: border-box;">
               <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 800; color: var(--text-white);">Petty Cash Float &amp; Expense Ledger</h3>
-              <div style="overflow-x: auto;">
-                <table class="pos-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+              <div class="modular-table-wrapper">
+                <table class="pos-table modular-table">
                   <thead>
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); color: var(--text-gray); text-align: left;">
                       <th style="padding: 10px;">Time</th>
@@ -2837,6 +2836,7 @@
                       <th style="padding: 10px;">Category / Description</th>
                       <th style="padding: 10px;">Logged By</th>
                       <th style="padding: 10px; text-align: right;">Amount</th>
+                      <th style="padding: 10px; text-align: right;">Action</th>
                     </tr>
                   </thead>
                   <tbody id="petty-cash-tbody">
@@ -2850,26 +2850,26 @@
 
         <!-- View: Staff Time Clock, Attendance & Payroll Commission -->
         <section class="content-view" id="view-attendance">
-          <div style="padding: 20px; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
+          <div style="padding: 20px; max-width: 1200px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; overflow-x: hidden;">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
               <div>
                 <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 22px;">Staff Time Clock &amp; Payroll Commission</h2>
-                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Terminal punch clock-in/out, live shift duration &amp; cashier sales commission tracker</p>
+                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Terminal punch clock, live shift duration &amp; cashier sales commission tracker</p>
               </div>
-              <div style="display: flex; gap: 8px;">
-                <button class="action-btn action-success" id="btn-clock-in-punch" style="padding: 8px 14px; font-size: 11px; font-weight: 800; border-radius: 8px;">🟢 Clock IN (Punch Start)</button>
-                <button class="action-btn action-danger" id="btn-clock-out-punch" style="padding: 8px 14px; font-size: 11px; font-weight: 800; border-radius: 8px;">🔴 Clock OUT (Punch End)</button>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button class="btn-tactile btn-tactile-primary" id="btn-clock-in-punch">Punch In (Shift Start)</button>
+                <button class="btn-tactile btn-tactile-danger" id="btn-clock-out-punch">Punch Out (Shift End)</button>
               </div>
             </div>
 
             <!-- Active Shift Status Card -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 14px; width: 100%; box-sizing: border-box;">
               <div class="cloud-vault-card" style="padding: 20px; background: linear-gradient(135deg, rgba(0,214,143,0.06), rgba(0,0,0,0.5)); border: 1px solid rgba(0,214,143,0.25); border-radius: 14px;">
                 <span style="font-size: 10px; font-weight: 800; color: var(--accent-emerald); text-transform: uppercase; letter-spacing: 1px;">ACTIVE CASHIER SHIFT</span>
                 <h3 style="margin: 8px 0 4px; font-size: 20px; font-weight: 900; color: var(--text-white);" id="shift-active-cashier">Muhammad Usman</h3>
                 <div style="font-size: 12px; color: var(--text-gray);" id="shift-start-time">Shift Started: 09:00 AM Today</div>
                 <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 14px;">
-                  <span style="font-size: 28px; font-weight: 900; font-family: monospace; color: var(--accent-emerald);" id="shift-live-timer">04:32:15</span>
+                  <span style="font-size: 28px; font-weight: 900; font-family: var(--font-mono); color: var(--accent-emerald);" id="shift-live-timer">04:32:15</span>
                   <span style="font-size: 11px; color: var(--text-gray);">Live Shift Elapsed</span>
                 </div>
               </div>
@@ -2879,22 +2879,22 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
                   <div>
                     <div style="font-size: 11px; color: var(--text-gray);">Shift Sales Volume:</div>
-                    <div style="font-size: 18px; font-weight: 800; color: var(--text-white);" id="shift-sales-vol">Rs. 45,800.00</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--text-white); font-family: var(--font-mono);" id="shift-sales-vol">Rs. 45,800.00</div>
                   </div>
                   <div>
                     <div style="font-size: 11px; color: var(--text-gray);">Commission (2.0%):</div>
-                    <div style="font-size: 18px; font-weight: 800; color: var(--accent-emerald);" id="shift-commission-earned">Rs. 916.00</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--accent-emerald); font-family: var(--font-mono);" id="shift-commission-earned">Rs. 916.00</div>
                   </div>
                 </div>
-                <div style="margin-top: 14px; font-size: 11px; color: var(--text-gray);">Hourly Rate Base: <strong>Rs. 250/hr</strong> | Total Projected Shift Pay: <strong style="color:var(--text-white);" id="shift-total-projected">Rs. 2,041.00</strong></div>
+                <div style="margin-top: 14px; font-size: 11px; color: var(--text-gray);">Hourly Rate Base: <strong>Rs. 250/hr</strong> | Total Projected Shift Pay: <strong style="color:var(--text-white); font-family:var(--font-mono);" id="shift-total-projected">Rs. 2,041.00</strong></div>
               </div>
             </div>
 
             <!-- Attendance History Table -->
-            <div class="cloud-vault-card">
-              <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 800; color: var(--text-white);">Shift Attendance &amp; Payroll Log</h3>
-              <div style="overflow-x: auto;">
-                <table class="pos-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+            <div class="cloud-vault-card" style="width: 100%; box-sizing: border-box;">
+              <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 800; color: var(--text-white);">Shift Attendance &amp; Payroll Leaderboard</h3>
+              <div class="modular-table-wrapper">
+                <table class="pos-table modular-table">
                   <thead>
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); color: var(--text-gray); text-align: left;">
                       <th style="padding: 10px;">Date</th>
@@ -2902,7 +2902,7 @@
                       <th style="padding: 10px;">Clock In</th>
                       <th style="padding: 10px;">Clock Out</th>
                       <th style="padding: 10px;">Total Hours</th>
-                      <th style="padding: 10px;">Sales Handled</th>
+                      <th style="padding: 10px;">Sales Run Rate</th>
                       <th style="padding: 10px; text-align: right;">Total Payout</th>
                     </tr>
                   </thead>
@@ -2917,30 +2917,31 @@
 
         <!-- View: Barcode Label & Price Tag Designer Studio -->
         <section class="content-view" id="view-label-designer">
-          <div style="padding: 20px; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
+          <div style="padding: 20px; max-width: 1200px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; overflow-x: hidden;">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
               <div>
                 <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 22px;">Barcode &amp; Price Tag Studio</h2>
                 <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Customizable sticker designer for thermal rolls, A4 barcode sheets &amp; shelf talkers</p>
               </div>
-              <button class="action-btn action-primary" id="btn-print-labels" style="padding: 8px 16px; font-size: 11px; font-weight: 800; border-radius: 8px;">🖨️ Print Labels to Thermal Printer / PDF</button>
+              <button class="btn-tactile btn-tactile-primary" id="btn-print-labels">Print Labels to Thermal / PDF</button>
             </div>
 
-            <div style="display: grid; grid-template-columns: minmax(280px, 360px) 1fr; gap: 20px; align-items: start;">
+            <!-- Fluid Auto-Fit Stacking (No Horizontal Scroll) -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 20px; align-items: start; width: 100%; box-sizing: border-box;">
               <!-- Label Controls -->
-              <div class="cloud-vault-card" style="padding: 18px; border-radius: 12px; border: 1px solid var(--border-titanium); display: flex; flex-direction: column; gap: 12px;">
-                <h4 style="margin: 0; font-size: 14px; font-weight: 800; color: var(--text-white);">Label Configuration</h4>
+              <div class="cloud-vault-card" style="padding: 18px; border-radius: 12px; border: 1px solid var(--border-titanium); display: flex; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box;">
+                <h4 style="margin: 0; font-size: 14px; font-weight: 800; color: var(--text-white); text-transform: uppercase;">Label Configuration</h4>
                 
                 <div class="form-group">
                   <label style="font-size:11px; color:var(--text-gray);">Select Product to Print</label>
-                  <select id="label-product-select" class="pos-input" style="font-size: 12px;">
+                  <select id="label-product-select" class="pos-input" style="font-size: 12px; width: 100%;">
                     <!-- dynamic options -->
                   </select>
                 </div>
 
                 <div class="form-group">
                   <label style="font-size:11px; color:var(--text-gray);">Sticker Format Template</label>
-                  <select id="label-format-select" class="pos-input" style="font-size: 12px;">
+                  <select id="label-format-select" class="pos-input" style="font-size: 12px; width: 100%;">
                     <option value="50x30">Thermal Roll (50mm × 30mm Standard)</option>
                     <option value="40x25">Thermal Roll (40mm × 25mm Compact)</option>
                     <option value="a4_65">A4 Sheet (65 Labels - 38.1mm × 21.2mm)</option>
@@ -2950,7 +2951,7 @@
 
                 <div class="form-group">
                   <label style="font-size:11px; color:var(--text-gray);">Barcode Symbology</label>
-                  <select id="label-symbology-select" class="pos-input" style="font-size: 12px;">
+                  <select id="label-symbology-select" class="pos-input" style="font-size: 12px; width: 100%;">
                     <option value="code128">Code-128 (Standard Alpha-Numeric)</option>
                     <option value="ean13">EAN-13 (13-Digit Retail Barcode)</option>
                     <option value="qr">QR Code (2D Matrix with Product Info)</option>
@@ -2959,7 +2960,7 @@
 
                 <div class="form-group">
                   <label style="font-size:11px; color:var(--text-gray);">Number of Copies to Print</label>
-                  <input type="number" min="1" max="1000" id="label-print-qty" class="pos-input" value="12">
+                  <input type="number" min="1" max="1000" id="label-print-qty" class="pos-input" value="12" style="width: 100%;">
                 </div>
 
                 <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
@@ -2976,7 +2977,7 @@
               </div>
 
               <!-- Live Visual Sticker Preview -->
-              <div class="cloud-vault-card" style="padding: 24px; border-radius: 12px; border: 1px solid var(--border-titanium); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 380px;">
+              <div class="cloud-vault-card" style="padding: 24px; border-radius: 12px; border: 1px solid var(--border-titanium); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 380px; width: 100%; box-sizing: border-box;">
                 <span style="font-size: 10px; font-weight: 800; color: var(--text-gray); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px;">LIVE LABEL PRINT PREVIEW</span>
                 
                 <div id="label-designer-preview" style="width: 260px; height: 160px; background: #ffffff; color: #000000; border-radius: 8px; padding: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; justify-content: space-between; align-items: center; text-align: center; box-sizing: border-box;">
@@ -2989,36 +2990,36 @@
 
         <!-- View: Statistical Stock Velocity & Reorder Predictor -->
         <section class="content-view" id="view-inventory-ai">
-          <div style="padding: 20px; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
+          <div style="padding: 20px; max-width: 1200px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; overflow-x: hidden;">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
               <div>
                 <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 22px;">Stock Velocity &amp; Statistical Demand Forecast</h2>
                 <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Mathematical sales run rate, depletion horizons, reorder points &amp; EOQ inventory analytics</p>
               </div>
-              <button class="action-btn action-primary" id="btn-ai-auto-po" style="padding: 8px 16px; font-size: 11px; font-weight: 800; border-radius: 8px;">⚡ Calculate Reorder Quantities (PO)</button>
+              <button class="btn-tactile btn-tactile-primary" id="btn-ai-auto-po">Calculate Reorder Quantities (PO)</button>
             </div>
 
             <!-- Stock Velocity & Forecast KPI Grid -->
-            <div id="inventory-ai-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+            <div id="inventory-ai-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px; width: 100%; box-sizing: border-box;">
               <!-- dynamically populated by renderInventoryAiScreen -->
             </div>
 
             <!-- Statistical Stockout Risk & Depletion Table -->
-            <div class="cloud-vault-card" style="padding: 20px; border-radius: 12px; border: 1px solid var(--border-titanium); background: var(--panel-graphite);">
+            <div class="cloud-vault-card" style="padding: 20px; border-radius: 12px; border: 1px solid var(--border-titanium); background: var(--panel-graphite); width: 100%; box-sizing: border-box;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
-                <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: var(--text-white);">Inventory Velocity &amp; Depletion Analysis</h3>
-                <span style="font-size: 11px; color: var(--text-gray);">Calculated using 30-day moving sales velocity &amp; lead-time variance</span>
+                <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: var(--text-white);">Inventory Velocity &amp; Depletion Analysis (ABC Tiering)</h3>
+                <span style="font-size: 11px; color: var(--text-gray);">30-day moving sales velocity &amp; lead-time variance</span>
               </div>
-              <div style="overflow-x: auto;">
-                <table class="pos-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+              <div class="modular-table-wrapper">
+                <table class="pos-table modular-table">
                   <thead>
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); color: var(--text-gray); text-align: left;">
                       <th style="padding: 10px;">Product Name</th>
-                      <th style="padding: 10px;">SKU</th>
-                      <th style="padding: 10px;">Current Stock</th>
-                      <th style="padding: 10px;">Velocity (Units/Day)</th>
-                      <th style="padding: 10px;">Days Remaining</th>
-                      <th style="padding: 10px;">Risk Level</th>
+                      <th style="padding: 10px;">ABC Tier</th>
+                      <th style="padding: 10px;">Stock</th>
+                      <th style="padding: 10px;">Run Rate</th>
+                      <th style="padding: 10px;">Depletion Horizon</th>
+                      <th style="padding: 10px;">Status</th>
                       <th style="padding: 10px; text-align: right;">Recommended Reorder</th>
                     </tr>
                   </thead>
@@ -3033,32 +3034,32 @@
 
         <!-- View: Customer Loyalty Club & VIP Cashback Points -->
         <section class="content-view" id="view-loyalty">
-          <div style="padding: 20px; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
+          <div style="padding: 20px; max-width: 1200px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; overflow-x: hidden;">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
               <div>
                 <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 22px;">VIP Loyalty &amp; Cashback Rewards Club</h2>
                 <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Automated point ledger, customer tier perks &amp; checkout discount redemption</p>
               </div>
-              <button class="action-btn action-primary" id="btn-loyalty-add-points" style="padding: 8px 14px; font-size: 11px; font-weight: 800; border-radius: 8px;">+ Award Promotional Bonus Points</button>
+              <button class="btn-tactile btn-tactile-primary" id="btn-loyalty-add-points">+ Award Promotional Bonus Points</button>
             </div>
 
             <!-- Loyalty Tiers Grid -->
-            <div id="loyalty-tiers-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px;">
+            <div id="loyalty-tiers-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 14px; width: 100%; box-sizing: border-box;">
               <!-- populated dynamically -->
             </div>
 
             <!-- Customer Loyalty Balances Table -->
-            <div class="cloud-vault-card">
+            <div class="cloud-vault-card" style="width: 100%; box-sizing: border-box;">
               <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 800; color: var(--text-white);">Customer Rewards Wallet Balances</h3>
-              <div style="overflow-x: auto;">
-                <table class="pos-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+              <div class="modular-table-wrapper">
+                <table class="pos-table modular-table">
                   <thead>
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); color: var(--text-gray); text-align: left;">
-                      <th style="padding: 10px;">Customer Name</th>
-                      <th style="padding: 10px;">VIP Level</th>
-                      <th style="padding: 10px;">Total Spend (LTV)</th>
+                      <th style="padding: 10px;">Customer Profile</th>
+                      <th style="padding: 10px;">Tier Level</th>
+                      <th style="padding: 10px;">Lifetime Spend (LTV)</th>
+                      <th style="padding: 10px;">RFM Score</th>
                       <th style="padding: 10px;">Points Balance</th>
-                      <th style="padding: 10px;">Redeemable Cash Value</th>
                       <th style="padding: 10px; text-align: right;">Action</th>
                     </tr>
                   </thead>
@@ -3073,16 +3074,16 @@
 
         <!-- View: Marketing Campaign & WhatsApp Broadcast Studio -->
         <section class="content-view" id="view-marketing">
-          <div style="padding: 20px; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
+          <div style="padding: 20px; max-width: 1200px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; overflow-x: hidden;">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
               <div>
-                <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 22px;">SMS &amp; WhatsApp Marketing Broadcast Studio</h2>
+                <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 22px;">Customer Broadcast &amp; Marketing Studio</h2>
                 <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">One-click customer promotions, flash discount alerts &amp; winback campaigns</p>
               </div>
             </div>
 
             <!-- Campaign Templates Grid -->
-            <div id="marketing-templates-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">
+            <div id="marketing-templates-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 14px; width: 100%; box-sizing: border-box;">
               <!-- dynamic templates rendered by renderMarketingScreen -->
             </div>
           </div>
@@ -3090,20 +3091,20 @@
 
         <!-- View: Inter-Branch Stock Transfer (STN) -->
         <section class="content-view" id="view-stock-transfer">
-          <div style="padding: 20px; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
+          <div style="padding: 20px; max-width: 1200px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; overflow-x: hidden;">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
               <div>
                 <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 22px;">Inter-Branch Stock Transfer (STN)</h2>
                 <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Create, dispatch and receive inventory manifests across multiple stores</p>
               </div>
-              <button class="action-btn action-primary" id="btn-new-stock-transfer" style="padding: 8px 14px; font-size: 11px; font-weight: 800; border-radius: 8px;">+ Create Stock Transfer Note</button>
+              <button class="btn-tactile btn-tactile-primary" id="btn-new-stock-transfer">+ Create Stock Transfer Note</button>
             </div>
 
             <!-- Stock Transfer Manifest List -->
-            <div class="cloud-vault-card">
+            <div class="cloud-vault-card" style="width: 100%; box-sizing: border-box;">
               <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 800; color: var(--text-white);">Active Transfer Manifests</h3>
-              <div style="overflow-x: auto;">
-                <table class="pos-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+              <div class="modular-table-wrapper">
+                <table class="pos-table modular-table">
                   <thead>
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); color: var(--text-gray); text-align: left;">
                       <th style="padding: 10px;">STN Number</th>
