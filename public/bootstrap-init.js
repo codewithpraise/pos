@@ -570,11 +570,13 @@ window.validateWizardStep = function(step, path) {
         if (typeof showNotificationToast === 'function') showNotificationToast('Please enter a valid WhatsApp / Mobile number (e.g. 03001234567).', 'error', 3500);
         return false;
       }
-      if (!ownerEmail.trim() || !ownerEmail.includes('@') || !ownerEmail.includes('.')) {
-        const el = document.getElementById('wizard-owner-email');
-        if (el) { el.style.borderColor = '#ef4444'; el.style.boxShadow = '0 0 10px rgba(239,68,68,0.4)'; el.focus(); }
-        if (typeof showNotificationToast === 'function') showNotificationToast('Please enter a valid Business Email address.', 'error', 3000);
-        return false;
+      if (ownerEmail.trim()) {
+        if (!ownerEmail.includes('@') || !ownerEmail.includes('.')) {
+          const el = document.getElementById('wizard-owner-email');
+          if (el) { el.style.borderColor = '#ef4444'; el.style.boxShadow = '0 0 10px rgba(239,68,68,0.4)'; el.focus(); }
+          if (typeof showNotificationToast === 'function') showNotificationToast('Please enter a valid Business Email address, or leave it blank.', 'error', 3000);
+          return false;
+        }
       }
       if (!storeCity.trim()) {
         const el = document.getElementById('wizard-store-city');

@@ -670,9 +670,13 @@
 
         <!-- View 2.b: Catalog Manager -->
         <section class="content-view" id="view-catalog-manager">
-          <div class="view-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;">
+          <div class="view-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; flex-wrap:wrap;">
             <h2>Inventory Ledger</h2>
-            <button class="action-btn action-success" id="btn-catalog-create-product" style="flex-shrink:0;">+ Add Product</button>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <button type="button" class="action-btn dm-btn-primary" id="btn-open-import-studio" style="flex-shrink:0; font-size:12px; font-weight:700; padding:8px 14px; display:inline-flex; align-items:center; gap:6px;">📥 Import CSV / Excel</button>
+              <button type="button" class="action-btn dm-btn-secondary" id="btn-export-catalog-csv" style="flex-shrink:0; font-size:12px; font-weight:700; padding:8px 14px; display:inline-flex; align-items:center; gap:6px;">📤 Export Catalog</button>
+              <button type="button" class="action-btn action-success" id="btn-catalog-create-product" style="flex-shrink:0; font-size:12px; font-weight:700; padding:8px 14px;">+ Add Product</button>
+            </div>
           </div>
 
           <div class="category-filters-scroll" style="width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; margin-bottom:14px; padding-bottom:4px;">
@@ -1939,6 +1943,54 @@
             </div>
 
 
+            <!-- Store Business Model & Industry Presets Card -->
+            <div class="settings-section full-width dm-card" id="settings-store-mode-card" style="margin-bottom: 24px; padding: 24px; border: 1px solid var(--border-titanium); border-radius: 8px;">
+              <div class="dm-card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div class="dm-icon" style="background: rgba(0,214,143,0.15); color: var(--accent-emerald);">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                  </div>
+                  <div>
+                    <h3 style="margin:0; font-size:14px; font-weight:700; color:var(--text-white);">Store Business Model &amp; Industry Presets</h3>
+                    <p style="margin:4px 0 0; font-size:11px; color:var(--text-gray);">Customizes product attributes, inventory fields, and POS layouts to your specific domain.</p>
+                  </div>
+                </div>
+                <span id="settings-active-mode-badge" style="padding: 4px 12px; border-radius: 20px; background: rgba(0,214,143,0.15); color: var(--accent-emerald); font-size: 11px; font-weight: 800; border: 1px solid rgba(0,214,143,0.3);">
+                  🛒 Simple Retail
+                </span>
+              </div>
+              <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 240px;">
+                  <label for="settings-select-store-mode" style="font-size: 11px; color: var(--text-gray); display: block; margin-bottom: 6px; font-weight: 700;">Switch Active Store Domain:</label>
+                  <select id="settings-select-store-mode" class="pos-input" style="width: 100%; height: 42px;" aria-label="Select Store Domain">
+                    <option value="simple-retail">🛒 Simple Retail &amp; General Store</option>
+                    <option value="grocery-mart">🧺 Supermarket, Grocery &amp; FMCG Mart</option>
+                    <option value="clothing-fashion">👗 Apparel, Shoes &amp; Fashion Boutique</option>
+                    <option value="food-restaurant">🍽️ Dine-In Restaurant, Pizzeria &amp; Food Court</option>
+                    <option value="bakery-cafe">☕ Bakery, Café, Coffee Bar &amp; Patisserie</option>
+                    <option value="pharmacy-medical">💊 Pharmacy, Medical Store &amp; Drug Dispensary</option>
+                    <option value="electronics-highvalue">📱 Mobile Phones, Computers &amp; Appliances</option>
+                    <option value="automotive-car">🚗 Auto Spare Parts, Tyres &amp; Lubricants</option>
+                    <option value="mechanic-workshop">🔧 Auto Workshop, Bike Repair &amp; Service</option>
+                    <option value="salon-beauty">💇 Hair Salon, Spa &amp; Aesthetic Clinic</option>
+                    <option value="jewellery">💎 Gold, Silver, Gemstones &amp; Jewellery Studio</option>
+                    <option value="books-stationery">📚 Bookstore, Stationery &amp; Copy Shop</option>
+                    <option value="hardware-tools">🏗️ Hardware, Building Materials &amp; Sanitary</option>
+                    <option value="furniture-home">🛋️ Furniture, Mattresses &amp; Home Decor</option>
+                    <option value="butchery-meat">🥩 Meat Shop, Poultry &amp; Seafood Market</option>
+                    <option value="pet-vet">🐾 Pet Shop, Animal Feed &amp; Vet Care</option>
+                    <option value="optics-eyewear">👓 Optometry, Eyewear &amp; Lens Studio</option>
+                    <option value="wholesale-b2b">📦 Wholesale, Bulk Trading &amp; B2B Distribution</option>
+                    <option value="services-consulting">💼 Services, Consulting, Repairs &amp; Agency</option>
+                    <option value="custom-hybrid">⚡ Custom Mixed Enterprise (All Features)</option>
+                  </select>
+                </div>
+                <button type="button" class="action-btn dm-btn-emerald" id="btn-apply-settings-store-mode" style="height: 42px; padding: 0 20px; font-weight: 800; margin-top: 18px; border-radius: 8px;">
+                  Apply Store Domain
+                </button>
+              </div>
+            </div>
+
             <!-- License Verification Status Card -->
             <div class="settings-section full-width dm-card" id="settings-license-card" style="margin-bottom: 24px; padding: 24px; border: 1px solid var(--border-titanium); border-radius: 8px;">
               <div class="dm-card-header">
@@ -2941,6 +2993,316 @@
   </div>
 
 
+  <!-- DIALOG MODAL 0: CSV/EXCEL DATA IMPORT STUDIO -->
+  <div class="modal-overlay" id="modal-data-import-studio" style="display: none; align-items: center; justify-content: center; z-index: 10500;">
+    <div class="modal-card" style="max-width: 820px; width: 95%; max-height: 90vh; display: flex; flex-direction: column; background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 14px; box-shadow: 0 24px 60px rgba(0,0,0,0.7); overflow: hidden;">
+      <!-- Modal Header -->
+      <div class="modal-header" style="padding: 18px 24px; border-bottom: 1px solid var(--border-titanium); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02);">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(0,214,143,0.15); color: var(--accent-emerald); display: flex; align-items: center; justify-content: center; font-size: 18px;">
+            📥
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: var(--text-white); font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.5px;">Product Catalog &amp; Data Import Studio</h3>
+            <span style="font-size: 11px; color: var(--text-gray);">Seamless bulk import from CSV, Excel, Google Sheets, or legacy POS exports</span>
+          </div>
+        </div>
+        <button type="button" class="btn-close-modal" id="btn-close-import-studio" style="background: transparent; border: none; font-size: 24px; color: var(--text-gray); cursor: pointer; line-height: 1;">×</button>
+      </div>
+
+      <!-- Studio Navigation Stepper Tabs -->
+      <div style="display: flex; border-bottom: 1px solid var(--border-titanium); background: rgba(0,0,0,0.2); overflow-x: auto;" id="import-studio-tabs">
+        <button type="button" class="import-tab-btn active" data-tab="guide" style="flex: 1; min-width: 140px; padding: 12px 14px; background: transparent; border: none; border-bottom: 2px solid var(--accent-emerald); color: var(--accent-emerald); font-size: 11px; font-weight: 800; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <span>1. Format Guide</span>
+        </button>
+        <button type="button" class="import-tab-btn" data-tab="templates" style="flex: 1; min-width: 140px; padding: 12px 14px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-gray); font-size: 11px; font-weight: 800; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <span>2. Templates</span>
+        </button>
+        <button type="button" class="import-tab-btn" data-tab="upload" style="flex: 1; min-width: 140px; padding: 12px 14px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-gray); font-size: 11px; font-weight: 800; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <span>3. Upload File</span>
+        </button>
+        <button type="button" class="import-tab-btn" data-tab="mapping" style="flex: 1; min-width: 140px; padding: 12px 14px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-gray); font-size: 11px; font-weight: 800; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <span>4. Column Map</span>
+        </button>
+        <button type="button" class="import-tab-btn" data-tab="execute" style="flex: 1; min-width: 140px; padding: 12px 14px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-gray); font-size: 11px; font-weight: 800; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <span>5. Execute</span>
+        </button>
+      </div>
+
+      <!-- Studio Modal Body Panels -->
+      <div class="modal-body" style="padding: 20px 24px; overflow-y: auto; flex: 1; max-height: calc(90vh - 160px);">
+        
+        <!-- PANEL 1: Format & Column Structure Guide -->
+        <div class="import-studio-panel active" id="import-panel-guide">
+          <div style="margin-bottom: 16px;">
+            <h4 style="margin: 0 0 6px; font-size: 14px; color: var(--text-white); font-weight: 800;">Accepted File Types &amp; Encoding</h4>
+            <p style="margin: 0; font-size: 12px; color: var(--text-gray); line-height: 1.5;">
+              Valenixia accepts comma-separated (<strong style="color:var(--text-white);">.csv</strong>), tab-separated (<strong style="color:var(--text-white);">.tsv / .txt</strong>), or semicolon-separated spreadsheets exported from Excel or Google Sheets. Files should ideally be UTF-8 encoded.
+            </p>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <h4 style="margin: 0 0 10px; font-size: 13px; color: var(--text-white); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Standard Column Specifications</h4>
+            <div style="overflow-x: auto; border: 1px solid var(--border-titanium); border-radius: 10px;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 11.5px; text-align: left;">
+                <thead>
+                  <tr style="background: rgba(255,255,255,0.04); border-bottom: 1px solid var(--border-titanium); color: var(--text-white);">
+                    <th style="padding: 10px 12px;">Column Name</th>
+                    <th style="padding: 10px 12px;">Requirement</th>
+                    <th style="padding: 10px 12px;">Data Type</th>
+                    <th style="padding: 10px 12px;">Example</th>
+                    <th style="padding: 10px 12px;">Description</th>
+                  </tr>
+                </thead>
+                <tbody style="color: var(--text-gray);">
+                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                    <td style="padding: 10px 12px; font-weight: 700; color: var(--text-white);">Product Name</td>
+                    <td style="padding: 10px 12px;"><span style="color: #ef4444; font-weight: 800;">REQUIRED</span></td>
+                    <td style="padding: 10px 12px;">Text</td>
+                    <td style="padding: 10px 12px; color: var(--accent-emerald);">Mineral Water 1.5L</td>
+                    <td style="padding: 10px 12px;">Title displayed on receipt and POS screen</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                    <td style="padding: 10px 12px; font-weight: 700; color: var(--text-white);">Selling Price</td>
+                    <td style="padding: 10px 12px;"><span style="color: #ef4444; font-weight: 800;">REQUIRED</span></td>
+                    <td style="padding: 10px 12px;">Number / Currency</td>
+                    <td style="padding: 10px 12px; color: var(--accent-emerald);">100.00</td>
+                    <td style="padding: 10px 12px;">Retail sale price (currency symbols like $ / Rs are automatically cleaned)</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                    <td style="padding: 10px 12px; font-weight: 700; color: var(--text-white);">SKU / Barcode</td>
+                    <td style="padding: 10px 12px;"><span style="color: var(--accent-emerald); font-weight: 700;">Optional</span></td>
+                    <td style="padding: 10px 12px;">Text / Number</td>
+                    <td style="padding: 10px 12px; color: var(--accent-emerald);">896400012345</td>
+                    <td style="padding: 10px 12px;">1D/2D barcode or item code. Auto-generated if left blank.</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                    <td style="padding: 10px 12px; font-weight: 700; color: var(--text-white);">Category</td>
+                    <td style="padding: 10px 12px;"><span style="color: var(--accent-emerald); font-weight: 700;">Optional</span></td>
+                    <td style="padding: 10px 12px;">Text</td>
+                    <td style="padding: 10px 12px; color: var(--accent-emerald);">Beverages</td>
+                    <td style="padding: 10px 12px;">Category filter. Automatically created in catalog if not existing.</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                    <td style="padding: 10px 12px; font-weight: 700; color: var(--text-white);">Cost Price</td>
+                    <td style="padding: 10px 12px;"><span style="color: var(--accent-emerald); font-weight: 700;">Optional</span></td>
+                    <td style="padding: 10px 12px;">Number</td>
+                    <td style="padding: 10px 12px; color: var(--accent-emerald);">75.00</td>
+                    <td style="padding: 10px 12px;">Purchase / supplier cost for profit &amp; margin calculation</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                    <td style="padding: 10px 12px; font-weight: 700; color: var(--text-white);">Stock Quantity</td>
+                    <td style="padding: 10px 12px;"><span style="color: var(--accent-emerald); font-weight: 700;">Optional</span></td>
+                    <td style="padding: 10px 12px;">Integer</td>
+                    <td style="padding: 10px 12px; color: var(--accent-emerald);">50</td>
+                    <td style="padding: 10px 12px;">Initial on-hand inventory count (defaults to 100 if omitted)</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                    <td style="padding: 10px 12px; font-weight: 700; color: var(--text-white);">Unit of Measure</td>
+                    <td style="padding: 10px 12px;"><span style="color: var(--accent-emerald); font-weight: 700;">Optional</span></td>
+                    <td style="padding: 10px 12px;">Text</td>
+                    <td style="padding: 10px 12px; color: var(--accent-emerald);">pcs / kg / box</td>
+                    <td style="padding: 10px 12px;">Sales unit (e.g. pcs, kg, pack, box, liter, meter, pair)</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                    <td style="padding: 10px 12px; font-weight: 700; color: var(--text-white);">Batch / Expiry</td>
+                    <td style="padding: 10px 12px;"><span style="color: var(--accent-emerald); font-weight: 700;">Optional</span></td>
+                    <td style="padding: 10px 12px;">Text / Date</td>
+                    <td style="padding: 10px 12px; color: var(--accent-emerald);">BN-902, 2027-11-30</td>
+                    <td style="padding: 10px 12px;">Batch number and expiration date for pharmacy/food safety</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 12px;">
+            <button type="button" class="action-btn dm-btn-primary btn-import-next-tab" data-target="templates" style="padding: 10px 20px; font-weight: 800; border-radius: 8px;">Next: Download Sample Template →</button>
+          </div>
+        </div>
+
+        <!-- PANEL 2: Download Ready-to-Use Templates -->
+        <div class="import-studio-panel" id="import-panel-templates" style="display: none;">
+          <div style="margin-bottom: 18px;">
+            <h4 style="margin: 0 0 6px; font-size: 14px; color: var(--text-white); font-weight: 800;">Download Official Sample CSV Templates</h4>
+            <p style="margin: 0; font-size: 12px; color: var(--text-gray); line-height: 1.5;">
+              Download a ready-to-fill spreadsheet template pre-populated with sample items formatted specifically for your store domain. Open in Excel, populate your real items, save as CSV, and upload!
+            </p>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px;">
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 14px;">
+              <div>
+                <div style="font-size: 24px; margin-bottom: 8px;">✨</div>
+                <h5 style="margin: 0 0 4px; font-size: 13px; color: var(--text-white); font-weight: 800;" id="txt-template-active-domain-name">Active Store Mode Template</h5>
+                <p style="margin: 0; font-size: 11px; color: var(--text-gray);">Custom tailored with industry-specific fields (e.g. Batch/Expiry for Pharmacy, IMEI for Electronics, Variants for Fashion).</p>
+              </div>
+              <button type="button" class="action-btn dm-btn-emerald" id="btn-download-domain-template" style="padding: 10px 16px; font-size: 12px; font-weight: 800; border-radius: 8px; width: 100%;">
+                📥 Download Active Mode CSV
+              </button>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 14px;">
+              <div>
+                <div style="font-size: 24px; margin-bottom: 8px;">🛒</div>
+                <h5 style="margin: 0 0 4px; font-size: 13px; color: var(--text-white); font-weight: 800;">Standard Universal Retail Template</h5>
+                <p style="margin: 0; font-size: 11px; color: var(--text-gray);">Clean 8-column standard template suitable for any grocery, retail shop, kiosk, or general convenience store.</p>
+              </div>
+              <button type="button" class="action-btn dm-btn-secondary" id="btn-download-universal-template" style="padding: 10px 16px; font-size: 12px; font-weight: 800; border-radius: 8px; width: 100%;">
+                📥 Download Universal CSV
+              </button>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <button type="button" class="action-btn btn-import-prev-tab" data-target="guide" style="padding: 10px 18px; font-weight: 700; border-radius: 8px;">← Back to Guide</button>
+            <button type="button" class="action-btn dm-btn-primary btn-import-next-tab" data-target="upload" style="padding: 10px 20px; font-weight: 800; border-radius: 8px;">Next: Upload File →</button>
+          </div>
+        </div>
+
+        <!-- PANEL 3: File Upload & Auto-Detection -->
+        <div class="import-studio-panel" id="import-panel-upload" style="display: none;">
+          <div style="margin-bottom: 16px;">
+            <h4 style="margin: 0 0 6px; font-size: 14px; color: var(--text-white); font-weight: 800;">Upload Your File</h4>
+            <p style="margin: 0; font-size: 12px; color: var(--text-gray);">Drag and drop your spreadsheet file below, or click to browse from your device.</p>
+          </div>
+
+          <!-- Drag and drop zone -->
+          <div id="import-drop-zone" style="border: 2px dashed rgba(0,214,143,0.4); border-radius: 14px; background: rgba(0,214,143,0.03); padding: 36px 20px; text-align: center; cursor: pointer; transition: all 0.2s ease; margin-bottom: 16px;">
+            <div style="font-size: 36px; margin-bottom: 10px;">📄</div>
+            <h5 style="margin: 0 0 6px; font-size: 14px; color: var(--text-white); font-weight: 800;">Drag &amp; Drop your CSV / TSV file here</h5>
+            <p style="margin: 0 0 14px; font-size: 11.5px; color: var(--text-gray);">or click anywhere in this box to browse</p>
+            <input type="file" id="import-file-input" accept=".csv,.tsv,.txt" style="display: none;">
+            <span style="display: inline-block; padding: 6px 14px; border-radius: 6px; background: rgba(255,255,255,0.06); font-size: 11px; color: var(--accent-emerald); font-weight: 700;">Supports .csv, .tsv, .txt</span>
+          </div>
+
+          <!-- File Telemetry & Parsing Status -->
+          <div id="import-file-telemetry" style="display: none; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 10px; padding: 14px; margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 16px;">✅</span>
+                <strong id="import-file-name" style="color: var(--text-white); font-size: 12.5px;">catalog.csv</strong>
+                <span id="import-file-size" style="color: var(--text-gray); font-size: 11px;">(42 KB)</span>
+              </div>
+              <span id="import-detected-delimiter" style="background: rgba(0,214,143,0.15); color: var(--accent-emerald); padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 800;">COMMA DELIMITED</span>
+            </div>
+            <div style="font-size: 11.5px; color: var(--text-gray);">
+              Found <strong id="import-detected-rows-count" style="color: var(--text-white);">0</strong> data rows and <strong id="import-detected-cols-count" style="color: var(--text-white);">0</strong> columns.
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <button type="button" class="action-btn btn-import-prev-tab" data-target="templates" style="padding: 10px 18px; font-weight: 700; border-radius: 8px;">← Back to Templates</button>
+            <button type="button" class="action-btn dm-btn-primary btn-import-next-tab" id="btn-goto-mapping" data-target="mapping" disabled style="padding: 10px 20px; font-weight: 800; border-radius: 8px; opacity: 0.5;">Next: Map Columns →</button>
+          </div>
+        </div>
+
+        <!-- PANEL 4: Interactive Column Mapping & 10-Row Live Preview -->
+        <div class="import-studio-panel" id="import-panel-mapping" style="display: none;">
+          <div style="margin-bottom: 16px;">
+            <h4 style="margin: 0 0 6px; font-size: 14px; color: var(--text-white); font-weight: 800;">Column Header Mapping</h4>
+            <p style="margin: 0; font-size: 12px; color: var(--text-gray);">Match the headers in your uploaded spreadsheet with Valenixia product fields. Auto-matched where possible.</p>
+          </div>
+
+          <!-- Column mapping grid -->
+          <div id="import-mapping-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 20px; background: rgba(0,0,0,0.2); padding: 14px; border-radius: 10px; border: 1px solid var(--border-titanium);">
+            <!-- Populated dynamically -->
+          </div>
+
+          <!-- Live Preview Table (First 10 Rows) -->
+          <div style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <h5 style="margin: 0; font-size: 12px; color: var(--text-white); font-weight: 800; text-transform: uppercase;">Live Parsed Data Preview (First 10 Items)</h5>
+              <span style="font-size: 10px; color: var(--text-gray);">Updates in real time as you adjust column mappings</span>
+            </div>
+            <div style="overflow-x: auto; max-height: 220px; border: 1px solid var(--border-titanium); border-radius: 8px;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: left;" id="import-preview-table">
+                <thead>
+                  <tr style="background: rgba(255,255,255,0.04); border-bottom: 1px solid var(--border-titanium); color: var(--text-white);">
+                    <th style="padding: 8px 10px;">#</th>
+                    <th style="padding: 8px 10px;">Product Name</th>
+                    <th style="padding: 8px 10px;">SKU / Barcode</th>
+                    <th style="padding: 8px 10px;">Price (PKR)</th>
+                    <th style="padding: 8px 10px;">Cost (PKR)</th>
+                    <th style="padding: 8px 10px;">Stock</th>
+                    <th style="padding: 8px 10px;">Category</th>
+                    <th style="padding: 8px 10px;">Unit</th>
+                  </tr>
+                </thead>
+                <tbody id="import-preview-tbody" style="color: var(--text-gray);">
+                  <tr><td colspan="8" style="text-align:center; padding:16px;">No file loaded yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <button type="button" class="action-btn btn-import-prev-tab" data-target="upload" style="padding: 10px 18px; font-weight: 700; border-radius: 8px;">← Back to Upload</button>
+            <button type="button" class="action-btn dm-btn-primary btn-import-next-tab" data-target="execute" style="padding: 10px 20px; font-weight: 800; border-radius: 8px;">Next: Review &amp; Execute →</button>
+          </div>
+        </div>
+
+        <!-- PANEL 5: Execution, Validation & Batch Import -->
+        <div class="import-studio-panel" id="import-panel-execute" style="display: none;">
+          <div style="margin-bottom: 18px;">
+            <h4 style="margin: 0 0 6px; font-size: 14px; color: var(--text-white); font-weight: 800;">Review &amp; Batch Import</h4>
+            <p style="margin: 0; font-size: 12px; color: var(--text-gray);">Confirm import preferences before executing database write.</p>
+          </div>
+
+          <!-- Pre-flight Summary Card -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px;">
+            <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); padding: 14px; border-radius: 10px; text-align: center;">
+              <span style="font-size: 10px; color: var(--text-gray); text-transform: uppercase; font-weight: 700;">Total Rows Found</span>
+              <div style="font-size: 20px; font-weight: 900; color: var(--text-white); font-family: var(--font-mono); margin-top: 4px;" id="import-stat-total">0</div>
+            </div>
+            <div style="background: rgba(0,214,143,0.04); border: 1px solid rgba(0,214,143,0.2); padding: 14px; border-radius: 10px; text-align: center;">
+              <span style="font-size: 10px; color: var(--accent-emerald); text-transform: uppercase; font-weight: 700;">Ready to Import</span>
+              <div style="font-size: 20px; font-weight: 900; color: var(--accent-emerald); font-family: var(--font-mono); margin-top: 4px;" id="import-stat-valid">0</div>
+            </div>
+            <div style="background: rgba(239,68,68,0.04); border: 1px solid rgba(239,68,68,0.2); padding: 14px; border-radius: 10px; text-align: center;">
+              <span style="font-size: 10px; color: #ef4444; text-transform: uppercase; font-weight: 700;">Skipped / Invalid</span>
+              <div style="font-size: 20px; font-weight: 900; color: #ef4444; font-family: var(--font-mono); margin-top: 4px;" id="import-stat-invalid">0</div>
+            </div>
+          </div>
+
+          <!-- Duplicate Conflict Policy -->
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 10px; padding: 16px; margin-bottom: 20px;">
+            <label style="font-size: 12px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 8px;">Duplicate SKU Conflict Resolution Policy:</label>
+            <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+              <label style="font-size: 11.5px; color: var(--text-gray); display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="radio" name="import-duplicate-policy" value="update" checked class="pos-radio">
+                Update existing product price, cost &amp; stock (Recommended)
+              </label>
+              <label style="font-size: 11.5px; color: var(--text-gray); display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="radio" name="import-duplicate-policy" value="skip" class="pos-radio">
+                Skip and keep existing product unchanged
+              </label>
+            </div>
+          </div>
+
+          <!-- Progress bar -->
+          <div id="import-progress-container" style="display: none; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-white); margin-bottom: 6px;">
+              <span id="import-progress-status">Importing items into Valenixia Database...</span>
+              <span id="import-progress-pct" style="font-family: var(--font-mono); color: var(--accent-emerald);">0%</span>
+            </div>
+            <div style="background: rgba(255,255,255,0.06); height: 10px; border-radius: 5px; overflow: hidden;">
+              <div id="import-progress-bar" style="width: 0%; height: 100%; background: var(--accent-emerald-gradient); transition: width 0.2s ease;"></div>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <button type="button" class="action-btn btn-import-prev-tab" data-target="mapping" style="padding: 10px 18px; font-weight: 700; border-radius: 8px;">← Back to Mapping</button>
+            <button type="button" class="action-btn dm-btn-emerald" id="btn-execute-import-action" style="padding: 12px 28px; font-size: 13px; font-weight: 900; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,214,143,0.35);">
+              🚀 Execute Batch Import Now
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
   <!-- DIALOG MODAL 1: ADD/EDIT PRODUCT -->
   <div class="modal-overlay" id="modal-product">
     <div class="modal-card">
@@ -3655,8 +4017,8 @@
             </div>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
               <div class="wiz-field-group">
-                <label class="wiz-label" for="wizard-owner-email">Business Email <span style="color:var(--accent-emerald);">*</span></label>
-                <input type="email" id="wizard-owner-email" class="pos-input" placeholder="owner@business.com" style="margin-top:4px;" required>
+                <label class="wiz-label" for="wizard-owner-email">Business Email <span style="color:var(--text-muted); font-size:10px; font-weight:normal;">(Optional)</span></label>
+                <input type="email" id="wizard-owner-email" class="pos-input" placeholder="owner@business.com" style="margin-top:4px;">
               </div>
               <div class="wiz-field-group">
                 <label class="wiz-label" for="wizard-store-city">City / Operating Region <span style="color:var(--accent-emerald);">*</span></label>
@@ -3722,35 +4084,35 @@
         <div class="wiz-panel" id="wiz-panel-3" style="display:none; flex-direction:column; gap:12px; width: 100%;">
           <div style="font-size:11px; font-weight:800; color:var(--text-white); text-transform:uppercase; letter-spacing:0.5px;">Select Your Store Business Model</div>
           <p style="font-size:10px; color:var(--text-gray); margin:-6px 0 4px;">Tailors inventory fields, POS layout, and features to your domain.</p>
-          <div class="shop-modes-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; touch-action: pan-y; padding: 2px;">
+          <div class="shop-modes-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; touch-action: pan-y; padding: 2px; max-height: 280px; overflow-y: auto;">
             <!-- Mode 1: Simple Retail -->
             <div class="shop-mode-card active" data-mode="simple-retail" style="background: rgba(255,255,255,0.03); border: 2px solid var(--accent-emerald); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
               <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">🛒 Simple Retail</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">General store &amp; convenience. Barcode scan-to-cart focus.</p>
             </div>
             
-            <!-- Mode 2: Clothing & Fashion -->
+            <!-- Mode 2: Grocery & Mart -->
+            <div class="shop-mode-card" data-mode="grocery-mart" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">🧺 Grocery &amp; Mart</h4>
+              <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Supermarket mart. Loose bulk weight + fast barcode checkout.</p>
+            </div>
+
+            <!-- Mode 3: Clothing & Fashion -->
             <div class="shop-mode-card" data-mode="clothing-fashion" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
               <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">👗 Clothing &amp; Fashion</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Apparel &amp; shoes. Size, color, and variant matrix.</p>
             </div>
             
-            <!-- Mode 3: Food & Restaurant -->
+            <!-- Mode 4: Food & Restaurant -->
             <div class="shop-mode-card" data-mode="food-restaurant" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
               <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">🍽️ Food &amp; Restaurant</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Diner &amp; takeaway. Modifiers, table seating &amp; kitchen screen.</p>
             </div>
 
-            <!-- Mode 4: Bakery & Cafe -->
+            <!-- Mode 5: Bakery & Cafe -->
             <div class="shop-mode-card" data-mode="bakery-cafe" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
               <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">☕ Bakery &amp; Café</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Coffee &amp; baked goods. Fast touch grid + recipe ingredients.</p>
-            </div>
-
-            <!-- Mode 5: Grocery & Mart -->
-            <div class="shop-mode-card" data-mode="grocery-mart" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">🧺 Grocery &amp; Mart</h4>
-              <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Supermarket mart. Loose bulk weight + fast barcode checkout.</p>
             </div>
 
             <!-- Mode 6: Pharmacy & Medical -->
@@ -3758,65 +4120,89 @@
               <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">💊 Pharmacy &amp; Medical</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Medicine shop. Batch #, expiry alerts &amp; Rx requirement.</p>
             </div>
-            
-            <!-- Mode 7: Repair & Services -->
-            <div class="shop-mode-card" data-mode="repair-services" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">🔧 Repair &amp; Service</h4>
-              <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Device repair &amp; workshops. Job cards, labor &amp; parts warranty.</p>
-            </div>
 
-            <!-- Mode 8: Services & Booking -->
-            <div class="shop-mode-card" data-mode="services-appointments" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">📅 Services &amp; Booking</h4>
-              <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Salons &amp; clinics. Time booking &amp; staff assignments.</p>
-            </div>
-
-            <!-- Mode 9: Electronics -->
+            <!-- Mode 7: Electronics -->
             <div class="shop-mode-card" data-mode="electronics-highvalue" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">📱 Electronics</h4>
-              <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">High-value devices. Serial numbers &amp; warranty tracking.</p>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">📱 Electronics &amp; Mobile</h4>
+              <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">High-value devices. Serial numbers, IMEI &amp; warranty tracking.</p>
             </div>
 
-            <!-- Mode 10: Weight-Based Pricing -->
-            <div class="shop-mode-card" data-mode="weight-pricing" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">⚖️ Weight Pricing</h4>
-              <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Spices, meat &amp; grain. Per-kg rate calculation at scale.</p>
-            </div>
-
-            <!-- Mode 11: Jewelry & Luxury Goods -->
-            <div class="shop-mode-card" data-mode="jewelry-luxury" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">💎 Jewelry &amp; Luxury</h4>
-              <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Gold &amp; gemstones. Karat purity, gram weight &amp; vault certificate ID.</p>
-            </div>
-
-            <!-- Mode 12: Auto Parts & Mechanics -->
-            <div class="shop-mode-card" data-mode="auto-parts" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
+            <!-- Mode 8: Auto Spare Parts -->
+            <div class="shop-mode-card" data-mode="automotive-car" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
               <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">🚗 Auto Spare Parts</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Vehicle spares. VIN/OEM part numbers &amp; vehicle model matching.</p>
             </div>
 
+            <!-- Mode 9: Auto Workshop & Mechanic -->
+            <div class="shop-mode-card" data-mode="mechanic-workshop" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">🔧 Auto Workshop</h4>
+              <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Repair garages. Job cards, labor charges &amp; mechanic commissions.</p>
+            </div>
+
+            <!-- Mode 10: Salon & Beauty Spa -->
+            <div class="shop-mode-card" data-mode="salon-beauty" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">💇 Salon &amp; Beauty Spa</h4>
+              <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Hair &amp; beauty salons. Stylist bookings &amp; service commissions.</p>
+            </div>
+
+            <!-- Mode 11: Jewelry & Luxury Goods -->
+            <div class="shop-mode-card" data-mode="jewellery" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">💎 Jewelry &amp; Bullion</h4>
+              <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Gold &amp; diamonds. Karat purity, gram weight &amp; making charges.</p>
+            </div>
+
+            <!-- Mode 12: Books & Stationery -->
+            <div class="shop-mode-card" data-mode="books-stationery" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">📚 Books &amp; Stationery</h4>
+              <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Bookstore &amp; copy shop. ISBN scan, school kits &amp; ream packs.</p>
+            </div>
+
             <!-- Mode 13: Hardware & Construction -->
-            <div class="shop-mode-card" data-mode="hardware-construction" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">🏗️ Hardware &amp; Supplies</h4>
-              <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Building materials. Cut lengths, contractor accounts &amp; bulk pallets.</p>
+            <div class="shop-mode-card" data-mode="hardware-tools" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">🏗️ Hardware &amp; Tools</h4>
+              <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Building supplies. Cut lengths, contractor khata &amp; bulk pallets.</p>
             </div>
 
-            <!-- Mode 14: Pet Care & Veterinary -->
-            <div class="shop-mode-card" data-mode="pet-veterinary" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
+            <!-- Mode 14: Furniture & Home Decor -->
+            <div class="shop-mode-card" data-mode="furniture-home" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">🛋️ Furniture &amp; Decor</h4>
+              <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Furniture &amp; mattresses. Custom fabric booking &amp; delivery staging.</p>
+            </div>
+
+            <!-- Mode 15: Meat & Butchery -->
+            <div class="shop-mode-card" data-mode="butchery-meat" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">🥩 Fresh Meat &amp; Fish</h4>
+              <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Butchery cuts. Scale grams weighing, cut types &amp; cold storage.</p>
+            </div>
+
+            <!-- Mode 16: Pet Care & Vet -->
+            <div class="shop-mode-card" data-mode="pet-vet" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
               <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">🐾 Pet Care &amp; Vet</h4>
-              <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Pets &amp; supplies. Species records, grooming &amp; vet prescription diets.</p>
+              <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Pets &amp; vet feed. Species records, grooming &amp; prescription diets.</p>
             </div>
 
-            <!-- Mode 15: Bookstore & Stationery -->
-            <div class="shop-mode-card" data-mode="bookstore-stationery" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">📚 Bookstore &amp; Office</h4>
-              <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Books &amp; stationery. Fast ISBN scan, author index &amp; school kits.</p>
+            <!-- Mode 17: Optics & Eyewear -->
+            <div class="shop-mode-card" data-mode="optics-eyewear" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">👓 Optics &amp; Eyewear</h4>
+              <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Eyewear clinic. Sph/Cyl Rx lens powers &amp; designer frame tags.</p>
             </div>
 
-            <!-- Mode 16: Wholesale & Bulk Distribution -->
-            <div class="shop-mode-card" data-mode="wholesale-distribution" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">📦 Wholesale Distribution</h4>
+            <!-- Mode 18: Wholesale & Bulk Distribution -->
+            <div class="shop-mode-card" data-mode="wholesale-b2b" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">📦 Wholesale &amp; B2B</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Bulk B2B supply. Tiered case prices, tax invoices &amp; credit ledger.</p>
+            </div>
+
+            <!-- Mode 19: Services & Consulting -->
+            <div class="shop-mode-card" data-mode="services-consulting" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">💼 Services &amp; Agency</h4>
+              <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Agency &amp; repair. Hourly billing, retainers &amp; deliverable invoices.</p>
+            </div>
+
+            <!-- Mode 20: Custom Hybrid Enterprise -->
+            <div class="shop-mode-card" data-mode="custom-hybrid" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">⚡ Mixed Enterprise</h4>
+              <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Full hybrid suite. All fields: barcodes, serials, batches, weights &amp; mods.</p>
             </div>
           </div>
 
@@ -3923,6 +4309,45 @@
 
       <!-- Hidden submit trigger for existing JS handler -->
       <button id="btn-submit-wizard" style="display:none;"></button>
+
+      <!-- Template Library Modal (Scoped to Setup Wizard) -->
+      <div class="pos-modal-backdrop" id="modal-wizard-templates" style="display: none; flex-direction: column; align-items: center; justify-content: flex-start; z-index: 12000; position: fixed; inset: 0; width: 100vw; height: 100%; height: 100dvh; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; touch-action: pan-y; overscroll-behavior-y: auto; padding: max(env(safe-area-inset-top, 24px), 24px) 16px max(env(safe-area-inset-bottom, 24px), 24px) 16px; box-sizing: border-box;">
+        <div style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 12px; padding: 28px; width: 560px; max-width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,0.6); margin: auto 0; flex-shrink: 0; box-sizing: border-box;">
+          <h3 style="margin-top: 0; font-family: var(--font-display); text-transform: uppercase; color: var(--text-white); font-size: 16px; letter-spacing: 0.5px;">Business Template Library</h3>
+          <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 20px;">Choose a pre-packaged template to instantly configure taxes, receipt structure, and shop settings.</p>
+          
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; max-height: 300px; overflow-y: auto; padding-right: 6px;">
+            <div class="wizard-template-card" data-template="retail" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
+              <h4 style="font-size: 12px; margin: 0 0 4px 0; color: var(--text-white);">Standard Retail</h4>
+              <p style="font-size: 10px; color: var(--text-gray); margin: 0;">8.5% Tax. Perfect for grocery, apparel, or general retail shops.</p>
+            </div>
+            <div class="wizard-template-card" data-template="fashion" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
+              <h4 style="font-size: 12px; margin: 0 0 4px 0; color: var(--text-white);">Fashion &amp; Boutique</h4>
+              <p style="font-size: 10px; color: var(--text-gray); margin: 0;">12.0% Tax. Apparel focus, pre-loaded sizes/colors.</p>
+            </div>
+            <div class="wizard-template-card" data-template="restaurant" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
+              <h4 style="font-size: 12px; margin: 0 0 4px 0; color: var(--text-white);">Restaurant &amp; Dining</h4>
+              <p style="font-size: 10px; color: var(--text-gray); margin: 0;">15.0% Tax. Enforces FBR taxation rules.</p>
+            </div>
+            <div class="wizard-template-card" data-template="services" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
+              <h4 style="font-size: 12px; margin: 0 0 4px 0; color: var(--text-white);">Salons &amp; Booking</h4>
+              <p style="font-size: 10px; color: var(--text-gray); margin: 0;">6.0% Tax. Staff bookings and session buffers.</p>
+            </div>
+            <div class="wizard-template-card" data-template="electronics" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
+              <h4 style="font-size: 12px; margin: 0 0 4px 0; color: var(--text-white);">High-Value Devices</h4>
+              <p style="font-size: 10px; color: var(--text-gray); margin: 0;">10.0% Tax. Tracking serial numbers and warranties.</p>
+            </div>
+            <div class="wizard-template-card" data-template="convenience" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
+              <h4 style="font-size: 12px; margin: 0 0 4px 0; color: var(--text-white);">Gas &amp; Convenience</h4>
+              <p style="font-size: 10px; color: var(--text-gray); margin: 0;">4.0% Tax. Fast checkout flow.</p>
+            </div>
+          </div>
+          
+          <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
+            <button type="button" id="btn-close-wizard-templates" class="action-btn action-cancel" style="padding: 10px 20px;">Cancel</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   <script>
@@ -4244,6 +4669,8 @@
   <script src="worker-inline.js"></script>
   <!-- DEALS ENGINE — Bundles / Combos / Specials / Kits -->
   <script src="modules/deals-engine.js"></script>
+  <!-- MULTI-INDUSTRY STORE MODES ENGINE -->
+  <script src="modules/store-modes.js"></script>
   <script src="app.js"></script>
 
   <script src="sw-loader.js"></script>
@@ -4251,44 +4678,6 @@
   <!-- Confetti Canvas (Phase 6) -->
   <canvas id="confetti-canvas" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 13000; display: none;"></canvas>
 
-  <!-- Template Library Modal (Phase 6) -->
-  <div class="pos-modal-backdrop" id="modal-wizard-templates" style="display: none; flex-direction: column; align-items: center; justify-content: flex-start; z-index: 12000; position: fixed; inset: 0; width: 100vw; height: 100%; height: 100dvh; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; touch-action: pan-y; overscroll-behavior-y: auto; padding: max(env(safe-area-inset-top, 24px), 24px) 16px max(env(safe-area-inset-bottom, 24px), 24px) 16px; box-sizing: border-box;">
-    <div style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 12px; padding: 28px; width: 560px; max-width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,0.6); margin: auto 0; flex-shrink: 0; box-sizing: border-box;">
-      <h3 style="margin-top: 0; font-family: var(--font-display); text-transform: uppercase; color: var(--text-white); font-size: 16px; letter-spacing: 0.5px;">Business Template Library</h3>
-      <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 20px;">Choose a pre-packaged template to instantly configure taxes, receipt structure, and shop settings.</p>
-      
-      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; max-height: 300px; overflow-y: auto; padding-right: 6px;">
-        <div class="wizard-template-card" data-template="retail" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
-          <h4 style="font-size: 12px; margin: 0 0 4px 0; color: var(--text-white);">Standard Retail</h4>
-          <p style="font-size: 10px; color: var(--text-gray); margin: 0;">8.5% Tax. Perfect for grocery, apparel, or general retail shops.</p>
-        </div>
-        <div class="wizard-template-card" data-template="fashion" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
-          <h4 style="font-size: 12px; margin: 0 0 4px 0; color: var(--text-white);">Fashion &amp; Boutique</h4>
-          <p style="font-size: 10px; color: var(--text-gray); margin: 0;">12.0% Tax. Apparel focus, pre-loaded sizes/colors.</p>
-        </div>
-        <div class="wizard-template-card" data-template="restaurant" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
-          <h4 style="font-size: 12px; margin: 0 0 4px 0; color: var(--text-white);">Restaurant &amp; Dining</h4>
-          <p style="font-size: 10px; color: var(--text-gray); margin: 0;">15.0% Tax. Enforces FBR taxation rules.</p>
-        </div>
-        <div class="wizard-template-card" data-template="services" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
-          <h4 style="font-size: 12px; margin: 0 0 4px 0; color: var(--text-white);">Salons &amp; Booking</h4>
-          <p style="font-size: 10px; color: var(--text-gray); margin: 0;">6.0% Tax. Staff bookings and session buffers.</p>
-        </div>
-        <div class="wizard-template-card" data-template="electronics" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
-          <h4 style="font-size: 12px; margin: 0 0 4px 0; color: var(--text-white);">High-Value Devices</h4>
-          <p style="font-size: 10px; color: var(--text-gray); margin: 0;">10.0% Tax. Tracking serial numbers and warranties.</p>
-        </div>
-        <div class="wizard-template-card" data-template="convenience" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
-          <h4 style="font-size: 12px; margin: 0 0 4px 0; color: var(--text-white);">Gas &amp; Convenience</h4>
-          <p style="font-size: 10px; color: var(--text-gray); margin: 0;">4.0% Tax. Fast checkout flow.</p>
-        </div>
-      </div>
-      
-      <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
-        <button type="button" id="btn-close-wizard-templates" class="action-btn action-cancel" style="padding: 10px 20px;">Cancel</button>
-      </div>
-    </div>
-  </div>
   <script src="barcode-decoder.js"></script>
   <script src="barcode-scanner.js"></script>
 <script>

@@ -20064,8 +20064,684 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       }
     };
   }
-  window.renderStockTransferScreen = renderStockTransferScreen;
+  // ============================================================================
+  // VALENIXIA DATA IMPORT STUDIO & BATCH EXECUTION ENGINE (v2.9.0)
+  // ============================================================================
+  const ValenixiaImportEngine = {
+    activeParsedData: null,
+    activeMapping: {},
+
+    // 1. Downloadable Sample CSV Templates
+    generateSampleCsv(domainKey) {
+      const modeInfo = (window.ValenixiaStoreModes && typeof window.ValenixiaStoreModes.getMode === 'function') 
+        ? window.ValenixiaStoreModes.getMode(domainKey)
+        : null;
+
+      const headers = ['Product Name', 'Selling Price', 'SKU', 'Barcode', 'Cost Price', 'Stock Quantity', 'Category', 'Unit', 'Tax Override %', 'Batch Number', 'Expiry Date'];
+      
+      let rows = [];
+      if (modeInfo && Array.isArray(modeInfo.sampleProducts) && modeInfo.sampleProducts.length > 0) {
+        rows = modeInfo.sampleProducts.map(p => [
+          `"${(p.name || '').replace(/"/g, '""')}"`,
+          p.price || 100,
+          `"${p.sku || p.barcode || ''}"`,
+          `"${p.barcode || ''}"`,
+          p.cost || 0,
+          p.stock || 50,
+          `"${p.category || 'General'}"`,
+          `"${p.unit || 'pcs'}"`,
+          '',
+          `"${p.batch || ''}"`,
+          `"${p.expiry || ''}"`
+        ]);
+      } else {
+        rows = [
+          ['"Mineral Water 1.5L"', '100.00', '"SKU-WAT-001"', '"896400012345"', '75.00', '120', '"Beverages"', '"Bottle"', '0', '""', '""'],
+          ['"Potato Chips Masala 50g"', '60.00', '"SKU-CHP-002"', '"896400012346"', '45.00', '200', '"Snacks & Confectionery"', '"Pack"', '0', '""', '""'],
+          ['"Basmati Rice Premium 1kg"', '380.00', '"SKU-RIC-003"', '"896400021001"', '310.00', '80', '"Rice & Grains"', '"kg"', '0', '"BN-882"', '"2027-12-31"']
+        ];
+      }
+
+      return [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+    },
+
+    downloadTemplate(domainKey = 'simple-retail') {
+      const csv = this.generateSampleCsv(domainKey);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `valenixia-catalog-template-${domainKey}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (typeof showNotificationToast === 'function') {
+        showNotificationToast(`Downloaded sample template for ${domainKey}`, 'success', 3000);
+      }
+    },
+
+    // 2. RFC 4180 Compliant CSV / TSV Parser with Quote Escaping & Delimiter Auto-Detection
+    parseCsv(rawText) {
+      if (!rawText || typeof rawText !== 'string') return { headers: [], rows: [], rawRows: [] };
+      
+      // Strip UTF-8 Byte Order Mark (BOM)
+      let text = rawText.charCodeAt(0) === 0xFEFF ? rawText.slice(1) : rawText;
+
+      // Auto-detect delimiter from the first line
+      const firstLine = text.split(/\r\n|\n|\r/)[0] || '';
+      let delimiter = ',';
+      const commaCount = (firstLine.match(/,/g) || []).length;
+      const tabCount = (firstLine.match(/\t/g) || []).length;
+      const semiCount = (firstLine.match(/;/g) || []).length;
+      const pipeCount = (firstLine.match(/\|/g) || []).length;
+
+      if (tabCount > commaCount && tabCount > semiCount) delimiter = '\t';
+      else if (semiCount > commaCount && semiCount > tabCount) delimiter = ';';
+      else if (pipeCount > commaCount && pipeCount > tabCount) delimiter = '|';
+
+      const rawRows = [];
+      let currentRow = [];
+      let currentVal = '';
+      let insideQuotes = false;
+
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const nextChar = text[i + 1];
+
+        if (char === '"') {
+          if (insideQuotes && nextChar === '"') {
+            currentVal += '"';
+            i++; // skip next escaped quote
+          } else {
+            insideQuotes = !insideQuotes;
+          }
+        } else if (char === delimiter && !insideQuotes) {
+          currentRow.push(currentVal.trim());
+          currentVal = '';
+        } else if ((char === '\r' || char === '\n') && !insideQuotes) {
+          if (char === '\r' && nextChar === '\n') i++; // Skip \r\n
+          currentRow.push(currentVal.trim());
+          if (currentRow.some(cell => cell.length > 0)) {
+            rawRows.push(currentRow);
+          }
+          currentRow = [];
+          currentVal = '';
+        } else {
+          currentVal += char;
+        }
+      }
+      if (currentVal.length > 0 || currentRow.length > 0) {
+        currentRow.push(currentVal.trim());
+        if (currentRow.some(cell => cell.length > 0)) {
+          rawRows.push(currentRow);
+        }
+      }
+
+      if (rawRows.length === 0) return { headers: [], rows: [], rawRows: [], delimiter };
+
+      const headers = rawRows[0].map(h => h.replace(/^["']|["']$/g, '').trim());
+      const dataRows = rawRows.slice(1);
+
+      const rows = dataRows.map((r, rowIdx) => {
+        const obj = { _rowId: rowIdx + 1 };
+        headers.forEach((h, hIdx) => {
+          obj[h] = r[hIdx] !== undefined ? r[hIdx] : '';
+        });
+        return obj;
+      });
+
+      return { headers, rows, rawRows: dataRows, delimiter };
+    },
+
+    // 3. Intelligent Fuzzy Column Mapping
+    autoMapHeaders(headers) {
+      const mapping = {
+        name: '',
+        price: '',
+        sku: '',
+        cost: '',
+        stock: '',
+        category: '',
+        unit: '',
+        batch: '',
+        expiry: '',
+        tax: ''
+      };
+
+      const matchPatterns = {
+        name: [/^product[\s_]?name$/i, /^name$/i, /^title$/i, /^item[\s_]?name$/i, /^item$/i, /^description$/i, /^product$/i],
+        price: [/^selling[\s_]?price$/i, /^sale[\s_]?price$/i, /^retail[\s_]?price$/i, /^price$/i, /^rate$/i, /^mrp$/i, /^unit[\s_]?price$/i],
+        sku: [/^sku$/i, /^barcode$/i, /^gtin$/i, /^upc$/i, /^ean$/i, /^item[\s_]?code$/i, /^code$/i],
+        cost: [/^cost[\s_]?price$/i, /^purchase[\s_]?price$/i, /^cost$/i, /^supplier[\s_]?cost$/i, /^buy[\s_]?price$/i],
+        stock: [/^stock[\s_]?quantity$/i, /^stock$/i, /^qty$/i, /^quantity$/i, /^inventory$/i, /^count$/i, /^units$/i],
+        category: [/^category$/i, /^group$/i, /^department$/i, /^dept$/i, /^type$/i, /^section$/i],
+        unit: [/^unit[\s_]?of[\s_]?measure$/i, /^uom$/i, /^unit$/i, /^measure$/i],
+        batch: [/^batch[\s_]?number$/i, /^batch$/i, /^lot[\s_]?number$/i, /^lot$/i, /^batch[\s_]?no$/i],
+        expiry: [/^expiry[\s_]?date$/i, /^expiry$/i, /^best[\s_]?before$/i, /^exp[\s_]?date$/i, /^exp$/i],
+        tax: [/^tax[\s_]?override$/i, /^tax[\s_]?rate$/i, /^tax$/i, /^gst$/i, /^vat$/i]
+      };
+
+      headers.forEach(h => {
+        const cleanHeader = h.trim();
+        for (const [field, patterns] of Object.entries(matchPatterns)) {
+          if (!mapping[field] && patterns.some(rgx => rgx.test(cleanHeader))) {
+            mapping[field] = cleanHeader;
+          }
+        }
+      });
+
+      return mapping;
+    }
+  };
+  window.ValenixiaImportEngine = ValenixiaImportEngine;
+
+  // Initialize Data Import Studio UI & Handlers
+  function initDataImportStudio() {
+    const modal = document.getElementById('modal-data-import-studio');
+    const btnOpen = document.getElementById('btn-open-import-studio');
+    const btnClose = document.getElementById('btn-close-import-studio');
+    if (!modal) return;
+
+    // Open & Close
+    if (btnOpen) {
+      btnOpen.addEventListener('click', () => {
+        if (typeof playAudioSignal === 'function') playAudioSignal('click');
+        modal.style.display = 'flex';
+        switchImportTab('guide');
+        
+        // Update active domain name in template tab
+        const activeMode = localStorage.getItem('valenixia_shop_mode') || 'simple-retail';
+        const modeObj = window.ValenixiaStoreModes ? window.ValenixiaStoreModes.getMode(activeMode) : null;
+        const txtDomain = document.getElementById('txt-template-active-domain-name');
+        if (txtDomain && modeObj) {
+          txtDomain.textContent = `${modeObj.icon} ${modeObj.name} Template`;
+        }
+      });
+    }
+    if (btnClose) {
+      btnClose.addEventListener('click', () => {
+        modal.style.display = 'none';
+      });
+    }
+
+    // Tab Switching
+    function switchImportTab(targetTab) {
+      const tabs = document.querySelectorAll('.import-tab-btn');
+      tabs.forEach(btn => {
+        const isMatch = btn.getAttribute('data-tab') === targetTab;
+        btn.classList.toggle('active', isMatch);
+        btn.style.color = isMatch ? 'var(--accent-emerald)' : 'var(--text-gray)';
+        btn.style.borderBottomColor = isMatch ? 'var(--accent-emerald)' : 'transparent';
+      });
+
+      const panels = document.querySelectorAll('.import-studio-panel');
+      panels.forEach(p => {
+        p.style.display = p.id === `import-panel-${targetTab}` ? 'block' : 'none';
+      });
+    }
+
+    document.querySelectorAll('.import-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.getAttribute('data-tab');
+        switchImportTab(tab);
+      });
+    });
+
+    document.querySelectorAll('.btn-import-next-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.getAttribute('data-target');
+        if (target) switchImportTab(target);
+      });
+    });
+
+    document.querySelectorAll('.btn-import-prev-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.getAttribute('data-target');
+        if (target) switchImportTab(target);
+      });
+    });
+
+    // Template Downloads
+    document.getElementById('btn-download-domain-template')?.addEventListener('click', () => {
+      const activeMode = localStorage.getItem('valenixia_shop_mode') || 'simple-retail';
+      ValenixiaImportEngine.downloadTemplate(activeMode);
+    });
+
+    document.getElementById('btn-download-universal-template')?.addEventListener('click', () => {
+      ValenixiaImportEngine.downloadTemplate('simple-retail');
+    });
+
+    // File Upload & Drag-and-Drop
+    const dropZone = document.getElementById('import-drop-zone');
+    const fileInput = document.getElementById('import-file-input');
+
+    if (dropZone && fileInput) {
+      dropZone.addEventListener('click', () => fileInput.click());
+
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = 'var(--accent-emerald)';
+        dropZone.style.background = 'rgba(0,214,143,0.08)';
+      });
+
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.style.borderColor = 'rgba(0,214,143,0.4)';
+        dropZone.style.background = 'rgba(0,214,143,0.03)';
+      });
+
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = 'rgba(0,214,143,0.4)';
+        dropZone.style.background = 'rgba(0,214,143,0.03)';
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          handleSelectedFile(e.dataTransfer.files[0]);
+        }
+      });
+
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          handleSelectedFile(e.target.files[0]);
+        }
+      });
+    }
+
+    function handleSelectedFile(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const rawContent = e.target.result;
+        const parsed = ValenixiaImportEngine.parseCsv(rawContent);
+        ValenixiaImportEngine.activeParsedData = parsed;
+        ValenixiaImportEngine.activeMapping = ValenixiaImportEngine.autoMapHeaders(parsed.headers);
+
+        // Update telemetry UI
+        const telemetry = document.getElementById('import-file-telemetry');
+        const nameEl = document.getElementById('import-file-name');
+        const sizeEl = document.getElementById('import-file-size');
+        const rowsEl = document.getElementById('import-detected-rows-count');
+        const colsEl = document.getElementById('import-detected-cols-count');
+        const delimEl = document.getElementById('import-detected-delimiter');
+        const btnNext = document.getElementById('btn-goto-mapping');
+
+        if (telemetry) telemetry.style.display = 'block';
+        if (nameEl) nameEl.textContent = file.name;
+        if (sizeEl) sizeEl.textContent = `(${Math.round(file.size / 1024)} KB)`;
+        if (rowsEl) rowsEl.textContent = parsed.rows.length;
+        if (colsEl) colsEl.textContent = parsed.headers.length;
+        if (delimEl) delimEl.textContent = `${parsed.delimiter === '\t' ? 'TAB' : (parsed.delimiter === ';' ? 'SEMICOLON' : 'COMMA')} DELIMITED`;
+
+        if (btnNext) {
+          btnNext.disabled = false;
+          btnNext.style.opacity = '1';
+        }
+
+        renderMappingGrid(parsed.headers, ValenixiaImportEngine.activeMapping);
+        renderPreviewTable(parsed.rows, ValenixiaImportEngine.activeMapping);
+        updateExecutionStats(parsed.rows, ValenixiaImportEngine.activeMapping);
+
+        if (typeof showNotificationToast === 'function') {
+          showNotificationToast(`Loaded ${parsed.rows.length} rows from ${file.name}`, 'success', 3000);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function renderMappingGrid(headers, currentMapping) {
+      const grid = document.getElementById('import-mapping-grid');
+      if (!grid) return;
+      grid.replaceChildren();
+
+      const targetFields = [
+        { key: 'name', label: 'Product Name', req: true },
+        { key: 'price', label: 'Selling Price (PKR)', req: true },
+        { key: 'sku', label: 'SKU / Barcode', req: false },
+        { key: 'cost', label: 'Cost Price (PKR)', req: false },
+        { key: 'stock', label: 'Stock Quantity', req: false },
+        { key: 'category', label: 'Category', req: false },
+        { key: 'unit', label: 'Unit of Measure', req: false },
+        { key: 'batch', label: 'Batch / Lot #', req: false },
+        { key: 'expiry', label: 'Expiry Date', req: false }
+      ];
+
+      targetFields.forEach(f => {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display: flex; flex-direction: column; gap: 4px;';
+        
+        const label = document.createElement('label');
+        label.style.cssText = 'font-size: 11px; font-weight: 700; color: var(--text-white); display: flex; justify-content: space-between;';
+        label.innerHTML = `<span>${f.label}</span> ${f.req ? '<span style="color:#ef4444; font-weight:800;">*</span>' : '<span style="color:var(--text-gray); font-size:10px;">(Opt)</span>'}`;
+        
+        const select = document.createElement('select');
+        select.className = 'pos-input';
+        select.style.cssText = 'font-size: 11px; padding: 6px 10px; height: 34px;';
+
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = '-- Not Mapped --';
+        select.appendChild(defaultOpt);
+
+        headers.forEach(h => {
+          const opt = document.createElement('option');
+          opt.value = h;
+          opt.textContent = h;
+          if (currentMapping[f.key] === h) {
+            opt.selected = true;
+          }
+          select.appendChild(opt);
+        });
+
+        select.addEventListener('change', () => {
+          ValenixiaImportEngine.activeMapping[f.key] = select.value;
+          renderPreviewTable(ValenixiaImportEngine.activeParsedData.rows, ValenixiaImportEngine.activeMapping);
+          updateExecutionStats(ValenixiaImportEngine.activeParsedData.rows, ValenixiaImportEngine.activeMapping);
+        });
+
+        wrap.appendChild(label);
+        wrap.appendChild(select);
+        grid.appendChild(wrap);
+      });
+    }
+
+    function renderPreviewTable(rows, mapping) {
+      const tbody = document.getElementById('import-preview-tbody');
+      if (!tbody) return;
+      tbody.replaceChildren();
+
+      const previewRows = rows.slice(0, 10);
+      if (previewRows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:16px;">No rows found in file.</td></tr>';
+        return;
+      }
+
+      previewRows.forEach((r, idx) => {
+        const tr = document.createElement('tr');
+        tr.style.cssText = 'border-bottom: 1px solid rgba(255,255,255,0.04);';
+
+        const nameVal = (mapping.name && r[mapping.name]) || `<span style="color:#ef4444;">(Missing)</span>`;
+        const rawPrice = mapping.price ? String(r[mapping.price] || '0').replace(/[^0-9.]/g, '') : '0';
+        const priceVal = parseFloat(rawPrice || '0').toFixed(2);
+        const skuVal = (mapping.sku && r[mapping.sku]) || `SKU-AUTO-${idx + 1}`;
+        const costVal = mapping.cost ? parseFloat(String(r[mapping.cost] || '0').replace(/[^0-9.]/g, '') || '0').toFixed(2) : '0.00';
+        const stockVal = mapping.stock ? parseInt(String(r[mapping.stock] || '100').replace(/[^0-9]/g, '') || '100', 10) : 100;
+        const catVal = (mapping.category && r[mapping.category]) || 'General';
+        const unitVal = (mapping.unit && r[mapping.unit]) || 'pcs';
+
+        tr.innerHTML = `
+          <td style="padding: 8px 10px; color: var(--text-muted); font-family: var(--font-mono);">${idx + 1}</td>
+          <td style="padding: 8px 10px; font-weight: 700; color: var(--text-white);">${nameVal}</td>
+          <td style="padding: 8px 10px; font-family: var(--font-mono); color: var(--accent-emerald);">${skuVal}</td>
+          <td style="padding: 8px 10px; font-family: var(--font-mono); color: var(--text-white);">${priceVal}</td>
+          <td style="padding: 8px 10px; font-family: var(--font-mono); color: var(--text-gray);">${costVal}</td>
+          <td style="padding: 8px 10px; font-family: var(--font-mono); color: var(--text-white);">${stockVal}</td>
+          <td style="padding: 8px 10px; color: var(--text-gray);">${catVal}</td>
+          <td style="padding: 8px 10px; color: var(--text-muted);">${unitVal}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function updateExecutionStats(rows, mapping) {
+      let total = rows.length;
+      let valid = 0;
+      let invalid = 0;
+
+      rows.forEach(r => {
+        const name = mapping.name ? r[mapping.name] : '';
+        const price = mapping.price ? parseFloat(String(r[mapping.price] || '0').replace(/[^0-9.]/g, '') || '0') : 0;
+        if (name && price > 0) valid++;
+        else invalid++;
+      });
+
+      const totalEl = document.getElementById('import-stat-total');
+      const validEl = document.getElementById('import-stat-valid');
+      const invalidEl = document.getElementById('import-stat-invalid');
+
+      if (totalEl) totalEl.textContent = total;
+      if (validEl) validEl.textContent = valid;
+      if (invalidEl) invalidEl.textContent = invalid;
+    }
+
+    // Batch Execution
+    document.getElementById('btn-execute-import-action')?.addEventListener('click', async () => {
+      const parsed = ValenixiaImportEngine.activeParsedData;
+      const mapping = ValenixiaImportEngine.activeMapping;
+      if (!parsed || !parsed.rows || parsed.rows.length === 0) {
+        if (typeof showNotificationToast === 'function') showNotificationToast('No file loaded to import.', 'error', 3000);
+        return;
+      }
+      if (!mapping.name || !mapping.price) {
+        if (typeof showNotificationToast === 'function') showNotificationToast('Please map Product Name and Selling Price columns before importing.', 'error', 4000);
+        switchImportTab('mapping');
+        return;
+      }
+
+      const dupPolicyEl = document.querySelector('input[name="import-duplicate-policy"]:checked');
+      const dupPolicy = dupPolicyEl ? dupPolicyEl.value : 'update'; // 'update' or 'skip'
+
+      const progressBox = document.getElementById('import-progress-container');
+      const progressBar = document.getElementById('import-progress-bar');
+      const progressPct = document.getElementById('import-progress-pct');
+      const progressStatus = document.getElementById('import-progress-status');
+      const btnExec = document.getElementById('btn-execute-import-action');
+
+      if (progressBox) progressBox.style.display = 'block';
+      if (btnExec) btnExec.disabled = true;
+
+      let importedCount = 0;
+      let updatedCount = 0;
+      let skippedCount = 0;
+      const totalRows = parsed.rows.length;
+
+      const newProducts = [];
+      const newCategories = new Set(state.categories || []);
+
+      for (let i = 0; i < totalRows; i++) {
+        const r = parsed.rows[i];
+        const name = (mapping.name && r[mapping.name] ? String(r[mapping.name]).trim() : '');
+        const rawPrice = mapping.price ? String(r[mapping.price] || '0').replace(/[^0-9.]/g, '') : '0';
+        const price = Math.round(parseFloat(rawPrice || '0') * 100);
+
+        if (!name || price <= 0) {
+          skippedCount++;
+          continue;
+        }
+
+        let sku = mapping.sku && r[mapping.sku] ? String(r[mapping.sku]).trim() : '';
+        const barcode = (mapping.sku && r[mapping.sku]) ? String(r[mapping.sku]).trim() : '';
+        if (!sku) sku = 'SKU-' + Date.now().toString(36).toUpperCase() + '-' + (i + 1);
+
+        const rawCost = mapping.cost ? String(r[mapping.cost] || '0').replace(/[^0-9.]/g, '') : '0';
+        const cost = Math.round(parseFloat(rawCost || '0') * 100);
+        const stock = mapping.stock ? parseInt(String(r[mapping.stock] || '100').replace(/[^0-9]/g, '') || '100', 10) : 100;
+        const category = (mapping.category && r[mapping.category] ? String(r[mapping.category]).trim() : 'General');
+        const unit = (mapping.unit && r[mapping.unit] ? String(r[mapping.unit]).trim() : 'pcs');
+        const batch = (mapping.batch && r[mapping.batch] ? String(r[mapping.batch]).trim() : '');
+        const expiry = (mapping.expiry && r[mapping.expiry] ? String(r[mapping.expiry]).trim() : '');
+        const taxRaw = mapping.tax && r[mapping.tax] ? parseFloat(String(r[mapping.tax]).replace(/[^0-9.]/g, '')) : null;
+
+        newCategories.add(category);
+
+        const existingIndex = state.catalog.findIndex(p => p.sku.toUpperCase() === sku.toUpperCase());
+        if (existingIndex >= 0) {
+          if (dupPolicy === 'skip') {
+            skippedCount++;
+            continue;
+          } else {
+            // Update existing
+            const existingProd = state.catalog[existingIndex];
+            existingProd.name = name;
+            existingProd.base_price_minor_units = price;
+            existingProd.cost_price_minor_units = cost;
+            existingProd.stock_quantity = stock;
+            existingProd.stock_level = stock;
+            existingProd.category = category;
+            existingProd.unit = unit;
+            if (batch) existingProd.batch_no = batch;
+            if (expiry) existingProd.expiry_date = expiry;
+            if (taxRaw !== null && !isNaN(taxRaw)) existingProd.tax_override = taxRaw;
+            
+            try {
+              if (window.ClientDB && typeof window.ClientDB.putProductClient === 'function') {
+                await window.ClientDB.putProductClient(existingProd);
+              }
+            } catch (_) {}
+            updatedCount++;
+          }
+        } else {
+          // Insert new
+          const prodObj = {
+            sku,
+            name,
+            gtin: barcode || sku,
+            base_price_minor_units: price,
+            cost_price_minor_units: cost,
+            stock_quantity: stock,
+            stock_level: stock,
+            low_stock_threshold: 10,
+            category,
+            unit,
+            batch_no: batch,
+            expiry_date: expiry,
+            tax_override: taxRaw !== null && !isNaN(taxRaw) ? taxRaw : null,
+            created_at: new Date().toISOString()
+          };
+
+          try {
+            if (window.ClientDB && typeof window.ClientDB.putProductClient === 'function') {
+              await window.ClientDB.putProductClient(prodObj);
+            }
+          } catch (_) {}
+
+          state.catalog.push(prodObj);
+          newProducts.push(prodObj);
+          importedCount++;
+        }
+
+        // Update progress bar
+        if (i % 20 === 0 || i === totalRows - 1) {
+          const pct = Math.round(((i + 1) / totalRows) * 100);
+          if (progressBar) progressBar.style.width = `${pct}%`;
+          if (progressPct) progressPct.textContent = `${pct}%`;
+          if (progressStatus) progressStatus.textContent = `Processing row ${i + 1} of ${totalRows}...`;
+        }
+      }
+
+      // Update state categories and persist
+      state.categories = Array.from(newCategories);
+      try {
+        if (window.ClientDB && typeof window.ClientDB.saveCategoriesClient === 'function') {
+          await window.ClientDB.saveCategoriesClient(state.categories);
+        }
+      } catch (_) {}
+
+      // Refresh catalog table & quick pos grid in 0ms
+      if (typeof renderCatalogTable === 'function') renderCatalogTable();
+      if (typeof renderCategoryFilters === 'function') renderCategoryFilters();
+      if (typeof renderQuickAccessCatalog === 'function') renderQuickAccessCatalog();
+      if (typeof triggerConfetti === 'function') triggerConfetti();
+      if (typeof playAudioSignal === 'function') playAudioSignal('success');
+
+      if (btnExec) btnExec.disabled = false;
+      if (progressStatus) progressStatus.textContent = `Completed! ${importedCount} added, ${updatedCount} updated, ${skippedCount} skipped.`;
+
+      setTimeout(() => {
+        modal.style.display = 'none';
+        if (typeof showNotificationToast === 'function') {
+          showNotificationToast(`Import Complete: ${importedCount} products added, ${updatedCount} updated!`, 'success', 4000);
+        }
+      }, 1200);
+    });
+  }
+
+  // Export Catalog to CSV Function
+  function exportCatalogToCsv() {
+    if (!state.catalog || state.catalog.length === 0) {
+      if (typeof showNotificationToast === 'function') showNotificationToast('No products in catalog to export.', 'info', 3000);
+      return;
+    }
+
+    const headers = ['Product Name', 'Selling Price', 'SKU', 'Barcode', 'Cost Price', 'Stock Quantity', 'Category', 'Unit', 'Tax Override %', 'Batch Number', 'Expiry Date'];
+    const rows = state.catalog.map(p => {
+      const price = ((p.base_price_minor_units || 0) / 100).toFixed(2);
+      const cost = ((p.cost_price_minor_units || 0) / 100).toFixed(2);
+      const stock = p.stock_quantity !== undefined ? p.stock_quantity : (p.stock || 0);
+      return [
+        `"${(p.name || '').replace(/"/g, '""')}"`,
+        price,
+        `"${p.sku || ''}"`,
+        `"${p.gtin || p.barcode || ''}"`,
+        cost,
+        stock,
+        `"${(p.category || 'General').replace(/"/g, '""')}"`,
+        `"${p.unit || 'pcs'}"`,
+        p.tax_override !== undefined && p.tax_override !== null ? p.tax_override : '',
+        `"${p.batch_no || ''}"`,
+        `"${p.expiry_date || ''}"`
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `valenixia-catalog-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    if (typeof showNotificationToast === 'function') {
+      showNotificationToast(`Exported ${state.catalog.length} products to CSV!`, 'success', 3000);
+    }
+  }
+
+  // Initialize Settings Store Mode Switcher
+  function initSettingsStoreMode() {
+    const selectEl = document.getElementById('settings-select-store-mode');
+    const badgeEl = document.getElementById('settings-active-mode-badge');
+    const btnApply = document.getElementById('btn-apply-settings-store-mode');
+
+    const activeMode = localStorage.getItem('valenixia_shop_mode') || 'simple-retail';
+    if (selectEl) selectEl.value = activeMode;
+    
+    if (window.ValenixiaStoreModes && typeof window.ValenixiaStoreModes.getMode === 'function') {
+      const modeObj = window.ValenixiaStoreModes.getMode(activeMode);
+      if (badgeEl && modeObj) badgeEl.textContent = `${modeObj.icon} ${modeObj.name}`;
+    }
+
+    if (btnApply && selectEl) {
+      btnApply.addEventListener('click', () => {
+        const newMode = selectEl.value;
+        if (window.ValenixiaStoreModes && typeof window.ValenixiaStoreModes.applyMode === 'function') {
+          const applied = window.ValenixiaStoreModes.applyMode(newMode);
+          if (badgeEl) badgeEl.textContent = `${applied.icon} ${applied.name}`;
+          if (typeof playAudioSignal === 'function') playAudioSignal('success');
+          if (typeof showNotificationToast === 'function') {
+            showNotificationToast(`Store Business Model updated to ${applied.name}!`, 'success', 3500);
+          }
+        }
+      });
+    }
+
+    // Export button listener
+    document.getElementById('btn-export-catalog-csv')?.addEventListener('click', () => {
+      exportCatalogToCsv();
+    });
+  }
+
+  // Initialize modules when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      initDataImportStudio();
+      initSettingsStoreMode();
+    });
+  } else {
+    initDataImportStudio();
+    initSettingsStoreMode();
+  }
 
   window.__staticallyUnbindAllRegistryListeners = typeof staticallyUnbindAllRegistryListeners !== 'undefined' ? staticallyUnbindAllRegistryListeners : function() {};
 })();
+
 
