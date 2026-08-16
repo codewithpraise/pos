@@ -2680,7 +2680,7 @@ const PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAAmPdCoDENbcrE6zLVqX0WUtnV9VRsL05HwFD9ypEARo=
 -----END PUBLIC KEY-----`;
 
-// Dynamic online Supabase store tier fetcher
+// Dynamic online Supabase store tier fetcher (Strict 1:1 hardware ID match)
 async function fetchOnlineSupabaseStoreTier(hwid) {
   try {
     const url = process.env.SUPABASE_URL;
@@ -2688,115 +2688,218 @@ async function fetchOnlineSupabaseStoreTier(hwid) {
     if (!url || !key) return null;
     const { createClient } = require('@supabase/supabase-js');
     const supa = createClient(url, key);
-    const cleanHwid = hwid ? String(hwid).trim() : null;
+    const cleanHwid = hwid ? String(hwid).trim().toUpperCase() : null;
+    if (!cleanHwid) return null;
 
-    let match = null;
-    if (cleanHwid) {
-      // 1. Check if store exists by hardware ID (case-insensitive lookup)
-      const { data: directData } = await supa
-        .from('stores')
-        .select('*')
-        .or(`id.eq.${cleanHwid},id.eq.${cleanHwid.toUpperCase()},id.eq.${cleanHwid.toLowerCase()}`);
-      if (directData && directData.length > 0) {
-        match = directData[0];
-      }
-    }
-
-    if (!match) {
-      const { data } = await supa.from('stores').select('id, plan, is_active, updated_at, created_at').limit(20);
-      if (data && data.length > 0) {
-        if (cleanHwid) {
-          match = data.find(s => String(s.id).toUpperCase() === cleanHwid.toUpperCase()) ||
-                  data.find(s => s.is_active && String(s.plan || '').toLowerCase() === 'enterprise') ||
-                  data.find(s => s.is_active) || data[0];
-        } else {
-          match = data.find(s => s.is_active && String(s.plan || '').toLowerCase() === 'enterprise') ||
-                  data.find(s => s.is_active) || data[0];
-        }
-      }
-    }
-
-    if (!match && cleanHwid) {
-      // Auto-provision store in Supabase with ENTERPRISE plan & immutable created_at
-      const nowIso = new Date().toISOString();
-      const newStore = {
-        id: cleanHwid.toUpperCase(),
-        name: 'Enterprise Register (' + cleanHwid.slice(0, 8) + ')',
-        plan: 'enterprise',
-        is_active: true,
-        created_at: nowIso,
-        updated_at: nowIso
+    // 1. Strict exact lookup by hardware ID in stores table
+    const { data: directData, error: dirErr } = await supa
+      .from('stores')
+      .select('*')
+      .or(`id.eq.${cleanHwid},id.eq.${cleanHwid.toLowerCase()}`);
+    
+    if (!dirErr && directData && directData.length > 0) {
+      const match = directData[0];
+      const tier = String(match.plan || match.tier || 'STARTER').toUpperCase();
+      const startTime = match.subscription_start_time || match.created_at || match.updated_at || new Date().toISOString();
+      const expiresAt = match.expires_at || null;
+      return {
+        tier,
+        plan: tier.toLowerCase(),
+        is_active: match.is_active !== false,
+        created_at: match.created_at || startTime,
+        subscription_start_time: startTime,
+        expires_at: expiresAt,
+        source: 'supabase_exact_store'
       };
-      try {
-        await supa.from('stores').insert(newStore);
-      } catch (_) {}
-      match = newStore;
     }
 
-    if (!match) return null;
-
-    return {
-      tier: String(match.plan || match.tier || 'enterprise').toUpperCase(),
-      created_at: match.created_at || match.updated_at || new Date().toISOString(),
-      updated_at: match.updated_at || match.created_at || new Date().toISOString()
-    };
+    return null;
   } catch (err) {
     console.warn('[SupabaseTierSync] Failed fetching online store tier:', err.message);
     return null;
   }
 }
 
-// Immutable in-memory HWID first-seen registry to guarantee countdown continuity
+// Persistent HWID in-memory cache backing
 const HWID_FIRST_SEEN_MAP = new Map();
 
-// GET /api/subscription/status - Dynamic online Supabase tier & subscription timestamp check
+// GET /api/subscription/status - Authoritative Hardware-Bound Tier & Countdown Status
 app.get('/api/subscription/status', async (req, res) => {
   try {
     const rawHwid = req.query.hwid || req.headers['x-device-hwid'] || null;
     const cleanHwid = rawHwid ? String(rawHwid).trim().toUpperCase() : 'DEFAULT_DEVICE';
-    const onlineInfo = await fetchOnlineSupabaseStoreTier(cleanHwid);
-    
-    let storeRow = null;
-    try {
-      storeRow = await db.get("SELECT * FROM stores LIMIT 1");
-    } catch (_) {}
+    const nowIso = new Date().toISOString();
+    const nowMs = Date.now();
 
-    const effectiveTier = onlineInfo ? onlineInfo.tier : ((storeRow && storeRow.tier) ? storeRow.tier : 'STARTER').toUpperCase();
-    
-    // Determine immutable first-seen timestamp for this hardware device ID
-    let createdTimeIso = onlineInfo ? onlineInfo.created_at : null;
-    if (HWID_FIRST_SEEN_MAP.has(cleanHwid)) {
-      createdTimeIso = HWID_FIRST_SEEN_MAP.get(cleanHwid);
-    } else if (createdTimeIso) {
-      HWID_FIRST_SEEN_MAP.set(cleanHwid, createdTimeIso);
-    } else if (storeRow && storeRow.created_at) {
-      createdTimeIso = typeof storeRow.created_at === 'number' ? new Date(storeRow.created_at).toISOString() : String(storeRow.created_at);
-      HWID_FIRST_SEEN_MAP.set(cleanHwid, createdTimeIso);
+    // 1. Check local persistent hardware_entitlements table
+    let localEnt = null;
+    if (typeof getHardwareEntitlement === 'function') {
+      localEnt = await getHardwareEntitlement(cleanHwid);
+    }
+
+    // 2. Check Supabase cloud registry
+    const onlineInfo = await fetchOnlineSupabaseStoreTier(cleanHwid);
+
+    let effectiveTier = 'STARTER';
+    let subStartTime = nowIso;
+    let firstActivatedAt = nowIso;
+    let expiresAt = null;
+    let durationMs = 30 * 24 * 60 * 60 * 1000;
+    let trialUsed = 0;
+    let trialStartedAt = null;
+    let billingCycle = 'MONTHLY';
+    let status = 'active';
+
+    if (onlineInfo && onlineInfo.is_active) {
+      effectiveTier = onlineInfo.tier;
+      subStartTime = onlineInfo.subscription_start_time || onlineInfo.created_at || nowIso;
+      firstActivatedAt = onlineInfo.created_at || subStartTime;
+      expiresAt = onlineInfo.expires_at || null;
+      if (!expiresAt) {
+        expiresAt = new Date(Date.parse(subStartTime) + durationMs).toISOString();
+      }
+
+      // Mirror to local hardware_entitlements table for offline resilience
+      if (typeof setHardwareEntitlement === 'function') {
+        localEnt = await setHardwareEntitlement(cleanHwid, {
+          tier: effectiveTier,
+          first_activated_at: firstActivatedAt,
+          subscription_start_time: subStartTime,
+          expires_at: expiresAt,
+          duration_ms: durationMs,
+          status: 'ACTIVE'
+        });
+      }
+    } else if (localEnt) {
+      effectiveTier = localEnt.tier || 'STARTER';
+      subStartTime = localEnt.subscription_start_time || localEnt.first_activated_at || nowIso;
+      firstActivatedAt = localEnt.first_activated_at || subStartTime;
+      expiresAt = localEnt.expires_at || null;
+      durationMs = localEnt.duration_ms || (30 * 24 * 60 * 60 * 1000);
+      trialUsed = localEnt.trial_used || 0;
+      trialStartedAt = localEnt.trial_started_at || null;
+      billingCycle = localEnt.billing_cycle || 'MONTHLY';
+      status = localEnt.status ? localEnt.status.toLowerCase() : 'active';
+      if (!expiresAt && billingCycle !== 'LIFETIME') {
+        expiresAt = new Date(Date.parse(subStartTime) + durationMs).toISOString();
+      }
     } else {
-      // First time seeing this device: record timestamp permanently
-      const nowIso = new Date().toISOString();
-      createdTimeIso = nowIso;
-      HWID_FIRST_SEEN_MAP.set(cleanHwid, nowIso);
-      if (storeRow && !storeRow.created_at) {
-        try {
-          await db.run("UPDATE stores SET created_at = ? WHERE id = ?", [nowIso, storeRow.id]);
-        } catch (_) {}
+      // First time this device has ever connected: anchor immutable registration
+      if (HWID_FIRST_SEEN_MAP.has(cleanHwid)) {
+        subStartTime = HWID_FIRST_SEEN_MAP.get(cleanHwid);
+        firstActivatedAt = subStartTime;
+      } else {
+        subStartTime = nowIso;
+        firstActivatedAt = nowIso;
+        HWID_FIRST_SEEN_MAP.set(cleanHwid, nowIso);
+      }
+      expiresAt = new Date(Date.parse(subStartTime) + durationMs).toISOString();
+
+      if (typeof setHardwareEntitlement === 'function') {
+        localEnt = await setHardwareEntitlement(cleanHwid, {
+          tier: effectiveTier,
+          first_activated_at: firstActivatedAt,
+          subscription_start_time: subStartTime,
+          expires_at: expiresAt,
+          duration_ms: durationMs,
+          status: 'ACTIVE'
+        });
       }
     }
 
+    const expiresAtMs = expiresAt ? Date.parse(expiresAt) : (Date.parse(subStartTime) + durationMs);
+
     res.json({
+      ok: true,
+      hwid: cleanHwid,
       tier: effectiveTier,
       plan: effectiveTier.toLowerCase(),
-      created_at: createdTimeIso,
-      start_time: createdTimeIso,
-      subscription_start_time: createdTimeIso,
-      updated_at: createdTimeIso,
-      status: 'active',
-      source: onlineInfo ? 'supabase_online' : 'local_database'
+      billing_cycle: billingCycle,
+      created_at: firstActivatedAt,
+      first_activated_at: firstActivatedAt,
+      start_time: subStartTime,
+      subscription_start_time: subStartTime,
+      expires_at: expiresAt,
+      expires_at_ms: expiresAtMs,
+      duration_ms: durationMs,
+      trial_used: trialUsed === 1,
+      trial_started_at: trialStartedAt,
+      server_time: nowMs,
+      status: status,
+      source: onlineInfo ? 'supabase_cloud' : (localEnt ? 'local_hardware_entitlement' : 'device_initialized')
     });
   } catch (err) {
-    const fallbackIso = new Date(1780000000000).toISOString();
-    res.json({ tier: 'ENTERPRISE', plan: 'enterprise', created_at: fallbackIso, start_time: fallbackIso, subscription_start_time: fallbackIso, updated_at: fallbackIso, status: 'active', source: 'local_fallback' });
+    const nowMs = Date.now();
+    const fallbackIso = new Date(nowMs).toISOString();
+    res.json({
+      ok: true,
+      tier: 'STARTER',
+      plan: 'starter',
+      created_at: fallbackIso,
+      start_time: fallbackIso,
+      subscription_start_time: fallbackIso,
+      expires_at: new Date(nowMs + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      expires_at_ms: nowMs + 30 * 24 * 60 * 60 * 1000,
+      server_time: nowMs,
+      status: 'active',
+      source: 'local_fallback'
+    });
+  }
+});
+
+// POST /api/admin/devices/entitlement - Admin Endpoint to Grant, Upgrade or Extend Device Subscription
+app.post('/api/admin/devices/entitlement', requireAdmin, adminActionLimiter, async (req, res) => {
+  try {
+    const { hwid, tier, billingCycle, durationDays, isLifetime, notes } = req.body || {};
+    if (!hwid) return res.status(400).json({ error: 'hwid is required' });
+    const cleanHwid = String(hwid).trim().toUpperCase();
+    const targetTier = (tier || 'ENTERPRISE').toUpperCase();
+    const cycle = isLifetime ? 'LIFETIME' : (billingCycle || 'MONTHLY').toUpperCase();
+    
+    const nowIso = new Date().toISOString();
+    const days = parseInt(durationDays, 10) || (cycle === 'ANNUAL' ? 365 : (cycle === 'LIFETIME' ? null : 30));
+    const durationMs = days ? days * 24 * 60 * 60 * 1000 : null;
+    const expiresAt = isLifetime ? null : (durationMs ? new Date(Date.now() + durationMs).toISOString() : null);
+
+    let updatedEnt = null;
+    if (typeof setHardwareEntitlement === 'function') {
+      updatedEnt = await setHardwareEntitlement(cleanHwid, {
+        tier: targetTier,
+        billing_cycle: cycle,
+        subscription_start_time: nowIso,
+        expires_at: expiresAt,
+        duration_ms: durationMs,
+        status: 'ACTIVE',
+        approved_by: 'ADMIN_API',
+        notes: notes || `Granted ${targetTier} via Admin API`
+      });
+    }
+
+    // Sync to Supabase if connected
+    try {
+      const url = process.env.SUPABASE_URL;
+      const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+      if (url && key) {
+        const { createClient } = require('@supabase/supabase-js');
+        const supa = createClient(url, key);
+        await supa.from('stores').upsert({
+          id: cleanHwid,
+          name: `Device ${cleanHwid.slice(0, 8)} (${targetTier})`,
+          plan: targetTier.toLowerCase(),
+          is_active: true,
+          subscription_start_time: nowIso,
+          expires_at: expiresAt,
+          updated_at: nowIso
+        });
+      }
+    } catch (supaErr) {
+      console.warn('[AdminEntitlement] Supabase sync notice:', supaErr.message);
+    }
+
+    broadcast({ type: 'device_entitlement_updated', hwid: cleanHwid, tier: targetTier });
+    res.json({ success: true, entitlement: updatedEnt });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

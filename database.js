@@ -393,6 +393,24 @@ async function initDatabase(terminalId) {
     BEGIN
       SELECT RAISE(ABORT, 'billing_events is append-only: DELETE operations prohibited');
     END;
+
+    CREATE TABLE IF NOT EXISTS hardware_entitlements (
+      hwid TEXT PRIMARY KEY,
+      tier TEXT NOT NULL DEFAULT 'STARTER',
+      plan TEXT NOT NULL DEFAULT 'starter',
+      billing_cycle TEXT NOT NULL DEFAULT 'MONTHLY',
+      first_activated_at TEXT NOT NULL,
+      subscription_start_time TEXT NOT NULL,
+      expires_at TEXT,
+      duration_ms INTEGER,
+      trial_used INTEGER DEFAULT 0,
+      trial_started_at TEXT,
+      status TEXT NOT NULL DEFAULT 'ACTIVE',
+      approved_by TEXT DEFAULT 'ADMIN',
+      notes TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
 
   // Ensure val_type column exists (in case the table was created by an older schema version)
@@ -767,7 +785,10 @@ async function initDatabase(terminalId) {
     } else if (v === 3) {
       // Version 3: Add val_type and backfill it
       try {
-        await db.exec("ALTER TABLE crsql_changes ADD COLUMN val_type TEXT DEFAULT 'string';");
+        const cols = await db.all("PRAGMA table_info(crsql_changes)");
+        if (!cols.some(c => c.name === 'val_type')) {
+          await db.exec("ALTER TABLE crsql_changes ADD COLUMN val_type TEXT DEFAULT 'string';");
+        }
       } catch (e) { /* ignore if already exists */ }
       
       // Perform detailed value-type inference backfills
@@ -844,15 +865,22 @@ async function initDatabase(terminalId) {
     } else if (v === 5) {
       // Version 5: Commission Fraud Tracking and Refined Refund Logic
       try {
-        await db.exec(`
-          ALTER TABLE commission_earnings ADD COLUMN device_id TEXT;
-          ALTER TABLE commission_earnings ADD COLUMN user_agent TEXT;
-          ALTER TABLE commission_earnings ADD COLUMN requires_review INTEGER DEFAULT 0;
-          ALTER TABLE commission_earnings ADD COLUMN review_notes TEXT;
-          ALTER TABLE commission_earnings ADD COLUMN reviewed_by TEXT;
-          ALTER TABLE commission_earnings ADD COLUMN reviewed_at INTEGER;
-          ALTER TABLE commission_earnings ADD COLUMN refund_amount_paisa INTEGER DEFAULT 0;
-        `);
+        const cols = await db.all("PRAGMA table_info(commission_earnings)");
+        const colNames = (cols || []).map(c => c.name);
+        const alters = [
+          { col: 'device_id', sql: 'ALTER TABLE commission_earnings ADD COLUMN device_id TEXT;' },
+          { col: 'user_agent', sql: 'ALTER TABLE commission_earnings ADD COLUMN user_agent TEXT;' },
+          { col: 'requires_review', sql: 'ALTER TABLE commission_earnings ADD COLUMN requires_review INTEGER DEFAULT 0;' },
+          { col: 'review_notes', sql: 'ALTER TABLE commission_earnings ADD COLUMN review_notes TEXT;' },
+          { col: 'reviewed_by', sql: 'ALTER TABLE commission_earnings ADD COLUMN reviewed_by TEXT;' },
+          { col: 'reviewed_at', sql: 'ALTER TABLE commission_earnings ADD COLUMN reviewed_at INTEGER;' },
+          { col: 'refund_amount_paisa', sql: 'ALTER TABLE commission_earnings ADD COLUMN refund_amount_paisa INTEGER DEFAULT 0;' }
+        ];
+        for (const item of alters) {
+          if (!colNames.includes(item.col)) {
+            await db.exec(item.sql);
+          }
+        }
         console.log('[Database] Migrated commission_earnings to v5.');
       } catch (err) {
         console.error('[Database] Failed to alter commission_earnings in v5:', err.message);
@@ -909,10 +937,14 @@ async function initDatabase(terminalId) {
       }
     } else if (v === 7) {
       try {
-        await db.exec(`
-          ALTER TABLE inventory_catalog ADD COLUMN mode_fields TEXT DEFAULT '{}';
-          ALTER TABLE inventory_catalog ADD COLUMN image_url TEXT DEFAULT '';
-        `);
+        const cols = await db.all("PRAGMA table_info(inventory_catalog)");
+        const colNames = (cols || []).map(c => c.name);
+        if (!colNames.includes('mode_fields')) {
+          await db.exec("ALTER TABLE inventory_catalog ADD COLUMN mode_fields TEXT DEFAULT '{}';");
+        }
+        if (!colNames.includes('image_url')) {
+          await db.exec("ALTER TABLE inventory_catalog ADD COLUMN image_url TEXT DEFAULT '';");
+        }
         console.log('[Database] Migrated database schema to v7 (inventory_catalog mode_fields & image_url).');
       } catch (err) {
         console.error('[Database] Failed to migrate database schema in v7:', err.message);
@@ -958,12 +990,20 @@ async function initDatabase(terminalId) {
       }
     } else if (v === 10) {
       try {
-        await db.exec(`
-          ALTER TABLE stores ADD COLUMN purchased_at INTEGER;
-          ALTER TABLE stores ADD COLUMN amc_paid_until INTEGER;
-          ALTER TABLE stores ADD COLUMN fbr_enabled INTEGER DEFAULT 0;
-          ALTER TABLE stores ADD COLUMN fbr_integrator TEXT;
-        `);
+        const cols = await db.all("PRAGMA table_info(stores)");
+        const colNames = (cols || []).map(c => c.name);
+        if (!colNames.includes('purchased_at')) {
+          await db.exec("ALTER TABLE stores ADD COLUMN purchased_at INTEGER;");
+        }
+        if (!colNames.includes('amc_paid_until')) {
+          await db.exec("ALTER TABLE stores ADD COLUMN amc_paid_until INTEGER;");
+        }
+        if (!colNames.includes('fbr_enabled')) {
+          await db.exec("ALTER TABLE stores ADD COLUMN fbr_enabled INTEGER DEFAULT 0;");
+        }
+        if (!colNames.includes('fbr_integrator')) {
+          await db.exec("ALTER TABLE stores ADD COLUMN fbr_integrator TEXT;");
+        }
         console.log('[Database] Migrated database schema to v10 (stores purchased_at, amc_paid_until, fbr_enabled & fbr_integrator).');
       } catch (err) {
         console.error('[Database] Failed to migrate database schema in v10:', err.message);
@@ -2201,6 +2241,71 @@ async function factoryResetDatabase() {
   }
 }
 
+async function getHardwareEntitlement(hwid) {
+  if (!hwid) return null;
+  const cleanHwid = String(hwid).trim().toUpperCase();
+  try {
+    return await db.get("SELECT * FROM hardware_entitlements WHERE hwid = ?", [cleanHwid]);
+  } catch (err) {
+    console.warn('[Database] Failed to get hardware entitlement:', err.message);
+    return null;
+  }
+}
+
+async function setHardwareEntitlement(hwid, data = {}) {
+  if (!hwid) return null;
+  const cleanHwid = String(hwid).trim().toUpperCase();
+  const nowIso = new Date().toISOString();
+  const nowMs = Date.now();
+
+  const existing = await getHardwareEntitlement(cleanHwid);
+  const firstActivatedAt = existing ? existing.first_activated_at : (data.first_activated_at || nowIso);
+  const subscriptionStartTime = data.subscription_start_time || (existing ? existing.subscription_start_time : nowIso);
+  const tier = (data.tier || (existing ? existing.tier : 'STARTER')).toUpperCase();
+  const plan = tier.toLowerCase();
+  const billingCycle = data.billing_cycle || (existing ? existing.billing_cycle : 'MONTHLY');
+  const durationMs = data.duration_ms !== undefined ? data.duration_ms : (existing ? existing.duration_ms : (30 * 24 * 60 * 60 * 1000));
+  
+  let expiresAt = data.expires_at !== undefined ? data.expires_at : (existing ? existing.expires_at : null);
+  if (expiresAt === undefined || (expiresAt === null && billingCycle !== 'LIFETIME' && durationMs)) {
+    const startMs = Date.parse(subscriptionStartTime) || nowMs;
+    expiresAt = new Date(startMs + durationMs).toISOString();
+  }
+
+  const trialUsed = data.trial_used !== undefined ? (data.trial_used ? 1 : 0) : (existing ? existing.trial_used : 0);
+  const trialStartedAt = data.trial_started_at !== undefined ? data.trial_started_at : (existing ? existing.trial_started_at : null);
+  const status = data.status || (existing ? existing.status : 'ACTIVE');
+  const approvedBy = data.approved_by || (existing ? existing.approved_by : 'ADMIN');
+  const notes = data.notes !== undefined ? data.notes : (existing ? existing.notes : '');
+
+  await db.run(`
+    INSERT INTO hardware_entitlements (
+      hwid, tier, plan, billing_cycle, first_activated_at, subscription_start_time,
+      expires_at, duration_ms, trial_used, trial_started_at, status, approved_by, notes,
+      created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(hwid) DO UPDATE SET
+      tier = excluded.tier,
+      plan = excluded.plan,
+      billing_cycle = excluded.billing_cycle,
+      subscription_start_time = excluded.subscription_start_time,
+      expires_at = excluded.expires_at,
+      duration_ms = excluded.duration_ms,
+      trial_used = excluded.trial_used,
+      trial_started_at = excluded.trial_started_at,
+      status = excluded.status,
+      approved_by = excluded.approved_by,
+      notes = excluded.notes,
+      updated_at = excluded.updated_at
+  `, [
+    cleanHwid, tier, plan, billingCycle, firstActivatedAt, subscriptionStartTime,
+    expiresAt, durationMs, trialUsed, trialStartedAt, status, approvedBy, notes,
+    existing ? existing.created_at : nowMs, nowMs
+  ]);
+
+  return await getHardwareEntitlement(cleanHwid);
+}
+
 module.exports = {
   initDatabase,
   db,
@@ -2218,6 +2323,8 @@ module.exports = {
   updateSecureTimeAnchor,
   saveTelemetryLog,
   factoryResetDatabase,
+  getHardwareEntitlement,
+  setHardwareEntitlement,
   logLocalChange,
   recalculateCachedStock,
   getDeviceStatus,

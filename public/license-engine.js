@@ -1224,9 +1224,20 @@ const LicenseEngine = (() => {
         }
       }
 
-      // Persistent 30-day subscription countdown for active SaaS tiers
+      // Persistent subscription countdown for active SaaS tiers
       const activeTier = (window.__valenixiaTier || localStorage.getItem('valenixia_tier') || '').toUpperCase();
+      const billingCycle = (localStorage.getItem('valenixia_billing_cycle') || 'MONTHLY').toUpperCase();
+      if (billingCycle === 'LIFETIME') return null;
+
       if (['GROWTH', 'PRO', 'ENTERPRISE', 'STARTER'].includes(activeTier)) {
+        let expiresAtMs = parseInt(localStorage.getItem('valenixia_subscription_expires_at'), 10);
+        if (isNaN(expiresAtMs) || expiresAtMs <= 0) {
+          const prefExp = await ValenixiaDB.get('local_preferences', 'valenixia_subscription_expires_at').catch(() => null);
+          if (prefExp && prefExp.value_payload) {
+            expiresAtMs = parseInt(prefExp.value_payload, 10);
+          }
+        }
+
         let subStartTime = parseInt(localStorage.getItem('valenixia_subscription_start_time'), 10);
         if (!subStartTime || isNaN(subStartTime)) {
           const pref = await ValenixiaDB.get('local_preferences', 'valenixia_subscription_start_time').catch(() => null);
@@ -1234,14 +1245,22 @@ const LicenseEngine = (() => {
             subStartTime = parseInt(pref.value_payload, 10);
           }
         }
-        if (!subStartTime || isNaN(subStartTime)) {
+
+        if ((!subStartTime || isNaN(subStartTime)) && (!expiresAtMs || isNaN(expiresAtMs))) {
           try {
             if (typeof syncOnlineSubscriptionTier === 'function') {
               await syncOnlineSubscriptionTier();
               subStartTime = parseInt(localStorage.getItem('valenixia_subscription_start_time'), 10);
+              expiresAtMs = parseInt(localStorage.getItem('valenixia_subscription_expires_at'), 10);
             }
           } catch (_) {}
         }
+
+        if (!isNaN(expiresAtMs) && expiresAtMs > 0) {
+          const remaining = expiresAtMs - Date.now();
+          return remaining > 0 ? remaining : 0;
+        }
+
         if (!subStartTime || isNaN(subStartTime)) {
           subStartTime = Date.now();
           localStorage.setItem('valenixia_subscription_start_time', String(subStartTime));
@@ -1255,7 +1274,8 @@ const LicenseEngine = (() => {
         } else {
           localStorage.setItem('valenixia_subscription_start_time', String(subStartTime));
         }
-        const DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 Days
+
+        const DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 Days default
         const remaining = (subStartTime + DURATION_MS) - Date.now();
         return remaining > 0 ? remaining : 0;
       }

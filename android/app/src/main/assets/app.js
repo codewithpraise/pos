@@ -16654,11 +16654,15 @@ setHtml(btnExportBeforeDelete, '<svg viewBox="0 0 24 24" width="13" height="13" 
         btnDeleteExecute.textContent = 'Deleting...';
         btnDeleteExecute.disabled = true;
         try {
+          const hwid = window.__valenixiaHWID || localStorage.getItem('valenixia_hwid');
           try {
             await fetch(window.__valenixiaServerUrl + '/api/system/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: pinInput }) });
           } catch (_) {}
           await ValenixiaDB.destructReset();
           localStorage.clear();
+          if (hwid) {
+            try { localStorage.setItem('valenixia_hwid', hwid); } catch (_) {}
+          }
           showNotificationToast('Store deleted. Redirecting to setup...', null, 2500);
           setTimeout(() => window.location.reload(), 2500);
         } catch (err) {

@@ -236,13 +236,32 @@ async function syncOnlineSubscriptionTier() {
 
       try {
         localStorage.setItem('valenixia_tier', fetchedTier);
+        if (data?.billing_cycle) localStorage.setItem('valenixia_billing_cycle', data.billing_cycle);
+        if (data?.trial_used !== undefined) localStorage.setItem('valenixia_trial_used', data.trial_used ? 'true' : 'false');
+        
         const serverStartIso = data?.subscription_start_time || data?.start_time || data?.created_at;
         const serverStartMs = serverStartIso ? Date.parse(serverStartIso) : NaN;
+
+        const serverExpIso = data?.expires_at;
+        const serverExpMs = data?.expires_at_ms || (serverExpIso ? Date.parse(serverExpIso) : NaN);
+
+        if (!isNaN(serverExpMs) && serverExpMs > 0) {
+          localStorage.setItem('valenixia_subscription_expires_at', String(serverExpMs));
+          if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
+            ValenixiaDB.put('local_preferences', {
+              key: 'valenixia_subscription_expires_at',
+              value_type: 'STR',
+              value_payload: String(serverExpMs),
+              is_idempotent_flag: 0,
+              updated_at: Date.now()
+            }).catch(() => {});
+          }
+        }
         
         let existingStartMs = parseInt(localStorage.getItem('valenixia_subscription_start_time'), 10);
-        // Only initialize start time if missing. NEVER reset existing countdown timer for established devices!
-        if (isNaN(existingStartMs) || existingStartMs <= 0) {
-          existingStartMs = (!isNaN(serverStartMs) && serverStartMs > 0) ? serverStartMs : Date.now();
+        // Authoritative server timestamp always anchors the countdown timer
+        if (!isNaN(serverStartMs) && serverStartMs > 0) {
+          existingStartMs = serverStartMs;
           localStorage.setItem('valenixia_subscription_start_time', String(existingStartMs));
           if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
             ValenixiaDB.put('local_preferences', {
@@ -253,9 +272,18 @@ async function syncOnlineSubscriptionTier() {
               updated_at: Date.now()
             }).catch(() => {});
           }
-        } else if (!isNaN(serverStartMs) && serverStartMs > 0 && serverStartMs < existingStartMs) {
-          existingStartMs = serverStartMs;
+        } else if (isNaN(existingStartMs) || existingStartMs <= 0) {
+          existingStartMs = Date.now();
           localStorage.setItem('valenixia_subscription_start_time', String(existingStartMs));
+          if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
+            ValenixiaDB.put('local_preferences', {
+              key: 'valenixia_subscription_start_time',
+              value_type: 'STR',
+              value_payload: String(existingStartMs),
+              is_idempotent_flag: 0,
+              updated_at: Date.now()
+            }).catch(() => {});
+          }
         }
       } catch(_) {}
 
