@@ -11479,6 +11479,10 @@ setHtml(tr, `
     const cleanName = screenName.replace('view-', '');
     state.activeScreen = cleanName;
 
+    if (typeof switchActiveScreen === 'function') {
+      return switchActiveScreen(cleanName);
+    }
+
     switch (cleanName) {
       case 'staff': if (typeof renderStaffScreen === 'function') renderStaffScreen(); break;
       case 'customers': if (typeof renderCustomersScreen === 'function') renderCustomersScreen(); break;
@@ -11491,6 +11495,14 @@ setHtml(tr, `
       case 'analytics': if (typeof calculateAnalytics === 'function') calculateAnalytics(); break;
       case 'subscription': if (typeof renderSubscriptionScreen === 'function') renderSubscriptionScreen(); break;
       case 'deals': if (typeof renderDealsScreen === 'function') renderDealsScreen(); break;
+      case 'kds': if (typeof renderKdsScreen === 'function') renderKdsScreen(); break;
+      case 'petty-cash': if (typeof renderPettyCashScreen === 'function') renderPettyCashScreen(); break;
+      case 'attendance': if (typeof renderAttendanceScreen === 'function') renderAttendanceScreen(); break;
+      case 'label-designer': if (typeof renderLabelDesignerScreen === 'function') renderLabelDesignerScreen(); break;
+      case 'inventory-ai': case 'inventory-forecast': if (typeof renderInventoryAiScreen === 'function') renderInventoryAiScreen(); break;
+      case 'loyalty': if (typeof renderLoyaltyScreen === 'function') renderLoyaltyScreen(); break;
+      case 'marketing': if (typeof renderMarketingScreen === 'function') renderMarketingScreen(); break;
+      case 'stock-transfer': if (typeof renderStockTransferScreen === 'function') renderStockTransferScreen(); break;
     }
     if (state.screenDirty) state.screenDirty[cleanName] = false;
   }
@@ -11499,12 +11511,16 @@ setHtml(tr, `
     if (typeof fn === 'function') {
       try { fn(); } catch(e) { console.warn('[ScheduleRender] Error rendering ' + screenName, e); }
     } else {
-      handleScreenSwitch(screenName);
+      if (typeof switchActiveScreen === 'function') {
+        switchActiveScreen(screenName);
+      } else {
+        handleScreenSwitch(screenName);
+      }
     }
   };
 
   window.__realHandlers = window.__realHandlers || {};
-  window.__realHandlers.switchActiveScreen = handleScreenSwitch;
+  window.__realHandlers.switchActiveScreen = typeof switchActiveScreen === 'function' ? switchActiveScreen : handleScreenSwitch;
   window.__realHandlers.scheduleScreenRender = window.scheduleScreenRender;
 
   // --- CRDT LOG CARD BUILDER & STATE-DRIVEN RENDERER ---
@@ -21466,15 +21482,36 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   window.renderStockTransferScreen = renderStockTransferScreen;
 
 
+  window.__realHandlers = window.__realHandlers || {};
+  window.__realHandlers.renderKdsScreen = renderKdsScreen;
+  window.__realHandlers.renderPettyCashScreen = renderPettyCashScreen;
+  window.__realHandlers.renderAttendanceScreen = renderAttendanceScreen;
+  window.__realHandlers.renderLabelDesignerScreen = renderLabelDesignerScreen;
+  window.__realHandlers.renderInventoryAiScreen = renderInventoryAiScreen;
+  window.__realHandlers.renderLoyaltyScreen = renderLoyaltyScreen;
+  window.__realHandlers.renderMarketingScreen = renderMarketingScreen;
+  window.__realHandlers.renderStockTransferScreen = renderStockTransferScreen;
+
   // Initialize modules when DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      initDataImportStudio();
-      initSettingsStoreMode();
-    });
-  } else {
+  function initNewModulesOnReady() {
     initDataImportStudio();
     initSettingsStoreMode();
+
+    const activeView = (state && state.activeScreen) || (window.ValenixiaRouter && window.ValenixiaRouter.currentScreen) || '';
+    if (activeView === 'kds') renderKdsScreen();
+    else if (activeView === 'petty-cash') renderPettyCashScreen();
+    else if (activeView === 'attendance') renderAttendanceScreen();
+    else if (activeView === 'label-designer') renderLabelDesignerScreen();
+    else if (activeView === 'inventory-ai' || activeView === 'inventory-forecast') renderInventoryAiScreen();
+    else if (activeView === 'loyalty') renderLoyaltyScreen();
+    else if (activeView === 'marketing') renderMarketingScreen();
+    else if (activeView === 'stock-transfer') renderStockTransferScreen();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initNewModulesOnReady);
+  } else {
+    initNewModulesOnReady();
   }
 
   window.__staticallyUnbindAllRegistryListeners = typeof staticallyUnbindAllRegistryListeners !== 'undefined' ? staticallyUnbindAllRegistryListeners : function() {};

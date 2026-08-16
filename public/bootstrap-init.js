@@ -219,7 +219,10 @@ const criticalFns = [
   'openProductEditModal', 'openCustomerCreateModal', 'openSupplierModal',
   'openEmployeeModal', 'openPurchaseOrderModal', 'handleCheckoutSubmit',
   'showCheckoutModal', 'setLanguage', 'applyI18n',
-  'openLegalDocumentModal', 'showLegalDocOverlay', 'closeLegalDocumentModal'
+  'openLegalDocumentModal', 'showLegalDocOverlay', 'closeLegalDocumentModal',
+  'renderKdsScreen', 'renderPettyCashScreen', 'renderAttendanceScreen',
+  'renderLabelDesignerScreen', 'renderInventoryAiScreen', 'renderLoyaltyScreen',
+  'renderMarketingScreen', 'renderStockTransferScreen'
 ];
 
 criticalFns.forEach(fnName => {
