@@ -82,11 +82,12 @@ test('6. Static emergency recovery fallback has overflow-y: auto in index.html',
   assert.ok(recoveryDiv[1].includes('justify-content:flex-start') || recoveryDiv[1].includes('justify-content: flex-start'), 'Recovery container uses justify-content: flex-start');
 });
 
-test('7. Business Template Modal has overflow-y: auto and box-sizing: border-box', () => {
-  const templateModal = html.match(/id="modal-wizard-templates"[\s\S]*?style="([^"]*)"/);
-  assert.ok(templateModal, 'Found modal-wizard-templates in index.html');
-  assert.ok(templateModal[1].includes('overflow-y: auto') || templateModal[1].includes('overflow-y:auto'), 'Template modal has overflow-y: auto');
-  assert.ok(templateModal[1].includes('box-sizing: border-box') || templateModal[1].includes('box-sizing:border-box'), 'Template modal has box-sizing: border-box');
+test('7. Business Template Modal removed & Step 3 Store Modes container has overflow-y: auto', () => {
+  const templateModal = html.match(/id="modal-wizard-templates"/);
+  assert.strictEqual(templateModal, null, 'modal-wizard-templates popup is cleanly removed');
+  const step3Grid = html.match(/class="shop-modes-grid"[\s\S]*?style="([^"]*)"/);
+  assert.ok(step3Grid, 'Found shop-modes-grid in index.html');
+  assert.ok(step3Grid[1].includes('overflow-y: auto') || step3Grid[1].includes('overflow-y:auto'), 'Step 3 Store modes grid has overflow-y: auto');
 });
 
 test('8. Android assets are synchronized with public folder', () => {

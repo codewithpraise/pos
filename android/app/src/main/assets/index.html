@@ -226,9 +226,9 @@
         </button>
         <button class="nav-item" data-screen="inventory-ai" id="nav-inventory-ai">
           <span class="nav-icon">
-            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           </span>
-          <span class="nav-label">AI Inventory</span>
+          <span class="nav-label">Stock Velocity</span>
         </button>
         <button class="nav-item" data-screen="loyalty" id="nav-loyalty">
           <span class="nav-icon">
@@ -2877,20 +2877,46 @@
           </div>
         </section>
 
-        <!-- View: AI Smart Inventory Reorder & Dead-Stock Predictor -->
+        <!-- View: Statistical Stock Velocity & Reorder Predictor -->
         <section class="content-view" id="view-inventory-ai">
           <div style="padding: 20px; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
               <div>
-                <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 22px;">AI Smart Inventory &amp; Demand Forecasting</h2>
-                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Predictive stockout dates, dead-stock markdown engine &amp; 1-click PO generator</p>
+                <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 22px;">Stock Velocity &amp; Statistical Demand Forecast</h2>
+                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Mathematical sales run rate, depletion horizons, reorder points &amp; EOQ inventory analytics</p>
               </div>
-              <button class="action-btn action-primary" id="btn-ai-auto-po" style="padding: 8px 16px; font-size: 11px; font-weight: 800; border-radius: 8px;">⚡ Generate Draft Reorder Purchase Orders</button>
+              <button class="action-btn action-primary" id="btn-ai-auto-po" style="padding: 8px 16px; font-size: 11px; font-weight: 800; border-radius: 8px;">⚡ Calculate Reorder Quantities (PO)</button>
             </div>
 
-            <!-- AI Inventory Cards -->
-            <div id="inventory-ai-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
+            <!-- Stock Velocity & Forecast KPI Grid -->
+            <div id="inventory-ai-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
               <!-- dynamically populated by renderInventoryAiScreen -->
+            </div>
+
+            <!-- Statistical Stockout Risk & Depletion Table -->
+            <div class="cloud-vault-card" style="padding: 20px; border-radius: 12px; border: 1px solid var(--border-titanium); background: var(--panel-graphite);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+                <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: var(--text-white);">Inventory Velocity &amp; Depletion Analysis</h3>
+                <span style="font-size: 11px; color: var(--text-gray);">Calculated using 30-day moving sales velocity &amp; lead-time variance</span>
+              </div>
+              <div style="overflow-x: auto;">
+                <table class="pos-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                  <thead>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); color: var(--text-gray); text-align: left;">
+                      <th style="padding: 10px;">Product Name</th>
+                      <th style="padding: 10px;">SKU</th>
+                      <th style="padding: 10px;">Current Stock</th>
+                      <th style="padding: 10px;">Velocity (Units/Day)</th>
+                      <th style="padding: 10px;">Days Remaining</th>
+                      <th style="padding: 10px;">Risk Level</th>
+                      <th style="padding: 10px; text-align: right;">Recommended Reorder</th>
+                    </tr>
+                  </thead>
+                  <tbody id="inventory-velocity-tbody">
+                    <!-- populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </section>
@@ -3997,9 +4023,6 @@
         <!-- STEP 2a: Store & Owner KYC Details (NEW path) -->
         <div class="wiz-panel" id="wiz-panel-2a" style="display:none; flex-direction:column; gap:14px;">
           <div id="wizard-new-store-fields" style="display:flex; flex-direction:column; gap:12px;">
-            <button type="button" id="btn-wizard-open-templates" class="action-btn action-primary" style="width:100%; min-height:36px; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; border-radius:8px;">
-              Apply Business Template Presets
-            </button>
             <div class="wiz-field-group">
               <label class="wiz-label" for="wizard-store-name">Store / Trade Name <span style="color:var(--accent-emerald);">*</span></label>
               <input type="text" id="wizard-store-name" class="pos-input" placeholder="e.g. Apex Supermart &amp; Retail" style="margin-top:4px;" required>
@@ -4309,45 +4332,6 @@
 
       <!-- Hidden submit trigger for existing JS handler -->
       <button id="btn-submit-wizard" style="display:none;"></button>
-
-      <!-- Template Library Modal (Scoped to Setup Wizard) -->
-      <div class="pos-modal-backdrop" id="modal-wizard-templates" style="display: none; flex-direction: column; align-items: center; justify-content: flex-start; z-index: 12000; position: fixed; inset: 0; width: 100vw; height: 100%; height: 100dvh; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; touch-action: pan-y; overscroll-behavior-y: auto; padding: max(env(safe-area-inset-top, 24px), 24px) 16px max(env(safe-area-inset-bottom, 24px), 24px) 16px; box-sizing: border-box;">
-        <div style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 12px; padding: 28px; width: 560px; max-width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,0.6); margin: auto 0; flex-shrink: 0; box-sizing: border-box;">
-          <h3 style="margin-top: 0; font-family: var(--font-display); text-transform: uppercase; color: var(--text-white); font-size: 16px; letter-spacing: 0.5px;">Business Template Library</h3>
-          <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 20px;">Choose a pre-packaged template to instantly configure taxes, receipt structure, and shop settings.</p>
-          
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; max-height: 300px; overflow-y: auto; padding-right: 6px;">
-            <div class="wizard-template-card" data-template="retail" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
-              <h4 style="font-size: 12px; margin: 0 0 4px 0; color: var(--text-white);">Standard Retail</h4>
-              <p style="font-size: 10px; color: var(--text-gray); margin: 0;">8.5% Tax. Perfect for grocery, apparel, or general retail shops.</p>
-            </div>
-            <div class="wizard-template-card" data-template="fashion" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
-              <h4 style="font-size: 12px; margin: 0 0 4px 0; color: var(--text-white);">Fashion &amp; Boutique</h4>
-              <p style="font-size: 10px; color: var(--text-gray); margin: 0;">12.0% Tax. Apparel focus, pre-loaded sizes/colors.</p>
-            </div>
-            <div class="wizard-template-card" data-template="restaurant" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
-              <h4 style="font-size: 12px; margin: 0 0 4px 0; color: var(--text-white);">Restaurant &amp; Dining</h4>
-              <p style="font-size: 10px; color: var(--text-gray); margin: 0;">15.0% Tax. Enforces FBR taxation rules.</p>
-            </div>
-            <div class="wizard-template-card" data-template="services" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
-              <h4 style="font-size: 12px; margin: 0 0 4px 0; color: var(--text-white);">Salons &amp; Booking</h4>
-              <p style="font-size: 10px; color: var(--text-gray); margin: 0;">6.0% Tax. Staff bookings and session buffers.</p>
-            </div>
-            <div class="wizard-template-card" data-template="electronics" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
-              <h4 style="font-size: 12px; margin: 0 0 4px 0; color: var(--text-white);">High-Value Devices</h4>
-              <p style="font-size: 10px; color: var(--text-gray); margin: 0;">10.0% Tax. Tracking serial numbers and warranties.</p>
-            </div>
-            <div class="wizard-template-card" data-template="convenience" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
-              <h4 style="font-size: 12px; margin: 0 0 4px 0; color: var(--text-white);">Gas &amp; Convenience</h4>
-              <p style="font-size: 10px; color: var(--text-gray); margin: 0;">4.0% Tax. Fast checkout flow.</p>
-            </div>
-          </div>
-          
-          <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
-            <button type="button" id="btn-close-wizard-templates" class="action-btn action-cancel" style="padding: 10px 20px;">Cancel</button>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
   <script>

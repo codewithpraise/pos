@@ -133,7 +133,7 @@
     },
     'inventory-ai': {
       viewId: 'view-inventory-ai',
-      title: 'AI Smart Inventory & Forecast',
+      title: 'Stock Velocity & Demand Forecast',
       renderer: 'renderInventoryAiScreen',
       renderTargets: ['inventory-ai-cards']
     },
