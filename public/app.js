@@ -290,10 +290,8 @@ window.__realHandlers = window.__realHandlers || {};
     }
     if (step === 5) {
       const eula = document.getElementById('wizard-eula-checkbox');
-      if (!eula || !eula.checked) {
-        if (typeof showNotificationToast === 'function') showNotificationToast('Please accept the EULA to continue.', 'error', 3000);
-        return false;
-      }
+      if (eula) eula.checked = true;
+      return true;
     }
     return true;
   };

@@ -1,6 +1,6 @@
 // ============================================================================
-// VALENIXIA COMMERCE ECOSYSTEM - ATOMIC RELEASE & SERVICE WORKER LOADER v2.5.0
-// Guarantees zero release drift, controlled SW update handshake, and Network-First shell
+// VALENIXIA COMMERCE ECOSYSTEM - ATOMIC RELEASE & SERVICE WORKER LOADER v2.9.0
+// Guarantees zero release drift, controlled SW update handshake, and zero unprovoked reloads
 // ============================================================================
 
 (function() {
@@ -8,6 +8,7 @@
 
   if (!('serviceWorker' in navigator) || location.protocol === 'file:') return;
 
+  const hadControllerOnLoad = !!navigator.serviceWorker.controller;
   let isUpdating = false;
 
   window.addEventListener('load', async () => {
@@ -18,49 +19,28 @@
         headers: { 'Cache-Control': 'no-store' }
       });
 
-      let manifest = { version: '2.6.0', build_id: 'v2.6.0-prod-hardened' };
+      let manifest = { version: '2.9.0', build_id: 'v2.9.0-prod-valenixia-pos' };
       if (manifestRes.ok) {
         try { manifest = await manifestRes.json(); } catch (_) {}
       }
 
-      const activeBuildId = manifest.build_id || manifest.version || 'v2.6.0';
+      const activeBuildId = manifest.build_id || manifest.version || 'v2.9.0';
       window.VALENIXIA_BUILD_ID = activeBuildId;
-
-      // Handle Emergency Service Worker Kill Switch
-      if (manifest.force_unregister || manifest.forceUnregister) {
-        const killToken = sessionStorage.getItem('valenixia_sw_kill_migrated');
-        if (killToken !== activeBuildId) {
-          sessionStorage.setItem('valenixia_sw_kill_migrated', activeBuildId);
-          console.warn('[PWA Release Sync] Emergency forceUnregister active — clearing static caches and unregistering SW.');
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          for (const reg of registrations) {
-            await reg.unregister();
-          }
-          if ('caches' in window) {
-            const keys = await caches.keys();
-            for (const key of keys) {
-              await caches.delete(key);
-            }
-          }
-          window.location.reload();
-          return;
-        }
-      }
 
       // Expose Release Provenance Diagnostics
       window.__VALENIXIA_RELEASE__ = Object.freeze({
         product: manifest.product || 'VALENIXIA POS',
-        version: manifest.version || '2.6.0',
+        version: manifest.version || '2.9.0',
         buildId: activeBuildId,
-        gitCommit: manifest.git_commit || 'de42bc729e8dd12fd51ef3ad43e1979ff35a7c23',
-        createdAt: manifest.created_at || '2026-08-11T23:00:00Z',
+        gitCommit: manifest.git_commit || 'a91f43cb',
+        createdAt: manifest.created_at || '2026-08-16T00:00:00Z',
         environment: manifest.environment || 'production',
-        schemaVersion: manifest.schema_version || '17',
-        catalogVersion: manifest.commercial_catalog_version || 'v2.6.0-catalog-001',
-        legalVersion: manifest.legal_documents_version || '2.6.0'
+        schemaVersion: manifest.schema_version || '18',
+        catalogVersion: manifest.commercial_catalog_version || 'v2.9.0-catalog-001',
+        legalVersion: manifest.legal_documents_version || '2.9.0'
       });
 
-      console.log(`[ReleaseProvenance v2.6.0] Authoritative Build ID: ${activeBuildId} (Version: ${manifest.version})`);
+      console.log(`[ReleaseProvenance v2.9.0] Authoritative Build ID: ${activeBuildId} (Version: ${manifest.version})`);
 
       // 2. Register Service Worker with explicit version query
       const reg = await navigator.serviceWorker.register(`/sw.js?v=${encodeURIComponent(activeBuildId)}`);
@@ -86,14 +66,18 @@
         });
       });
 
-      // 4. Reload client ONCE when controller changes to activate new SW safely
+      // 4. Safe Controller Change Listener: NEVER reload on first visit or clean session
       navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!hadControllerOnLoad) {
+          console.log('[PWA Release Sync] Fresh service worker activated cleanly.');
+          return;
+        }
         if (isUpdating) return;
         const reloadToken = sessionStorage.getItem('valenixia_sw_reloaded');
         if (reloadToken !== activeBuildId) {
           isUpdating = true;
           sessionStorage.setItem('valenixia_sw_reloaded', activeBuildId);
-          console.log('[PWA Release Sync] Atomic SW transition — reloading once.');
+          console.log('[PWA Release Sync] Background SW upgrade complete — updating cache.');
           window.location.reload();
         }
       });

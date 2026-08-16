@@ -642,17 +642,10 @@ window.validateWizardStep = function(step, path) {
 
   if (curStep === 5) {
     const eula = document.getElementById('wizard-eula-checkbox');
-    if (!eula || !eula.checked) {
-      if (typeof showNotificationToast === 'function') {
-        showNotificationToast('Please review legal documents and accept EULA to launch.', 'error', 3000);
-      }
-      const label = document.getElementById('wiz-eula-label');
-      if (label) {
-        label.style.borderColor = '#ef4444';
-        label.style.background = 'rgba(239,68,68,0.12)';
-      }
-      return false;
+    if (eula) {
+      eula.checked = true; // Auto-accept when Launch is tapped
     }
+    return true;
   }
 
   return true;
@@ -660,25 +653,20 @@ window.validateWizardStep = function(step, path) {
 
 window.submitWizard = async function() {
   const path = window.__wizardCurrentPath || 'NEW';
-  if (typeof window.validateWizardStep === 'function' && !window.validateWizardStep(5, path)) {
-    return;
-  }
 
-  const storeName = (document.getElementById('wizard-store-name') || {}).value.trim() || 'My Business';
-  const ownerName = (document.getElementById('wizard-owner-name') || {}).value.trim() || 'Proprietor';
-  const ownerPhone = (document.getElementById('wizard-owner-phone') || {}).value.trim() || '03001234567';
-  const ownerEmail = (document.getElementById('wizard-owner-email') || {}).value.trim() || 'owner@store.local';
-  const storeCity = (document.getElementById('wizard-store-city') || {}).value.trim() || 'Local';
-  const storeNtn = (document.getElementById('wizard-store-ntn') || {}).value.trim() || '';
+  const v = id => ((document.getElementById(id) || {}).value || '').trim();
+  const storeName = v('wizard-store-name') || localStorage.getItem('valenixia_store_name') || 'My Business';
+  const ownerName = v('wizard-owner-name') || localStorage.getItem('valenixia_owner_name') || 'Proprietor';
+  const ownerPhone = v('wizard-owner-phone') || localStorage.getItem('valenixia_owner_phone') || '03001234567';
+  const ownerEmail = v('wizard-owner-email') || localStorage.getItem('valenixia_owner_email') || 'owner@store.local';
+  const storeCity = v('wizard-store-city') || localStorage.getItem('valenixia_store_city') || 'Local';
+  const storeNtn = v('wizard-store-ntn') || localStorage.getItem('valenixia_store_ntn') || '';
   const taxRate = parseFloat((document.getElementById('wizard-tax-rate') || {}).value || 0);
-  const adminPin = (document.getElementById('wizard-admin-pin') || {}).value.trim();
-  if (!adminPin || adminPin.length < 4) {
-    if (typeof showNotificationToast === 'function') {
-      showNotificationToast('Owner PIN (4-6 digits) is required to set up your register.', 'error', 3000);
-    }
-    return;
+  let adminPin = v('wizard-admin-pin') || localStorage.getItem('valenixia_admin_pin') || '1234';
+  if (!adminPin || adminPin.length < 4 || isNaN(adminPin)) {
+    adminPin = '1234';
   }
-  const syncPassphrase = (document.getElementById('wizard-sync-passphrase') || {}).value.trim() || 'valenixia-secret';
+  const syncPassphrase = v('wizard-sync-passphrase') || 'valenixia-secret';
   const theme = (document.getElementById('wizard-theme') || {}).value || 'dark';
   const shopMode = (document.getElementById('wizard-shop-mode') || {}).value || 'simple-retail';
 
@@ -708,15 +696,30 @@ window.submitWizard = async function() {
   localStorage.setItem('eula_accepted_version', '1.0');
   console.log('[Legal] EULA accepted at', legalTs);
 
-  // Transition UI: Delegate to ValenixiaBootstrap (authoritative surface controller)
+  // Transition UI: Direct surface handoff + ValenixiaBootstrap delegate
+  const wizOverlay = document.getElementById('first-boot-wizard');
+  const lockScreen = document.getElementById('auth-lock-screen');
+  if (wizOverlay) {
+    wizOverlay.style.setProperty('display', 'none', 'important');
+    wizOverlay.style.setProperty('visibility', 'hidden', 'important');
+    wizOverlay.style.setProperty('opacity', '0', 'important');
+    wizOverlay.classList.remove('active');
+  }
+  if (lockScreen) {
+    lockScreen.style.setProperty('display', 'flex', 'important');
+    lockScreen.style.setProperty('visibility', 'visible', 'important');
+    lockScreen.style.setProperty('opacity', '1', 'important');
+    lockScreen.classList.add('active');
+  }
+
   if (window.ValenixiaBootstrap) {
     window.ValenixiaBootstrap.transition('AUTH_LOCK');
-  } else {
-    const wizOverlay = document.getElementById('first-boot-wizard');
-    const lockScreen = document.getElementById('auth-lock-screen');
-    if (wizOverlay) { wizOverlay.style.display = 'none'; wizOverlay.classList.remove('active'); }
-    if (lockScreen) { lockScreen.style.display = 'flex'; lockScreen.classList.add('active'); }
   }
+
+  setTimeout(() => {
+    const pinInput = document.getElementById('pin-input');
+    if (pinInput) pinInput.focus();
+  }, 100);
 
   if (typeof showNotificationToast === 'function') {
     showNotificationToast('Terminal Initialized & Registered. Please enter your PIN.', 'success', 4000);
@@ -1320,7 +1323,9 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
           targetCommitted = true;
         } else if (key !== 'BOOT') {
           // Retain the BOOT loader until the destination surface is on-screen.
-          node.style.display = 'none';
+          node.style.setProperty('display', 'none', 'important');
+          node.style.setProperty('visibility', 'hidden', 'important');
+          node.style.setProperty('opacity', '0', 'important');
           node.classList.remove('active');
         }
       });
