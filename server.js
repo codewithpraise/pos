@@ -5996,8 +5996,9 @@ app.get('/api/admin/entitlements/inspector', async (req, res) => {
   }
 });
 
-// Serve frontend shell entry
-app.get('*', (req, res, next) => {
+// Serve frontend shell entry for all non-API GET routes
+app.use((req, res, next) => {
+  if (req.method !== 'GET') return next();
   if (req.path.startsWith('/api/')) return next();
   res.setHeader('Content-Type', 'text/html; charset=UTF-8');
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

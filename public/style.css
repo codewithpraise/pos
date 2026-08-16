@@ -632,3 +632,53 @@ section.content-view.active,
   color: #ffffff;
 }
 
+/* ============================================================================
+   SUBSCRIPTION SEGMENTED CAPSULE TOGGLE
+   ============================================================================ */
+.billing-cycle-toggle,
+#billing-cycle-toggle-group {
+  display: inline-flex !important;
+  align-items: center !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid var(--border-titanium, rgba(255, 255, 255, 0.1)) !important;
+  padding: 4px !important;
+  border-radius: 12px !important;
+  gap: 4px !important;
+  box-sizing: border-box !important;
+}
+
+.billing-cycle-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 8px 18px !important;
+  font-family: var(--font-display, 'Outfit', sans-serif) !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.5px !important;
+  text-transform: uppercase !important;
+  border: 1px solid transparent !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  background: transparent !important;
+  color: var(--text-gray, #9ca3af) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
+  user-select: none !important;
+}
+
+.billing-cycle-btn:hover:not(.active) {
+  color: var(--text-white, #ffffff) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.billing-cycle-btn.active {
+  background: linear-gradient(135deg, #00d68f 0%, #00b074 100%) !important;
+  color: #060d0d !important;
+  font-weight: 900 !important;
+  box-shadow: 0 2px 10px rgba(0, 214, 143, 0.3) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+

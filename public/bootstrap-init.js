@@ -199,7 +199,6 @@ if (typeof window.switchActiveScreen !== 'function') {
 
 if (typeof window.showNotificationToast !== 'function') {
   window.showNotificationToast = function(message, actionCallback = null, duration = 5000) {
-    console.log('[Toast]', message);
     if (window.__realHandlers && typeof window.__realHandlers.showNotificationToast === 'function') {
       try { return window.__realHandlers.showNotificationToast(message, actionCallback, duration); } catch (_) {}
     }
@@ -356,7 +355,6 @@ window.handlePinEnter = function() {
       const layout = document.getElementById('pos-app-layout');
       if (lockScreen) { lockScreen.style.display = 'none'; lockScreen.classList.remove('active'); }
       if (layout) layout.style.display = 'grid';
-      if (typeof showNotificationToast === 'function') showNotificationToast('Register Unlocked', 'success', 2500);
     } else {
       if (typeof showNotificationToast === 'function') showNotificationToast('Invalid Security PIN', 'error', 2500);
       window.handlePinClear();

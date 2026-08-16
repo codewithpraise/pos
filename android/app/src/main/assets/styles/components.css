@@ -3784,10 +3784,14 @@ button:not(:disabled):active,
 
 /* Suppliers & Credit Book UI styles */
 .suppliers-split-grid {
-  display: grid;
-  grid-template-columns: 350px 1fr;
-  gap: 24px;
-  height: calc(100vh - 160px);
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)) !important;
+  gap: 20px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  height: auto !important;
+  min-height: unset !important;
+  align-items: start !important;
 }
 
 .supplier-item-card, .credit-item-card {

@@ -209,11 +209,11 @@
           </span>
           <span class="nav-label">Staff</span>
         </button>
-        <button class="nav-item" data-screen="kds" id="nav-kds">
+        <button class="nav-item" data-screen="kds" id="nav-kds" style="display: none;">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           </span>
-          <span class="nav-label">Kitchen Display</span>
+          <span class="nav-label">Kitchen Orders</span>
         </button>
         <button class="nav-item" data-screen="petty-cash" id="nav-petty-cash">
           <span class="nav-icon">
@@ -1134,57 +1134,61 @@
 
         <!-- View 9: Suppliers & Accounts Payable Directory -->
         <section class="content-view" id="view-suppliers">
-          <div class="view-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 18px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
-            <div>
-              <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Supplier Directory &amp; Accounts Payable</h2>
-              <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Distributor ledgers, purchase orders, goods receive notes (GRN), and vendor debts</p>
-            </div>
-            <button class="action-btn action-success" id="btn-suppliers-create" onclick="if(window.openSupplierModal)window.openSupplierModal();" style="padding: 10px 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; border-radius: 10px;">+ Add New Supplier</button>
-          </div>
-
-          <div class="suppliers-split-grid" style="display: grid; grid-template-columns: minmax(300px, 360px) 1fr; gap: 20px; min-height: 540px;">
-            <!-- Left Pane: Supplier List -->
-            <div style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
-              <input type="text" id="supplier-search-input" class="pos-input" placeholder="Search suppliers by name or phone..." oninput="if(window.renderSuppliersScreen)window.renderSuppliersScreen(this.value.toLowerCase().trim());" style="min-height: 40px; font-size: 12px; padding: 8px 14px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);" aria-label="Search suppliers by name or phone">
-              <div id="supplier-list-container" style="display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex-grow: 1; max-height: 520px;">
-                <!-- Populated dynamically by renderSuppliersScreen() -->
+          <div style="padding: 20px; max-width: 1400px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; overflow-x: hidden;">
+            <div class="view-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+              <div>
+                <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Supplier Directory &amp; Accounts Payable</h2>
+                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Distributor ledgers, purchase orders, goods receive notes (GRN), and vendor debts</p>
               </div>
+              <button class="btn-tactile btn-tactile-primary" id="btn-suppliers-create" onclick="if(window.openSupplierModal)window.openSupplierModal();" style="padding: 10px 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; border-radius: 10px;">+ Add New Supplier</button>
             </div>
 
-            <!-- Right Pane: Supplier Detail Ledger -->
-            <div style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px; display: flex; flex-direction: column;">
-              <div id="supplier-detail-empty" style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; padding: 60px 20px; text-align: center; color: var(--text-gray);">
-                <div style="font-size: 36px; margin-bottom: 12px;">🏭</div>
-                <h3 style="margin: 0; color: var(--text-white); font-size: 16px;">Select a Supplier</h3>
-                <p style="font-size: 12px; max-width: 320px; margin-top: 6px;">Choose a supplier from the list to view outstanding balance, purchase order history, and payment transactions.</p>
+            <div class="suppliers-split-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 20px; align-items: start;">
+              <!-- Left Pane: Supplier List -->
+              <div style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+                <input type="text" id="supplier-search-input" class="pos-input" placeholder="Search suppliers by name or phone..." oninput="if(window.renderSuppliersScreen)window.renderSuppliersScreen(this.value.toLowerCase().trim());" style="min-height: 40px; font-size: 12px; padding: 8px 14px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);" aria-label="Search suppliers by name or phone">
+                <div id="supplier-list-container" style="display: flex; flex-direction: column; gap: 8px;">
+                  <!-- Populated dynamically by renderSuppliersScreen() -->
+                </div>
               </div>
 
-              <div id="supplier-detail-panel" style="display: none; flex-direction: column; gap: 16px; flex-grow: 1;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 14px;">
-                  <div>
-                    <h3 id="supplier-detail-name" style="margin: 0; font-size: 18px; color: var(--text-white); font-family: var(--font-display);">Supplier Name</h3>
-                    <span id="supplier-detail-meta" style="font-size: 11px; color: var(--text-gray);">Phone: — | Email: —</span>
+              <!-- Right Pane: Supplier Detail Ledger -->
+              <div style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+                <div id="supplier-detail-empty" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 20px; text-align: center; color: var(--text-gray);">
+                  <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.08);">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 21h18M5 21V7l8-4v18M13 21V3l6 3v15"/></svg>
                   </div>
-                  <div style="text-align: right;">
-                    <span style="font-size: 10px; color: var(--text-gray); text-transform: uppercase; font-weight: 700; display: block;">Outstanding Debt</span>
-                    <strong id="supplier-detail-balance" style="font-size: 18px; color: var(--alert-coral); font-family: var(--font-display);">Rs. 0.00</strong>
+                  <h3 style="margin: 0; color: var(--text-white); font-size: 16px;">Select a Supplier</h3>
+                  <p style="font-size: 12px; max-width: 320px; margin-top: 6px;">Choose a supplier from the list to view outstanding balance, purchase order history, and payment transactions.</p>
+                </div>
+
+                <div id="supplier-detail-panel" style="display: none; flex-direction: column; gap: 16px;">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                      <h3 id="supplier-detail-name" style="margin: 0; font-size: 18px; color: var(--text-white); font-family: var(--font-display);">Supplier Name</h3>
+                      <span id="supplier-detail-meta" style="font-size: 11px; color: var(--text-gray);">Phone: — | Email: —</span>
+                    </div>
+                    <div style="text-align: right;">
+                      <span style="font-size: 10px; color: var(--text-gray); text-transform: uppercase; font-weight: 700; display: block;">Outstanding Debt</span>
+                      <strong id="supplier-detail-balance" style="font-size: 18px; color: var(--alert-coral); font-family: var(--font-display);">Rs. 0.00</strong>
+                    </div>
                   </div>
-                </div>
 
-                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                  <button class="action-btn action-success" id="btn-supplier-create-po" style="font-size: 11px; padding: 8px 16px; border-radius: 8px;">+ New Purchase Order</button>
-                  <button class="action-btn action-primary" id="btn-supplier-record-payment" style="font-size: 11px; padding: 8px 16px; border-radius: 8px;">💵 Record Vendor Payment</button>
-                  <button class="action-btn action-secondary" id="btn-supplier-edit-profile" style="font-size: 11px; padding: 8px 16px; border-radius: 8px;">✏️ Edit Details</button>
-                </div>
+                  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn-tactile btn-tactile-primary" id="btn-supplier-create-po" style="font-size: 11px; padding: 8px 16px; border-radius: 8px;">+ New Purchase Order</button>
+                    <button class="btn-tactile btn-tactile-secondary" id="btn-supplier-record-payment" style="font-size: 11px; padding: 8px 16px; border-radius: 8px;">Record Vendor Payment</button>
+                    <button class="btn-tactile btn-tactile-secondary" id="btn-supplier-edit-profile" style="font-size: 11px; padding: 8px 16px; border-radius: 8px;">Edit Details</button>
+                  </div>
 
-                <!-- Tabs: PO History vs Payments -->
-                <div style="display: flex; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px; margin-top: 8px;">
-                  <button class="action-btn active" id="btn-supplier-tab-pos" style="font-size: 11px; padding: 6px 14px; border-radius: 6px;">Purchase Orders</button>
-                  <button class="action-btn" id="btn-supplier-tab-payments" style="font-size: 11px; padding: 6px 14px; border-radius: 6px; background: transparent; border: 1px solid transparent; color: var(--text-gray);">Payment Ledger</button>
-                </div>
+                  <!-- Tabs: PO History vs Payments -->
+                  <div style="display: flex; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
+                    <button class="btn-tactile btn-tactile-primary" id="btn-supplier-tab-pos" style="font-size: 11px; padding: 6px 14px; border-radius: 6px;">Purchase Orders</button>
+                    <button class="btn-tactile btn-tactile-secondary" id="btn-supplier-tab-payments" style="font-size: 11px; padding: 6px 14px; border-radius: 6px;">Payment Ledger</button>
+                  </div>
 
-                <div id="supplier-ledger-timeline" style="flex-grow: 1; overflow-y: auto; max-height: 360px;">
-                  <!-- Timeline items populated dynamically -->
+                  <div id="supplier-ledger-timeline" style="display: flex; flex-direction: column; gap: 8px;">
+                    <!-- Timeline items populated dynamically -->
+                  </div>
                 </div>
               </div>
             </div>
@@ -1193,54 +1197,58 @@
 
         <!-- View 10: Credit Book (Customer Khata Ledger) -->
         <section class="content-view" id="view-credit-book">
-          <div class="view-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 18px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
-            <div>
-              <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Customer Credit Book (Khata Ledger)</h2>
-              <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Manage customer credit accounts, track receivables, and record cash/online balance repayments</p>
-            </div>
-            <button class="action-btn action-primary" onclick="if(window.openCustomerModal)window.openCustomerModal();" style="padding: 10px 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; border-radius: 10px; background: linear-gradient(135deg, #00d68f 0%, #00a876 100%); color: #060d0d; border: none;">+ Add Customer Account</button>
-          </div>
-
-          <div class="suppliers-split-grid" style="display: grid; grid-template-columns: minmax(300px, 360px) 1fr; gap: 20px; min-height: 540px;">
-            <!-- Left Pane: Customer List -->
-            <div style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
-              <input type="text" id="credit-customer-search" class="pos-input" placeholder="Search customer Khata accounts..." oninput="if(window.renderCreditBookScreen)window.renderCreditBookScreen(this.value.toLowerCase().trim());" style="min-height: 40px; font-size: 12px; padding: 8px 14px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);" aria-label="Search customer Khata accounts">
-              <div id="credit-customer-list-container" style="display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex-grow: 1; max-height: 520px;">
-                <!-- Populated dynamically by renderCreditBookScreen() -->
+          <div style="padding: 20px; max-width: 1400px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; overflow-x: hidden;">
+            <div class="view-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+              <div>
+                <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Customer Credit Book (Khata Ledger)</h2>
+                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Manage customer credit accounts, track receivables, and record cash/online balance repayments</p>
               </div>
+              <button class="btn-tactile btn-tactile-primary" onclick="if(window.openCustomerModal)window.openCustomerModal();" style="padding: 10px 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; border-radius: 10px;">+ Add Customer Account</button>
             </div>
 
-            <!-- Right Pane: Customer Khata Ledger Detail -->
-            <div style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px; display: flex; flex-direction: column;">
-              <div id="credit-detail-empty" style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; padding: 60px 20px; text-align: center; color: var(--text-gray);">
-                <div style="font-size: 36px; margin-bottom: 12px;">📖</div>
-                <h3 style="margin: 0; color: var(--text-white); font-size: 16px;">Select a Khata Account</h3>
-                <p style="font-size: 12px; max-width: 320px; margin-top: 6px;">Select a customer from the left panel to inspect their credit balance, sales history, and record repayments.</p>
+            <div class="suppliers-split-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 20px; align-items: start;">
+              <!-- Left Pane: Customer List -->
+              <div style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+                <input type="text" id="credit-customer-search" class="pos-input" placeholder="Search customer Khata accounts..." oninput="if(window.renderCreditBookScreen)window.renderCreditBookScreen(this.value.toLowerCase().trim());" style="min-height: 40px; font-size: 12px; padding: 8px 14px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);" aria-label="Search customer Khata accounts">
+                <div id="credit-customer-list-container" style="display: flex; flex-direction: column; gap: 8px;">
+                  <!-- Populated dynamically by renderCreditBookScreen() -->
+                </div>
               </div>
 
-              <div id="credit-detail-panel" style="display: none; flex-direction: column; gap: 16px; flex-grow: 1;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 14px;">
-                  <div>
-                    <h3 id="credit-detail-name" style="margin: 0; font-size: 18px; color: var(--text-white); font-family: var(--font-display);">Customer Name</h3>
-                    <span id="credit-detail-phone" style="font-size: 11px; color: var(--text-gray);">Phone: —</span>
+              <!-- Right Pane: Customer Khata Ledger Detail -->
+              <div style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+                <div id="credit-detail-empty" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 20px; text-align: center; color: var(--text-gray);">
+                  <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.08);">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
                   </div>
-                  <div style="text-align: right;">
-                    <span style="font-size: 10px; color: var(--text-gray); text-transform: uppercase; font-weight: 700; display: block;">Udhaar Balance Due</span>
-                    <strong id="credit-detail-balance" style="font-size: 18px; color: var(--accent-emerald); font-family: var(--font-display);">Rs. 0.00</strong>
+                  <h3 style="margin: 0; color: var(--text-white); font-size: 16px;">Select a Khata Account</h3>
+                  <p style="font-size: 12px; max-width: 320px; margin-top: 6px;">Select a customer from the left panel to inspect their credit balance, sales history, and record repayments.</p>
+                </div>
+
+                <div id="credit-detail-panel" style="display: none; flex-direction: column; gap: 16px;">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                      <h3 id="credit-detail-name" style="margin: 0; font-size: 18px; color: var(--text-white); font-family: var(--font-display);">Customer Name</h3>
+                      <span id="credit-detail-phone" style="font-size: 11px; color: var(--text-gray);">Phone: —</span>
+                    </div>
+                    <div style="text-align: right;">
+                      <span style="font-size: 10px; color: var(--text-gray); text-transform: uppercase; font-weight: 700; display: block;">Udhaar Balance Due</span>
+                      <strong id="credit-detail-balance" style="font-size: 18px; color: var(--accent-emerald); font-family: var(--font-display);">Rs. 0.00</strong>
+                    </div>
                   </div>
-                </div>
 
-                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                  <button class="action-btn action-success" id="btn-credit-collect-payment" style="font-size: 11px; padding: 8px 16px; border-radius: 8px;">💵 Collect Payment (Wasool)</button>
-                  <button class="action-btn action-warning" id="btn-credit-add-manual" style="font-size: 11px; padding: 8px 16px; border-radius: 8px;">➕ Record Manual Credit (Udhaar)</button>
-                </div>
+                  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn-tactile btn-tactile-primary" id="btn-credit-collect-payment" style="font-size: 11px; padding: 8px 16px; border-radius: 8px;">Collect Payment (Wasool)</button>
+                    <button class="btn-tactile btn-tactile-amber" id="btn-credit-add-manual" style="font-size: 11px; padding: 8px 16px; border-radius: 8px;">Record Manual Credit (Udhaar)</button>
+                  </div>
 
-                <div style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px; margin-top: 8px;">
-                  <h4 style="margin: 0; font-size: 13px; color: var(--text-white); font-family: var(--font-display);">Khata Transaction Timeline</h4>
-                </div>
+                  <div style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
+                    <h4 style="margin: 0; font-size: 13px; color: var(--text-white); font-family: var(--font-display);">Khata Transaction Timeline</h4>
+                  </div>
 
-                <div id="credit-ledger-timeline" style="flex-grow: 1; overflow-y: auto; max-height: 360px;">
-                  <!-- Ledger timeline items populated dynamically -->
+                  <div id="credit-ledger-timeline" style="display: flex; flex-direction: column; gap: 8px;">
+                    <!-- Ledger timeline items populated dynamically -->
+                  </div>
                 </div>
               </div>
             </div>

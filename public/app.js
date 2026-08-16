@@ -2,17 +2,16 @@
   // BUSINESS TEMPLATE RELEVANCE GUARDS (KDS & SPECIALTY MODULES)
   // ============================================================================
   function isKdsSupported(mode) {
-    const active = mode || (state.preferences && state.preferences.store_type) || localStorage.getItem('valenixia_shop_mode') || 'simple-retail';
+    const active = mode || (typeof state !== 'undefined' && state.preferences && state.preferences.store_type) || localStorage.getItem('valenixia_shop_mode') || 'simple-retail';
     return active === 'food-restaurant' || active === 'bakery-cafe';
   }
   window.isKdsSupported = isKdsSupported;
 
   function updateKdsNavVisibility() {
-    const kdsNav = document.getElementById('nav-kds');
     const supported = isKdsSupported();
-    if (kdsNav) {
-      kdsNav.style.display = supported ? 'flex' : 'none';
-    }
+    document.querySelectorAll('#nav-kds, [data-screen="kds"]').forEach(el => {
+      el.style.setProperty('display', supported ? 'flex' : 'none', 'important');
+    });
   }
   window.updateKdsNavVisibility = updateKdsNavVisibility;
 
@@ -2823,10 +2822,9 @@ setHtml(overlay, `
         const errFile = (err && err.filename) || 'sync-worker.js';
         const errLine = (err && err.lineno) || 0;
         console.error('[App] Sync worker runtime error:', errMsg, 'at', errFile, 'line', errLine);
-        // Only show the full red crash console for unrecoverable crashes (not INIT_ERROR which is handled separately)
-        // A worker 'error' event here means a true uncaught exception inside the worker thread
-        if (typeof showNotificationToast === 'function') {
-            showNotificationToast('Sync engine encountered an error. Some features may be limited.', 'warning');
+        // Only log to diagnostic hub for unrecoverable crashes (not INIT_ERROR which is handled separately)
+        if (typeof logDiagnostic === 'function') {
+            logDiagnostic('WARN', 'WORKER', 'Sync engine encountered an error; fallback mode engaged.');
         }
     });
 
@@ -3007,7 +3005,7 @@ setHtml(statusElErr, `Hydration failed: ${sanitizeHtml(event.data.error)}<br><br
           recordSystemError('INIT_ERROR', error);
           // Non-fatal: mark worker as stub so wizard bootstrap uses direct DB path
           window.__workerIsStub = true;
-          showNotificationToast('Background sync engine initializing in offline mode. Setup will continue.', 'warning', 4000);
+          if (typeof logDiagnostic === 'function') logDiagnostic('INFO', 'WORKER', 'Background sync engine running in offline mode.');
           break;
 
 
@@ -3226,8 +3224,8 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
             state.transactionsLoaded = true;
             scheduleScreenRender('history', () => {
               if (typeof renderHistoryScreen === 'function') renderHistoryScreen();
-              if (typeof calculateAnalytics === 'function') calculateAnalytics();
-              if (typeof renderKdsScreen === 'function') renderKdsScreen();
+              if (typeof calculateAnalytics === 'function' && state.activeScreen === 'analytics') calculateAnalytics();
+              if (state.activeScreen === 'kds' && typeof isKdsSupported === 'function' && isKdsSupported() && typeof renderKdsScreen === 'function') renderKdsScreen();
             });
           } catch (err) {
             console.warn('[SyncWorker] Transactions UI render warning:', err);
@@ -3239,7 +3237,6 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
             state.distributors = event.data.distributors;
             scheduleScreenRender('suppliers', () => {
               if (typeof renderSuppliersScreen === 'function') renderSuppliersScreen();
-              if (typeof calculateAnalytics === 'function') calculateAnalytics();
             });
           } catch (err) {
             console.warn('[SyncWorker] Distributors UI warning:', err);
@@ -3251,7 +3248,6 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
             state.purchaseOrders = event.data.purchaseOrders;
             scheduleScreenRender('suppliers', () => {
               if (typeof renderSuppliersScreen === 'function') renderSuppliersScreen();
-              if (typeof calculateAnalytics === 'function') calculateAnalytics();
             });
           } catch (err) {
             console.warn('[SyncWorker] Purchase orders UI warning:', err);
@@ -3295,9 +3291,6 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
               window.ValenixiaBootstrap.transition('AUTH_LOCK');
             }
             
-            if (typeof showNotificationToast === 'function') {
-                showNotificationToast('Terminal Ready. Please enter your PIN.', 'success', 3000);
-            }
             if (typeof playAudioSignal === 'function') {
                 playAudioSignal('success');
             }
@@ -20366,10 +20359,12 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   function renderKdsScreen() {
     // Template relevance guard
     if (!isKdsSupported()) {
-      if (typeof showNotificationToast === 'function') {
-        showNotificationToast('Kitchen Display System is active for Restaurant & Cafe store models only. You can switch templates in Settings.', 'info', 4500);
+      if (state && state.activeScreen === 'kds') {
+        if (typeof showNotificationToast === 'function') {
+          showNotificationToast('Kitchen Orders is available for Restaurant & Cafe store models only. You can select this template in Settings.', 'info', 4000);
+        }
+        if (window.switchActiveScreen) window.switchActiveScreen('dashboard');
       }
-      if (window.switchActiveScreen) window.switchActiveScreen('dashboard');
       return;
     }
 
@@ -21182,7 +21177,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     initSettingsStoreMode();
 
     const activeView = (state && state.activeScreen) || (window.ValenixiaRouter && window.ValenixiaRouter.currentScreen) || '';
-    if (activeView === 'kds') renderKdsScreen();
+    if (activeView === 'kds' && isKdsSupported()) renderKdsScreen();
     else if (activeView === 'petty-cash') renderPettyCashScreen();
     else if (activeView === 'attendance') renderAttendanceScreen();
     else if (activeView === 'label-designer') renderLabelDesignerScreen();
