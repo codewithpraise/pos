@@ -143,7 +143,7 @@
       is_one_time: true,
       billing_cycle: 'one_time',
       description: 'Tier-1 FBR / PRAL digital fiscal invoice tagging with QR code generation & automatic queue syncing.',
-      icon: '🏛️',
+      icon: '',
       entitlementKey: 'fbr.fiscal',
       grantedKeys: ['fbr.fiscal'],
       included_in: ['ENTERPRISE']
@@ -157,7 +157,7 @@
       is_one_time: false,
       billing_cycle: 'recurring',
       description: 'Automated low stock alerts, reorder thresholds, and expiration risk forecasting.',
-      icon: '📦',
+      icon: '',
       entitlementKey: 'inventory.smartStock',
       grantedKeys: ['inventory.smartStock'],
       included_in: []
@@ -171,7 +171,7 @@
       is_one_time: false,
       billing_cycle: 'recurring',
       description: 'Supplier directory, purchase order generation, and stock intake ledger.',
-      icon: '🚚',
+      icon: '',
       entitlementKey: 'suppliers.purchaseManager',
       grantedKeys: ['suppliers.purchaseManager'],
       included_in: []
@@ -185,7 +185,7 @@
       is_one_time: false,
       billing_cycle: 'recurring',
       description: 'Customer rewards points, automated cashback tiering, and store credit ledger.',
-      icon: '⭐',
+      icon: '',
       entitlementKey: 'customers.loyalty',
       grantedKeys: ['customers.loyalty'],
       included_in: []
@@ -199,7 +199,7 @@
       is_one_time: false,
       billing_cycle: 'recurring',
       description: 'COGS calculations, profit margin telemetry, and multi-dimensional analytics.',
-      icon: '📊',
+      icon: '',
       entitlementKey: 'analytics.advanced',
       grantedKeys: ['analytics.advanced'],
       included_in: []
@@ -213,7 +213,7 @@
       is_one_time: false,
       billing_cycle: 'recurring',
       description: 'Automated encrypted database backups and continuous multi-device sync.',
-      icon: '☁️',
+      icon: '',
       entitlementKey: 'system.cloudBackup',
       grantedKeys: ['system.cloudBackup'],
       included_in: ['PRO', 'ENTERPRISE']
@@ -227,7 +227,7 @@
       is_one_time: false,
       billing_cycle: 'recurring',
       description: 'Inter-branch stock transfer requests, centralized HQ inventory view, and outlet metrics.',
-      icon: '🏬',
+      icon: '',
       entitlementKey: 'branches.advancedOps',
       grantedKeys: ['branches.advancedOps'],
       requires_plan: ['PRO', 'ENTERPRISE'],
@@ -242,7 +242,7 @@
       is_one_time: false,
       billing_cycle: 'recurring',
       description: 'Granular cashier security PINs, shift management, and role-based permissions.',
-      icon: '🔑',
+      icon: '',
       entitlementKey: 'staff.proPermissions',
       grantedKeys: ['staff.proPermissions'],
       included_in: ['PRO', 'ENTERPRISE']
@@ -256,7 +256,7 @@
       is_one_time: false,
       billing_cycle: 'recurring',
       description: 'Immutable cashier action audit logs, void tracking, and override history.',
-      icon: '🛡️',
+      icon: '',
       entitlementKey: 'staff.auditLogs',
       grantedKeys: ['staff.auditLogs'],
       included_in: ['PRO', 'ENTERPRISE']
@@ -270,7 +270,7 @@
       is_one_time: false,
       billing_cycle: 'recurring',
       description: 'Tax filing export, trial balance generator, and Excel accounting statements.',
-      icon: '📈',
+      icon: '',
       entitlementKey: 'reports.accountant',
       grantedKeys: ['reports.accountant'],
       included_in: []
@@ -284,7 +284,7 @@
       price_monthly_pkr: 2199,
       price_annual_pkr: getAnnualPrice(2199),
       description: 'Complete store operations: Smart Stock + Supplier Manager + Advanced Branch Operations.',
-      icon: '⚡',
+      icon: '',
       constituent_addons: ['SMART_STOCK', 'PURCHASE_MANAGER', 'BRANCH_OPERATIONS'],
       grantedKeys: ['inventory.smartStock', 'suppliers.purchaseManager', 'branches.advancedOps']
     },
@@ -294,7 +294,7 @@
       price_monthly_pkr: 1699,
       price_annual_pkr: getAnnualPrice(1699),
       description: 'Complete financial intelligence: Advanced Analytics + Accountant Reports + Cloud Backup.',
-      icon: '💎',
+      icon: '',
       constituent_addons: ['ADVANCED_ANALYTICS', 'ACCOUNTANT_REPORTS', 'CLOUD_BACKUP'],
       grantedKeys: ['analytics.advanced', 'reports.accountant', 'system.cloudBackup']
     },
@@ -304,7 +304,7 @@
       price_monthly_pkr: 799,
       price_annual_pkr: getAnnualPrice(799),
       description: 'Complete staff control: Staff Pro & PINs + High Security Audit Logs.',
-      icon: '🔒',
+      icon: '',
       constituent_addons: ['STAFF_PRO', 'AUDIT_LOGS'],
       grantedKeys: ['staff.proPermissions', 'staff.auditLogs']
     }

@@ -12,9 +12,9 @@ let PASS = 0, FAIL = 0;
 const results = [];
 
 function log(msg) { process.stdout.write(`[${new Date().toISOString().substring(11,19)}] ${msg}\n`); }
-function pass(t) { PASS++; results.push({ ok: true, t }); log(`✅ PASS — ${t}`); }
-function fail(t, r) { FAIL++; results.push({ ok: false, t, r }); log(`❌ FAIL — ${t} :: ${r}`); }
-function info(t) { log(`ℹ️  INFO — ${t}`); }
+function pass(t) { PASS++; results.push({ ok: true, t }); log(` PASS — ${t}`); }
+function fail(t, r) { FAIL++; results.push({ ok: false, t, r }); log(` FAIL — ${t} :: ${r}`); }
+function info(t) { log(`ℹ  INFO — ${t}`); }
 function section(t) { log(`\n=== ${t} ===`); }
 
 async function connectCDP() {

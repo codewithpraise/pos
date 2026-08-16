@@ -6,7 +6,7 @@
 
 window.ValenixiaStrings = {
   en: {
-    dashboard: "Business Hub",
+    dashboard: "Hub",
     checkout: "Checkout",
     catalog: "Catalog",
     catalog_manager: "Inventory Manager",
@@ -72,7 +72,7 @@ window.ValenixiaStrings = {
     analytics_view: "Analytics"
   },
   ur: {
-    dashboard: "کاروباری مرکز",
+    dashboard: "مرکز",
     checkout: "خروج (بلنگ)",
     catalog: "اسٹاک کیٹلاگ",
     catalog_manager: "انوینٹری لیجر",

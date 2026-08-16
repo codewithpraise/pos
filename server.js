@@ -4096,7 +4096,7 @@ app.get('/api/devices/approve-qr', qrApproveLimiter, async (req, res) => {
         });
         const data = await resp.json();
         if (data.success) {
-          btn.textContent = '✓ Approved';
+          btn.textContent = ' Approved';
           btn.style.background = '#10b981';
           status.style.color = '#10b981';
           status.textContent = 'Device approved. It will connect automatically.';

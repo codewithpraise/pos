@@ -15,21 +15,21 @@
   function buildCommands() {
     const cmds = [
       // Navigation
-      { id: "nav-checkout",    icon: "🛒", label: "Go to Checkout",       action: () => switchActiveScreen("checkout"),        tags: ["pos", "sale", "cart"] },
-      { id: "nav-inventory",   icon: "📦", label: "Go to Inventory",       action: () => switchActiveScreen("inventory"),       tags: ["stock", "products", "catalog"] },
-      { id: "nav-analytics",   icon: "📊", label: "Go to Analytics",       action: () => switchActiveScreen("analytics"),      tags: ["reports", "sales", "stats"] },
-      { id: "nav-customers",   icon: "👥", label: "Go to Customers",       action: () => switchActiveScreen("customers"),       tags: ["udhaar", "credit", "khata"] },
-      { id: "nav-staff",       icon: "🏷️", label: "Go to Staff",           action: () => switchActiveScreen("staff"),          tags: ["employees", "cashiers", "managers"] },
-      { id: "nav-settings",    icon: "⚙️", label: "Go to Settings",        action: () => switchActiveScreen("settings"),       tags: ["preferences", "config"] },
-      { id: "nav-logs",        icon: "📋", label: "Go to Logs",            action: () => switchActiveScreen("logs"),           tags: ["audit", "errors", "history"] },
-      { id: "nav-distributors",icon: "🚚", label: "Go to Distributors",    action: () => switchActiveScreen("distributors"),   tags: ["suppliers", "purchase"] },
-      { id: "nav-credit",      icon: "💳", label: "Go to Credit Book",     action: () => switchActiveScreen("credit-book"),    tags: ["udhaar", "ledger", "khata"] },
+      { id: "nav-checkout",    icon: "", label: "Go to Checkout",       action: () => switchActiveScreen("checkout"),        tags: ["pos", "sale", "cart"] },
+      { id: "nav-inventory",   icon: "", label: "Go to Inventory",       action: () => switchActiveScreen("inventory"),       tags: ["stock", "products", "catalog"] },
+      { id: "nav-analytics",   icon: "", label: "Go to Analytics",       action: () => switchActiveScreen("analytics"),      tags: ["reports", "sales", "stats"] },
+      { id: "nav-customers",   icon: "", label: "Go to Customers",       action: () => switchActiveScreen("customers"),       tags: ["udhaar", "credit", "khata"] },
+      { id: "nav-staff",       icon: "", label: "Go to Staff",           action: () => switchActiveScreen("staff"),          tags: ["employees", "cashiers", "managers"] },
+      { id: "nav-settings",    icon: "", label: "Go to Settings",        action: () => switchActiveScreen("settings"),       tags: ["preferences", "config"] },
+      { id: "nav-logs",        icon: "", label: "Go to Logs",            action: () => switchActiveScreen("logs"),           tags: ["audit", "errors", "history"] },
+      { id: "nav-distributors",icon: "", label: "Go to Distributors",    action: () => switchActiveScreen("distributors"),   tags: ["suppliers", "purchase"] },
+      { id: "nav-credit",      icon: "", label: "Go to Credit Book",     action: () => switchActiveScreen("credit-book"),    tags: ["udhaar", "ledger", "khata"] },
       // Actions
-      { id: "act-clear-cart",  icon: "🗑️", label: "Clear Cart",            action: () => { if (confirm("Are you sure you want to clear the current transaction cart?")) { if(window.clearCart) clearCart(); else switchActiveScreen("checkout"); } },  tags: ["void", "reset"] },
-      { id: "act-toggle-theme",icon: "🌙", label: "Toggle Dark/Light",     action: () => { const b = document.body; b.classList.toggle("light-mode"); },              tags: ["theme", "mode"] },
-      { id: "act-export-errors",icon:"📤", label: "Export Error Logs CSV", action: () => { if(window.exportErrorLogsToCSV) exportErrorLogsToCSV(); },                  tags: ["debug", "errors", "csv"] },
-      { id: "act-upgrade",     icon: "⚡", label: "View Pricing Plans",    action: () => { if(window.showUpgradeModal) showUpgradeModal(); },                          tags: ["plans", "upgrade", "pricing", "pkr"] },
-      { id: "act-fullscreen",  icon: "⛶",  label: "Toggle Fullscreen",     action: () => { if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }, tags: ["display", "kiosk"] },
+      { id: "act-clear-cart",  icon: "", label: "Clear Cart",            action: () => { if (confirm("Are you sure you want to clear the current transaction cart?")) { if(window.clearCart) clearCart(); else switchActiveScreen("checkout"); } },  tags: ["void", "reset"] },
+      { id: "act-toggle-theme",icon: "", label: "Toggle Dark/Light",     action: () => { const b = document.body; b.classList.toggle("light-mode"); },              tags: ["theme", "mode"] },
+      { id: "act-export-errors",icon:"", label: "Export Error Logs CSV", action: () => { if(window.exportErrorLogsToCSV) exportErrorLogsToCSV(); },                  tags: ["debug", "errors", "csv"] },
+      { id: "act-upgrade",     icon: "", label: "View Pricing Plans",    action: () => { if(window.showUpgradeModal) showUpgradeModal(); },                          tags: ["plans", "upgrade", "pricing", "pkr"] },
+      { id: "act-fullscreen",  icon: "",  label: "Toggle Fullscreen",     action: () => { if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }, tags: ["display", "kiosk"] },
     ];
 
     // Inject product quick-add if catalog is loaded
@@ -38,7 +38,7 @@
       catalog.forEach(p => {
         cmds.push({
           id: "prod-" + p.sku,
-          icon: p.emoji || "📦",
+          icon: p.emoji || "",
           label: (p.displayName || p.name || p.sku) + " — Rs. " + ((p.price || 0)/100).toLocaleString("en-PK"),
           sub: "SKU: " + p.sku + (p.stock !== undefined ? " · Stock: " + p.stock : ""),
           action: () => {
@@ -139,7 +139,7 @@
     overlay.style.cssText = "position:fixed;inset:0;z-index:2147483646;background:rgba(3,4,8,0.85);display:flex;align-items:flex-start;justify-content:center;padding-top:80px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);";
     overlay.innerHTML = '<div style="width:100%;max-width:560px;background:#0d0d12;border:1px solid rgba(255,255,255,0.1);border-radius:14px;overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,0.9);">'
       + '<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.06);">'
-      + '<span style="font-size:16px;color:#4b5563;">⌕</span>'
+      + '<span style="font-size:16px;color:#4b5563;"></span>'
       + '<input id="__vx-palette-input" type="text" placeholder="Search screens, products, actions..." autocomplete="off" spellcheck="false" style="flex:1;background:transparent;border:none;outline:none;font-size:15px;color:#e2e8f0;font-family:inherit;caret-color:#10b981;">'
       + '<kbd style="font-size:10px;color:#4b5563;border:1px solid #1f2937;border-radius:4px;padding:2px 6px;background:#111;">ESC</kbd>'
       + '</div>'

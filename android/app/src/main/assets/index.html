@@ -39,13 +39,13 @@
   <!-- STATIC EMERGENCY RECOVERY FALLBACK (No-JS / Catastrophic Fallback Node) -->
   <div id="vx-emergency-recovery" hidden style="position:fixed;inset:0;z-index:9999999999;background:#060609;display:none;flex-direction:column;align-items:center;justify-content:flex-start;padding:max(env(safe-area-inset-top, 24px), 24px) 16px max(env(safe-area-inset-bottom, 24px), 24px) 16px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior-y:auto;box-sizing:border-box;font-family:sans-serif;">
     <div style="max-width:480px;width:100%;background:#0f0f11;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:28px;box-shadow:0 20px 40px rgba(0,0,0,0.8);margin:auto 0;flex-shrink:0;box-sizing:border-box;">
-      <div style="font-size:24px;margin-bottom:12px;">⚠️</div>
+      <div style="font-size:24px;margin-bottom:12px;"></div>
       <h3 style="color:#fff;font-size:18px;font-weight:800;margin:0 0 6px;">Valenixia couldn't start</h3>
       <p style="color:#6b7280;font-size:11px;margin:0 0 8px;font-family:monospace;" id="vx-emergency-recovery-stage">Stage: UNKNOWN</p>
       <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:12px 0 20px;white-space:pre-wrap;background:rgba(255,255,255,0.03);padding:12px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);" id="vx-emergency-recovery-message">A critical initialization fault occurred.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button onclick="location.reload()" style="flex:1;padding:12px;background:#10b981;border:none;color:#000;font-weight:800;border-radius:6px;cursor:pointer;font-size:13px;min-height:44px;">Retry</button>
-        <button onclick="if(typeof window.copyDiagnostics==='function')window.copyDiagnostics();else console.log('[BootTrace]',window.__VALENIXIA_BOOT_TRACE__)" style="flex:1;padding:12px;background:transparent;border:1px solid rgba(255,255,255,0.15);color:#00d68f;font-weight:700;border-radius:6px;cursor:pointer;font-size:12px;min-height:44px;">📋 Copy Diagnostics</button>
+        <button onclick="if(typeof window.copyDiagnostics==='function')window.copyDiagnostics();else console.log('[BootTrace]',window.__VALENIXIA_BOOT_TRACE__)" style="flex:1;padding:12px;background:transparent;border:1px solid rgba(255,255,255,0.15);color:#00d68f;font-weight:700;border-radius:6px;cursor:pointer;font-size:12px;min-height:44px;"> Copy Diagnostics</button>
       </div>
     </div>
   </div>
@@ -86,7 +86,7 @@
         <button type="submit" style="display: none;"></button>
       </form>
 
-      <!-- On-screen PIN Pad: 3x4 grid (1-9, CLR, 0, ⌫) -->
+      <!-- On-screen PIN Pad: 3x4 grid (1-9, CLR, 0, ) -->
       <div class="pin-pad" id="pin-pad">
         <button class="pin-btn" type="button" data-digit="1" onclick="if(window.handlePinDigit)window.handlePinDigit('1');">1</button>
         <button class="pin-btn" type="button" data-digit="2" onclick="if(window.handlePinDigit)window.handlePinDigit('2');">2</button>
@@ -133,7 +133,7 @@
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
           </span>
-          <span class="nav-label">Business Hub</span>
+          <span class="nav-label">Hub</span>
           <span id="nav-dashboard-alert-dot" style="display:none;width:7px;height:7px;border-radius:50%;background:#ef4444;margin-left:auto;flex-shrink:0;box-shadow:0 0 6px #ef4444;animation:pulse 1.5s infinite;"></span>
         </button>
         <button class="nav-item active" data-screen="checkout">
@@ -334,6 +334,11 @@
             </button>
           </div>
 
+          <!-- DIRECT ALWAYS-VISIBLE LANGUAGE TOGGLE (Mobile & Desktop) -->
+          <button class="topbar-btn" id="direct-lang-toggle-btn" onclick="if(window.toggleAppLanguage)window.toggleAppLanguage();" title="Switch Language (اردو / English)" style="display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--accent-emerald); background: rgba(0, 214, 143, 0.12); color: var(--accent-emerald); font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; font-family: var(--font-mono); -webkit-tap-highlight-color: transparent; touch-action: manipulation;">
+            <span class="direct-lang-lbl">اردو</span>
+          </button>
+
           <button class="theme-toggle-btn" id="theme-toggle-btn" title="Toggle Theme" aria-label="Toggle Theme">
             <svg class="svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M12 2a10 10 0 0 0 0 20Z" fill="currentColor"/></svg>
           </button>
@@ -343,7 +348,7 @@
             <button class="topbar-btn" id="btn-topbar-overflow-toggle" aria-expanded="false" aria-controls="topbar-overflow-menu" title="More Utilities" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--border-titanium); background: transparent; color: var(--text-white); cursor: pointer; font-size: 16px; font-weight: 700;">⋮</button>
             <div class="topbar-overflow-menu" id="topbar-overflow-menu" style="display: none; position: absolute; top: calc(100% + 6px); right: 0; min-width: 220px; max-width: calc(100vw - 16px); border-radius: 8px; padding: 8px; box-shadow: var(--shadow-lg); z-index: 10000; flex-direction: column; gap: 8px; background: var(--panel-graphite-dark, #16181d); border: 1px solid var(--border-titanium, rgba(255,255,255,0.12));">
               <button class="topbar-btn" id="lang-toggle-btn" onclick="if(window.toggleAppLanguage)window.toggleAppLanguage();" style="display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border-titanium); background: var(--panel-graphite-mid, rgba(255,255,255,0.05)); color: var(--text-white); cursor: pointer; font-size: 12px; font-weight: 700;">
-                <span style="display: flex; align-items: center; gap: 6px;">🌐 <span class="lang-text-lbl">Language</span></span>
+                <span style="display: flex; align-items: center; gap: 6px;"><span class="lang-text-lbl">Language</span></span>
                 <span class="lang-current-val" style="background: rgba(0,214,143,0.15); color: var(--accent-emerald); padding: 2px 6px; border-radius: 4px; font-size: 11px;">اردو / ENG</span>
               </button>
               <button class="topbar-btn" id="btn-mobile-lock-register" onclick="if(typeof performLogout==='function'){performLogout();}else{if(window.ValenixiaBootstrap)window.ValenixiaBootstrap.transition('AUTH_LOCK');}" style="display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid rgba(239,68,68,0.3); background: rgba(239,68,68,0.1); color: #ef4444; cursor: pointer; font-size: 12px; font-weight: 700;">
@@ -420,14 +425,14 @@
             <div class="cloud-vault-card" style="padding: 16px; border-radius: 12px; border: 1px solid var(--border-titanium);">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <span style="font-size: 11px; font-weight: 800; color: var(--text-white); text-transform: uppercase; letter-spacing: 0.5px;">Daily Revenue Velocity</span>
-                <span id="dash-goal-pct-text" style="font-size: 11px; font-weight: 700; color: var(--accent-emerald);">0% of daily target</span>
+                <span id="dash-goal-pct-text" style="font-size: 11px; font-weight: 700; color: var(--accent-emerald);">Daily target not set (Configure in Settings)</span>
               </div>
               <div style="background: rgba(255,255,255,0.06); border-radius: 6px; height: 8px; overflow: hidden;">
                 <div id="dash-goal-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent-emerald), #34d399); border-radius: 6px; transition: width 0.8s ease;"></div>
               </div>
               <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-gray); margin-top: 6px; font-family: var(--font-mono);">
                 <span id="dash-goal-label-left">Rs. 0 earned</span>
-                <span id="dash-goal-label-right">Target: Rs. 50,000</span>
+                <span id="dash-goal-label-right">Daily Target: —</span>
               </div>
             </div>
 
@@ -689,7 +694,7 @@
               <span style="font-size: 13px; color: var(--text-gray);">Download official native mobile and desktop applications. Both Web &amp; Apps stay 100% real-time synchronized with 1 unified account.</span>
             </div>
 
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 20px;">
               
               <!-- Android Mobile App Card -->
               <div class="settings-section" style="padding: 24px; border-radius: 14px; background: var(--panel-graphite); border: 1px solid var(--border-titanium); display: flex; flex-direction: column; justify-content: space-between; gap: 16px;">
@@ -749,7 +754,7 @@
 
             <!-- Unified Realtime Sync Architecture Banner -->
             <div style="padding: 20px; border-radius: 12px; background: rgba(0, 214, 143, 0.06); border: 1px solid rgba(0, 214, 143, 0.2); display: flex; align-items: center; gap: 16px;">
-              <div style="font-size: 24px;">🔄</div>
+              <div style="font-size: 24px;"></div>
               <div>
                 <strong style="color: var(--accent-emerald); font-size: 13px; display: block; margin-bottom: 2px;">Unified Single Account &amp; Multi-Device Sync Active</strong>
                 <span style="font-size: 11.5px; color: var(--text-gray);">Whether you use the Web App, Mobile App, or Desktop App on the same device or store network, all transactions, inventory changes, and sales records sync in real-time via WebSocket SyncHub. There are zero duplicate accounts or split ledgers.</span>
@@ -773,7 +778,7 @@
             <div class="quick-catalog-search-row" style="flex-shrink: 0;">
               <input type="text" id="mobile-quick-search" class="pos-input" placeholder="Search products..." autocomplete="off" aria-label="Search products...">
             </div>
-            <div class="quick-catalog-grid" id="mobile-quick-grid" style="flex-grow: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; overflow-y: auto; padding-bottom: 20px;">
+            <div class="quick-catalog-grid" id="mobile-quick-grid" style="flex-grow: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 130px), 1fr)); gap: 12px; overflow-y: auto; padding-bottom: 20px;">
               <!-- dynamic product cards -->
             </div>
           </div>
@@ -784,8 +789,8 @@
           <div class="view-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; flex-wrap:wrap;">
             <h2>Inventory Ledger</h2>
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-              <button type="button" class="action-btn dm-btn-primary" id="btn-open-import-studio" style="flex-shrink:0; font-size:12px; font-weight:700; padding:8px 14px; display:inline-flex; align-items:center; gap:6px;">📥 Import CSV / Excel</button>
-              <button type="button" class="action-btn dm-btn-secondary" id="btn-export-catalog-csv" style="flex-shrink:0; font-size:12px; font-weight:700; padding:8px 14px; display:inline-flex; align-items:center; gap:6px;">📤 Export Catalog</button>
+              <button type="button" class="action-btn dm-btn-primary" id="btn-open-import-studio" style="flex-shrink:0; font-size:12px; font-weight:700; padding:8px 14px; display:inline-flex; align-items:center; gap:6px;"> Import CSV / Excel</button>
+              <button type="button" class="action-btn dm-btn-secondary" id="btn-export-catalog-csv" style="flex-shrink:0; font-size:12px; font-weight:700; padding:8px 14px; display:inline-flex; align-items:center; gap:6px;"> Export Catalog</button>
               <button type="button" class="action-btn action-success" id="btn-catalog-create-product" style="flex-shrink:0; font-size:12px; font-weight:700; padding:8px 14px;">+ Add Product</button>
             </div>
           </div>
@@ -802,7 +807,7 @@
             </div>
             
             <div class="catalog-grid-table" style="min-width:1060px; width:100%;">
-              <div class="catalog-grid-header" style="display:grid; grid-template-columns: 110px 130px minmax(220px, 2fr) 130px 110px 110px 150px; gap:8px; padding:10px 12px; font-weight:700; font-size:11px; background:var(--panel-graphite); border-bottom:1px solid var(--border-titanium);">
+              <div class="catalog-grid-header" style="display:grid; grid-template-columns: 110px 130px minmax(min(100%, 220px), 2fr) 130px 110px 110px 150px; gap:8px; padding:10px 12px; font-weight:700; font-size:11px; background:var(--panel-graphite); border-bottom:1px solid var(--border-titanium);">
                 <div style="text-align: left;">SKU</div>
                 <div style="text-align: left;">GTIN</div>
                 <div style="text-align: left;">Product Name</div>
@@ -900,7 +905,7 @@
             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 12px;">
               <div style="display: flex; align-items: center; gap: 10px;">
                 <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(0, 214, 143, 0.15); color: var(--accent-emerald); display: flex; align-items: center; justify-content: center; font-size: 16px; border: 1px solid rgba(0, 214, 143, 0.3);">
-                  🎛️
+                  
                 </div>
                 <div>
                   <h4 style="margin: 0; font-size: 14px; font-weight: 800; color: var(--text-white); font-family: var(--font-display); letter-spacing: 0.3px;">Multi-Dimensional Store Telemetry Control Tower</h4>
@@ -914,7 +919,7 @@
             </div>
 
             <!-- Dynamic Dropdowns Grid -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 12px;">
               <div>
                 <label style="display: block; font-size: 10px; font-weight: 800; color: var(--accent-emerald); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Store Branch</label>
                 <select id="analytics-filter-branch" class="pos-input" style="width: 100%; height: 38px; font-size: 11.5px; font-weight: 700; padding: 0 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.12); color: var(--text-white);" aria-label="Filter by Store Branch">
@@ -1004,12 +1009,12 @@
             <div class="heatmap-legend" style="margin-top: 14px; display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: var(--text-gray);">
               <span>Low density hours (00:00 - 23:00)</span>
               <div class="legend-gradient" style="flex: 0.4; height: 4px; border-radius: 2px; background: linear-gradient(to right, rgba(0,214,143,0.2), #00d68f, #f59e0b);"></div>
-              <span>Peak revenue hours ✦</span>
+              <span>Peak revenue hours </span>
             </div>
           </div>
 
           <!-- Cash Flow, Profit Margin & Stock Reorder dashboard -->
-          <div class="analytics-grid-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; margin-top: 24px;">
+          <div class="analytics-grid-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 20px; margin-top: 24px;">
             <!-- Left Card: Net Cash Flow & Profit Margin Analysis -->
             <div class="chart-container-card" style="margin-top: 0; padding: 24px; background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 12px;">
               <h3>Business Intelligence &amp; Cash Flow</h3>
@@ -1044,7 +1049,7 @@
           </div>
 
           <!-- Dynamic Category Breakdown & Payment Method Split -->
-          <div class="analytics-grid-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; margin-top: 24px;">
+          <div class="analytics-grid-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 20px; margin-top: 24px;">
             <!-- Category Revenue Breakdown -->
             <div class="chart-container-card" style="margin-top: 0; padding: 24px; background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 12px;">
               <h3>Revenue by Product Category</h3>
@@ -1064,7 +1069,7 @@
           </div>
 
           <!-- Multi-Branch Performance Telemetry & Kamai Business Insights Row -->
-          <div class="analytics-grid-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; margin-top: 24px;">
+          <div class="analytics-grid-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 20px; margin-top: 24px;">
             <!-- Multi-Branch Store Performance Table -->
             <div class="chart-container-card" style="margin-top: 0; padding: 24px; background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 12px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
@@ -1091,7 +1096,7 @@
             <!-- Kamai Business Advisor & Insights Card -->
             <div class="chart-container-card" style="margin-top: 0; padding: 24px; background: linear-gradient(145deg, rgba(0,214,143,0.05) 0%, rgba(14,14,26,1) 100%); border: 1px solid rgba(0,214,143,0.2); border-radius: 12px; display: flex; flex-direction: column;">
               <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px;">
-                <span style="font-size: 18px;">💡</span>
+                <span style="font-size: 18px;"></span>
                 <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: var(--accent-emerald);">Kamai Business Advisor</h3>
               </div>
               <div id="analytics-business-recommendations" style="display: flex; flex-direction: column; gap: 10px; font-size: 11.5px; color: var(--text-gray); flex-grow: 1;">
@@ -1113,7 +1118,7 @@
           
           <div class="customers-table-wrapper" style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
             <div class="search-bar-row" style="margin-bottom: 16px;">
-              <input type="text" id="customers-search-input" class="pos-input" placeholder="🔍 Search customers by name, phone, or email..." style="min-height: 42px; font-size: 12px; padding: 10px 16px; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);" aria-label="Search profiles by name, phone or email...">
+              <input type="text" id="customers-search-input" class="pos-input" placeholder=" Search customers by name, phone, or email..." style="min-height: 42px; font-size: 12px; padding: 10px 16px; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);" aria-label="Search profiles by name, phone or email...">
             </div>
             
             <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
@@ -1298,7 +1303,7 @@
                 <button class="action-btn active" id="btn-tab-sync-logs" style="padding: 8px 18px; font-size: 11px; border-radius: 8px; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; border: 1px solid rgba(0,214,143,0.3); background: linear-gradient(135deg, rgba(0,214,143,0.2) 0%, rgba(6,182,212,0.1) 100%); color: var(--accent-emerald); transition: all 0.2s; white-space: nowrap;">Live Stream</button>
                 <button class="action-btn" id="btn-tab-health-logs" style="padding: 8px 18px; font-size: 11px; border-radius: 8px; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; border: 1px solid transparent; background: transparent; color: var(--text-gray); transition: all 0.2s; white-space: nowrap;">Diagnostics &amp; Health</button>
               </div>
-              <button class="action-btn action-primary" id="btn-tab-diag-logs" style="padding: 9px 18px; font-size: 11px; border-radius: 10px; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; background: linear-gradient(135deg, #00d68f 0%, #00a876 100%); color: #060d0d; border: none; box-shadow: 0 4px 14px rgba(0,214,143,0.3); cursor: pointer; transition: transform 0.15s ease; white-space: nowrap; flex-shrink: 0;">📋 Copy System Logs</button>
+              <button class="action-btn action-primary" id="btn-tab-diag-logs" style="padding: 9px 18px; font-size: 11px; border-radius: 10px; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; background: linear-gradient(135deg, #00d68f 0%, #00a876 100%); color: #060d0d; border: none; box-shadow: 0 4px 14px rgba(0,214,143,0.3); cursor: pointer; transition: transform 0.15s ease; white-space: nowrap; flex-shrink: 0;"> Copy System Logs</button>
             </div>
           </div>
           
@@ -1318,7 +1323,7 @@
 
           <!-- Tab 2: Diagnostics & Health Panel -->
           <div id="logs-tab-health" class="logs-tab-content" style="display: none;">
-            <div class="settings-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+            <div class="settings-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 20px;">
               <!-- IDB Card -->
               <div class="settings-section" style="padding: 20px; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; background: rgba(255,255,255,0.02);">
                 <h3 style="margin-top:0; font-size: 14px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Database Status (IndexedDB)</h3>
@@ -1376,7 +1381,7 @@
                 </div>
                 <div style="display: flex; gap: 8px;">
                   <button type="button" class="action-btn action-primary" id="btn-copy-all-diagnostic-logs" style="padding: 10px 18px; font-weight: 800; font-size: 12px; border-radius: 8px; background: linear-gradient(135deg, #00d68f 0%, #00a876 100%); color: #060d0d; display: flex; align-items: center; gap: 6px;">
-                    📋 COPY ALL DIAGNOSTIC LOGS
+                     COPY ALL DIAGNOSTIC LOGS
                   </button>
                   <button type="button" class="action-btn" id="btn-clear-diagnostic-logs" style="padding: 10px 14px; font-size: 11px; border-radius: 8px;">
                     Clear Logs
@@ -1385,7 +1390,7 @@
               </div>
 
               <!-- Quick Telemetry Summary Pill Grid -->
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 12px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: 8px; margin-bottom: 12px;">
                 <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 8px 12px; border-radius: 6px;">
                   <span style="font-size: 9px; color: var(--text-gray); display: block; text-transform: uppercase;">Total Captured Logs</span>
                   <strong style="font-size: 14px; color: var(--text-white);" id="diag-count-total">0</strong>
@@ -1474,29 +1479,29 @@
                   <option value="Warm Amber">Warm Amber</option>
                   <option value="Minimalist Chrome">Minimalist Chrome</option>
                   <option value="Monochrome Ivory">Monochrome Ivory</option>
-                  <option value="Premium Navy">Premium Navy ✦</option>
+                  <option value="Premium Navy">Premium Navy </option>
                 </select>
               </div>
               <div class="settings-row">
                 <label for="setting-shop-mode">POS Shop Business Domain:</label>
                 <select id="setting-shop-mode" class="pos-input" aria-label="POS Shop Business Domain">
-                  <option value="simple-retail">🛒 Simple Retail &amp; Convenience</option>
-                  <option value="clothing-fashion">👗 Clothing &amp; Fashion Apparel</option>
-                  <option value="food-restaurant">🍽️ Food &amp; Restaurant Diner (KDS)</option>
-                  <option value="bakery-cafe">☕ Bakery &amp; Espresso Café</option>
-                  <option value="grocery-mart">🧺 Grocery &amp; Supermarket Mart</option>
-                  <option value="pharmacy-medical">💊 Pharmacy &amp; Medical Batches</option>
-                  <option value="repair-services">🔧 Repair Workshop &amp; Job Cards</option>
-                  <option value="services-appointments">📅 Services &amp; Appointments</option>
-                  <option value="electronics-highvalue">📱 Electronics, Laptops &amp; Serials</option>
-                  <option value="weight-pricing">⚖️ Weight-Based Scale Pricing (per kg)</option>
-                  <option value="jewelry-luxury">💎 Jewelry &amp; Precious Metals (Gold/Karat)</option>
-                  <option value="auto-parts">🚗 Auto Spare Parts &amp; Mechanics</option>
-                  <option value="hardware-construction">🏗️ Hardware &amp; Building Supplies</option>
-                  <option value="pet-veterinary">🐾 Pet Care &amp; Veterinary Clinic</option>
-                  <option value="bookstore-stationery">📚 Bookstore &amp; Stationery (ISBN)</option>
-                  <option value="wholesale-distribution">📦 Wholesale &amp; Bulk Distribution</option>
-                  <option value="custom-mixed">⚙️ Custom / Mixed Hybrid Mode</option>
+                  <option value="simple-retail"> Simple Retail &amp; Convenience</option>
+                  <option value="clothing-fashion"> Clothing &amp; Fashion Apparel</option>
+                  <option value="food-restaurant"> Food &amp; Restaurant Diner (KDS)</option>
+                  <option value="bakery-cafe"> Bakery &amp; Espresso Café</option>
+                  <option value="grocery-mart"> Grocery &amp; Supermarket Mart</option>
+                  <option value="pharmacy-medical"> Pharmacy &amp; Medical Batches</option>
+                  <option value="repair-services"> Repair Workshop &amp; Job Cards</option>
+                  <option value="services-appointments"> Services &amp; Appointments</option>
+                  <option value="electronics-highvalue"> Electronics, Laptops &amp; Serials</option>
+                  <option value="weight-pricing"> Weight-Based Scale Pricing (per kg)</option>
+                  <option value="jewelry-luxury"> Jewelry &amp; Precious Metals (Gold/Karat)</option>
+                  <option value="auto-parts"> Auto Spare Parts &amp; Mechanics</option>
+                  <option value="hardware-construction"> Hardware &amp; Building Supplies</option>
+                  <option value="pet-veterinary"> Pet Care &amp; Veterinary Clinic</option>
+                  <option value="bookstore-stationery"> Bookstore &amp; Stationery (ISBN)</option>
+                  <option value="wholesale-distribution"> Wholesale &amp; Bulk Distribution</option>
+                  <option value="custom-mixed"> Custom / Mixed Hybrid Mode</option>
                 </select>
               </div>
               <div class="settings-row">
@@ -1656,13 +1661,13 @@
             <div class="settings-section">
               <h3>Legal &amp; Compliance</h3>
               <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 12px;">Review system policy agreements and software licenses.</p>
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;">
-                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="TERMS_OF_SERVICE" onclick="if(window.openLegalDocumentModal)window.openLegalDocumentModal('TERMS_OF_SERVICE');" style="text-align: left; padding: 10px 14px; font-size: 11px;">📄 Terms of Service (TOS)</button>
-                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="EULA" onclick="if(window.openLegalDocumentModal)window.openLegalDocumentModal('EULA');" style="text-align: left; padding: 10px 14px; font-size: 11px;">📜 End User License (EULA)</button>
-                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="PRIVACY_POLICY" onclick="if(window.openLegalDocumentModal)window.openLegalDocumentModal('PRIVACY_POLICY');" style="text-align: left; padding: 10px 14px; font-size: 11px;">🛡️ Privacy Policy</button>
-                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="ACCEPTABLE_USE" onclick="if(window.openLegalDocumentModal)window.openLegalDocumentModal('ACCEPTABLE_USE');" style="text-align: left; padding: 10px 14px; font-size: 11px;">⚖️ Acceptable Use Policy</button>
-                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="FBR_DISCLAIMER" onclick="if(window.openLegalDocumentModal)window.openLegalDocumentModal('FBR_DISCLAIMER');" style="text-align: left; padding: 10px 14px; font-size: 11px;">🏛️ FBR Tax Disclaimer</button>
-                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="CLOUD_SYNC_TERMS" onclick="if(window.openLegalDocumentModal)window.openLegalDocumentModal('CLOUD_SYNC_TERMS');" style="text-align: left; padding: 10px 14px; font-size: 11px;">☁️ Cloud Sync Terms</button>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 8px;">
+                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="TERMS_OF_SERVICE" onclick="if(window.openLegalDocumentModal)window.openLegalDocumentModal('TERMS_OF_SERVICE');" style="text-align: left; padding: 10px 14px; font-size: 11px;"> Terms of Service (TOS)</button>
+                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="EULA" onclick="if(window.openLegalDocumentModal)window.openLegalDocumentModal('EULA');" style="text-align: left; padding: 10px 14px; font-size: 11px;"> End User License (EULA)</button>
+                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="PRIVACY_POLICY" onclick="if(window.openLegalDocumentModal)window.openLegalDocumentModal('PRIVACY_POLICY');" style="text-align: left; padding: 10px 14px; font-size: 11px;"> Privacy Policy</button>
+                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="ACCEPTABLE_USE" onclick="if(window.openLegalDocumentModal)window.openLegalDocumentModal('ACCEPTABLE_USE');" style="text-align: left; padding: 10px 14px; font-size: 11px;"> Acceptable Use Policy</button>
+                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="FBR_DISCLAIMER" onclick="if(window.openLegalDocumentModal)window.openLegalDocumentModal('FBR_DISCLAIMER');" style="text-align: left; padding: 10px 14px; font-size: 11px;"> FBR Tax Disclaimer</button>
+                <button type="button" class="action-btn btn-open-legal-doc" data-legal-document="CLOUD_SYNC_TERMS" onclick="if(window.openLegalDocumentModal)window.openLegalDocumentModal('CLOUD_SYNC_TERMS');" style="text-align: left; padding: 10px 14px; font-size: 11px;"> Cloud Sync Terms</button>
               </div>
             </div>
             
@@ -1698,7 +1703,7 @@
               </p>
               <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 12px;">
                 <label for="csv-import-file" class="action-btn" style="cursor: pointer; min-width: 180px; text-align: center;">
-                  📂 Choose CSV File
+                   Choose CSV File
                 </label>
                 <input type="file" id="csv-import-file" accept=".csv,text/csv" style="display: none;" />
                 <span id="csv-import-status" style="font-size: 11px; color: var(--text-gray);"></span>
@@ -1729,7 +1734,7 @@
               </div>
               <!-- Overflow-safe table wrapper -->
               <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;border-radius:6px;border:1px solid var(--border-titanium);">
-                <table class="pos-table" style="width:100%;min-width:600px;">
+                <table class="pos-table" style="width:100%;min-width:100%;">
                   <thead>
                     <tr>
                       <th style="text-align:left;padding:10px 12px;">Device Name</th>
@@ -1762,7 +1767,7 @@
                   <p style="margin:4px 0 0;font-size:11px;color:var(--text-gray);">Manage your offline-resilient digital register license and check for upgrades.</p>
                 </div>
               </div>
-              <div style="margin-top: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+              <div style="margin-top: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 16px;">
                 <div style="border: 1px solid var(--border-titanium); padding: 12px; border-radius: 6px; text-align: left;">
                   <span style="font-size: 9px; color: var(--text-gray); text-transform: uppercase;">Active License Tier</span>
                   <div style="font-size: 16px; font-weight: 800; color: var(--accent-emerald); margin-top: 4px;" id="license-active-tier-val">Loading...</div>
@@ -2075,33 +2080,33 @@
                   </div>
                 </div>
                 <span id="settings-active-mode-badge" style="padding: 4px 12px; border-radius: 20px; background: rgba(0,214,143,0.15); color: var(--accent-emerald); font-size: 11px; font-weight: 800; border: 1px solid rgba(0,214,143,0.3);">
-                  🛒 Simple Retail
+                   Simple Retail
                 </span>
               </div>
               <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
                 <div style="flex: 1; min-width: 240px;">
                   <label for="settings-select-store-mode" style="font-size: 11px; color: var(--text-gray); display: block; margin-bottom: 6px; font-weight: 700;">Switch Active Store Domain:</label>
                   <select id="settings-select-store-mode" class="pos-input" style="width: 100%; height: 42px;" aria-label="Select Store Domain">
-                    <option value="simple-retail">🛒 Simple Retail &amp; General Store</option>
-                    <option value="grocery-mart">🧺 Supermarket, Grocery &amp; FMCG Mart</option>
-                    <option value="clothing-fashion">👗 Apparel, Shoes &amp; Fashion Boutique</option>
-                    <option value="food-restaurant">🍽️ Dine-In Restaurant, Pizzeria &amp; Food Court</option>
-                    <option value="bakery-cafe">☕ Bakery, Café, Coffee Bar &amp; Patisserie</option>
-                    <option value="pharmacy-medical">💊 Pharmacy, Medical Store &amp; Drug Dispensary</option>
-                    <option value="electronics-highvalue">📱 Mobile Phones, Computers &amp; Appliances</option>
-                    <option value="automotive-car">🚗 Auto Spare Parts, Tyres &amp; Lubricants</option>
-                    <option value="mechanic-workshop">🔧 Auto Workshop, Bike Repair &amp; Service</option>
-                    <option value="salon-beauty">💇 Hair Salon, Spa &amp; Aesthetic Clinic</option>
-                    <option value="jewellery">💎 Gold, Silver, Gemstones &amp; Jewellery Studio</option>
-                    <option value="books-stationery">📚 Bookstore, Stationery &amp; Copy Shop</option>
-                    <option value="hardware-tools">🏗️ Hardware, Building Materials &amp; Sanitary</option>
-                    <option value="furniture-home">🛋️ Furniture, Mattresses &amp; Home Decor</option>
-                    <option value="butchery-meat">🥩 Meat Shop, Poultry &amp; Seafood Market</option>
-                    <option value="pet-vet">🐾 Pet Shop, Animal Feed &amp; Vet Care</option>
-                    <option value="optics-eyewear">👓 Optometry, Eyewear &amp; Lens Studio</option>
-                    <option value="wholesale-b2b">📦 Wholesale, Bulk Trading &amp; B2B Distribution</option>
-                    <option value="services-consulting">💼 Services, Consulting, Repairs &amp; Agency</option>
-                    <option value="custom-hybrid">⚡ Custom Mixed Enterprise (All Features)</option>
+                    <option value="simple-retail"> Simple Retail &amp; General Store</option>
+                    <option value="grocery-mart"> Supermarket, Grocery &amp; FMCG Mart</option>
+                    <option value="clothing-fashion"> Apparel, Shoes &amp; Fashion Boutique</option>
+                    <option value="food-restaurant"> Dine-In Restaurant, Pizzeria &amp; Food Court</option>
+                    <option value="bakery-cafe"> Bakery, Café, Coffee Bar &amp; Patisserie</option>
+                    <option value="pharmacy-medical"> Pharmacy, Medical Store &amp; Drug Dispensary</option>
+                    <option value="electronics-highvalue"> Mobile Phones, Computers &amp; Appliances</option>
+                    <option value="automotive-car"> Auto Spare Parts, Tyres &amp; Lubricants</option>
+                    <option value="mechanic-workshop"> Auto Workshop, Bike Repair &amp; Service</option>
+                    <option value="salon-beauty"> Hair Salon, Spa &amp; Aesthetic Clinic</option>
+                    <option value="jewellery"> Gold, Silver, Gemstones &amp; Jewellery Studio</option>
+                    <option value="books-stationery"> Bookstore, Stationery &amp; Copy Shop</option>
+                    <option value="hardware-tools"> Hardware, Building Materials &amp; Sanitary</option>
+                    <option value="furniture-home"> Furniture, Mattresses &amp; Home Decor</option>
+                    <option value="butchery-meat"> Meat Shop, Poultry &amp; Seafood Market</option>
+                    <option value="pet-vet"> Pet Shop, Animal Feed &amp; Vet Care</option>
+                    <option value="optics-eyewear"> Optometry, Eyewear &amp; Lens Studio</option>
+                    <option value="wholesale-b2b"> Wholesale, Bulk Trading &amp; B2B Distribution</option>
+                    <option value="services-consulting"> Services, Consulting, Repairs &amp; Agency</option>
+                    <option value="custom-hybrid"> Custom Mixed Enterprise (All Features)</option>
                   </select>
                 </div>
                 <button type="button" class="action-btn dm-btn-emerald" id="btn-apply-settings-store-mode" style="height: 42px; padding: 0 20px; font-weight: 800; margin-top: 18px; border-radius: 8px;">
@@ -2141,7 +2146,7 @@
                   <p style="margin:4px 0 0; font-size:11px; color:var(--text-gray);">Authoritative production release provenance and runtime sub-system state.</p>
                 </div>
               </div>
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 16px; font-size: 11px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 12px; margin-top: 16px; font-size: 11px;">
                 <div style="background: rgba(255,255,255,0.02); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
                   <span style="color: var(--text-gray); display: block;">App Version</span>
                   <strong style="color: var(--text-white);" id="diag-app-version">2.6.0</strong>
@@ -2264,7 +2269,7 @@
           <div class="view-header">
             <h2>Data Portability &amp; Schema Migration Suite</h2>
           </div>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-top: 16px;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 24px; margin-top: 16px;">
             <div class="settings-section" style="background: var(--panel-graphite); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 24px;">
               <h3>Automated SQL Schema Conversion</h3>
               <p style="font-size: 11px; color: var(--text-gray); margin-bottom: 16px; line-height: 1.5;">Convert offline SQLite snapshots directly into standard PostgreSQL schemas compatible with external ERPs.</p>
@@ -2347,7 +2352,7 @@
                 <!-- 7-Day Free Pro Trial Banner Card -->
                 <div id="free-trial-banner-card" style="padding: 20px 24px; border-radius: 14px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.14) 0%, rgba(6, 182, 212, 0.08) 100%); border: 1px solid rgba(16, 185, 129, 0.35); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
                   <div style="display: flex; align-items: center; gap: 16px;">
-                    <div style="font-size: 32px;">🚀</div>
+                    <div style="font-size: 32px;"></div>
                     <div>
                       <h4 style="margin: 0; font-size: 16px; font-weight: 800; color: #ffffff; font-family: var(--font-display); text-transform: uppercase;">Try Growth Features Free for 7 Days</h4>
                       <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Instantly unlock advanced analytics, supplier management, multi-staff controls, and FBR fiscal features with no payment required.</p>
@@ -2359,7 +2364,7 @@
                 <!-- CAPACITY CALCULATOR WIDGET -->
                 <div class="cloud-vault-card" id="subscription-capacity-calculator" style="margin-top: 20px;">
                   <h3 style="margin: 0 0 14px; font-size: 16px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Register &amp; Branch Capacity Calculator</h3>
-                  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 16px; margin-bottom: 20px;">
                     <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 14px; border-radius: 12px;">
                       <span style="font-size: 11px; color: var(--text-gray); font-weight: 700; text-transform: uppercase;">Register Terminals</span>
                       <div style="font-size: 15px; font-weight: 900; color: var(--accent-emerald); font-family: var(--font-mono); margin-top: 4px;" id="cap-terminals-summary">1 Included + 0 Extra = 1 Capacity</div>
@@ -2376,7 +2381,7 @@
                       <span style="font-size: 11px; color: var(--text-gray); font-weight: 700; text-transform: uppercase;">Estimated Monthly Cost</span>
                       <div style="font-size: 20px; font-weight: 900; color: var(--text-white); font-family: var(--font-display);" id="cap-total-monthly-estimate">PKR 3,499 / month</div>
                     </div>
-                    <button type="button" class="action-btn dm-btn-emerald" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.activateTab('payment');" style="padding: 10px 20px; font-weight: 800; font-size: 12px; border-radius: 10px;">Proceed to Pay &amp; Upgrade 💳</button>
+                    <button type="button" class="action-btn dm-btn-emerald" onclick="if(window.ValenixiaSubscription)window.ValenixiaSubscription.activateTab('payment');" style="padding: 10px 20px; font-weight: 800; font-size: 12px; border-radius: 10px;">Proceed to Pay &amp; Upgrade </button>
                   </div>
                 </div>
               </div>
@@ -2395,7 +2400,7 @@
                   </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 20px;">
                   <!-- STARTER TIER -->
                   <div class="pricing-card" data-tier="STARTER" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
                     <div>
@@ -2469,12 +2474,12 @@
                   <p style="margin:4px 0 0; font-size:13px; color:var(--text-gray);">Enhance your register capability with specialized compliance, multi-store HQ, marketing, and security add-ons.</p>
                 </div>
 
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;" id="addons-marketplace-grid">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 20px;" id="addons-marketplace-grid">
                   <!-- FBR POS Add-on -->
                   <div class="pricing-card" data-addon-id="FBR_FISCAL" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
                     <div>
                       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                        <h4 style="margin:0; font-size:15px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">🏛️ FBR Fiscal POS</h4>
+                        <h4 style="margin:0; font-size:15px; font-weight:800; color:var(--text-white); font-family:var(--font-display);"> FBR Fiscal POS</h4>
                         <span style="font-size:10px; font-weight:800; padding:2px 8px; border-radius:12px; background:rgba(239,68,68,0.15); color:#ef4444;">TAX COMPLIANCE</span>
                       </div>
                       <div style="font-size:20px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:10px;">PKR 2,999 <span style="font-size:11px; font-weight:600; color:var(--text-gray);">/ mo</span></div>
@@ -2487,7 +2492,7 @@
                   <div class="pricing-card" data-addon-id="MULTI_STORE" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
                     <div>
                       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                        <h4 style="margin:0; font-size:15px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">🏬 Multi-Store HQ</h4>
+                        <h4 style="margin:0; font-size:15px; font-weight:800; color:var(--text-white); font-family:var(--font-display);"> Multi-Store HQ</h4>
                         <span style="font-size:10px; font-weight:800; padding:2px 8px; border-radius:12px; background:rgba(59,130,246,0.15); color:#3b82f6;">MULTI-BRANCH</span>
                       </div>
                       <div style="font-size:20px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:10px;">PKR 3,999 <span style="font-size:11px; font-weight:600; color:var(--text-gray);">/ mo</span></div>
@@ -2500,7 +2505,7 @@
                   <div class="pricing-card" data-addon-id="WHATSAPP_RECEIPTS" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
                     <div>
                       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                        <h4 style="margin:0; font-size:15px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">💬 WhatsApp Receipts</h4>
+                        <h4 style="margin:0; font-size:15px; font-weight:800; color:var(--text-white); font-family:var(--font-display);"> WhatsApp Receipts</h4>
                         <span style="font-size:10px; font-weight:800; padding:2px 8px; border-radius:12px; background:rgba(16,185,129,0.15); color:#10b981;">MARKETING</span>
                       </div>
                       <div style="font-size:20px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:10px;">PKR 1,499 <span style="font-size:11px; font-weight:600; color:var(--text-gray);">/ mo</span></div>
@@ -2513,7 +2518,7 @@
                   <div class="pricing-card" data-addon-id="CUSTOM_ROLES" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
                     <div>
                       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                        <h4 style="margin:0; font-size:15px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">🛡️ Custom Roles &amp; RBAC</h4>
+                        <h4 style="margin:0; font-size:15px; font-weight:800; color:var(--text-white); font-family:var(--font-display);"> Custom Roles &amp; RBAC</h4>
                         <span style="font-size:10px; font-weight:800; padding:2px 8px; border-radius:12px; background:rgba(245,158,11,0.15); color:#f59e0b;">SECURITY</span>
                       </div>
                       <div style="font-size:20px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:10px;">PKR 1,999 <span style="font-size:11px; font-weight:600; color:var(--text-gray);">/ mo</span></div>
@@ -2526,7 +2531,7 @@
                   <div class="pricing-card" data-addon-id="DATA_PORTABILITY" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
                     <div>
                       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                        <h4 style="margin:0; font-size:15px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">☁️ Automated Backup &amp; Export</h4>
+                        <h4 style="margin:0; font-size:15px; font-weight:800; color:var(--text-white); font-family:var(--font-display);"> Automated Backup &amp; Export</h4>
                         <span style="font-size:10px; font-weight:800; padding:2px 8px; border-radius:12px; background:rgba(168,85,247,0.15); color:#a855f7;">DATA PORTABILITY</span>
                       </div>
                       <div style="font-size:20px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:10px;">PKR 1,499 <span style="font-size:11px; font-weight:600; color:var(--text-gray);">/ mo</span></div>
@@ -2561,7 +2566,7 @@
                       </div>
                       
                       <div style="margin-top:14px; background:rgba(0,214,143,0.08); border:1px dashed rgba(0,214,143,0.35); border-radius:12px; padding:12px 14px; display:flex; align-items:center; gap:12px;">
-                        <div style="font-size:22px; flex-shrink:0;">📲</div>
+                        <div style="font-size:22px; flex-shrink:0;"></div>
                         <div style="font-size:11px; color:var(--text-white); line-height:1.5;">
                           <strong style="color:var(--accent-emerald); font-size:12px; display:block; margin-bottom:2px;">Account Upgrade via WhatsApp Payment Screenshot</strong>
                           For successful upgradation, send your payment proof screenshot along with your <strong>Device ID (HWID)</strong> on WhatsApp <a href="https://wa.me/923315133226" target="_blank" style="color:#25D366; font-weight:800; text-decoration:underline; font-family:var(--font-mono);">03315133226</a>. Your Device ID and transaction will be verified and your account upgraded promptly! Thank you!
@@ -2603,7 +2608,7 @@
 
                     <div style="display:flex; gap:12px; margin-top:8px;">
                       <button type="button" class="action-btn" id="btn-billing-upgrade-cancel" style="flex:1; padding:12px; background:transparent; border:1px solid rgba(255,255,255,0.1); color:var(--text-muted); border-radius:10px; font-weight:700;">Cancel</button>
-                      <button type="submit" class="action-btn dm-btn-emerald" id="btn-billing-upgrade-submit" style="flex:2; padding:12px; font-weight:800; border-radius:10px; box-shadow:0 4px 14px rgba(0,214,143,0.3); display:inline-flex; align-items:center; justify-content:center; gap:8px;">Submit Claim via WhatsApp 💬</button>
+                      <button type="submit" class="action-btn dm-btn-emerald" id="btn-billing-upgrade-submit" style="flex:2; padding:12px; font-weight:800; border-radius:10px; box-shadow:0 4px 14px rgba(0,214,143,0.3); display:inline-flex; align-items:center; justify-content:center; gap:8px;">Submit Claim via WhatsApp </button>
                     </div>
                   </form>
                 </div>
@@ -2642,7 +2647,7 @@
               <h2 style="margin: 0; font-family: var(--font-display); font-weight: 800;">Revenue Control Tower</h2>
               <p style="margin: 4px 0 0; font-size: 13px; color: var(--text-gray);">Monetization &amp; Financial Ledger Control — Valenixia Commerce Ecosystem</p>
             </div>
-            <button class="action-btn action-primary" id="btn-refresh-admin-commerce" style="padding: 8px 16px; font-weight: 800; font-size: 12px; border-radius: 8px;">🔄 Refresh Revenue Metrics</button>
+            <button class="action-btn action-primary" id="btn-refresh-admin-commerce" style="padding: 8px 16px; font-weight: 800; font-size: 12px; border-radius: 8px;"> Refresh Revenue Metrics</button>
           </div>
 
           <!-- Revenue Metrics Grid: Separating MRR from One-Time Revenue -->
@@ -3150,7 +3155,7 @@
       <div class="modal-header" style="padding: 18px 24px; border-bottom: 1px solid var(--border-titanium); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02);">
         <div style="display: flex; align-items: center; gap: 12px;">
           <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(0,214,143,0.15); color: var(--accent-emerald); display: flex; align-items: center; justify-content: center; font-size: 18px;">
-            📥
+            
           </div>
           <div>
             <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: var(--text-white); font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.5px;">Product Catalog &amp; Data Import Studio</h3>
@@ -3280,26 +3285,26 @@
             </p>
           </div>
 
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 16px; margin-bottom: 24px;">
             <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 14px;">
               <div>
-                <div style="font-size: 24px; margin-bottom: 8px;">✨</div>
+                <div style="font-size: 24px; margin-bottom: 8px;"></div>
                 <h5 style="margin: 0 0 4px; font-size: 13px; color: var(--text-white); font-weight: 800;" id="txt-template-active-domain-name">Active Store Mode Template</h5>
                 <p style="margin: 0; font-size: 11px; color: var(--text-gray);">Custom tailored with industry-specific fields (e.g. Batch/Expiry for Pharmacy, IMEI for Electronics, Variants for Fashion).</p>
               </div>
               <button type="button" class="action-btn dm-btn-emerald" id="btn-download-domain-template" style="padding: 10px 16px; font-size: 12px; font-weight: 800; border-radius: 8px; width: 100%;">
-                📥 Download Active Mode CSV
+                 Download Active Mode CSV
               </button>
             </div>
 
             <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 14px;">
               <div>
-                <div style="font-size: 24px; margin-bottom: 8px;">🛒</div>
+                <div style="font-size: 24px; margin-bottom: 8px;"></div>
                 <h5 style="margin: 0 0 4px; font-size: 13px; color: var(--text-white); font-weight: 800;">Standard Universal Retail Template</h5>
                 <p style="margin: 0; font-size: 11px; color: var(--text-gray);">Clean 8-column standard template suitable for any grocery, retail shop, kiosk, or general convenience store.</p>
               </div>
               <button type="button" class="action-btn dm-btn-secondary" id="btn-download-universal-template" style="padding: 10px 16px; font-size: 12px; font-weight: 800; border-radius: 8px; width: 100%;">
-                📥 Download Universal CSV
+                 Download Universal CSV
               </button>
             </div>
           </div>
@@ -3319,7 +3324,7 @@
 
           <!-- Drag and drop zone -->
           <div id="import-drop-zone" style="border: 2px dashed rgba(0,214,143,0.4); border-radius: 14px; background: rgba(0,214,143,0.03); padding: 36px 20px; text-align: center; cursor: pointer; transition: all 0.2s ease; margin-bottom: 16px;">
-            <div style="font-size: 36px; margin-bottom: 10px;">📄</div>
+            <div style="font-size: 36px; margin-bottom: 10px;"></div>
             <h5 style="margin: 0 0 6px; font-size: 14px; color: var(--text-white); font-weight: 800;">Drag &amp; Drop your CSV / TSV file here</h5>
             <p style="margin: 0 0 14px; font-size: 11.5px; color: var(--text-gray);">or click anywhere in this box to browse</p>
             <input type="file" id="import-file-input" accept=".csv,.tsv,.txt" style="display: none;">
@@ -3330,7 +3335,7 @@
           <div id="import-file-telemetry" style="display: none; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 10px; padding: 14px; margin-bottom: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
               <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 16px;">✅</span>
+                <span style="font-size: 16px;"></span>
                 <strong id="import-file-name" style="color: var(--text-white); font-size: 12.5px;">catalog.csv</strong>
                 <span id="import-file-size" style="color: var(--text-gray); font-size: 11px;">(42 KB)</span>
               </div>
@@ -3355,7 +3360,7 @@
           </div>
 
           <!-- Column mapping grid -->
-          <div id="import-mapping-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 20px; background: rgba(0,0,0,0.2); padding: 14px; border-radius: 10px; border: 1px solid var(--border-titanium);">
+          <div id="import-mapping-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; margin-bottom: 20px; background: rgba(0,0,0,0.2); padding: 14px; border-radius: 10px; border: 1px solid var(--border-titanium);">
             <!-- Populated dynamically -->
           </div>
 
@@ -3400,7 +3405,7 @@
           </div>
 
           <!-- Pre-flight Summary Card -->
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); gap: 12px; margin-bottom: 20px;">
             <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); padding: 14px; border-radius: 10px; text-align: center;">
               <span style="font-size: 10px; color: var(--text-gray); text-transform: uppercase; font-weight: 700;">Total Rows Found</span>
               <div style="font-size: 20px; font-weight: 900; color: var(--text-white); font-family: var(--font-mono); margin-top: 4px;" id="import-stat-total">0</div>
@@ -3444,7 +3449,7 @@
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <button type="button" class="action-btn btn-import-prev-tab" data-target="mapping" style="padding: 10px 18px; font-weight: 700; border-radius: 8px;">← Back to Mapping</button>
             <button type="button" class="action-btn dm-btn-emerald" id="btn-execute-import-action" style="padding: 12px 28px; font-size: 13px; font-weight: 900; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,214,143,0.35);">
-              🚀 Execute Batch Import Now
+               Execute Batch Import Now
             </button>
           </div>
         </div>
@@ -3461,7 +3466,7 @@
         <button class="btn-close-modal" id="btn-close-product-modal">×</button>
       </div>
       <div class="modal-body">
-        <!-- ⚡ Quick Preset Bar — filled dynamically for new products -->
+        <!--  Quick Preset Bar — filled dynamically for new products -->
         <div id="form-product-presets-container" style="margin-bottom: 16px; padding: 12px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 8px; display: none;"></div>
 
         <div class="form-grid-2col">
@@ -3568,7 +3573,7 @@
         <!-- Redesigned Quick Stock Adjustment Suite — visible only when editing existing products -->
         <div id="form-product-stock-adjust-row" style="display:none; flex-direction:column; gap:12px; background:rgba(15,23,42,0.6); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:14px; margin-top:6px;">
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-size:11px; font-weight:800; color:var(--accent-emerald); text-transform:uppercase; letter-spacing:0.5px;">⚡ Quick Stock Adjustment</span>
+            <span style="font-size:11px; font-weight:800; color:var(--accent-emerald); text-transform:uppercase; letter-spacing:0.5px;"> Quick Stock Adjustment</span>
             <span id="stock-adjust-preview-badge" style="font-size:10px; font-weight:700; color:var(--text-gray); background:rgba(255,255,255,0.05); padding:2px 8px; border-radius:4px;">Current: 0 Units</span>
           </div>
 
@@ -3619,7 +3624,7 @@
         <div class="form-group" style="margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 12px;">
           <label>Product Image (Max 150KB - Compressed Offline)</label>
           <div style="display: flex; gap: 12px; align-items: center; margin-top: 4px;">
-            <div id="form-product-image-preview" style="width: 48px; height: 48px; border-radius: 6px; border: 1px solid var(--border-titanium); background: rgba(255,255,255,0.02); display: flex; align-items: center; justify-content: center; font-size: 20px; overflow: hidden; background-size: cover; background-position: center; flex-shrink:0;">📦</div>
+            <div id="form-product-image-preview" style="width: 48px; height: 48px; border-radius: 6px; border: 1px solid var(--border-titanium); background: rgba(255,255,255,0.02); display: flex; align-items: center; justify-content: center; font-size: 20px; overflow: hidden; background-size: cover; background-position: center; flex-shrink:0;"></div>
             <div style="flex: 1;">
               <input type="file" id="form-product-image-file" accept="image/*" class="pos-input" style="font-size: 11px; padding: 6px;" aria-label="Upload Image">
               <input type="hidden" id="form-product-image-url">
@@ -3951,7 +3956,7 @@
           </div>
         </div>
         <div id="qr-setup-notice" style="display:none;width:100%;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:12px;text-align:left;margin-bottom:16px;">
-          <div style="font-size:11px;color:#f59e0b;font-weight:700;margin-bottom:4px;">⚙️ QR Account Not Configured</div>
+          <div style="font-size:11px;color:#f59e0b;font-weight:700;margin-bottom:4px;"> QR Account Not Configured</div>
           <div style="font-size:11px;color:var(--text-gray);line-height:1.5;">Showing generic QR. For direct payments to your wallet, go to <strong style="color:var(--text-white);">Settings → Payment → QR Setup</strong> and enter your merchant Till ID.</div>
         </div>
         <div style="width:100%;background:rgba(0,214,143,0.05);border:1px solid rgba(0,214,143,0.15);border-radius:10px;padding:14px;text-align:center;">
@@ -4018,7 +4023,7 @@
       <h2 style="font-family: var(--font-display); font-size: 26px; color: var(--text-white); font-weight: 800; margin: 0;">KITCHEN ORDERS MONITOR</h2>
       <button class="btn-lock-shift" id="btn-kds-exit" style="padding: 8px 16px; font-size: 12px;">EXIT KDS MODE</button>
     </div>
-    <div id="kds-tickets-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px;">
+    <div id="kds-tickets-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 24px;">
       <!-- dynamic ticket cards -->
       <p class="text-muted" style="grid-column: 1/-1; text-align: center; margin-top: 100px;">No pending kitchen orders.</p>
     </div>
@@ -4190,7 +4195,7 @@
                 <option value="Warm Amber">Warm Amber</option>
                 <option value="Minimalist Chrome">Minimalist Chrome</option>
                 <option value="Monochrome Ivory">Monochrome Ivory (Light)</option>
-                <option value="Premium Navy">Premium Navy ✦</option>
+                <option value="Premium Navy">Premium Navy </option>
               </select>
             </div>
           </div>
@@ -4234,121 +4239,121 @@
           <div class="shop-modes-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; touch-action: pan-y; padding: 2px; max-height: 280px; overflow-y: auto;">
             <!-- Mode 1: Simple Retail -->
             <div class="shop-mode-card active" data-mode="simple-retail" style="background: rgba(255,255,255,0.03); border: 2px solid var(--accent-emerald); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">🛒 Simple Retail</h4>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);"> Simple Retail</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">General store &amp; convenience. Barcode scan-to-cart focus.</p>
             </div>
             
             <!-- Mode 2: Grocery & Mart -->
             <div class="shop-mode-card" data-mode="grocery-mart" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">🧺 Grocery &amp; Mart</h4>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);"> Grocery &amp; Mart</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Supermarket mart. Loose bulk weight + fast barcode checkout.</p>
             </div>
 
             <!-- Mode 3: Clothing & Fashion -->
             <div class="shop-mode-card" data-mode="clothing-fashion" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">👗 Clothing &amp; Fashion</h4>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);"> Clothing &amp; Fashion</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Apparel &amp; shoes. Size, color, and variant matrix.</p>
             </div>
             
             <!-- Mode 4: Food & Restaurant -->
             <div class="shop-mode-card" data-mode="food-restaurant" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">🍽️ Food &amp; Restaurant</h4>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);"> Food &amp; Restaurant</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Diner &amp; takeaway. Modifiers, table seating &amp; kitchen screen.</p>
             </div>
 
             <!-- Mode 5: Bakery & Cafe -->
             <div class="shop-mode-card" data-mode="bakery-cafe" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">☕ Bakery &amp; Café</h4>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);"> Bakery &amp; Café</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Coffee &amp; baked goods. Fast touch grid + recipe ingredients.</p>
             </div>
 
             <!-- Mode 6: Pharmacy & Medical -->
             <div class="shop-mode-card" data-mode="pharmacy-medical" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">💊 Pharmacy &amp; Medical</h4>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);"> Pharmacy &amp; Medical</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Medicine shop. Batch #, expiry alerts &amp; Rx requirement.</p>
             </div>
 
             <!-- Mode 7: Electronics -->
             <div class="shop-mode-card" data-mode="electronics-highvalue" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">📱 Electronics &amp; Mobile</h4>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);"> Electronics &amp; Mobile</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">High-value devices. Serial numbers, IMEI &amp; warranty tracking.</p>
             </div>
 
             <!-- Mode 8: Auto Spare Parts -->
             <div class="shop-mode-card" data-mode="automotive-car" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">🚗 Auto Spare Parts</h4>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);"> Auto Spare Parts</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Vehicle spares. VIN/OEM part numbers &amp; vehicle model matching.</p>
             </div>
 
             <!-- Mode 9: Auto Workshop & Mechanic -->
             <div class="shop-mode-card" data-mode="mechanic-workshop" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">🔧 Auto Workshop</h4>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);"> Auto Workshop</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Repair garages. Job cards, labor charges &amp; mechanic commissions.</p>
             </div>
 
             <!-- Mode 10: Salon & Beauty Spa -->
             <div class="shop-mode-card" data-mode="salon-beauty" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">💇 Salon &amp; Beauty Spa</h4>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);"> Salon &amp; Beauty Spa</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Hair &amp; beauty salons. Stylist bookings &amp; service commissions.</p>
             </div>
 
             <!-- Mode 11: Jewelry & Luxury Goods -->
             <div class="shop-mode-card" data-mode="jewellery" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">💎 Jewelry &amp; Bullion</h4>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);"> Jewelry &amp; Bullion</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Gold &amp; diamonds. Karat purity, gram weight &amp; making charges.</p>
             </div>
 
             <!-- Mode 12: Books & Stationery -->
             <div class="shop-mode-card" data-mode="books-stationery" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">📚 Books &amp; Stationery</h4>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);"> Books &amp; Stationery</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Bookstore &amp; copy shop. ISBN scan, school kits &amp; ream packs.</p>
             </div>
 
             <!-- Mode 13: Hardware & Construction -->
             <div class="shop-mode-card" data-mode="hardware-tools" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">🏗️ Hardware &amp; Tools</h4>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);"> Hardware &amp; Tools</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Building supplies. Cut lengths, contractor khata &amp; bulk pallets.</p>
             </div>
 
             <!-- Mode 14: Furniture & Home Decor -->
             <div class="shop-mode-card" data-mode="furniture-home" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">🛋️ Furniture &amp; Decor</h4>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);"> Furniture &amp; Decor</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Furniture &amp; mattresses. Custom fabric booking &amp; delivery staging.</p>
             </div>
 
             <!-- Mode 15: Meat & Butchery -->
             <div class="shop-mode-card" data-mode="butchery-meat" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">🥩 Fresh Meat &amp; Fish</h4>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);"> Fresh Meat &amp; Fish</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Butchery cuts. Scale grams weighing, cut types &amp; cold storage.</p>
             </div>
 
             <!-- Mode 16: Pet Care & Vet -->
             <div class="shop-mode-card" data-mode="pet-vet" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">🐾 Pet Care &amp; Vet</h4>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);"> Pet Care &amp; Vet</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Pets &amp; vet feed. Species records, grooming &amp; prescription diets.</p>
             </div>
 
             <!-- Mode 17: Optics & Eyewear -->
             <div class="shop-mode-card" data-mode="optics-eyewear" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">👓 Optics &amp; Eyewear</h4>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);"> Optics &amp; Eyewear</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Eyewear clinic. Sph/Cyl Rx lens powers &amp; designer frame tags.</p>
             </div>
 
             <!-- Mode 18: Wholesale & Bulk Distribution -->
             <div class="shop-mode-card" data-mode="wholesale-b2b" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">📦 Wholesale &amp; B2B</h4>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);"> Wholesale &amp; B2B</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Bulk B2B supply. Tiered case prices, tax invoices &amp; credit ledger.</p>
             </div>
 
             <!-- Mode 19: Services & Consulting -->
             <div class="shop-mode-card" data-mode="services-consulting" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">💼 Services &amp; Agency</h4>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);"> Services &amp; Agency</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Agency &amp; repair. Hourly billing, retainers &amp; deliverable invoices.</p>
             </div>
 
             <!-- Mode 20: Custom Hybrid Enterprise -->
             <div class="shop-mode-card" data-mode="custom-hybrid" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.2s ease;">
-              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);">⚡ Mixed Enterprise</h4>
+              <h4 style="font-family: var(--font-display); font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; color: var(--text-white);"> Mixed Enterprise</h4>
               <p style="font-size: 9px; line-height: 1.3; color: var(--text-muted); margin: 0;">Full hybrid suite. All fields: barcodes, serials, batches, weights &amp; mods.</p>
             </div>
           </div>
@@ -4416,22 +4421,22 @@
           <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px;">
             <div style="font-size:10px; font-weight:800; color:#8f9cb5; letter-spacing:0.8px; text-transform:uppercase;">Legal Agreements (Tap to Review)</div>
             <button type="button" data-legal-document="TERMS_OF_SERVICE" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
-              <span>📄 Terms of Service</span><span id="wiz-legal-tos-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
+              <span> Terms of Service</span><span id="wiz-legal-tos-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
             </button>
             <button type="button" data-legal-document="EULA" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
-              <span>📜 End User License (EULA)</span><span id="wiz-legal-eula-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
+              <span> End User License (EULA)</span><span id="wiz-legal-eula-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
             </button>
             <button type="button" data-legal-document="PRIVACY_POLICY" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
-              <span>🛡️ Privacy Policy</span><span id="wiz-legal-privacy-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
+              <span> Privacy Policy</span><span id="wiz-legal-privacy-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
             </button>
             <button type="button" data-legal-document="ACCEPTABLE_USE" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
-              <span>⚖️ Acceptable Use Policy</span><span id="wiz-legal-aup-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
+              <span> Acceptable Use Policy</span><span id="wiz-legal-aup-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
             </button>
             <button type="button" data-legal-document="FBR_DISCLAIMER" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
-              <span>🏛️ FBR Tax Disclaimer</span><span id="wiz-legal-fbr-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
+              <span> FBR Tax Disclaimer</span><span id="wiz-legal-fbr-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
             </button>
             <button type="button" data-legal-document="CLOUD_SYNC_TERMS" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 12px; font-size:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; cursor:pointer; font-family:inherit;">
-              <span>☁️ Cloud Sync Terms</span><span id="wiz-legal-cloud-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
+              <span> Cloud Sync Terms</span><span id="wiz-legal-cloud-status" style="font-size:10px; font-weight:800; color:#64748b;">UNREAD</span>
             </button>
           </div>
 

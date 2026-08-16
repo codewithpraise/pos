@@ -638,15 +638,15 @@ window.__realHandlers = window.__realHandlers || {};
     const fullText = sysInfo.concat(logLines).join('\n');
 
     const copyBtn = document.getElementById('btn-copy-all-diagnostic-logs');
-    if (copyBtn) copyBtn.textContent = '⏳ COPYING...';
+    if (copyBtn) copyBtn.textContent = ' COPYING...';
 
     function showSuccess() {
-      if (copyBtn) copyBtn.textContent = '✓ COPIED TO CLIPBOARD!';
+      if (copyBtn) copyBtn.textContent = ' COPIED TO CLIPBOARD!';
       if (typeof showNotificationToast === 'function') {
-        showNotificationToast('✓ All diagnostic logs copied to clipboard!', 'success', 3000);
+        showNotificationToast(' All diagnostic logs copied to clipboard!', 'success', 3000);
       }
       setTimeout(() => {
-        if (copyBtn) copyBtn.textContent = '📋 COPY ALL DIAGNOSTIC LOGS';
+        if (copyBtn) copyBtn.textContent = ' COPY ALL DIAGNOSTIC LOGS';
       }, 2500);
     }
 
@@ -1297,32 +1297,32 @@ setHtml(overlay, `
     const steps = [
       {
         element: 'product-search-input',
-        title: '🔍 1. Search & Add Products',
+        title: ' 1. Search & Add Products',
         desc: 'Quickly find items by name, SKU, category, or scan barcodes. Press Ctrl+K anytime to focus search.'
       },
       {
         element: 'cart-items-tbody',
-        title: '🛒 2. Sales Cart Ledger',
+        title: ' 2. Sales Cart Ledger',
         desc: 'Selected items accumulate here with subtotal, tax, and discount math. Adjust quantities or remove items directly.'
       },
       {
         element: 'btn-customer-select',
-        title: '👤 3. Customer & Udhaar Khata',
+        title: ' 3. Customer & Udhaar Khata',
         desc: 'Link registered customers, track store credit balances, or manage Udhaar Khata ledger accounts.'
       },
       {
         element: 'btn-charge',
-        title: '💳 4. Complete Checkout',
+        title: ' 4. Complete Checkout',
         desc: 'Tap to process Cash, Card, QR, or Mobile payments and print/share digital receipts.'
       },
       {
         element: 'cloud-sync-status',
-        title: '☁️ 5. Google Drive Cloud Vault',
+        title: ' 5. Google Drive Cloud Vault',
         desc: 'Your Database automatically backs up to your Google Drive storage so your records are always safe.'
       },
       {
         element: 'theme-toggle-btn',
-        title: '🎨 6. System Aesthetics & Themes',
+        title: ' 6. System Aesthetics & Themes',
         desc: 'Choose from 6 premium dark and light theme palettes tailored for high visibility in any lighting.'
       }
     ];
@@ -1333,7 +1333,7 @@ setHtml(overlay, `
       document.getElementById('tour-overlay')?.remove();
 
       if (currentStep >= steps.length) {
-        showNotificationToast('🎉 Guided Register Tour Completed! You\'re ready to start selling.', 'success', 5000);
+        showNotificationToast(' Guided Register Tour Completed! You\'re ready to start selling.', 'success', 5000);
         return;
       }
 
@@ -1381,7 +1381,7 @@ setHtml(overlay, `
             <div style="display: flex; gap: 6px;">
               ${currentStep > 0 ? '<button id="tour-prev" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #ffffff; padding: 7px 12px; font-size: 11px; font-weight: 700; border-radius: 8px; cursor: pointer;">Back</button>' : ''}
               <button id="tour-next" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; color: #000000; padding: 7px 16px; font-size: 11px; font-weight: 800; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 12px rgba(16,185,129,0.3);">
-                ${currentStep === steps.length - 1 ? 'Finish Tour ✓' : 'Next Step →'} 
+                ${currentStep === steps.length - 1 ? 'Finish Tour ' : 'Next Step →'} 
               </button>
             </div>
           </div>
@@ -2294,7 +2294,7 @@ setHtml(overlay, `
   // ===== AUTOMATED BUTTON & SYSTEM DIAGNOSTIC SELF-TEST ENGINE =====
   function runAutomatedSystemAudit() {
     setTimeout(() => {
-      console.log('[AUTOTEST] 🚀 Initializing automated startup button & screen diagnostic audit...');
+      console.log('[AUTOTEST]  Initializing automated startup button & screen diagnostic audit...');
       const views = Array.from(document.querySelectorAll('.content-view'));
       const allButtons = Array.from(document.querySelectorAll('button, .action-btn, [id^="btn-"], .nav-item'));
       let totalButtons = allButtons.length;
@@ -2352,16 +2352,16 @@ setHtml(overlay, `
           console.error(e);
           log('ERROR', 'AUTOTEST', e);
         });
-        console.warn(`[AUTOTEST] ⚠️ System Auto-Audit complete with ${errors.length} issue(s). Checked ${totalButtons} buttons across ${views.length} views.`);
+        console.warn(`[AUTOTEST]  System Auto-Audit complete with ${errors.length} issue(s). Checked ${totalButtons} buttons across ${views.length} views.`);
         log('WARN', 'AUTOTEST', `System Auto-Audit complete with ${errors.length} issue(s). Checked ${totalButtons} buttons across ${views.length} views.`);
         if (typeof showToast === 'function') {
-          showToast(`⚠️ Auto-Test detected ${errors.length} UI issue(s). Check Diagnostic Logs.`, 'warn');
+          showToast(` Auto-Test detected ${errors.length} UI issue(s). Check Diagnostic Logs.`, 'warn');
         }
       } else {
-        console.log(`[AUTOTEST] ✅ System Auto-Audit PASSED: ${passedButtons}/${totalButtons} buttons & ${views.length} views fully operational.`);
-        log('INFO', 'AUTOTEST', `✅ System Auto-Audit PASSED: ${passedButtons}/${totalButtons} buttons & ${views.length} views verified 100% operational.`);
+        console.log(`[AUTOTEST]  System Auto-Audit PASSED: ${passedButtons}/${totalButtons} buttons & ${views.length} views fully operational.`);
+        log('INFO', 'AUTOTEST', ` System Auto-Audit PASSED: ${passedButtons}/${totalButtons} buttons & ${views.length} views verified 100% operational.`);
         if (typeof showToast === 'function') {
-          showToast(`✓ Auto-Test Suite complete: ${passedButtons} page buttons & ${views.length} views verified 100% operational.`, 'success');
+          showToast(` Auto-Test Suite complete: ${passedButtons} page buttons & ${views.length} views verified 100% operational.`, 'success');
         }
       }
     }, 1500);
@@ -3341,7 +3341,7 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
             console.error('[App] Dynamic import for animations module failed, falling back:', e);
             if (typeof flashPaymentSuccess === 'function') flashPaymentSuccess();
           });
-          showNotificationToast(`✓ Transaction ${transactionId.slice(-8).toUpperCase()} completed!`, null, 4000);
+          showNotificationToast(` Transaction ${transactionId.slice(-8).toUpperCase()} completed!`, null, 4000);
           announceToScreenReader(`Transaction completed successfully for amount Rs. ${(event.data.total / 100.0).toFixed(2)}.`);
 
           // Lazy-load jsPDF and DigitalReceipt engine dynamically (P1-35 Code Splitting)
@@ -3616,7 +3616,7 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
       if (lockoutUntil && Date.now() < lockoutUntil) {
         const secondsLeft = Math.ceil((lockoutUntil - Date.now()) / 1000);
         if (errorMsg) {
-          errorMsg.textContent = `🔒 Locked out. Please wait ${secondsLeft}s before retrying.`;
+          errorMsg.textContent = ` Locked out. Please wait ${secondsLeft}s before retrying.`;
           errorMsg.style.color = '#ef4444';
           errorMsg.style.fontWeight = '700';
         }
@@ -4618,7 +4618,7 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
       const preview = document.getElementById('setting-custom-qr-preview');
       if (preview) {
         preview.style.backgroundImage = '';
-        preview.textContent = '📲';
+        preview.textContent = '';
       }
       document.getElementById('btn-clear-custom-qr').style.display = 'none';
       const fileInput = document.getElementById('setting-custom-qr-file');
@@ -5582,7 +5582,7 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
     // ─────────────────────────────────────────────────────────────────────────
     const LEGAL_DOCS = {
       tos: {
-        title: '📄 Terms of Service',
+        title: ' Terms of Service',
         content: `<h3 style="margin:0 0 16px;font-size:16px;font-weight:800;color:#fff;">Terms of Service — Valenixia POS</h3>
 <p style="font-size:12px;color:#94a3b8;line-height:1.8;"><strong style="color:#e2e8f0;">1. LICENSE GRANT</strong><br>Valenixia POS grants you a limited, non-exclusive, non-transferable, revocable license to use the Software solely for your internal business operations in accordance with your subscription plan limits.</p>
 <p style="font-size:12px;color:#94a3b8;line-height:1.8;"><strong style="color:#e2e8f0;">2. AS-IS SOFTWARE</strong><br>The software is provided "as-is" without warranty of any kind. Valenixia assumes no liability for financial loss, data corruption, or downtime resulting from use of the software.</p>
@@ -5594,7 +5594,7 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
 <p style="font-size:12px;color:#64748b;margin-top:20px;">Last updated: July 2025 | Contact: support@valenixia.com</p>`
       },
       privacy: {
-        title: '🛡️ Privacy Policy',
+        title: ' Privacy Policy',
         content: `<h3 style="margin:0 0 16px;font-size:16px;font-weight:800;color:#fff;">Privacy Policy — Valenixia POS</h3>
 <p style="font-size:12px;color:#94a3b8;line-height:1.8;"><strong style="color:#e2e8f0;">1. DATA WE COLLECT</strong><br>Valenixia POS collects only data you enter: store name, product catalog, transactions, customer information, and employee records. We do not collect personal device data, location, or browsing history.</p>
 <p style="font-size:12px;color:#94a3b8;line-height:1.8;"><strong style="color:#e2e8f0;">2. LOCAL-FIRST STORAGE</strong><br>All your business data is stored locally on your device using browser IndexedDB. Valenixia does not have remote access to your local data. You own it entirely.</p>
@@ -5605,7 +5605,7 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
 <p style="font-size:12px;color:#64748b;margin-top:20px;">Last updated: July 2025 | Contact: privacy@valenixia.com</p>`
       },
       refund: {
-        title: '💸 Refund & Cancellation Policy',
+        title: ' Refund & Cancellation Policy',
         content: `<h3 style="margin:0 0 16px;font-size:16px;font-weight:800;color:#fff;">Refund & Cancellation Policy</h3>
 <p style="font-size:12px;color:#94a3b8;line-height:1.8;"><strong style="color:#e2e8f0;">1. SUBSCRIPTION CANCELLATION</strong><br>You may cancel your subscription at any time. Cancellation takes effect at the end of the current billing period. You retain full access until then.</p>
 <p style="font-size:12px;color:#94a3b8;line-height:1.8;"><strong style="color:#e2e8f0;">2. REFUND ELIGIBILITY</strong><br>Monthly plans: No refund after 3 days from purchase. Annual plans: Prorated refund available within 30 days of purchase, minus a 10% processing fee. Lifetime plans: No refund after 7 days from purchase.</p>
@@ -5630,7 +5630,7 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
           </div>
           <div style="overflow-y:auto;padding:20px 24px;flex:1;-webkit-overflow-scrolling:touch;">${doc.content}</div>
           <div style="padding:16px 24px;border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
-            <button id="__vx-legal-acknowledge" style="width:100%;min-height:44px;background:linear-gradient(135deg,#00d68f,#10b981);border:none;border-radius:10px;color:#060d0d;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">✓ I Have Read This Document</button>
+            <button id="__vx-legal-acknowledge" style="width:100%;min-height:44px;background:linear-gradient(135deg,#00d68f,#10b981);border:none;border-radius:10px;color:#060d0d;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;"> I Have Read This Document</button>
           </div>
         </div>`;
       document.body.appendChild(overlay);
@@ -5645,7 +5645,7 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
           btn.style.background = 'rgba(0,214,143,0.06)';
           const statusEl = btn.querySelector('[id^="wiz-legal-"]');
           if (statusEl) {
-            statusEl.textContent = '✓ READ';
+            statusEl.textContent = ' READ';
             statusEl.style.color = 'var(--accent-emerald,#00d68f)';
           }
         }
@@ -7887,7 +7887,7 @@ setHtml(overlay, `
           if (clearQrBtn) clearQrBtn.style.display = 'inline-block';
         } else {
           qrPreview.style.backgroundImage = '';
-          qrPreview.textContent = '📲';
+          qrPreview.textContent = '';
           if (clearQrBtn) clearQrBtn.style.display = 'none';
         }
       }
@@ -8151,6 +8151,13 @@ setHtml(qrContainer, '<span style="font-size: 8px; color: var(--text-gray); text
         langBtn.textContent = isUrdu ? 'English' : 'اردو / ENG';
       }
     }
+    const directBtn = document.getElementById('direct-lang-toggle-btn');
+    if (directBtn) {
+      const lbl = directBtn.querySelector('.direct-lang-lbl') || directBtn;
+      lbl.textContent = isUrdu ? 'ENG' : 'اردو';
+    }
+    const selLang = document.getElementById('setting-ui-lang');
+    if (selLang) selLang.value = targetLang;
 
     const jargonMode = (state && state.preferences && state.preferences['system_jargon_mode']) || 'informal';
     const i18n = (window.__valenixiaI18n && window.__valenixiaI18n[targetLang])
@@ -8176,7 +8183,7 @@ setHtml(qrContainer, '<span style="font-size: 8px; color: var(--text-gray); text
 
     // Map of CSS selectors to translated texts
     const textMapping = {
-      '[data-screen="dashboard"] .nav-label': s.dashboard || (isUrdu ? 'کاروباری مرکز' : 'Business Hub'),
+      '[data-screen="dashboard"] .nav-label': s.dashboard || (isUrdu ? 'مرکز' : 'Hub'),
       '[data-screen="checkout"] .nav-label': s.checkout || (isUrdu ? 'خروج (بلنگ)' : 'Checkout'),
       '[data-screen="catalog"] .nav-label': s.catalog || (isUrdu ? 'اسٹاک کیٹلاگ' : 'Catalog'),
       '[data-screen="catalog-manager"] .nav-label': s.catalog_manager || (isUrdu ? 'انوینٹری لیجر' : 'Inventory Manager'),
@@ -9647,7 +9654,7 @@ setHtml(tr, `
         window.__isSubmitting = false;
         if (window.showNotificationToast) {
           showNotificationToast(
-            '⚙️ QR account not set up. Go to Settings → Payment → QR Setup to add your JazzCash/EasyPaisa merchant Till ID.',
+            ' QR account not set up. Go to Settings → Payment → QR Setup to add your JazzCash/EasyPaisa merchant Till ID.',
             'warning', 6000
           );
         } else {
@@ -9913,7 +9920,7 @@ setHtml(tr, `
       let matchesCat = false;
       if (!filter || filter === 'ALL') {
         matchesCat = true;
-      } else if (filter === '⚠️ LOW STOCK' || filter === 'LOW STOCK') {
+      } else if (filter === ' LOW STOCK' || filter === 'LOW STOCK') {
         const threshold = p.low_stock_threshold !== undefined ? p.low_stock_threshold : 10;
         const stockVal = (p.stock_level !== undefined && p.stock_level !== null) ? p.stock_level : (p.stock || 0);
         matchesCat = stockVal <= threshold;
@@ -9994,7 +10001,7 @@ setHtml(tr, `
         syncWorker.postMessage({ type: 'UPDATE_PRODUCT', payload: prod });
       }
       if (typeof showNotificationToast === 'function') {
-        showNotificationToast(`Stock updated for ${prod.name}: ${current} ➔ ${newStock}`, delta > 0 ? 'success' : 'warning', 2000);
+        showNotificationToast(`Stock updated for ${prod.name}: ${current}  ${newStock}`, delta > 0 ? 'success' : 'warning', 2000);
       }
       if (typeof renderCatalogScreen === 'function') renderCatalogScreen();
       if (typeof renderQuickCatalog === 'function') renderQuickCatalog();
@@ -10011,7 +10018,7 @@ setHtml(tr, `
     // 1. Populate category filters if filter container exists
     if (filtersContainer) {
       filtersContainer.replaceChildren();
-      const categories = ['ALL', '⚠️ LOW STOCK', ...new Set(state.catalog.map(p => p.category).filter(Boolean))];
+      const categories = ['ALL', ' LOW STOCK', ...new Set(state.catalog.map(p => p.category).filter(Boolean))];
       const filtersFragment = document.createDocumentFragment();
 
       categories.forEach(cat => {
@@ -10037,7 +10044,7 @@ setHtml(tr, `
       let matchesCat = false;
       if (filter === 'ALL') {
         matchesCat = true;
-      } else if (filter === '⚠️ LOW STOCK') {
+      } else if (filter === ' LOW STOCK') {
         const threshold = p.low_stock_threshold !== undefined ? p.low_stock_threshold : 10;
         matchesCat = p.stock_level <= threshold;
       } else {
@@ -10103,23 +10110,23 @@ setHtml(card, `
 
   // Categories pills list — shop-mode-aware
   const SHOP_MODE_CATEGORIES = {
-    'simple-retail':        ['ALL', '⚠️ LOW STOCK', 'Electronics', 'Food/Snacks', 'Drinks', 'Clothing', 'Stationery', 'Household', 'Toys', 'Health', 'Beauty'],
-    'clothing-fashion':     ['ALL', '⚠️ LOW STOCK', "Men's Wear", "Women's Wear", 'Kids', 'Footwear', 'Accessories', 'Sportswear', 'Traditional', 'Formal', 'Casual'],
-    'food-restaurant':      ['ALL', '⚠️ LOW STOCK', 'Burgers', 'Pizza', 'Drinks', 'Desserts', 'Breakfast', 'Snacks', 'Biryani', 'BBQ', 'Vegetarian'],
-    'bakery-cafe':          ['ALL', '⚠️ LOW STOCK', 'Bread', 'Cakes', 'Pastries', 'Coffee', 'Tea', 'Cold Drinks', 'Sandwiches', 'Cookies', 'Seasonal'],
-    'grocery-mart':         ['ALL', '⚠️ LOW STOCK', 'Dairy', 'Bakery', 'Meat/Fish', 'Fruits/Veg', 'Beverages', 'Snacks', 'Cleaning', 'Spices', 'Frozen'],
-    'pharmacy-medical':     ['ALL', '⚠️ LOW STOCK', 'Medicine', 'Vitamins', 'Skincare', 'Baby Care', 'Medical Devices', 'Herbals', 'OTC', 'Dental', 'Eye Care'],
-    'repair-services':      ['ALL', '⚠️ LOW STOCK', 'Labor', 'Parts', 'Tires', 'Oil Change', 'Electrical', 'AC Service', 'Brakes', 'Suspension', 'Inspection'],
-    'services-appointments':['ALL', '⚠️ LOW STOCK', 'Consultation', 'Installation', 'Repair', 'Cleaning', 'Inspection', 'Training', 'Delivery', 'Subscription', 'Custom'],
-    'electronics-highvalue':['ALL', '⚠️ LOW STOCK', 'Phones', 'Laptops', 'Accessories', 'Gaming', 'Audio', 'Cameras', 'Smart Home', 'Cables', 'Batteries'],
-    'weight-pricing':       ['ALL', '⚠️ LOW STOCK', 'Fruits', 'Vegetables', 'Meat', 'Poultry', 'Seafood', 'Spices', 'Grains', 'Nuts', 'Bulk Pulses'],
-    'jewelry-luxury':       ['ALL', '⚠️ LOW STOCK', 'Gold 24K', 'Gold 22K', 'Diamonds', 'Silver 925', 'Rings', 'Necklaces', 'Bangles', 'Watches', 'Gemstones'],
-    'auto-parts':           ['ALL', '⚠️ LOW STOCK', 'Engine Parts', 'Tires', 'Oils/Fluids', 'Electrical', 'Brakes', 'Suspension', 'Filters', 'Bodywork', 'Batteries'],
-    'hardware-construction':['ALL', '⚠️ LOW STOCK', 'Power Tools', 'Hand Tools', 'Plumbing', 'Electrical', 'Paints', 'Fasteners', 'Cement/Timber', 'Safety Gear', 'Sanitary'],
-    'pet-veterinary':       ['ALL', '⚠️ LOW STOCK', 'Dog Food', 'Cat Food', 'Grooming', 'Toys', 'Pet Health', 'Treats', 'Aquarium', 'Vet Consult', 'Cages/Leashes'],
-    'bookstore-stationery': ['ALL', '⚠️ LOW STOCK', 'Fiction', 'Non-Fiction', 'Textbooks', 'Notebooks', 'Pens/Markers', 'Art Supplies', 'Office Supplies', 'Magazines', 'School Kits'],
-    'wholesale-distribution':['ALL', '⚠️ LOW STOCK', 'Case Packs', 'Pallets', 'Bulk Beverages', 'Dry Groceries', 'Paper Products', 'Chemicals', 'Institutional', 'FMCG Bundles'],
-    'custom-mixed':         ['ALL', '⚠️ LOW STOCK']
+    'simple-retail':        ['ALL', ' LOW STOCK', 'Electronics', 'Food/Snacks', 'Drinks', 'Clothing', 'Stationery', 'Household', 'Toys', 'Health', 'Beauty'],
+    'clothing-fashion':     ['ALL', ' LOW STOCK', "Men's Wear", "Women's Wear", 'Kids', 'Footwear', 'Accessories', 'Sportswear', 'Traditional', 'Formal', 'Casual'],
+    'food-restaurant':      ['ALL', ' LOW STOCK', 'Burgers', 'Pizza', 'Drinks', 'Desserts', 'Breakfast', 'Snacks', 'Biryani', 'BBQ', 'Vegetarian'],
+    'bakery-cafe':          ['ALL', ' LOW STOCK', 'Bread', 'Cakes', 'Pastries', 'Coffee', 'Tea', 'Cold Drinks', 'Sandwiches', 'Cookies', 'Seasonal'],
+    'grocery-mart':         ['ALL', ' LOW STOCK', 'Dairy', 'Bakery', 'Meat/Fish', 'Fruits/Veg', 'Beverages', 'Snacks', 'Cleaning', 'Spices', 'Frozen'],
+    'pharmacy-medical':     ['ALL', ' LOW STOCK', 'Medicine', 'Vitamins', 'Skincare', 'Baby Care', 'Medical Devices', 'Herbals', 'OTC', 'Dental', 'Eye Care'],
+    'repair-services':      ['ALL', ' LOW STOCK', 'Labor', 'Parts', 'Tires', 'Oil Change', 'Electrical', 'AC Service', 'Brakes', 'Suspension', 'Inspection'],
+    'services-appointments':['ALL', ' LOW STOCK', 'Consultation', 'Installation', 'Repair', 'Cleaning', 'Inspection', 'Training', 'Delivery', 'Subscription', 'Custom'],
+    'electronics-highvalue':['ALL', ' LOW STOCK', 'Phones', 'Laptops', 'Accessories', 'Gaming', 'Audio', 'Cameras', 'Smart Home', 'Cables', 'Batteries'],
+    'weight-pricing':       ['ALL', ' LOW STOCK', 'Fruits', 'Vegetables', 'Meat', 'Poultry', 'Seafood', 'Spices', 'Grains', 'Nuts', 'Bulk Pulses'],
+    'jewelry-luxury':       ['ALL', ' LOW STOCK', 'Gold 24K', 'Gold 22K', 'Diamonds', 'Silver 925', 'Rings', 'Necklaces', 'Bangles', 'Watches', 'Gemstones'],
+    'auto-parts':           ['ALL', ' LOW STOCK', 'Engine Parts', 'Tires', 'Oils/Fluids', 'Electrical', 'Brakes', 'Suspension', 'Filters', 'Bodywork', 'Batteries'],
+    'hardware-construction':['ALL', ' LOW STOCK', 'Power Tools', 'Hand Tools', 'Plumbing', 'Electrical', 'Paints', 'Fasteners', 'Cement/Timber', 'Safety Gear', 'Sanitary'],
+    'pet-veterinary':       ['ALL', ' LOW STOCK', 'Dog Food', 'Cat Food', 'Grooming', 'Toys', 'Pet Health', 'Treats', 'Aquarium', 'Vet Consult', 'Cages/Leashes'],
+    'bookstore-stationery': ['ALL', ' LOW STOCK', 'Fiction', 'Non-Fiction', 'Textbooks', 'Notebooks', 'Pens/Markers', 'Art Supplies', 'Office Supplies', 'Magazines', 'School Kits'],
+    'wholesale-distribution':['ALL', ' LOW STOCK', 'Case Packs', 'Pallets', 'Bulk Beverages', 'Dry Groceries', 'Paper Products', 'Chemicals', 'Institutional', 'FMCG Bundles'],
+    'custom-mixed':         ['ALL', ' LOW STOCK']
   };
   window.SHOP_MODE_CATEGORIES = SHOP_MODE_CATEGORIES;
 
@@ -10534,7 +10541,7 @@ setHtml(container, `
       `);
     } else if (mode === 'weight-pricing') {
       setHtml(container, `
-        <label style="font-weight:700; font-size:11px; text-transform:uppercase; color:var(--accent-emerald);">⚖️ Weight-Based Pricing</label>
+        <label style="font-weight:700; font-size:11px; text-transform:uppercase; color:var(--accent-emerald);"> Weight-Based Pricing</label>
         <p style="font-size:10px; color:var(--text-gray); margin:4px 0 10px;">Set the per-kg rate below. At checkout, quantity = weight in kg.</p>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
           <div>
@@ -10954,7 +10961,7 @@ setHtml(container, `
             else if (activeOp === 'subtract') calculatedNew = Math.max(0, currentStockVal - deltaVal);
             else if (activeOp === 'set') calculatedNew = Math.max(0, deltaVal);
 
-            btnApply.innerHTML = `Apply Stock ${activeOp === 'set' ? 'Reset' : activeOp.toUpperCase()} <span style="opacity:0.8; font-weight:600;">(Current: ${currentStockVal} ➔ New: ${calculatedNew})</span>`;
+            btnApply.innerHTML = `Apply Stock ${activeOp === 'set' ? 'Reset' : activeOp.toUpperCase()} <span style="opacity:0.8; font-weight:600;">(Current: ${currentStockVal}  New: ${calculatedNew})</span>`;
           }
         };
 
@@ -11176,7 +11183,7 @@ setHtml(container, `
       batch_no,
       expiry_date,
       tax_override,
-      emoji: emoji || '📦',
+      emoji: emoji || '',
       image_url,
       mode_fields: mode_fields ? JSON.parse(mode_fields) : {}
     };
@@ -13040,12 +13047,12 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     const insights = [];
 
     if (orderCount === 0) {
-      insights.push({ icon: '🛒', title: 'Start Processing Transactions', text: 'Register sales to trigger real-time smart inventory velocity & margin analysis.' });
+      insights.push({ icon: '', title: 'Start Processing Transactions', text: 'Register sales to trigger real-time smart inventory velocity & margin analysis.' });
     } else {
       if (avgTicket < 150000) {
-        insights.push({ icon: '📈', title: 'Basket Size Opportunity', text: 'Average ticket is Rs. ' + (avgTicket/100).toFixed(2) + '. Consider bundling high-margin add-on items at checkout.' });
+        insights.push({ icon: '', title: 'Basket Size Opportunity', text: 'Average ticket is Rs. ' + (avgTicket/100).toFixed(2) + '. Consider bundling high-margin add-on items at checkout.' });
       } else {
-        insights.push({ icon: '🎯', title: 'Strong Average Ticket', text: 'High ticket size (Rs. ' + (avgTicket/100).toFixed(2) + ') indicates strong product value perception.' });
+        insights.push({ icon: '', title: 'Strong Average Ticket', text: 'High ticket size (Rs. ' + (avgTicket/100).toFixed(2) + ') indicates strong product value perception.' });
       }
 
       let totalUdhaar = 0;
@@ -13057,14 +13064,14 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
       });
 
       if (totalUdhaar > 500000) {
-        insights.push({ icon: '⚠️', title: 'Khata Credit Risk Alert', text: 'Outstanding Udhaar receivables are Rs. ' + (totalUdhaar/100).toFixed(2) + '. Send automated WhatsApp debt reminders to recover liquid cash.' });
+        insights.push({ icon: '', title: 'Khata Credit Risk Alert', text: 'Outstanding Udhaar receivables are Rs. ' + (totalUdhaar/100).toFixed(2) + '. Send automated WhatsApp debt reminders to recover liquid cash.' });
       } else {
-        insights.push({ icon: '✅', title: 'Liquid Cash Health', text: 'Credit receivables are well within safety thresholds. Working capital remains liquid.' });
+        insights.push({ icon: '', title: 'Liquid Cash Health', text: 'Credit receivables are well within safety thresholds. Working capital remains liquid.' });
       }
 
       const lowStockCount = (state.catalog || []).filter(p => (p.stock_level || 0) < (p.low_stock_threshold || 10)).length;
       if (lowStockCount > 0) {
-        insights.push({ icon: '📦', title: 'Stock Replenishment Needed', text: lowStockCount + ' products are below safety thresholds. Generate auto purchase orders to prevent lost sales.' });
+        insights.push({ icon: '', title: 'Stock Replenishment Needed', text: lowStockCount + ' products are below safety thresholds. Generate auto purchase orders to prevent lost sales.' });
       }
     }
 
@@ -13205,7 +13212,7 @@ setHtml(alertsContainer, alertsHtml);
       const peakAmpm = peakHour === 0 ? '12 AM' : (peakHour < 12 ? peakHour + ' AM' : (peakHour === 12 ? '12 PM' : (peakHour - 12) + ' PM'));
       const peakBadge = document.createElement('div');
       peakBadge.style.cssText = 'padding: 4px 10px; border-radius: 20px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); color: var(--accent-amber); font-size: 10px; font-weight: 800; display: flex; align-items: center; gap: 4px;';
-      setHtml(peakBadge, `✦ Peak Hour: ${peakAmpm} (Rs. ${Math.round(peakAmt/100).toLocaleString('en-PK')})`);
+      setHtml(peakBadge, ` Peak Hour: ${peakAmpm} (Rs. ${Math.round(peakAmt/100).toLocaleString('en-PK')})`);
       insightsRow.appendChild(peakBadge);
 
       const avgBadge = document.createElement('div');
@@ -14155,7 +14162,7 @@ setHtml(itemRow, `
         txt.textContent = 'Connecting to relay...';
       } else if (e.data.type === 'SYNC_STATUS') {
         dot.style.background = e.data.isConnected ? '#10b981' : '#64748b';
-        txt.textContent = e.data.isConnected ? 'Connected ✓' : 'Offline';
+        txt.textContent = e.data.isConnected ? 'Connected ' : 'Offline';
       }
     });
 
@@ -14339,34 +14346,13 @@ setHtml(itemRow, `
 
   function ensureDefaultSuppliers() {
     state.distributors = state.distributors || [];
-    if (state.distributors.length === 0) {
-      state.distributors = [
-        { id: 'dist_01', name: 'Al-Madina Traders', phone: '03001234567', email: 'madina@traders.pk', address: 'Market Road, Lahore', credit_limit_minor: 5000000, notes: 'FMCG & Beverage Distributor' },
-        { id: 'dist_02', name: 'National Foods Supply', phone: '03219876543', email: 'sales@nationalfoods.pk', address: 'Industrial Area, Karachi', credit_limit_minor: 10000000, notes: 'Spices, Flours & Packaged Goods' },
-        { id: 'dist_03', name: 'Metro Cash & Carry Wholesale', phone: '03455554433', email: 'b2b@metro.pk', address: 'Main GT Road, Rawalpindi', credit_limit_minor: 7500000, notes: 'Bulk Grocery & General Stock' }
-      ];
-    }
     state.purchaseOrders = state.purchaseOrders || [];
     state.distributorPayments = state.distributorPayments || [];
   }
 
   function ensureDefaultCustomerCredits() {
     state.customers = state.customers || [];
-    if (state.customers.length === 0) {
-      state.customers = [
-        { id: 'cust_01', name: 'Muhammad Usman', phone: '03009998877', email: 'usman@gmail.com', address: 'House 14, Block B' },
-        { id: 'cust_02', name: 'Tariq Mehmood', phone: '03334445566', email: 'tariq@yahoo.com', address: 'Shop 5, Commercial Market' },
-        { id: 'cust_03', name: 'Ahmed Raza', phone: '03123332211', email: 'ahmed@hotmail.com', address: 'Street 9, Sector F-8' }
-      ];
-    }
     state.customerCredits = state.customerCredits || [];
-    if (state.customerCredits.length === 0) {
-      state.customerCredits = [
-        { id: 'cred_01', customer_id: 'cust_01', type: 'CREDIT', amount_minor: 250000, note: 'Grocery Purchase on Credit', created_at: Date.now() - 86400000 },
-        { id: 'cred_02', customer_id: 'cust_02', type: 'CREDIT', amount_minor: 450000, note: 'Khata Credit Sale', created_at: Date.now() - 172800000 },
-        { id: 'cred_03', customer_id: 'cust_02', type: 'PAYMENT', amount_minor: 200000, note: 'Partial Cash Repayment', created_at: Date.now() - 43200000 }
-      ];
-    }
   }
 
   window.openSupplierModal = function(id) {
@@ -15024,7 +15010,7 @@ setHtml(tr, `
         if (balance > 0) {
           badgeHtml = `<span class="item-badge badge-red" style="font-weight:800;">Due: ${formatCurrency(balance)}</span>`;
         } else if (balance === 0) {
-          badgeHtml = `<span class="item-badge badge-gray" style="background:rgba(16,185,129,0.12); color:var(--accent-emerald); font-weight:800;">✓ Settled</span>`;
+          badgeHtml = `<span class="item-badge badge-gray" style="background:rgba(16,185,129,0.12); color:var(--accent-emerald); font-weight:800;"> Settled</span>`;
         } else {
           badgeHtml = `<span class="item-badge badge-blue" style="background:rgba(59,130,246,0.15); color:#3b82f6; font-weight:800;">Advance: ${formatCurrency(Math.abs(balance))}</span>`;
         }
@@ -15116,7 +15102,7 @@ setHtml(tr, `
     if (overdueCredits.length > 0 && balance > 0) {
       alertBox = `
         <div class="outstanding-pill overdue" style="margin-bottom: 16px; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3); border-radius:8px; padding:10px 14px;">
-          <span style="font-size: 11px; font-weight: 700; color: var(--alert-coral);">⚠️ Overdue Payment Notice:</span>
+          <span style="font-size: 11px; font-weight: 700; color: var(--alert-coral);"> Overdue Payment Notice:</span>
           <span style="font-size: 11px; color: var(--text-white); font-weight: 800; margin-left:6px;">This customer has ${overdueCredits.length} credit entry past the due date.</span>
         </div>
       `;
@@ -15138,7 +15124,7 @@ setHtml(tr, `
             + Give Udhaar (Credit)
           </button>
           <button class="action-btn action-success" id="btn-credit-record-repay" style="min-height:36px; font-size:11px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px;">
-            💵 Receive Payment
+             Receive Payment
           </button>
           <button class="action-btn action-secondary" id="btn-credit-whatsapp" style="min-height:36px; font-size:11px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px;">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -15331,9 +15317,9 @@ setHtml(tr, `
       message: 'Select repayment mode:',
       type: 'info',
       actions: [
-        { id: 'CASH', label: '💵 Cash', style: 'primary' },
-        { id: 'BANK', label: '🏦 Bank Transfer / Raast', style: 'secondary' },
-        { id: 'WALLET', label: '📱 Mobile Wallet (NayaPay/Easypaisa/JazzCash)', style: 'secondary' },
+        { id: 'CASH', label: ' Cash', style: 'primary' },
+        { id: 'BANK', label: ' Bank Transfer / Raast', style: 'secondary' },
+        { id: 'WALLET', label: ' Mobile Wallet (NayaPay/Easypaisa/JazzCash)', style: 'secondary' },
         { id: 'cancel', label: 'Cancel', style: 'secondary' }
       ]
     });
@@ -15825,7 +15811,7 @@ setHtml(container, `<p style="color: var(--text-gray); font-size:12px;">License 
           expiryColor = 'var(--alert-amber)';
         }
       } else if (graceMs > 0) {
-        expiryText = 'LICENSE EXPIRED ⚠️';
+        expiryText = 'LICENSE EXPIRED ';
         expiryColor = 'var(--alert-coral)';
       } else {
         expiryText = 'LICENSE EXPIRED';
@@ -15849,7 +15835,7 @@ setHtml(container, `<p style="color: var(--text-gray); font-size:12px;">License 
           tierValEl.style.color = (expiryMs !== null && expiryMs <= 0 && !isTrialActive) ? 'var(--alert-coral)' : (isFreemium && !isTrialActive) ? 'var(--text-gray)' : 'var(--accent-emerald)';
         }
         if (expiryValEl) {
-          expiryValEl.textContent = mode2 === 'lifetime' ? 'Lifetime ♾️ — No expiry' : expiryText;
+          expiryValEl.textContent = mode2 === 'lifetime' ? 'Lifetime  — No expiry' : expiryText;
           expiryValEl.style.color = expiryColor;
         }
         if (devicesValEl) {
@@ -15966,7 +15952,7 @@ setHtml(container, `
           if (!mainEl) { clearInterval(window.__licenseClockInterval); window.__licenseClockInterval = null; return; }
           const remainingMs = typeof LicenseEngine !== 'undefined' ? await LicenseEngine.getExpiryMs() : 0;
           if (remainingMs <= 0) {
-            mainEl.textContent = 'LICENSE EXPIRED ⚠️';
+            mainEl.textContent = 'LICENSE EXPIRED ';
             mainEl.style.color = 'var(--alert-coral)';
             clearInterval(window.__licenseClockInterval);
             window.__licenseClockInterval = null;
@@ -15990,7 +15976,7 @@ setHtml(container, `
           if (days <= 3 && !window.__expiryWarningToasted) {
             window.__expiryWarningToasted = true;
             if (typeof showNotificationToast === 'function') {
-              showNotificationToast(`⚠️ Subscription Expiry Warning: ${days > 0 ? days + ' days' : hrs + ' hours'} remaining. Please renew to ensure uninterrupted access.`, 'warning', 6000);
+              showNotificationToast(` Subscription Expiry Warning: ${days > 0 ? days + ' days' : hrs + ' hours'} remaining. Please renew to ensure uninterrupted access.`, 'warning', 6000);
             }
           }
         }
@@ -18511,7 +18497,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
           if (typeof applyTierLocks === 'function') applyTierLocks('ENTERPRISE');
           localStorage.setItem('valenixia_dev_mode', 'true');
           if (typeof showNotificationToast === 'function') {
-            showNotificationToast('✨ Developer Access Activated! Full Enterprise Tier Unlocked.', 'success', 5000);
+            showNotificationToast(' Developer Access Activated! Full Enterprise Tier Unlocked.', 'success', 5000);
           }
         }
       }
@@ -18965,7 +18951,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
         setHtml(tbody, `
           <tr>
             <td colspan="6" style="text-align:center; padding:32px; color:var(--text-gray);">
-              <div style="font-size:24px; margin-bottom:8px;">👥</div>
+              <div style="font-size:24px; margin-bottom:8px;"></div>
               <div style="font-size:13px; font-weight:700; color:var(--text-white);">No Customer Profiles Found</div>
               <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">Click "+ Create Customer Profile" above to register loyalty profiles.</div>
             </td>
@@ -19360,7 +19346,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     if (statusId) {
       const statusEl = document.getElementById(statusId);
       if (statusEl) {
-        statusEl.textContent = '✓ READ';
+        statusEl.textContent = ' READ';
         statusEl.style.color = '#00d68f';
       }
       const btn = document.querySelector(`[data-legal-document="${canonicalKey}"]`);
@@ -20184,42 +20170,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   // ============================================================================
   // 1. KITCHEN DISPLAY SYSTEM (KDS) ENGINE & RENDERER
   // ============================================================================
-  state.kdsTickets = state.kdsTickets || [
-    {
-      id: 'KOT-101',
-      orderNumber: '#1042',
-      table: 'Dine-In • Table 4',
-      status: 'PREPARING',
-      createdAt: Date.now() - 4 * 60 * 1000,
-      items: [
-        { name: 'Zinger Crunch Burger (Extra Cheese)', qty: 2, notes: 'Spicy / No Mayo' },
-        { name: 'Loaded Garlic Fries Large', qty: 1, notes: 'Extra Dip' },
-        { name: 'Mint Margarita Cold', qty: 2, notes: 'Less Ice' }
-      ]
-    },
-    {
-      id: 'KOT-102',
-      orderNumber: '#1043',
-      table: 'Takeaway • Customer Ayesha',
-      status: 'QUEUED',
-      createdAt: Date.now() - 2 * 60 * 1000,
-      items: [
-        { name: 'Chicken Fajita Pizza (Medium)', qty: 1, notes: 'Thin Crust' },
-        { name: 'Spicy Buffalo Wings (6 pcs)', qty: 1, notes: 'Ranch Sauce' }
-      ]
-    },
-    {
-      id: 'KOT-103',
-      orderNumber: '#1040',
-      table: 'Delivery • Order #409',
-      status: 'READY',
-      createdAt: Date.now() - 11 * 60 * 1000,
-      items: [
-        { name: 'Double Patty Beef Burger', qty: 1, notes: 'Well Done' },
-        { name: 'Mineral Water 500ml', qty: 2, notes: '' }
-      ]
-    }
-  ];
+  state.kdsTickets = state.kdsTickets || [];
 
   let kdsFilter = 'all';
 
@@ -20274,7 +20225,8 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       : { label: '[BELOW FLOAT]', color: '#ef4444' };
 
     // Revenue goal
-    const dailyTarget = parseFloat((state.preferences && state.preferences.daily_revenue_target) || 50000);
+    const rawTarget = state.preferences && state.preferences.daily_revenue_target;
+    const dailyTarget = (rawTarget !== undefined && rawTarget !== null && rawTarget !== '') ? parseFloat(rawTarget) : 0;
     const goalPct = dailyTarget > 0 ? Math.min(100, Math.round((todayRevenue / dailyTarget) * 100)) : 0;
     const goalColor = goalPct >= 80 ? 'linear-gradient(90deg,var(--accent-emerald),#34d399)' : goalPct >= 50 ? 'linear-gradient(90deg,#f59e0b,#fbbf24)' : 'linear-gradient(90deg,#ef4444,#f87171)';
 
@@ -20289,9 +20241,13 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
 
     // Goal bar
     if (el('dash-goal-bar')) { el('dash-goal-bar').style.width = goalPct + '%'; el('dash-goal-bar').style.background = goalColor; }
-    if (el('dash-goal-pct-text')) el('dash-goal-pct-text').textContent = `${goalPct}% of daily target`;
+    if (el('dash-goal-pct-text')) {
+      el('dash-goal-pct-text').textContent = dailyTarget > 0 ? `${goalPct}% of daily target` : 'Daily target not set (Configure in Settings)';
+    }
     if (el('dash-goal-label-left')) el('dash-goal-label-left').textContent = `Rs. ${todayRevenue.toLocaleString('en-PK', { maximumFractionDigits: 0 })} earned`;
-    if (el('dash-goal-label-right')) el('dash-goal-label-right').textContent = `Target: Rs. ${dailyTarget.toLocaleString('en-PK', { maximumFractionDigits: 0 })}`;
+    if (el('dash-goal-label-right')) {
+      el('dash-goal-label-right').textContent = dailyTarget > 0 ? `Target: Rs. ${dailyTarget.toLocaleString('en-PK', { maximumFractionDigits: 0 })}` : 'Daily Target: —';
+    }
 
     // ---- OPERATIONAL ALERTS ENGINE ----
     const alerts = [];
@@ -20299,8 +20255,9 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
 
     // 1. Stock alerts (ABC & inventory thresholds)
     catalog.forEach((p) => {
-      const stock = p.stock_quantity !== undefined ? p.stock_quantity : (p.stock !== undefined ? p.stock : 0);
-      const minThreshold = p.low_stock_threshold !== undefined ? p.low_stock_threshold : 5;
+      const stock = p.stock_quantity !== undefined ? p.stock_quantity : (p.stock_level !== undefined ? p.stock_level : (p.stock !== undefined ? p.stock : null));
+      if (stock === null) return;
+      const minThreshold = p.alert_threshold !== undefined ? p.alert_threshold : (p.low_stock_threshold !== undefined ? p.low_stock_threshold : 5);
       if (stock <= 0) {
         alerts.push({ level: 'critical', badge: '[STOCKOUT]', title: `Out of Stock: "${p.name}" (0 units remaining)`, body: 'Item inventory is completely depleted. Reorder from supplier immediately to prevent lost revenue.', action: 'Restock', screen: 'catalog-manager' });
       } else if (stock <= minThreshold) {
@@ -20331,8 +20288,8 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     // 4. Daily expense velocity alert
     const todayExpenses = (state.pettyCashLog || []).filter(r => r.amount < 0 && (r.time || '').includes('Today'));
     const todayExpTotal = todayExpenses.reduce((s, r) => s + Math.abs(r.amount), 0);
-    const avgDailyExp = 2000;
-    if (todayExpTotal > avgDailyExp * 2) {
+    const avgDailyExp = parseFloat((state.preferences && state.preferences.average_daily_expense) || 0);
+    if (avgDailyExp > 0 && todayExpTotal > avgDailyExp * 2) {
       alerts.push({ level: 'warning', badge: '[EXPENSE SPIKE]', title: `Elevated Expenses: Rs. ${todayExpTotal.toLocaleString('en-PK')} Today`, body: `Today's outflow is ${(todayExpTotal/avgDailyExp).toFixed(1)}x higher than store daily average. Audit ledger entries.`, action: 'Audit Ledger', screen: 'petty-cash' });
     }
 
@@ -20552,17 +20509,13 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   // ============================================================================
   // 2. PETTY CASH & FLOAT RECONCILIATION ENGINE
   // ============================================================================
-  state.pettyCashLog = state.pettyCashLog || [
-    { time: '09:00 AM Today', type: 'FLOAT IN', category: 'Opening Cash Float', by: 'Manager', amount: 5000 },
-    { time: '11:15 AM Today', type: 'EXPENSE', category: 'Office Refreshment / Tea', by: 'Cashier 01', amount: -350 },
-    { time: '01:45 PM Today', type: 'EXPENSE', category: 'Courier / Urgent Delivery', by: 'Cashier 01', amount: -220 }
-  ];
+  state.pettyCashLog = state.pettyCashLog || [];
 
   function renderPettyCashScreen() {
-    const openingFloat = 5000;
+    const openingFloat = parseFloat((state.preferences && state.preferences.opening_float) || 0);
     let cashSalesTotal = 0;
     (state.transactions||[]).forEach(tx => {
-      if (tx.payment_method === 'CASH' || !tx.payment_method) {
+      if ((tx.payment_method || tx.paymentMethod || 'CASH').toUpperCase() === 'CASH') {
         cashSalesTotal += ((tx.total_minor_units || tx.total || 0) / 100);
       }
     });
@@ -20691,11 +20644,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   // ============================================================================
   // 3. STAFF TIME CLOCK & PAYROLL COMMISSION ENGINE
   // ============================================================================
-  state.attendanceLog = state.attendanceLog || [
-    { date: 'Today', name: 'Muhammad Usman', clockIn: '09:00 AM', clockOut: 'In Progress', hours: '4.5 hrs', sales: 45800, payout: 2041 },
-    { date: 'Yesterday', name: 'Ayesha Khan', clockIn: '09:00 AM', clockOut: '06:00 PM', hours: '9.0 hrs', sales: 82400, payout: 3898 },
-    { date: 'Yesterday', name: 'Bilal Ahmed', clockIn: '02:00 PM', clockOut: '11:00 PM', hours: '9.0 hrs', sales: 64100, payout: 3532 }
-  ];
+  state.attendanceLog = state.attendanceLog || [];
 
   let shiftTimerInterval = null;
 
@@ -20870,29 +20819,22 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     const catalog = state.catalog || [];
     let critCount = 0, warnCount = 0, deadVal = 0;
 
-    const velData = catalog.map((p, idx) => {
-      const stock = p.stock_quantity !== undefined ? p.stock_quantity : (p.stock || 50);
+    const velData = catalog.map((p) => {
+      const stock = p.stock_quantity !== undefined ? p.stock_quantity : (p.stock_level !== undefined ? p.stock_level : (p.stock !== undefined ? p.stock : 0));
       const price = (p.base_price_minor_units || 0) / 100;
       const cost = (p.cost_price_minor_units || 0) / 100;
-      const seed = (p.name.length * 7 + idx * 13) % 25;
-      const velocity = Math.max(0.5, seed / 3);
-      const daysLeft = Math.max(1, Math.round(stock / velocity));
-      const dailyRev = velocity * price;
-      const revenueAtRisk = Math.round(velocity * 5 * price);
-      const overstockCost = daysLeft > 60 ? Math.round(stock * cost) : 0;
-      let risk = 'HEALTHY', rc = 'var(--accent-emerald)', rb = 'rgba(0,214,143,0.12)';
-      if (daysLeft <= 3) { risk = 'CRITICAL'; rc = '#ef4444'; rb = 'rgba(239,68,68,0.15)'; critCount++; }
-      else if (daysLeft <= 7) { risk = 'WARNING'; rc = '#f59e0b'; rb = 'rgba(245,158,11,0.15)'; warnCount++; }
-      else if (daysLeft > 60) { risk = 'OVERSTOCKED'; rc = '#3b82f6'; rb = 'rgba(59,130,246,0.15)'; deadVal += overstockCost; }
-      const reorder = Math.round(velocity * 14);
-      return { prod: p, stock, price, cost, velocity, daysLeft, risk, rc, rb, dailyRev, revenueAtRisk, overstockCost, reorder };
+      const velocity = 0;
+      const daysLeft = stock > 0 ? 999 : 0;
+      const dailyRev = 0;
+      const revenueAtRisk = 0;
+      const overstockCost = 0;
+      let risk = stock <= 0 ? 'CRITICAL' : 'HEALTHY', rc = stock <= 0 ? '#ef4444' : 'var(--accent-emerald)', rb = stock <= 0 ? 'rgba(239,68,68,0.15)' : 'rgba(0,214,143,0.12)';
+      if (stock <= 0) critCount++;
+      const reorder = Math.max(10, stock);
+      return { prod: p, stock, price, cost, velocity, daysLeft, risk, rc, rb, dailyRev, revenueAtRisk, overstockCost, reorder, abc: 'C' };
     });
 
     const sorted = [...velData].sort((a,b) => b.dailyRev - a.dailyRev);
-    const total = sorted.reduce((s,r) => s + r.dailyRev, 0) || 1;
-    let cumRev = 0;
-    sorted.forEach(r => { cumRev += r.dailyRev; r.abc = cumRev / total <= 0.8 ? 'A' : cumRev / total <= 0.95 ? 'B' : 'C'; });
-
     const topA = sorted.filter(r => r.abc === 'A').slice(0, 3).map(r => r.prod.name).join(', ') || 'None';
     cards.innerHTML = `
       <div class="cloud-vault-card" style="padding:18px;border-radius:12px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.03);width:100%;box-sizing:border-box;">
@@ -20985,11 +20927,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     `;
 
     tbody.replaceChildren();
-    const customers = state.customers || [
-      { name: 'Dr. Tariq Mahmood', phone: '0300-1122334', total_spent: 85400, points: 2560, visits: 18, last_visit_days: 24, birthday_month: new Date().getMonth() + 1 },
-      { name: 'Fatima Zahra', phone: '0321-9988776', total_spent: 34200, points: 684, visits: 12, last_visit_days: 8, birthday_month: null },
-      { name: 'Hamza Sheikh', phone: '0333-5544332', total_spent: 12800, points: 128, visits: 5, last_visit_days: 45, birthday_month: null }
-    ];
+    const customers = state.customers || [];
     const GOLD_THRESHOLD = 25000, PLAT_THRESHOLD = 75000;
 
     customers.forEach(cust => {
@@ -21065,7 +21003,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     const grid = document.getElementById('marketing-templates-grid');
     if (!grid) return;
     const storeName = (state.preferences && state.preferences.store_name) || 'Our Store';
-    const customerCount = (state.customers||[]).length || 47;
+    const customerCount = (state.customers||[]).length;
 
     state.marketingCampaignLog = state.marketingCampaignLog || {};
 
@@ -21123,10 +21061,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   // ============================================================================
   // 8. INTER-BRANCH STOCK TRANSFER (STN) ENGINE
   // ============================================================================
-  state.stockTransfers = state.stockTransfers || [
-    { id: 'STN-2026-001', from: 'Central Warehouse', to: 'Branch 01 (Main Mall)', sku: 'SKU-WAT-001', qty: 100, date: 'Today', status: 'IN TRANSIT' },
-    { id: 'STN-2026-002', from: 'Central Warehouse', to: 'Branch 02 (DHA Phase 5)', sku: 'SKU-CHP-002', qty: 250, date: 'Yesterday', status: 'RECEIVED' }
-  ];
+  state.stockTransfers = state.stockTransfers || [];
 
   function renderStockTransferScreen() {
     const tbody = document.getElementById('stock-transfer-list');

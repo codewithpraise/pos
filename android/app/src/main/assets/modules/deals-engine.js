@@ -17,13 +17,13 @@
 
   // Terminology per business mode
   const MODE_LABELS = {
-    'food-restaurant': { s:'Combo',   p:'Combos',   i:'🍽️' },
-    'bakery-cafe':     { s:'Special', p:'Specials',  i:'☕' },
-    'simple-retail':   { s:'Bundle',  p:'Bundles',   i:'📦' },
-    'grocery-mart':    { s:'Bundle',  p:'Bundles',   i:'🧺' },
-    'pharmacy-medical':{ s:'Kit',     p:'Kits',      i:'💊' },
-    'services-appointments':{ s:'Package',p:'Packages',i:'🎁'},
-    DEFAULT:           { s:'Deal',    p:'Deals',     i:'🏷️' }
+    'food-restaurant': { s:'Combo',   p:'Combos',   i:'' },
+    'bakery-cafe':     { s:'Special', p:'Specials',  i:'' },
+    'simple-retail':   { s:'Bundle',  p:'Bundles',   i:'' },
+    'grocery-mart':    { s:'Bundle',  p:'Bundles',   i:'' },
+    'pharmacy-medical':{ s:'Kit',     p:'Kits',      i:'' },
+    'services-appointments':{ s:'Package',p:'Packages',i:''},
+    DEFAULT:           { s:'Deal',    p:'Deals',     i:'' }
   };
 
   // ── Internal state ─────────────────────────────────────────────────────────
@@ -229,7 +229,7 @@
     ov.innerHTML = `<div style="max-width:540px;width:100%;background:#0d0d12;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:28px;box-shadow:0 32px 64px rgba(0,0,0,.8);margin:auto;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
         <h2 style="font-size:18px;font-weight:800;color:#fff;margin:0;">${isNew?'Create':'Edit'} ${L.s}</h2>
-        <button id="__vxdm-close" style="background:transparent;border:1px solid rgba(255,255,255,.1);color:#94a3b8;width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:16px;">✕</button>
+        <button id="__vxdm-close" style="background:transparent;border:1px solid rgba(255,255,255,.1);color:#94a3b8;width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:16px;"></button>
       </div>
       <div style="display:grid;grid-template-columns:auto 1fr;gap:12px;margin-bottom:16px;align-items:center;">
         <button id="__vxdm-icon" style="width:52px;height:52px;font-size:26px;background:rgba(255,255,255,.04);border:1px solid var(--border-titanium);border-radius:8px;cursor:pointer;">${dealIcon}</button>
@@ -289,7 +289,7 @@
         <span style="flex:1;font-size:13px;color:var(--text-white);">${item.name}</span>
         <span style="font-size:11px;color:var(--text-gray);">Qty:</span>
         <input type="number" min="1" value="${item.qty}" data-i="${i}" class="__vxdm-qty" style="width:52px;padding:4px 6px;background:var(--panel-graphite);border:1px solid var(--border-titanium);color:var(--text-white);border-radius:4px;font-size:13px;text-align:center;">
-        <button data-i="${i}" class="__vxdm-rm" style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#ef4444;padding:4px 8px;border-radius:4px;font-size:12px;cursor:pointer;">✕</button>
+        <button data-i="${i}" class="__vxdm-rm" style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#ef4444;padding:4px 8px;border-radius:4px;font-size:12px;cursor:pointer;"></button>
       </div>`).join('');
       el.querySelectorAll('.__vxdm-qty').forEach(inp => inp.addEventListener('change', () => { selItems[+inp.dataset.i].qty = Math.max(1, parseInt(inp.value)||1); }));
       el.querySelectorAll('.__vxdm-rm').forEach(btn => btn.addEventListener('click', () => { selItems.splice(+btn.dataset.i, 1); redrawItems(); }));
@@ -297,7 +297,7 @@
     redrawItems();
 
     // Icon picker
-    const ICONS = ['🏷️','📦','🎁','🍽️','☕','🍕','🍔','🥗','🍜','🍣','🍦','🎂','🧁','🛍️','💊','🧴','📱','💡','🎯','⭐','💎','🔥','✨'];
+    const ICONS = ['','','','','','','','','','','','','','','','','','','','','','',''];
     ov.querySelector('#__vxdm-icon').addEventListener('click', () => {
       const p = document.createElement('div');
       p.style.cssText = 'position:absolute;background:#0d0d12;border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px;display:flex;flex-wrap:wrap;gap:4px;z-index:2147483641;max-width:220px;box-shadow:0 8px 32px rgba(0,0,0,.8);';
@@ -354,7 +354,7 @@
     ov.innerHTML = `<div style="max-width:600px;width:100%;background:#0d0d12;border-radius:16px 16px 0 0;border:1px solid rgba(255,255,255,.08);max-height:70vh;display:flex;flex-direction:column;">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.07);">
         <span style="font-size:15px;font-weight:800;color:#fff;">${L.i} Select ${L.s}</span>
-        <button id="__vxdq-close" style="background:transparent;border:1px solid rgba(255,255,255,.1);color:#94a3b8;width:30px;height:30px;border-radius:6px;cursor:pointer;">✕</button>
+        <button id="__vxdq-close" style="background:transparent;border:1px solid rgba(255,255,255,.1);color:#94a3b8;width:30px;height:30px;border-radius:6px;cursor:pointer;"></button>
       </div>
       <div style="overflow-y:auto;padding:12px 16px;flex:1;" id="__vxdq-list"></div>
     </div>`;

@@ -647,7 +647,7 @@ const LicenseEngine = (() => {
         display: flex; align-items: center; justify-content: center; gap: 8px;
         background-color: #f59e0b; color: #060608; cursor: pointer;
       `;
-      banner.innerHTML = `⚠️ AMC NOTICE: Your Annual Maintenance Contract has expired. Cloud sync and support are offline, but local billing continues to function. Click here to renew.`;
+      banner.innerHTML = ` AMC NOTICE: Your Annual Maintenance Contract has expired. Cloud sync and support are offline, but local billing continues to function. Click here to renew.`;
       document.body.appendChild(banner);
       document.body.style.paddingTop = '38px';
       
@@ -1157,7 +1157,7 @@ const LicenseEngine = (() => {
         const secs = Math.ceil(remaining / 1000);
         const mins = Math.floor(secs / 60);
         const secStr = (secs % 60).toString().padStart(2, '0');
-        banner.innerText = `⚠️ EMERGENCY OVERRIDE ACTIVE — EXPIRES IN ${mins}:${secStr} — PLEASE ACTIVATE LICENSE`;
+        banner.innerText = ` EMERGENCY OVERRIDE ACTIVE — EXPIRES IN ${mins}:${secStr} — PLEASE ACTIVATE LICENSE`;
       }
     };
     
@@ -1206,7 +1206,7 @@ const LicenseEngine = (() => {
           if (typeof applyTierLocks === 'function') applyTierLocks(preTrialTier);
           if (typeof renderNavbarByTier === 'function') renderNavbarByTier(preTrialTier);
           if (typeof showNotificationToast === 'function') {
-            showNotificationToast('⌛ 7-Day Free Trial finished. Subscription reverted to ' + preTrialTier + '.', 'info', 6000);
+            showNotificationToast(' 7-Day Free Trial finished. Subscription reverted to ' + preTrialTier + '.', 'info', 6000);
           }
           return pausedRemainingMs;
         }

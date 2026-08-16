@@ -9,9 +9,9 @@ const assert = require('assert');
 
 console.log('🧪 Running Valenixia POS v2.6.0 Subscription Geometry & Add-on Entitlement Hardening Test...');
 
-const componentsCss = fs.readFileSync(path.join(__dirname, '../public/styles/components.css'), 'utf8');
-const mobileScaleCss = fs.readFileSync(path.join(__dirname, '../public/styles/mobile-scale.css'), 'utf8');
-const indexHtml = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+const componentsCss = fs.readFileSync(path.join(__dirname, '../public/styles/components.css'), 'utf8').replace(/\r\n/g, '\n');
+const mobileScaleCss = fs.readFileSync(path.join(__dirname, '../public/styles/mobile-scale.css'), 'utf8').replace(/\r\n/g, '\n');
+const indexHtml = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8').replace(/\r\n/g, '\n');
 const { COMMERCIAL_PLANS } = require('../lib/commercial-catalog.js');
 const { ADDON_CATALOG, AddonService } = require('../lib/addon-service.js');
 const EntitlementService = require('../lib/entitlement-service.js');

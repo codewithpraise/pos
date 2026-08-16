@@ -266,7 +266,7 @@ async function syncOnlineSubscriptionTier() {
 
       if (tierChanged && prevTier !== 'TRIAL') {
         if (typeof showNotificationToast === 'function') {
-          showNotificationToast(`🚀 Subscription License Sync: Active Plan is ${fetchedTier}.`, 'info', 4000);
+          showNotificationToast(` Subscription License Sync: Active Plan is ${fetchedTier}.`, 'info', 4000);
         }
       }
     }
@@ -381,7 +381,7 @@ function showUpgradeModal(featureName, requiredTier = 'GROWTH') {
       
       <div style="text-align:center;margin-bottom:24px;">
         <div style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);border-radius:50%;font-size:32px;margin-bottom:12px;box-shadow:0 0 24px rgba(245,158,11,0.2);">
-          🔒
+          
         </div>
         <h2 style="font-size:20px;font-weight:900;margin:0 0 6px;color:#fff;letter-spacing:-0.3px;">
           ${featureName ? featureName.toUpperCase().replace('-', ' ') : 'PREMIUM FEATURE'} LOCKED

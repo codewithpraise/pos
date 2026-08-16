@@ -488,7 +488,7 @@
       color: var(--text-secondary);
     }
 
-    .plan-features li::before { content: '✓'; color: var(--accent-emerald); font-weight: 700; }
+    .plan-features li::before { content: ''; color: var(--accent-emerald); font-weight: 700; }
 
     .btn-plan {
       width: 100%;
@@ -630,7 +630,7 @@
 
     <div class="hero-cta-row">
       <a href="#download" class="btn-primary ripple" id="hero-download-btn">
-        <span>📲</span> Download Free
+        <span></span> Download Free
       </a>
       <a href="index.html" class="btn-secondary" id="hero-open-app-btn">
         Open Web App →
@@ -647,7 +647,7 @@
   <div class="cards-grid">
     <!-- Windows Desktop App -->
     <div class="download-card fade-up" id="card-windows">
-      <span class="card-icon">💻</span>
+      <span class="card-icon"></span>
       <div class="card-title">Windows Desktop App</div>
       <div class="card-desc">Full desktop edition with hardware receipt printer integration, customer-facing display support, and offline SQLite encryption.</div>
       <div class="card-meta">
@@ -662,7 +662,7 @@
 
     <!-- Android APK -->
     <div class="download-card fade-up" id="card-android">
-      <span class="card-icon">🤖</span>
+      <span class="card-icon"></span>
       <div class="card-title">Android APK</div>
       <div class="card-desc">Native Android app with Bluetooth thermal printing, hardware barcode scanner, and offline-first CRDT sync.</div>
       <div class="card-meta">
@@ -677,7 +677,7 @@
 
     <!-- PWA -->
     <div class="download-card fade-up" id="card-pwa" style="transition-delay:0.1s">
-      <span class="card-icon">🌐</span>
+      <span class="card-icon"></span>
       <div class="card-title">Progressive Web App</div>
       <div class="card-desc">Install directly from your browser. Works on any device. Offline-capable via Service Worker with OPFS encrypted storage.</div>
       <div class="card-meta">
@@ -686,13 +686,13 @@
         <span class="chip">0 MB Download</span>
       </div>
       <a href="index.html" class="btn-primary ripple" id="btn-open-pwa" style="display:inline-flex;text-decoration:none">
-        🚀 Open &amp; Install
+         Open &amp; Install
       </a>
     </div>
 
     <!-- iOS -->
     <div class="download-card fade-up" id="card-ios" style="transition-delay:0.2s">
-      <span class="card-icon">🍎</span>
+      <span class="card-icon"></span>
       <div class="card-title">iOS / iPad</div>
       <div class="card-desc">Add to Home Screen from Safari on iPhone or iPad. Full PWA support with offline mode and touch-optimized UI.</div>
       <div class="card-meta">
@@ -701,13 +701,13 @@
         <span class="chip">Add to Home</span>
       </div>
       <button class="btn-secondary ripple" id="btn-ios-instructions" onclick="document.getElementById('ios-guide').style.display='block'" style="cursor:pointer;width:100%">
-        📋 See Instructions
+         See Instructions
       </button>
       <div id="ios-guide" style="display:none;margin-top:12px;font-size:12px;color:var(--text-secondary);line-height:1.8;background:rgba(255,255,255,0.04);padding:12px;border-radius:10px;">
         1. Open <strong style="color:#fff">valenixia.com</strong> in Safari<br>
         2. Tap the <strong style="color:#fff">Share</strong> icon (□↑)<br>
         3. Scroll and tap <strong style="color:#fff">Add to Home Screen</strong><br>
-        4. Tap <strong style="color:#fff">Add</strong> — done! 🎉
+        4. Tap <strong style="color:#fff">Add</strong> — done! 
       </div>
     </div>
   </div>
@@ -802,7 +802,7 @@
 
   <div class="testimonials-grid">
     <div class="testimonial-card fade-up" id="testimonial-1">
-      <div class="stars">★★★★★</div>
+      <div class="stars"></div>
       <div class="testimonial-text">"We went from pen-and-paper to fully digital in one afternoon. The offline mode saved us during a power cut — sales never stopped."</div>
       <div class="testimonial-author">
         <div class="avatar-circle" style="background:linear-gradient(135deg,#10b981,#0d9488)">A</div>
@@ -814,7 +814,7 @@
     </div>
 
     <div class="testimonial-card fade-up" id="testimonial-2" style="transition-delay:0.1s">
-      <div class="stars">★★★★★</div>
+      <div class="stars"></div>
       <div class="testimonial-text">"The FBR integration alone saved us hours every week. The analytics dashboard helps us see exactly which products are moving."</div>
       <div class="testimonial-author">
         <div class="avatar-circle" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">S</div>
@@ -826,7 +826,7 @@
     </div>
 
     <div class="testimonial-card fade-up" id="testimonial-3" style="transition-delay:0.2s">
-      <div class="stars">★★★★★</div>
+      <div class="stars"></div>
       <div class="testimonial-text">"Running 3 branches with one system feels impossible until you try Valenixia. Real-time sync across terminals is flawless."</div>
       <div class="testimonial-author">
         <div class="avatar-circle" style="background:linear-gradient(135deg,#f59e0b,#d97706)">R</div>
@@ -928,7 +928,7 @@
     const url = window.location.origin + '/index.html';
     // Simple visual QR placeholder (actual QR would use a library)
     container.innerHTML = `<div style="text-align:center;font-size:10px;color:#666;padding:8px;">
-      <div style="font-size:24px;margin-bottom:6px">📱</div>
+      <div style="font-size:24px;margin-bottom:6px"></div>
       <div style="color:#000;font-size:9px;word-break:break-all;max-width:130px">${url}</div>
     </div>`;
   })();

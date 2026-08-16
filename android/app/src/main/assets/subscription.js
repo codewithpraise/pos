@@ -304,7 +304,7 @@
 
         if (res.ok) {
           if (typeof showNotificationToast === 'function') {
-            showNotificationToast('✅ Upgrade claim submitted! Reference logged for review.', 'success', 4000);
+            showNotificationToast(' Upgrade claim submitted! Reference logged for review.', 'success', 4000);
           } else alert('Upgrade claim submitted successfully!');
 
           this.activateTab('history');
@@ -410,7 +410,7 @@
             const isGranted = activeAddons.some(a => a === addonId || a === `addon_${addonId.toLowerCase()}`);
 
             if (isGranted) {
-              actionBtn.textContent = '🟢 ACTIVE ENTITLEMENT';
+              actionBtn.textContent = ' ACTIVE ENTITLEMENT';
               actionBtn.classList.remove('dm-btn-emerald');
               actionBtn.classList.add('dm-btn-secondary');
               actionBtn.disabled = true;

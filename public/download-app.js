@@ -39,7 +39,7 @@
         card.classList.add('recommended-card');
         const badge = document.createElement('div');
         badge.className = 'rec-badge';
-        badge.innerHTML = '✨ Recommended for your device';
+        badge.innerHTML = ' Recommended for your device';
         card.prepend(badge);
       }
     }
@@ -139,7 +139,7 @@
     } else {
       container.innerHTML = `
         <div style="text-align:center; padding:12px; font-family:sans-serif;">
-          <div style="font-size:32px; margin-bottom:4px;">📱</div>
+          <div style="font-size:32px; margin-bottom:4px;"></div>
           <div style="font-size:10px; font-weight:700; color:#0f172a; word-break:break-all; max-width:130px;">${targetUrl}</div>
         </div>
       `;

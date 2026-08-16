@@ -481,13 +481,19 @@ window.ValenixiaLanguage = {
       document.body.setAttribute('data-lang', next);
       document.body.classList.toggle('rtl', next === 'ur');
       document.body.classList.toggle('lang-urdu', next === 'ur');
-      document.body.setAttribute('dir', next === 'ur' ? 'rtl' : 'ltr');
       const btn = document.getElementById('lang-toggle-btn');
       if (btn) {
-        const subSpan = btn.querySelector('span:nth-child(2)');
+        const subSpan = btn.querySelector('.lang-current-val') || btn.querySelector('span:nth-child(2)');
         if (subSpan) subSpan.textContent = next === 'ur' ? 'English' : 'اردو / ENG';
         else btn.textContent = next === 'ur' ? 'English' : 'اردو / ENG';
       }
+      const directBtn = document.getElementById('direct-lang-toggle-btn');
+      if (directBtn) {
+        const lbl = directBtn.querySelector('.direct-lang-lbl') || directBtn;
+        lbl.textContent = next === 'ur' ? 'ENG' : 'اردو';
+      }
+      const selLang = document.getElementById('setting-ui-lang');
+      if (selLang) selLang.value = next;
     }
     if (window.ValenixiaOverflowMenu && typeof window.ValenixiaOverflowMenu.close === 'function') {
       window.ValenixiaOverflowMenu.close();
@@ -843,7 +849,7 @@ document.addEventListener('click', (e) => {
 // Comprehensive Legal Documents Content Registry
 const LEGAL_DOCS_REGISTRY = {
   tos: {
-    title: '📄 Terms of Service — Valenixia POS',
+    title: ' Terms of Service — Valenixia POS',
     content: `<h3 style="margin:0 0 14px;font-size:15px;font-weight:800;color:#fff;">Terms of Service — Valenixia POS</h3>
 <p style="font-size:12px;color:#94a3b8;line-height:1.8;"><strong style="color:#e2e8f0;">1. LICENSE GRANT</strong><br>Valenixia POS grants you a limited, non-exclusive, non-transferable, revocable license to use the Software solely for your internal business operations in accordance with your subscription plan limits.</p>
 <p style="font-size:12px;color:#94a3b8;line-height:1.8;"><strong style="color:#e2e8f0;">2. AS-IS SOFTWARE</strong><br>The software is provided "as-is" without warranty of any kind. Valenixia assumes no liability for financial loss, data corruption, or downtime resulting from use of the software.</p>
@@ -855,7 +861,7 @@ const LEGAL_DOCS_REGISTRY = {
 <p style="font-size:11px;color:#64748b;margin-top:16px;">Last updated: July 2025 | Contact: support@valenixia.com</p>`
   },
   privacy: {
-    title: '🛡️ Privacy Policy — Valenixia POS',
+    title: ' Privacy Policy — Valenixia POS',
     content: `<h3 style="margin:0 0 14px;font-size:15px;font-weight:800;color:#fff;">Privacy Policy — Valenixia POS</h3>
 <p style="font-size:12px;color:#94a3b8;line-height:1.8;"><strong style="color:#e2e8f0;">1. DATA WE COLLECT</strong><br>Valenixia POS collects only data you enter: store name, product catalog, transactions, customer information, and employee records. We do not collect personal device data, location, or browsing history.</p>
 <p style="font-size:12px;color:#94a3b8;line-height:1.8;"><strong style="color:#e2e8f0;">2. LOCAL-FIRST STORAGE</strong><br>All your business data is stored locally on your device using browser IndexedDB. Valenixia does not have remote access to your local data. You own it entirely.</p>
@@ -866,7 +872,7 @@ const LEGAL_DOCS_REGISTRY = {
 <p style="font-size:11px;color:#64748b;margin-top:16px;">Last updated: July 2025 | Contact: privacy@valenixia.com</p>`
   },
   refund: {
-    title: '💸 Refund & Cancellation Policy — Valenixia POS',
+    title: ' Refund & Cancellation Policy — Valenixia POS',
     content: `<h3 style="margin:0 0 14px;font-size:15px;font-weight:800;color:#fff;">Refund & Cancellation Policy</h3>
 <p style="font-size:12px;color:#94a3b8;line-height:1.8;"><strong style="color:#e2e8f0;">1. SUBSCRIPTION CANCELLATION</strong><br>You may cancel your subscription at any time. Cancellation takes effect at the end of the current billing period. You retain full access until then.</p>
 <p style="font-size:12px;color:#94a3b8;line-height:1.8;"><strong style="color:#e2e8f0;">2. REFUND ELIGIBILITY</strong><br>Monthly plans: No refund after 3 days from purchase. Annual plans: Prorated refund available within 30 days of purchase, minus a 10% processing fee. Lifetime plans: No refund after 7 days from purchase.</p>
@@ -898,7 +904,7 @@ window.showLegalDocOverlay = function(docKey) {
       </div>
       <div class="vx-legal-body" style="overflow-y:auto;padding:16px 20px;flex:1;-webkit-overflow-scrolling:touch;touch-action:pan-y;font-size:12px;line-height:1.6;overscroll-behavior-y:contain;">${doc.content}</div>
       <div class="vx-legal-footer" style="padding:16px 20px;flex-shrink:0;">
-        <button id="__vx-legal-ack" style="width:100%;min-height:48px;background:linear-gradient(135deg,#00d68f,#10b981);border:none;border-radius:10px;color:#060d0d;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;touch-action:manipulation;">✓ I Have Read This Document</button>
+        <button id="__vx-legal-ack" style="width:100%;min-height:48px;background:linear-gradient(135deg,#00d68f,#10b981);border:none;border-radius:10px;color:#060d0d;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;touch-action:manipulation;"> I Have Read This Document</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -922,7 +928,7 @@ window.showLegalDocOverlay = function(docKey) {
       btn.style.background = 'rgba(0,214,143,0.08)';
     }
     if (statusEl) {
-      statusEl.textContent = '✓ READ';
+      statusEl.textContent = ' READ';
       statusEl.style.color = '#00d68f';
     }
   };
@@ -1026,13 +1032,13 @@ window.copyDiagnostics = async function() {
   const formatted = logs.map((item, idx) => {
     let str = `[#${idx + 1}] [${new Date(item.t || Date.now()).toLocaleTimeString()}] [${item.lvl || 'LOG'}] ${item.src || 'console'}: ${item.msg || ''}`;
     if (item.pinpoint && item.pinpoint.file !== 'unknown') {
-      str += `\n   📍 PINPOINT: ${item.pinpoint.file}:${item.pinpoint.line}:${item.pinpoint.col} in ${item.pinpoint.fn}()`;
+      str += `\n    PINPOINT: ${item.pinpoint.file}:${item.pinpoint.line}:${item.pinpoint.col} in ${item.pinpoint.fn}()`;
     }
     if (item.lastAction) {
-      str += `\n   👆 LAST USER ACTION: <${item.lastAction.tag} id="${item.lastAction.id}"> "${item.lastAction.txt}" on ${item.lastAction.view}`;
+      str += `\n    LAST USER ACTION: <${item.lastAction.tag} id="${item.lastAction.id}"> "${item.lastAction.txt}" on ${item.lastAction.view}`;
     }
     if (item.meta && item.meta.stack) {
-      str += `\n   📜 STACK: ${String(item.meta.stack).split('\n').slice(0, 3).join('\n      ')}`;
+      str += `\n    STACK: ${String(item.meta.stack).split('\n').slice(0, 3).join('\n      ')}`;
     }
     return str;
   }).join('\n\n');
@@ -1061,7 +1067,7 @@ window.copyDiagnostics = async function() {
     </div>
     <textarea readonly id="diag-copy-area" style="width:100%;flex:1;background:#0d0d12;color:#a3e635;border:1px solid rgba(0,214,143,0.3);border-radius:8px;padding:12px;font-family:monospace;font-size:10px;line-height:1.5;outline:none;resize:none;box-sizing:border-box;white-space:pre-wrap;word-break:break-all;"></textarea>
     <button type="button" onclick="const ta=document.getElementById('diag-copy-area');ta.select();if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(ta.value);}else{document.execCommand('copy');}alert('Diagnostic logs copied to clipboard!');" style="background:linear-gradient(135deg,#00d68f,#10b981);color:#060d0d;border:none;padding:14px;border-radius:8px;font-weight:900;font-size:12px;letter-spacing:0.05em;cursor:pointer;text-transform:uppercase;">
-      📋 SELECT ALL & COPY TO CLIPBOARD
+       SELECT ALL & COPY TO CLIPBOARD
     </button>
   `;
   document.body.appendChild(logModal);
@@ -1425,7 +1431,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
       }
     }
 
-    console.error('[BootstrapRecovery] 🚨 EMERGENCY RECOVERY ENTERED!');
+    console.error('[BootstrapRecovery]  EMERGENCY RECOVERY ENTERED!');
     console.error('[BootstrapRecovery] Stage:', stage || _state);
     console.error('[BootstrapRecovery] Message:', message);
     console.error('[BootstrapRecovery] Trace:', window.__VALENIXIA_BOOT_TRACE__);
@@ -1475,7 +1481,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
 
       overlay.innerHTML =
         '<div style="max-width:420px;width:100%;background:#0f0f11;border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:28px;margin:auto 0;flex-shrink:0;box-sizing:border-box;">' +
-        '<div style="font-size:22px;margin-bottom:12px;">⚠️</div>' +
+        '<div style="font-size:22px;margin-bottom:12px;"></div>' +
         '<h3 style="color:#fff;font-size:16px;font-weight:800;margin:0 0 8px;">Valenixia couldn\'t complete startup</h3>' +
         '<p style="color:#6b7280;font-size:11px;margin:0 0 4px;">Stage: <strong style="color:#94a3b8;">' + escapeHTML(String(stage || _state)) + '</strong></p>' +
         '<p style="color:#9ca3af;font-size:13px;line-height:1.6;white-space:pre-wrap;margin:12px 0 20px;">' + escapeHTML(String(message || 'An unexpected error occurred during startup.')) + '</p>' +

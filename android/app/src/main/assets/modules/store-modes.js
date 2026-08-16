@@ -10,7 +10,7 @@
     'simple-retail': {
       id: 'simple-retail',
       name: 'Simple Retail & General Store',
-      icon: '🛒',
+      icon: '',
       category: 'Retail',
       badge: 'Fast Checkout',
       subtitle: 'General store, convenience & retail shop with barcode scan-to-cart.',
@@ -43,7 +43,7 @@
     'grocery-mart': {
       id: 'grocery-mart',
       name: 'Supermarket, Grocery & FMCG Mart',
-      icon: '🧺',
+      icon: '',
       category: 'Grocery',
       badge: 'Scale Ready',
       subtitle: 'Supermarket with loose weight scale calculation, batch dates, and multi-aisle categorisation.',
@@ -76,7 +76,7 @@
     'clothing-fashion': {
       id: 'clothing-fashion',
       name: 'Apparel, Shoes & Fashion Boutique',
-      icon: '👗',
+      icon: '',
       category: 'Fashion',
       badge: 'Matrix Variants',
       subtitle: 'Clothing and footwear with size (S/M/L/XL), color, fabric, and seasonal tagging.',
@@ -109,7 +109,7 @@
     'food-restaurant': {
       id: 'food-restaurant',
       name: 'Dine-In Restaurant, Pizzeria & Food Court',
-      icon: '🍽️',
+      icon: '',
       category: 'Hospitality',
       badge: 'KDS & Tables',
       subtitle: 'Table dining, kitchen display (KDS), order modifiers, takeaway and bill splitting.',
@@ -142,7 +142,7 @@
     'bakery-cafe': {
       id: 'bakery-cafe',
       name: 'Bakery, Café, Coffee Bar & Patisserie',
-      icon: '☕',
+      icon: '',
       category: 'Hospitality',
       badge: 'Touch Speed',
       subtitle: 'Coffee espresso bar, artisan cakes, freshly baked goods, and ingredient tracking.',
@@ -175,7 +175,7 @@
     'pharmacy-medical': {
       id: 'pharmacy-medical',
       name: 'Pharmacy, Medical Store & Drug Dispensary',
-      icon: '💊',
+      icon: '',
       category: 'Healthcare',
       badge: 'Batch & Rx',
       subtitle: 'Medicines and healthcare with batch #, expiry tracking, formula search, and Rx alerts.',
@@ -208,7 +208,7 @@
     'electronics-highvalue': {
       id: 'electronics-highvalue',
       name: 'Mobile Phones, Computers & Appliances',
-      icon: '📱',
+      icon: '',
       category: 'Electronics',
       badge: 'IMEI / Serial',
       subtitle: 'Serial number (IMEI/SN) tracking, multi-year warranty records, and device specs.',
@@ -241,7 +241,7 @@
     'automotive-car': {
       id: 'automotive-car',
       name: 'Auto Spare Parts, Tyres & Lubricants',
-      icon: '🚗',
+      icon: '',
       category: 'Automotive',
       badge: 'OEM & Fitment',
       subtitle: 'OEM part cross-referencing, vehicle make/model/year compatibility search.',
@@ -274,7 +274,7 @@
     'mechanic-workshop': {
       id: 'mechanic-workshop',
       name: 'Auto Workshop, Bike Repair & Service Center',
-      icon: '🔧',
+      icon: '',
       category: 'Automotive',
       badge: 'Job Cards & Labor',
       subtitle: 'Job cards, vehicle service history, labor charges, and technician commission.',
@@ -307,7 +307,7 @@
     'salon-beauty': {
       id: 'salon-beauty',
       name: 'Hair Salon, Spa & Aesthetic Clinic',
-      icon: '💇',
+      icon: '',
       category: 'Beauty',
       badge: 'Stylist & Tips',
       subtitle: 'Appointment calendar, service bundles, stylist commissions, and beauty retail.',
@@ -340,7 +340,7 @@
     'jewellery': {
       id: 'jewellery',
       name: 'Gold, Silver, Gemstones & Jewellery Studio',
-      icon: '💎',
+      icon: '',
       category: 'Luxury',
       badge: 'Karat & Weight',
       subtitle: 'Precious metal weight (grams/tolas), karat purity pricing, and making charges.',
@@ -373,7 +373,7 @@
     'books-stationery': {
       id: 'books-stationery',
       name: 'Bookstore, Stationery & Copy Shop',
-      icon: '📚',
+      icon: '',
       category: 'Retail',
       badge: 'ISBN Catalog',
       subtitle: 'ISBN scanning, publisher indexing, school booklists, and bulk paper reams.',
@@ -406,7 +406,7 @@
     'hardware-tools': {
       id: 'hardware-tools',
       name: 'Hardware, Building Materials & Sanitary',
-      icon: '🏗️',
+      icon: '',
       category: 'Trade',
       badge: 'Contractor Khata',
       subtitle: 'Cut-to-length pipes/wires, contractor credit ledgers, and bulk fastener box counts.',
@@ -439,7 +439,7 @@
     'furniture-home': {
       id: 'furniture-home',
       name: 'Furniture, Mattresses & Home Decor',
-      icon: '🛋️',
+      icon: '',
       category: 'Home',
       badge: 'Custom & Delivery',
       subtitle: 'Large-item dispatch scheduling, upholstery customization, and multi-stage deposits.',
@@ -472,7 +472,7 @@
     'butchery-meat': {
       id: 'butchery-meat',
       name: 'Meat Shop, Poultry & Seafood Market',
-      icon: '🥩',
+      icon: '',
       category: 'Food',
       badge: 'Scale & Cuts',
       subtitle: 'Live weight scale pricing, custom butcher cuts (boneless, mince, chops), and cold storage decay.',
@@ -505,7 +505,7 @@
     'pet-vet': {
       id: 'pet-vet',
       name: 'Pet Shop, Animal Feed & Vet Care',
-      icon: '🐾',
+      icon: '',
       category: 'Pet',
       badge: 'Vet Diet & Breed',
       subtitle: 'Pet supplies, veterinary prescription diets, grooming charges, and vaccination schedules.',
@@ -538,7 +538,7 @@
     'optics-eyewear': {
       id: 'optics-eyewear',
       name: 'Optometry, Eyewear & Lens Studio',
-      icon: '👓',
+      icon: '',
       category: 'Healthcare',
       badge: 'Rx Lens Powers',
       subtitle: 'Prescription lens powers (Sph/Cyl/Axis), designer frame tags, and contact lenses.',
@@ -571,7 +571,7 @@
     'wholesale-b2b': {
       id: 'wholesale-b2b',
       name: 'Wholesale, Bulk Trading & B2B Distribution',
-      icon: '📦',
+      icon: '',
       category: 'B2B',
       badge: 'Tiered Bulk Rates',
       subtitle: 'Tiered quantity pricing (Cartons/Pallets), credit ledger limits, and tax invoices.',
@@ -604,7 +604,7 @@
     'services-consulting': {
       id: 'services-consulting',
       name: 'Services, Consulting, Repairs & Agency',
-      icon: '💼',
+      icon: '',
       category: 'Services',
       badge: 'Hourly & Retainers',
       subtitle: 'Hourly billing, project retainer invoices, and service appointment tracking.',
@@ -637,7 +637,7 @@
     'custom-hybrid': {
       id: 'custom-hybrid',
       name: 'Custom Mixed Enterprise (All Features)',
-      icon: '⚡',
+      icon: '',
       category: 'Enterprise',
       badge: 'Full Suite',
       subtitle: 'All fields enabled: barcodes, serials, batches, variants, weight scale & modifiers.',

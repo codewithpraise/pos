@@ -322,9 +322,9 @@
         <div style="background: var(--bg-card, #1e293b); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; width: 100%; max-width: 440px; overflow: hidden; color: #fff; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);">
           <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.08);">
             <h3 style="margin: 0; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px;">
-              <span>📷 Barcode Scanner</span>
+              <span> Barcode Scanner</span>
             </h3>
-            <button type="button" id="btn-close-scanner" style="background: transparent; border: none; color: #94a3b8; font-size: 20px; cursor: pointer; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">✕</button>
+            <button type="button" id="btn-close-scanner" style="background: transparent; border: none; color: #94a3b8; font-size: 20px; cursor: pointer; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;"></button>
           </div>
           <div style="position: relative; width: 100%; background: #000; height: 260px; display: flex; align-items: center; justify-content: center;">
             <video id="camera-scanner-video" playsinline muted autoplay style="width: 100%; height: 100%; object-fit: cover;"></video>
@@ -351,7 +351,7 @@
     showScanSuccessFeedback(productName) {
       const statusEl = document.getElementById('camera-scanner-status');
       if (statusEl) {
-        statusEl.innerHTML = `<span style="color: #10b981; font-weight: 600;">✓ Added ${productName} (+1)</span>`;
+        statusEl.innerHTML = `<span style="color: #10b981; font-weight: 600;"> Added ${productName} (+1)</span>`;
         setTimeout(() => {
           if (statusEl) statusEl.textContent = 'Align barcode inside frame to scan';
         }, 1500);

@@ -56,9 +56,9 @@ function updateSyncStatusBadge(status) {
   if (status === 'syncing') {
     badge.innerHTML = '<span class="spin-icon" aria-hidden="true">↻</span> Syncing…';
   } else if (status === 'synced') {
-    badge.innerHTML = '✓ Synced';
+    badge.innerHTML = ' Synced';
   } else {
-    badge.innerHTML = '⚡ Offline';
+    badge.innerHTML = ' Offline';
   }
 }
 

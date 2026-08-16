@@ -1006,7 +1006,7 @@ self.onmessage = async (event) => {
           stock_level: exists ? exists.stock_level : stock,
           reserved_stock: 0,
           category: category || 'Uncategorized',
-          emoji: emoji || '📦',
+          emoji: emoji || '',
           cost_price_minor_units: cost || 0,
           low_stock_threshold: low_stock_threshold !== undefined ? low_stock_threshold : 10,
           mode_fields: validatedFields,
@@ -1021,7 +1021,7 @@ self.onmessage = async (event) => {
         await logFieldChange('inventory_catalog', sku, 'gtin', cleanGtin, tickHlc, colVersion);
         await logFieldChange('inventory_catalog', sku, 'base_price_minor_units', price, tickHlc, colVersion);
         await logFieldChange('inventory_catalog', sku, 'category', category || 'Uncategorized', tickHlc, colVersion);
-        await logFieldChange('inventory_catalog', sku, 'emoji', emoji || '📦', tickHlc, colVersion);
+        await logFieldChange('inventory_catalog', sku, 'emoji', emoji || '', tickHlc, colVersion);
         await logFieldChange('inventory_catalog', sku, 'cost_price_minor_units', cost || 0, tickHlc, colVersion);
         await logFieldChange('inventory_catalog', sku, 'low_stock_threshold', prod.low_stock_threshold, tickHlc, colVersion);
         await logFieldChange('inventory_catalog', sku, 'mode_fields', prod.mode_fields, tickHlc, colVersion);

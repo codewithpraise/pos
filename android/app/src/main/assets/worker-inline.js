@@ -965,20 +965,14 @@ window.__VALENIXIA_WORKER_CODE = `// ===========================================
       
       const now = Date.now();
       
-      // 1. Seed Categories
-      const categories = ['Drinks', 'Pastries', 'Accessories', 'Apparel', 'Utilities'];
+      // 1. Seed Categories (clean empty on fresh start)
+      const categories = [];
       for (const cat of categories) {
         await this.put('categories', { name: cat, sync_hlc: '0000000000000:000001:seed' });
       }
 
-      // Seed baseline products catalog
-      const baselineProducts = [
-        { sku: 'sku_espresso', name: 'Monochrome Espresso', category: 'Drinks', base_price_minor_units: 32000, cost_price_minor_units: 12000, stock_level: 50, alert_threshold: 5, sync_hlc: '0000000000000:000004:seed' },
-        { sku: 'sku_cappuccino', name: 'Premium Cappuccino', category: 'Drinks', base_price_minor_units: 45000, cost_price_minor_units: 15000, stock_level: 40, alert_threshold: 5, sync_hlc: '0000000000000:000005:seed' },
-        { sku: 'sku_croissant', name: 'Butter Croissant', category: 'Pastries', base_price_minor_units: 28000, cost_price_minor_units: 10000, stock_level: 25, alert_threshold: 3, sync_hlc: '0000000000000:000006:seed' },
-        { sku: 'sku_muffin', name: 'Blueberry Muffin', category: 'Pastries', base_price_minor_units: 30000, cost_price_minor_units: 11000, stock_level: 30, alert_threshold: 4, sync_hlc: '0000000000000:000007:seed' },
-        { sku: 'sku_tote', name: 'Canvas Tote Bag', category: 'Accessories', base_price_minor_units: 120000, cost_price_minor_units: 45000, stock_level: 15, alert_threshold: 2, sync_hlc: '0000000000000:000008:seed' }
-      ];
+      // Seed baseline products catalog (clean empty on fresh start)
+      const baselineProducts = [];
 
       for (const prod of baselineProducts) {
         await this.put('inventory_catalog', prod);
@@ -1001,7 +995,7 @@ window.__VALENIXIA_WORKER_CODE = `// ===========================================
         { key: 'store_tax_rate', value_type: 'STR', value_payload: String(taxRate), is_idempotent_flag: 0, updated_at: now },
         { key: 'store_name', value_type: 'STR', value_payload: storeName.toUpperCase(), is_idempotent_flag: 0, updated_at: now },
         { key: 'store_theme_palette', value_type: 'STR', value_payload: theme, is_idempotent_flag: 0, updated_at: now },
-        { key: 'store_logo_emoji', value_type: 'STR', value_payload: '☕', is_idempotent_flag: 0, updated_at: now },
+        { key: 'store_logo_emoji', value_type: 'STR', value_payload: '', is_idempotent_flag: 0, updated_at: now },
         { key: 'store_receipt_tagline', value_type: 'STR', value_payload: 'Stability meets Speed. Thank you!', is_idempotent_flag: 0, updated_at: now },
         { key: 'whitelabel_show_branding', value_type: 'STR', value_payload: 'true', is_idempotent_flag: 0, updated_at: now },
         { key: 'glassmorphism_enabled', value_type: 'STR', value_payload: 'true', is_idempotent_flag: 0, updated_at: now },
@@ -1494,7 +1488,7 @@ window.__VALENIXIA_WORKER_CODE = `// ===========================================
       else if (tableName === 'inventory_catalog') {
         let inv = await this.get('inventory_catalog', pk, tx);
         if (!inv) {
-          inv = { sku: pk, stock_level: 0, reserved_stock: 0, name: pk, base_price_minor_units: 0, category: 'Uncategorized', emoji: '📦', cost_price_minor_units: 0 };
+          inv = { sku: pk, stock_level: 0, reserved_stock: 0, name: pk, base_price_minor_units: 0, category: 'Uncategorized', emoji: '', cost_price_minor_units: 0 };
         }
         inv[cid] = parsedVal;
         await this.put('inventory_catalog', inv, tx);
@@ -3350,7 +3344,7 @@ self.onmessage = async (event) => {
           stock_level: exists ? exists.stock_level : stock,
           reserved_stock: 0,
           category: category || 'Uncategorized',
-          emoji: emoji || '📦',
+          emoji: emoji || '',
           cost_price_minor_units: cost || 0,
           low_stock_threshold: low_stock_threshold !== undefined ? low_stock_threshold : 10,
           mode_fields: validatedFields,
@@ -3365,7 +3359,7 @@ self.onmessage = async (event) => {
         await logFieldChange('inventory_catalog', sku, 'gtin', cleanGtin, tickHlc, colVersion);
         await logFieldChange('inventory_catalog', sku, 'base_price_minor_units', price, tickHlc, colVersion);
         await logFieldChange('inventory_catalog', sku, 'category', category || 'Uncategorized', tickHlc, colVersion);
-        await logFieldChange('inventory_catalog', sku, 'emoji', emoji || '📦', tickHlc, colVersion);
+        await logFieldChange('inventory_catalog', sku, 'emoji', emoji || '', tickHlc, colVersion);
         await logFieldChange('inventory_catalog', sku, 'cost_price_minor_units', cost || 0, tickHlc, colVersion);
         await logFieldChange('inventory_catalog', sku, 'low_stock_threshold', prod.low_stock_threshold, tickHlc, colVersion);
         await logFieldChange('inventory_catalog', sku, 'mode_fields', prod.mode_fields, tickHlc, colVersion);

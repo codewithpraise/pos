@@ -126,7 +126,7 @@
       lines.push({ text: center("UNVERIFIED / TAMPERED RECEIPT"), bold: true, size: 8, color: "#ef4444" });
       lines.push({ text: "-".repeat(storeWidth), size: 9 });
     } else {
-      lines.push({ text: center("✓ VERIFIED DIGITAL RECEIPT"), size: 8, color: "#059669" });
+      lines.push({ text: center(" VERIFIED DIGITAL RECEIPT"), size: 8, color: "#059669" });
     }
 
     lines.push({ text: center(data.storeName || "VALENIXIA POS"), bold: true, size: 14 });
@@ -352,14 +352,14 @@
     modal.style.cssText = "position:fixed;inset:0;z-index:2147483645;background:rgba(5,5,8,0.92);display:flex;align-items:flex-end;justify-content:center;padding:16px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);";
     modal.innerHTML = '<div style="width:100%;max-width:480px;background:#111118;border:1px solid rgba(255,255,255,0.08);border-radius:16px 16px 12px 12px;padding:24px;box-shadow:0 -16px 64px rgba(0,0,0,0.8);">'
       + '<div style="text-align:center;margin-bottom:20px;">'
-      + '<div style="font-size:32px;margin-bottom:8px;">🧾</div>'
+      + '<div style="font-size:32px;margin-bottom:8px;"></div>'
       + '<h2 style="font-size:16px;font-weight:800;color:#fff;margin:0 0 4px;">Send Digital Receipt</h2>'
       + '<p id="__vx-rcpt-info" style="font-size:12px;color:#64748b;margin:0;"></p>'
       + '</div>'
       + '<div style="display:grid;gap:10px;margin-bottom:16px;">'
-      + '<button id="__vx-rcpt-whatsapp" style="height:52px;background:rgba(37,211,102,0.15);border:1px solid rgba(37,211,102,0.4);color:#25d366;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;">📱 Send on WhatsApp</button>'
-      + '<button id="__vx-rcpt-email" style="height:52px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;">✉️ Send via Email</button>'
-      + '<button id="__vx-rcpt-pdf" style="height:52px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#f87171;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;">💾 Download PDF</button>'
+      + '<button id="__vx-rcpt-whatsapp" style="height:52px;background:rgba(37,211,102,0.15);border:1px solid rgba(37,211,102,0.4);color:#25d366;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;"> Send on WhatsApp</button>'
+      + '<button id="__vx-rcpt-email" style="height:52px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;"> Send via Email</button>'
+      + '<button id="__vx-rcpt-pdf" style="height:52px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#f87171;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;"> Download PDF</button>'
       + '</div>'
       + '<button id="__vx-rcpt-close" style="width:100%;height:40px;background:transparent;border:1px solid rgba(255,255,255,0.06);color:#64748b;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;font-family:inherit;">Close</button>'
       + '</div>';
@@ -443,7 +443,7 @@
         if (authRes.status === 403) {
           const errData = await authRes.json();
           if (typeof showNotificationToast === 'function') {
-            showNotificationToast(`🔒 ${errData.message || 'WhatsApp Receipts feature is locked. Request activation in Subscription -> Add-ons.'}`, 'error', 5000);
+            showNotificationToast(` ${errData.message || 'WhatsApp Receipts feature is locked. Request activation in Subscription -> Add-ons.'}`, 'error', 5000);
           } else alert(errData.message || 'WhatsApp Receipts feature is locked.');
           return;
         }
