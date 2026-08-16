@@ -1765,6 +1765,11 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
           window.appReady = true;
           window.appInitialized = true;
           window.__valenixiaAuthenticated = true;
+          try {
+            if (typeof window.switchActiveScreen === 'function') {
+              window.switchActiveScreen((window.state && window.state.activeScreen) ? window.state.activeScreen : 'checkout');
+            }
+          } catch (_) {}
           break;
 
         case 'SERVER_UNAVAILABLE':
