@@ -30,8 +30,36 @@
       "destination": "/downloads/valenixia-pos.apk"
     },
     {
+      "source": "/downloads/app-debug.apk",
+      "destination": "/downloads/valenixia-pos.apk"
+    },
+    {
+      "source": "/downloads/valenixia-pos-mobile.apk",
+      "destination": "/downloads/valenixia-pos.apk"
+    },
+    {
+      "source": "/downloads/valenixia-pos-latest.apk",
+      "destination": "/downloads/valenixia-pos.apk"
+    },
+    {
       "source": "/downloads/valenixia.exe",
       "destination": "/downloads/valenixia-pos.exe"
+    },
+    {
+      "source": "/downloads/valenixia-pos-desktop.exe",
+      "destination": "/downloads/valenixia-pos.exe"
+    },
+    {
+      "source": "/downloads/nexova-pos-setup.exe",
+      "destination": "/downloads/valenixia-pos.exe"
+    },
+    {
+      "source": "/downloads/valenixia-pos-setup.msi",
+      "destination": "/downloads/valenixia-pos.msi"
+    },
+    {
+      "source": "/downloads/nexova-pos-setup.msi",
+      "destination": "/downloads/valenixia-pos.msi"
     },
     {
       "source": "/((?!api/|.*\\..*).*)",

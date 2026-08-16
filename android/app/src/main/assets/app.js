@@ -15687,10 +15687,10 @@ setHtml(modal, `
 
         <!-- Download links -->
         <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
-          <a href="/downloads/valenixia-pos-latest.apk" target="_blank" style="flex: 1; min-width: 120px; text-align: center; text-decoration: none; padding: 10px 12px; background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.2); border-radius: 6px; font-size: 11px; font-weight: 700;">
+          <a href="/downloads/valenixia-pos.apk" download="valenixia-pos.apk" target="_blank" style="flex: 1; min-width: 120px; text-align: center; text-decoration: none; padding: 10px 12px; background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.2); border-radius: 6px; font-size: 11px; font-weight: 700;">
             GET APK (Android)
           </a>
-          <a href="/downloads/valenixia-pos-setup.msi" target="_blank" style="flex: 1; min-width: 120px; text-align: center; text-decoration: none; padding: 10px 12px; background: rgba(255,255,255,0.04); color: #94a3b8; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; font-size: 11px; font-weight: 700;">
+          <a href="/downloads/valenixia-pos.exe" download="valenixia-pos.exe" target="_blank" style="flex: 1; min-width: 120px; text-align: center; text-decoration: none; padding: 10px 12px; background: rgba(255,255,255,0.04); color: #94a3b8; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; font-size: 11px; font-weight: 700;">
             GET WINDOWS
           </a>
         </div>
@@ -17730,15 +17730,17 @@ setHtml(dz, '<span>');
         if (document.getElementById('pwa-install-banner')) return;
         const banner = document.createElement('div');
         banner.id = 'pwa-install-banner';
-        banner.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:9999;background:var(--surface-glass,rgba(30,41,59,0.96));backdrop-filter:blur(16px);border:1px solid var(--border-titanium,rgba(255,255,255,0.08));border-radius:14px;padding:12px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,0.4);animation:slideUp 0.3s ease;';
-setHtml(banner, `
-          <span style="font-size:22px">
-          <div style="flex:1">
-            <div style="font-weight:700;font-size:13px;color:var(--text-primary,#fff)">Install Valenixia POS</div>
-            <div style="font-size:11px;color:var(--text-gray,#94a3b8)">Works offline 
+        banner.style.cssText = 'position:fixed;bottom:72px;left:50%;transform:translateX(-50%);z-index:99999;background:var(--surface-glass,rgba(22,24,29,0.96));backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--border-titanium,rgba(255,255,255,0.12));border-radius:14px;padding:10px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,0.6);animation:slideUp 0.3s ease;max-width:calc(100vw - 24px);box-sizing:border-box;';
+        setHtml(banner, `
+          <div style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;background:rgba(0,214,143,0.15);border:1px solid rgba(0,214,143,0.3);flex-shrink:0;">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--accent-emerald,#00d68f)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           </div>
-          <button id="pwa-install-btn" style="background:var(--accent-emerald,#10b981);color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer">Install</button>
-          <button id="pwa-install-dismiss" style="background:transparent;border:none;color:var(--text-gray,#94a3b8);cursor:pointer;font-size:18px;padding:0 4px">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:13px;color:var(--text-white,#fff);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Install Valenixia POS</div>
+            <div style="font-size:11px;color:var(--text-gray,#94a3b8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Fast offline standalone app</div>
+          </div>
+          <button id="pwa-install-btn" style="background:var(--accent-emerald,#10b981);color:#060608;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:800;cursor:pointer;flex-shrink:0;">Install</button>
+          <button id="pwa-install-dismiss" aria-label="Dismiss" style="background:transparent;border:none;color:var(--text-gray,#94a3b8);cursor:pointer;font-size:22px;line-height:1;width:32px;height:32px;display:flex;align-items:center;justify-content:center;padding:0;border-radius:6px;flex-shrink:0;transition:color 0.15s;">&times;</button>
         `);
         document.body.appendChild(banner);
         document.getElementById('pwa-install-btn')?.addEventListener('click', async () => {
