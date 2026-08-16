@@ -9238,6 +9238,7 @@ setHtml(overlay, `
 
   // Render order Cart items
   function renderCart() {
+    window.renderCart = renderCart;
     const tbody = document.getElementById('cart-items-tbody');
     const emptyMsg = document.getElementById('cart-empty-msg');
     
