@@ -2654,7 +2654,7 @@ button:not(:disabled):active,
 /* MOBILE AND NARROW RESPONSIVE VIEW (Screen max width 899px) */
 @media (max-width: 899px) {
   .pos-main-container {
-    padding-bottom: 60px !important; /* Matches 60px #mobile-bottom-nav height exactly */
+    padding-bottom: 0 !important;
   }
 
   .pos-topbar {

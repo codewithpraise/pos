@@ -1764,6 +1764,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
           window.appInitialized = true;
           window.__valenixiaAuthenticated = true;
           try {
+            if (typeof window.updateKdsNavVisibility === 'function') window.updateKdsNavVisibility();
             if (typeof window.switchActiveScreen === 'function') {
               window.switchActiveScreen((window.state && window.state.activeScreen) ? window.state.activeScreen : 'checkout');
             }

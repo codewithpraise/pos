@@ -2,8 +2,8 @@
   // BUSINESS TEMPLATE RELEVANCE GUARDS (KDS & SPECIALTY MODULES)
   // ============================================================================
   function isKdsSupported(mode) {
-    const active = mode || (typeof state !== 'undefined' && state.preferences && state.preferences.store_type) || localStorage.getItem('valenixia_shop_mode') || 'simple-retail';
-    return active === 'food-restaurant' || active === 'bakery-cafe';
+    const active = mode || (typeof state !== 'undefined' && state.preferences && (state.preferences.shop_mode || state.preferences.store_type)) || localStorage.getItem('valenixia_shop_mode') || 'simple-retail';
+    return active === 'food-restaurant' || active === 'bakery-cafe' || active === 'restaurant' || active === 'cafe';
   }
   window.isKdsSupported = isKdsSupported;
 
@@ -1112,26 +1112,11 @@ window.__realHandlers = window.__realHandlers || {};
   // 2. Its own classList.add/remove on body triggered itself = infinite re-entrancy loop on Android WebView
 
 
-  // Idle Timeout Auto-Logout (Issue 8)
+  // Inactivity Auto-Lock Handler (Intentional manual lock preferred)
   let idleTimer;
   function resetIdleTimer() {
     clearTimeout(idleTimer);
-    const isLockScreenActive = document.getElementById('auth-lock-screen')?.classList.contains('active');
-    if (state.activeCashier && !isLockScreenActive) {
-      idleTimer = setTimeout(() => {
-        console.log('[IdleDetector] Logging out cashier due to inactivity.');
-        if (typeof performLogout === 'function') {
-          performLogout();
-        } else {
-          state.activeCashier = null;
-          state.terminalRole = null;
-          state.currentPin = '';
-          if (window.ValenixiaBootstrap) {
-            window.ValenixiaBootstrap.transition('AUTH_LOCK');
-          }
-        }
-      }, 5 * 60 * 1000); // 5 minutes
-    }
+    // Automatic idle logout disabled — only intentional manual lock via Lock Register button is permitted
   }
   // NOTE: Idle timer is registered once inside bindDOMEvents() — do NOT register again here.
   // Double-registration + mousemove fires 60 events/sec on touch devices = 120 timer ops/sec = freeze.
@@ -2727,13 +2712,12 @@ setHtml(overlay, `
 
     allNavItems.forEach(item => {
       const view = item.getAttribute('data-screen') || item.dataset.view;
-      if (!view || ['checkout','catalog','catalog-manager','inventory','deals','history','customers','suppliers','credit-book','khata','analytics','settings','subscription','apps-download','staff','logs','kds','petty-cash','attendance','label-designer','inventory-ai','inventory-forecast','loyalty','marketing','stock-transfer'].includes(view)) {
+      if (!view || ['checkout', 'dashboard', 'settings', 'subscription', 'apps-download'].includes(view)) {
         item.classList.remove('locked');
         item.classList.remove('premium');
-        item.onclick = null;
         return;
       }
-      const hasPermission = typeof window.can === 'function' ? window.can(view) : (tier !== 'FREE');
+      const hasPermission = typeof window.can === 'function' ? window.can(view) : true;
       if (!hasPermission) {
         item.classList.add('premium');
         item.classList.add('locked');
@@ -2741,12 +2725,14 @@ setHtml(overlay, `
         if (!item.__paywallBound) {
           item.__paywallBound = true;
           item.addEventListener('click', (e) => {
-            const nowHasPerm = typeof window.can === 'function' ? window.can(view) : ((window.__valenixiaTier || 'FREE').toUpperCase() !== 'FREE');
+            const nowHasPerm = typeof window.can === 'function' ? window.can(view) : true;
             if (!nowHasPerm) {
               e.preventDefault();
               e.stopPropagation();
               if (typeof showPaywallModal === 'function') {
                 showPaywallModal(view);
+              } else if (typeof window.showUpgradeModal === 'function') {
+                window.showUpgradeModal(view);
               }
             }
           }, true);
@@ -7310,7 +7296,36 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
 
     // STEP 3: UPDATE TOP NAVIGATION BAR TITLE
     try {
-      const formattedTitle = screenName.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+      const activeLang = (state && state.preferences && state.preferences['system_language']) || localStorage.getItem('valenixia_lang') || 'en';
+      const s = (window.ValenixiaStrings && window.ValenixiaStrings[activeLang]) ? window.ValenixiaStrings[activeLang] : {};
+      const keyMap = {
+        'dashboard': s.dashboard || 'Business Hub',
+        'checkout': s.checkout || 'Checkout',
+        'catalog': s.catalog || 'Catalog',
+        'catalog-manager': s.catalog_manager || 'Inventory Manager',
+        'history': s.history || 'Sales History',
+        'analytics': s.analytics || 'Analytics',
+        'customers': s.customers || 'Customers',
+        'suppliers': s.suppliers || 'Suppliers',
+        'credit-book': s.credit_book || 'Customer Khata',
+        'staff': s.staff || 'Staff',
+        'petty-cash': s.petty_cash || 'Petty Cash',
+        'attendance': s.attendance || 'Attendance & Payroll',
+        'label-designer': s.label_designer || 'Barcode Designer',
+        'inventory-ai': s.inventory_ai || 'Inventory AI',
+        'loyalty': s.loyalty || 'Loyalty Club',
+        'marketing': s.marketing || 'Marketing Studio',
+        'stock-transfer': s.stock_transfer || 'Stock Transfer',
+        'deals': s.deals || 'Deals & Offers',
+        'kds': s.kds || 'Kitchen (KDS)',
+        'fbr-fiscal': s.fbr_fiscal || 'FBR Fiscal Invoicing',
+        'multi-store': s.multi_store || 'Multi-Store Network',
+        'logs': s.sync_logs || 'Sync Logs',
+        'settings': s.settings || 'Settings',
+        'apps-download': s.apps_download || 'Native Apps',
+        'subscription': 'Subscription'
+      };
+      const formattedTitle = keyMap[screenName] || screenName.split('-').map(str => str.charAt(0).toUpperCase() + str.slice(1)).join(' ');
       const activeViewTitleEl = document.getElementById('active-view-title');
       if (activeViewTitleEl) activeViewTitleEl.textContent = formattedTitle;
     } catch (_) {}
@@ -8161,19 +8176,36 @@ setHtml(qrContainer, '<span style="font-size: 8px; color: var(--text-gray); text
 
     // Map of CSS selectors to translated texts
     const textMapping = {
-      '[data-screen="checkout"] .nav-label': s.checkout || 'Checkout',
-      '[data-screen="catalog"] .nav-label': i18n.inventory || s.inventory || 'Inventory',
-      '[data-screen="catalog-manager"] .nav-label': i18n.inventory_ledger || (isUrdu ? 'مال کا حساب' : 'Inventory Ledger'),
-      '[data-screen="history"] .nav-label': i18n.sales_log || 'History',
-      '[data-screen="analytics"] .nav-label': i18n.dashboard || s.analytics || 'Analytics',
-      '[data-screen="customers"] .nav-label': i18n.customers || 'Customers',
-      '[data-screen="suppliers"] .nav-label': i18n.suppliers || 'Suppliers',
-      '[data-screen="credit-book"] .nav-label': i18n.credit || 'Credit',
-      '[data-screen="staff"] .nav-label': s.staff || 'Staff',
-      '[data-screen="logs"] .nav-label': s.sync_logs || 'Sync Logs',
-      '[data-screen="settings"] .nav-label': s.settings || 'Settings',
+      '[data-screen="dashboard"] .nav-label': s.dashboard || (isUrdu ? 'کاروباری مرکز' : 'Business Hub'),
+      '[data-screen="checkout"] .nav-label': s.checkout || (isUrdu ? 'خروج (بلنگ)' : 'Checkout'),
+      '[data-screen="catalog"] .nav-label': s.catalog || (isUrdu ? 'اسٹاک کیٹلاگ' : 'Catalog'),
+      '[data-screen="catalog-manager"] .nav-label': s.catalog_manager || (isUrdu ? 'انوینٹری لیجر' : 'Inventory Manager'),
+      '[data-screen="history"] .nav-label': s.history || (isUrdu ? 'سیلز ہسٹری' : 'History'),
+      '[data-screen="analytics"] .nav-label': s.analytics || (isUrdu ? 'کاروباری رپورٹس' : 'Analytics'),
+      '[data-screen="customers"] .nav-label': s.customers || (isUrdu ? 'گاہکوں کا ریکارڈ' : 'Customers'),
+      '[data-screen="suppliers"] .nav-label': s.suppliers || (isUrdu ? 'سپلائرز ڈائریکٹری' : 'Suppliers'),
+      '[data-screen="credit-book"] .nav-label': s.credit_book || (isUrdu ? 'ادھار کھاتہ' : 'Customer Khata'),
+      '[data-screen="staff"] .nav-label': s.staff || (isUrdu ? 'عملہ اور شفٹس' : 'Staff'),
+      '[data-screen="petty-cash"] .nav-label': s.petty_cash || (isUrdu ? 'پیٹی کیش' : 'Petty Cash'),
+      '[data-screen="attendance"] .nav-label': s.attendance || (isUrdu ? 'حاضری اور تنخواہ' : 'Attendance'),
+      '[data-screen="label-designer"] .nav-label': s.label_designer || (isUrdu ? 'بارکوڈ ڈیزائنر' : 'Barcode Designer'),
+      '[data-screen="inventory-ai"] .nav-label': s.inventory_ai || (isUrdu ? 'اسٹاک پیشگوئی AI' : 'Inventory AI'),
+      '[data-screen="loyalty"] .nav-label': s.loyalty || (isUrdu ? 'VIP لائلٹی کلب' : 'Loyalty Club'),
+      '[data-screen="marketing"] .nav-label': s.marketing || (isUrdu ? 'مارکیٹنگ اسٹوڈیو' : 'Marketing Studio'),
+      '[data-screen="stock-transfer"] .nav-label': s.stock_transfer || (isUrdu ? 'اسٹاک ٹرانسفر' : 'Stock Transfer'),
+      '[data-screen="deals"] .nav-label': s.deals || (isUrdu ? 'ڈیلز اور بنڈل' : 'Deals & Offers'),
+      '[data-screen="kds"] .nav-label': s.kds || (isUrdu ? 'باورچی خانہ ڈسپلے' : 'Kitchen (KDS)'),
+      '[data-screen="fbr-fiscal"] .nav-label': s.fbr_fiscal || (isUrdu ? 'ایف بی آر انوائسنگ' : 'FBR Fiscal'),
+      '[data-screen="multi-store"] .nav-label': s.multi_store || (isUrdu ? 'ملٹی اسٹور' : 'Multi-Store'),
+      '[data-screen="logs"] .nav-label': s.sync_logs || (isUrdu ? 'لاگز فیڈ' : 'Sync Logs'),
+      '[data-screen="settings"] .nav-label': s.settings || (isUrdu ? 'سسٹم ترتیبات' : 'Settings'),
+      '[data-screen="apps-download"] .nav-label': s.apps_download || (isUrdu ? 'موبائل ایپس' : 'Native Apps'),
+      '.lock-reg-lbl': s.lock_register || (isUrdu ? 'رجسٹر لاک کریں' : 'Lock Register'),
+      '#btn-lock-register .btn-label': isUrdu ? 'لاک رجسٹر' : 'LOCK REG',
+      '.lang-text-lbl': isUrdu ? 'زبان' : 'Language',
+      '.lang-current-val': isUrdu ? 'English' : 'اردو / ENG',
       '.ledger-header .title': s.active_order || (isUrdu ? 'فعال آرڈر' : 'Active Order'),
-      '#btn-void-order': i18n.void_sale || (isUrdu ? 'فروخت منسوخ' : 'Void Order'),
+      '#btn-void-order': s.void_order || (isUrdu ? 'فروخت منسوخ' : 'Void Order'),
       '.cart-table th:nth-child(1)': s.product || (isUrdu ? 'مصنوعات' : 'Product'),
       '.cart-table th:nth-child(2)': s.price || (isUrdu ? 'قیمت' : 'Price'),
       '.cart-table th:nth-child(3)': s.qty || (isUrdu ? 'تعداد' : 'Qty'),
@@ -20210,23 +20242,40 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     const txCount = txs.length;
     const avgBasket = txCount > 0 ? todayRevenue / txCount : 0;
 
-    // Yesterday comparison
-    const yesterdayEst = todayRevenue * 0.87;
-    const diffPct = yesterdayEst > 0 ? Math.round(((todayRevenue - yesterdayEst) / yesterdayEst) * 100) : 0;
-    const diffStr = diffPct >= 0 ? `+${diffPct}% vs yesterday` : `-${Math.abs(diffPct)}% vs yesterday`;
-    const diffColor = diffPct >= 0 ? 'var(--accent-emerald)' : '#ef4444';
+    // Yesterday real comparison
+    const yestDate = new Date();
+    yestDate.setDate(yestDate.getDate() - 1);
+    const yestString = yestDate.toDateString();
+    const yestTxs = (state.transactions || []).filter(tx => new Date((tx.created_at || tx.timestamp || 0)).toDateString() === yestString);
+    const yesterdayRevenue = yestTxs.reduce((s, tx) => s + ((tx.total_minor_units || tx.total || 0) / 100), 0);
+    
+    let diffStr = 'vs yesterday';
+    let diffColor = 'var(--text-gray)';
+    if (yesterdayRevenue > 0) {
+      const diffPct = Math.round(((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100);
+      diffStr = (diffPct >= 0 ? `+${diffPct}%` : `${diffPct}%`) + ' vs yesterday';
+      diffColor = diffPct >= 0 ? 'var(--accent-emerald)' : '#ef4444';
+    } else if (todayRevenue > 0) {
+      diffStr = `Rs. ${todayRevenue.toLocaleString('en-PK', { maximumFractionDigits: 0 })} today`;
+      diffColor = 'var(--accent-emerald)';
+    } else {
+      diffStr = 'Rs. 0 yesterday';
+      diffColor = 'var(--text-gray)';
+    }
 
-    // Cash in till
-    const openFloat = 5000;
-    const cashTx = txs.filter(tx => tx.payment_method === 'CASH' || !tx.payment_method);
+    // Cash in till (Real math from opening float + cash sales - petty cash outflow)
+    const openFloat = parseFloat((state.preferences && state.preferences.opening_float) || 0);
+    const cashTx = txs.filter(tx => (tx.payment_method || tx.paymentMethod || 'CASH').toUpperCase() === 'CASH');
     const cashIn = cashTx.reduce((s, tx) => s + ((tx.total_minor_units || tx.total || 0) / 100), 0);
-    const pettyOut = (state.pettyCashLog || []).reduce((s, r) => r.amount < 0 ? s + Math.abs(r.amount) : s, 0);
+    const pettyOut = (state.pettyCashLog || []).reduce((s, r) => (r.amount < 0 ? s + Math.abs(r.amount) : s), 0);
     const cashTill = openFloat + cashIn - pettyOut;
-    const tillHealth = cashTill > openFloat * 1.5 ? { label: '[HEALTHY SURPLUS]', color: 'var(--accent-emerald)' } : cashTill < 0 ? { label: '[BELOW FLOAT]', color: '#ef4444' } : { label: '[BALANCED]', color: 'var(--accent-emerald)' };
+    const tillHealth = cashTill >= openFloat
+      ? { label: '[BALANCED]', color: 'var(--accent-emerald)' }
+      : { label: '[BELOW FLOAT]', color: '#ef4444' };
 
     // Revenue goal
     const dailyTarget = parseFloat((state.preferences && state.preferences.daily_revenue_target) || 50000);
-    const goalPct = Math.min(100, Math.round((todayRevenue / dailyTarget) * 100));
+    const goalPct = dailyTarget > 0 ? Math.min(100, Math.round((todayRevenue / dailyTarget) * 100)) : 0;
     const goalColor = goalPct >= 80 ? 'linear-gradient(90deg,var(--accent-emerald),#34d399)' : goalPct >= 50 ? 'linear-gradient(90deg,#f59e0b,#fbbf24)' : 'linear-gradient(90deg,#ef4444,#f87171)';
 
     // Update KPI cards
@@ -20248,36 +20297,31 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     const alerts = [];
     const catalog = state.catalog || [];
 
-    // 1. Stock alerts (ABC-based)
-    catalog.slice(0, 20).forEach((p, idx) => {
-      const stock = p.stock_quantity !== undefined ? p.stock_quantity : (p.stock || 50);
-      const seed = (p.name.length * 7 + idx * 13) % 25;
-      const velocity = Math.max(0.5, seed / 3);
-      const days = Math.max(1, Math.round(stock / velocity));
-      const revenueAtRisk = Math.round(velocity * 5 * ((p.base_price_minor_units || 0) / 100));
-      if (days <= 3) {
-        alerts.push({ level: 'critical', badge: '[CRITICAL]', title: `Stockout Risk: "${p.name}" (${days}d remaining)`, body: `Revenue at risk: Rs. ${revenueAtRisk.toLocaleString('en-PK')} over 5-day lead time. Reorder immediately.`, action: 'View Stock', screen: 'inventory-ai' });
-      } else if (days <= 7) {
-        alerts.push({ level: 'warning', badge: '[WARNING]', title: `Low Stock Horizon: "${p.name}" (${days}d remaining)`, body: `Run rate: ${velocity.toFixed(1)} units/day. Recommended batch reorder: ${Math.round(velocity * 14)} units.`, action: 'Draft PO', screen: 'inventory-ai' });
+    // 1. Stock alerts (ABC & inventory thresholds)
+    catalog.forEach((p) => {
+      const stock = p.stock_quantity !== undefined ? p.stock_quantity : (p.stock !== undefined ? p.stock : 0);
+      const minThreshold = p.low_stock_threshold !== undefined ? p.low_stock_threshold : 5;
+      if (stock <= 0) {
+        alerts.push({ level: 'critical', badge: '[STOCKOUT]', title: `Out of Stock: "${p.name}" (0 units remaining)`, body: 'Item inventory is completely depleted. Reorder from supplier immediately to prevent lost revenue.', action: 'Restock', screen: 'catalog-manager' });
+      } else if (stock <= minThreshold) {
+        alerts.push({ level: 'warning', badge: '[LOW STOCK]', title: `Low Stock Horizon: "${p.name}" (${stock} remaining)`, body: `Stock is at or below the minimum reorder threshold (${minThreshold} units). Purchase order draft recommended.`, action: 'Draft PO', screen: 'catalog-manager' });
       }
     });
 
     // 2. Customer churn alerts (RFM)
-    const customers = state.customers || [
-      { name: 'Dr. Tariq Mahmood', total_spent: 85400, last_visit_days: 24 },
-      { name: 'Fatima Zahra', total_spent: 34200, last_visit_days: 18 }
-    ];
+    const customers = state.customers || [];
     customers.forEach(c => {
-      const daysSince = c.last_visit_days || 0;
+      const lastVisit = c.last_visit ? new Date(c.last_visit).getTime() : (c.updated_at ? new Date(c.updated_at).getTime() : 0);
+      const daysSince = lastVisit > 0 ? Math.floor((Date.now() - lastVisit) / 86400000) : (c.last_visit_days || 0);
       if (daysSince >= 21) {
-        alerts.push({ level: 'warning', badge: '[CHURN RISK]', title: `Inactive Customer: ${c.name} (${daysSince}d absent)`, body: `Cumulative spend: Rs. ${(c.total_spent||0).toLocaleString('en-PK')}. Win-back incentive recommended.`, action: 'Send Offer', screen: 'marketing' });
+        alerts.push({ level: 'warning', badge: '[CHURN RISK]', title: `Inactive Customer: ${c.name || 'Customer'} (${daysSince}d absent)`, body: `Cumulative spend: Rs. ${(c.total_spent||0).toLocaleString('en-PK')}. Win-back incentive recommended.`, action: 'Send Offer', screen: 'marketing' });
       }
     });
 
     // 3. KDS overdue alerts (only if KDS supported)
     if (isKdsSupported()) {
       (state.kdsTickets || []).forEach(t => {
-        const mins = Math.floor((Date.now() - t.createdAt) / 60000);
+        const mins = Math.floor((Date.now() - (t.createdAt || Date.now())) / 60000);
         if (mins >= 10 && t.status !== 'READY') {
           alerts.push({ level: 'critical', badge: '[SLA OVERDUE]', title: `Kitchen Ticket ${t.orderNumber} Overdue (${mins}m)`, body: 'Ticket time exceeded 10-minute SLA threshold. Culinary attention required.', action: 'Open KDS', screen: 'kds' });
         }
@@ -20287,7 +20331,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     // 4. Daily expense velocity alert
     const todayExpenses = (state.pettyCashLog || []).filter(r => r.amount < 0 && (r.time || '').includes('Today'));
     const todayExpTotal = todayExpenses.reduce((s, r) => s + Math.abs(r.amount), 0);
-    const avgDailyExp = 500;
+    const avgDailyExp = 2000;
     if (todayExpTotal > avgDailyExp * 2) {
       alerts.push({ level: 'warning', badge: '[EXPENSE SPIKE]', title: `Elevated Expenses: Rs. ${todayExpTotal.toLocaleString('en-PK')} Today`, body: `Today's outflow is ${(todayExpTotal/avgDailyExp).toFixed(1)}x higher than store daily average. Audit ledger entries.`, action: 'Audit Ledger', screen: 'petty-cash' });
     }
@@ -20315,41 +20359,63 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       }).join('');
     }
 
-    // ---- INTRADAY HOURLY CURVE ----
-    const hourly = Array(14).fill(0);
+    // ---- INTRADAY HOURLY CURVE (FULL 24-HOUR DYNAMIC BREAKDOWN) ----
+    const hourly = Array(24).fill(0);
     txs.forEach(tx => {
       const h = new Date((tx.created_at || tx.timestamp || Date.now())).getHours();
-      const idx = Math.max(0, Math.min(13, h - 8));
-      hourly[idx] += (tx.total_minor_units || tx.total || 0) / 100;
+      if (h >= 0 && h < 24) {
+        hourly[h] += (tx.total_minor_units || tx.total || 0) / 100;
+      }
     });
-    if (txs.length === 0) { [0,0,1200,3400,5800,4200,8900,12400,9800,6700,4100,2300,1500,800].forEach((v,i)=>hourly[i]=v); }
 
-    const maxHourly = Math.max(...hourly, 1);
-    const peakIdx = hourly.indexOf(Math.max(...hourly));
-    const peakHourVal = peakIdx + 8;
-    const peakLabel = `Peak Hour: ${peakHourVal > 12 ? peakHourVal-12 : peakHourVal}:00 ${peakHourVal >= 12 ? 'PM' : 'AM'}`;
+    const maxHourly = Math.max(...hourly, 0);
+    const peakIdx = maxHourly > 0 ? hourly.indexOf(maxHourly) : -1;
+    let peakLabel = 'Peak Hour: — (Awaiting Sales)';
+    if (peakIdx >= 0) {
+      const ampm = peakIdx >= 12 ? 'PM' : 'AM';
+      const dispH = peakIdx % 12 === 0 ? 12 : peakIdx % 12;
+      peakLabel = `Peak Hour: ${dispH}:00 ${ampm} (Rs. ${maxHourly.toLocaleString('en-PK', { maximumFractionDigits: 0 })})`;
+    }
     if (el('dash-peak-hour')) el('dash-peak-hour').textContent = peakLabel;
 
     const chart = el('dash-hourly-chart');
     if (chart) {
+      const currentHour = new Date().getHours();
       chart.innerHTML = hourly.map((v, i) => {
-        const pct = Math.max(6, Math.round((v / maxHourly) * 100));
-        const isNow = (new Date().getHours() === i + 8);
-        const isPeak = i === peakIdx;
-        const bg = isPeak ? 'var(--accent-emerald)' : isNow ? '#3b82f6' : 'rgba(255,255,255,0.12)';
-        const hr = i + 8; const label = `${hr > 12 ? hr-12 : hr}${hr < 12 ? 'a' : 'p'}`;
-        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;justify-content:flex-end;" title="Rs. ${v.toLocaleString('en-PK', {maximumFractionDigits:0})} at ${hr}:00"><div style="width:100%;height:${pct}%;background:${bg};border-radius:3px 3px 0 0;min-height:6px;transition:height 0.4s ease;"></div><div style="font-size:8px;color:var(--text-gray);font-family:var(--font-mono);">${label}</div></div>`;
+        const pct = maxHourly > 0 ? Math.max(v > 0 ? 8 : 2, Math.round((v / maxHourly) * 100)) : 4;
+        const isNow = currentHour === i;
+        const isPeak = i === peakIdx && maxHourly > 0;
+        const bg = isPeak ? 'var(--accent-emerald)' : isNow ? '#3b82f6' : (v > 0 ? 'rgba(0, 214, 143, 0.4)' : 'rgba(255,255,255,0.08)');
+        const ampm = i >= 12 ? 'p' : 'a';
+        const dispH = i % 12 === 0 ? 12 : i % 12;
+        const label = (i % 2 === 0 || i === currentHour) ? `${dispH}${ampm}` : '';
+        const titleHour = `${dispH}:00 ${i >= 12 ? 'PM' : 'AM'}`;
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;height:100%;justify-content:flex-end;" title="Rs. ${v.toLocaleString('en-PK', {maximumFractionDigits:0})} at ${titleHour}"><div style="width:100%;height:${pct}%;background:${bg};border-radius:2px 2px 0 0;min-height:2px;transition:height 0.4s ease;"></div><div style="font-size:7px;color:${isNow ? 'var(--accent-emerald)' : 'var(--text-gray)'};font-family:var(--font-mono);">${label}</div></div>`;
       }).join('');
     }
 
-    // Top sellers
+    // Top sellers (100% dynamic from transactions)
     const skuSales = {};
-    txs.forEach(tx => { (tx.items || tx.line_items || []).forEach(item => { const n = item.name || item.product_name || ''; if (n) skuSales[n] = (skuSales[n] || 0) + (item.qty || item.quantity || 1); }); });
+    txs.forEach(tx => {
+      (tx.items || tx.line_items || []).forEach(item => {
+        const n = item.name || item.displayName || item.product_name || '';
+        if (n) skuSales[n] = (skuSales[n] || 0) + (item.qty || item.quantity || 1);
+      });
+    });
     const topItem = Object.entries(skuSales).sort((a,b)=>b[1]-a[1])[0];
-    if (el('dash-top-item')) el('dash-top-item').textContent = topItem ? `${topItem[0]} (${topItem[1]} sold)` : catalog[0]?.name || '—';
+    if (el('dash-top-item')) el('dash-top-item').textContent = topItem ? `${topItem[0]} (${topItem[1]} sold)` : (txs.length > 0 ? '—' : 'Awaiting Sales');
     if (el('dash-top-margin')) {
-      const bestMargin = catalog.map(p => ({ name: p.name, margin: ((p.base_price_minor_units||0) - (p.cost_price_minor_units||0)) / Math.max(1, p.base_price_minor_units||1) })).sort((a,b)=>b.margin-a.margin)[0];
-      el('dash-top-margin').textContent = bestMargin ? `${bestMargin.name} (${Math.round(bestMargin.margin*100)}%)` : '—';
+      const validMarginItems = catalog
+        .filter(p => (p.base_price_minor_units || p.price || 0) > 0)
+        .map(p => {
+          const price = p.base_price_minor_units || (p.price ? p.price * 100 : 0);
+          const cost = p.cost_price_minor_units || (p.cost ? p.cost * 100 : 0);
+          const margin = price > 0 ? (price - cost) / price : 0;
+          return { name: p.name, margin };
+        })
+        .sort((a,b)=>b.margin-a.margin);
+      const bestMargin = validMarginItems[0];
+      el('dash-top-margin').textContent = bestMargin && bestMargin.margin > 0 ? `${bestMargin.name} (${Math.round(bestMargin.margin*100)}%)` : '—';
     }
   }
   window.renderDashboardScreen = renderDashboardScreen;

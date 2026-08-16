@@ -155,7 +155,7 @@
     max-width: 100vw !important;
     overflow-x: hidden !important;
     box-sizing: border-box !important;
-    padding-bottom: var(--vx-bottom-nav-h) !important;
+    padding-bottom: 0 !important;
   }
 
   .content-view:not(#view-checkout):not(#view-subscription) {
@@ -167,7 +167,7 @@
     -webkit-overflow-scrolling: touch !important;
     box-sizing: border-box !important;
     padding: var(--vx-space-md) !important;
-    padding-bottom: calc(var(--vx-bottom-nav-h) + var(--vx-space-xl)) !important;
+    padding-bottom: var(--vx-space-lg, 16px) !important;
   }
 
   #view-checkout {
