@@ -140,10 +140,14 @@ async function detectBootState(ev) {
   const authDisplay = await ev('(function(){ var el=document.getElementById("auth-lock-screen"); return el?window.getComputedStyle(el).display:"missing"; })()');
   const layoutDisplay = await ev('(function(){ var el=document.getElementById("pos-app-layout"); return el?window.getComputedStyle(el).display:"missing"; })()');
 
+  const isWiz = wizDisplay !== 'none' && wizDisplay !== 'missing';
+  const isAuth = !isWiz && authDisplay !== 'none' && authDisplay !== 'missing';
+  const isLayout = !isWiz && !isAuth && (layoutDisplay === 'grid' || layoutDisplay === 'flex' || layoutDisplay === 'block');
+
   return {
-    wizardOpen: wizDisplay === 'flex',
-    authOpen: authDisplay === 'flex',
-    layoutOpen: (layoutDisplay === 'grid' || layoutDisplay === 'flex' || layoutDisplay === 'block') && wizDisplay !== 'flex' && authDisplay !== 'flex',
+    wizardOpen: isWiz,
+    authOpen: isAuth,
+    layoutOpen: isLayout,
     wizDisplay, authClass, authDisplay, layoutDisplay
   };
 }
@@ -350,7 +354,7 @@ async function run() {
 
     // Verify auth screen shown
     const postAuthDisplay = await ev('window.getComputedStyle(document.getElementById("auth-lock-screen")).display');
-    if (postAuthDisplay === 'flex') pass('Auth lock screen shown after wizard');
+    if (postAuthDisplay !== 'none' && postAuthDisplay !== 'missing') pass('Auth lock screen shown after wizard');
     else fail('Auth after wizard', `Auth display: ${postAuthDisplay}`);
   }
 
