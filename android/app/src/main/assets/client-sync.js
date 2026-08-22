@@ -171,9 +171,9 @@ class SyncClient {
       return;
     }
 
-    // Safely close existing connection only if it is still open/connecting
+    // Avoid duplicate connection if socket is already open or currently connecting
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
-      this.ws.close();
+      return;
     }
 
     let wsUrl;

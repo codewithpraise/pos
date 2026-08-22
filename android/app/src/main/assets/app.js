@@ -2301,7 +2301,11 @@ setHtml(overlay, `
 
   // ===== AUTOMATED BUTTON & SYSTEM DIAGNOSTIC SELF-TEST ENGINE =====
   function runAutomatedSystemAudit() {
-    setTimeout(() => {
+    const scheduleAudit = typeof requestIdleCallback === 'function' 
+      ? requestIdleCallback 
+      : (cb => setTimeout(cb, 1000));
+
+    scheduleAudit(() => {
       console.log('[AUTOTEST]  Initializing automated startup button & screen diagnostic audit...');
       const views = Array.from(document.querySelectorAll('.content-view'));
       const allButtons = Array.from(document.querySelectorAll('button, .action-btn, [id^="btn-"], .nav-item'));
@@ -2343,9 +2347,8 @@ setHtml(overlay, `
         const id = btn.id || `btn_idx_${idx}`;
         const text = (btn.innerText || btn.textContent || btn.ariaLabel || btn.value || '').trim().substring(0, 25);
         try {
-          const style = window.getComputedStyle(btn);
           const isHiddenParent = !!btn.closest('.content-view:not(.active), [hidden], [inert], .modal-overlay:not(.active), .auth-overlay:not(.active), .wizard-overlay:not(.active)');
-          if (style.pointerEvents === 'none' && !btn.disabled && !isHiddenParent) {
+          if (btn.style.pointerEvents === 'none' && !btn.disabled && !isHiddenParent) {
             errors.push(`[AUTOTEST_ERROR] Button #${id} (${text}) has pointer-events: none while enabled.`);
           } else {
             passedButtons++;
@@ -2816,34 +2819,6 @@ setHtml(overlay, `
     const serverUrl = window.__valenixiaServerUrl || location.origin;
     syncWorker.postMessage({ type: 'INIT', payload: { serverUrl } });
 
-    async function checkRawCatalog() {
-      try {
-        const dbName = (window.ValenixiaDB && window.ValenixiaDB.dbName) || 'valenixia_db';
-        const dbVer = (window.ValenixiaDB && window.ValenixiaDB.dbVersion) || 16;
-        const req = indexedDB.open(dbName, dbVer);
-        req.onsuccess = (e) => {
-          const db = e.target.result;
-          console.log('[BootTrace] Raw IDB stores:', Array.from(db.objectStoreNames));
-          if (!db.objectStoreNames.contains('inventory_catalog')) {
-            console.error('[BootTrace] CRITICAL: inventory_catalog store missing!');
-            return;
-          }
-          const tx = db.transaction('inventory_catalog', 'readonly');
-          const store = tx.objectStore('inventory_catalog');
-          const countReq = store.count();
-          countReq.onsuccess = () => {
-            console.log('[BootTrace] Raw IDB inventory_catalog count:', countReq.result);
-          };
-          const allReq = store.getAll();
-          allReq.onsuccess = () => {
-            console.log('[BootTrace] Raw IDB inventory_catalog items:', (allReq.result || []).map(i => i.sku));
-          };
-        };
-      } catch(e) {
-        console.error('[BootTrace] Raw IDB check failed:', e);
-      }
-    }
-
     // Handle incoming messages from worker thread
     syncWorker.onmessage = async (event) => {
       const data = event.data || {};
@@ -2856,8 +2831,6 @@ setHtml(overlay, `
       switch (type) {
         case 'INIT_SUCCESS':
           console.log(`[App] Worker sync engine fully initialized for node: ${nodeId}`);
-          console.log('[BootTrace] Worker init success. Requesting catalog...');
-          checkRawCatalog();
           const hlcEl1 = document.getElementById('hlc-clock');
           if (hlcEl1) hlcEl1.textContent = hlc;
           state.nodeId = nodeId;
@@ -3562,12 +3535,12 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
     function isLockActive() {
       const el = document.getElementById('auth-lock-screen') || authLockScreen;
       if (!el) return false;
-      const isVisible = el.classList.contains('active') || (el.style.display !== 'none' && el.style.display !== '') || ((typeof window.getComputedStyle === 'function') && window.getComputedStyle(el).display !== 'none');
+      const isVisible = el.classList.contains('active') || (!el.hasAttribute('hidden') && el.style.display !== 'none');
       if (!isVisible) return false;
 
       // First-Boot Setup Wizard check: If wizard is active, lock screen is inactive
       const wiz = document.getElementById('first-boot-wizard');
-      if (wiz && wiz.style.display !== 'none' && wiz.classList.contains('active')) return false;
+      if (wiz && !wiz.hasAttribute('hidden') && wiz.style.display !== 'none' && wiz.classList.contains('active')) return false;
 
       return true;
     }

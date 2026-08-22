@@ -416,6 +416,9 @@ self.onmessage = async (event) => {
                      type === 'GET_PREFERENCE' ||
                      type === 'RESTORE_DURABLE_OUTBOX' ||
                      type === 'SET_ONLINE_STATE' ||
+                     type === 'BROADCAST_CFD_CART' ||
+                     type === 'BROADCAST_CFD_CHECKOUT' ||
+                     type === 'BROADCAST_CFD_CLEAR' ||
                      (typeof type === 'string' && type.startsWith('GET_'));
     if (canQueue) {
       _enqueuePreBoot(event.data);
