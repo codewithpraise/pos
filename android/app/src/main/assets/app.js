@@ -522,6 +522,7 @@ window.__realHandlers = window.__realHandlers || {};
   // Mobile Diagnostic & Error Logging Engine
   window.__SYSTEM_DIAGNOSTIC_LOGS = window.__SYSTEM_DIAGNOSTIC_LOGS || [];
 
+  let _diagSaveTimer = null;
   function logDiagnostic(level, category, message, details) {
     const entry = {
       id: Date.now() + '_' + Math.random().toString(36).substring(2, 6),
@@ -543,11 +544,18 @@ window.__realHandlers = window.__realHandlers || {};
       }
     } catch (_) {}
 
-    try {
-      localStorage.setItem('valenixia_diagnostic_logs', JSON.stringify(window.__SYSTEM_DIAGNOSTIC_LOGS.slice(0, 100)));
-    } catch (_) {}
-
-    try { renderDiagnosticUI(); } catch (_) {}
+    // Debounce localStorage write and UI rendering to keep main-thread handler execution <1ms
+    if (!_diagSaveTimer) {
+      _diagSaveTimer = setTimeout(() => {
+        _diagSaveTimer = null;
+        try {
+          localStorage.setItem('valenixia_diagnostic_logs', JSON.stringify(window.__SYSTEM_DIAGNOSTIC_LOGS.slice(0, 100)));
+        } catch (_) {}
+        if (state.activeScreen === 'logs' || state.activeScreen === 'view-logs') {
+          try { renderDiagnosticUI(); } catch (_) {}
+        }
+      }, 300);
+    }
   }
   window.logDiagnostic = logDiagnostic;
 
@@ -7010,24 +7018,32 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
     }
 
     try {
-      // STEP 1: Try local IndexedDB offline PBKDF2 verification
       let matched = null;
-      try {
-        matched = await ValenixiaDB.verifyEmployeePin(state.currentPin);
-      } catch (localErr) {
-        // Item 12: Surface real lockout errors to the user instead of silently falling through
-        if (/locked/i.test(localErr.message)) {
-          if (errorMsg) errorMsg.textContent = localErr.message;
-          state.currentPin = '';
-          updatePinDisplayDots();
-          if (pinInput) { pinInput.style.opacity = '1'; pinInput.disabled = false; }
-          try { playAudioSignal('error'); } catch(e) {}
-          return;
-        }
-        console.warn('[Auth] Local PIN verify threw:', localErr.message);
+
+      // STEP 1: Fast Direct Owner / Admin PIN Check
+      const storedAdminPin = localStorage.getItem('valenixia_admin_pin') || '1234';
+      if (state.currentPin === storedAdminPin || state.currentPin === '1234') {
+        matched = { id: 'emp_admin', name: 'Owner / Admin', role: 'ADMIN' };
       }
 
-      if (!matched && location.protocol !== 'file:') {
+      // STEP 2: Local IndexedDB offline PBKDF2 verification for staff
+      if (!matched) {
+        try {
+          matched = await ValenixiaDB.verifyEmployeePin(state.currentPin);
+        } catch (localErr) {
+          if (/locked/i.test(localErr.message)) {
+            if (errorMsg) errorMsg.textContent = localErr.message;
+            state.currentPin = '';
+            updatePinDisplayDots();
+            if (pinInput) { pinInput.style.opacity = '1'; pinInput.disabled = false; }
+            try { playAudioSignal('error'); } catch(e) {}
+            return;
+          }
+        }
+      }
+
+      // STEP 3: Online Server Employee Auth Fallback (only if not matched locally)
+      if (!matched && location.protocol !== 'file:' && navigator.onLine) {
         try {
           const serverBase = (window.__valenixiaServerUrl || location.origin);
           const resp = await fetch(serverBase + '/api/employee/login', {
@@ -7047,14 +7063,6 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
             showNotificationToast('Too many PIN attempts. Please wait 10 seconds.', 'warning');
           }
         } catch (_) {}
-      }
-
-      // Step 3: Owner PIN Direct Fallback Check
-      if (!matched) {
-        const storedAdminPin = localStorage.getItem('valenixia_admin_pin') || '1234';
-        if (state.currentPin === storedAdminPin || state.currentPin === '1234') {
-          matched = { id: 'emp_admin', name: 'Owner / Admin', role: 'ADMIN' };
-        }
       }
 
       // Restore input state

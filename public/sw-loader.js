@@ -59,27 +59,32 @@
         if (!installingWorker) return;
 
         installingWorker.addEventListener('statechange', () => {
-          if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            console.log('[PWA Release Sync] New version ready — requesting skipWaiting.');
+          if (installingWorker.state === 'installed') {
+            console.log('[PWA Release Sync] New version installed — activating immediately.');
             installingWorker.postMessage({ type: 'SKIP_WAITING' });
           }
         });
       });
 
-      // 4. Safe Controller Change Listener: NEVER reload on first visit or clean session
+      // Force SW update check on window focus / resume
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && reg && typeof reg.update === 'function') {
+          reg.update().catch(() => {});
+        }
+      });
+
+      // 4. Controller Change Listener: reload when new worker takes control
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (!hadControllerOnLoad) {
-          console.log('[PWA Release Sync] Fresh service worker activated cleanly.');
+          console.log('[PWA Release Sync] Initial service worker active.');
           return;
         }
         if (isUpdating) return;
-        const reloadToken = sessionStorage.getItem('valenixia_sw_reloaded');
-        if (reloadToken !== activeBuildId) {
-          isUpdating = true;
-          sessionStorage.setItem('valenixia_sw_reloaded', activeBuildId);
-          console.log('[PWA Release Sync] Background SW upgrade complete — updating cache.');
+        isUpdating = true;
+        console.log('[PWA Release Sync] Service Worker updated — refreshing to load latest release.');
+        setTimeout(() => {
           window.location.reload();
-        }
+        }, 150);
       });
 
     } catch (err) {
