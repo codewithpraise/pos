@@ -5,32 +5,29 @@
 
 // MOBILE DIAGNOSTIC HUB: Redirect all console output to diagnostic buffer instead of silencing
 (function() {
-  const isLocal = self.location.hostname === 'localhost' ||
-                   self.location.hostname === '127.0.0.1' ||
-                   self.location.hostname === '10.0.2.2';
-  self.__valenixiaIsLocal = isLocal;
+  const origLog = console.log.bind(console);
+  const origWarn = console.warn.bind(console);
+  const origErr = console.error.bind(console);
   
-  if (!isLocal) {
-    const origLog = console.log.bind(console);
-    const origWarn = console.warn.bind(console);
-    const origErr = console.error.bind(console);
-    
-    console.log = (...args) => {
-      self.__valenixiaLogs = self.__valenixiaLogs || [];
-      self.__valenixiaLogs.push({t:'log', ts:Date.now(), msg:args.map(a=>String(a)).join(' ')});
+  console.log = (...args) => {
+    self.__valenixiaLogs = self.__valenixiaLogs || [];
+    self.__valenixiaLogs.push({t:'log', ts:Date.now(), msg:args.map(a=>String(a)).join(' ')});
+    if (self.__VALENIXIA_DEBUG__) {
       origLog(...args);
-    };
-    console.warn = (...args) => {
-      self.__valenixiaLogs = self.__valenixiaLogs || [];
-      self.__valenixiaLogs.push({t:'warn', ts:Date.now(), msg:args.map(a=>String(a)).join(' ')});
+    }
+  };
+  console.warn = (...args) => {
+    self.__valenixiaLogs = self.__valenixiaLogs || [];
+    self.__valenixiaLogs.push({t:'warn', ts:Date.now(), msg:args.map(a=>String(a)).join(' ')});
+    if (self.__VALENIXIA_DEBUG__) {
       origWarn(...args);
-    };
-    console.error = (...args) => {
-      self.__valenixiaLogs = self.__valenixiaLogs || [];
-      self.__valenixiaLogs.push({t:'error', ts:Date.now(), msg:args.map(a=>String(a)).join(' ')});
-      origErr(...args);
-    };
-  }
+    }
+  };
+  console.error = (...args) => {
+    self.__valenixiaLogs = self.__valenixiaLogs || [];
+    self.__valenixiaLogs.push({t:'error', ts:Date.now(), msg:args.map(a=>String(a)).join(' ')});
+    origErr(...args);
+  };
 })();
 
 // CRITICAL: Self-diagnostic error boundary

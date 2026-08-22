@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 // VALENIXIA — EMVCo Merchant-Presented Mode (MPM) QR Generator
 // Compliant with: SBP Interoperable QR Standard, EMVCo QR Code Specification v1.1
 // For Pakistan (PKR, ISO 4217: 586), Country Code: PK
@@ -88,5 +88,4 @@
   }
 
   window.EMVCoQR = { buildPayload: buildEMVCoPayload, render: renderEMVCoQR, getMerchantConfig: getMerchantQRConfig, crc16: crc16 };
-  console.log('[EMVCoQR] Pakistan EMVCo MPM QR engine loaded.');
 })();

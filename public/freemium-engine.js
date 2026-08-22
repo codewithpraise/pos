@@ -5,7 +5,6 @@
 // Flip window.__valenixiaPlan to a paid tier to unlock features.
 // ============================================================================
 "use strict";
-console.log('%c[VALENIXIA-DIAG-FREEMIUM] Freemium Engine v1.0.5 Initialized at ' + new Date().toISOString() + ' | SubStartTS: ' + localStorage.getItem('valenixia_subscription_start_time'), 'color:#3b82f6;font-weight:bold;');
 (function() {
 
   let currentSession = null;

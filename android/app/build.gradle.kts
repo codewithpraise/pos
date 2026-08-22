@@ -15,8 +15,8 @@ android {
         applicationId = "com.valenixia.pos"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 3
+        versionName = "3.0.0"
 
         val isReleaseBuild = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
         val integrityProjectNumber = System.getenv("PLAY_INTEGRITY_PROJECT_NUMBER")

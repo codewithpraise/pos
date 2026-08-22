@@ -40,8 +40,6 @@ window.__ERROR_LOG = window.__ERROR_LOG || [];
   window.dumpErrors = () => JSON.stringify(window.__ERROR_LOG, null, 2);
 })();
 
-console.log('%c[VALENIXIA-DIAG-CLIENT] App Controller v2.5.1 Loaded at ' + new Date().toISOString() + ' | URL: ' + location.href, 'color:#00d68f;font-weight:bold;font-size:14px;');
-
 // Explicit Lifecycle State Machine & Early Call Queue
 window.__LIFECYCLE_STATE__ = 'BOOTING';
 window.__LIFECYCLE_QUEUE__ = [];

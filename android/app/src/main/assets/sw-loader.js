@@ -1,5 +1,5 @@
 // ============================================================================
-// VALENIXIA COMMERCE ECOSYSTEM - ATOMIC RELEASE & SERVICE WORKER LOADER v2.9.0
+// VALENIXIA COMMERCE ECOSYSTEM - ATOMIC RELEASE & SERVICE WORKER LOADER v3.0.0
 // Guarantees zero release drift, controlled SW update handshake, and zero unprovoked reloads
 // ============================================================================
 
@@ -19,28 +19,26 @@
         headers: { 'Cache-Control': 'no-store' }
       });
 
-      let manifest = { version: '2.9.0', build_id: 'v2.9.0-prod-valenixia-pos' };
+      let manifest = { version: '3.0.0', build_id: 'v3.0.0-prod-valenixia-pos' };
       if (manifestRes.ok) {
         try { manifest = await manifestRes.json(); } catch (_) {}
       }
 
-      const activeBuildId = manifest.build_id || manifest.version || 'v2.9.0';
+      const activeBuildId = manifest.build_id || manifest.version || 'v3.0.0';
       window.VALENIXIA_BUILD_ID = activeBuildId;
 
       // Expose Release Provenance Diagnostics
       window.__VALENIXIA_RELEASE__ = Object.freeze({
         product: manifest.product || 'VALENIXIA POS',
-        version: manifest.version || '2.9.0',
+        version: manifest.version || '3.0.0',
         buildId: activeBuildId,
-        gitCommit: manifest.git_commit || 'a91f43cb',
-        createdAt: manifest.created_at || '2026-08-16T00:00:00Z',
+        gitCommit: manifest.git_commit || 'aab6406',
+        createdAt: manifest.created_at || '2026-08-22T00:00:00Z',
         environment: manifest.environment || 'production',
         schemaVersion: manifest.schema_version || '18',
-        catalogVersion: manifest.commercial_catalog_version || 'v2.9.0-catalog-001',
-        legalVersion: manifest.legal_documents_version || '2.9.0'
+        catalogVersion: manifest.commercial_catalog_version || 'v3.0.0-catalog-001',
+        legalVersion: manifest.legal_documents_version || '3.0.0'
       });
-
-      console.log(`[ReleaseProvenance v2.9.0] Authoritative Build ID: ${activeBuildId} (Version: ${manifest.version})`);
 
       // 2. Register Service Worker with explicit version query
       const reg = await navigator.serviceWorker.register(`/sw.js?v=${encodeURIComponent(activeBuildId)}`);

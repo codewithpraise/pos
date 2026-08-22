@@ -220,7 +220,6 @@
     // NOTE: PRAGMA commands are SQLite-only. IndexedDB does not support them.
     // This function intentionally does nothing for IDB instances —
     // browser garbage collection and quota management handle cleanup automatically.
-    console.log('[Database] IndexedDB initialised — no PRAGMA maintenance needed.');
   }
   globalScope.optimizeSqliteStorageEngine = optimizeSqliteStorageEngine;
 
@@ -858,7 +857,6 @@
           }
 
           this.db = tempDb;
-          console.log('[IndexedDB] DB initialized successfully.');
 
           // Yield this connection when a newer version needs to open
           this.db.onversionchange = () => {
@@ -1272,9 +1270,6 @@
           const writable = await fileHandle.createWritable();
           await writable.write(encrypted);
           await writable.close();
-          console.log('[OPFS] Database encrypted state written to valenixia_vault.db successfully.');
-        } else {
-          console.log('[OPFS] createWritable not available on fileHandle, skipping active file write.');
         }
       } catch (err) {
         if (err && (err.name === 'SecurityError' || err.name === 'NotAllowedError')) {

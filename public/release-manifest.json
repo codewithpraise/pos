@@ -1,13 +1,13 @@
 {
   "product": "VALENIXIA POS",
   "version": "3.0.0",
-  "build_id": "v3.0.0-big-tech-tier",
-  "git_commit": "a91f43cb",
+  "build_id": "v3.0.0-prod-valenixia-pos",
+  "git_commit": "aab6406",
   "environment": "production",
   "schema_version": "17",
-  "commercial_catalog_version": "2.9.0",
-  "legal_documents_version": "2.9.0",
-  "minimum_client_version": "2.9.0",
+  "commercial_catalog_version": "3.0.0",
+  "legal_documents_version": "3.0.0",
+  "minimum_client_version": "3.0.0",
   "rollback_allowed": false,
   "minimum_compatible_version": "2.6.0"
 }

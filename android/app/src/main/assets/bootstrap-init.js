@@ -69,13 +69,17 @@ window.escapeHTML = escapeHTML;
     const msg = args.map(a=>String(a)).join(' ');
     window.__valenixiaLogs.push({t:'log', ts:Date.now(), msg});
     appendToBootTerminal(msg, 'log');
-    origLog(...args);
+    if (window.__VALENIXIA_DEBUG__ || (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_debug') === 'true')) {
+      origLog(...args);
+    }
   };
   console.warn = (...args) => {
     const msg = args.map(a=>String(a)).join(' ');
     window.__valenixiaLogs.push({t:'warn', ts:Date.now(), msg});
     appendToBootTerminal(msg, 'warn');
-    origWarn(...args);
+    if (window.__VALENIXIA_DEBUG__ || (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_debug') === 'true')) {
+      origWarn(...args);
+    }
   };
   console.error = (...args) => {
     const msg = args.map(a=>String(a)).join(' ');
@@ -87,7 +91,9 @@ window.escapeHTML = escapeHTML;
     const msg = args.map(a=>String(a)).join(' ');
     window.__valenixiaLogs.push({t:'info', ts:Date.now(), msg});
     appendToBootTerminal(msg, 'info');
-    origInfo(...args);
+    if (window.__VALENIXIA_DEBUG__ || (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_debug') === 'true')) {
+      origInfo(...args);
+    }
   };
 })();
 

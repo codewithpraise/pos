@@ -12,7 +12,7 @@ module.exports = (req, res) => {
     status: 'ACTIVE',
     updated: false,
     revoked: false,
-    version: '2.9.0',
+    version: '3.0.0',
     message: 'Valenixia Cloud License Node verified'
   });
 };

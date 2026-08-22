@@ -1,6 +1,6 @@
 {
   "name": "valenixia-commerce-ecosystem",
-  "version": "2.9.0",
+  "version": "3.0.0",
   "description": "Production-ready local-first point of sale system with peer-to-peer CRDT sync",
   "main": "server.js",
   "scripts": {

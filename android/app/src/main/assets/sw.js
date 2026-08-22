@@ -14,7 +14,7 @@ if (self.location.hostname !== 'localhost' && !self.location.hostname.includes('
 }
 
 const urlParams = new URLSearchParams(self.location.search);
-const buildVersion = urlParams.get('v') || 'v3.0.0-big-tech-tier';
+const buildVersion = urlParams.get('v') || 'v3.0.0-prod-valenixia-pos';
 const CACHE_NAME = `valenixia-pos-cache-${buildVersion}`;
 const ASSETS_TO_CACHE = [
   { url: '/', integrity: '' },
@@ -24,7 +24,7 @@ const ASSETS_TO_CACHE = [
   { url: '/styles/themes.css', integrity: '' },
   { url: '/styles/animations.css', integrity: '' },
   { url: '/styles/components.css', integrity: '' },
-  { url: '/app.js', integrity: 'sha384-qEBIPw/XhTJRjQJyTL8K3TmMvTldTRMtWoKFdNRjYIYtbfSZbFDi4WLoCESE5ANa' },
+  { url: '/app.js', integrity: 'sha384-KADPJUQPTFLzJkMO2doX1+X+/5BOQGkkozPmBrJbd2JLj0HkfYjP7t1Qs6CEwAPz' },
   { url: '/router.js', integrity: '' },
   { url: '/commercial-catalog.js', integrity: '' },
   { url: '/legal-documents.js', integrity: '' },
@@ -34,11 +34,11 @@ const ASSETS_TO_CACHE = [
   { url: '/modules/animations.js', integrity: '' },
   { url: '/modules/offline.js', integrity: '' },
   { url: '/modules/keyboard.js', integrity: '' },
-  { url: '/client-db.js', integrity: 'sha384-nbrxAdNp9FBDlCsAwjvHFPILzDQtdJXQAangtHEl3Ksy7f8O0NSzTbq6wMSRKK2k' },
+  { url: '/client-db.js', integrity: 'sha384-L1FSfTlXFwfs5klDOJz1moGGfihzD9yPi6BJp2LCCCYYVW7OQQqUWwwFVWPVX7iM' },
   { url: '/client-audio.js', integrity: 'sha384-eNFP7nwI6r5YvjouaLqNb9zpHUftLLL7QNzJ5X5RaVzN/53rfdnZFxiwGxIVLBtc' },
   { url: '/client-speech.js', integrity: 'sha384-7W67xTwgWUVhwx4BuvdTRftJfKk/2TH/JVX0FQy18uTcjM2CFaRvzRq/GRhW5e8k' },
   { url: '/client-sync.js', integrity: 'sha384-dvzrIevtShpBfj3wmA+zFMChJ4QAQRWSLqsTq5I4J0SztsioY8irVJLJzLC/ZLKc' },
-  { url: '/sync-worker.js', integrity: 'sha384-0wShL/9YT7+gDLqGU/MMXg41o4mzSecWEE4POPlhdEaRFNUEneVPbhEjypX0U6jw' },
+  { url: '/sync-worker.js', integrity: 'sha384-zrEPQBWYzYL/WxBNd7xJkf7J+Z+MJ3VPxzzTm2PxGKGeXltWIAgA9WZIq2kXapFk' },
   { url: '/manifest.json', integrity: '' },
   { url: '/icon-192.png', integrity: '' },
   { url: '/icon-512.png', integrity: '' },

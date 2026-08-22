@@ -27,14 +27,19 @@
         catch(e){ return '[unserializable]'; }
       }).join(' ');
       
-      // Error-specific logging filter: Only log errors, warnings, and autotest insights
+      // Error-specific logging filter: Only log errors, warnings, and autotest insights to diagnostic memory
       const isErrorOrInsight = lvl === 'error' || lvl === 'warn' || 
         msg.includes('[AUTOTEST') || msg.includes('CRITICAL') || msg.includes('FATAL') || msg.includes('FAIL');
       
       if (isErrorOrInsight) {
         window.__VALENIXIA_DIAG.push(lvl, 'console', msg, {raw:args});
       }
-      orig(...args);
+      
+      // Only forward to browser devtools console if it is an actual error or debug mode is explicitly active
+      const isDebug = window.__VALENIXIA_DEBUG__ || (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_debug') === 'true');
+      if (lvl === 'error' || isDebug) {
+        orig(...args);
+      }
     };
   });
 
@@ -323,6 +328,4 @@
       alert('Diagnostic log copied (' + payload.logs.length + ' entries). Settings cards: ' + (settingsReport ? settingsReport.sections.length : 0));
     }
   };
-
-  console.log('[DiagnosticHarness] Injected v3. Settings & UI Diagnostic tools active.');
 })();

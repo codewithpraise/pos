@@ -221,7 +221,6 @@ window.__VALENIXIA_WORKER_CODE = `// ===========================================
     // NOTE: PRAGMA commands are SQLite-only. IndexedDB does not support them.
     // This function intentionally does nothing for IDB instances —
     // browser garbage collection and quota management handle cleanup automatically.
-    console.log('[Database] IndexedDB initialised — no PRAGMA maintenance needed.');
   }
   globalScope.optimizeSqliteStorageEngine = optimizeSqliteStorageEngine;
 
@@ -859,7 +858,6 @@ window.__VALENIXIA_WORKER_CODE = `// ===========================================
           }
 
           this.db = tempDb;
-          console.log('[IndexedDB] DB initialized successfully.');
 
           // Yield this connection when a newer version needs to open
           this.db.onversionchange = () => {
@@ -1273,9 +1271,6 @@ window.__VALENIXIA_WORKER_CODE = `// ===========================================
           const writable = await fileHandle.createWritable();
           await writable.write(encrypted);
           await writable.close();
-          console.log('[OPFS] Database encrypted state written to valenixia_vault.db successfully.');
-        } else {
-          console.log('[OPFS] createWritable not available on fileHandle, skipping active file write.');
         }
       } catch (err) {
         if (err && (err.name === 'SecurityError' || err.name === 'NotAllowedError')) {
@@ -2398,32 +2393,29 @@ class SyncClient {
 
 // MOBILE DIAGNOSTIC HUB: Redirect all console output to diagnostic buffer instead of silencing
 (function() {
-  const isLocal = self.location.hostname === 'localhost' ||
-                   self.location.hostname === '127.0.0.1' ||
-                   self.location.hostname === '10.0.2.2';
-  self.__valenixiaIsLocal = isLocal;
+  const origLog = console.log.bind(console);
+  const origWarn = console.warn.bind(console);
+  const origErr = console.error.bind(console);
   
-  if (!isLocal) {
-    const origLog = console.log.bind(console);
-    const origWarn = console.warn.bind(console);
-    const origErr = console.error.bind(console);
-    
-    console.log = (...args) => {
-      self.__valenixiaLogs = self.__valenixiaLogs || [];
-      self.__valenixiaLogs.push({t:'log', ts:Date.now(), msg:args.map(a=>String(a)).join(' ')});
+  console.log = (...args) => {
+    self.__valenixiaLogs = self.__valenixiaLogs || [];
+    self.__valenixiaLogs.push({t:'log', ts:Date.now(), msg:args.map(a=>String(a)).join(' ')});
+    if (self.__VALENIXIA_DEBUG__) {
       origLog(...args);
-    };
-    console.warn = (...args) => {
-      self.__valenixiaLogs = self.__valenixiaLogs || [];
-      self.__valenixiaLogs.push({t:'warn', ts:Date.now(), msg:args.map(a=>String(a)).join(' ')});
+    }
+  };
+  console.warn = (...args) => {
+    self.__valenixiaLogs = self.__valenixiaLogs || [];
+    self.__valenixiaLogs.push({t:'warn', ts:Date.now(), msg:args.map(a=>String(a)).join(' ')});
+    if (self.__VALENIXIA_DEBUG__) {
       origWarn(...args);
-    };
-    console.error = (...args) => {
-      self.__valenixiaLogs = self.__valenixiaLogs || [];
-      self.__valenixiaLogs.push({t:'error', ts:Date.now(), msg:args.map(a=>String(a)).join(' ')});
-      origErr(...args);
-    };
-  }
+    }
+  };
+  console.error = (...args) => {
+    self.__valenixiaLogs = self.__valenixiaLogs || [];
+    self.__valenixiaLogs.push({t:'error', ts:Date.now(), msg:args.map(a=>String(a)).join(' ')});
+    origErr(...args);
+  };
 })();
 
 // CRITICAL: Self-diagnostic error boundary
