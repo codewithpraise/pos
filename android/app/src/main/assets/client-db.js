@@ -676,11 +676,11 @@
       if (navigator.storage && navigator.storage.persist) {
         navigator.storage.persist().then(granted => {
           if (!granted) {
-            console.warn("Persistent storage not granted. OS may clear data under storage pressure.");
+            console.info("[Storage] Standard browser storage active (PWA/Standalone install grants permanent persistence).");
           } else {
-            console.log("Persistent storage granted. IndexedDB data protected.");
+            console.log("[Storage] Persistent storage granted. IndexedDB data protected from OS pressure.");
           }
-        });
+        }).catch(() => {});
       }
 
       return new Promise(async (resolve, reject) => {
