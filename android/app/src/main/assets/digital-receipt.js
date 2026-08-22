@@ -171,6 +171,9 @@
         lines.push({ text: center(l.trim()), size: 8, color: "#888" });
       });
     }
+    lines.push({ text: "-".repeat(storeWidth), size: 9 });
+    lines.push({ text: center("POWERED BY VALENIXIA POS"), bold: true, size: 8, color: "#059669" });
+    lines.push({ text: center("valenixia-pos.vercel.app"), size: 8, color: "#555555" });
     return lines;
   }
 
@@ -249,7 +252,10 @@
       "*Total: " + totalFormatted + "*",
       "Payment: " + (data.paymentMode || "CASH").replace(/_/g, " "),
       "",
-      (data.footerText || "Thank you for shopping with us!").split("\n")[0]
+      (data.footerText || "Thank you for shopping with us!").split("\n")[0],
+      "",
+      "— Powered by Valenixia POS —",
+      "valenixia-pos.vercel.app"
     ].join("\n");
     const encoded = encodeURIComponent(msg);
     const cleanPhone = (phone || "").replace(/\D/g, "");
@@ -347,21 +353,23 @@
     const customerPhone = receiptData.customerPhone || "";
     const customerEmail = receiptData.customerEmail || "";
 
+    const isUrdu = (window.ValenixiaLanguage && window.ValenixiaLanguage.getLanguage() === 'ur') || localStorage.getItem('valenixia_lang') === 'ur';
+
     const modal = document.createElement("div");
     modal.id = "__vx-receipt-share-modal";
-    modal.style.cssText = "position:fixed;inset:0;z-index:2147483645;background:rgba(5,5,8,0.92);display:flex;align-items:flex-end;justify-content:center;padding:16px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);";
+    modal.style.cssText = "position:fixed;inset:0;z-index:2147483645;background:rgba(5,5,8,0.92);display:flex;align-items:flex-end;justify-content:center;padding:16px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);" + (isUrdu ? "direction:rtl;font-family:'Noto Nastaliq Urdu',sans-serif;" : "");
     modal.innerHTML = '<div style="width:100%;max-width:480px;background:#111118;border:1px solid rgba(255,255,255,0.08);border-radius:16px 16px 12px 12px;padding:24px;box-shadow:0 -16px 64px rgba(0,0,0,0.8);">'
       + '<div style="text-align:center;margin-bottom:20px;">'
       + '<div style="font-size:32px;margin-bottom:8px;"></div>'
-      + '<h2 style="font-size:16px;font-weight:800;color:#fff;margin:0 0 4px;">Send Digital Receipt</h2>'
+      + '<h2 style="font-size:16px;font-weight:800;color:#fff;margin:0 0 4px;">' + (isUrdu ? 'ڈیجیٹل رسید ارسال کریں' : 'Send Digital Receipt') + '</h2>'
       + '<p id="__vx-rcpt-info" style="font-size:12px;color:#64748b;margin:0;"></p>'
       + '</div>'
       + '<div style="display:grid;gap:10px;margin-bottom:16px;">'
-      + '<button id="__vx-rcpt-whatsapp" style="height:52px;background:rgba(37,211,102,0.15);border:1px solid rgba(37,211,102,0.4);color:#25d366;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;"> Send on WhatsApp</button>'
-      + '<button id="__vx-rcpt-email" style="height:52px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;"> Send via Email</button>'
-      + '<button id="__vx-rcpt-pdf" style="height:52px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#f87171;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;"> Download PDF</button>'
+      + '<button id="__vx-rcpt-whatsapp" style="height:52px;background:rgba(37,211,102,0.15);border:1px solid rgba(37,211,102,0.4);color:#25d366;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;"> ' + (isUrdu ? 'واٹس ایپ پر رسید بھیجیں' : 'Send on WhatsApp') + '</button>'
+      + '<button id="__vx-rcpt-email" style="height:52px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;"> ' + (isUrdu ? 'ای میل کے ذریعے بھیجیں' : 'Send via Email') + '</button>'
+      + '<button id="__vx-rcpt-pdf" style="height:52px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#f87171;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;"> ' + (isUrdu ? 'پی ڈی ایف رسید ڈاؤن لوڈ کریں' : 'Download PDF') + '</button>'
       + '</div>'
-      + '<button id="__vx-rcpt-close" style="width:100%;height:40px;background:transparent;border:1px solid rgba(255,255,255,0.06);color:#64748b;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;font-family:inherit;">Close</button>'
+      + '<button id="__vx-rcpt-close" style="width:100%;height:40px;background:transparent;border:1px solid rgba(255,255,255,0.06);color:#64748b;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;font-family:inherit;">' + (isUrdu ? 'بند کریں' : 'Close') + '</button>'
       + '</div>';
     document.body.appendChild(modal);
 
@@ -369,7 +377,7 @@
     if (infoEl) {
       var amountStr = "Rs. " + ((receiptData.total || 0) / 100).toLocaleString("en-PK", { minimumFractionDigits: 2 });
       var itemCount = (receiptData.items || []).length;
-      infoEl.textContent = amountStr + " · " + itemCount + " item(s)";
+      infoEl.textContent = amountStr + " · " + (isUrdu ? itemCount + " آئٹمز" : itemCount + " item(s)");
     }
 
     // CRITICAL: Always release the checkout lock regardless of which button was pressed.

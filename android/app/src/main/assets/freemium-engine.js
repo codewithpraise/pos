@@ -259,7 +259,14 @@ async function syncOnlineSubscriptionTier() {
         }
         
         let existingStartMs = parseInt(localStorage.getItem('valenixia_subscription_start_time'), 10);
-        // Authoritative server timestamp always anchors the countdown timer
+        if (isNaN(existingStartMs) || existingStartMs <= 0) {
+          if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.get) {
+            const pref = await ValenixiaDB.get('local_preferences', 'valenixia_subscription_start_time').catch(() => null);
+            if (pref && pref.value_payload) existingStartMs = parseInt(pref.value_payload, 10);
+          }
+        }
+
+        // Authoritative server timestamp anchors the countdown timer
         if (!isNaN(serverStartMs) && serverStartMs > 0) {
           existingStartMs = serverStartMs;
           localStorage.setItem('valenixia_subscription_start_time', String(existingStartMs));
@@ -287,10 +294,19 @@ async function syncOnlineSubscriptionTier() {
         }
       } catch(_) {}
 
-      if (typeof applyTierLocks === 'function') applyTierLocks(fetchedTier);
-      if (typeof renderNavbarByTier === 'function') renderNavbarByTier(fetchedTier);
-      if (typeof applyTierRestrictions === 'function') applyTierRestrictions();
-      if (typeof renderLicenseInfoCard === 'function') renderLicenseInfoCard();
+      const prevExp = window.__lastSyncedExp || localStorage.getItem('valenixia_subscription_expires_at');
+      const curExp = localStorage.getItem('valenixia_subscription_expires_at');
+      const expChanged = prevExp !== curExp;
+      window.__lastSyncedExp = curExp;
+
+      // Only trigger full UI re-renders on genuine state mutations or initial boot
+      if (tierChanged || expChanged || !window.__initialTierRendered) {
+        window.__initialTierRendered = true;
+        if (typeof applyTierLocks === 'function') applyTierLocks(fetchedTier);
+        if (typeof renderNavbarByTier === 'function') renderNavbarByTier(fetchedTier);
+        if (typeof applyTierRestrictions === 'function') applyTierRestrictions();
+        if (typeof renderLicenseInfoCard === 'function') renderLicenseInfoCard();
+      }
 
       if (tierChanged && prevTier !== 'TRIAL') {
         if (typeof showNotificationToast === 'function') {
@@ -424,32 +440,34 @@ function showUpgradeModal(featureName, requiredTier = 'GROWTH') {
       <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:12px;margin-bottom:24px;">
         
         <!-- Starter Card -->
-        <div style="background:rgba(255,255,255,0.03);border:1px solid ${activeTier==='STARTER'?'#10b981':'rgba(255,255,255,0.08)'};border-radius:14px;padding:16px;text-align:center;">
-          <div style="font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;">Starter</div>
+        <div style="background:${reqTier==='STARTER'?'rgba(6,182,212,0.08)':'rgba(255,255,255,0.03)'};border:${reqTier==='STARTER'?'2px solid #06b6d4':(activeTier==='STARTER'?'1px solid #10b981':'1px solid rgba(255,255,255,0.08)')};border-radius:14px;padding:16px;text-align:center;position:relative;${reqTier==='STARTER'?'box-shadow:0 0 20px rgba(6,182,212,0.2);':''}">
+          ${reqTier==='STARTER'?'<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:#06b6d4;color:#000;font-size:9px;font-weight:900;padding:2px 8px;border-radius:99px;text-transform:uppercase;">RECOMMENDED</div>':''}
+          <div style="font-size:11px;font-weight:800;color:${reqTier==='STARTER'?'#06b6d4':'#94a3b8'};text-transform:uppercase;${reqTier==='STARTER'?'margin-top:4px;':''}">Starter</div>
           <div style="font-size:16px;font-weight:900;color:#fff;margin:6px 0 2px;">Rs. 3,499<span style="font-size:10px;font-weight:400;color:#64748b;">/mo</span></div>
           <div style="font-size:10px;color:#64748b;margin-bottom:12px;">500 Products · Inventory & Deals</div>
-          <button class="__btn-select-tier" data-tier="STARTER" style="width:100%;padding:8px;background:${activeTier==='STARTER'?'#10b981':'rgba(255,255,255,0.1)'};border:none;color:#fff;font-size:11px;font-weight:700;border-radius:8px;cursor:pointer;">
+          <button class="__btn-select-tier" data-tier="STARTER" style="width:100%;padding:8px;background:${reqTier==='STARTER'?'#06b6d4':(activeTier==='STARTER'?'#10b981':'rgba(255,255,255,0.1)')};border:none;color:${reqTier==='STARTER'?'#000':'#fff'};font-size:11px;font-weight:800;border-radius:8px;cursor:pointer;">
             ${activeTier==='STARTER'?'Current Plan':'Select Starter'}
           </button>
         </div>
 
-        <!-- Growth Card (Recommended) -->
-        <div style="background:rgba(16,185,129,0.08);border:2px solid #10b981;border-radius:14px;padding:16px;text-align:center;position:relative;box-shadow:0 0 20px rgba(16,185,129,0.15);">
-          <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:#10b981;color:#000;font-size:9px;font-weight:900;padding:2px 8px;border-radius:99px;text-transform:uppercase;">RECOMMENDED</div>
-          <div style="font-size:11px;font-weight:800;color:#10b981;text-transform:uppercase;margin-top:4px;">Growth (Pro)</div>
-          <div style="font-size:16px;font-weight:900;color:#fff;margin:6px 0 2px;">Rs. 5,999<span style="font-size:10px;font-weight:400;color:#64748b;">/mo</span></div>
-          <div style="font-size:10px;color:#94a3b8;margin-bottom:12px;">Full Catalog Products · Analytics & Sync</div>
-          <button class="__btn-select-tier" data-tier="GROWTH" style="width:100%;padding:8px;background:#10b981;border:none;color:#000;font-size:11px;font-weight:900;border-radius:8px;cursor:pointer;">
-            ${activeTier==='GROWTH'?'Current Plan':'Upgrade Growth'}
+        <!-- Growth Card -->
+        <div style="background:${(reqTier==='PRO'||reqTier==='GROWTH')?'rgba(16,185,129,0.08)':'rgba(255,255,255,0.03)'};border:${(reqTier==='PRO'||reqTier==='GROWTH')?'2px solid #10b981':(activeTier==='PRO'||activeTier==='GROWTH'?'1px solid #10b981':'1px solid rgba(255,255,255,0.08)')};border-radius:14px;padding:16px;text-align:center;position:relative;${(reqTier==='PRO'||reqTier==='GROWTH')?'box-shadow:0 0 20px rgba(16,185,129,0.15);':''}">
+          ${(reqTier==='PRO'||reqTier==='GROWTH')?'<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:#10b981;color:#000;font-size:9px;font-weight:900;padding:2px 8px;border-radius:99px;text-transform:uppercase;">RECOMMENDED</div>':''}
+          <div style="font-size:11px;font-weight:800;color:${(reqTier==='PRO'||reqTier==='GROWTH')?'#10b981':'#94a3b8'};text-transform:uppercase;${(reqTier==='PRO'||reqTier==='GROWTH')?'margin-top:4px;':''}">Growth (Pro)</div>
+          <div style="font-size:16px;font-weight:900;color:#fff;margin:6px 0 2px;">Rs. 6,999<span style="font-size:10px;font-weight:400;color:#64748b;">/mo</span></div>
+          <div style="font-size:10px;color:#94a3b8;margin-bottom:12px;">Full Catalog · KDS & Analytics</div>
+          <button class="__btn-select-tier" data-tier="PRO" style="width:100%;padding:8px;background:${(reqTier==='PRO'||reqTier==='GROWTH')?'#10b981':(activeTier==='PRO'||activeTier==='GROWTH'?'#10b981':'rgba(255,255,255,0.1)')};border:none;color:${(reqTier==='PRO'||reqTier==='GROWTH')?'#000':'#fff'};font-size:11px;font-weight:900;border-radius:8px;cursor:pointer;">
+            ${activeTier==='PRO'||activeTier==='GROWTH'?'Current Plan':'Upgrade Growth'}
           </button>
         </div>
 
         <!-- Enterprise Card -->
-        <div style="background:rgba(255,255,255,0.03);border:1px solid ${activeTier==='ENTERPRISE'?'#10b981':'rgba(255,255,255,0.08)'};border-radius:14px;padding:16px;text-align:center;">
-          <div style="font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;">Enterprise</div>
+        <div style="background:${reqTier==='ENTERPRISE'?'rgba(245,158,11,0.08)':'rgba(255,255,255,0.03)'};border:${reqTier==='ENTERPRISE'?'2px solid #f59e0b':(activeTier==='ENTERPRISE'?'1px solid #10b981':'1px solid rgba(255,255,255,0.08)')};border-radius:14px;padding:16px;text-align:center;position:relative;${reqTier==='ENTERPRISE'?'box-shadow:0 0 20px rgba(245,158,11,0.2);':''}">
+          ${reqTier==='ENTERPRISE'?'<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:#f59e0b;color:#000;font-size:9px;font-weight:900;padding:2px 8px;border-radius:99px;text-transform:uppercase;">RECOMMENDED</div>':''}
+          <div style="font-size:11px;font-weight:800;color:${reqTier==='ENTERPRISE'?'#f59e0b':'#94a3b8'};text-transform:uppercase;${reqTier==='ENTERPRISE'?'margin-top:4px;':''}">Enterprise</div>
           <div style="font-size:16px;font-weight:900;color:#fff;margin:6px 0 2px;">Rs. 11,999<span style="font-size:10px;font-weight:400;color:#64748b;">/mo</span></div>
-          <div style="font-size:10px;color:#64748b;margin-bottom:12px;">FBR Fiscal · Multi-Store & Portability</div>
-          <button class="__btn-select-tier" data-tier="ENTERPRISE" style="width:100%;padding:8px;background:${activeTier==='ENTERPRISE'?'#10b981':'rgba(255,255,255,0.1)'};border:none;color:#fff;font-size:11px;font-weight:700;border-radius:8px;cursor:pointer;">
+          <div style="font-size:10px;color:#64748b;margin-bottom:12px;">FBR Fiscal · Multi-Store HQ</div>
+          <button class="__btn-select-tier" data-tier="ENTERPRISE" style="width:100%;padding:8px;background:${reqTier==='ENTERPRISE'?'#f59e0b':(activeTier==='ENTERPRISE'?'#10b981':'rgba(255,255,255,0.1)')};border:none;color:${reqTier==='ENTERPRISE'?'#000':'#fff'};font-size:11px;font-weight:900;border-radius:8px;cursor:pointer;">
             ${activeTier==='ENTERPRISE'?'Current Plan':'Upgrade Enterprise'}
           </button>
         </div>
@@ -481,34 +499,23 @@ function showUpgradeModal(featureName, requiredTier = 'GROWTH') {
   document.getElementById("__paywall-dismiss")?.addEventListener("click", handleDismiss);
   modal.addEventListener("click", (e) => { if (e.target === modal) handleDismiss(); });
 
-
-  // ── Secure plan selection: redirect to subscription page only ──────────────
-  // SECURITY: Tier upgrades are ONLY permitted server-side via /api/admin/payments/decision
-  // after manual payment verification. Client-side tier writes are NOT allowed.
   modal.querySelectorAll(".__btn-select-tier").forEach(btn => {
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       const selectedTier = btn.dataset.tier;
       const currentTier = getActiveTier();
 
-      // If user clicks their current plan button, just dismiss
       if (selectedTier === currentTier) {
         modal.remove();
         return;
       }
 
       modal.remove();
-      // Redirect to the subscription/contact page — no local tier write
       if (typeof window.switchActiveScreen === 'function') {
         window.switchActiveScreen('subscription');
-      } else {
-        // Fallback: open the subscription page
-        const subUrl = (window.__valenixiaServerUrl || location.origin) + '/subscription.html?tier=' + selectedTier;
-        window.open(subUrl, '_blank', 'noopener,noreferrer');
       }
-
-      if (window.showNotificationToast) {
-        window.showNotificationToast('To upgrade, please complete payment via the subscription page.', 'info', 4000);
+      if (window.ValenixiaSubscription && typeof window.ValenixiaSubscription.selectPlan === 'function') {
+        window.ValenixiaSubscription.selectPlan(selectedTier);
       }
     });
   });

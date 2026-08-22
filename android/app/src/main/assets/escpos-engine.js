@@ -115,7 +115,8 @@ const EscPosEngine = (() => {
     text(divider());
     push(CMD.ALIGN_CENTER);
     text('Thank you for your purchase!');
-    text(data.footerText || 'Powered by Valenixia POS');
+    text('POWERED BY VALENIXIA POS');
+    text('valenixia-pos.vercel.app');
     push(CMD.FEED_3);
     push(CMD.CUT_PARTIAL);
 
@@ -320,7 +321,8 @@ const EscPosEngine = (() => {
     if (data.change > 0) lines.push({ left: 'واپسی', right: `Rs.${(data.change / 100).toFixed(2)}`, align: 'split' });
     lines.push({ text: dividerStr, align: 'center' });
     lines.push({ text: 'خریداری کا شکریہ!', align: 'center' });
-    lines.push({ text: data.footerText || 'Powered by Valenixia POS', align: 'center' });
+    lines.push({ text: 'ویلینکسیا پی او ایس', bold: true, align: 'center' });
+    lines.push({ text: 'valenixia-pos.vercel.app', align: 'center' });
 
     const canvas = document.createElement('canvas');
     canvas.width = 384;

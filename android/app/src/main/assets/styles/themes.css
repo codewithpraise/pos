@@ -197,10 +197,257 @@ body.theme-monochrome-ivory .totals-row {
   color: #333333 !important;
 }
 
-body.theme-monochrome-ivory .totals-row.grand-total {
-  color: #111111 !important;
-  border-top-color: rgba(0, 0, 0, 0.15) !important;
+body.theme-monochrome-ivory .totals-row.grand-total,
+body.theme-monochrome-ivory .checkout-cart .ledger-footer .totals-row.grand-total {
+  color: #065f46 !important;
+  border-top: 2px solid rgba(5, 150, 105, 0.25) !important;
   text-shadow: none !important;
+}
+
+body.theme-monochrome-ivory #txt-total {
+  color: #047857 !important;
+  font-weight: 900 !important;
+}
+
+/* Payment Mode Buttons in Light Theme */
+body.theme-monochrome-ivory .payment-btn {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.14) !important;
+  color: #1f2937 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  font-weight: 700 !important;
+}
+
+body.theme-monochrome-ivory .payment-btn:hover {
+  background: #f8fafc !important;
+  border-color: rgba(0, 0, 0, 0.25) !important;
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory .payment-btn.active {
+  background: #ecfdf5 !important;
+  border: 2px solid #059669 !important;
+  color: #065f46 !important;
+  box-shadow: 0 0 0 1px #059669, 0 3px 10px rgba(5, 150, 105, 0.18) !important;
+  font-weight: 800 !important;
+}
+
+body.theme-monochrome-ivory .payment-btn.active svg {
+  stroke: #059669 !important;
+}
+
+/* Complete Order CTA in Light Theme */
+body.theme-monochrome-ivory .btn-checkout-pay,
+body.theme-monochrome-ivory #btn-checkout-complete {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  font-weight: 800 !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.35) !important;
+}
+
+body.theme-monochrome-ivory .btn-checkout-pay:hover,
+body.theme-monochrome-ivory #btn-checkout-complete:hover {
+  background: linear-gradient(135deg, #047857 0%, #065f46 100%) !important;
+  box-shadow: 0 6px 20px rgba(5, 150, 105, 0.45) !important;
+}
+
+/* PWA Banner in Light Theme */
+body.theme-monochrome-ivory .pwa-install-banner {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06) !important;
+}
+
+body.theme-monochrome-ivory .pwa-install-banner .pwa-title {
+  color: #111827 !important;
+  font-weight: 700 !important;
+}
+
+body.theme-monochrome-ivory .pwa-install-banner .pwa-desc {
+  color: #4b5563 !important;
+}
+
+body.theme-monochrome-ivory .pwa-install-banner .pwa-install-btn {
+  background: #059669 !important;
+  color: #ffffff !important;
+  border: none !important;
+  font-weight: 800 !important;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3) !important;
+}
+
+body.theme-monochrome-ivory .pwa-install-banner .pwa-install-btn:hover {
+  background: #047857 !important;
+}
+
+body.theme-monochrome-ivory .pwa-install-banner .pwa-dismiss-btn {
+  background: #f3f4f6 !important;
+  color: #374151 !important;
+  border: 1px solid #e5e7eb !important;
+}
+
+body.theme-monochrome-ivory .pwa-install-banner .pwa-dismiss-btn:hover {
+  background: #e5e7eb !important;
+  color: #111827 !important;
+}
+
+/* Action Cards and Search Panels */
+body.theme-monochrome-ivory .action-card,
+body.theme-monochrome-ivory .customer-card,
+body.theme-monochrome-ivory .search-card,
+body.theme-monochrome-ivory .payment-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+}
+
+body.theme-monochrome-ivory .action-card .lbl,
+body.theme-monochrome-ivory .card-toggle-header .lbl {
+  color: #111827 !important;
+  font-weight: 700 !important;
+}
+
+body.theme-monochrome-ivory .pos-input,
+body.theme-monochrome-ivory input[type="text"],
+body.theme-monochrome-ivory input[type="number"],
+body.theme-monochrome-ivory input[type="search"],
+body.theme-monochrome-ivory select {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border: 1px solid #d1d5db !important;
+}
+
+body.theme-monochrome-ivory .pos-input::placeholder,
+body.theme-monochrome-ivory input::placeholder {
+  color: #9ca3af !important;
+}
+
+/* Order Type Pills */
+body.theme-monochrome-ivory .order-type-btn,
+body.theme-monochrome-ivory .store-order-type-pill {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.14) !important;
+  color: #1f2937 !important;
+}
+
+body.theme-monochrome-ivory .order-type-btn.active,
+body.theme-monochrome-ivory .store-order-type-pill.active {
+  background: #ecfdf5 !important;
+  border: 1.5px solid #059669 !important;
+  color: #065f46 !important;
+  font-weight: 700 !important;
+}
+
+body.theme-monochrome-ivory .order-type-btn.active svg,
+body.theme-monochrome-ivory .store-order-type-pill.active svg {
+  stroke: #059669 !important;
+}
+
+/* Quick Products & Product Cards - Crisp High-Contrast Outlines & Image Box */
+body.theme-monochrome-ivory .quick-product-card,
+body.theme-monochrome-ivory .product-card,
+body.theme-monochrome-ivory .product-quick-card {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #111111 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05) !important;
+  border-radius: 10px !important;
+}
+
+body.theme-monochrome-ivory .quick-product-card:hover,
+body.theme-monochrome-ivory .product-card:hover,
+body.theme-monochrome-ivory .product-quick-card:hover {
+  background: #ffffff !important;
+  border-color: #059669 !important;
+  box-shadow: 0 6px 16px rgba(5, 150, 105, 0.15) !important;
+  transform: translateY(-2px);
+}
+
+body.theme-monochrome-ivory .quick-product-card .product-title,
+body.theme-monochrome-ivory .product-card .product-name,
+body.theme-monochrome-ivory .quick-card-title {
+  color: #111827 !important;
+  font-weight: 800 !important;
+}
+
+body.theme-monochrome-ivory .quick-product-card .product-price,
+body.theme-monochrome-ivory .product-card .product-price,
+body.theme-monochrome-ivory .quick-card-price {
+  color: #059669 !important;
+  font-weight: 900 !important;
+}
+
+body.theme-monochrome-ivory .quick-card-visual-wrapper {
+  background: #f1f5f9 !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+body.theme-monochrome-ivory .quick-card-fallback-badge {
+  color: #059669 !important;
+}
+
+body.theme-monochrome-ivory .quick-card-stock-badge {
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: #1e293b !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+body.theme-monochrome-ivory .quick-card-stock-badge.low-stock {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  border-color: #dc2626 !important;
+}
+
+body.theme-monochrome-ivory .quick-card-sku {
+  color: #64748b !important;
+}
+
+/* Toast Notifications in Light Theme */
+body.theme-monochrome-ivory .premium-toast {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+}
+
+body.theme-monochrome-ivory .premium-toast .toast-title {
+  font-weight: 800 !important;
+}
+
+body.theme-monochrome-ivory .premium-toast .toast-msg {
+  color: #334155 !important;
+  font-weight: 500 !important;
+}
+
+body.theme-monochrome-ivory .premium-toast.toast-success {
+  border-left: 4px solid #10b981 !important;
+}
+
+body.theme-monochrome-ivory .premium-toast.toast-error {
+  border-left: 4px solid #ef4444 !important;
+}
+
+body.theme-monochrome-ivory .premium-toast.toast-warning {
+  border-left: 4px solid #f59e0b !important;
+}
+
+/* Modals & Dialogs in Light Theme */
+body.theme-monochrome-ivory .modal-card,
+body.theme-monochrome-ivory .paywall-card,
+body.theme-monochrome-ivory .pos-modal-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  color: #111827 !important;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.18) !important;
+}
+
+body.theme-monochrome-ivory .modal-card h2,
+body.theme-monochrome-ivory .modal-card h3,
+body.theme-monochrome-ivory .paywall-card h2,
+body.theme-monochrome-ivory .paywall-card h3 {
+  color: #111827 !important;
 }
 
 /* ── High Contrast Accessibility Override ── */

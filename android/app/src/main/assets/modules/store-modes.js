@@ -706,22 +706,131 @@
     // 4. Update store mode display badge in Settings
     const activeBadge = document.getElementById('settings-active-mode-badge');
     if (activeBadge) {
-      activeBadge.textContent = `${config.icon} ${config.name}`;
+      activeBadge.textContent = config.name;
     }
 
+    // 5. Hospitaliy KDS Isolation: KDS is ONLY available in Restaurant & Cafe modes
+    const isHospitality = (modeId === 'food-restaurant' || modeId === 'bakery-cafe');
+    const kdsNav = document.getElementById('nav-kds');
+    if (kdsNav) {
+      kdsNav.style.display = isHospitality ? '' : 'none';
+    }
+    const kdsQuickBtn = document.getElementById('btn-quick-kds');
+    if (kdsQuickBtn) {
+      kdsQuickBtn.style.display = isHospitality ? '' : 'none';
+    }
+
+    // 6. Re-render dynamic Order Type Bar
+    renderOrderTypeBar();
+
     return config;
+  }
+
+  const STORE_ORDER_TYPES = {
+    'food-restaurant': [
+      { id: 'DINE_IN', label: 'Dine-In', label_ur: 'ڈائن ان', iconSvg: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>', metaKey: 'table_number', metaLabel: 'Table #', metaLabelUr: 'میز نمبر', metaPlaceholder: 'e.g. Table 4', default: true },
+      { id: 'TAKEAWAY', label: 'Takeaway', label_ur: 'ٹیک اوے', iconSvg: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>', metaKey: 'token_number', metaLabel: 'Token #', metaLabelUr: 'ٹوکن نمبر', metaPlaceholder: 'e.g. Token 12' },
+      { id: 'DELIVERY', label: 'Delivery', label_ur: 'ہوم ڈلیوری', iconSvg: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>', metaKey: 'rider_info', metaLabel: 'Rider / Address', metaLabelUr: 'رائڈر / پتہ', metaPlaceholder: 'Rider name & address' },
+      { id: 'FOODPANDA', label: 'Foodpanda', label_ur: 'فوڈ پانڈا', iconSvg: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>', metaKey: 'order_ref', metaLabel: 'Order Ref', metaLabelUr: 'آرڈر نمبر', metaPlaceholder: 'e.g. #FP-8891' },
+      { id: 'RESERVATION', label: 'Reservation', label_ur: 'میز بکنگ', iconSvg: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>', metaKey: 'reservation_info', metaLabel: 'Reservation', metaLabelUr: 'بکنگ تفصیل', metaPlaceholder: 'e.g. 4 Guests @ 8pm' }
+    ],
+    'bakery-cafe': [
+      { id: 'DINE_IN', label: 'Café Dine-In', label_ur: 'کیفے ڈائن ان', iconSvg: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/></svg>', metaKey: 'table_number', metaLabel: 'Table #', metaLabelUr: 'میز نمبر', metaPlaceholder: 'e.g. T-2', default: true },
+      { id: 'TAKEAWAY', label: 'Takeaway', label_ur: 'پارسل', iconSvg: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>', metaKey: 'token_number', metaLabel: 'Token #', metaLabelUr: 'ٹوکن نمبر', metaPlaceholder: 'e.g. Token 5' },
+      { id: 'DELIVERY', label: 'Delivery', label_ur: 'ڈلیوری', iconSvg: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/></svg>', metaKey: 'rider_info', metaLabel: 'Address', metaLabelUr: 'پتہ', metaPlaceholder: 'Phone & delivery address' },
+      { id: 'FOODPANDA', label: 'Foodpanda', label_ur: 'فوڈ پانڈا', iconSvg: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/></svg>', metaKey: 'order_ref', metaLabel: 'Order ID', metaLabelUr: 'آرڈر نمبر', metaPlaceholder: 'e.g. #FP-9901' },
+      { id: 'ADVANCE_ORDER', label: 'Advance Cake', label_ur: 'ایڈوانس آرڈر', iconSvg: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>', metaKey: 'event_date', metaLabel: 'Delivery Date', metaLabelUr: 'تاریخ و وقت', metaPlaceholder: 'e.g. Tomorrow 5pm' }
+    ],
+    'pharmacy-medical': [
+      { id: 'OTC_WALKIN', label: 'OTC Walk-in', label_ur: 'او ٹی سی کاؤنٹر', iconSvg: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>', metaKey: '', metaLabel: '', metaLabelUr: '', metaPlaceholder: '', default: true },
+      { id: 'PRESCRIPTION', label: 'Prescription (Rx)', label_ur: 'ڈاکٹر نسخہ (Rx)', iconSvg: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>', metaKey: 'doctor_patient', metaLabel: 'Doctor / Patient', metaLabelUr: 'ڈاکٹر / مریض', metaPlaceholder: 'e.g. Dr. Asif / Ahmed' },
+      { id: 'DELIVERY', label: 'Urgent Delivery', label_ur: 'میڈیسن ڈلیوری', iconSvg: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/></svg>', metaKey: 'patient_address', metaLabel: 'Patient Address', metaLabelUr: 'مریض پتہ', metaPlaceholder: 'Address & contact' }
+    ],
+    'repair-services': [
+      { id: 'WALKIN_SERVICE', label: 'Walk-in Job', label_ur: 'فوری جاب', iconSvg: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>', metaKey: '', metaLabel: '', metaLabelUr: '', metaPlaceholder: '', default: true },
+      { id: 'JOB_CARD', label: 'Job Card Drop-off', label_ur: 'مرمت جاب کارڈ', iconSvg: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>', metaKey: 'job_serial', metaLabel: 'Item / Serial', metaLabelUr: 'آئٹم / ماڈل', metaPlaceholder: 'e.g. iPhone 13 - Screen' },
+      { id: 'APPOINTMENT', label: 'Appointment', label_ur: 'وقت بکنگ', iconSvg: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>', metaKey: 'booking_time', metaLabel: 'Slot Time', metaLabelUr: 'وقت', metaPlaceholder: 'e.g. Today 4:00 PM' }
+    ],
+    'default': [
+      { id: 'WALKIN', label: 'Counter Walk-in', label_ur: 'دکان پر خریداری', iconSvg: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>', metaKey: '', metaLabel: '', metaLabelUr: '', metaPlaceholder: '', default: true },
+      { id: 'DELIVERY', label: 'Home Delivery', label_ur: 'ہوم ڈلیوری', iconSvg: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/></svg>', metaKey: 'rider_info', metaLabel: 'Delivery Address', metaLabelUr: 'گاہک کا پتہ', metaPlaceholder: 'Customer address & phone' },
+      { id: 'PICKUP', label: 'Store Pickup', label_ur: 'اسٹور سے پک اپ', iconSvg: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>', metaKey: 'pickup_time', metaLabel: 'Pickup Time', metaLabelUr: 'پک اپ وقت', metaPlaceholder: 'e.g. Ready by 6pm' },
+      { id: 'WHOLESALE', label: 'Wholesale B2B', label_ur: 'تھوک مال / کھاتہ', iconSvg: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>', metaKey: 'buyer_ntn', metaLabel: 'Buyer / Khata', metaLabelUr: 'خریدار کھاتہ', metaPlaceholder: 'e.g. Khan Traders' }
+    ]
+  };
+
+  function renderOrderTypeBar() {
+    const container = document.getElementById('checkout-order-type-pills');
+    const metaRow = document.getElementById('checkout-order-type-meta-row');
+    const metaLbl = document.getElementById('lbl-order-meta');
+    const metaInput = document.getElementById('input-order-type-meta');
+    if (!container) return;
+
+    const currentMode = localStorage.getItem('valenixia_shop_mode') || 'food-restaurant';
+    const orderTypes = STORE_ORDER_TYPES[currentMode] || STORE_ORDER_TYPES['default'];
+    const isUrdu = (localStorage.getItem('valenixia_language') === 'ur') || (document.documentElement.lang === 'ur');
+
+    let activeType = window.__activeOrderType || orderTypes.find(t => t.default)?.id || orderTypes[0].id;
+    window.__activeOrderType = activeType;
+
+    container.innerHTML = orderTypes.map(ot => `
+      <button type="button" class="order-type-pill ${ot.id === activeType ? 'active' : ''}" data-order-type="${ot.id}">
+        <span style="display:inline-flex;align-items:center;">${ot.iconSvg || ''}</span>
+        <span>${isUrdu ? ot.label_ur : ot.label}</span>
+      </button>
+    `).join('');
+
+    const currentOt = orderTypes.find(t => t.id === activeType) || orderTypes[0];
+    if (currentOt && currentOt.metaLabel) {
+      if (metaRow) metaRow.style.display = 'flex';
+      if (metaLbl) metaLbl.textContent = isUrdu ? currentOt.metaLabelUr + ':' : currentOt.metaLabel + ':';
+      if (metaInput) {
+        metaInput.placeholder = currentOt.metaPlaceholder;
+        metaInput.value = window.__activeOrderMeta || '';
+      }
+    } else {
+      if (metaRow) metaRow.style.display = 'none';
+      if (metaInput) metaInput.value = '';
+      window.__activeOrderMeta = '';
+    }
+
+    container.querySelectorAll('.order-type-pill').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const otId = btn.getAttribute('data-order-type');
+        window.__activeOrderType = otId;
+        renderOrderTypeBar();
+      });
+    });
+
+    if (metaInput && !metaInput.dataset.bound) {
+      metaInput.dataset.bound = 'true';
+      metaInput.addEventListener('input', (e) => {
+        window.__activeOrderMeta = e.target.value;
+      });
+    }
   }
 
   // Export to Global Scope
   globalScope.ValenixiaStoreModes = {
     MODES: STORE_MODES,
+    ORDER_TYPES: STORE_ORDER_TYPES,
     getMode(key) {
       return STORE_MODES[key] || STORE_MODES['simple-retail'];
     },
     getAllModes() {
       return Object.values(STORE_MODES);
     },
-    applyMode: applyMode
+    applyMode: applyMode,
+    renderOrderTypeBar: renderOrderTypeBar
   };
+
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'interactive' || document.readyState === 'complete') {
+      setTimeout(renderOrderTypeBar, 100);
+    } else {
+      document.addEventListener('DOMContentLoaded', () => setTimeout(renderOrderTypeBar, 100));
+    }
+  }
 
 })(typeof window !== 'undefined' ? window : global);

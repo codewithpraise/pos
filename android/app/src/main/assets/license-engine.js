@@ -701,15 +701,22 @@ const LicenseEngine = (() => {
 
     // Render stages 1-3
     if (hoursRemaining <= 168) {
-      const banner = document.createElement('div');
-      banner.id = 'trial-hud-banner';
-      banner.style.cssText = `
-        position: fixed; top: 0; left: 0; right: 0; z-index: 99999;
-        text-align: center; font-family: 'Manrope', sans-serif; font-size: 12px;
-        font-weight: 700; padding: 10px 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        display: flex; align-items: center; justify-content: center; gap: 8px;
-        transition: all 0.3s ease;
-      `;
+      let banner = document.getElementById('trial-hud-banner');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'trial-hud-banner';
+        banner.style.cssText = `
+          position: fixed; top: 0; left: 0; right: 0; z-index: 99999;
+          text-align: center; font-family: 'Manrope', sans-serif; font-size: 12px;
+          font-weight: 700; padding: 10px 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+          display: flex; align-items: center; justify-content: center; gap: 8px;
+          transition: all 0.3s ease; cursor: pointer;
+        `;
+        banner.addEventListener('click', () => {
+          mountLockoutOverlay(`Enter your 6-digit activation code and registered phone number below to activate your Valenixia POS license.`);
+        });
+        document.body.appendChild(banner);
+      }
 
       let text = '';
       let bg = '';
@@ -744,6 +751,7 @@ const LicenseEngine = (() => {
         bg = '#f59e0b';
         color = '#060608';
         text = `Trial expires in ${Math.round(hoursRemaining)} hours. Click here to activate your license.`;
+        banner.style.animation = 'none';
       } else if (hoursRemaining <= 72) {
         // Stage 1: Monochromatic status pill (very small, floating top-right or centered)
         bg = '#1e293b';
@@ -753,6 +761,7 @@ const LicenseEngine = (() => {
         banner.style.borderRadius = '30px';
         banner.style.fontSize = '11px';
         banner.style.border = '1px solid rgba(255,255,255,0.1)';
+        banner.style.animation = 'none';
         text = `Trial Status: ${hoursRemaining.toFixed(1)} hours left`;
       } else {
         // Stage 0: Subtle monochromatic banner (between 3 days and 7 days)
@@ -763,25 +772,20 @@ const LicenseEngine = (() => {
         banner.style.borderRadius = '30px';
         banner.style.fontSize = '11px';
         banner.style.border = '1px solid rgba(255,255,255,0.05)';
+        banner.style.animation = 'none';
         text = `License renewal is due in ${Math.round(hoursRemaining/24)} days`;
       }
 
       banner.style.backgroundColor = bg;
       banner.style.color = color;
-      banner.innerHTML = text;
-
-      // Make clicking the banner open the license key entry overlay
-      banner.style.cursor = 'pointer';
-      banner.addEventListener('click', () => {
-        mountLockoutOverlay(`Enter your 6-digit activation code and registered phone number below to activate your Valenixia POS license.`);
-      });
-
-      document.body.appendChild(banner);
+      if (banner.innerHTML !== text) banner.innerHTML = text;
       
       // Shift app layout down if banner takes full width
       if (hoursRemaining <= 48) {
         document.body.style.paddingTop = '38px';
       }
+    } else {
+      document.getElementById('trial-hud-banner')?.remove();
     }
   }
 

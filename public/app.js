@@ -2448,47 +2448,22 @@ setHtml(overlay, `
     }
 
     const toast = document.createElement('div');
-    toast.className = 'premium-toast';
+    const safeType = ['error', 'warning', 'success'].includes(toastType) ? toastType : 'info';
+    toast.className = `premium-toast toast-${safeType}`;
 
-    let borderColor = 'var(--accent-emerald)';
-    let accentColor = '#10b981';
+    let accentColor = 'var(--accent-emerald, #10b981)';
     let titleText = 'Notification';
 
     if (toastType === 'error') {
-      borderColor = '#ef4444';
       accentColor = '#ef4444';
       titleText = 'Error';
     } else if (toastType === 'warning') {
-      borderColor = '#f59e0b';
       accentColor = '#f59e0b';
       titleText = 'Warning';
     } else if (toastType === 'success') {
-      borderColor = '#10b981';
-      accentColor = '#10b981';
+      accentColor = 'var(--accent-emerald, #10b981)';
       titleText = 'Success';
     }
-
-    toast.style.cssText = `
-      background: rgba(15, 23, 42, 0.95);
-      border: 1px solid ${borderColor};
-      border-radius: 8px;
-      padding: 14px 18px;
-      color: #ffffff;
-      font-size: 12px;
-      font-family: var(--font-body);
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 15px rgba(16,185,129,0.15);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      min-width: 300px;
-      max-width: 420px;
-      pointer-events: auto;
-      cursor: pointer;
-      opacity: 0;
-      transform: translateY(16px);
-      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    `;
 
     setHtml(toast, `
       <div style="display: flex; align-items: center; gap: 12px; flex-grow: 1;">
@@ -2496,8 +2471,8 @@ setHtml(overlay, `
           <svg class="svg-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         </div>
         <div style="display: flex; flex-direction: column; gap: 2px;">
-          <span style="font-weight: 700; text-transform: uppercase; font-family: var(--font-display); letter-spacing: 0.5px; color: ${accentColor};">${titleText}</span>
-          <span style="color: #cbd5e1; font-size: 11px;">${message}</span>
+          <span class="toast-title" style="color: ${accentColor};">${titleText}</span>
+          <span class="toast-msg">${message}</span>
         </div>
       </div>
       ${callback ? `<div style="font-size: 10px; color: ${accentColor}; font-weight: 800; text-transform: uppercase; border-bottom: 1px solid ${accentColor}; padding-bottom: 1px; flex-shrink: 0;">Review</div>` : ''}
@@ -3271,9 +3246,7 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
               clearTimeout(window.__bootstrapTimeoutId);
               window.__bootstrapTimeoutId = null;
             }
-            console.log('[Worker] Database initialization safely completed.');
-
-            if (window.ValenixiaBootstrap) {
+            if (!window.appReady && !window.__valenixiaAuthenticated && !state.activeCashier && window.ValenixiaBootstrap) {
               window.ValenixiaBootstrap.transition('AUTH_LOCK');
             }
             
@@ -4288,10 +4261,6 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
           if (splitFields) splitFields.style.display = 'none';
         }
         updateTotalsBoard();
-
-        if (mode !== 'SPLIT' && state.activeCart && state.activeCart.length > 0) {
-           setTimeout(() => submitCheckoutTransaction(), 50);
-        }
       });
     });
 
@@ -7176,6 +7145,7 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
       if (errorMsg) errorMsg.textContent = 'Error: ' + e.message;
     }
   }
+  window.verifyPinCredentials = verifyPinCredentials;
 
   // UI state transition dots
   function updatePinDisplayDots() {
@@ -7569,22 +7539,22 @@ setHtml(overlay, `
           <input type="password" id="mgr-pin-input" maxlength="6" minlength="4" placeholder="" readonly style="width: 100%; height: 44px; background: #000; border: 1px solid var(--border-titanium); color: #fff; text-align: center; font-size: 20px; letter-spacing: 8px; outline: none; border-radius: 4px; margin-bottom: 16px;">
           
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px;">
-            <button class="mgr-pin-btn" type="button" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">1</button>
-            <button class="mgr-pin-btn" type="button" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">2</button>
-            <button class="mgr-pin-btn" type="button" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">3</button>
-            <button class="mgr-pin-btn" type="button" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">4</button>
-            <button class="mgr-pin-btn" type="button" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">5</button>
-            <button class="mgr-pin-btn" type="button" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">6</button>
-            <button class="mgr-pin-btn" type="button" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">7</button>
-            <button class="mgr-pin-btn" type="button" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">8</button>
-            <button class="mgr-pin-btn" type="button" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">9</button>
-            <button id="btn-mgr-clear" type="button" style="height: 40px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: var(--alert-coral); font-size: 10px; font-weight: 800; border-radius: 4px; cursor: pointer;">CLR</button>
-            <button class="mgr-pin-btn" type="button" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">0</button>
-            <button id="btn-mgr-enter" type="button" style="height: 40px; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2); color: var(--accent-emerald); font-size: 10px; font-weight: 800; border-radius: 4px; cursor: pointer;">ENT</button>
+            <button class="mgr-pin-btn" type="button" data-digit="1" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">1 <span style="font-size:10px; opacity:0.6;">۱</span></button>
+            <button class="mgr-pin-btn" type="button" data-digit="2" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">2 <span style="font-size:10px; opacity:0.6;">۲</span></button>
+            <button class="mgr-pin-btn" type="button" data-digit="3" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">3 <span style="font-size:10px; opacity:0.6;">۳</span></button>
+            <button class="mgr-pin-btn" type="button" data-digit="4" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">4 <span style="font-size:10px; opacity:0.6;">۴</span></button>
+            <button class="mgr-pin-btn" type="button" data-digit="5" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">5 <span style="font-size:10px; opacity:0.6;">۵</span></button>
+            <button class="mgr-pin-btn" type="button" data-digit="6" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">6 <span style="font-size:10px; opacity:0.6;">۶</span></button>
+            <button class="mgr-pin-btn" type="button" data-digit="7" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">7 <span style="font-size:10px; opacity:0.6;">۷</span></button>
+            <button class="mgr-pin-btn" type="button" data-digit="8" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">8 <span style="font-size:10px; opacity:0.6;">۸</span></button>
+            <button class="mgr-pin-btn" type="button" data-digit="9" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">9 <span style="font-size:10px; opacity:0.6;">۹</span></button>
+            <button id="btn-mgr-clear" type="button" style="height: 40px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: var(--alert-coral); font-size: 10px; font-weight: 800; border-radius: 4px; cursor: pointer;">CLR <span style="font-size:9px; opacity:0.7;">صاف</span></button>
+            <button class="mgr-pin-btn" type="button" data-digit="0" style="height: 40px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); color: #fff; font-size: 14px; font-weight: 700; border-radius: 4px; cursor: pointer;">0 <span style="font-size:10px; opacity:0.6;">۰</span></button>
+            <button id="btn-mgr-enter" type="button" style="height: 40px; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2); color: var(--accent-emerald); font-size: 10px; font-weight: 800; border-radius: 4px; cursor: pointer;">ENT <span style="font-size:9px; opacity:0.7;">داخل</span></button>
           </div>
           
           <button id="btn-mgr-cancel" type="button" style="width: 100%; height: 32px; background: transparent; border: 1px solid var(--border-titanium); color: var(--text-gray); font-size: 10px; font-weight: 700; border-radius: 4px; cursor: pointer;">
-            CANCEL
+            CANCEL / منسوخ
           </button>
         </div>
       `);
@@ -7597,8 +7567,9 @@ setHtml(overlay, `
       overlay.querySelectorAll('.mgr-pin-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           playAudioSignal('click');
-          if (currentPin.length < 6) {
-            currentPin += btn.textContent;
+          const d = btn.getAttribute('data-digit');
+          if (d && currentPin.length < 6) {
+            currentPin += d;
             pinInput.value = currentPin;
           }
         });
@@ -8183,6 +8154,7 @@ setHtml(qrContainer, '<span style="font-size: 8px; color: var(--text-gray); text
 
     // Map of CSS selectors to translated texts
     const textMapping = {
+      // Navigation
       '[data-screen="dashboard"] .nav-label': s.dashboard || (isUrdu ? 'مرکز' : 'Hub'),
       '[data-screen="checkout"] .nav-label': s.checkout || (isUrdu ? 'خروج (بلنگ)' : 'Checkout'),
       '[data-screen="catalog"] .nav-label': s.catalog || (isUrdu ? 'اسٹاک کیٹلاگ' : 'Catalog'),
@@ -8207,34 +8179,96 @@ setHtml(qrContainer, '<span style="font-size: 8px; color: var(--text-gray); text
       '[data-screen="logs"] .nav-label': s.sync_logs || (isUrdu ? 'لاگز فیڈ' : 'Sync Logs'),
       '[data-screen="settings"] .nav-label': s.settings || (isUrdu ? 'سسٹم ترتیبات' : 'Settings'),
       '[data-screen="apps-download"] .nav-label': s.apps_download || (isUrdu ? 'موبائل ایپس' : 'Native Apps'),
+      '[data-screen="subscription"] .nav-label': s.subscription || (isUrdu ? 'لائسنس اور سبسکرپشن' : 'Subscription'),
+      '[data-screen="data-portability"] .nav-label': s.data_portability || (isUrdu ? 'ڈیٹا پورٹیبلٹی' : 'Data Portability'),
+      
+      // Lock & Top Header
       '.lock-reg-lbl': s.lock_register || (isUrdu ? 'رجسٹر لاک کریں' : 'Lock Register'),
-      '#btn-lock-register .btn-label': isUrdu ? 'لاک رجسٹر' : 'LOCK REG',
-      '.lang-text-lbl': isUrdu ? 'زبان' : 'Language',
+      '#btn-lock-register .btn-label': s.lock_reg_short || (isUrdu ? 'لاک رجسٹر' : 'LOCK REG'),
+      '.lang-text-lbl': s.language_lbl || (isUrdu ? 'زبان' : 'Language'),
       '.lang-current-val': isUrdu ? 'English' : 'اردو / ENG',
+      
+      // Checkout & Cart
       '.ledger-header .title': s.active_order || (isUrdu ? 'فعال آرڈر' : 'Active Order'),
-      '#btn-void-order': s.void_order || (isUrdu ? 'فروخت منسوخ' : 'Void Order'),
+      '#btn-void-order': s.void_order || (isUrdu ? 'فروخت منسوخ کریں' : 'Void Order'),
       '.cart-table th:nth-child(1)': s.product || (isUrdu ? 'مصنوعات' : 'Product'),
       '.cart-table th:nth-child(2)': s.price || (isUrdu ? 'قیمت' : 'Price'),
       '.cart-table th:nth-child(3)': s.qty || (isUrdu ? 'تعداد' : 'Qty'),
       '.cart-table th:nth-child(4)': s.total || (isUrdu ? 'کل رقم' : 'Total'),
       '.ledger-footer .totals-row:nth-child(1) span:nth-child(1)': s.subtotal || (isUrdu ? 'کل رقم (بغیر ٹیکس)' : 'Subtotal'),
-      '.ledger-footer .totals-row:nth-child(3) span:nth-child(1)': isUrdu ? 'کل ادا قابل رقم' : 'Total Due',
+      '.ledger-footer .totals-row:nth-child(3) span:nth-child(1)': s.total_due || (isUrdu ? 'کل واجب الادا رقم' : 'Total Due'),
+      '.total-due-label': s.total_due || (isUrdu ? 'کل واجب الادا رقم' : 'TOTAL DUE'),
+      '#checkout-total-label': s.total_due || (isUrdu ? 'کل واجب الادا رقم' : 'TOTAL DUE'),
       '#checkout-quick-catalog .lbl': s.quick_products || (isUrdu ? 'تیز مصنوعات کی فہرست' : 'Quick Products'),
-      '#checkout-quick-search': s.quick_search || (isUrdu ? 'تلاش کریں...' : 'Quick search...'),
+      '#checkout-quick-search': s.quick_search || (isUrdu ? 'مصنوعات تلاش کریں یا بارکوڈ اسکین کریں...' : 'Quick search...'),
+      '#mobile-quick-search': s.quick_search || (isUrdu ? 'مصنوعات تلاش کریں یا بارکوڈ اسکین کریں...' : 'Quick search...'),
+      '#btn-toggle-quick-grid': isUrdu ? 'کیٹلاگ دیکھیں' : 'SHOW GRID',
+      '#btn-open-deals-modal': isUrdu ? 'ڈیلز اور بنڈلز' : 'Bundles',
+      '.customer-card .card-toggle-header .lbl': isUrdu ? 'گاہک منسلک کریں (لائلٹی)' : 'Customer Loyalty Link',
+      '.search-card .card-toggle-header .lbl': isUrdu ? 'پروڈکٹ کوڈ / بارکوڈ تلاش' : 'SKU / GTIN Lookup',
+      '#card-shortcuts .card-toggle-header .lbl': isUrdu ? 'سسٹم شارٹ کٹس' : 'System Shortcuts',
       '.checkout-actions .lbl-cust': s.customer_profile || (isUrdu ? 'گاہک کی پروفائل' : 'Customer Profile'),
       '#checkout-customer-attached .text-muted': s.no_customer || (isUrdu ? 'کوئی گاہک منسلک نہیں ہے' : 'No customer attached to transaction.'),
+      '#btn-open-customer-link': s.attach_customer || (isUrdu ? 'منسلک کریں' : 'Attach'),
       '.payment-card .lbl': s.payment_method || (isUrdu ? 'ادائیگی کا طریقہ' : 'Payment Method'),
-      '[data-mode="CASH"]': s.cash || (isUrdu ? 'نقد ادائیگی' : 'Cash'),
-      '[data-mode="CARD"]': s.card || (isUrdu ? 'کارڈ ادائیگی' : 'Card'),
-      '[data-mode="QR"]': s.qr_code || (isUrdu ? 'کیو آر کوڈ' : 'QR Code'),
-      '[data-mode="SPLIT"]': s.split || (isUrdu ? 'تقسیم ادائیگی' : 'Split'),
-      '[data-mode="CREDIT"]': s.credit || (isUrdu ? 'ادھار کھاتہ' : 'Credit (Udhaar)'),
-      '#btn-checkout-complete span': s.complete_order || (isUrdu ? 'آرڈر مکمل کریں (F1)' : 'COMPLETE ORDER (F1)'),
+      '[data-mode="CASH"] .pay-btn-label': s.cash || (isUrdu ? 'نقد ادائیگی' : 'Cash'),
+      '[data-mode="CARD"] .pay-btn-label': s.card || (isUrdu ? 'کارڈ ادائیگی' : 'Card'),
+      '[data-mode="QR"] .pay-btn-label': s.qr_code || (isUrdu ? 'کیو آر کوڈ' : 'QR Code'),
+      '[data-mode="SPLIT"] .pay-btn-label': s.split || (isUrdu ? 'تقسیم ادائیگی' : 'Split'),
+      '[data-mode="CREDIT"] .pay-btn-label': s.credit || (isUrdu ? 'ادھار کھاتہ' : 'Credit (Udhaar)'),
+      '#btn-checkout-complete': s.complete_order || (isUrdu ? 'آرڈر مکمل کریں (F1)' : 'COMPLETE ORDER (F1)'),
+      
+      // Setup Wizard
       '#btn-wiz-choose-new': s.setup_new || (isUrdu ? 'نیا اسٹور قائم کریں' : 'Set Up New Standalone Store'),
       '#btn-wiz-choose-join': s.join_existing || (isUrdu ? 'موجودہ نیٹ ورک میں شامل ہوں' : 'Join Existing Store Network'),
       '#wizard-step-title': s.setup_title || (isUrdu ? 'والینکسیا سیٹ اپ' : 'Valenixia Setup'),
       '#btn-wiz-back': s.back || (isUrdu ? 'واپس جائیں' : 'Back'),
-      '#btn-wiz-next': s.continue || (isUrdu ? 'جاری رکھیں' : 'Continue')
+      '#btn-wiz-next': s.continue || (isUrdu ? 'جاری رکھیں' : 'Continue'),
+      '#wizard-store-name': s.store_name_ph || (isUrdu ? 'مثلاً: المدینہ سپر مارکیٹ' : 'e.g. Al-Madina Supermarket'),
+      '#wizard-owner-name': s.owner_name_ph || (isUrdu ? 'مثلاً: محمد عثمان' : 'e.g. Muhammad Usman'),
+      '#wizard-owner-phone': s.owner_phone_ph || (isUrdu ? 'مثلاً: 03001234567' : 'e.g. 03001234567'),
+      '#wizard-owner-email': s.owner_email_ph || (isUrdu ? 'مثلاً: store@example.com' : 'e.g. store@example.com'),
+      '#wizard-store-city': s.store_city_ph || (isUrdu ? 'مثلاً: کراچی، لاہور، اسلام آباد' : 'e.g. Karachi, Lahore, Islamabad'),
+      '#wizard-store-ntn': s.store_ntn_ph || (isUrdu ? 'مثلاً: 1234567-8' : 'e.g. 1234567-8'),
+      '#wizard-admin-pin': s.master_pin_ph || (isUrdu ? '4 سے 6 ہندسوں کا پن درج کریں' : 'Enter 4 to 6 digit PIN'),
+      '#wizard-confirm-pin': s.confirm_pin_ph || (isUrdu ? 'تصدیق کے لیے دوبارہ پن درج کریں' : 'Re-enter PIN to verify'),
+      '#wizard-sync-passphrase': s.sync_pass_ph || (isUrdu ? 'ایک محفوظ نیٹ ورک پاس فریز منتخب کریں' : 'Choose a strong network sync key'),
+      '#wizard-join-server-url': s.join_url_ph || (isUrdu ? 'http://192.168.1.100:3000' : 'http://192.168.1.100:3000'),
+      '#wizard-join-passphrase': s.join_pass_ph || (isUrdu ? 'مین کمپیوٹر کا پاس فریز درج کریں' : 'Enter master store passphrase'),
+      
+      // Auth / Lock Screen
+      '#auth-lock-title': s.auth_title || (isUrdu ? 'ٹرمینل مقفل ہے' : 'Terminal Locked'),
+      '#auth-lock-desc': s.auth_desc || (isUrdu ? 'ان لاک کرنے کے لیے اپنا پن درج کریں' : 'Enter PIN to unlock.'),
+      '#btn-pin-clear': s.pin_clear || (isUrdu ? 'صاف کریں' : 'CLEAR'),
+      '#btn-pin-enter': s.pin_enter || (isUrdu ? 'داخل کریں' : 'ENTER'),
+      '#auth-btn-reset': s.emergency_reset || (isUrdu ? 'فیکٹری ری سیٹ' : 'Factory Reset'),
+      '#auth-btn-new-store': s.setup_new_store_action || (isUrdu ? 'نیا اسٹور سیٹ اپ' : 'Setup New Store'),
+      
+      // Modals & Inventory
+      '#btn-catalog-create': s.add_product || (isUrdu ? 'نئی مصنوعات شامل کریں' : 'Add Product'),
+      '#btn-customers-create': s.add_customer || (isUrdu ? 'نیا گاہک شامل کریں' : 'Add Customer'),
+      '#btn-staff-create': s.add_employee || (isUrdu ? 'نیا عملہ شامل کریں' : 'Add Employee'),
+      '#btn-suppliers-create': s.add_supplier || (isUrdu ? 'نیا سپلائر شامل کریں' : 'Add Supplier'),
+      '#btn-submit-product-modal': s.save_product || (isUrdu ? 'محفوظ کریں' : 'Save Product'),
+      '#btn-cancel-product-modal': s.cancel || (isUrdu ? 'منسوخ' : 'Cancel'),
+      '#btn-submit-customer-modal': s.save_customer || (isUrdu ? 'گاہک محفوظ کریں' : 'Save Customer'),
+      '#btn-cancel-customer-modal': s.cancel || (isUrdu ? 'منسوخ' : 'Cancel'),
+      '#btn-submit-employee-modal': s.save_staff || (isUrdu ? 'ملازم محفوظ کریں' : 'Save Staff Member'),
+      '#btn-cancel-employee-modal': s.cancel || (isUrdu ? 'منسوخ' : 'Cancel'),
+      '#btn-submit-supplier-modal': s.save_supplier || (isUrdu ? 'سپلائر محفوظ کریں' : 'Save Supplier'),
+      '#btn-cancel-supplier-modal': s.cancel || (isUrdu ? 'منسوخ' : 'Cancel'),
+      '#catalog-search-input': s.search_catalog_ph || (isUrdu ? 'نام، کوڈ یا بارکوڈ سے تلاش کریں...' : 'Search by name, SKU, or barcode...'),
+      '#customers-search-input': s.search_customers_ph || (isUrdu ? 'نام یا فون نمبر سے تلاش کریں...' : 'Search customers...'),
+      
+      // Split payment inputs
+      '#split-cash-amount': s.split_cash || (isUrdu ? 'نقد رقم کا حصہ' : 'Cash Amount'),
+      '#split-card-amount': s.split_card || (isUrdu ? 'کارڈ یا ڈیجیٹل رقم کا حصہ' : 'Card Amount'),
+      
+      // Buttons & Downloads
+      '#btn-download-apk .btn-text': isUrdu ? 'اینڈرائیڈ ایپ ڈاؤن لوڈ کریں (16.4 MB)' : 'DOWNLOAD ANDROID APK (16.4 MB)',
+      '#btn-download-desktop .btn-text': isUrdu ? 'ڈیسک ٹاپ ایپ ڈاؤن لوڈ کریں (124.8 MB)' : 'DOWNLOAD WINDOWS EXE (124.8 MB)',
+      '#btn-download-msi .btn-text': isUrdu ? 'ایم ایس آئی پیکج ڈاؤن لوڈ کریں (124.1 MB)' : 'Download MSI Package (124.1 MB)',
+      '#btn-copy-settings-hwid-card': s.copy_hwid || (isUrdu ? 'ڈیوائس آئی ڈی کاپی کریں' : 'Copy Device ID')
     };
 
     for (const [selector, text] of Object.entries(textMapping)) {
@@ -8243,18 +8277,18 @@ setHtml(qrContainer, '<span style="font-size: 8px; color: var(--text-gray); text
       elements.forEach(el => {
         if (el.tagName === 'INPUT' && el.hasAttribute('placeholder')) {
           el.placeholder = text;
+        } else if (el.id === 'btn-checkout-complete') {
+          el.innerHTML = `<span>${text}</span>`;
         } else {
-          // If element contains SVG icons (like payment-btn), safely update or append only the text node
-          const textNode = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim() !== '');
-          if (textNode) {
-            textNode.textContent = ' ' + text;
+          const spanChild = el.querySelector(':scope > span:not(.svg-icon)');
+          if (spanChild && !el.querySelector('svg')) {
+            spanChild.textContent = text;
           } else {
-            const hasElementChild = el.firstElementChild !== null;
             const svgChild = el.querySelector('svg');
-            if (svgChild || hasElementChild) {
-              const lastChild = el.lastChild;
-              if (lastChild && lastChild.nodeType === Node.TEXT_NODE) {
-                lastChild.textContent = ' ' + text;
+            if (svgChild) {
+              const textNode = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
+              if (textNode) {
+                textNode.textContent = ' ' + text;
               } else {
                 el.appendChild(document.createTextNode(' ' + text));
               }
@@ -9209,21 +9243,27 @@ setHtml(overlay, `
 
   function handleScannedCode(code) {
     // Intercept QR Code pairing URIs
-    if (code.startsWith('http://') || code.startsWith('https://')) {
-      if (code.includes('#passphrase=') || code.includes('#pair=')) {
-        playAudioSignal('success');
-        ValenixiaPairingEngine.processPairingURI(code);
+    const cleanCode = String(code || '').trim();
+    if (!cleanCode) return;
+
+    if (cleanCode.startsWith('http://') || cleanCode.startsWith('https://')) {
+      if (cleanCode.includes('#passphrase=') || cleanCode.includes('#pair=')) {
+        if (typeof playAudioSignal === 'function') playAudioSignal('beep');
+        ValenixiaPairingEngine.processPairingURI(cleanCode);
         return;
       }
     }
 
-    const prod = state.catalog.find(p => p.sku === code || (p.gtin && String(p.gtin) === code));
+    const prod = state.catalog.find(p => p.sku === cleanCode || (p.gtin && String(p.gtin) === cleanCode) || (p.barcode && String(p.barcode) === cleanCode));
     if (prod) {
       addProductToCheckoutCart(prod.sku);
-      playAudioSignal('success');
+      if (typeof playAudioSignal === 'function') playAudioSignal('beep');
+      if (navigator.vibrate) {
+        try { navigator.vibrate(40); } catch (_) {}
+      }
     } else {
-      playAudioSignal('error');
-      showModal({ title: "Notice", message: `Barcode not found: ${code}`, type: "info" });
+      if (typeof playAudioSignal === 'function') playAudioSignal('error');
+      showModal({ title: "Barcode Lookup", message: `Barcode not found: ${cleanCode}`, type: "info" });
     }
   }
 
@@ -9463,9 +9503,9 @@ setHtml(tr, `
     const taxLabelEl = document.getElementById('txt-tax-rate-label');
     if (taxLabelEl) taxLabelEl.textContent = label;
 
-    const isFbrEnabled = (window.can && window.can('fbr_compliance')) && state.preferences['fbr_integration_enabled'] === 'true';
     const fbrFeeEl = document.getElementById('row-fbr-fee');
     if (fbrFeeEl) {
+      const isFbrEnabled = (window.can && window.can('fbr_compliance')) && state.preferences['fbr_integration_enabled'] === 'true';
       fbrFeeEl.style.display = isFbrEnabled ? 'flex' : 'none';
     }
 
@@ -10079,16 +10119,20 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
         card.classList.add('out-of-stock');
       }
       const catCode = p.category ? p.category.substring(0, 3).toUpperCase() : 'GEN';
+      const imgUrl = p.image_url || p.image || p.img_url || p.img;
+      const iconContent = p.emoji || catCode;
 
-setHtml(card, `
-        <div class="quick-card-info">
-          <span class="quick-card-cat">${catCode}</span>
-          <h4 class="quick-card-title">${p.name}</h4>
-          <span class="quick-card-sku">${p.sku}</span>
+      setHtml(card, `
+        <div class="quick-card-visual-wrapper">
+          ${imgUrl ? `<img src="${imgUrl}" alt="" class="quick-card-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><div class="quick-card-fallback-badge" style="display:none;">${iconContent}</div>` : `<div class="quick-card-fallback-badge">${iconContent}</div>`}
+          <span class="quick-card-stock-badge ${availStock < 5 ? 'low-stock' : ''}">${availStock <= 0 ? 'OOS' : availStock + ' left'}</span>
         </div>
-        <div class="quick-card-meta">
-          <span class="quick-card-price">Rs. ${(p.base_price_minor_units / 100.0).toFixed(2)}</span>
-          <span class="quick-card-stock ${availStock < 5 ? 'low-stock' : ''}">${availStock <= 0 ? 'OOS' : availStock + ' left'}</span>
+        <div class="quick-card-content">
+          <h4 class="quick-card-name" title="${p.name || ''}">${p.name || ''}</h4>
+          <div class="quick-card-price-row">
+            <span class="quick-card-price">Rs. ${(p.base_price_minor_units / 100.0).toFixed(2)}</span>
+            <span class="quick-card-sku">${p.sku || ''}</span>
+          </div>
         </div>
       `);
 
@@ -10880,6 +10924,8 @@ setHtml(container, `
       document.getElementById('form-product-gtin').value = p.gtin || '';
       document.getElementById('form-product-emoji').value = p.emoji || '';
       document.getElementById('form-product-name').value = p.name;
+      const nameUrInput = document.getElementById('form-product-name-ur');
+      if (nameUrInput) nameUrInput.value = p.name_ur || '';
       document.getElementById('form-product-category').value = p.category || 'Drinks';
       const pPrice = p.base_price_minor_units !== undefined ? p.base_price_minor_units : (p.price || 0);
       const pCost = p.cost_price_minor_units !== undefined ? p.cost_price_minor_units : (p.cost || 0);
@@ -11165,11 +11211,13 @@ setHtml(container, `
     const expiry_date = (document.getElementById('form-product-expiry')?.value) || '';
     const rawTaxOv = (document.getElementById('form-product-tax-override')?.value) || '';
     const tax_override = rawTaxOv !== '' ? parseFloat(rawTaxOv) : null;
+    const name_ur = (document.getElementById('form-product-name-ur')?.value.trim()) || '';
 
     // Immediately update local in-memory catalog for 0ms instant UI response
     const newProd = {
       sku,
       name,
+      name_ur: name_ur || undefined,
       gtin,
       base_price_minor_units: price,
       cost_price_minor_units: cost,
@@ -11432,24 +11480,34 @@ setHtml(row, `
     if (!tbody) return;
     tbody.replaceChildren();
 
-    if (!state.employees || state.employees.length === 0) {
+    const uniqueEmployees = [];
+    const seenIds = new Set();
+    (state.employees || []).forEach(emp => {
+      if (emp && emp.id && !seenIds.has(emp.id)) {
+        seenIds.add(emp.id);
+        uniqueEmployees.push(emp);
+      }
+    });
+
+    if (uniqueEmployees.length === 0) {
       const tr = document.createElement('tr');
       setHtml(tr, `<td colspan="5" style="text-align: center; padding: 32px 16px; color: var(--text-gray); font-size: 13px;">No staff records found. Tap <strong>"+ Add Employee"</strong> to register your team.</td>`);
       tbody.appendChild(tr);
       return;
     }
 
-    state.employees.forEach(emp => {
+    uniqueEmployees.forEach(emp => {
       const tr = document.createElement('tr');
-setHtml(tr, `
+      const syncClock = emp.sync_hlc || (emp.updated_at ? new Date(emp.updated_at).toLocaleTimeString() : 'Local Node');
+      setHtml(tr, `
         <td style="font-weight: 700; font-family: monospace; color: var(--text-white);">${emp.id}</td>
-        <td>${emp.role}</td>
+        <td>${emp.role || 'CASHIER'}</td>
         <td>
           <span class="tx-status-badge ${emp.is_active === 1 ? 'completed' : 'voided'}">
             ${emp.is_active === 1 ? 'ACTIVE' : 'INACTIVE'}
           </span>
         </td>
-        <td style="font-size: 10px; font-family: monospace; opacity: 0.7;">${emp.sync_hlc}</td>
+        <td style="font-size: 11px; font-family: monospace; color: var(--text-gray);">${syncClock}</td>
         <td style="text-align: center;">
           <button class="btn-toggle-staff btn-edit-item" data-id="${emp.id}">${emp.is_active === 1 ? 'Deactivate' : 'Activate'}</button>
         </td>
@@ -11487,6 +11545,15 @@ setHtml(tr, `
     if (!id || !pin) {
       showModal({ title: 'Required Fields Missing', message: 'Please enter an employee ID and a 4-digit PIN to create the employee account.', type: 'info' });
       return;
+    }
+
+    if (window.checkLimit) {
+      const activeCount = (state.employees || []).filter(e => e.is_active === 1).length;
+      const limit = window.checkLimit('employees', activeCount);
+      if (!limit.allowed) {
+        if (window.showUpgradeModal) window.showUpgradeModal('employees');
+        return;
+      }
     }
 
     syncWorker.postMessage({
@@ -12010,6 +12077,9 @@ setHtml(tr, `
 
     text += separator + '\n';
     text += center(tagline) + '\n';
+    text += separator + '\n';
+    text += center('POWERED BY VALENIXIA POS') + '\n';
+    text += center('valenixia-pos.vercel.app') + '\n';
 
     let fbrHtml = '';
     if (fbrInvoiceNumber) {
@@ -13556,10 +13626,13 @@ setHtml(itemRow, `
       bytes.push(...encoder.encode(`REF DETAILS: ${tx.payment_details}\n`));
     }
     
-    // Center align for tagline
+    // Center align for tagline and branding
     bytes.push(0x1B, 0x61, 0x01);
     const tagline = state.preferences['store_receipt_tagline'] || 'Stability meets Speed. Thank you!';
-    bytes.push(...encoder.encode(tagline + '\n\n'));
+    bytes.push(...encoder.encode(tagline + '\n'));
+    bytes.push(...encoder.encode('--------------------------------\n'));
+    bytes.push(...encoder.encode('POWERED BY VALENIXIA POS\n'));
+    bytes.push(...encoder.encode('valenixia-pos.vercel.app\n\n'));
     
     // Cut paper
     bytes.push(0x1D, 0x56, 0x41, 0x03);
@@ -15870,6 +15943,17 @@ setHtml(container, `<p style="color: var(--text-gray); font-size:12px;">License 
         ? `<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;background:rgba(16,185,129,0.1);color:var(--accent-emerald);border:1px solid rgba(16,185,129,0.2);">ONLINE SUBSCRIPTION VERIFIED</span>`
         : `<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;background:rgba(245,158,11,0.1);color:var(--alert-amber);border:1px solid rgba(245,158,11,0.2);">FREE BASELINE</span>`;
 
+      const expiryClockEl = document.getElementById('license-expiry-clock');
+      const existingTierVal = document.getElementById('license-card-active-tier-text');
+
+      // If already rendered with matching HWID and Tier, simply update values in place
+      if (expiryClockEl && existingTierVal && container.querySelector('#settings-card-hwid-text')) {
+        const hwidEl = document.getElementById('settings-card-hwid-text');
+        if (hwidEl) hwidEl.textContent = hwid;
+        if (existingTierVal) existingTierVal.textContent = tier;
+        return;
+      }
+
       const payload = verifyResult.payload || {};
       const mode = payload.mode || 'subscription';
       const purchasedAt = payload.purchased_at || null;
@@ -15911,11 +15995,11 @@ setHtml(container, `<p style="color: var(--text-gray); font-size:12px;">License 
         `;
       }
 
-setHtml(container, `
+      setHtml(container, `
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 16px;">
           <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 6px; padding: 14px;">
             <div style="font-size:10px;color:var(--text-gray);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Active Tier</div>
-            <div style="font-family:var(--font-display);font-size:20px;font-weight:800;color:var(--accent-emerald);">${tier}</div>
+            <div style="font-family:var(--font-display);font-size:20px;font-weight:800;color:var(--accent-emerald);" id="license-card-active-tier-text">${tier}</div>
           </div>
           <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 6px; padding: 14px;">
             <div style="font-size:10px;color:var(--text-gray);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">License Expiry</div>
@@ -15949,11 +16033,13 @@ setHtml(container, `
       if (expiryMs !== null && expiryMs > 0) {
         async function updateClockDisplay() {
           const mainEl = document.getElementById('license-expiry-clock');
-          if (!mainEl) { clearInterval(window.__licenseClockInterval); window.__licenseClockInterval = null; return; }
+          const topExpiryValEl = document.getElementById('license-active-expiry-val');
+          if (!mainEl && !topExpiryValEl) { clearInterval(window.__licenseClockInterval); window.__licenseClockInterval = null; return; }
           const remainingMs = typeof LicenseEngine !== 'undefined' ? await LicenseEngine.getExpiryMs() : 0;
           if (remainingMs <= 0) {
-            mainEl.textContent = 'LICENSE EXPIRED ';
-            mainEl.style.color = 'var(--alert-coral)';
+            const expStr = 'LICENSE EXPIRED';
+            if (mainEl) { mainEl.textContent = expStr; mainEl.style.color = 'var(--alert-coral)'; }
+            if (topExpiryValEl) { topExpiryValEl.textContent = expStr; topExpiryValEl.style.color = 'var(--alert-coral)'; }
             clearInterval(window.__licenseClockInterval);
             window.__licenseClockInterval = null;
             return;
@@ -17734,17 +17820,17 @@ setHtml(dz, '<span>');
         if (document.getElementById('pwa-install-banner')) return;
         const banner = document.createElement('div');
         banner.id = 'pwa-install-banner';
-        banner.style.cssText = 'position:fixed;bottom:72px;left:50%;transform:translateX(-50%);z-index:99999;background:var(--surface-glass,rgba(22,24,29,0.96));backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--border-titanium,rgba(255,255,255,0.12));border-radius:14px;padding:10px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,0.6);animation:slideUp 0.3s ease;max-width:calc(100vw - 24px);box-sizing:border-box;';
+        banner.className = 'pwa-install-banner';
         setHtml(banner, `
-          <div style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;background:rgba(0,214,143,0.15);border:1px solid rgba(0,214,143,0.3);flex-shrink:0;">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--accent-emerald,#00d68f)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <div style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);flex-shrink:0;">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--accent-emerald,#10b981)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           </div>
           <div style="flex:1;min-width:0;">
-            <div style="font-weight:700;font-size:13px;color:var(--text-white,#fff);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Install Valenixia POS</div>
-            <div style="font-size:11px;color:var(--text-gray,#94a3b8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Fast offline standalone app</div>
+            <div class="pwa-title">Install Valenixia POS</div>
+            <div class="pwa-desc">Fast offline standalone app</div>
           </div>
-          <button id="pwa-install-btn" style="background:var(--accent-emerald,#10b981);color:#060608;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:800;cursor:pointer;flex-shrink:0;">Install</button>
-          <button id="pwa-install-dismiss" aria-label="Dismiss" style="background:transparent;border:none;color:var(--text-gray,#94a3b8);cursor:pointer;font-size:22px;line-height:1;width:32px;height:32px;display:flex;align-items:center;justify-content:center;padding:0;border-radius:6px;flex-shrink:0;transition:color 0.15s;">&times;</button>
+          <button id="pwa-install-btn" class="pwa-install-btn">Install</button>
+          <button id="pwa-install-dismiss" class="pwa-dismiss-btn" aria-label="Dismiss">&times;</button>
         `);
         document.body.appendChild(banner);
         document.getElementById('pwa-install-btn')?.addEventListener('click', async () => {
@@ -20304,84 +20390,169 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       alerts.push({ level: 'ok', badge: '[OPERATIONAL]', title: 'All Core Systems Stable', body: 'No critical stockout risks or financial anomalies detected. Operations running within parameters.', action: null, screen: null });
     }
 
-    // Update alert count + nav dot
-    const critCount = alerts.filter(a => a.level === 'critical').length;
-    if (el('dash-alert-count')) { el('dash-alert-count').textContent = critCount; el('dash-alert-count').style.color = critCount > 0 ? '#ef4444' : 'var(--accent-emerald)'; }
-    const navDot = document.getElementById('nav-dashboard-alert-dot');
-    if (navDot) navDot.style.display = critCount > 0 ? 'inline-block' : 'none';
-
-    // Render alerts list
-    const alertsList = el('dash-alerts-list');
-    if (alertsList) {
-      alertsList.innerHTML = alerts.slice(0, 6).map(a => {
-        const bg = a.level === 'critical' ? 'rgba(239,68,68,0.06)' : a.level === 'warning' ? 'rgba(245,158,11,0.06)' : 'rgba(0,214,143,0.04)';
-        const border = a.level === 'critical' ? 'rgba(239,68,68,0.25)' : a.level === 'warning' ? 'rgba(245,158,11,0.25)' : 'rgba(0,214,143,0.15)';
-        const badgeCol = a.level === 'critical' ? '#ef4444' : a.level === 'warning' ? '#f59e0b' : 'var(--accent-emerald)';
-        const actionBtn = a.action ? `<button class="btn-tactile btn-tactile-secondary" onclick="if(window.switchActiveScreen)switchActiveScreen('${a.screen}')" style="margin-top:6px;padding:4px 10px;font-size:9px;">${a.action} &rarr;</button>` : '';
-        return `<div style="background:${bg};border:1px solid ${border};border-radius:8px;padding:10px 12px;width:100%;box-sizing:border-box;"><div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><span style="font-size:9px;font-weight:900;color:${badgeCol};background:${badgeCol}18;padding:2px 5px;border-radius:3px;font-family:var(--font-mono);">${a.badge}</span><strong style="font-size:12px;color:var(--text-white);">${a.title}</strong></div><div style="font-size:11px;color:var(--text-gray);line-height:1.4;">${a.body}</div>${actionBtn}</div>`;
-      }).join('');
+    // Active Cashier & Shift Duration
+    const cashierName = (state.activeCashier && (state.activeCashier.name || state.activeCashier.id)) ? (state.activeCashier.name || state.activeCashier.id).replace('emp_', '').toUpperCase() : 'OWNER / ADMIN';
+    if (el('dash-active-cashier-name')) el('dash-active-cashier-name').textContent = cashierName;
+    
+    if (el('dash-shift-duration')) {
+      const clockIn = (state.activeCashier && state.activeCashier.clockIn) || (window.__valenixiaAppStartTime || Date.now());
+      const elapsedMins = Math.max(1, Math.floor((Date.now() - clockIn) / 60000));
+      const hours = Math.floor(elapsedMins / 60);
+      const mins = elapsedMins % 60;
+      el('dash-shift-duration').textContent = hours > 0 ? `Shift Active: ${hours}h ${mins}m` : `Shift Active: ${mins}m`;
     }
 
-    // ---- INTRADAY HOURLY CURVE (FULL 24-HOUR DYNAMIC BREAKDOWN) ----
-    const hourly = Array(24).fill(0);
-    txs.forEach(tx => {
-      const h = new Date((tx.created_at || tx.timestamp || Date.now())).getHours();
-      if (h >= 0 && h < 24) {
-        hourly[h] += (tx.total_minor_units || tx.total || 0) / 100;
+    // Low stock shelf restock items
+    const lowStockItems = catalog.filter(p => (p.stock !== undefined && p.stock !== null && p.stock <= 5));
+    const restockCount = lowStockItems.length;
+    if (el('dash-alert-count')) {
+      el('dash-alert-count').textContent = restockCount;
+      el('dash-alert-count').style.color = restockCount > 0 ? '#ef4444' : 'var(--accent-emerald)';
+    }
+
+    // Render shelf restock list
+    const restockList = el('dash-alerts-list');
+    if (restockList) {
+      if (lowStockItems.length === 0) {
+        restockList.innerHTML = `<div style="text-align:center; padding: 16px; color: var(--accent-emerald); font-size: 11.5px; font-weight: 700;">All inventory shelves are fully stocked.</div>`;
+      } else {
+        restockList.innerHTML = lowStockItems.slice(0, 5).map(p => {
+          const isOut = (p.stock || 0) <= 0;
+          const badgeCol = isOut ? '#ef4444' : '#f59e0b';
+          const stockText = isOut ? 'OUT OF STOCK' : `${p.stock} units left`;
+          return `<div style="background: ${isOut ? 'rgba(239,68,68,0.06)' : 'rgba(245,158,11,0.06)'}; border: 1px solid ${isOut ? 'rgba(239,68,68,0.25)' : 'rgba(245,158,11,0.25)'}; border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <div>
+              <strong style="font-size: 12px; color: var(--text-white); display: block;">${p.name || 'Item'}</strong>
+              <span style="font-size: 10px; font-family: var(--font-mono); color: var(--text-gray);">${p.sku || p.barcode || 'NO-SKU'}</span>
+            </div>
+            <div style="text-align: right;">
+              <span style="font-size: 9px; font-weight: 800; color: ${badgeCol}; background: ${badgeCol}18; padding: 2px 6px; border-radius: 4px; display: inline-block;">${stockText}</span>
+              <button class="btn-tactile btn-tactile-secondary" onclick="if(window.switchActiveScreen)switchActiveScreen('catalog-manager')" style="margin-top: 4px; padding: 2px 6px; font-size: 9px; display: block; margin-left: auto;">Restock &rarr;</button>
+            </div>
+          </div>`;
+        }).join('');
       }
-    });
-
-    const maxHourly = Math.max(...hourly, 0);
-    const peakIdx = maxHourly > 0 ? hourly.indexOf(maxHourly) : -1;
-    let peakLabel = 'Peak Hour: — (Awaiting Sales)';
-    if (peakIdx >= 0) {
-      const ampm = peakIdx >= 12 ? 'PM' : 'AM';
-      const dispH = peakIdx % 12 === 0 ? 12 : peakIdx % 12;
-      peakLabel = `Peak Hour: ${dispH}:00 ${ampm} (Rs. ${maxHourly.toLocaleString('en-PK', { maximumFractionDigits: 0 })})`;
-    }
-    if (el('dash-peak-hour')) el('dash-peak-hour').textContent = peakLabel;
-
-    const chart = el('dash-hourly-chart');
-    if (chart) {
-      const currentHour = new Date().getHours();
-      chart.innerHTML = hourly.map((v, i) => {
-        const pct = maxHourly > 0 ? Math.max(v > 0 ? 8 : 2, Math.round((v / maxHourly) * 100)) : 4;
-        const isNow = currentHour === i;
-        const isPeak = i === peakIdx && maxHourly > 0;
-        const bg = isPeak ? 'var(--accent-emerald)' : isNow ? '#3b82f6' : (v > 0 ? 'rgba(0, 214, 143, 0.4)' : 'rgba(255,255,255,0.08)');
-        const ampm = i >= 12 ? 'p' : 'a';
-        const dispH = i % 12 === 0 ? 12 : i % 12;
-        const label = (i % 2 === 0 || i === currentHour) ? `${dispH}${ampm}` : '';
-        const titleHour = `${dispH}:00 ${i >= 12 ? 'PM' : 'AM'}`;
-        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;height:100%;justify-content:flex-end;" title="Rs. ${v.toLocaleString('en-PK', {maximumFractionDigits:0})} at ${titleHour}"><div style="width:100%;height:${pct}%;background:${bg};border-radius:2px 2px 0 0;min-height:2px;transition:height 0.4s ease;"></div><div style="font-size:7px;color:${isNow ? 'var(--accent-emerald)' : 'var(--text-gray)'};font-family:var(--font-mono);">${label}</div></div>`;
-      }).join('');
     }
 
-    // Top sellers (100% dynamic from transactions)
-    const skuSales = {};
-    txs.forEach(tx => {
-      (tx.items || tx.line_items || []).forEach(item => {
-        const n = item.name || item.displayName || item.product_name || '';
-        if (n) skuSales[n] = (skuSales[n] || 0) + (item.qty || item.quantity || 1);
+    // Counter Shift Activity Live Timeline (Latest 8 events)
+    const timelineList = el('dash-timeline-list');
+    if (timelineList) {
+      const events = [];
+      txs.forEach(t => {
+        const timeStr = new Date(t.created_at || t.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const total = (t.total_minor_units || t.total || 0) / 100;
+        events.push({
+          time: timeStr,
+          timestamp: new Date(t.created_at || t.timestamp || Date.now()).getTime(),
+          icon: 'receipt',
+          title: `Receipt #${(t.receipt_number || t.id || '').toString().slice(-6).toUpperCase()}`,
+          desc: `Completed • Rs. ${total.toLocaleString('en-PK', {minimumFractionDigits: 2})} (${t.payment_method || 'Cash'})`,
+          color: 'var(--accent-emerald)'
+        });
       });
-    });
-    const topItem = Object.entries(skuSales).sort((a,b)=>b[1]-a[1])[0];
-    if (el('dash-top-item')) el('dash-top-item').textContent = topItem ? `${topItem[0]} (${topItem[1]} sold)` : (txs.length > 0 ? '—' : 'Awaiting Sales');
-    if (el('dash-top-margin')) {
-      const validMarginItems = catalog
-        .filter(p => (p.base_price_minor_units || p.price || 0) > 0)
-        .map(p => {
-          const price = p.base_price_minor_units || (p.price ? p.price * 100 : 0);
-          const cost = p.cost_price_minor_units || (p.cost ? p.cost * 100 : 0);
-          const margin = price > 0 ? (price - cost) / price : 0;
-          return { name: p.name, margin };
-        })
-        .sort((a,b)=>b.margin-a.margin);
-      const bestMargin = validMarginItems[0];
-      el('dash-top-margin').textContent = bestMargin && bestMargin.margin > 0 ? `${bestMargin.name} (${Math.round(bestMargin.margin*100)}%)` : '—';
+
+      (state.pettyCashLog || []).forEach(p => {
+        events.push({
+          time: p.time || 'Today',
+          timestamp: p.timestamp || Date.now(),
+          icon: 'cash',
+          title: p.amount < 0 ? 'Petty Cash Payout' : 'Cash Float In',
+          desc: `${p.reason || 'Counter Float'} • Rs. ${Math.abs(p.amount).toLocaleString('en-PK', {minimumFractionDigits: 2})}`,
+          color: p.amount < 0 ? '#ef4444' : '#3b82f6'
+        });
+      });
+
+      events.sort((a, b) => b.timestamp - a.timestamp);
+
+      if (events.length === 0) {
+        timelineList.innerHTML = `<div style="text-align:center; padding: 24px; color: var(--text-gray); font-size: 12px;">No sales transactions processed yet today. Ready for counter checkout!</div>`;
+      } else {
+        timelineList.innerHTML = events.slice(0, 8).map(ev => {
+          return `<div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 28px; height: 28px; border-radius: 6px; background: ${ev.color}15; color: ${ev.color}; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;">•</div>
+              <div>
+                <strong style="font-size: 12px; color: var(--text-white); display: block;">${ev.title}</strong>
+                <span style="font-size: 11px; color: var(--text-gray);">${ev.desc}</span>
+              </div>
+            </div>
+            <span style="font-size: 10px; font-family: var(--font-mono); color: var(--text-gray); white-space: nowrap;">${ev.time}</span>
+          </div>`;
+        }).join('');
+      }
     }
   }
   window.renderDashboardScreen = renderDashboardScreen;
+
+  // Front-Desk Quick Price & Stock Checker Modal (100% Free Tier)
+  window.openQuickPriceChecker = function() {
+    let modal = document.getElementById('modal-quick-price-checker');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'modal-quick-price-checker';
+      modal.className = 'pos-modal-overlay';
+      modal.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
+      modal.innerHTML = `
+        <div class="modal-card" style="width:100%;max-width:520px;background:var(--panel-graphite);border:1px solid var(--border-titanium);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:16px;box-shadow:var(--shadow-lg);">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:36px;height:36px;border-radius:10px;background:rgba(16,185,129,0.15);color:var(--accent-emerald);display:flex;align-items:center;justify-content:center;">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+              </div>
+              <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--text-white);">Quick Price &amp; Stock Checker</h3>
+            </div>
+            <button onclick="document.getElementById('modal-quick-price-checker').remove()" style="background:transparent;border:none;color:var(--text-gray);font-size:22px;cursor:pointer;">&times;</button>
+          </div>
+          <input type="text" id="quick-checker-input" class="pos-input" placeholder="Scan barcode or type product name / SKU..." style="width:100%;height:44px;font-size:14px;padding:0 12px;" autofocus>
+          <div id="quick-checker-results" style="max-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;">
+            <div style="text-align:center;padding:24px;color:var(--text-gray);font-size:12px;">Type or scan an item above to look up instant price &amp; stock.</div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      const input = modal.querySelector('#quick-checker-input');
+      const results = modal.querySelector('#quick-checker-results');
+
+      const performSearch = (q) => {
+        const query = (q || '').trim().toLowerCase();
+        const catalog = state.catalog || [];
+        if (!query) {
+          results.innerHTML = `<div style="text-align:center;padding:24px;color:var(--text-gray);font-size:12px;">Type or scan an item above to look up instant price &amp; stock.</div>`;
+          return;
+        }
+        const matches = catalog.filter(p => 
+          (p.name && p.name.toLowerCase().includes(query)) ||
+          (p.sku && p.sku.toLowerCase().includes(query)) ||
+          (p.barcode && p.barcode.toLowerCase().includes(query))
+        );
+        if (matches.length === 0) {
+          results.innerHTML = `<div style="text-align:center;padding:24px;color:var(--alert-coral);font-size:12px;">No matching items found for "${query}".</div>`;
+          return;
+        }
+        results.innerHTML = matches.slice(0, 6).map(p => {
+          const price = (p.base_price_minor_units || (p.price ? p.price * 100 : 0)) / 100;
+          const stock = p.stock !== undefined ? p.stock : '—';
+          return `<div style="background:rgba(255,255,255,0.04);border:1px solid var(--border-titanium);border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div>
+              <strong style="font-size:13px;color:var(--text-white);display:block;">${p.name || 'Item'}</strong>
+              <span style="font-size:11px;font-family:var(--font-mono);color:var(--text-gray);">${p.sku || p.barcode || 'NO-SKU'}</span>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:15px;font-weight:900;color:var(--accent-emerald);">Rs. ${price.toLocaleString('en-PK', {minimumFractionDigits:2})}</div>
+              <span style="font-size:11px;color:${stock <= 5 ? '#ef4444' : 'var(--text-gray)'};font-weight:700;">Stock: ${stock} units</span>
+            </div>
+          </div>`;
+        }).join('');
+      };
+
+      input.addEventListener('input', (e) => performSearch(e.target.value));
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') modal.remove();
+      });
+      setTimeout(() => input.focus(), 50);
+    }
+  };
 
   // ============================================================================
   // 1. LIVE KITCHEN DISPLAY SYSTEM — BIG-TECH TIER

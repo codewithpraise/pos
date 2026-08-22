@@ -130,6 +130,24 @@ class SoundEngine {
       osc.stop(now + 0.7);
     } catch(e) {}
   }
+
+  playBeep() {
+    this.init();
+    if (!this.ctx || this.suppressed) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1760, now);
+      gain.gain.setValueAtTime(0.14, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
+      osc.start(now);
+      osc.stop(now + 0.075);
+    } catch (e) {}
+  }
 }
 
 // Global window instance
@@ -156,7 +174,8 @@ document.addEventListener('touchend', () => {
 window.playTone = function(type) {
   if (!window.sounds) return;
   try {
-    if (type === 'click') window.sounds.playTick();
+    if (type === 'beep') window.sounds.playBeep();
+    else if (type === 'click') window.sounds.playTick();
     else if (type === 'success' || type === 'login') window.sounds.playScanSuccess();
     else if (type === 'error') window.sounds.playScanError();
     else if (type === 'reset') window.sounds.playSiren();
@@ -164,4 +183,8 @@ window.playTone = function(type) {
   } catch (err) {
     console.warn('[SoundEngine] playTone execution failed:', err);
   }
+};
+
+window.playAudioSignal = function(type) {
+  return window.playTone(type);
 };

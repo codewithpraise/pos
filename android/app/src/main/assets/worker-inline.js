@@ -961,40 +961,85 @@ window.__VALENIXIA_WORKER_CODE = `// ===========================================
 
 
     async bootstrapStore(storeName, taxRate, adminPin, syncPassphrase, theme, shopMode = 'simple-retail') {
-      console.log('[IndexedDB] Bootstrapping new store database...');
-      
+      console.log('[IndexedDB] Bootstrapping store database...');
       const now = Date.now();
       
-      // 1. Seed Categories (clean empty on fresh start)
-      const categories = [];
-      for (const cat of categories) {
-        await this.put('categories', { name: cat, sync_hlc: '0000000000000:000001:seed' });
+      // 1. Seed Categories if empty
+      const existingCategories = await this.getAll('categories').catch(() => []);
+      if (!existingCategories || existingCategories.length === 0) {
+        const categories = ['Beverages', 'Bakery', 'Electronics', 'Merchandise'];
+        for (const cat of categories) {
+          await this.put('categories', { name: cat, sync_hlc: '0000000000000:000001:seed' });
+        }
       }
 
-      // Seed baseline products catalog (clean empty on fresh start)
-      const baselineProducts = [];
+      // 2. Seed baseline products catalog only if empty (never wipe existing user products)
+      const existingCatalog = await this.getAll('inventory_catalog').catch(() => []);
+      if (!existingCatalog || existingCatalog.length === 0) {
+        const baselineProducts = [
+          { sku: 'COFFEE-ESP', gtin: '0000000000001', name: 'Signature Espresso', name_ur: 'سگنیچر ایسپریسو', base_price_minor_units: 350, stock_level: 100, reserved_stock: 0, category: 'Beverages', category_ur: 'مشروبات', emoji: '☕', cost_price_minor_units: 120, low_stock_threshold: 15, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
+          { sku: 'COFFEE-LAT', gtin: '0000000000002', name: 'Cold Brew Latte', name_ur: 'کولڈ برُو لاٹے', base_price_minor_units: 475, stock_level: 80, reserved_stock: 0, category: 'Beverages', category_ur: 'مشروبات', emoji: '🥛', cost_price_minor_units: 180, low_stock_threshold: 15, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
+          { sku: 'COFFEE-CBD', gtin: '0000000000003', name: 'Nitro Cold Brew', name_ur: 'نائٹرو کولڈ برُو', base_price_minor_units: 550, stock_level: 60, reserved_stock: 0, category: 'Beverages', category_ur: 'مشروبات', emoji: '🧋', cost_price_minor_units: 200, low_stock_threshold: 10, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
+          { sku: 'PASTRY-CRO', gtin: '0000000000004', name: 'Butter Croissant', name_ur: 'مکھن کروسینٹ', base_price_minor_units: 325, stock_level: 40, reserved_stock: 0, category: 'Bakery', category_ur: 'بیکری', emoji: '🥐', cost_price_minor_units: 110, low_stock_threshold: 10, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
+          { sku: 'PASTRY-MUF', gtin: '0000000000005', name: 'Blueberry Muffin', name_ur: 'بلیو بیری مفن', base_price_minor_units: 375, stock_level: 30, reserved_stock: 0, category: 'Bakery', category_ur: 'بیکری', emoji: '🧁', cost_price_minor_units: 130, low_stock_threshold: 10, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
+          { sku: 'PASTRY-COK', gtin: '0000000000006', name: 'Choco Chip Cookie', name_ur: 'چوکو چپ کوکی', base_price_minor_units: 250, stock_level: 50, reserved_stock: 0, category: 'Bakery', category_ur: 'بیکری', emoji: '🍪', cost_price_minor_units: 80, low_stock_threshold: 15, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
+          { sku: 'TECH-CHG',  gtin: '0000000000007', name: 'Rapid USB-C Charger', name_ur: 'فاسٹ یو ایس بی سی چارجر', base_price_minor_units: 1999, stock_level: 25, reserved_stock: 0, category: 'Electronics', category_ur: 'الیکٹرانکس', emoji: '🔌', cost_price_minor_units: 950, low_stock_threshold: 5, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
+          { sku: 'TECH-CBL',  gtin: '0000000000008', name: 'Braid Type-C Cable 1m', name_ur: 'ٹائپ سی کیبل 1 میٹر', base_price_minor_units: 999, stock_level: 45, reserved_stock: 0, category: 'Electronics', category_ur: 'الیکٹرانکس', emoji: '⚡', cost_price_minor_units: 350, low_stock_threshold: 10, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
+          { sku: 'RETAIL-MUG', gtin: '0000000000009', name: 'Valenixia Ceramic Mug', name_ur: 'سرامک چائے مگ', base_price_minor_units: 1450, stock_level: 20, reserved_stock: 0, category: 'Merchandise', category_ur: 'سامان تجارت', emoji: '🍵', cost_price_minor_units: 550, low_stock_threshold: 5, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
+          { sku: 'RETAIL-TSH', gtin: '0000000000010', name: 'Nova Cotton Tee (L)', name_ur: 'کاٹن ٹی شرٹ', base_price_minor_units: 2499, stock_level: 15, reserved_stock: 0, category: 'Merchandise', category_ur: 'سامان تجارت', emoji: '👕', cost_price_minor_units: 950, low_stock_threshold: 5, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
+          { sku: 'RETAIL-BAG', gtin: '0000000000011', name: 'Canvas Tote Bag', name_ur: 'کپڑے کا شاپنگ بیگ', base_price_minor_units: 1200, stock_level: 35, reserved_stock: 0, category: 'Merchandise', category_ur: 'سامان تجارت', emoji: '👜', cost_price_minor_units: 400, low_stock_threshold: 8, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
+          { sku: 'WATER-SPK',  gtin: '0000000000012', name: 'Sparkling Mineral Water', name_ur: 'منرل واٹر بوتل', base_price_minor_units: 200, stock_level: 120, reserved_stock: 0, category: 'Beverages', category_ur: 'مشروبات', emoji: '💧', cost_price_minor_units: 60, low_stock_threshold: 20, col_version: 1, sync_hlc: '0000000000000:000001:seed' }
+        ];
 
-      for (const prod of baselineProducts) {
-        await this.put('inventory_catalog', prod);
+        for (const prod of baselineProducts) {
+          await this.put('inventory_catalog', prod);
+        }
       }
 
-      // 2. Create Admin Employee
-      const empAdmin = {
-        id: 'emp_admin',
-        auth_hash: adminPin, // Use the pre-hashed PIN directly to avoid double-hashing
-        biometric_token: 'secure_biometric_admin_token',
-        role: 'ADMIN',
-        is_active: 1,
-        sync_hlc: '0000000000000:000003:seed'
-      };
-      await this.put('employees', empAdmin);
+      // 3. Seed Customers if empty
+      const existingCustomers = await this.getAll('customers').catch(() => []);
+      if (!existingCustomers || existingCustomers.length === 0) {
+        const seedCustomers = [
+          { id: 'cust_alexander', name: 'Alexander Mercer', phone: '+1-555-0199', email: 'alex.mercer@proton.me', total_spend_cents: 58240, visits: 42, created_at: now, sync_hlc: '0000000000000:000001:seed' },
+          { id: 'cust_elena', name: 'Elena Rostova', phone: '+1-555-0248', email: 'elena.rostova@designhaus.co', total_spend_cents: 39450, visits: 29, created_at: now, sync_hlc: '0000000000000:000001:seed' },
+          { id: 'cust_marcus', name: 'Marcus Vance', phone: '+1-555-0312', email: 'marcus.vance@vancecap.com', total_spend_cents: 18420, visits: 15, created_at: now, sync_hlc: '0000000000000:000001:seed' }
+        ];
+        for (const c of seedCustomers) {
+          await this.put('customers', c);
+        }
+      }
 
-      // 3. Set Preferences
+      // 4. Seed Distributors if empty
+      const existingDistributors = await this.getAll('distributors').catch(() => []);
+      if (!existingDistributors || existingDistributors.length === 0) {
+        const seedDistributors = [
+          { id: 'dist_meezan', name: 'Meezan Coffee & Provisions', phone: '+92-300-1122334', email: 'orders@meezancoffee.pk', address: 'Plot 42, Industrial Zone, Karachi', created_at: now, sync_hlc: '0000000000000:000001:seed' },
+          { id: 'dist_tech', name: 'Apex Tech Distro', phone: '+92-321-9988776', email: 'supply@apextech.com', address: 'Hafeez Centre, Lahore', created_at: now, sync_hlc: '0000000000000:000001:seed' }
+        ];
+        for (const d of seedDistributors) {
+          await this.put('distributors', d);
+        }
+      }
+
+      // 5. Create/Update Admin Employee
+      if (adminPin) {
+        const empAdmin = {
+          id: 'emp_admin',
+          auth_hash: adminPin, // Use the pre-hashed PIN directly
+          biometric_token: 'secure_biometric_admin_token',
+          role: 'ADMIN',
+          is_active: 1,
+          sync_hlc: '0000000000000:000003:seed'
+        };
+        await this.put('employees', empAdmin);
+      }
+
+      // 6. Set Preferences
       const prefs = [
         { key: 'onboarding_complete', value_type: 'BOOL', value_payload: 'true', is_idempotent_flag: 1, updated_at: now },
-        { key: 'store_tax_rate', value_type: 'STR', value_payload: String(taxRate), is_idempotent_flag: 0, updated_at: now },
-        { key: 'store_name', value_type: 'STR', value_payload: storeName.toUpperCase(), is_idempotent_flag: 0, updated_at: now },
-        { key: 'store_theme_palette', value_type: 'STR', value_payload: theme, is_idempotent_flag: 0, updated_at: now },
+        { key: 'store_tax_rate', value_type: 'STR', value_payload: String(taxRate || 8.0), is_idempotent_flag: 0, updated_at: now },
+        { key: 'store_name', value_type: 'STR', value_payload: (storeName || 'VALENIXIA STORE').toUpperCase(), is_idempotent_flag: 0, updated_at: now },
+        { key: 'store_theme_palette', value_type: 'STR', value_payload: theme || 'theme-obsidian-emerald', is_idempotent_flag: 0, updated_at: now },
         { key: 'store_logo_emoji', value_type: 'STR', value_payload: '', is_idempotent_flag: 0, updated_at: now },
         { key: 'store_receipt_tagline', value_type: 'STR', value_payload: 'Stability meets Speed. Thank you!', is_idempotent_flag: 0, updated_at: now },
         { key: 'whitelabel_show_branding', value_type: 'STR', value_payload: 'true', is_idempotent_flag: 0, updated_at: now },
@@ -1003,8 +1048,6 @@ window.__VALENIXIA_WORKER_CODE = `// ===========================================
         { key: 'store_receipt_width', value_type: 'STR', value_payload: '42', is_idempotent_flag: 0, updated_at: now },
         { key: 'valenixia_master_node_id', value_type: 'STR', value_payload: 'Valenixia Master PC 01', is_idempotent_flag: 0, updated_at: now },
         { key: 'shop_mode', value_type: 'STR', value_payload: shopMode, is_idempotent_flag: 0, updated_at: now }
-        // NOTE: sync_passphrase intentionally NOT stored in IndexedDB — it lives in
-        // server memory only and is sent to the worker over postMessage for session use.
       ];
 
       for (const pref of prefs) {
@@ -1014,9 +1057,16 @@ window.__VALENIXIA_WORKER_CODE = `// ===========================================
       console.log('[IndexedDB] Bootstrap completed.');
     },
 
-    seedIfNeeded() {
-      // Auto-seeding disabled to support Zero-Trust onboarding
-      return Promise.resolve();
+    async seedIfNeeded() {
+      try {
+        const catalog = await this.getAll('inventory_catalog').catch(() => []);
+        if (!catalog || catalog.length === 0) {
+          console.log('[IndexedDB] Catalog is empty, seeding starter inventory baseline...');
+          await this.bootstrapStore('Valenixia POS', 8.0, '', '', 'theme-obsidian-emerald', 'simple-retail');
+        }
+      } catch (err) {
+        console.warn('[IndexedDB] seedIfNeeded notice:', err);
+      }
     },
 
     async getSecurePref(key) {

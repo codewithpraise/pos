@@ -390,7 +390,9 @@ window.executeWizardGoTo = window.executeWizardGoTo || function(step, path, dire
     targetPanel.style.display = 'flex';
   }
 
-  const stepSubtitles = {
+  const isUrdu = (window.ValenixiaLanguage && window.ValenixiaLanguage.getLanguage() === 'ur') || localStorage.getItem('valenixia_lang') === 'ur';
+
+  const stepSubtitlesEn = {
     1: 'Choose whether to set up a new store or join an existing register network.',
     2: targetPath === 'NEW' ? 'Configure your store name, tax rate, and visual branding theme.' : 'Enter Master PC URL and Network Encryption Key to join.',
     3: 'Step 3: Select your Store Business Model to customize features & layout.',
@@ -398,8 +400,16 @@ window.executeWizardGoTo = window.executeWizardGoTo || function(step, path, dire
     5: 'Review your configuration summary and accept the EULA & Legal Policies.'
   };
 
+  const stepSubtitlesUr = {
+    1: 'انتخاب کریں کہ آیا آپ ایک نیا اسٹور سیٹ کرنا چاہتے ہیں یا موجودہ نیٹ ورک میں شامل ہونا چاہتے ہیں۔',
+    2: targetPath === 'NEW' ? 'اپنے اسٹور کا نام، ٹیکس کی شرح اور تھیم ترتیب دیں۔' : 'نیٹ ورک میں شامل ہونے کے لیے ماسٹر کمپیوٹر کا ایڈریس اور پاس فریز درج کریں۔',
+    3: 'مرحلہ 3: اپنے کاروبار کی نوعیت منتخب کریں تاکہ لے آؤٹ سیٹ ہو سکے۔',
+    4: 'مالک کا سیکیورٹی پن اور وائی فائی سنک پاس فریز سیٹ کریں۔',
+    5: 'ترتیبات کا جائزہ لیں اور لائسنس شرائط قبول کر کے رجسٹر شروع کریں۔'
+  };
+
   const subtitleEl = document.getElementById('wizard-step-subtitle');
-  if (subtitleEl) subtitleEl.textContent = stepSubtitles[targetStep] || '';
+  if (subtitleEl) subtitleEl.textContent = (isUrdu ? stepSubtitlesUr[targetStep] : stepSubtitlesEn[targetStep]) || '';
 
   const dots = document.querySelectorAll('.wiz-dot');
   dots.forEach((dot, idx) => {
@@ -410,13 +420,16 @@ window.executeWizardGoTo = window.executeWizardGoTo || function(step, path, dire
 
   const btnNext = document.getElementById('btn-wiz-next');
   const btnBack = document.getElementById('btn-wiz-back');
-  if (btnBack) btnBack.style.display = (targetStep > 1) ? 'flex' : 'none';
+  if (btnBack) {
+    btnBack.style.display = (targetStep > 1) ? 'flex' : 'none';
+    btnBack.innerHTML = isUrdu ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg> واپس جائیں' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg> Back';
+  }
   if (btnNext) {
     btnNext.style.display = (targetStep === 1) ? 'none' : 'flex';
     if (targetStep === 5) {
-      btnNext.innerHTML = 'Launch Register <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>';
+      btnNext.innerHTML = isUrdu ? 'رجسٹر شروع کریں <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>' : 'Launch Register <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>';
     } else {
-      btnNext.innerHTML = 'Continue <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>';
+      btnNext.innerHTML = isUrdu ? 'جاری رکھیں <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>' : 'Continue <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>';
     }
   }
 
