@@ -2301,9 +2301,15 @@ setHtml(overlay, `
 
   // ===== AUTOMATED BUTTON & SYSTEM DIAGNOSTIC SELF-TEST ENGINE =====
   function runAutomatedSystemAudit() {
-    const scheduleAudit = typeof requestIdleCallback === 'function' 
-      ? requestIdleCallback 
-      : (cb => setTimeout(cb, 1000));
+    const scheduleAudit = (cb) => {
+      if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+        try {
+          window.requestIdleCallback(cb, { timeout: 2000 });
+          return;
+        } catch (_) {}
+      }
+      setTimeout(cb, 1000);
+    };
 
     scheduleAudit(() => {
       console.log('[AUTOTEST]  Initializing automated startup button & screen diagnostic audit...');
@@ -7076,23 +7082,14 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
         try { switchActiveScreen('checkout'); } catch(e) { console.warn('Switch screen warning:', e); }
         try { playAudioSignal('login'); } catch(e) {}
 
-        // Request fresh baseline datasets on register unlock to guarantee 100% data persistence
-        try {
-          restoreActiveCartSession();
-          if (typeof syncWorker !== 'undefined' && syncWorker && typeof syncWorker.postMessage === 'function') {
-            syncWorker.postMessage({ type: 'GET_PREFERENCES' });
-            syncWorker.postMessage({ type: 'GET_CATALOG' });
-            syncWorker.postMessage({ type: 'GET_CUSTOMERS' });
-            syncWorker.postMessage({ type: 'GET_EMPLOYEES' });
-            syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
-            syncWorker.postMessage({ type: 'GET_DISTRIBUTORS' });
-            syncWorker.postMessage({ type: 'GET_PURCHASE_ORDERS' });
-            syncWorker.postMessage({ type: 'GET_DISTRIBUTOR_PAYMENTS' });
-            syncWorker.postMessage({ type: 'GET_CUSTOMER_CREDIT' });
+        // Defer background sync refresh and cart restoration slightly to keep click handler under 10ms
+        setTimeout(() => {
+          try {
+            restoreActiveCartSession();
+          } catch (e) {
+            console.warn('Post-login data fetch warning:', e);
           }
-        } catch (e) {
-          console.warn('Post-login data fetch warning:', e);
-        }
+        }, 60);
       } else {
         if (!isFinal && state.currentPin.length < 6) {
           return;
