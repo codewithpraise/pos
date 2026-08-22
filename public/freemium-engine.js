@@ -124,26 +124,31 @@ window.getLimits = getLimits;
 
 // Feature Requirements Matrix
 const FEATURE_TIER_REQ = {
+  // Free Tier (Basic Single-Counter)
   'checkout': 'FREE',
   'catalog': 'FREE',
   'history': 'FREE',
   'customers': 'FREE',
   'settings': 'FREE',
   'deals': 'FREE',
+  'dashboard': 'FREE',
+  'business-hub': 'FREE',
+  'apps-download': 'FREE',
   'catalog-manager': 'FREE',
   'inventory': 'FREE',
-  'analytics': 'FREE',
   'suppliers': 'FREE',
   'credit-book': 'FREE',
   'khata': 'FREE',
-  'logs': 'FREE',
-  'staff': 'FREE',
-  'apps-download': 'FREE',
-  'dashboard': 'FREE',
-  'business-hub': 'FREE',
+  'analytics': 'FREE',
+
+  // Growth / Pro Tier Views & Modules (PKR 6,999/mo)
+  'logs': 'PRO', // System Health, CRDT Broadcast & Sync Stream logs
+  'sync-logs': 'PRO',
+  'system-health': 'PRO',
   'kds': 'PRO',
   'petty-cash': 'PRO',
   'attendance': 'PRO',
+  'staff': 'PRO',
   'label-designer': 'PRO',
   'inventory-ai': 'PRO',
   'inventory-forecast': 'PRO',
@@ -152,10 +157,50 @@ const FEATURE_TIER_REQ = {
   'automated-whatsapp': 'PRO',
   'stock-transfer': 'PRO',
   'multi-device': 'PRO',
+  'cloud-backup': 'PRO',
+  'google_drive_backup': 'PRO',
+
+  // Enterprise HQ Tier Views & Modules (PKR 11,999/mo)
   'fbr-fiscal': 'ENTERPRISE',
+  'fbr_fiscal': 'ENTERPRISE',
+  'fbr': 'ENTERPRISE',
   'speech-coach': 'ENTERPRISE',
   'data-portability': 'ENTERPRISE',
-  'multi-store': 'ENTERPRISE'
+  'multi-store': 'ENTERPRISE',
+  'multi_store': 'ENTERPRISE',
+  'custom-roles': 'ENTERPRISE',
+  'custom_roles': 'ENTERPRISE',
+  'chain-operations': 'ENTERPRISE'
+};
+
+const FEATURE_DISPLAY_NAMES = {
+  'logs': 'CRDT Sync Stream & System Diagnostics',
+  'sync-logs': 'Live Replication Stream & Sync Logs',
+  'system-health': 'System Health & Engine Diagnostics',
+  'kds': 'Kitchen Display System (KDS)',
+  'petty-cash': 'Petty Cash Float & Z-Report Reconciliation',
+  'attendance': 'Staff Time Clock & Attendance Tracking',
+  'staff': 'Cashier Security PINs & Staff Management',
+  'label-designer': 'Barcode Label & Shelf Tag Studio',
+  'inventory-ai': 'AI Smart Inventory Reorder & Dead-Stock Forecast',
+  'inventory-forecast': 'AI Smart Inventory Reorder & Dead-Stock Forecast',
+  'loyalty': 'VIP Loyalty Club & Customer Cashback Wallet',
+  'marketing': 'SMS & WhatsApp Marketing Broadcast Studio',
+  'automated-whatsapp': 'Automated WhatsApp Receipt Delivery',
+  'stock-transfer': 'Inter-Branch Stock Transfer (STN) Manifests',
+  'multi-device': 'Multi-Device Real-Time Cloud Sync & Backup',
+  'google_drive_backup': 'Automated Cloud Database Backup',
+  'cloud-backup': 'Real-Time Cloud Backup & Replication',
+  'fbr-fiscal': 'Official FBR Fiscal POS & PRAL Tax Integration',
+  'fbr_fiscal': 'Official FBR Fiscal POS & PRAL Tax Integration',
+  'fbr': 'Official FBR Fiscal POS & PRAL Tax Integration',
+  'speech-coach': 'Speech AI Real-Time Sales Pitch Coach',
+  'data-portability': 'Full Data Portability & Cross-Chain Export',
+  'multi-store': 'Multi-Store Central HQ Dashboard',
+  'multi_store': 'Multi-Store Central HQ Dashboard',
+  'custom-roles': 'Custom Staff Roles & Granular RBAC Permissions',
+  'custom_roles': 'Custom Staff Roles & Granular RBAC Permissions',
+  'chain-operations': 'Enterprise Multi-Branch Chain Operations'
 };
 
 const TIER_HIERARCHY = { FREE: 0, STARTER: 1, GROWTH: 2, PRO: 3, ENTERPRISE: 4 };
@@ -406,78 +451,117 @@ function formatPKR(amount) {
   return "Rs. " + Number(amount).toLocaleString("en-PK");
 }
 
-// ── Interactive Paywall / Upgrade Modal ──────────────────────────────────────
-function showUpgradeModal(featureName, requiredTier = 'GROWTH') {
+// ── Contextual Paywall / Upgrade Modal ──────────────────────────────────────
+function showUpgradeModal(featureName, requiredTier) {
   if (typeof can === 'function' && can(featureName)) return;
   const existing = document.getElementById("paywall-modal");
   if (existing) existing.remove();
 
   const activeTier = getActiveTier();
-  const reqTier = (requiredTier || FEATURE_TIER_REQ[featureName] || 'GROWTH').toUpperCase();
+  const inferredReq = featureName ? FEATURE_TIER_REQ[featureName] : null;
+  let rawReq = (requiredTier || inferredReq || 'PRO').toUpperCase();
+  if (rawReq === 'GROWTH') rawReq = 'PRO';
+  const reqTier = rawReq;
+
+  const cleanName = (FEATURE_DISPLAY_NAMES[featureName] || (featureName ? featureName.replace(/[-_]/g, ' ') : 'PREMIUM FEATURE')).toUpperCase();
+
+  // Tier metadata definitions
+  const PLAN_CARDS_DATA = {
+    STARTER: {
+      id: 'STARTER',
+      name: 'Starter Register',
+      price: 'Rs. 3,499',
+      features: '1 Terminal · Full Catalog & Deals · Credit Khata',
+      buttonText: activeTier === 'STARTER' ? 'Current Plan' : 'Select Starter',
+      themeColor: '#06b6d4'
+    },
+    PRO: {
+      id: 'PRO',
+      name: 'Growth (Pro Store)',
+      price: 'Rs. 6,999',
+      features: '2 Terminals · Real-Time Sync · KDS & AI Forecast',
+      buttonText: (activeTier === 'PRO' || activeTier === 'GROWTH') ? 'Current Plan' : 'Upgrade Growth (Pro)',
+      themeColor: '#10b981'
+    },
+    ENTERPRISE: {
+      id: 'ENTERPRISE',
+      name: 'Enterprise HQ',
+      price: 'Rs. 11,999',
+      features: '3 Terminals & 2 Branches · FBR Fiscal POS · Multi-Store HQ',
+      buttonText: activeTier === 'ENTERPRISE' ? 'Current Plan' : 'Upgrade Enterprise HQ',
+      themeColor: '#f59e0b'
+    }
+  };
+
+  // Determine which plan cards to render:
+  // - If feature requires ENTERPRISE: show ONLY ENTERPRISE card (hide Starter and Growth).
+  // - If feature requires PRO/GROWTH: show PRO and ENTERPRISE cards (hide Starter).
+  // - If feature requires STARTER: show STARTER, PRO, and ENTERPRISE cards.
+  let targetPlans = ['STARTER', 'PRO', 'ENTERPRISE'];
+  if (reqTier === 'ENTERPRISE') {
+    targetPlans = ['ENTERPRISE'];
+  } else if (reqTier === 'PRO' || reqTier === 'GROWTH') {
+    targetPlans = ['PRO', 'ENTERPRISE'];
+  }
+
+  // Header Subtitle & Explanation
+  let subText = '';
+  if (reqTier === 'ENTERPRISE') {
+    subText = `This feature is exclusively available on the <strong style="color:#f59e0b;">Enterprise HQ Plan</strong>.<br><span style="font-size:12px;color:#94a3b8;">Starter and Growth plans do not include this feature. Upgrade to Enterprise to unlock instant access.</span>`;
+  } else if (reqTier === 'PRO' || reqTier === 'GROWTH') {
+    subText = `This feature requires the <strong style="color:#10b981;">Growth (Pro) Plan</strong> or higher.<br><span style="font-size:12px;color:#94a3b8;">Upgrade to Growth or Enterprise to unlock multi-device sync, KDS, logs, and advanced tools.</span>`;
+  } else {
+    subText = `This feature requires the <strong style="color:#06b6d4;">Starter Plan</strong> or higher.<br><span style="font-size:12px;color:#94a3b8;">Active Plan: Valenixia ${activeTier}</span>`;
+  }
 
   const modal = document.createElement("div");
   modal.id = "paywall-modal";
   modal.className = "modal-overlay active";
-  modal.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:rgba(5,5,10,0.92);display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);overflow-y:auto;";
+  modal.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:rgba(5,5,10,0.92);display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);overflow-y:auto;";
+
+  const cardsHtml = targetPlans.map(tierKey => {
+    const p = PLAN_CARDS_DATA[tierKey];
+    const isExact = tierKey === reqTier;
+    const isCurrent = (tierKey === activeTier) || (tierKey === 'PRO' && activeTier === 'GROWTH');
+    return `
+      <div style="background:${isExact ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)'};border:${isExact ? `2px solid ${p.themeColor}` : (isCurrent ? '1px solid #10b981' : '1px solid rgba(255,255,255,0.08)')};border-radius:16px;padding:20px;text-align:center;position:relative;display:flex;flex-direction:column;justify-content:space-between;${isExact ? `box-shadow:0 0 28px ${p.themeColor}33;` : ''}">
+        ${isExact ? `<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:${p.themeColor};color:#000;font-size:9.5px;font-weight:900;padding:2px 10px;border-radius:99px;text-transform:uppercase;letter-spacing:0.5px;">REQUIRED PLAN</div>` : ''}
+        <div>
+          <div style="font-size:12px;font-weight:800;color:${p.themeColor};text-transform:uppercase;letter-spacing:0.5px;margin-top:${isExact ? '4px' : '0'};">${p.name}</div>
+          <div style="font-size:20px;font-weight:900;color:#fff;margin:8px 0 4px;">${p.price}<span style="font-size:11px;font-weight:400;color:#94a3b8;">/mo</span></div>
+          <div style="font-size:11px;color:#94a3b8;line-height:1.4;margin-bottom:16px;">${p.features}</div>
+        </div>
+        <button class="__btn-select-tier" data-tier="${p.id}" style="width:100%;padding:10px 14px;background:${isCurrent ? 'rgba(255,255,255,0.1)' : p.themeColor};border:none;color:${isCurrent ? '#fff' : '#000'};font-size:12px;font-weight:900;border-radius:10px;cursor:pointer;transition:transform 0.15s ease, opacity 0.15s ease;">
+          ${p.buttonText}
+        </button>
+      </div>
+    `;
+  }).join('');
 
   modal.innerHTML = `
-    <div style="width:100%;max-width:540px;background:#11111a;border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:28px;box-shadow:0 24px 64px rgba(0,0,0,0.9);color:#fff;font-family:sans-serif;margin:auto;">
+    <div style="width:100%;max-width:${targetPlans.length === 1 ? '420px' : (targetPlans.length === 2 ? '540px' : '680px')};background:#0f111a;border:1px solid rgba(255,255,255,0.12);border-radius:24px;padding:32px;box-shadow:0 24px 64px rgba(0,0,0,0.95);color:#fff;font-family:sans-serif;margin:auto;">
       
       <div style="text-align:center;margin-bottom:24px;">
-        <div style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);border-radius:50%;font-size:32px;margin-bottom:12px;box-shadow:0 0 24px rgba(245,158,11,0.2);">
-          
+        <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;background:${reqTier==='ENTERPRISE'?'rgba(245,158,11,0.15)':'rgba(16,185,129,0.15)'};border:1px solid ${reqTier==='ENTERPRISE'?'rgba(245,158,11,0.4)':'rgba(16,185,129,0.4)'};border-radius:50%;font-size:26px;margin-bottom:12px;">
+          🔒
         </div>
-        <h2 style="font-size:20px;font-weight:900;margin:0 0 6px;color:#fff;letter-spacing:-0.3px;">
-          ${featureName ? featureName.toUpperCase().replace('-', ' ') : 'PREMIUM FEATURE'} LOCKED
+        <h2 style="font-size:19px;font-weight:900;margin:0 0 8px;color:#fff;letter-spacing:-0.3px;">
+          ${cleanName} LOCKED
         </h2>
-        <p style="font-size:13px;color:#94a3b8;margin:0;line-height:1.5;">
-          This feature requires the <strong style="color:#f59e0b;">${reqTier} Plan</strong> or higher.<br>
-          Your active plan is <span style="color:#10b981;font-weight:700;">Valenixia ${activeTier}</span>.
+        <p style="font-size:13px;color:#cbd5e1;margin:0;line-height:1.5;">
+          ${subText}
         </p>
       </div>
 
       <!-- Plan Cards Grid -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:12px;margin-bottom:24px;">
-        
-        <!-- Starter Card -->
-        <div style="background:${reqTier==='STARTER'?'rgba(6,182,212,0.08)':'rgba(255,255,255,0.03)'};border:${reqTier==='STARTER'?'2px solid #06b6d4':(activeTier==='STARTER'?'1px solid #10b981':'1px solid rgba(255,255,255,0.08)')};border-radius:14px;padding:16px;text-align:center;position:relative;${reqTier==='STARTER'?'box-shadow:0 0 20px rgba(6,182,212,0.2);':''}">
-          ${reqTier==='STARTER'?'<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:#06b6d4;color:#000;font-size:9px;font-weight:900;padding:2px 8px;border-radius:99px;text-transform:uppercase;">RECOMMENDED</div>':''}
-          <div style="font-size:11px;font-weight:800;color:${reqTier==='STARTER'?'#06b6d4':'#94a3b8'};text-transform:uppercase;${reqTier==='STARTER'?'margin-top:4px;':''}">Starter</div>
-          <div style="font-size:16px;font-weight:900;color:#fff;margin:6px 0 2px;">Rs. 3,499<span style="font-size:10px;font-weight:400;color:#64748b;">/mo</span></div>
-          <div style="font-size:10px;color:#64748b;margin-bottom:12px;">500 Products · Inventory & Deals</div>
-          <button class="__btn-select-tier" data-tier="STARTER" style="width:100%;padding:8px;background:${reqTier==='STARTER'?'#06b6d4':(activeTier==='STARTER'?'#10b981':'rgba(255,255,255,0.1)')};border:none;color:${reqTier==='STARTER'?'#000':'#fff'};font-size:11px;font-weight:800;border-radius:8px;cursor:pointer;">
-            ${activeTier==='STARTER'?'Current Plan':'Select Starter'}
-          </button>
-        </div>
-
-        <!-- Growth Card -->
-        <div style="background:${(reqTier==='PRO'||reqTier==='GROWTH')?'rgba(16,185,129,0.08)':'rgba(255,255,255,0.03)'};border:${(reqTier==='PRO'||reqTier==='GROWTH')?'2px solid #10b981':(activeTier==='PRO'||activeTier==='GROWTH'?'1px solid #10b981':'1px solid rgba(255,255,255,0.08)')};border-radius:14px;padding:16px;text-align:center;position:relative;${(reqTier==='PRO'||reqTier==='GROWTH')?'box-shadow:0 0 20px rgba(16,185,129,0.15);':''}">
-          ${(reqTier==='PRO'||reqTier==='GROWTH')?'<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:#10b981;color:#000;font-size:9px;font-weight:900;padding:2px 8px;border-radius:99px;text-transform:uppercase;">RECOMMENDED</div>':''}
-          <div style="font-size:11px;font-weight:800;color:${(reqTier==='PRO'||reqTier==='GROWTH')?'#10b981':'#94a3b8'};text-transform:uppercase;${(reqTier==='PRO'||reqTier==='GROWTH')?'margin-top:4px;':''}">Growth (Pro)</div>
-          <div style="font-size:16px;font-weight:900;color:#fff;margin:6px 0 2px;">Rs. 6,999<span style="font-size:10px;font-weight:400;color:#64748b;">/mo</span></div>
-          <div style="font-size:10px;color:#94a3b8;margin-bottom:12px;">Full Catalog · KDS & Analytics</div>
-          <button class="__btn-select-tier" data-tier="PRO" style="width:100%;padding:8px;background:${(reqTier==='PRO'||reqTier==='GROWTH')?'#10b981':(activeTier==='PRO'||activeTier==='GROWTH'?'#10b981':'rgba(255,255,255,0.1)')};border:none;color:${(reqTier==='PRO'||reqTier==='GROWTH')?'#000':'#fff'};font-size:11px;font-weight:900;border-radius:8px;cursor:pointer;">
-            ${activeTier==='PRO'||activeTier==='GROWTH'?'Current Plan':'Upgrade Growth'}
-          </button>
-        </div>
-
-        <!-- Enterprise Card -->
-        <div style="background:${reqTier==='ENTERPRISE'?'rgba(245,158,11,0.08)':'rgba(255,255,255,0.03)'};border:${reqTier==='ENTERPRISE'?'2px solid #f59e0b':(activeTier==='ENTERPRISE'?'1px solid #10b981':'1px solid rgba(255,255,255,0.08)')};border-radius:14px;padding:16px;text-align:center;position:relative;${reqTier==='ENTERPRISE'?'box-shadow:0 0 20px rgba(245,158,11,0.2);':''}">
-          ${reqTier==='ENTERPRISE'?'<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:#f59e0b;color:#000;font-size:9px;font-weight:900;padding:2px 8px;border-radius:99px;text-transform:uppercase;">RECOMMENDED</div>':''}
-          <div style="font-size:11px;font-weight:800;color:${reqTier==='ENTERPRISE'?'#f59e0b':'#94a3b8'};text-transform:uppercase;${reqTier==='ENTERPRISE'?'margin-top:4px;':''}">Enterprise</div>
-          <div style="font-size:16px;font-weight:900;color:#fff;margin:6px 0 2px;">Rs. 11,999<span style="font-size:10px;font-weight:400;color:#64748b;">/mo</span></div>
-          <div style="font-size:10px;color:#64748b;margin-bottom:12px;">FBR Fiscal · Multi-Store HQ</div>
-          <button class="__btn-select-tier" data-tier="ENTERPRISE" style="width:100%;padding:8px;background:${reqTier==='ENTERPRISE'?'#f59e0b':(activeTier==='ENTERPRISE'?'#10b981':'rgba(255,255,255,0.1)')};border:none;color:${reqTier==='ENTERPRISE'?'#000':'#fff'};font-size:11px;font-weight:900;border-radius:8px;cursor:pointer;">
-            ${activeTier==='ENTERPRISE'?'Current Plan':'Upgrade Enterprise'}
-          </button>
-        </div>
-
+      <div style="display:grid;grid-template-columns:${targetPlans.length === 1 ? '1fr' : 'repeat(auto-fit, minmax(200px, 1fr))'};gap:14px;margin-bottom:24px;">
+        ${cardsHtml}
       </div>
 
       <!-- Action Footer -->
       <div style="display:flex;gap:12px;">
-        <button id="__paywall-dismiss" style="flex:1;height:44px;background:transparent;border:1px solid rgba(255,255,255,0.15);color:#94a3b8;font-size:13px;font-weight:700;border-radius:10px;cursor:pointer;">
-          Dismiss
+        <button id="__paywall-dismiss" style="flex:1;height:42px;background:transparent;border:1px solid rgba(255,255,255,0.15);color:#94a3b8;font-size:12.5px;font-weight:700;border-radius:10px;cursor:pointer;">
+          Return to Checkout
         </button>
       </div>
 
@@ -503,9 +587,9 @@ function showUpgradeModal(featureName, requiredTier = 'GROWTH') {
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       const selectedTier = btn.dataset.tier;
-      const currentTier = getActiveTier();
+      const curTier = getActiveTier();
 
-      if (selectedTier === currentTier) {
+      if (selectedTier === curTier || (selectedTier === 'PRO' && curTier === 'GROWTH')) {
         modal.remove();
         return;
       }

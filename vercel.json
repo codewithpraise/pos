@@ -1,5 +1,9 @@
 {
   "version": 2,
+  "name": "valenixia-pos",
+  "alias": [
+    "valenixia-pos.vercel.app"
+  ],
   "outputDirectory": "public",
   "cleanUrls": true,
   "headers": [
