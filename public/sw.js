@@ -34,7 +34,7 @@ const ASSETS_TO_CACHE = [
   { url: '/modules/animations.js', integrity: '' },
   { url: '/modules/offline.js', integrity: '' },
   { url: '/modules/keyboard.js', integrity: '' },
-  { url: '/client-db.js', integrity: 'sha384-AWiejcC7gK1jf0k1m7LcCyPjTrksjlOtQ3F5sR76a+tCtZ1QRdw+pZ+9G4QCp6Fj' },
+  { url: '/client-db.js', integrity: 'sha384-nbrxAdNp9FBDlCsAwjvHFPILzDQtdJXQAangtHEl3Ksy7f8O0NSzTbq6wMSRKK2k' },
   { url: '/client-audio.js', integrity: 'sha384-eNFP7nwI6r5YvjouaLqNb9zpHUftLLL7QNzJ5X5RaVzN/53rfdnZFxiwGxIVLBtc' },
   { url: '/client-speech.js', integrity: 'sha384-7W67xTwgWUVhwx4BuvdTRftJfKk/2TH/JVX0FQy18uTcjM2CFaRvzRq/GRhW5e8k' },
   { url: '/client-sync.js', integrity: 'sha384-BLDM52n0UDIyk3tECoaeuehzURF/k6MjQLkwUH2DOBoptPkFF4MKptRB47Gf7i3L' },

@@ -695,13 +695,13 @@
           }
         };
 
-        // Hard timeout — never block app boot more than 3 seconds
+        // Safe timeout — never block app boot indefinitely (allows ample headroom for cold boot)
         const timeoutHandle = setTimeout(() => {
           if (!settled) {
-            console.error('[IndexedDB] Open request timed out after 3s — resolving with null to allow degraded boot.');
+            console.error('[IndexedDB] Open request timed out after 8s — resolving with null to allow degraded boot.');
             settle(resolve, null);
           }
-        }, 3000);
+        }, 8000);
 
         try {
           await Promise.race([
@@ -711,6 +711,10 @@
         } catch (_) {}
 
         const request = globalScope.indexedDB.open(this.dbName, this.dbVersion);
+
+        request.onblocked = (event) => {
+          console.warn('[IndexedDB] Database upgrade/open waiting for existing connections to close.');
+        };
 
         request.onupgradeneeded = (event) => {
           const db = event.target.result;
@@ -863,16 +867,17 @@
             this.db = null;
           };
 
+          settle(resolve, this.db);
+
           try {
-            await optimizeSqliteStorageEngine(this);
+            optimizeSqliteStorageEngine(this).catch(() => {});
           } catch (err) {}
 
           try {
-            await this.seedIfNeeded();
-          } catch (e) {
-            console.warn('[IndexedDB] seedIfNeeded failed (non-fatal):', e);
-          }
-          settle(resolve, this.db);
+            this.seedIfNeeded().catch((e) => {
+              console.warn('[IndexedDB] seedIfNeeded failed (non-fatal):', e);
+            });
+          } catch (e) {}
         };
 
         request.onerror = async (event) => {
