@@ -202,7 +202,73 @@ console.log('══════════════════════�
     assert.strictEqual(validateModeFields('electronics-highvalue', invalidData), false);
   });
 
-  // ── 3. Test Diagnostics Report ────────────────────────────────────────────
+  // ── 3. Store Domain Feature Isolation Tests ────────────────────────────────
+  console.log('\n▶ Domain Feature Isolation (Restaurant / KDS / Foodpanda Guards)');
+  
+  // Load store-modes.js definitions
+  const fs = require('fs');
+  const path = require('path');
+  const storeModesCode = fs.readFileSync(path.join(__dirname, '../public/modules/store-modes.js'), 'utf8');
+  const mockWindow = {};
+  const evalFn = new Function('window', 'global', storeModesCode);
+  evalFn(mockWindow, mockWindow);
+  const { ORDER_TYPES, MODES } = mockWindow.ValenixiaStoreModes;
+
+  test('hospitality isolation: food-restaurant includes DINE_IN and FOODPANDA', () => {
+    const restTypes = ORDER_TYPES['food-restaurant'].map(t => t.id);
+    assert.ok(restTypes.includes('DINE_IN'), 'food-restaurant must have DINE_IN');
+    assert.ok(restTypes.includes('FOODPANDA'), 'food-restaurant must have FOODPANDA');
+    assert.ok(restTypes.includes('TAKEAWAY'), 'food-restaurant must have TAKEAWAY');
+  });
+
+  test('hospitality isolation: bakery-cafe includes DINE_IN and FOODPANDA', () => {
+    const cafeTypes = ORDER_TYPES['bakery-cafe'].map(t => t.id);
+    assert.ok(cafeTypes.includes('DINE_IN'), 'bakery-cafe must have DINE_IN');
+    assert.ok(cafeTypes.includes('FOODPANDA'), 'bakery-cafe must have FOODPANDA');
+  });
+
+  test('mechanic isolation: mechanic-workshop has NO DINE_IN and NO FOODPANDA', () => {
+    const mechanicTypes = ORDER_TYPES['mechanic-workshop'].map(t => t.id);
+    assert.strictEqual(mechanicTypes.includes('DINE_IN'), false, 'mechanic-workshop must NOT have DINE_IN');
+    assert.strictEqual(mechanicTypes.includes('FOODPANDA'), false, 'mechanic-workshop must NOT have FOODPANDA');
+    assert.ok(mechanicTypes.includes('JOB_CARD'), 'mechanic-workshop must have JOB_CARD');
+  });
+
+  test('retail isolation: simple-retail has NO DINE_IN and NO FOODPANDA', () => {
+    const retailTypes = ORDER_TYPES['simple-retail'].map(t => t.id);
+    assert.strictEqual(retailTypes.includes('DINE_IN'), false, 'simple-retail must NOT have DINE_IN');
+    assert.strictEqual(retailTypes.includes('FOODPANDA'), false, 'simple-retail must NOT have FOODPANDA');
+    assert.ok(retailTypes.includes('WALKIN'), 'simple-retail must have WALKIN');
+  });
+
+  test('pharmacy isolation: pharmacy-medical has NO DINE_IN and NO FOODPANDA', () => {
+    const rxTypes = ORDER_TYPES['pharmacy-medical'].map(t => t.id);
+    assert.strictEqual(rxTypes.includes('DINE_IN'), false, 'pharmacy-medical must NOT have DINE_IN');
+    assert.strictEqual(rxTypes.includes('FOODPANDA'), false, 'pharmacy-medical must NOT have FOODPANDA');
+    assert.ok(rxTypes.includes('PRESCRIPTION'), 'pharmacy-medical must have PRESCRIPTION');
+  });
+
+  test('fashion isolation: clothing-fashion has NO DINE_IN and NO FOODPANDA', () => {
+    const fashionTypes = ORDER_TYPES['clothing-fashion'].map(t => t.id);
+    assert.strictEqual(fashionTypes.includes('DINE_IN'), false, 'clothing-fashion must NOT have DINE_IN');
+    assert.strictEqual(fashionTypes.includes('FOODPANDA'), false, 'clothing-fashion must NOT have FOODPANDA');
+  });
+
+  test('isKdsSupported helper: returns true ONLY for hospitality modes', () => {
+    function isKdsSupported(mode) {
+      return mode === 'food-restaurant' || mode === 'bakery-cafe' || mode === 'restaurant' || mode === 'cafe';
+    }
+    assert.strictEqual(isKdsSupported('food-restaurant'), true);
+    assert.strictEqual(isKdsSupported('bakery-cafe'), true);
+    assert.strictEqual(isKdsSupported('mechanic-workshop'), false);
+    assert.strictEqual(isKdsSupported('simple-retail'), false);
+    assert.strictEqual(isKdsSupported('grocery-mart'), false);
+    assert.strictEqual(isKdsSupported('clothing-fashion'), false);
+    assert.strictEqual(isKdsSupported('pharmacy-medical'), false);
+    assert.strictEqual(isKdsSupported('automotive-car'), false);
+  });
+
+  // ── 4. Test Diagnostics Report ────────────────────────────────────────────
   console.log('\n══════════════════════════════════════════════════');
   console.log(`  Tests completed: Passed: ${passed}, Failed: ${failed}`);
   console.log('══════════════════════════════════════════════════\n');

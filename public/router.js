@@ -239,6 +239,21 @@
       }
 
       const cleanName = screenId.replace('view-', '');
+      
+      // Domain-specific screen isolation (KDS is only accessible in hospitality/restaurant modes)
+      if (cleanName === 'kds' || cleanName === 'fullscreen-kds') {
+        const isSupported = typeof global.isKdsSupported === 'function' ? global.isKdsSupported() : (function() {
+          const mode = (global.state && global.state.preferences && (global.state.preferences.shop_mode || global.state.preferences.store_type)) || (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_shop_mode')) || 'simple-retail';
+          return mode === 'food-restaurant' || mode === 'bakery-cafe' || mode === 'restaurant' || mode === 'cafe';
+        })();
+        if (!isSupported) {
+          if (typeof global.showNotificationToast === 'function') {
+            global.showNotificationToast('Kitchen Display System (KDS) is only available for Restaurant & Café store modes.', 'info', 4000);
+          }
+          return this.navigateTo('checkout', { push: false });
+        }
+      }
+
       const targetId = screenId.startsWith('view-') ? screenId : (SCREEN_MAP[cleanName] || 'view-' + cleanName);
       
       const pane = this.rootContainer || document.querySelector('.pos-content-pane');

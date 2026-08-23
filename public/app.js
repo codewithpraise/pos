@@ -6,12 +6,20 @@
     return active === 'food-restaurant' || active === 'bakery-cafe' || active === 'restaurant' || active === 'cafe';
   }
   window.isKdsSupported = isKdsSupported;
+  window.isHospitalityStore = isKdsSupported;
 
   function updateKdsNavVisibility() {
     const supported = isKdsSupported();
-    document.querySelectorAll('#nav-kds, [data-screen="kds"]').forEach(el => {
+    document.querySelectorAll('#nav-kds, [data-screen="kds"], #btn-quick-kds, .kds-only-element').forEach(el => {
       el.style.setProperty('display', supported ? 'flex' : 'none', 'important');
     });
+
+    // If active screen is KDS and mode is unsupported, safely redirect to checkout
+    if (!supported && typeof state !== 'undefined' && state && (state.activeScreen === 'kds' || state.activeScreen === 'fullscreen-kds')) {
+      if (typeof window.switchActiveScreen === 'function') {
+        window.switchActiveScreen('checkout');
+      }
+    }
   }
   window.updateKdsNavVisibility = updateKdsNavVisibility;
 

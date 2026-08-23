@@ -32,6 +32,11 @@
       { id: "act-fullscreen",  icon: "",  label: "Toggle Fullscreen",     action: () => { if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }, tags: ["display", "kiosk"] },
     ];
 
+    // Inject Kitchen Orders / KDS only if supported by active store domain
+    if (typeof window.isKdsSupported === 'function' && window.isKdsSupported()) {
+      cmds.push({ id: "nav-kds", icon: "", label: "Go to Kitchen Display (KDS)", action: () => switchActiveScreen("kds"), tags: ["kds", "kitchen", "orders", "food", "cook"] });
+    }
+
     // Inject product quick-add if catalog is loaded
     if (window.__valenixiaState?.catalog?.length) {
       const catalog = window.__valenixiaState.catalog.slice(0, 200); // cap at 200 for perf
