@@ -763,7 +763,10 @@ async function initDatabase(terminalId) {
         "ALTER TABLE transactions ADD COLUMN void_reason TEXT;",
         "ALTER TABLE fbr_submissions ADD COLUMN usin TEXT;",
         "ALTER TABLE fbr_submissions ADD COLUMN fbr_response_code INTEGER;",
-        "ALTER TABLE fbr_submissions ADD COLUMN fbr_error_details TEXT;"
+        "ALTER TABLE fbr_submissions ADD COLUMN fbr_error_details TEXT;",
+        "ALTER TABLE customers ADD COLUMN address TEXT DEFAULT '';",
+        "ALTER TABLE customers ADD COLUMN cnic TEXT DEFAULT '';",
+        "ALTER TABLE customers ADD COLUMN notes TEXT DEFAULT '';"
       ];
       for (const sql of alters) {
         // Parse table and column name from ALTER TABLE statement to guard with PRAGMA

@@ -3322,9 +3322,18 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
               customerName: cust.name || '',
               customerPhone: cust.phone || '',
               customerEmail: cust.email || '',
+              customerAddress: cust.address || '',
+              customerCnic: cust.cnic || '',
+              customerNotes: cust.notes || '',
               timestamp: event.data.timestamp || Date.now(),
               items: state.activeCart.map(i => ({
-                name: i.displayName || i.name, qty: i.qty, unitPrice: i.price, discount: i.discount || 0
+                name: i.displayName || i.name,
+                qty: i.qty,
+                unitPrice: i.price,
+                originalPrice: i.originalPrice || i.price,
+                discount: i.discount || 0,
+                negotiated: !!i.negotiated,
+                customNote: i.customNote || ''
               })),
               subtotal: event.data.subtotal || 0,
               tax: event.data.tax || 0,
@@ -3365,6 +3374,7 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
 // ----------------------------------------------------------------------------
           {
             const prefs = state.preferences || {};
+            const cust = state.attachedCustomer || {};
             const printReceipt = prefs.auto_print_receipt !== 'false';
             if (printReceipt && EscPosEngine.isConnected()) {
               const receiptData = {
@@ -3372,9 +3382,20 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
                 storeAddress: prefs.store_address || '',
                 transactionId,
                 cashierName: state.activeCashier?.name || 'N/A',
+                customerName: cust.name || '',
+                customerPhone: cust.phone || '',
+                customerAddress: cust.address || '',
+                customerCnic: cust.cnic || '',
+                customerNotes: cust.notes || '',
                 timestamp: Date.now(),
                 items: state.activeCart.map(i => ({
-                  name: i.displayName || i.name, qty: i.qty, unitPrice: i.price, discount: i.discount || 0
+                  name: i.displayName || i.name,
+                  qty: i.qty,
+                  unitPrice: i.price,
+                  originalPrice: i.originalPrice || i.price,
+                  discount: i.discount || 0,
+                  negotiated: !!i.negotiated,
+                  customNote: i.customNote || ''
                 })),
                 subtotal: event.data.subtotal || 0,
                 tax: event.data.tax || 0,
@@ -9298,6 +9319,15 @@ setHtml(overlay, `
     });
   }
 
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
   // Render order Cart items
   function renderCart() {
     window.renderCart = renderCart;
@@ -9318,17 +9348,32 @@ setHtml(overlay, `
       const fragment = document.createDocumentFragment();
 
       state.activeCart.forEach(item => {
+        if (item.originalPrice === undefined) {
+          item.originalPrice = item.price;
+        }
         const tr = document.createElement('div');
         tr.className = 'cart-item-row';
         tr.setAttribute('data-sku', item.sku);
         tr.setAttribute('data-display-name', item.displayName || '');
+
+        const isBargained = (item.originalPrice && item.price !== item.originalPrice);
+        const bargainBadge = isBargained
+          ? `<span class="cart-bargain-tag" style="background:rgba(234,179,8,0.15);color:#eab308;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-left:4px;border:1px solid rgba(234,179,8,0.3);" title="Agreed selling price (MRP: Rs. ${(item.originalPrice/100).toFixed(0)})">Bargained (MRP: Rs. ${(item.originalPrice/100).toFixed(0)})</span>`
+          : '';
+        const customNoteHtml = item.customNote
+          ? `<div class="cart-item-custom-note" style="font-size:10px;color:#38bdf8;margin-top:2px;font-weight:600;display:flex;align-items:center;gap:4px;"><span>📱</span><span>${escapeHtml(item.customNote)}</span></div>`
+          : '';
+
 setHtml(tr, `
           <div class="cart-swipe-bg">
             <span class="trash-icon">&#x2715; REMOVE</span>
           </div>
           <div class="cart-swipe-fg">
             <div class="cart-row-top">
-              <span class="cart-product-title">${item.displayName || item.name}</span>
+              <div style="display:flex;flex-direction:column;flex:1;min-width:0;">
+                <span class="cart-product-title">${escapeHtml(item.displayName || item.name)}</span>
+                ${customNoteHtml}
+              </div>
               <div class="cart-top-right">
                 <span class="cart-item-total">Rs. ${((item.price * item.qty) / 100.0).toFixed(2)}</span>
                 <button class="btn-remove-item" data-sku="${item.sku}" title="Remove">&#x2715;</button>
@@ -9337,7 +9382,8 @@ setHtml(tr, `
             <div class="cart-row-bottom">
               <div class="cart-row-meta">
                 <span class="cart-product-sku">${item.sku}</span>
-                <span class="cart-unit-price">• @ Rs. ${(item.price / 100.0).toFixed(2)}</span>
+                <span class="cart-unit-price btn-edit-price" data-sku="${item.sku}" style="cursor:pointer;text-decoration:underline dotted;padding:2px 4px;border-radius:4px;transition:background 0.2s;" title="Click to negotiate selling price / enter IMEI / Device notes">• @ Rs. ${(item.price / 100.0).toFixed(2)} <span style="font-size:10px;opacity:0.75;">✎</span></span>
+                ${bargainBadge}
               </div>
               <div class="qty-controls">
                 <button class="qty-btn btn-minus" data-sku="${item.sku}">&#x2212;</button>
@@ -9365,6 +9411,10 @@ setHtml(tr, `
         // Event listeners
         tr.querySelector('.btn-minus').addEventListener('click', () => modifyCartQty(item.sku, -1, item.displayName));
         tr.querySelector('.btn-plus').addEventListener('click', () => modifyCartQty(item.sku, 1, item.displayName));
+        tr.querySelector('.btn-edit-price')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openItemNegotiationModal(item.sku);
+        });
         const removeHandler = () => removeCartItem(item.sku, item.displayName);
         tr.querySelectorAll('.btn-remove-item, .trash-icon, .cart-swipe-bg').forEach(el => {
           el.addEventListener('click', removeHandler);
@@ -9426,6 +9476,131 @@ setHtml(tr, `
       mobileCartBadge.style.display = totalQty > 0 ? 'inline-block' : 'none';
     }
   }
+
+  // --- Dynamic Pricing / Device Negotiation Modal Handlers ---
+  function openItemNegotiationModal(sku) {
+    if (typeof playAudioSignal === 'function') playAudioSignal('click');
+    const item = state.activeCart.find(i => i.sku === sku);
+    if (!item) return;
+    if (item.originalPrice === undefined) {
+      item.originalPrice = item.price;
+    }
+    const modal = document.getElementById('modal-item-negotiation');
+    if (!modal) return;
+
+    const titleEl = document.getElementById('modal-negotiate-title');
+    if (titleEl) titleEl.textContent = item.displayName || item.name;
+    const skuEl = document.getElementById('modal-negotiate-sku');
+    if (skuEl) skuEl.textContent = `SKU: ${item.sku}`;
+    const skuInput = document.getElementById('form-negotiate-sku');
+    if (skuInput) skuInput.value = item.sku;
+
+    const origPaise = item.originalPrice || item.price;
+    const catalogPriceEl = document.getElementById('modal-negotiate-catalog-price');
+    if (catalogPriceEl) catalogPriceEl.textContent = `Rs. ${(origPaise / 100).toFixed(2)}`;
+
+    const priceInput = document.getElementById('form-negotiate-selling-price');
+    if (priceInput) priceInput.value = (item.price / 100).toFixed(2);
+
+    const noteInput = document.getElementById('form-negotiate-note');
+    if (noteInput) noteInput.value = item.customNote || '';
+
+    const badge = document.getElementById('modal-negotiate-discount-badge');
+
+    function updateDiscountBadge() {
+      if (!priceInput || !badge) return;
+      const currentVal = Math.round(parseFloat(priceInput.value || '0') * 100);
+      if (origPaise > 0 && currentVal < origPaise) {
+        const diff = origPaise - currentVal;
+        const pct = Math.round((diff / origPaise) * 100);
+        badge.style.display = 'inline-block';
+        badge.style.background = 'rgba(234,179,8,0.15)';
+        badge.style.color = '#eab308';
+        badge.textContent = `-${pct}% Discount (Save Rs. ${(diff/100).toFixed(2)})`;
+      } else if (currentVal > origPaise) {
+        const diff = currentVal - origPaise;
+        badge.style.display = 'inline-block';
+        badge.style.background = 'rgba(59,130,246,0.15)';
+        badge.style.color = '#60a5fa';
+        badge.textContent = `+Rs. ${(diff/100).toFixed(2)} (Markup)`;
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    if (priceInput) {
+      priceInput.oninput = updateDiscountBadge;
+    }
+    updateDiscountBadge();
+
+    modal.querySelectorAll('.preset-discount-chip').forEach(chip => {
+      chip.onclick = () => {
+        if (typeof playAudioSignal === 'function') playAudioSignal('click');
+        const disc = parseFloat(chip.getAttribute('data-discount') || '0');
+        const newPaise = Math.round(origPaise * (1 - disc / 100));
+        if (priceInput) priceInput.value = (newPaise / 100).toFixed(2);
+        updateDiscountBadge();
+      };
+    });
+
+    const resetMrpBtn = document.getElementById('btn-negotiate-reset-mrp');
+    if (resetMrpBtn) {
+      resetMrpBtn.onclick = () => {
+        if (typeof playAudioSignal === 'function') playAudioSignal('click');
+        if (priceInput) priceInput.value = (origPaise / 100).toFixed(2);
+        updateDiscountBadge();
+      };
+    }
+
+    modal.classList.add('active');
+    setTimeout(() => {
+      if (priceInput) {
+        priceInput.focus();
+        priceInput.select();
+      }
+    }, 100);
+  }
+  window.openItemNegotiationModal = openItemNegotiationModal;
+
+  function saveNegotiatedItemDetails() {
+    const sku = document.getElementById('form-negotiate-sku')?.value;
+    const priceInput = document.getElementById('form-negotiate-selling-price');
+    const noteInput = document.getElementById('form-negotiate-note');
+    if (!sku || !priceInput) return;
+
+    const item = state.activeCart.find(i => i.sku === sku);
+    if (!item) return;
+
+    const enteredPrice = parseFloat(priceInput.value);
+    if (isNaN(enteredPrice) || enteredPrice < 0) {
+      showNotificationToast('Please enter a valid selling price.', 'error');
+      return;
+    }
+
+    if (item.originalPrice === undefined) {
+      item.originalPrice = item.price;
+    }
+
+    const newPaise = Math.round(enteredPrice * 100);
+    item.price = newPaise;
+    item.customNote = (noteInput?.value || '').trim();
+    item.negotiated = (item.price !== item.originalPrice);
+
+    document.getElementById('modal-item-negotiation')?.classList.remove('active');
+    if (typeof playAudioSignal === 'function') playAudioSignal('success');
+    renderCart();
+    showNotificationToast(`Agreed price set to Rs. ${(newPaise/100).toFixed(2)} for ${item.displayName || item.name}`, 'success', 2500);
+  }
+  window.saveNegotiatedItemDetails = saveNegotiatedItemDetails;
+
+  // Bind negotiation modal buttons once DOM is available
+  document.getElementById('btn-save-negotiate-modal')?.addEventListener('click', saveNegotiatedItemDetails);
+  document.getElementById('btn-close-negotiate-modal')?.addEventListener('click', () => {
+    document.getElementById('modal-item-negotiation')?.classList.remove('active');
+  });
+  document.getElementById('btn-cancel-negotiate-modal')?.addEventListener('click', () => {
+    document.getElementById('modal-item-negotiation')?.classList.remove('active');
+  });
 
   function getCartStorageKey() {
     try {
@@ -11360,10 +11535,17 @@ setHtml(list, `<p class="text-center text-muted" style="padding: 12px 0;">No mat
     matches.forEach(c => {
       const row = document.createElement('div');
       row.className = 'search-result-item';
+      const metaDetails = [
+        c.phone ? `Phone: ${escapeHtml(c.phone)}` : '',
+        `Visits: ${c.visits || 0}`,
+        c.address ? `📍 ${escapeHtml(c.address)}` : '',
+        c.cnic ? `🪪 CNIC: ${escapeHtml(c.cnic)}` : ''
+      ].filter(Boolean).join(' | ');
+
 setHtml(row, `
         <div>
-          <span class="item-title">${c.name}</span>
-          <div class="item-meta">Phone: ${c.phone} | Visits: ${c.visits}</div>
+          <span class="item-title">${escapeHtml(c.name)}</span>
+          <div class="item-meta" style="font-size: 11px;">${metaDetails}</div>
         </div>
         <button class="btn-link-customer select-btn" style="min-height: 28px;">Select</button>
       `);
@@ -11373,8 +11555,12 @@ setHtml(row, `
         setHtml(document.getElementById('checkout-customer-attached'), `
           <div class="customer-attached-box">
             <div>
-              <span class="cashier-name">${c.name}</span>
-              <div style="font-size: 8px; color: var(--text-gray);">Visits: ${c.visits} | Spend: Rs. ${(c.total_spend_cents/100).toFixed(2)}</div>
+              <span class="cashier-name">${escapeHtml(c.name)}</span>
+              <div style="font-size: 9px; color: var(--text-gray); margin-top: 2px;">
+                ${c.phone ? 'Phone: ' + escapeHtml(c.phone) + ' • ' : ''}Visits: ${c.visits || 0}
+                ${c.address ? `<br><span style="color:var(--accent-emerald);">📍 ${escapeHtml(c.address)}</span>` : ''}
+                ${c.cnic ? `<span style="color:var(--accent-cyan); margin-left: 4px;">🪪 CNIC: ${escapeHtml(c.cnic)}</span>` : ''}
+              </div>
             </div>
             <button class="btn-unlink-customer" id="btn-detach-customer">Detach</button>
           </div>
@@ -11406,11 +11592,14 @@ setHtml(row, `
       const c = state.customers.find(item => item.id === id);
       title.textContent = 'Edit Customer Profile';
       document.getElementById('form-customer-id').value = c.id;
-      document.getElementById('form-customer-name').value = c.name;
-      document.getElementById('form-customer-phone').value = c.phone;
-      document.getElementById('form-customer-email').value = c.email;
-      document.getElementById('form-customer-spend').value = c.total_spend_cents;
-      document.getElementById('form-customer-visits').value = c.visits;
+      document.getElementById('form-customer-name').value = c.name || '';
+      document.getElementById('form-customer-phone').value = c.phone || '';
+      document.getElementById('form-customer-email').value = c.email || '';
+      document.getElementById('form-customer-address').value = c.address || '';
+      document.getElementById('form-customer-cnic').value = c.cnic || '';
+      document.getElementById('form-customer-notes').value = c.notes || '';
+      document.getElementById('form-customer-spend').value = c.total_spend_cents || 0;
+      document.getElementById('form-customer-visits').value = c.visits || 0;
       spendRow.style.display = 'flex';
       visitsRow.style.display = 'flex';
     } else {
@@ -11419,6 +11608,9 @@ setHtml(row, `
       document.getElementById('form-customer-name').value = '';
       document.getElementById('form-customer-phone').value = '';
       document.getElementById('form-customer-email').value = '';
+      document.getElementById('form-customer-address').value = '';
+      document.getElementById('form-customer-cnic').value = '';
+      document.getElementById('form-customer-notes').value = '';
       spendRow.style.display = 'none';
       visitsRow.style.display = 'none';
     }
@@ -11432,6 +11624,9 @@ setHtml(row, `
     const name = (document.getElementById('form-customer-name')?.value || '').trim();
     const phone = (document.getElementById('form-customer-phone')?.value || '').trim();
     const email = (document.getElementById('form-customer-email')?.value || '').trim();
+    const address = (document.getElementById('form-customer-address')?.value || '').trim();
+    const cnic = (document.getElementById('form-customer-cnic')?.value || '').trim();
+    const notes = (document.getElementById('form-customer-notes')?.value || '').trim();
     const spend = parseInt(document.getElementById('form-customer-spend')?.value || '0');
     const visits = parseInt(document.getElementById('form-customer-visits')?.value || '0');
 
@@ -11445,6 +11640,9 @@ setHtml(row, `
       name,
       phone,
       email,
+      address,
+      cnic,
+      notes,
       total_spend_cents: spend,
       visits
     };
@@ -11457,6 +11655,27 @@ setHtml(row, `
       state.customers.unshift(customerObj);
     }
 
+    // If active transaction has this customer attached, update it live
+    if (state.attachedCustomer && state.attachedCustomer.id === id) {
+      state.attachedCustomer = customerObj;
+      const attachedEl = document.getElementById('checkout-customer-attached');
+      if (attachedEl) {
+        setHtml(attachedEl, `
+          <div class="customer-attached-box">
+            <div>
+              <span class="cashier-name">${escapeHtml(customerObj.name)}</span>
+              <div style="font-size: 9px; color: var(--text-gray); margin-top: 2px;">
+                ${customerObj.phone ? 'Phone: ' + escapeHtml(customerObj.phone) + ' • ' : ''}Visits: ${customerObj.visits || 0}
+                ${customerObj.address ? `<br><span style="color:var(--accent-emerald);">📍 ${escapeHtml(customerObj.address)}</span>` : ''}
+                ${customerObj.cnic ? `<span style="color:var(--accent-cyan); margin-left: 4px;">🪪 CNIC: ${escapeHtml(customerObj.cnic)}</span>` : ''}
+              </div>
+            </div>
+            <button class="btn-unlink-customer" id="btn-detach-customer">Detach</button>
+          </div>
+        `);
+      }
+    }
+
     try {
       if (typeof renderCustomersScreen === 'function') renderCustomersScreen();
       if (typeof renderCustomerLinkModalList === 'function') renderCustomerLinkModalList();
@@ -11466,7 +11685,7 @@ setHtml(row, `
 
     syncWorker.postMessage({
       type: 'SAVE_CUSTOMER',
-      payload: { id, name, phone, email, spend, visits }
+      payload: { id, name, phone, email, address, cnic, notes, spend, visits }
     });
 
     setTimeout(() => syncWorker.postMessage({ type: 'GET_CUSTOMERS' }), 150);

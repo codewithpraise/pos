@@ -3659,6 +3659,20 @@
             <input type="email" id="form-customer-email" class="pos-input" placeholder="name@example.com" aria-label="Email Address">
           </div>
         </div>
+        <div class="form-grid-2col">
+          <div class="form-group">
+            <label for="form-customer-address">Customer Address / City</label>
+            <input type="text" id="form-customer-address" class="pos-input" placeholder="e.g. Shop 4, Hall Road, Lahore" aria-label="Customer Address">
+          </div>
+          <div class="form-group">
+            <label for="form-customer-cnic">CNIC / National ID / Passport</label>
+            <input type="text" id="form-customer-cnic" class="pos-input" placeholder="e.g. 35201-1234567-1" aria-label="CNIC or National ID">
+          </div>
+        </div>
+        <div class="form-group" style="margin-top: 10px;">
+          <label for="form-customer-notes">Customer Notes / Warranty Terms</label>
+          <input type="text" id="form-customer-notes" class="pos-input" placeholder="e.g. Regular wholesale buyer, 1-year store warranty" aria-label="Customer Notes">
+        </div>
         <div class="form-grid-2col" id="form-customer-spend-row" style="display:none;">
           <div class="form-group">
             <label for="form-customer-spend">Total Spend Balance (PKR)</label>
@@ -3681,18 +3695,79 @@
   <div class="modal-overlay" id="modal-customer-link">
     <div class="modal-card">
       <div class="modal-header">
-        <h3>Link loyalty customer profile</h3>
+        <h3>Link customer profile &amp; billing details</h3>
         <button class="btn-close-modal" id="btn-close-customer-link-modal">×</button>
       </div>
       <div class="modal-body">
-        <input type="text" id="customer-link-search" class="pos-input" placeholder="Search customer name or phone..." aria-label="Search customer name or phone...">
+        <input type="text" id="customer-link-search" class="pos-input" placeholder="Search customer name, phone, CNIC or address..." aria-label="Search customer name or phone...">
         <div class="customer-results-list" id="customer-link-results-list" style="margin-top: 12px; max-height: 250px; overflow-y: auto;">
           <!-- dynamic results items -->
         </div>
       </div>
       <div class="modal-footer">
-        <button class="action-btn" id="btn-create-customer-from-link">+ Create Profile</button>
+        <button class="action-btn action-success" id="btn-create-customer-from-link">+ Add Customer Profile</button>
         <button class="action-btn" id="btn-close-customer-link-modal-footer">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIALOG MODAL: ITEM PRICE NEGOTIATION & DEVICE DETAILS (BARGAINING SUPPORT) -->
+  <div class="modal-overlay" id="modal-item-negotiation" style="display:none;">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:36px; height:36px; border-radius:10px; background:rgba(0,214,143,0.15); color:var(--accent-emerald); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <div>
+            <h3 style="margin:0; font-size:16px; font-weight:800; color:var(--text-white);" id="modal-negotiate-title">Negotiate Price &amp; Item Details</h3>
+            <span style="font-size:11px; color:var(--text-gray);" id="modal-negotiate-sku">SKU: ---</span>
+          </div>
+        </div>
+        <button class="btn-close-modal" id="btn-close-negotiate-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="form-negotiate-sku">
+        <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-titanium); border-radius:8px; padding:12px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span style="font-size:11px; color:var(--text-gray); display:block;">Standard Catalog Price (MRP)</span>
+            <strong style="font-size:15px; color:var(--text-white);" id="modal-negotiate-catalog-price">Rs. 0.00</strong>
+          </div>
+          <div id="modal-negotiate-discount-badge" style="font-size:11px; font-weight:700; color:var(--accent-emerald); background:rgba(0,214,143,0.1); padding:4px 8px; border-radius:6px; border:1px solid rgba(0,214,143,0.2);">
+            0% Discount
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label for="form-negotiate-selling-price" style="font-weight:700; color:var(--text-white); font-size:12px;">Agreed Selling Unit Price (PKR) *</label>
+          <div style="position:relative; margin-top:4px;">
+            <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); font-weight:700; color:var(--accent-emerald); font-size:13px;">Rs.</span>
+            <input type="number" id="form-negotiate-selling-price" class="pos-input" step="1" min="0" placeholder="e.g. 45000" style="padding-left:42px; font-size:16px; font-weight:800; color:var(--text-white);" aria-label="Agreed Selling Price">
+          </div>
+          <span style="font-size:10px; color:var(--text-gray); margin-top:2px; display:block;">Enter agreed customer price for this sale without altering the master catalog.</span>
+        </div>
+
+        <!-- Quick Discount Preset Chips -->
+        <div style="display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap;" id="negotiate-preset-chips">
+          <button type="button" class="btn-discount-chip action-btn" data-pct="0" style="padding:4px 10px; font-size:11px; font-weight:700; border-radius:6px;">MRP</button>
+          <button type="button" class="btn-discount-chip action-btn" data-pct="5" style="padding:4px 10px; font-size:11px; font-weight:700; border-radius:6px;">-5%</button>
+          <button type="button" class="btn-discount-chip action-btn" data-pct="10" style="padding:4px 10px; font-size:11px; font-weight:700; border-radius:6px;">-10%</button>
+          <button type="button" class="btn-discount-chip action-btn" data-pct="15" style="padding:4px 10px; font-size:11px; font-weight:700; border-radius:6px;">-15%</button>
+          <button type="button" class="btn-discount-chip action-btn" data-pct="20" style="padding:4px 10px; font-size:11px; font-weight:700; border-radius:6px;">-20%</button>
+        </div>
+
+        <div class="form-group">
+          <label for="form-negotiate-note" style="font-weight:700; color:var(--text-white); font-size:12px;">Device IMEI / Serial No. / Warranty Details</label>
+          <textarea id="form-negotiate-note" class="pos-input" rows="2" placeholder="e.g. IMEI: 356789012345678 • Color: Midnight 128GB • 1 Year PTA Official Warranty" style="margin-top:4px; font-size:12px; line-height:1.4;" aria-label="Device IMEI or details"></textarea>
+          <span style="font-size:10px; color:var(--text-gray); margin-top:2px; display:block;">Printed on the customer receipt and recorded in sales history.</span>
+        </div>
+      </div>
+      <div class="modal-footer" style="display:flex; justify-content:space-between; gap:10px;">
+        <button type="button" class="action-btn" id="btn-reset-negotiate-price" style="color:var(--alert-coral); border-color:rgba(239,68,68,0.3);">Reset MRP</button>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="action-btn" id="btn-cancel-negotiate-modal">Cancel</button>
+          <button type="button" class="action-btn action-success" id="btn-save-negotiate-modal" style="font-weight:800;">Apply Price</button>
+        </div>
       </div>
     </div>
   </div>

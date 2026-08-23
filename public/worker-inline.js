@@ -3506,7 +3506,7 @@ self.onmessage = async (event) => {
       }
 
       case 'SAVE_CUSTOMER': {
-        const { id, name, phone, email, spend, visits } = payload;
+        const { id, name, phone, email, address, cnic, notes, spend, visits } = payload;
         const tickHlc = syncClient.hlc.tick();
 
         const cust = {
@@ -3514,6 +3514,9 @@ self.onmessage = async (event) => {
           name,
           phone: phone || '',
           email: email || '',
+          address: address || '',
+          cnic: cnic || '',
+          notes: notes || '',
           total_spend_cents: spend || 0,
           visits: visits || 0,
           created_at: Date.now(),
@@ -3525,6 +3528,9 @@ self.onmessage = async (event) => {
         await logFieldChange('customers', id, 'name', name, tickHlc);
         await logFieldChange('customers', id, 'phone', phone || '', tickHlc);
         await logFieldChange('customers', id, 'email', email || '', tickHlc);
+        await logFieldChange('customers', id, 'address', address || '', tickHlc);
+        await logFieldChange('customers', id, 'cnic', cnic || '', tickHlc);
+        await logFieldChange('customers', id, 'notes', notes || '', tickHlc);
         await logFieldChange('customers', id, 'total_spend_cents', spend || 0, tickHlc);
         await logFieldChange('customers', id, 'visits', visits || 0, tickHlc);
 

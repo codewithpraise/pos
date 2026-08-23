@@ -79,6 +79,10 @@ const EscPosEngine = (() => {
     text(`Date : ${new Date(data.timestamp || Date.now()).toLocaleString()}`);
     text(`Ref  : ${data.transactionId || ''}`);
     text(`Cashier: ${data.cashierName || 'N/A'}`);
+    if (data.customerName) text(`Customer: ${data.customerName}`);
+    if (data.customerPhone) text(`Phone: ${data.customerPhone}`);
+    if (data.customerAddress) text(`Address: ${data.customerAddress}`);
+    if (data.customerCnic) text(`CNIC/ID: ${data.customerCnic}`);
     text(divider());
 
     for (const item of (data.items || [])) {
@@ -95,11 +99,17 @@ const EscPosEngine = (() => {
         const total = `Rs.${(item.unitPrice * item.qty / 100).toFixed(2)}`;
         text(formatLine(sub, total));
       }
+      if (item.customNote) {
+        text(`  IMEI/Note: ${item.customNote}`);
+      }
     }
 
     text(divider());
     text(formatLine('Subtotal', `Rs.${(data.subtotal / 100).toFixed(2)}`));
     if (data.tax) text(formatLine(`Tax (${data.taxRate || 0}%)`, `Rs.${(data.tax / 100).toFixed(2)}`));
+    if (data.notes || data.transactionNotes) {
+      text(`Terms: ${data.notes || data.transactionNotes}`);
+    }
     
     // FBR POS fee printing (Compliance)
     const isFbrEnabled = (data.total - data.subtotal - data.tax >= 100);
@@ -289,6 +299,10 @@ const EscPosEngine = (() => {
     lines.push({ text: `تاریخ : ${new Date(data.timestamp || Date.now()).toLocaleString('ur-PK')}`, align: 'left' });
     lines.push({ text: `حوالہ : ${data.transactionId || ''}`, align: 'left' });
     lines.push({ text: `کیشیر: ${data.cashierName || 'N/A'}`, align: 'left' });
+    if (data.customerName) lines.push({ text: `گاہک: ${data.customerName}`, align: 'left' });
+    if (data.customerPhone) lines.push({ text: `فون: ${data.customerPhone}`, align: 'left' });
+    if (data.customerAddress) lines.push({ text: `پتہ: ${data.customerAddress}`, align: 'left' });
+    if (data.customerCnic) lines.push({ text: `شناختی کارڈ: ${data.customerCnic}`, align: 'left' });
     lines.push({ text: dividerStr, align: 'center' });
 
     for (const item of (data.items || [])) {
@@ -305,11 +319,17 @@ const EscPosEngine = (() => {
         const total = `Rs.${(item.unitPrice * item.qty / 100).toFixed(2)}`;
         lines.push({ left: sub, right: total, align: 'split' });
       }
+      if (item.customNote) {
+        lines.push({ text: `  تفصیل: ${item.customNote}`, align: 'left' });
+      }
     }
 
     lines.push({ text: dividerStr, align: 'center' });
     lines.push({ left: 'ذیلی کل', right: `Rs.${(data.subtotal / 100).toFixed(2)}`, align: 'split' });
     if (data.tax) lines.push({ left: `ٹیکس (${data.taxRate || 0}%)`, right: `Rs.${(data.tax / 100).toFixed(2)}`, align: 'split' });
+    if (data.notes || data.transactionNotes) {
+      lines.push({ text: `شرائط: ${data.notes || data.transactionNotes}`, align: 'left' });
+    }
     
     const isFbrEnabled = (data.total - data.subtotal - data.tax >= 100);
     if (isFbrEnabled) {

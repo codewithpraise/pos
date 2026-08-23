@@ -1,7 +1,7 @@
 {
   "version": "3.0.0",
-  "build_id": "v3.0.0-prod-14e8892",
-  "git_commit": "14e88924201e107a32ef7a10547e286964a42ac5",
+  "build_id": "v3.0.0-prod-2e0dc48",
+  "git_commit": "2e0dc48a4e89eba16eb6db66663094d1b88c282d",
   "updated_at": "2026-08-15",
   "changelog": "Valenixia POS v3.0.0 Mobile Onboarding Scroll Hardening, Responsive Layout & Universal Download Packages Release.",
   "changes": [

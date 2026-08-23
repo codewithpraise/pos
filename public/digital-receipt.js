@@ -138,7 +138,10 @@
     lines.push({ text: pad("Time:", ts.toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" }), storeWidth), size: 9 });
     lines.push({ text: pad("Receipt #:", (data.transactionId || "---").slice(-10).toUpperCase(), storeWidth), size: 9 });
     lines.push({ text: pad("Cashier:", data.cashierName || "N/A", storeWidth), size: 9 });
-    if (data.customerName) lines.push({ text: pad("Customer:", data.customerName, storeWidth), size: 9 });
+    if (data.customerName) lines.push({ text: pad("Customer:", data.customerName, storeWidth), size: 9, bold: true });
+    if (data.customerPhone) lines.push({ text: pad("Phone:", data.customerPhone, storeWidth), size: 9 });
+    if (data.customerAddress) lines.push({ text: "Address: " + data.customerAddress, size: 8, color: "#333333" });
+    if (data.customerCnic) lines.push({ text: pad("CNIC/ID:", data.customerCnic, storeWidth), size: 8 });
     lines.push({ text: "-".repeat(storeWidth), size: 9 });
     lines.push({ text: pad("ITEM", "TOTAL", storeWidth), bold: true, size: 9 });
     lines.push({ text: "-".repeat(storeWidth), size: 9 });
@@ -147,7 +150,13 @@
       // Integer math rounding to prevent floating point anomalies (Task 15)
       const lineTotal = Math.round((item.unitPrice || 0) * (item.qty || 1));
       lines.push({ text: pad(name, fmt(lineTotal), storeWidth), size: 9 });
-      lines.push({ text: "  Qty: " + item.qty + " x " + fmt(item.unitPrice || 0) + (item.discount ? " (-" + item.discount + "%)" : ""), size: 8, color: "#666" });
+      let itemMeta = "  Qty: " + item.qty + " x " + fmt(item.unitPrice || 0);
+      if (item.discount) itemMeta += " (-" + item.discount + "%)";
+      if (item.negotiated) itemMeta += " [Negotiated]";
+      lines.push({ text: itemMeta, size: 8, color: "#666" });
+      if (item.customNote) {
+        lines.push({ text: "  Details: " + item.customNote, size: 8, color: "#0066cc", bold: true });
+      }
     });
     lines.push({ text: "-".repeat(storeWidth), size: 9 });
     if (data.subtotal !== undefined) lines.push({ text: pad("Subtotal:", fmt(data.subtotal), storeWidth), size: 9 });
@@ -164,6 +173,10 @@
       // Guard against negative change formatting (Task 32)
       const change = Math.max(0, (data.amountPaid || 0) - (data.total || 0));
       lines.push({ text: pad("Change:", fmt(change), storeWidth), size: 9 });
+    }
+    if (data.notes || data.transactionNotes) {
+      lines.push({ text: "-".repeat(storeWidth), size: 9 });
+      lines.push({ text: "Terms / Notes: " + (data.notes || data.transactionNotes), size: 8, color: "#555" });
     }
     lines.push({ text: "-".repeat(storeWidth), size: 9 });
     if (data.footerText) {
