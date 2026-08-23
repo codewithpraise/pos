@@ -4302,6 +4302,7 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
       var addBtn = target.closest('#btn-catalog-create-product, .btn-add-product, [data-action="add-product"]');
       if (addBtn) {
         e.preventDefault();
+        e.stopPropagation();
         openProductEditModal(null);
       }
     }, true);
@@ -4316,9 +4317,6 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
       submitCheckoutTransaction();
     });
     // --- CATALOG MODAL BINDINGS ---
-    document.getElementById('btn-catalog-create-product')?.addEventListener('click', () => {
-      openProductEditModal(null);
-    });
     document.getElementById('btn-close-product-modal')?.addEventListener('click', () => {
       document.getElementById('modal-product')?.classList.remove('active');
     });
@@ -10887,8 +10885,9 @@ setHtml(container, `
   }
 
   function openProductEditModal(sku) {
-    playAudioSignal('click');
+    try { if (typeof playAudioSignal === 'function') playAudioSignal('click'); } catch(_) {}
     const modal = document.getElementById('modal-product');
+    if (!modal) return;
     const title = document.getElementById('modal-product-title');
     const auditResetCheckbox = document.getElementById('form-product-audit-reset');
     const auditRow = document.getElementById('form-product-audit-row');
@@ -10896,56 +10895,60 @@ setHtml(container, `
     const imageUrlInput = document.getElementById('form-product-image-url');
     const imageFileInput = document.getElementById('form-product-image-file');
     const dynamicContainer = document.getElementById('form-product-mode-fields-container');
-    const shopMode = state.preferences['shop_mode'] || 'simple-retail';
+    const shopMode = (state && state.preferences && (state.preferences['shop_mode'] || state.preferences['store_type'])) || 'simple-retail';
+
+    function safeSetVal(id, val) {
+      const el = document.getElementById(id);
+      if (el) el.value = val;
+    }
 
     if (auditResetCheckbox) auditResetCheckbox.checked = false;
     if (imageFileInput) imageFileInput.value = '';
     
     if (sku) {
-      const p = state.catalog.find(item => item.sku === sku);
-      title.textContent = 'Edit Product Catalog Item';
-      document.getElementById('form-product-sku').value = p.sku;
-      document.getElementById('form-product-sku').disabled = true;
-      document.getElementById('form-product-gtin').value = p.gtin || '';
-      document.getElementById('form-product-emoji').value = p.emoji || '';
-      document.getElementById('form-product-name').value = p.name;
-      const nameUrInput = document.getElementById('form-product-name-ur');
-      if (nameUrInput) nameUrInput.value = p.name_ur || '';
-      document.getElementById('form-product-category').value = p.category || 'Drinks';
+      const p = (state.catalog || []).find(item => item.sku === sku);
+      if (!p) {
+        if (typeof showNotificationToast === 'function') showNotificationToast(`Product with SKU '${sku}' not found.`, 'error', 3000);
+        return;
+      }
+      if (title) title.textContent = 'Edit Product Catalog Item';
+      const skuInput = document.getElementById('form-product-sku');
+      if (skuInput) {
+        skuInput.value = p.sku;
+        skuInput.disabled = true;
+      }
+      safeSetVal('form-product-gtin', p.gtin || '');
+      safeSetVal('form-product-emoji', p.emoji || '');
+      safeSetVal('form-product-name', p.name || '');
+      safeSetVal('form-product-name-ur', p.name_ur || '');
+      safeSetVal('form-product-category', p.category || 'Drinks');
       const pPrice = p.base_price_minor_units !== undefined ? p.base_price_minor_units : (p.price || 0);
       const pCost = p.cost_price_minor_units !== undefined ? p.cost_price_minor_units : (p.cost || 0);
-      document.getElementById('form-product-price').value = (pPrice / 100).toFixed(2);
-      document.getElementById('form-product-stock').value = p.stock_quantity !== undefined ? p.stock_quantity : (p.stock !== undefined ? p.stock : 0);
-      document.getElementById('form-product-cost').value = (pCost / 100).toFixed(2);
-      document.getElementById('form-product-threshold').value = p.low_stock_threshold !== undefined ? p.low_stock_threshold : 10;
+      safeSetVal('form-product-price', (pPrice / 100).toFixed(2));
+      safeSetVal('form-product-stock', p.stock_quantity !== undefined ? p.stock_quantity : (p.stock !== undefined ? p.stock : 0));
+      safeSetVal('form-product-cost', (pCost / 100).toFixed(2));
+      safeSetVal('form-product-threshold', p.low_stock_threshold !== undefined ? p.low_stock_threshold : 10);
+      safeSetVal('form-product-unit', p.unit || 'pcs');
+      safeSetVal('form-product-supplier', p.supplier || p.distributor_name || '');
+      safeSetVal('form-product-batch', p.batch_no || p.batch_number || '');
+      safeSetVal('form-product-expiry', p.expiry_date || p.expiry || '');
+      safeSetVal('form-product-tax-override', (p.tax_override !== undefined && p.tax_override !== null) ? p.tax_override : '');
       
-      const unitEl = document.getElementById('form-product-unit');
-      if (unitEl) unitEl.value = p.unit || 'pcs';
-      const suppEl = document.getElementById('form-product-supplier');
-      if (suppEl) suppEl.value = p.supplier || p.distributor_name || '';
-      const batchEl = document.getElementById('form-product-batch');
-      if (batchEl) batchEl.value = p.batch_no || p.batch_number || '';
-      const expEl = document.getElementById('form-product-expiry');
-      if (expEl) expEl.value = p.expiry_date || p.expiry || '';
-      const taxOvEl = document.getElementById('form-product-tax-override');
-      if (taxOvEl) taxOvEl.value = (p.tax_override !== undefined && p.tax_override !== null) ? p.tax_override : '';
-      
-      // Load image data
-      if (p.image_url) {
-        imageUrlInput.value = p.image_url;
-        imagePreview.style.backgroundImage = `url(${p.image_url})`;
-        imagePreview.textContent = '';
-      } else {
-        imageUrlInput.value = '';
-        imagePreview.style.backgroundImage = '';
-        imagePreview.textContent = '';
+      // Load image data safely
+      if (imageUrlInput) imageUrlInput.value = p.image_url || '';
+      if (imagePreview) {
+        if (p.image_url) {
+          imagePreview.style.backgroundImage = `url(${p.image_url})`;
+          imagePreview.textContent = '';
+        } else {
+          imagePreview.style.backgroundImage = '';
+          imagePreview.textContent = '';
+        }
       }
 
       // Render mode-specific configs
-      renderFormModeFields(dynamicContainer, shopMode, p.mode_fields || '{}');
+      if (dynamicContainer) renderFormModeFields(dynamicContainer, shopMode, p.mode_fields || '{}');
 
-      // SKU cannot be changed on edit
-      document.getElementById('form-product-sku').disabled = true;
       if (auditRow) auditRow.style.display = 'flex';
       const presetContainerEdit = document.getElementById('form-product-presets-container');
       if (presetContainerEdit) presetContainerEdit.style.display = 'none';
@@ -11033,9 +11036,9 @@ setHtml(container, `
           if (btnApply) {
             btnApply.addEventListener('click', async (e) => {
               e.preventDefault();
-              const editSku = document.getElementById('form-product-sku').value;
-              const inputVal = parseInt(document.getElementById('form-product-stock-delta').value || '1', 10);
-              const reason = document.getElementById('form-product-stock-reason').value;
+              const editSku = document.getElementById('form-product-sku')?.value;
+              const inputVal = parseInt(document.getElementById('form-product-stock-delta')?.value || '1', 10);
+              const reason = document.getElementById('form-product-stock-reason')?.value || 'manual_adjustment';
 
               if (!editSku || isNaN(inputVal) || inputVal < 0) return;
 
@@ -11046,10 +11049,10 @@ setHtml(container, `
 
               await quickStockAdjust(editSku, delta);
 
-              const updatedProd = state.catalog.find(x => x.sku === editSku);
+              const updatedProd = (state.catalog || []).find(x => x.sku === editSku);
               const nowStock = updatedProd ? (updatedProd.stock_level ?? updatedProd.stock_quantity ?? updatedProd.stock ?? 0) : currentStockVal + delta;
 
-              document.getElementById('form-product-stock').value = nowStock;
+              safeSetVal('form-product-stock', nowStock);
               if (previewBadge) previewBadge.textContent = `Current: ${nowStock} Units`;
               updateOpPillUI();
             });
@@ -11059,23 +11062,37 @@ setHtml(container, `
       }
     } else {
       if (window.checkLimit) {
-        const limit = window.checkLimit('products', state.catalog.length);
+        const limit = window.checkLimit('products', (state.catalog || []).length);
         if (!limit.allowed) {
           if (window.showUpgradeModal) window.showUpgradeModal('products');
           return;
         }
       }
-      document.getElementById('modal-product-title').textContent = 'Add New Product';
-      document.getElementById('form-product-sku').disabled = false;
-      document.getElementById('form-product-sku').value = '';
-      document.getElementById('form-product-gtin').value = '';
-      document.getElementById('form-product-emoji').value = '';
-      document.getElementById('form-product-name').value = '';
-      document.getElementById('form-product-category').value = 'Drinks';
-      document.getElementById('form-product-price').value = '';
-      document.getElementById('form-product-cost').value = '';
-      document.getElementById('form-product-stock').value = '';
-      document.getElementById('form-product-threshold').value = 10;
+      if (title) title.textContent = 'Add New Product';
+      const skuInput = document.getElementById('form-product-sku');
+      if (skuInput) {
+        skuInput.disabled = false;
+        skuInput.value = '';
+      }
+      safeSetVal('form-product-gtin', '');
+      safeSetVal('form-product-emoji', '');
+      safeSetVal('form-product-name', '');
+      safeSetVal('form-product-name-ur', '');
+      safeSetVal('form-product-category', 'Drinks');
+      safeSetVal('form-product-price', '');
+      safeSetVal('form-product-cost', '');
+      safeSetVal('form-product-stock', '');
+      safeSetVal('form-product-threshold', 10);
+      safeSetVal('form-product-unit', 'pcs');
+      safeSetVal('form-product-supplier', '');
+      safeSetVal('form-product-batch', '');
+      safeSetVal('form-product-expiry', '');
+      safeSetVal('form-product-tax-override', '');
+      if (imageUrlInput) imageUrlInput.value = '';
+      if (imagePreview) {
+        imagePreview.style.backgroundImage = '';
+        imagePreview.textContent = '';
+      }
       if (auditRow) auditRow.style.display = 'none';
       // Hide stock adjust row for new products
       const newAdjRow = document.getElementById('form-product-stock-adjust-row');
@@ -11083,39 +11100,40 @@ setHtml(container, `
 
       // Show quick-preset bar for new products
       const presetContainer = document.getElementById('form-product-presets-container');
-      renderProductPresets(presetContainer);
+      if (presetContainer) renderProductPresets(presetContainer);
 
       // Render empty mode fields for the current shop mode
-      renderFormModeFields(dynamicContainer, shopMode, '{}');
+      if (dynamicContainer) renderFormModeFields(dynamicContainer, shopMode, '{}');
     }
 
     modal.classList.add('active');
   }
 
   async function submitProductForm() {
-    let sku = document.getElementById('form-product-sku').value.toUpperCase().trim();
-    const name = document.getElementById('form-product-name').value.trim();
-    const gtin = document.getElementById('form-product-gtin').value.trim();
-    const rawPrice = parseFloat(document.getElementById('form-product-price').value || '0');
-    const rawCost = parseFloat(document.getElementById('form-product-cost').value || '0');
+    let sku = (document.getElementById('form-product-sku')?.value || '').toUpperCase().trim();
+    const name = (document.getElementById('form-product-name')?.value || '').trim();
+    const gtin = (document.getElementById('form-product-gtin')?.value || '').trim();
+    const rawPrice = parseFloat(document.getElementById('form-product-price')?.value || '0');
+    const rawCost = parseFloat(document.getElementById('form-product-cost')?.value || '0');
     const price = Math.round(rawPrice * 100);
     const cost = Math.round(rawCost * 100);
-    const stock = parseInt(document.getElementById('form-product-stock').value || '0');
-    const low_stock_threshold = parseInt(document.getElementById('form-product-threshold').value || 10);
-    const emoji = document.getElementById('form-product-emoji').value.trim();
-    const category = document.getElementById('form-product-category').value || 'General';
+    const stock = parseInt(document.getElementById('form-product-stock')?.value || '0', 10);
+    const low_stock_threshold = parseInt(document.getElementById('form-product-threshold')?.value || 10, 10);
+    const emoji = (document.getElementById('form-product-emoji')?.value || '').trim();
+    const category = document.getElementById('form-product-category')?.value || 'General';
     
     if (!sku && name) {
       sku = 'SKU-' + Date.now().toString(36).toUpperCase();
-      document.getElementById('form-product-sku').value = sku;
+      const skuEl = document.getElementById('form-product-sku');
+      if (skuEl) skuEl.value = sku;
     }
 
     const auditResetCheckbox = document.getElementById('form-product-audit-reset');
     const isAuditReset = auditResetCheckbox ? auditResetCheckbox.checked : false;
 
-    const image_url = document.getElementById('form-product-image-url').value;
-    const shopMode = state.preferences['shop_mode'] || 'simple-retail';
-    const mode_fields = getFormModeFields(shopMode);
+    const image_url = (document.getElementById('form-product-image-url')?.value) || '';
+    const shopMode = (state && state.preferences && (state.preferences['shop_mode'] || state.preferences['store_type'])) || 'simple-retail';
+    const mode_fields = typeof getFormModeFields === 'function' ? getFormModeFields(shopMode) : {};
 
     if (!sku || !name || price <= 0) {
       if (!sku) {
@@ -17785,9 +17803,9 @@ setHtml(dz, '<span>');
     }
   })();
 
-// ----------------------------------------------------------------------------
+  // ----------------------------------------------------------------------------
   // P1-33: PWA Install Prompt (beforeinstallprompt)
-// ----------------------------------------------------------------------------
+  // ----------------------------------------------------------------------------
   (function initPWAInstallPrompt() {
     try {
       let deferredPrompt = null;
@@ -17797,9 +17815,28 @@ setHtml(dz, '<span>');
       window.addEventListener('beforeinstallprompt', e => {
         e.preventDefault();
         deferredPrompt = e;
+        window.__pwaDeferredPrompt = e;
         // Show banner after 3 navigation events
-        if (navCount >= 3) showInstallBanner();
+        if (navCount >= 3 && !sessionStorage.getItem('_pwa_dismissed')) showInstallBanner();
       });
+
+      window.triggerPWAInstall = async function() {
+        const prompt = deferredPrompt || window.__pwaDeferredPrompt;
+        if (prompt && typeof prompt.prompt === 'function') {
+          prompt.prompt();
+          const choice = await prompt.userChoice;
+          console.log('[PWA] Prompt choice:', choice);
+          deferredPrompt = null;
+          window.__pwaDeferredPrompt = null;
+          const banner = document.getElementById('pwa-install-banner');
+          if (banner) banner.remove();
+          return choice;
+        } else {
+          if (typeof showNotificationToast === 'function') {
+            showNotificationToast('To install Valenixia POS: Tap browser menu (⋮ or Share) ➔ "Install App" or "Add to Home screen"', 'info', 5000);
+          }
+        }
+      };
 
       function showInstallBanner() {
         if (document.getElementById('pwa-install-banner')) return;
@@ -17824,6 +17861,7 @@ setHtml(dz, '<span>');
           const { outcome } = await deferredPrompt.userChoice;
           console.log('[PWA] Install prompt outcome:', outcome);
           deferredPrompt = null;
+          window.__pwaDeferredPrompt = null;
           banner.remove();
         });
         document.getElementById('pwa-install-dismiss')?.addEventListener('click', () => {
