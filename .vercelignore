@@ -6,10 +6,11 @@ gradle-*
 android
 build
 dist
-Downloads
-downloads
+/Downloads
+/downloads
 public/downloads/*.exe
 public/downloads/*.msi
+!public/downloads/*.apk
 *.exe
 *.msi
 *.zip
