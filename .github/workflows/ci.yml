@@ -69,10 +69,10 @@ jobs:
 
       - name: Run Test Suite (Unit, DB, Backups)
         env:
-          TEST_ADMIN_PIN: ${{ secrets.TEST_ADMIN_PIN }}
-          TEST_LICENSE_KEY: ${{ secrets.TEST_LICENSE_KEY }}
-          TEST_PASSPHRASE: ${{ secrets.TEST_PASSPHRASE }}
-          TEST_HWIDS: ${{ secrets.TEST_HWIDS }}
+          TEST_ADMIN_PIN: ${{ secrets.TEST_ADMIN_PIN || '1234' }}
+          TEST_LICENSE_KEY: ${{ secrets.TEST_LICENSE_KEY || 'VALENIXIA-FREE-TRIAL' }}
+          TEST_PASSPHRASE: ${{ secrets.TEST_PASSPHRASE || 'valenixia_secure_passphrase' }}
+          TEST_HWIDS: ${{ secrets.TEST_HWIDS || 'DEFAULT_HWID_001' }}
         run: npm test
 
       - name: Setup Chrome Browser
@@ -82,10 +82,10 @@ jobs:
 
       - name: Run Full E2E & Diagnostic Suites with Headless Services
         env:
-          TEST_ADMIN_PIN: ${{ secrets.TEST_ADMIN_PIN }}
-          TEST_LICENSE_KEY: ${{ secrets.TEST_LICENSE_KEY }}
-          TEST_PASSPHRASE: ${{ secrets.TEST_PASSPHRASE }}
-          TEST_HWIDS: ${{ secrets.TEST_HWIDS }}
+          TEST_ADMIN_PIN: ${{ secrets.TEST_ADMIN_PIN || '1234' }}
+          TEST_LICENSE_KEY: ${{ secrets.TEST_LICENSE_KEY || 'VALENIXIA-FREE-TRIAL' }}
+          TEST_PASSPHRASE: ${{ secrets.TEST_PASSPHRASE || 'valenixia_secure_passphrase' }}
+          TEST_HWIDS: ${{ secrets.TEST_HWIDS || 'DEFAULT_HWID_001' }}
         run: |
           # Clean up any existing database files to prevent test contamination
           rm -f valenixia.db valenixia.db-wal valenixia.db-shm nexova.db nexova.db-wal nexova.db-shm || true

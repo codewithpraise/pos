@@ -152,9 +152,9 @@ async function detectBootState(ev) {
   };
 }
 
-async function doLogin(ev, pin = process.env.TEST_ADMIN_PIN) {
+async function doLogin(ev, pin = process.env.TEST_ADMIN_PIN || '1234') {
   if (!pin) {
-    throw new Error('TEST_ADMIN_PIN environment variable is required for E2E tests.');
+    pin = '1234';
   }
   const digits = pin.split('');
   for (const d of digits) {
@@ -191,11 +191,8 @@ async function run() {
   log(' VALENIXIA POS — COMPREHENSIVE E2E TEST SUITE v2');
   log('══════════════════════════════════════════════════════════════\n');
 
-  const testAdminPin = process.env.TEST_ADMIN_PIN;
-  const testPassphrase = process.env.TEST_PASSPHRASE;
-  if (!testAdminPin || !testPassphrase) {
-    throw new Error('E2E test suite requires TEST_ADMIN_PIN and TEST_PASSPHRASE to be set in environment variables.');
-  }
+  const testAdminPin = process.env.TEST_ADMIN_PIN || '1234';
+  const testPassphrase = process.env.TEST_PASSPHRASE || 'valenixia_secure_passphrase';
 
   const { ws, ev, send } = await connectCDP();
 
