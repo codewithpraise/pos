@@ -21,6 +21,7 @@ out/
 *.msi
 *.apk
 *.zip
+!public/downloads/*.apk
 *.log
 gradle-8.5/
 

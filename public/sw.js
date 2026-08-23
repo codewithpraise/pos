@@ -120,20 +120,33 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
 
   // 1. WebSocket upgrade requests Ãƒ¢Ã¢š¬Ã¢â‚¬ these arrive as http(s):// but with
+  // 1. WebSocket upgrade requests Ãƒ¢Ã¢š¬Ã¢â‚¬  these arrive as http(s):// but with
   //    mode 'websocket'. The browser handles them natively; never call
   //    event.respondWith() or fetch() on them.
   if (request.mode === 'websocket') {
     return; // Let browser handle WebSocket upgrades natively
   }
 
-  // 2. Cross-origin requests (Google Fonts, Supabase, etc.) Ãƒ¢Ã¢š¬Ã¢â‚¬ never intercept.
+  // 2. Cross-origin requests (Google Fonts, Supabase, etc.) Ãƒ¢Ã¢š¬Ã¢â‚¬  never intercept.
   //    Attempting to fetch() external URLs that are blocked by CSP produces
   //    a 503 in the console. Let the browser handle these directly.
   if (url.origin !== self.location.origin) {
     return;
   }
 
-  // 2. Dynamic/server-side routes: network-only with clean offline fallback
+  // 3. Binary and package downloads (.apk, .exe, .msi, .zip, /downloads/)
+  //    Never intercept downloads in Service Worker — let browser native download manager handle them.
+  if (
+    url.pathname.startsWith('/downloads/') ||
+    url.pathname.endsWith('.apk') ||
+    url.pathname.endsWith('.exe') ||
+    url.pathname.endsWith('.msi') ||
+    url.pathname.endsWith('.zip')
+  ) {
+    return;
+  }
+
+  // 4. Dynamic/server-side routes: network-only with clean offline fallback
   const isDynamic =
     url.pathname.startsWith('/api/') ||
     url.pathname === '/version.json' ||

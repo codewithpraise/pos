@@ -471,6 +471,37 @@ const qrApproveLimiter = rateLimit({
   skip: () => process.env.NODE_ENV === 'test'
 });
 
+// Native Package Download Handlers with explicit MIME types and attachment disposition
+app.get(['/downloads/valenixia-pos.apk', '/downloads/valenixia.apk', '/downloads/app-debug.apk', '/downloads/valenixia-pos-mobile.apk', '/downloads/valenixia-pos-latest.apk'], (req, res) => {
+  const filePath = path.join(__dirname, 'public', 'downloads', 'valenixia-pos.apk');
+  if (fs.existsSync(filePath)) {
+    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+    res.setHeader('Content-Disposition', 'attachment; filename="valenixia-pos.apk"');
+    return res.sendFile(filePath);
+  }
+  res.status(404).send('APK file not found on server.');
+});
+
+app.get(['/downloads/valenixia-pos.exe', '/downloads/valenixia.exe', '/downloads/valenixia-pos-desktop.exe', '/downloads/nexova-pos-setup.exe'], (req, res) => {
+  const filePath = path.join(__dirname, 'public', 'downloads', 'valenixia-pos.exe');
+  if (fs.existsSync(filePath)) {
+    res.setHeader('Content-Type', 'application/vnd.microsoft.portable-executable');
+    res.setHeader('Content-Disposition', 'attachment; filename="valenixia-pos.exe"');
+    return res.sendFile(filePath);
+  }
+  res.status(404).send('Windows executable not found on server.');
+});
+
+app.get(['/downloads/valenixia-pos.msi', '/downloads/valenixia-pos-setup.msi', '/downloads/nexova-pos-setup.msi'], (req, res) => {
+  const filePath = path.join(__dirname, 'public', 'downloads', 'valenixia-pos.msi');
+  if (fs.existsSync(filePath)) {
+    res.setHeader('Content-Type', 'application/x-msi');
+    res.setHeader('Content-Disposition', 'attachment; filename="valenixia-pos.msi"');
+    return res.sendFile(filePath);
+  }
+  res.status(404).send('MSI package not found on server.');
+});
+
 // Serve static assets from public directory
 app.use(express.static(path.join(__dirname, 'public')));
 
