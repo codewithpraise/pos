@@ -2748,12 +2748,43 @@ button:not(:disabled):active,
 
 /* MOBILE AND NARROW RESPONSIVE VIEW (Screen max width 899px) */
 @media (max-width: 899px) {
+  .pos-app-layout {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+    width: 100vw !important;
+  }
+
   .pos-main-container {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 0px !important;
+    min-height: 0 !important;
+    height: calc(100vh - 64px) !important;
+    height: calc(100dvh - 64px) !important;
+    max-height: calc(100dvh - 64px) !important;
+    padding-bottom: 0 !important;
+    overflow: hidden !important;
+    width: 100vw !important;
+  }
+
+  .pos-content-pane {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 0px !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
     padding-bottom: 0 !important;
   }
 
   .pos-topbar {
     padding: 0 16px;
+    flex-shrink: 0 !important;
   }
 
   .sidebar-toggle-btn {
