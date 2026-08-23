@@ -11587,6 +11587,7 @@ setHtml(row, `
     const title = document.getElementById('modal-customer-title');
     const spendRow = document.getElementById('form-customer-spend-row');
     const visitsRow = document.getElementById('form-customer-visits-row');
+    const kycDetails = document.getElementById('customer-kyc-details');
 
     if (id) {
       const c = state.customers.find(item => item.id === id);
@@ -11602,6 +11603,9 @@ setHtml(row, `
       document.getElementById('form-customer-visits').value = c.visits || 0;
       spendRow.style.display = 'flex';
       visitsRow.style.display = 'flex';
+      if (kycDetails) {
+        kycDetails.open = Boolean(c.address || c.cnic || c.notes);
+      }
     } else {
       title.textContent = 'Create Customer Profile';
       document.getElementById('form-customer-id').value = 'cust_' + Date.now();
@@ -11613,6 +11617,9 @@ setHtml(row, `
       document.getElementById('form-customer-notes').value = '';
       spendRow.style.display = 'none';
       visitsRow.style.display = 'none';
+      if (kycDetails) {
+        kycDetails.open = false;
+      }
     }
 
     modal.classList.add('active');

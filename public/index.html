@@ -3646,33 +3646,47 @@
       <div class="modal-body">
         <input type="hidden" id="form-customer-id">
         <div class="form-group">
-          <label for="form-customer-name">Customer Full Name</label>
+          <label for="form-customer-name">Customer Full Name <span style="color:var(--accent-emerald); font-size:10px; font-weight:700;">*Required</span></label>
           <input type="text" id="form-customer-name" class="pos-input" placeholder="e.g. Lucas Vance" aria-label="Customer Full Name">
         </div>
         <div class="form-grid-2col">
           <div class="form-group">
-            <label for="form-customer-phone">Phone Number</label>
+            <label for="form-customer-phone">Phone Number <span style="color:var(--text-gray); font-size:10px;">(Optional)</span></label>
             <input type="text" id="form-customer-phone" class="pos-input" placeholder="e.g. 03001234567" inputmode="numeric" pattern="[0-9]*" aria-label="Phone Number">
           </div>
           <div class="form-group">
-            <label for="form-customer-email">Email Address</label>
+            <label for="form-customer-email">Email Address <span style="color:var(--text-gray); font-size:10px;">(Optional)</span></label>
             <input type="email" id="form-customer-email" class="pos-input" placeholder="name@example.com" aria-label="Email Address">
           </div>
         </div>
-        <div class="form-grid-2col">
-          <div class="form-group">
-            <label for="form-customer-address">Customer Address / City</label>
-            <input type="text" id="form-customer-address" class="pos-input" placeholder="e.g. Shop 4, Hall Road, Lahore" aria-label="Customer Address">
+        
+        <!-- Optional KYC & Invoicing Accordion for Mobile / Electronics / Wholesale -->
+        <details class="customer-kyc-details" id="customer-kyc-details" style="margin-top: 12px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 10px 14px; transition: all 0.2s ease;">
+          <summary style="cursor: pointer; font-size: 11.5px; font-weight: 700; color: var(--accent-cyan); display: flex; align-items: center; justify-content: space-between; user-select: none;">
+            <span style="display:flex; align-items:center; gap:6px;">
+              <span>🪪</span>
+              <span>Billing &amp; KYC Details (Address, CNIC / ID, Notes)</span>
+              <span style="font-size: 9.5px; color: var(--text-gray); font-weight: normal;">— Optional</span>
+            </span>
+            <span style="font-size: 10px; opacity: 0.75;">▼</span>
+          </summary>
+          <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 10px;">
+            <div class="form-grid-2col">
+              <div class="form-group">
+                <label for="form-customer-address">Customer Address / City <span style="color:var(--text-gray); font-size:9.5px;">(Optional)</span></label>
+                <input type="text" id="form-customer-address" class="pos-input" placeholder="e.g. Shop 4, Hall Road, Lahore" aria-label="Customer Address">
+              </div>
+              <div class="form-group">
+                <label for="form-customer-cnic">CNIC / National ID / Passport <span style="color:var(--text-gray); font-size:9.5px;">(Optional)</span></label>
+                <input type="text" id="form-customer-cnic" class="pos-input" placeholder="e.g. 35201-1234567-1" aria-label="CNIC or National ID">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="form-customer-notes">Customer Notes / Warranty Terms <span style="color:var(--text-gray); font-size:9.5px;">(Optional)</span></label>
+              <input type="text" id="form-customer-notes" class="pos-input" placeholder="e.g. 1-Year Official Warranty, PTA Approved" aria-label="Customer Notes">
+            </div>
           </div>
-          <div class="form-group">
-            <label for="form-customer-cnic">CNIC / National ID / Passport</label>
-            <input type="text" id="form-customer-cnic" class="pos-input" placeholder="e.g. 35201-1234567-1" aria-label="CNIC or National ID">
-          </div>
-        </div>
-        <div class="form-group" style="margin-top: 10px;">
-          <label for="form-customer-notes">Customer Notes / Warranty Terms</label>
-          <input type="text" id="form-customer-notes" class="pos-input" placeholder="e.g. Regular wholesale buyer, 1-year store warranty" aria-label="Customer Notes">
-        </div>
+        </details>
         <div class="form-grid-2col" id="form-customer-spend-row" style="display:none;">
           <div class="form-group">
             <label for="form-customer-spend">Total Spend Balance (PKR)</label>
