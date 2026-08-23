@@ -4,7 +4,7 @@ const crypto = require('crypto');
 
 const { execSync } = require('child_process');
 
-const VERSION = '2.7.0';
+const VERSION = '3.0.0';
 let GIT_COMMIT = 'badda34f768186762f400ba553eef5e7dc46a5b8';
 try {
   GIT_COMMIT = execSync('git rev-parse HEAD', { cwd: path.join(__dirname, '..') }).toString().trim();

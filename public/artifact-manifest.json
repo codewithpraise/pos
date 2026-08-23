@@ -1,12 +1,12 @@
 {
-  "version": "2.7.0",
-  "git_commit": "43727b02e1067683cbddc314269de1fe521d70df",
-  "build_id": "v2.7.0-prod-43727b0",
+  "version": "3.0.0",
+  "git_commit": "14e88924201e107a32ef7a10547e286964a42ac5",
+  "build_id": "v3.0.0-prod-14e8892",
   "artifacts": {
     "app.js": {
       "path": "app.js",
-      "size": 920312,
-      "sha256": "88dce555be8612bc315125582baa47656dc5d9b03a032dd1aa09482da4c49b83"
+      "size": 1072336,
+      "sha256": "c71c9d07fb712815f6eed412382d5261162771b98853c9cf1886f0ec3b012a8f"
     },
     "barcode-decoder.js": {
       "path": "barcode-decoder.js",
@@ -15,23 +15,23 @@
     },
     "barcode-scanner.js": {
       "path": "barcode-scanner.js",
-      "size": 14966,
-      "sha256": "975e22ab1ea567a2a2abebc168636c7279c284aec1d7f9137b77b07ca0c92840"
+      "size": 15334,
+      "sha256": "577777adc1618c4364b611f6fc6f84f9eeb48d1902ff63dfaf89f0e06605696b"
     },
     "bootstrap-init.js": {
       "path": "bootstrap-init.js",
-      "size": 120855,
-      "sha256": "b025e09dff3a3742adbf6e2aa350ba9161bfafb6837d74c87e9bd46a159de0f1"
+      "size": 130880,
+      "sha256": "227f127b3009a5d78e52e28b14b60e37bc62f5d63e40e7ad7a42e7d2aaa60781"
     },
     "build-id": {
       "path": "build-id",
       "size": 20,
-      "sha256": "4c725f399f2dd4062793d6fee45f25e9033d31025df309079e4cc6d1707c7777"
+      "sha256": "b0c6f0e33f27eed569addd2e110e9237d511d64eb1882a441a42a984c2a3109a"
     },
     "commercial-catalog.js": {
       "path": "commercial-catalog.js",
-      "size": 13200,
-      "sha256": "7b2cb8a2c7f4dff6789cccae1263e38df6548774ed23205d114f15d0d81e519f"
+      "size": 13503,
+      "sha256": "a0043f409e5bd8535a04684d811c8838835a7555a6480898f29d733a54bdb31e"
     },
     "connectivity.js": {
       "path": "connectivity.js",
@@ -40,8 +40,8 @@
     },
     "index.html": {
       "path": "index.html",
-      "size": 341219,
-      "sha256": "1c363c3f10110f8e4bfcebf7e8eb3891d572c2a89fcf550d9ec2a70daad81909"
+      "size": 422514,
+      "sha256": "216a46cd6b163ef73abe2fe9ed274487efd3161e82f8116d87e9450bb4f3521d"
     },
     "legal-documents.js": {
       "path": "legal-documents.js",
@@ -50,28 +50,28 @@
     },
     "manifest.json": {
       "path": "manifest.json",
-      "size": 728,
-      "sha256": "5521c1084538ee8065504df1bfe8e02522dbcd3f7aca130e667404433acf2209"
+      "size": 750,
+      "sha256": "9fa735d4ed5bf6d2fe619ce06ff3768f6f12e93af2fabd27b7058af732521b67"
     },
     "release-manifest.json": {
       "path": "release-manifest.json",
       "size": 395,
-      "sha256": "3342a8e38e37ed4e1300b06d47c9d49ba035176c442edae81d7b1eb9e4ef3a3d"
+      "sha256": "7ead5761191442ed3f84e7661802505ce9cf040d3f03ba9a820e11b13dfd25d7"
     },
     "sw-loader.js": {
       "path": "sw-loader.js",
-      "size": 4514,
-      "sha256": "dc5eda2f5498be7a7d726c7369da8e9439448603e4b968a5118a6369e0f5ba45"
+      "size": 3783,
+      "sha256": "11ad7ff52b17c8f043c1dcca325576d1dad047777eec6ba136544c8ab5e2b719"
     },
     "sw.js": {
       "path": "sw.js",
-      "size": 9514,
-      "sha256": "5fe617ceb6ddc786cab04ed271c2f6a6e9eb7ac8e6d7f73b306a3f02498fc426"
+      "size": 9889,
+      "sha256": "83cc4cdefcf8819a0011ccbd1a98589493d9d608185010379f4772fa360d06d6"
     },
     "version.json": {
       "path": "version.json",
       "size": 1085,
-      "sha256": "d63fe8059346165054e5a422dd045c7ffd2d513b24c1e8e327162390b94aac0f"
+      "sha256": "3de5ef2ae4ba68e72a4ab96e5af04bbc0132caed64b6f4c9f5a4ffc6e606c37d"
     }
   }
 }

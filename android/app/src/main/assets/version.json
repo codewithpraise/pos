@@ -1,15 +1,16 @@
 {
   "version": "3.0.0",
-  "build_id": "v3.0.0-prod-valenixia-pos",
-  "git_commit": "aab6406",
-  "updated_at": "2026-08-22",
-  "changelog": "Valenixia POS v3.0.0 Enterprise & P2P Production Suite — High Performance Rendering, Accessible Pin Forms, Zero-Reflow Main Thread, and Native Companion Apps.",
+  "build_id": "v3.0.0-prod-14e8892",
+  "git_commit": "14e88924201e107a32ef7a10547e286964a42ac5",
+  "updated_at": "2026-08-15",
+  "changelog": "Valenixia POS v3.0.0 Mobile Onboarding Scroll Hardening, Responsive Layout & Universal Download Packages Release.",
   "changes": [
-    "Overhauled Customer Credit Ledger (Khata): debits increase debt, repayments decrease debt, crystal-clear advance deposit badges with zero negative sign confusion, and 0ms reactive in-memory synchronization",
-    "Added 8 New High-Value Pro & Enterprise Screen Views and Interactive Controllers: Kitchen Display System (KDS), Petty Cash Float & Z-Report Reconciliation, Staff Time Clock & Payroll Commission, Barcode Label & Shelf Tag Studio, AI Smart Inventory Reorder & Dead-Stock Forecast, VIP Customer Loyalty Club & Cashback Wallet, SMS & WhatsApp Marketing Broadcast Studio, and Inter-Branch Stock Transfer (STN) Manifests",
-    "Accessibility & Autofill compliance: Added hidden username fields to all authentication and setup forms",
-    "Zero-Reflow Engine: Optimized idle schedulers and lockout timers to eliminate layout thrashing and main thread blocking",
-    "Contextual Tier Upgrades: Dynamic paywall showing only qualifying tiers per feature requirements",
-    "Standardized universal release packages: valenixia-pos.apk (Android), valenixia-pos.exe (Desktop Windows), and valenixia-pos.msi in the Native Apps Center"
+    "Fixed onboarding/bootstrapping setup wizard overlay touch-scroll and overflow containment across all mobile browsers and webviews",
+    "Removed clipping overflow:hidden on wizard-card and normalized dynamic vertical sizing on small touch displays",
+    "Added -webkit-overflow-scrolling:touch, touch-action:pan-y, and overscroll-behavior-y:contain to all overlays and modal bodies",
+    "Implemented safe CSS-driven body scroll locking without unresettable body.style.overflow overrides",
+    "Rebuilt clean, unbloated 15MB Android APK (valenixia.apk) and desktop package (valenixia.exe)",
+    "Enhanced download center (download.html) with direct desktop and mobile installation links",
+    "Passed all 28 automated mobile scroll and runtime architecture validation checks"
   ]
 }
