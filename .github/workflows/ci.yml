@@ -134,6 +134,14 @@ jobs:
           npm run test:e2e
           TEST_EXIT_CODE=$?
 
+          if [ $TEST_EXIT_CODE -ne 0 ]; then
+            echo "=== E2E SUITE FAILED (exit code: $TEST_EXIT_CODE) ==="
+            echo "=== SERVER LOG ==="
+            cat server.log || true
+            echo "=== CHROME LOG ==="
+            cat chrome.log || true
+          fi
+
           # Clean up background services
           kill $SERVER_PID || true
           kill $CHROME_PID || true

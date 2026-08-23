@@ -37,11 +37,22 @@ function devToolsRequest(path, method = 'GET') {
 }
 
 async function connectCDP() {
-  log('connectCDP: Creating a fresh test tab...');
-  const newTabRes = await devToolsRequest('/json/new', 'PUT');
-  const target = JSON.parse(newTabRes);
-  activeTabId = target.id;
-  log('connectCDP: Created tab ID: ' + activeTabId);
+  log('connectCDP: Finding or creating a test tab...');
+  let target = null;
+  try {
+    const newTabRes = await devToolsRequest('/json/new', 'PUT');
+    target = JSON.parse(newTabRes);
+    activeTabId = target.id;
+    log('connectCDP: Created fresh test tab ID: ' + activeTabId);
+  } catch (err) {
+    log('connectCDP: /json/new error, falling back to /json targets: ' + err.message);
+    const targetsRes = await devToolsRequest('/json');
+    const targets = JSON.parse(targetsRes);
+    target = targets.find(t => t.type === 'page');
+    if (!target) throw new Error('No page targets found in Chrome DevTools Protocol');
+    activeTabId = target.id;
+    log('connectCDP: Connected to existing tab ID: ' + activeTabId);
+  }
 
   // Close other open tabs to prevent IndexedDB locks
   try {
@@ -59,7 +70,8 @@ async function connectCDP() {
 
   log('connectCDP: Connecting to WebSocket: ' + target.webSocketDebuggerUrl);
 
-  const ws = new WebSocket(target.webSocketDebuggerUrl.replace('localhost', '127.0.0.1'));
+  const wsUrl = target.webSocketDebuggerUrl ? target.webSocketDebuggerUrl.replace('localhost', '127.0.0.1') : `ws://127.0.0.1:${CDP_PORT}/devtools/page/${activeTabId}`;
+  const ws = new WebSocket(wsUrl);
   log('connectCDP: ws created, waiting for open...');
   ws.on('close', (code, reason) => { log(`connectCDP WS CLOSED: code=${code}, reason=${reason ? reason.toString() : ''}`); });
   ws.on('error', (err) => { log(`connectCDP WS ERROR: ${err.message}`); });
@@ -159,26 +171,22 @@ async function doLogin(ev, pin = process.env.TEST_ADMIN_PIN || '1234') {
   const digits = pin.split('');
   for (const d of digits) {
     await ev(`(function(){
-      var btns = document.querySelectorAll('.pin-btn');
-      for (var b of btns) {
-        if ((b.getAttribute('data-digit') === '${d}' || b.textContent.trim() === '${d}') && !b.classList.contains('pin-del')) {
-          b.click(); return;
-        }
+      if (typeof window.handlePinDigit === 'function') {
+        window.handlePinDigit('${d}');
+      } else {
+        var b = document.querySelector('.pin-btn[data-digit="${d}"]');
+        if (b) b.click();
       }
     })()`);
-    await sleep(200);
+    await sleep(150);
   }
   // Click ENT / Enter button to submit PIN
   await ev(`(function(){
-    var pad = document.getElementById('pin-pad') || document;
-    var enterBtn = pad.querySelector('[data-action="enter"]');
-    if (enterBtn) { enterBtn.click(); return; }
-    var btns = pad.querySelectorAll('.pin-btn');
-    for (var b of btns) {
-      var txt = b.textContent.trim().toUpperCase();
-      if (txt === 'ENT' || txt === 'ENTER' || b.getAttribute('data-action') === 'enter') {
-        b.click(); return;
-      }
+    if (typeof window.handlePinEnter === 'function') {
+      window.handlePinEnter();
+    } else {
+      var b = document.querySelector('.pin-btn[data-action="enter"]') || document.querySelector('.pin-btn.btn-enter');
+      if (b) b.click();
     }
   })()`);
   // wait up to 20s for layout to appear (display: grid/flex/block and lockscreen hidden)
