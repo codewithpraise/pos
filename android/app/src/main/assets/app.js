@@ -8256,6 +8256,7 @@ setHtml(qrContainer, '<span style="font-size: 8px; color: var(--text-gray); text
         } else if (el.id === 'btn-checkout-complete') {
           el.innerHTML = `<span>${text}</span>`;
         } else {
+          const hasElementChild = el.firstElementChild !== null;
           const spanChild = el.querySelector(':scope > span:not(.svg-icon)');
           if (spanChild && !el.querySelector('svg')) {
             spanChild.textContent = text;

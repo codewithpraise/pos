@@ -152,24 +152,20 @@ class SoundEngine {
 
 // Global window instance
 window.sounds = new SoundEngine();
-document.addEventListener('click', () => { try { window.sounds.init(); } catch (err) {} }, { once: true });
-document.addEventListener('keydown', () => { try { window.sounds.init(); } catch (err) {} }, { once: true });
-document.addEventListener('touchstart', () => { 
-  try { 
-    window.sounds.init(); 
-    if (window.sounds.ctx && window.sounds.ctx.state === 'suspended') {
-      window.sounds.ctx.resume();
-    }
-  } catch (err) {} 
-}, { once: true });
-document.addEventListener('touchend', () => { 
-  try { 
-    window.sounds.init(); 
-    if (window.sounds.ctx && window.sounds.ctx.state === 'suspended') {
-      window.sounds.ctx.resume();
-    }
-  } catch (err) {} 
-}, { once: true });
+const _initAudioOnce = () => {
+  setTimeout(() => {
+    try {
+      window.sounds.init();
+      if (window.sounds.ctx && window.sounds.ctx.state === 'suspended') {
+        window.sounds.ctx.resume();
+      }
+    } catch (_) {}
+  }, 0);
+};
+document.addEventListener('click', _initAudioOnce, { once: true, passive: true });
+document.addEventListener('keydown', _initAudioOnce, { once: true, passive: true });
+document.addEventListener('touchstart', _initAudioOnce, { once: true, passive: true });
+document.addEventListener('touchend', _initAudioOnce, { once: true, passive: true });
 
 window.playTone = function(type) {
   if (!window.sounds) return;

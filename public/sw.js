@@ -4,13 +4,12 @@
 // v10 - Cache-busting refresh, PASSPHRASE_MISMATCH auto-recovery
 // ============================================================================
 
-// Console gating in production Service Worker context to block trace leaks
-if (self.location.hostname !== 'localhost' && !self.location.hostname.includes('127.0.0.1') && !self.location.hostname.startsWith('192.168.')) {
+// Console gating in Service Worker context to prevent console pollution
+if (!self.location.search.includes('debug=true')) {
   const noop = () => {};
   console.log = noop;
   console.warn = noop;
   console.info = noop;
-  console.error = noop;
 }
 
 const urlParams = new URLSearchParams(self.location.search);
@@ -24,7 +23,7 @@ const ASSETS_TO_CACHE = [
   { url: '/styles/themes.css', integrity: '' },
   { url: '/styles/animations.css', integrity: '' },
   { url: '/styles/components.css', integrity: '' },
-  { url: '/app.js', integrity: 'sha384-KADPJUQPTFLzJkMO2doX1+X+/5BOQGkkozPmBrJbd2JLj0HkfYjP7t1Qs6CEwAPz' },
+  { url: '/app.js', integrity: 'sha384-284GGTQnwK4+BQiN22+broOSBFZ4MfVrZMYnShy/WsTD0NP6SdDUa1Fydo5um4LF' },
   { url: '/router.js', integrity: '' },
   { url: '/commercial-catalog.js', integrity: '' },
   { url: '/legal-documents.js', integrity: '' },
@@ -34,8 +33,8 @@ const ASSETS_TO_CACHE = [
   { url: '/modules/animations.js', integrity: '' },
   { url: '/modules/offline.js', integrity: '' },
   { url: '/modules/keyboard.js', integrity: '' },
-  { url: '/client-db.js', integrity: 'sha384-L1FSfTlXFwfs5klDOJz1moGGfihzD9yPi6BJp2LCCCYYVW7OQQqUWwwFVWPVX7iM' },
-  { url: '/client-audio.js', integrity: 'sha384-eNFP7nwI6r5YvjouaLqNb9zpHUftLLL7QNzJ5X5RaVzN/53rfdnZFxiwGxIVLBtc' },
+  { url: '/client-db.js', integrity: 'sha384-fgtn5YcGx0BgrCk5B+GC85uSHlf7o/CjDL48RF2QF9hjtYf1jj0o34hOdBt8cYBB' },
+  { url: '/client-audio.js', integrity: 'sha384-dzfXcrClk7pat6tYQU3aJLGFAsJYZU+tbF2rng81DIlBp+iUkOMe5TfNLe9va3f9' },
   { url: '/client-speech.js', integrity: 'sha384-7W67xTwgWUVhwx4BuvdTRftJfKk/2TH/JVX0FQy18uTcjM2CFaRvzRq/GRhW5e8k' },
   { url: '/client-sync.js', integrity: 'sha384-dvzrIevtShpBfj3wmA+zFMChJ4QAQRWSLqsTq5I4J0SztsioY8irVJLJzLC/ZLKc' },
   { url: '/sync-worker.js', integrity: 'sha384-zrEPQBWYzYL/WxBNd7xJkf7J+Z+MJ3VPxzzTm2PxGKGeXltWIAgA9WZIq2kXapFk' },

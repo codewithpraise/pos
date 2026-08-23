@@ -1283,25 +1283,31 @@ window.__VALENIXIA_WORKER_CODE = `// ===========================================
 
     triggerOpfsBackupDebounced() {
       if (this._opfsTimer) clearTimeout(this._opfsTimer);
-      this._opfsTimer = setTimeout(async () => {
-        try {
-          const passphrase = await this.getSyncPassphrase();
-          const allData = {};
-          const stores = [
-            'transactions', 'line_items', 'inventory_catalog', 'employees',
-            'crsql_changes', 'speech_analytics_logs', 'local_preferences',
-            'customers', 'categories', 'stock_movements', 'employee_shifts',
-            'distributors', 'purchase_orders', 'po_line_items', 'distributor_payments', 'customer_credit'
-          ];
-          for (const store of stores) {
-            allData[store] = await this.getAll(store);
+      this._opfsTimer = setTimeout(() => {
+        const scheduleIdle = typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function'
+          ? (fn) => window.requestIdleCallback(fn, { timeout: 4000 })
+          : (fn) => setTimeout(fn, 0);
+
+        scheduleIdle(async () => {
+          try {
+            const passphrase = await this.getSyncPassphrase();
+            const allData = {};
+            const stores = [
+              'transactions', 'line_items', 'inventory_catalog', 'employees',
+              'crsql_changes', 'speech_analytics_logs', 'local_preferences',
+              'customers', 'categories', 'stock_movements', 'employee_shifts',
+              'distributors', 'purchase_orders', 'po_line_items', 'distributor_payments', 'customer_credit'
+            ];
+            for (const store of stores) {
+              allData[store] = await this.getAll(store);
+            }
+            const text = JSON.stringify(allData);
+            await this.writeToOPFS(text, passphrase);
+          } catch (e) {
+            console.warn('[OPFS] Debounced backup notice:', e && e.message ? e.message : e);
           }
-          const text = JSON.stringify(allData);
-          await this.writeToOPFS(text, passphrase);
-        } catch (e) {
-          console.error('[OPFS] Debounced backup failed:', e);
-        }
-      }, 2000);
+        });
+      }, 3000);
     },
 
     async getAll(storeName, tx = null) {
