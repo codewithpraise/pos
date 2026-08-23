@@ -1234,53 +1234,58 @@ const LicenseEngine = (() => {
       if (billingCycle === 'LIFETIME') return null;
 
       if (['GROWTH', 'PRO', 'ENTERPRISE', 'STARTER'].includes(activeTier)) {
-        let expiresAtMs = parseInt(localStorage.getItem('valenixia_subscription_expires_at'), 10);
+        let expiresAtMs = parseInt(localStorage.getItem('valenixia_subscription_expires_at') || '0', 10);
         if (isNaN(expiresAtMs) || expiresAtMs <= 0) {
-          const prefExp = await ValenixiaDB.get('local_preferences', 'valenixia_subscription_expires_at').catch(() => null);
-          if (prefExp && prefExp.value_payload) {
-            expiresAtMs = parseInt(prefExp.value_payload, 10);
-          }
-        }
-
-        let subStartTime = parseInt(localStorage.getItem('valenixia_subscription_start_time'), 10);
-        if (!subStartTime || isNaN(subStartTime)) {
-          const pref = await ValenixiaDB.get('local_preferences', 'valenixia_subscription_start_time').catch(() => null);
-          if (pref && pref.value_payload) {
-            subStartTime = parseInt(pref.value_payload, 10);
-          }
-        }
-
-        if ((!subStartTime || isNaN(subStartTime)) && (!expiresAtMs || isNaN(expiresAtMs))) {
-          try {
-            if (typeof syncOnlineSubscriptionTier === 'function') {
-              await syncOnlineSubscriptionTier();
-              subStartTime = parseInt(localStorage.getItem('valenixia_subscription_start_time'), 10);
-              expiresAtMs = parseInt(localStorage.getItem('valenixia_subscription_expires_at'), 10);
+          if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.get) {
+            const prefExp = await ValenixiaDB.get('local_preferences', 'valenixia_subscription_expires_at').catch(() => null);
+            if (prefExp && prefExp.value_payload) {
+              expiresAtMs = parseInt(prefExp.value_payload, 10);
+              if (expiresAtMs > 0) localStorage.setItem('valenixia_subscription_expires_at', String(expiresAtMs));
             }
-          } catch (_) {}
+          }
         }
 
-        if (!isNaN(expiresAtMs) && expiresAtMs > 0) {
-          const remaining = expiresAtMs - Date.now();
-          return remaining > 0 ? remaining : 0;
+        let subStartTime = parseInt(localStorage.getItem('valenixia_subscription_start_time') || '0', 10);
+        if (!subStartTime || isNaN(subStartTime)) {
+          if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.get) {
+            const pref = await ValenixiaDB.get('local_preferences', 'valenixia_subscription_start_time').catch(() => null);
+            if (pref && pref.value_payload) {
+              subStartTime = parseInt(pref.value_payload, 10);
+              if (subStartTime > 0) localStorage.setItem('valenixia_subscription_start_time', String(subStartTime));
+            }
+          }
         }
 
         if (!subStartTime || isNaN(subStartTime)) {
           subStartTime = Date.now();
           localStorage.setItem('valenixia_subscription_start_time', String(subStartTime));
-          ValenixiaDB.put('local_preferences', {
-            key: 'valenixia_subscription_start_time',
-            value_type: 'STR',
-            value_payload: String(subStartTime),
-            is_idempotent_flag: 0,
-            updated_at: Date.now()
-          }).catch(() => {});
-        } else {
-          localStorage.setItem('valenixia_subscription_start_time', String(subStartTime));
+          if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
+            ValenixiaDB.put('local_preferences', {
+              key: 'valenixia_subscription_start_time',
+              value_type: 'STR',
+              value_payload: String(subStartTime),
+              is_idempotent_flag: 0,
+              updated_at: Date.now()
+            }).catch(() => {});
+          }
         }
 
-        const DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 Days default
-        const remaining = (subStartTime + DURATION_MS) - Date.now();
+        if (isNaN(expiresAtMs) || expiresAtMs <= 0) {
+          const DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 Days default
+          expiresAtMs = subStartTime + DURATION_MS;
+          localStorage.setItem('valenixia_subscription_expires_at', String(expiresAtMs));
+          if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
+            ValenixiaDB.put('local_preferences', {
+              key: 'valenixia_subscription_expires_at',
+              value_type: 'STR',
+              value_payload: String(expiresAtMs),
+              is_idempotent_flag: 0,
+              updated_at: Date.now()
+            }).catch(() => {});
+          }
+        }
+
+        const remaining = expiresAtMs - Date.now();
         return remaining > 0 ? remaining : 0;
       }
       return 0;

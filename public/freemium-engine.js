@@ -236,12 +236,37 @@ async function syncOnlineSubscriptionTier() {
       try { hwid = localStorage.getItem('valenixia_hwid') || ''; } catch(_) {}
     }
 
+    let existingStartMs = parseInt(localStorage.getItem('valenixia_subscription_start_time') || '0', 10);
+    if (isNaN(existingStartMs) || existingStartMs <= 0) {
+      if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.get) {
+        const pref = await ValenixiaDB.get('local_preferences', 'valenixia_subscription_start_time').catch(() => null);
+        if (pref && pref.value_payload) existingStartMs = parseInt(pref.value_payload, 10);
+      }
+    }
+    if (isNaN(existingStartMs) || existingStartMs <= 0) {
+      existingStartMs = Date.now();
+      localStorage.setItem('valenixia_subscription_start_time', String(existingStartMs));
+      if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
+        ValenixiaDB.put('local_preferences', {
+          key: 'valenixia_subscription_start_time',
+          value_type: 'STR',
+          value_payload: String(existingStartMs),
+          is_idempotent_flag: 0,
+          updated_at: Date.now()
+        }).catch(() => {});
+      }
+    }
+
     let data = null;
     if (serverBase && !serverBase.startsWith('file:')) {
       try {
-        const endpoint = serverBase + '/api/subscription/status' + (hwid ? '?hwid=' + encodeURIComponent(hwid) : '');
+        const startParam = existingStartMs ? '&start_time=' + encodeURIComponent(new Date(existingStartMs).toISOString()) : '';
+        const endpoint = serverBase + '/api/subscription/status' + (hwid ? '?hwid=' + encodeURIComponent(hwid) + startParam : '');
         const resp = await fetch(endpoint, {
-          headers: hwid ? { 'x-device-hwid': hwid } : {}
+          headers: {
+            ...(hwid ? { 'x-device-hwid': hwid } : {}),
+            ...(existingStartMs ? { 'x-subscription-start-time': new Date(existingStartMs).toISOString() } : {})
+          }
         });
         if (resp.ok) data = await resp.json();
       } catch (_) {}
@@ -263,7 +288,9 @@ async function syncOnlineSubscriptionTier() {
           if (rows && rows.length > 0) {
             data = {
               tier: String(rows[0].plan || rows[0].tier || 'FREE').toUpperCase(),
-              created_at: rows[0].created_at || rows[0].updated_at
+              created_at: rows[0].created_at || rows[0].updated_at,
+              subscription_start_time: rows[0].subscription_start_time || rows[0].created_at,
+              expires_at: rows[0].expires_at
             };
           }
         }
@@ -289,42 +316,41 @@ async function syncOnlineSubscriptionTier() {
         const serverExpIso = data?.expires_at;
         const serverExpMs = data?.expires_at_ms || (serverExpIso ? Date.parse(serverExpIso) : NaN);
 
+        // Only update local expiration if server provides a non-sliding authoritative value
+        const currentExpMs = parseInt(localStorage.getItem('valenixia_subscription_expires_at') || '0', 10);
         if (!isNaN(serverExpMs) && serverExpMs > 0) {
-          localStorage.setItem('valenixia_subscription_expires_at', String(serverExpMs));
+          const diff = Math.abs(serverExpMs - currentExpMs);
+          // Only overwrite if initial setup (currentExpMs is 0) or genuine renewal drift > 5 minutes
+          if (currentExpMs === 0 || diff > 300000) {
+            localStorage.setItem('valenixia_subscription_expires_at', String(serverExpMs));
+            if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
+              ValenixiaDB.put('local_preferences', {
+                key: 'valenixia_subscription_expires_at',
+                value_type: 'STR',
+                value_payload: String(serverExpMs),
+                is_idempotent_flag: 0,
+                updated_at: Date.now()
+              }).catch(() => {});
+            }
+          }
+        } else if (currentExpMs === 0 && existingStartMs > 0) {
+          // Establish initial 30-day default expiry anchored from existingStartMs
+          const initialExp = existingStartMs + (30 * 24 * 60 * 60 * 1000);
+          localStorage.setItem('valenixia_subscription_expires_at', String(initialExp));
           if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
             ValenixiaDB.put('local_preferences', {
               key: 'valenixia_subscription_expires_at',
               value_type: 'STR',
-              value_payload: String(serverExpMs),
+              value_payload: String(initialExp),
               is_idempotent_flag: 0,
               updated_at: Date.now()
             }).catch(() => {});
-          }
-        }
-        
-        let existingStartMs = parseInt(localStorage.getItem('valenixia_subscription_start_time'), 10);
-        if (isNaN(existingStartMs) || existingStartMs <= 0) {
-          if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.get) {
-            const pref = await ValenixiaDB.get('local_preferences', 'valenixia_subscription_start_time').catch(() => null);
-            if (pref && pref.value_payload) existingStartMs = parseInt(pref.value_payload, 10);
           }
         }
 
-        // Authoritative server timestamp anchors the countdown timer
-        if (!isNaN(serverStartMs) && serverStartMs > 0) {
+        // Authoritative server timestamp anchors the countdown timer if explicitly older or valid
+        if (!isNaN(serverStartMs) && serverStartMs > 0 && Math.abs(serverStartMs - existingStartMs) > 300000) {
           existingStartMs = serverStartMs;
-          localStorage.setItem('valenixia_subscription_start_time', String(existingStartMs));
-          if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
-            ValenixiaDB.put('local_preferences', {
-              key: 'valenixia_subscription_start_time',
-              value_type: 'STR',
-              value_payload: String(existingStartMs),
-              is_idempotent_flag: 0,
-              updated_at: Date.now()
-            }).catch(() => {});
-          }
-        } else if (isNaN(existingStartMs) || existingStartMs <= 0) {
-          existingStartMs = Date.now();
           localStorage.setItem('valenixia_subscription_start_time', String(existingStartMs));
           if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
             ValenixiaDB.put('local_preferences', {
@@ -338,10 +364,10 @@ async function syncOnlineSubscriptionTier() {
         }
       } catch(_) {}
 
-      const prevExp = window.__lastSyncedExp || localStorage.getItem('valenixia_subscription_expires_at');
-      const curExp = localStorage.getItem('valenixia_subscription_expires_at');
-      const expChanged = prevExp !== curExp;
-      window.__lastSyncedExp = curExp;
+      const prevExpNum = parseInt(window.__lastSyncedExp || '0', 10);
+      const curExpNum = parseInt(localStorage.getItem('valenixia_subscription_expires_at') || '0', 10);
+      const expChanged = prevExpNum > 0 && curExpNum > 0 && Math.abs(prevExpNum - curExpNum) > 300000;
+      window.__lastSyncedExp = String(curExpNum);
 
       // Only trigger full UI re-renders on genuine state mutations or initial boot
       if (tierChanged || expChanged || !window.__initialTierRendered) {
@@ -362,7 +388,7 @@ async function syncOnlineSubscriptionTier() {
 }
 if (typeof window !== 'undefined') {
   setTimeout(syncOnlineSubscriptionTier, 500);
-  setInterval(syncOnlineSubscriptionTier, 5000); // 5-second dynamic cloud sync
+  setInterval(syncOnlineSubscriptionTier, 30000); // 30-second stable cloud sync
 }
 window.syncOnlineSubscriptionTier = syncOnlineSubscriptionTier;
 

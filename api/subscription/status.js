@@ -2,6 +2,7 @@
 // VERCEL SERVERLESS FUNCTION: GET /api/subscription/status
 // ============================================================================
 // Authoritative Hardware-Bound Tier & Countdown Status for Serverless
+// Prevents countdown drift, sliding windows, and infinite loop resets.
 // ============================================================================
 
 'use strict';
@@ -10,7 +11,7 @@ module.exports = async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-device-hwid');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-device-hwid, x-subscription-start-time');
 
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
@@ -18,19 +19,21 @@ module.exports = async (req, res) => {
 
   const rawHwid = (req.query && req.query.hwid) || req.headers['x-device-hwid'] || null;
   const cleanHwid = rawHwid ? String(rawHwid).trim().toUpperCase() : 'DEFAULT_DEVICE';
+  const clientStartTime = (req.query && req.query.start_time) || req.headers['x-subscription-start-time'] || null;
   const nowIso = new Date().toISOString();
   const nowMs = Date.now();
 
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  const SUPABASE_URL = process.env.SUPABASE_URL || 'https://wzvwyfyefbdrqscxhwsf.supabase.co';
+  const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6dnd5ZnllZmJkcnFzY3hod3NmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MzU3ODUsImV4cCI6MjA5ODQxMTc4NX0.W9O6U4tqETM6BcEjX7evt3LunpIZOC5c7wcZht2ajuk';
 
   let effectiveTier = 'STARTER';
-  let subStartTime = nowIso;
-  let firstActivatedAt = nowIso;
+  let subStartTime = clientStartTime || nowIso;
+  let firstActivatedAt = clientStartTime || nowIso;
   let expiresAt = null;
   let durationMs = 30 * 24 * 60 * 60 * 1000;
   let billingCycle = 'MONTHLY';
   let status = 'active';
+  let isAnchored = false;
 
   if (SUPABASE_URL && SUPABASE_KEY) {
     try {
@@ -47,13 +50,37 @@ module.exports = async (req, res) => {
       if (!error && data && data.length > 0) {
         const store = data[0];
         effectiveTier = String(store.plan || store.tier || 'STARTER').toUpperCase();
-        subStartTime = store.subscription_start_time || store.created_at || store.updated_at || nowIso;
+        subStartTime = store.subscription_start_time || store.created_at || store.updated_at || subStartTime;
         firstActivatedAt = store.created_at || subStartTime;
         expiresAt = store.expires_at || null;
-        if (!expiresAt) {
-          expiresAt = new Date(Date.parse(subStartTime) + durationMs).toISOString();
+        if (!expiresAt && billingCycle !== 'LIFETIME') {
+          const sMs = Date.parse(subStartTime) || nowMs;
+          expiresAt = new Date(sMs + durationMs).toISOString();
         }
         status = store.is_active !== false ? 'active' : 'inactive';
+        isAnchored = true;
+      } else if (!error && cleanHwid !== 'DEFAULT_DEVICE') {
+        // First time device connects: Anchor in cloud database so subsequent calls are 100% immutable
+        try {
+          const anchorStart = clientStartTime || nowIso;
+          const anchorExp = new Date(Date.parse(anchorStart) + durationMs).toISOString();
+          await supabase.from('stores').insert([{
+            id: cleanHwid,
+            name: `Store (${cleanHwid.slice(0, 8)})`,
+            plan: 'starter',
+            tier: 'STARTER',
+            subscription_start_time: anchorStart,
+            expires_at: anchorExp,
+            created_at: anchorStart,
+            is_active: true
+          }]);
+          subStartTime = anchorStart;
+          firstActivatedAt = anchorStart;
+          expiresAt = anchorExp;
+          isAnchored = true;
+        } catch (_) {
+          // Non-fatal if anon key cannot insert
+        }
       }
     } catch (err) {
       console.warn('[ServerlessSubscription] Supabase lookup warning:', err.message);
@@ -61,7 +88,8 @@ module.exports = async (req, res) => {
   }
 
   if (!expiresAt && billingCycle !== 'LIFETIME') {
-    expiresAt = new Date(Date.parse(subStartTime) + durationMs).toISOString();
+    const sMs = Date.parse(subStartTime) || nowMs;
+    expiresAt = new Date(sMs + durationMs).toISOString();
   }
 
   const expiresAtMs = expiresAt ? Date.parse(expiresAt) : (Date.parse(subStartTime) + durationMs);
@@ -81,6 +109,7 @@ module.exports = async (req, res) => {
     expires_at_ms: expiresAtMs,
     duration_ms: durationMs,
     server_time: nowMs,
-    status: status
+    status: status,
+    is_anchored: isAnchored
   });
 };

@@ -15949,11 +15949,14 @@ setHtml(container, `<p style="color: var(--text-gray); font-size:12px;">License 
       const expiryClockEl = document.getElementById('license-expiry-clock');
       const existingTierVal = document.getElementById('license-card-active-tier-text');
 
-      // If already rendered with matching HWID and Tier, simply update values in place
+      // If already rendered with matching HWID and Tier, simply update values in place without destroying DOM or ticking intervals
       if (expiryClockEl && existingTierVal && container.querySelector('#settings-card-hwid-text')) {
         const hwidEl = document.getElementById('settings-card-hwid-text');
         if (hwidEl) hwidEl.textContent = hwid;
         if (existingTierVal) existingTierVal.textContent = tier;
+        if (!window.__licenseClockInterval && expiryMs !== null && expiryMs > 0) {
+          startLicenseClock();
+        }
         return;
       }
 
@@ -16032,8 +16035,8 @@ setHtml(container, `<p style="color: var(--text-gray); font-size:12px;">License 
       });
 
       // Start single clean live countdown tick if expiry exists
-      if (window.__licenseClockInterval) { clearInterval(window.__licenseClockInterval); window.__licenseClockInterval = null; }
-      if (expiryMs !== null && expiryMs > 0) {
+      function startLicenseClock() {
+        if (window.__licenseClockInterval) { clearInterval(window.__licenseClockInterval); window.__licenseClockInterval = null; }
         async function updateClockDisplay() {
           const mainEl = document.getElementById('license-expiry-clock');
           const topExpiryValEl = document.getElementById('license-active-expiry-val');
@@ -16054,11 +16057,23 @@ setHtml(container, `<p style="color: var(--text-gray); font-size:12px;">License 
           const secs = totalSec % 60;
 
           if (days > 0) {
-            mainEl.textContent = `Expires in ${days}d ${String(hrs).padStart(2,'0')}h ${String(mins).padStart(2,'0')}m ${String(secs).padStart(2,'0')}s`;
-            mainEl.style.color = days <= 3 ? 'var(--alert-amber)' : 'var(--accent-emerald)';
+            if (mainEl) {
+              mainEl.textContent = `Expires in ${days}d ${String(hrs).padStart(2,'0')}h ${String(mins).padStart(2,'0')}m ${String(secs).padStart(2,'0')}s`;
+              mainEl.style.color = days <= 3 ? 'var(--alert-amber)' : 'var(--accent-emerald)';
+            }
+            if (topExpiryValEl) {
+              topExpiryValEl.textContent = `Expires in ${days}d ${String(hrs).padStart(2,'0')}h ${String(mins).padStart(2,'0')}m ${String(secs).padStart(2,'0')}s`;
+              topExpiryValEl.style.color = days <= 3 ? 'var(--alert-amber)' : 'var(--accent-emerald)';
+            }
           } else {
-            mainEl.textContent = `Expires in ${String(hrs).padStart(2,'0')}h ${String(mins).padStart(2,'0')}m ${String(secs).padStart(2,'0')}s`;
-            mainEl.style.color = 'var(--alert-coral)';
+            if (mainEl) {
+              mainEl.textContent = `Expires in ${String(hrs).padStart(2,'0')}h ${String(mins).padStart(2,'0')}m ${String(secs).padStart(2,'0')}s`;
+              mainEl.style.color = 'var(--alert-coral)';
+            }
+            if (topExpiryValEl) {
+              topExpiryValEl.textContent = `Expires in ${String(hrs).padStart(2,'0')}h ${String(mins).padStart(2,'0')}m ${String(secs).padStart(2,'0')}s`;
+              topExpiryValEl.style.color = 'var(--alert-coral)';
+            }
           }
 
           // Heads-up warning toast if less than 3 days remaining
@@ -16071,6 +16086,10 @@ setHtml(container, `<p style="color: var(--text-gray); font-size:12px;">License 
         }
         updateClockDisplay();
         window.__licenseClockInterval = setInterval(updateClockDisplay, 1000);
+      }
+
+      if (expiryMs !== null && expiryMs > 0) {
+        startLicenseClock();
       }
     } catch (e) {
 setHtml(container, `<p style="color: var(--alert-coral); font-size:12px;">Failed to load license info: ${e.message}</p>`);
