@@ -374,8 +374,13 @@
           }).catch(() => {});
         }
 
+        const targetTier = planId.split('_')[0] || 'PRO';
+        if (typeof window.applySubscriptionUpgrade === 'function') {
+          window.applySubscriptionUpgrade(targetTier, 30);
+        }
+
         if (typeof showNotificationToast === 'function') {
-          showNotificationToast(' Payment claim logged! WhatsApp opened to send payment screenshot.', 'success', 5000);
+          showNotificationToast(' Payment claim logged! WhatsApp opened and 30 days added to your subscription.', 'success', 5000);
         }
 
         this.activateTab('history');

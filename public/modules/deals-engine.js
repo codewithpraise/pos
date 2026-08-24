@@ -201,12 +201,31 @@
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;">
           <button class="action-btn _deal-edit" data-id="${deal.id}" style="min-height:32px;padding:0 12px;font-size:11px;">Edit</button>
-          <button class="action-btn action-danger _deal-del" data-id="${deal.id}" style="min-height:32px;padding:0 12px;font-size:11px;">Delete</button>
+          <button class="action-btn action-danger _deal-del" data-id="${deal.id}" style="min-height:32px;padding:0 12px;font-size:11px;background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.6);color:#ef4444;display:inline-flex;align-items:center;justify-content:center;gap:3px;">
+            <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#ef4444" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            <span>Del</span>
+          </button>
         </div>`;
       card.querySelector('._deal-edit').addEventListener('click', e => { e.stopPropagation(); openEdit(deal.id); });
-      card.querySelector('._deal-del').addEventListener('click', e => {
+      card.querySelector('._deal-del').addEventListener('click', async (e) => {
         e.stopPropagation();
-        if (confirm(`Delete "${deal.name}"?`)) softDelete(deal.id);
+        if (typeof window.showModal === 'function') {
+          const choice = await window.showModal({
+            title: `Delete ${deal.name}?`,
+            message: `Are you sure you want to permanently delete the "${deal.name}" package from your deals catalog?`,
+            type: 'danger',
+            actions: [
+              { id: 'confirm', label: 'Yes, Delete Deal', style: 'danger' },
+              { id: 'cancel', label: 'Cancel', style: 'secondary' }
+            ]
+          });
+          if (choice !== 'confirm') return;
+        } else {
+          if (!confirm(`Delete "${deal.name}"?`)) return;
+        }
+        if (typeof window.playAudioSignal === 'function') window.playAudioSignal('trash');
+        softDelete(deal.id);
+        if (window.showNotificationToast) window.showNotificationToast(`Deal "${deal.name}" deleted.`, 'success', 2500);
       });
       el.appendChild(card);
     });
@@ -266,15 +285,16 @@
         <label style="display:block;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Bundled Items * <span style="text-transform:none;color:#475569;">(all deducted from stock simultaneously when sold)</span></label>
         <div id="__vxdm-items"></div>
         <div style="display:flex;gap:8px;margin-top:6px;">
-          <select id="__vxdm-sel" style="flex:1;padding:8px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:#fff;border-radius:8px;font-size:13px;">
-            <option value="">— Select product to add —</option>
-            ${cat.map(p=>`<option value="${p.id||p.sku}" data-price="${p.price_cents||p.base_price_minor_units||0}">${p.name} (${fmt(p.price_cents||p.base_price_minor_units||0)})</option>`).join('')}
+          <select id="__vxdm-sel" style="flex:1;padding:10px 12px;background:#14141d;border:1px solid rgba(255,255,255,.18);color:#ffffff;border-radius:8px;font-size:13.5px;font-weight:600;outline:none;">
+            <option value="" style="background:#14141d;color:#94a3b8;">— Select product to add —</option>
+            ${cat.map(p=>`<option value="${p.id||p.sku}" data-price="${p.price_cents||p.base_price_minor_units||0}" style="background:#14141d;color:#ffffff;padding:8px;">${p.name} (${fmt(p.price_cents||p.base_price_minor_units||0)})</option>`).join('')}
           </select>
           <button id="__vxdm-add-item" style="padding:8px 16px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.4);color:#10b981;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">+ Add</button>
         </div>
       </div>
       <div style="display:flex;gap:10px;">
         <button id="__vxdm-save" style="flex:1;height:48px;background:linear-gradient(135deg,#00d68f,#10b981);border:none;color:#060d0d;font-size:14px;font-weight:800;border-radius:10px;cursor:pointer;font-family:inherit;">${isNew?'Create '+L.s:'Save Changes'}</button>
+        ${!isNew ? `<button id="__vxdm-delete" style="height:48px;padding:0 16px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.5);color:#ef4444;border-radius:10px;cursor:pointer;font-size:13.5px;font-weight:800;font-family:inherit;display:inline-flex;align-items:center;gap:4px;">🗑 Delete</button>` : ''}
         <button id="__vxdm-cancel" style="height:48px;padding:0 20px;background:transparent;border:1px solid rgba(255,255,255,.1);color:#64748b;border-radius:10px;cursor:pointer;font-size:14px;font-family:inherit;">Cancel</button>
       </div>
     </div>`;
@@ -285,11 +305,14 @@
       const el = ov.querySelector('#__vxdm-items');
       if (!el) return;
       if (!selItems.length) { el.innerHTML = '<p style="color:var(--text-gray);font-size:12px;text-align:center;padding:10px 0;">No items yet.</p>'; return; }
-      el.innerHTML = selItems.map((item,i) => `<div style="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--border-titanium);border-radius:6px;margin-bottom:6px;background:rgba(255,255,255,.02);">
-        <span style="flex:1;font-size:13px;color:var(--text-white);">${item.name}</span>
-        <span style="font-size:11px;color:var(--text-gray);">Qty:</span>
-        <input type="number" min="1" value="${item.qty}" data-i="${i}" class="__vxdm-qty" style="width:52px;padding:4px 6px;background:var(--panel-graphite);border:1px solid var(--border-titanium);color:var(--text-white);border-radius:4px;font-size:13px;text-align:center;">
-        <button data-i="${i}" class="__vxdm-rm" style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#ef4444;padding:4px 8px;border-radius:4px;font-size:12px;cursor:pointer;"></button>
+      el.innerHTML = selItems.map((item,i) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--border-titanium);border-radius:8px;margin-bottom:6px;background:rgba(255,255,255,.02);">
+        <span style="flex:1;font-size:13px;font-weight:700;color:var(--text-white);">${item.name}</span>
+        <span style="font-size:11px;color:var(--text-gray);font-weight:600;">Qty:</span>
+        <input type="number" min="1" value="${item.qty}" data-i="${i}" class="__vxdm-qty" style="width:52px;padding:4px 6px;background:var(--panel-graphite);border:1px solid var(--border-titanium);color:var(--text-white);border-radius:4px;font-size:13px;text-align:center;font-weight:700;">
+        <button data-i="${i}" class="__vxdm-rm action-danger" title="Remove item" style="background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.6);color:#ef4444;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:3px;min-height:26px;">
+          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#ef4444" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          <span>Del</span>
+        </button>
       </div>`).join('');
       el.querySelectorAll('.__vxdm-qty').forEach(inp => inp.addEventListener('change', () => { selItems[+inp.dataset.i].qty = Math.max(1, parseInt(inp.value)||1); }));
       el.querySelectorAll('.__vxdm-rm').forEach(btn => btn.addEventListener('click', () => { selItems.splice(+btn.dataset.i, 1); redrawItems(); }));
@@ -319,6 +342,27 @@
 
     ov.querySelector('#__vxdm-close').addEventListener('click',  () => ov.remove());
     ov.querySelector('#__vxdm-cancel').addEventListener('click', () => ov.remove());
+    ov.querySelector('#__vxdm-delete')?.addEventListener('click', async () => {
+      if (!deal) return;
+      if (typeof window.showModal === 'function') {
+        const choice = await window.showModal({
+          title: `Delete ${deal.name}?`,
+          message: `Are you sure you want to permanently delete the "${deal.name}" package?`,
+          type: 'danger',
+          actions: [
+            { id: 'confirm', label: 'Yes, Delete Deal', style: 'danger' },
+            { id: 'cancel', label: 'Cancel', style: 'secondary' }
+          ]
+        });
+        if (choice !== 'confirm') return;
+      } else {
+        if (!confirm(`Delete "${deal.name}"?`)) return;
+      }
+      if (typeof window.playAudioSignal === 'function') window.playAudioSignal('trash');
+      softDelete(deal.id);
+      ov.remove();
+      if (window.showNotificationToast) window.showNotificationToast(`Deal "${deal.name}" deleted.`, 'success', 2500);
+    });
     ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
 
     ov.querySelector('#__vxdm-save').addEventListener('click', () => {
@@ -512,11 +556,16 @@
     addToCart,
     getAll,
     getById,
+    upsert,
+    softDelete,
+    delete: softDelete,
     handleWorkerMsg,
     setMode(m) { _mode = m||'simple-retail'; }
   };
 
   window.VXDeals = VXDeals;
+  window.ValenixiaDeals = VXDeals;
+  window.renderDealsScreen = renderView;
 
   // Wire: intercept syncWorker messages for DEALS_DATA
   const _origSW = window.syncWorker;

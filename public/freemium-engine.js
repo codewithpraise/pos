@@ -36,6 +36,7 @@ const PLAN_LIMITS = {
     displayName: "Valenixia Free Basic",
     monthlyPKR: 0, annualPKR: 0, lifetimePKR: null,
     devices: 1, branches: 1, transactionsPerMonth: Infinity, products: 25, customers: Infinity, employees: 1,
+    buybacks: 5,
     transactionHistoryDays: Infinity, receiptBranding: "valenixia",
     backup: "manual", fbrCompliance: true, multiDeviceSync: false, apiAccess: false,
     analytics: "basic", importLimit: Infinity, support: "community"
@@ -44,6 +45,7 @@ const PLAN_LIMITS = {
     displayName: "Valenixia Starter",
     monthlyPKR: 3499, lifetimePKR: 79000,
     devices: 1, branches: 1, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: 5,
+    buybacks: Infinity,
     transactionHistoryDays: Infinity, receiptBranding: "custom",
     backup: "manual", fbrCompliance: true, multiDeviceSync: false, apiAccess: false,
     analytics: "basic", importLimit: Infinity, support: "whatsapp"
@@ -52,6 +54,7 @@ const PLAN_LIMITS = {
     displayName: "Valenixia Pro",
     monthlyPKR: 6999, annualPKR: 69999, lifetimePKR: 149000,
     devices: 2, branches: 1, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: 20,
+    buybacks: Infinity,
     transactionHistoryDays: Infinity, receiptBranding: "custom",
     backup: "auto_daily", fbrCompliance: true, multiDeviceSync: true, apiAccess: false,
     analytics: "advanced", importLimit: Infinity, support: "priority"
@@ -60,6 +63,7 @@ const PLAN_LIMITS = {
     displayName: "Valenixia Pro",
     monthlyPKR: 6999, lifetimePKR: 149000,
     devices: 2, branches: 1, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: 50,
+    buybacks: Infinity,
     transactionHistoryDays: Infinity, receiptBranding: "white_label",
     backup: "auto_daily", fbrCompliance: true, multiDeviceSync: true, apiAccess: true,
     analytics: "advanced", importLimit: Infinity, support: "phone"
@@ -68,6 +72,7 @@ const PLAN_LIMITS = {
     displayName: "Valenixia Enterprise",
     monthlyPKR: 11999, lifetimePKR: 249000,
     devices: 3, branches: 2, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: Infinity,
+    buybacks: Infinity,
     transactionHistoryDays: Infinity, receiptBranding: "white_label",
     backup: "auto_realtime", fbrCompliance: true, multiDeviceSync: true, apiAccess: true,
     analytics: "full", importLimit: Infinity, support: "dedicated"
@@ -155,6 +160,8 @@ const FEATURE_TIER_REQ = {
   'marketing': 'PRO',
   'automated-whatsapp': 'PRO',
   'stock-transfer': 'PRO',
+  'customer-buyback': 'FREE',
+  'buyback': 'FREE',
   'multi-device': 'PRO',
   'cloud-backup': 'PRO',
   'google_drive_backup': 'PRO',
@@ -173,6 +180,7 @@ const FEATURE_TIER_REQ = {
 };
 
 const FEATURE_DISPLAY_NAMES = {
+  'customer-buyback': 'Customer Device Buy-In & Legal Transfer Ledger',
   'logs': 'CRDT Sync Stream & System Diagnostics',
   'sync-logs': 'Live Replication Stream & Sync Logs',
   'system-health': 'System Health & Engine Diagnostics',
@@ -181,8 +189,8 @@ const FEATURE_DISPLAY_NAMES = {
   'attendance': 'Staff Time Clock & Attendance Tracking',
   'staff': 'Cashier Security PINs & Staff Management',
   'label-designer': 'Barcode Label & Shelf Tag Studio',
-  'inventory-ai': 'AI Smart Inventory Reorder & Dead-Stock Forecast',
-  'inventory-forecast': 'AI Smart Inventory Reorder & Dead-Stock Forecast',
+  'inventory-ai': 'Statistical Inventory Reorder & Dead-Stock Forecast',
+  'inventory-forecast': 'Statistical Inventory Reorder & Dead-Stock Forecast',
   'loyalty': 'VIP Loyalty Club & Customer Cashback Wallet',
   'marketing': 'SMS & WhatsApp Marketing Broadcast Studio',
   'automated-whatsapp': 'Automated WhatsApp Receipt Delivery',
@@ -193,7 +201,7 @@ const FEATURE_DISPLAY_NAMES = {
   'fbr-fiscal': 'Official FBR Fiscal POS & PRAL Tax Integration',
   'fbr_fiscal': 'Official FBR Fiscal POS & PRAL Tax Integration',
   'fbr': 'Official FBR Fiscal POS & PRAL Tax Integration',
-  'speech-coach': 'Speech AI Real-Time Sales Pitch Coach',
+  'speech-coach': 'Audio Sales Pitch Evaluation Engine',
   'data-portability': 'Full Data Portability & Cross-Chain Export',
   'multi-store': 'Multi-Store Central HQ Dashboard',
   'multi_store': 'Multi-Store Central HQ Dashboard',
@@ -392,6 +400,87 @@ if (typeof window !== 'undefined') {
 }
 window.syncOnlineSubscriptionTier = syncOnlineSubscriptionTier;
 
+// ── STRICT ADDITIVE SUBSCRIPTION TIME EXTENSION ENGINE ───────────────────────
+// When user upgrades or renews (e.g. 7 days remaining + 30 days = 37 days):
+function applySubscriptionUpgrade(newTier = 'PRO', daysToAdd = 30) {
+  const normTier = String(newTier).toUpperCase();
+  const currentExpMs = parseInt(localStorage.getItem('valenixia_subscription_expires_at') || '0', 10);
+  const now = Date.now();
+
+  // Strict Additive Logic: If active time remains, stack onto current expiry. If expired/unset, stack from now.
+  const baseTime = (currentExpMs > now) ? currentExpMs : now;
+  const additionalMs = (daysToAdd || 30) * 24 * 60 * 60 * 1000;
+  const newExpiresAt = baseTime + additionalMs;
+
+  localStorage.setItem('valenixia_tier', normTier);
+  localStorage.setItem('valenixia_subscription_expires_at', String(newExpiresAt));
+  localStorage.setItem('valenixia_trial_active', 'false');
+  window.__valenixiaTier = normTier;
+  window.__valenixiaPlan = PLANS[normTier] || PLANS.PRO;
+
+  if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
+    ValenixiaDB.put('local_preferences', {
+      key: 'valenixia_subscription_expires_at',
+      value_type: 'STR',
+      value_payload: String(newExpiresAt),
+      is_idempotent_flag: 0,
+      updated_at: now
+    }).catch(() => {});
+    ValenixiaDB.put('local_preferences', {
+      key: 'valenixia_tier',
+      value_type: 'STR',
+      value_payload: normTier,
+      is_idempotent_flag: 0,
+      updated_at: now
+    }).catch(() => {});
+  }
+
+  const remainingDays = Math.ceil((newExpiresAt - now) / (24 * 60 * 60 * 1000));
+  console.log(`[FreemiumEngine] Subscription upgraded to ${normTier}. Added ${daysToAdd} days. Total remaining: ${remainingDays} days (expires: ${new Date(newExpiresAt).toISOString()})`);
+
+  if (typeof applyTierLocks === 'function') applyTierLocks(normTier);
+  if (typeof renderNavbarByTier === 'function') renderNavbarByTier(normTier);
+  if (typeof applyTierRestrictions === 'function') applyTierRestrictions();
+  if (typeof renderLicenseInfoCard === 'function') renderLicenseInfoCard();
+  if (window.ValenixiaSubscription && typeof window.ValenixiaSubscription.refresh === 'function') {
+    window.ValenixiaSubscription.refresh();
+  }
+
+  if (typeof showNotificationToast === 'function') {
+    showNotificationToast(` Plan upgraded to ${normTier}! ${daysToAdd} days added (Total: ${remainingDays} days active).`, 'success', 5000);
+  }
+
+  return {
+    tier: normTier,
+    expiresAt: newExpiresAt,
+    remainingDays
+  };
+}
+window.applySubscriptionUpgrade = applySubscriptionUpgrade;
+
+
+// ── DAILY ROLLING QUOTA RESET & COUNTDOWN ENGINE ─────────────────────────
+function getNextMidnightMs() {
+  const now = new Date();
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+  return tomorrow.getTime();
+}
+
+function getMidnightRemainingSeconds() {
+  const remainingMs = Math.max(0, getNextMidnightMs() - Date.now());
+  return Math.floor(remainingMs / 1000);
+}
+
+function formatCountdown(totalSec) {
+  const hrs  = Math.floor(totalSec / 3600);
+  const mins = Math.floor((totalSec % 3600) / 60);
+  const secs = totalSec % 60;
+  return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+window.getNextMidnightMs = getNextMidnightMs;
+window.getMidnightRemainingSeconds = getMidnightRemainingSeconds;
+window.formatCountdown = formatCountdown;
 
 function checkLimit(type, currentCount) {
   const limits = getLimits();
@@ -400,20 +489,28 @@ function checkLimit(type, currentCount) {
     customers: limits.customers,
     employees: limits.employees,
     devices: limits.devices,
+    buybacks: limits.buybacks,
     transactions_per_month: limits.transactionsPerMonth,
     import_rows: limits.importLimit
   };
   const limit = limitMap[type];
   if (limit === undefined || limit === Infinity) return { allowed: true };
+
+  const resetMs = getNextMidnightMs();
+  const remSec = getMidnightRemainingSeconds();
+  const formattedCountdown = formatCountdown(remSec);
+
   if (currentCount >= limit) {
     return {
       allowed: false,
       limit,
       current: currentCount,
-      reason: `Limit reached: ${currentCount}/${limit} ${type} on ${limits.displayName}`
+      resetMs,
+      formattedCountdown,
+      reason: `Limit reached (${currentCount}/${limit} ${type}). Free quota refreshes tomorrow at midnight (in ${formattedCountdown}).`
     };
   }
-  return { allowed: true, limit, remaining: limit - currentCount };
+  return { allowed: true, limit, remaining: limit - currentCount, resetMs, formattedCountdown };
 }
 window.checkLimit = checkLimit;
 
@@ -504,7 +601,7 @@ function showUpgradeModal(featureName, requiredTier) {
       id: 'PRO',
       name: 'Growth (Pro Store)',
       price: 'Rs. 6,999',
-      features: '2 Terminals · Real-Time Sync · KDS & AI Forecast',
+      features: '2 Terminals · Real-Time Sync · KDS & Statistical Forecast',
       buttonText: (activeTier === 'PRO' || activeTier === 'GROWTH') ? 'Current Plan' : 'Upgrade Growth (Pro)',
       themeColor: '#10b981'
     },
@@ -519,9 +616,6 @@ function showUpgradeModal(featureName, requiredTier) {
   };
 
   // Determine which plan cards to render:
-  // - If feature requires ENTERPRISE: show ONLY ENTERPRISE card (hide Starter and Growth).
-  // - If feature requires PRO/GROWTH: show PRO and ENTERPRISE cards (hide Starter).
-  // - If feature requires STARTER: show STARTER, PRO, and ENTERPRISE cards.
   let targetPlans = ['STARTER', 'PRO', 'ENTERPRISE'];
   if (reqTier === 'ENTERPRISE') {
     targetPlans = ['ENTERPRISE'];
@@ -544,6 +638,9 @@ function showUpgradeModal(featureName, requiredTier) {
   modal.className = "modal-overlay active";
   modal.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:rgba(5,5,10,0.92);display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);overflow-y:auto;";
 
+  const remSec = getMidnightRemainingSeconds();
+  const liveCountdownStr = formatCountdown(remSec);
+
   const cardsHtml = targetPlans.map(tierKey => {
     const p = PLAN_CARDS_DATA[tierKey];
     const isExact = tierKey === reqTier;
@@ -561,12 +658,12 @@ function showUpgradeModal(featureName, requiredTier) {
         </button>
       </div>
     `;
-  }).join('');
+  }).join("");
 
   modal.innerHTML = `
     <div style="width:100%;max-width:${targetPlans.length === 1 ? '420px' : (targetPlans.length === 2 ? '540px' : '680px')};background:#0f111a;border:1px solid rgba(255,255,255,0.12);border-radius:24px;padding:32px;box-shadow:0 24px 64px rgba(0,0,0,0.95);color:#fff;font-family:sans-serif;margin:auto;">
       
-      <div style="text-align:center;margin-bottom:24px;">
+      <div style="text-align:center;margin-bottom:20px;">
         <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;background:${reqTier==='ENTERPRISE'?'rgba(245,158,11,0.15)':'rgba(16,185,129,0.15)'};border:1px solid ${reqTier==='ENTERPRISE'?'rgba(245,158,11,0.4)':'rgba(16,185,129,0.4)'};border-radius:50%;font-size:26px;margin-bottom:12px;">
           🔒
         </div>
@@ -576,6 +673,12 @@ function showUpgradeModal(featureName, requiredTier) {
         <p style="font-size:13px;color:#cbd5e1;margin:0;line-height:1.5;">
           ${subText}
         </p>
+
+        <!-- Daily Quota Live Reset Countdown Banner -->
+        <div style="margin-top:14px; padding:8px 14px; border-radius:10px; background:rgba(255,179,71,0.1); border:1px solid rgba(255,179,71,0.3); font-size:11.5px; font-weight:700; color:#fbbf24; display:inline-flex; align-items:center; gap:8px;">
+          <span>⏳ Daily Free Quota resets at midnight in:</span>
+          <span id="vx-modal-live-countdown" style="font-family:monospace; font-weight:900; font-size:13px; color:#ffffff; background:rgba(0,0,0,0.4); padding:2px 8px; border-radius:5px;">${liveCountdownStr}</span>
+        </div>
       </div>
 
       <!-- Plan Cards Grid -->
