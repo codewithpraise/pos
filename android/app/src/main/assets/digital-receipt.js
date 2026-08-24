@@ -155,9 +155,10 @@
     (data.items || []).forEach(function(item) {
       const name = String(item.name || "Unknown").substring(0, 22);
       // Integer math rounding to prevent floating point anomalies (Task 15)
-      const lineTotal = Math.round((item.unitPrice || 0) * (item.qty || 1));
+      const uPrice = (item.unitPrice !== undefined && item.unitPrice !== null) ? item.unitPrice : (item.price || 0);
+      const lineTotal = Math.round(uPrice * (item.qty || 1));
       lines.push({ text: pad(name, fmt(lineTotal), storeWidth), size: 9 });
-      let itemMeta = "  Qty: " + item.qty + " x " + fmt(item.unitPrice || 0);
+      let itemMeta = "  Qty: " + item.qty + " x " + fmt(uPrice);
       if (item.discount) itemMeta += " (-" + item.discount + "%)";
       if (item.negotiated) itemMeta += " [Negotiated]";
       lines.push({ text: itemMeta, size: 8, color: "#666" });
@@ -536,12 +537,14 @@
   }
 
   // Expose API
+  window.buildReceiptLines = buildReceiptLines;
   window.DigitalReceipt = {
     generate: generateReceiptPDF,
     download: downloadReceiptPDF,
     whatsapp: shareReceiptWhatsApp,
     email: shareReceiptEmail,
-    showDialog: showDigitalReceiptDialog
+    showDialog: showDigitalReceiptDialog,
+    buildReceiptLines: buildReceiptLines
   };
 
 })();

@@ -260,7 +260,7 @@ window.__realHandlers = window.__realHandlers || {};
         const isRowContext = element.tagName === 'TR' || element.tagName === 'TBODY' || element.tagName === 'THEAD';
         if (isRowContext) {
           const wrapped = `<table><tbody>${element.tagName === 'TR' ? '<tr>' + html + '</tr>' : html}</tbody></table>`;
-          const sanitizedWrapped = DOMPurify.sanitize(wrapped, { USE_PROFILES: { html: true } });
+          const sanitizedWrapped = DOMPurify.sanitize(wrapped, { USE_PROFILES: { html: true, svg: true } });
           const doc = new DOMParser().parseFromString(sanitizedWrapped, 'text/html');
           const target = element.tagName === 'TR' ? doc.querySelector('tr') : doc.querySelector('tbody');
           if (target) {
@@ -268,7 +268,7 @@ window.__realHandlers = window.__realHandlers || {};
             return;
           }
         }
-        const cleanHtml = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+        const cleanHtml = DOMPurify.sanitize(html, { USE_PROFILES: { html: true, svg: true } });
         const tempElement = element.cloneNode(false);
         tempElement.innerHTML = cleanHtml;
         element.replaceChildren(...tempElement.childNodes);
@@ -3083,6 +3083,7 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
             console.log('[BootTrace] Catalog received:', (catalog || []).length, 'items');
             state.catalog = catalog;
             state.catalogLoaded = true;
+            if (typeof renderCatalogScreen === 'function') renderCatalogScreen();
             scheduleScreenRender('catalog', () => {
               if (typeof renderCatalogScreen === 'function') renderCatalogScreen();
               if (typeof renderCheckoutCategories === 'function') renderCheckoutCategories();
@@ -7285,7 +7286,7 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
         'petty-cash': s.petty_cash || 'Petty Cash',
         'attendance': s.attendance || 'Attendance & Payroll',
         'label-designer': s.label_designer || 'Barcode Designer',
-        'inventory-ai': s.inventory_ai || 'Inventory AI',
+        'inventory-ai': s.inventory_ai || 'Smart Inventory Forecast',
         'loyalty': s.loyalty || 'Loyalty Club',
         'marketing': s.marketing || 'Marketing Studio',
         'stock-transfer': s.stock_transfer || 'Stock Transfer',
@@ -8171,7 +8172,7 @@ setHtml(qrContainer, '<span style="font-size: 8px; color: var(--text-gray); text
       '[data-screen="petty-cash"] .nav-label': s.petty_cash || (isUrdu ? 'پیٹی کیش' : 'Petty Cash'),
       '[data-screen="attendance"] .nav-label': s.attendance || (isUrdu ? 'حاضری اور تنخواہ' : 'Attendance'),
       '[data-screen="label-designer"] .nav-label': s.label_designer || (isUrdu ? 'بارکوڈ ڈیزائنر' : 'Barcode Designer'),
-      '[data-screen="inventory-ai"] .nav-label': s.inventory_ai || (isUrdu ? 'اسٹاک پیشگوئی AI' : 'Inventory AI'),
+      '[data-screen="inventory-ai"] .nav-label': s.inventory_ai || (isUrdu ? 'اسٹاک پیشگوئی تجزیات' : 'Smart Inventory Forecast'),
       '[data-screen="loyalty"] .nav-label': s.loyalty || (isUrdu ? 'VIP لائلٹی کلب' : 'Loyalty Club'),
       '[data-screen="marketing"] .nav-label': s.marketing || (isUrdu ? 'مارکیٹنگ اسٹوڈیو' : 'Marketing Studio'),
       '[data-screen="stock-transfer"] .nav-label': s.stock_transfer || (isUrdu ? 'اسٹاک ٹرانسفر' : 'Stock Transfer'),
@@ -9584,7 +9585,10 @@ setHtml(tr, `
 
     const newPaise = Math.round(enteredPrice * 100);
     item.price = newPaise;
+    item.unitPrice = newPaise;
     item.customNote = (noteInput?.value || '').trim();
+    item.negotiated = (item.price !== item.originalPrice);
+
     const modalEl = document.getElementById('modal-item-negotiation');
     if (modalEl) {
       modalEl.classList.remove('active');
@@ -10111,28 +10115,33 @@ setHtml(tr, `
     if (!sku) return;
     const prodName = productName || sku;
     
-    showModal({
+    const choice = await showModal({
       title: 'Delete Product Confirmation',
       message: `Are you sure you want to permanently delete "${prodName}" (SKU: ${sku}) from your inventory ledger?\n\nThis action cannot be undone.`,
       type: 'danger',
-      onConfirm: async () => {
-        try {
-          if (typeof playAudioSignal === 'function') playAudioSignal('trash');
-          await ValenixiaDB.delete('inventory_catalog', sku);
-          state.catalog = (state.catalog || []).filter(p => p.sku !== sku);
-          catalogSelectedSkus.delete(sku);
-          if (syncWorker) {
-            syncWorker.postMessage({ type: 'DELETE_PRODUCT', payload: { sku } });
-          }
-          showNotificationToast(`Product "${prodName}" deleted successfully.`, 'success', 2500);
-          renderCatalogScreen();
-          if (typeof renderQuickCatalog === 'function') renderQuickCatalog();
-        } catch (err) {
-          console.error('[Catalog] Failed to delete product:', err);
-          showNotificationToast(`Failed to delete product: ${err.message}`, 'error');
-        }
-      }
+      actions: [
+        { id: 'confirm', label: 'Yes, Delete', style: 'danger' },
+        { id: 'cancel', label: 'Cancel', style: 'secondary' }
+      ]
     });
+
+    if (choice !== 'confirm') return;
+
+    try {
+      if (typeof playAudioSignal === 'function') playAudioSignal('trash');
+      await ValenixiaDB.delete('inventory_catalog', sku);
+      state.catalog = (state.catalog || []).filter(p => p.sku !== sku);
+      catalogSelectedSkus.delete(sku);
+      if (syncWorker) {
+        syncWorker.postMessage({ type: 'DELETE_PRODUCT', payload: { sku } });
+      }
+      showNotificationToast(`Product "${prodName}" deleted successfully.`, 'success', 2500);
+      renderCatalogScreen();
+      if (typeof renderQuickCatalog === 'function') renderQuickCatalog();
+    } catch (err) {
+      console.error('[Catalog] Failed to delete product:', err);
+      showNotificationToast(`Failed to delete product: ${err.message}`, 'error');
+    }
   }
   window.deleteSingleProduct = deleteSingleProduct;
 
@@ -10145,31 +10154,36 @@ setHtml(tr, `
     const count = catalogSelectedSkus.size;
     const skusToDelete = Array.from(catalogSelectedSkus);
 
-    showModal({
+    const choice = await showModal({
       title: `Delete ${count} Products?`,
       message: `Are you sure you want to permanently delete all ${count} selected products from your inventory catalog?\n\nThis action will remove them from stock and cannot be undone.`,
       type: 'danger',
-      onConfirm: async () => {
-        try {
-          if (typeof playAudioSignal === 'function') playAudioSignal('trash');
-          for (const sku of skusToDelete) {
-            await ValenixiaDB.delete('inventory_catalog', sku);
-            if (syncWorker) {
-              syncWorker.postMessage({ type: 'DELETE_PRODUCT', payload: { sku } });
-            }
-          }
-          state.catalog = (state.catalog || []).filter(p => !catalogSelectedSkus.has(p.sku));
-          catalogSelectedSkus.clear();
-          catalogSelectionMode = false;
-          showNotificationToast(`Successfully deleted ${count} products from catalog.`, 'success', 3000);
-          renderCatalogScreen();
-          if (typeof renderQuickCatalog === 'function') renderQuickCatalog();
-        } catch (err) {
-          console.error('[Catalog] Bulk deletion error:', err);
-          showNotificationToast(`Bulk deletion encountered an error: ${err.message}`, 'error');
+      actions: [
+        { id: 'confirm', label: `Yes, Delete ${count} Items`, style: 'danger' },
+        { id: 'cancel', label: 'Cancel', style: 'secondary' }
+      ]
+    });
+
+    if (choice !== 'confirm') return;
+
+    try {
+      if (typeof playAudioSignal === 'function') playAudioSignal('trash');
+      for (const sku of skusToDelete) {
+        await ValenixiaDB.delete('inventory_catalog', sku);
+        if (syncWorker) {
+          syncWorker.postMessage({ type: 'DELETE_PRODUCT', payload: { sku } });
         }
       }
-    });
+      state.catalog = (state.catalog || []).filter(p => !catalogSelectedSkus.has(p.sku));
+      catalogSelectedSkus.clear();
+      catalogSelectionMode = false;
+      showNotificationToast(`Successfully deleted ${count} products from catalog.`, 'success', 3000);
+      renderCatalogScreen();
+      if (typeof renderQuickCatalog === 'function') renderQuickCatalog();
+    } catch (err) {
+      console.error('[Catalog] Bulk deletion error:', err);
+      showNotificationToast(`Bulk deletion encountered an error: ${err.message}`, 'error');
+    }
   }
   window.deleteBulkSelectedProducts = deleteBulkSelectedProducts;
 
@@ -10184,6 +10198,13 @@ setHtml(tr, `
         if (Array.isArray(dbItems) && dbItems.length > 0) {
           state.catalog = dbItems;
           renderCatalogScreen();
+        } else {
+          ValenixiaDB.getAll('products').then(prodItems => {
+            if (Array.isArray(prodItems) && prodItems.length > 0) {
+              state.catalog = prodItems;
+              renderCatalogScreen();
+            }
+          }).catch(() => {});
         }
       }).catch(() => {});
     }
@@ -10215,13 +10236,18 @@ setHtml(tr, `
       bulkBar.style.display = catalogSelectionMode ? 'flex' : 'none';
     }
     if (selectLabel) {
-      selectLabel.textContent = catalogSelectionMode ? 'Exit Selection' : 'Delete Products';
+      selectLabel.textContent = catalogSelectionMode ? 'Exit Selection' : 'Select to Delete';
     }
     if (toggleSelectBtn) {
-      toggleSelectBtn.style.background = catalogSelectionMode ? 'rgba(239,68,68,0.25)' : 'rgba(239,68,68,0.08)';
+      toggleSelectBtn.style.background = catalogSelectionMode ? 'rgba(255,92,92,0.28)' : 'rgba(255,92,92,0.12)';
+      toggleSelectBtn.style.borderColor = catalogSelectionMode ? '#ff5252' : 'rgba(255,92,92,0.5)';
     }
     if (selCountEl) selCountEl.textContent = catalogSelectedSkus.size;
     if (btnDelCountEl) btnDelCountEl.textContent = catalogSelectedSkus.size;
+
+    if (typeof renderCheckoutCategories === 'function') {
+      renderCheckoutCategories();
+    }
 
     const filter = state.catalogManagerCategory || 'ALL';
     const searchEl = document.getElementById('catalog-search-input');
@@ -10242,23 +10268,43 @@ setHtml(tr, `
         const stockVal = (p.stock_level !== undefined && p.stock_level !== null) ? p.stock_level : (p.stock || 0);
         matchesCat = stockVal <= threshold;
       } else {
-        matchesCat = (p.category === filter);
+        matchesCat = (p.category && String(p.category).toLowerCase().trim() === String(filter).toLowerCase().trim());
       }
 
       const matchesQuery = !query || (
         (p.sku && String(p.sku).toLowerCase().includes(query)) ||
         (p.name && String(p.name).toLowerCase().includes(query)) ||
+        (p.title && String(p.title).toLowerCase().includes(query)) ||
         (p.gtin && String(p.gtin).toLowerCase().includes(query))
       );
       return matchesCat && matchesQuery;
     });
 
-    if (selectAllCheckbox) {
+    const countBadge = document.getElementById('inventory-item-count-badge');
+    if (countBadge) {
+      countBadge.textContent = `${items.length} Products`;
+    }
+
+    const colDefWithSelect = '28px minmax(88px, 1.1fr) minmax(115px, 1.6fr) minmax(72px, 0.85fr) minmax(65px, 0.8fr) minmax(68px, 0.8fr) 114px';
+    const colDefNormal = 'minmax(95px, 1.1fr) minmax(130px, 1.8fr) minmax(75px, 0.9fr) minmax(70px, 0.85fr) minmax(72px, 0.85fr) 118px';
+    const currentCols = catalogSelectionMode ? colDefWithSelect : colDefNormal;
+
+    const headerEl = document.getElementById('catalog-grid-header');
+    const headerCheckCell = document.getElementById('catalog-header-checkbox-cell');
+    if (headerEl) {
+      headerEl.style.gridTemplateColumns = currentCols;
+    }
+    if (headerCheckCell) {
+      headerCheckCell.style.display = catalogSelectionMode ? 'flex' : 'none';
+      headerCheckCell.style.justifyContent = 'center';
+      headerCheckCell.style.alignItems = 'center';
+    }
+
+    if (selectAllCheckbox && catalogSelectionMode) {
       selectAllCheckbox.checked = items.length > 0 && items.every(p => catalogSelectedSkus.has(p.sku));
       selectAllCheckbox.onclick = () => {
         if (selectAllCheckbox.checked) {
           items.forEach(p => { if (p.sku) catalogSelectedSkus.add(p.sku); });
-          catalogSelectionMode = true;
         } else {
           items.forEach(p => { if (p.sku) catalogSelectedSkus.delete(p.sku); });
         }
@@ -10282,27 +10328,37 @@ setHtml(tr, `
     items.forEach(p => {
       const row = document.createElement('div');
       row.className = 'catalog-grid-row';
-      row.style.cssText = 'display: grid; grid-template-columns: 44px 110px 130px minmax(min(100%, 200px), 2fr) 130px 110px 110px 160px; gap: 8px; padding: 10px 12px; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 12px;';
+      row.style.cssText = `display: grid; grid-template-columns: ${currentCols}; gap: 6px; padding: 8px 10px; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 12px;`;
 
       const isChecked = catalogSelectedSkus.has(p.sku);
       const threshold = p.low_stock_threshold !== undefined ? p.low_stock_threshold : 10;
-      const stockVal = (p.stock_level !== undefined && p.stock_level !== null) ? p.stock_level : ((p.stock_quantity !== undefined && p.stock_quantity !== null) ? p.stock_quantity : (p.stock || 0));
+      const stockVal = (p.stock_level !== undefined && p.stock_level !== null) ? p.stock_level : ((p.stock_quantity !== undefined && p.stock_quantity !== null) ? p.stock_quantity : (p.stock !== undefined ? p.stock : 0));
       const isLowStock = stockVal <= threshold;
+      const priceVal = (p.base_price_minor_units !== undefined && p.base_price_minor_units !== null) ? (p.base_price_minor_units / 100.0) : (p.price !== undefined ? parseFloat(p.price || 0) : 0);
+      const gtinText = (p.gtin && p.gtin !== 'N/A') ? p.gtin : (p.barcode && p.barcode !== 'N/A' ? p.barcode : '');
+      const unitLabel = p.unit ? (p.unit.charAt(0).toUpperCase() + p.unit.slice(1).toLowerCase()) : 'Units';
 
-      setHtml(row, `
+      const checkCellHtml = catalogSelectionMode ? `
         <div style="text-align: center; display: flex; align-items: center; justify-content: center;">
           <input type="checkbox" class="catalog-row-checkbox" data-sku="${p.sku}" ${isChecked ? 'checked' : ''} style="width: 15px; height: 15px; accent-color: var(--accent-emerald); cursor: pointer;" aria-label="Select ${p.name || p.sku}">
         </div>
-        <div style="font-family: monospace; font-size: 11px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-white);">${p.sku || 'N/A'}</div>
-        <div style="font-family: monospace; font-size: 11px; color: var(--text-gray); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${p.gtin || 'N/A'}</div>
-        <div style="font-weight: 700; color: var(--text-white); word-break: break-word; line-height: 1.3;" title="${p.name || ''}">${p.name || 'Unnamed Product'}</div>
-        <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-gray);">${p.category || 'General'}</div>
-        <div style="text-align: right; font-weight: 700; color: var(--text-white);">Rs. ${((p.base_price_minor_units || 0) / 100.0).toFixed(2)}</div>
-        <div style="text-align: right; font-weight: 700; color: ${isLowStock ? 'var(--alert-coral)' : 'var(--success)'};">${stockVal} ${(p.unit || 'Units').toUpperCase()}</div>
-        <div style="text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px;">
-          <button class="btn-edit-item action-btn action-primary" data-sku="${p.sku}" style="padding: 4px 10px; font-size: 11px; font-weight: 800; min-height: 28px; border-radius: 6px;">Edit</button>
-          <button class="btn-delete-single-product action-btn" data-sku="${p.sku}" title="Delete this product" style="padding: 4px 8px; font-size: 11px; min-height: 28px; border-radius: 6px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #ef4444; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      ` : '';
+
+      setHtml(row, `
+        ${checkCellHtml}
+        <div class="sku-stack" style="display: flex; flex-direction: column; gap: 1px; min-width: 0; overflow: hidden;">
+          <span style="font-family: monospace; font-size: 11.5px; font-weight: 700; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.sku || 'N/A'}</span>
+          ${gtinText ? `<span style="font-family: monospace; font-size: 9.5px; color: rgba(255,255,255,0.45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">GTIN: ${gtinText}</span>` : ''}
+        </div>
+        <div style="font-weight: 700; font-size: 12.5px; color: var(--text-white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;" title="${p.name || p.title || ''}">${p.name || p.title || 'Unnamed Product'}</div>
+        <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;"><span style="background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;">${p.category || 'General'}</span></div>
+        <div style="text-align: right; font-weight: 700; font-size: 12px; color: var(--text-white); min-width: 0;">Rs. ${priceVal.toFixed(2)}</div>
+        <div style="text-align: right; min-width: 0;"><span style="color: ${isLowStock ? 'var(--alert-coral)' : '#10b981'}; font-weight: 700; font-size: 11px; background: ${isLowStock ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)'}; padding: 2px 6px; border-radius: 4px;">${stockVal} ${unitLabel}</span></div>
+        <div style="text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0; min-width: 110px;">
+          <button class="btn-edit-item" data-sku="${p.sku}" style="padding: 4px 11px; font-size: 11px; font-weight: 800; min-height: 26px; border-radius: 6px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.22); color: #ffffff; cursor: pointer; flex-shrink: 0; transition: all 0.15s ease;">Edit</button>
+          <button class="btn-delete-single-product" data-sku="${p.sku}" title="Delete this product" style="padding: 4px 9px; font-size: 10.5px; font-weight: 800; min-height: 26px; border-radius: 6px; background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.6); color: #ef4444; display: inline-flex; align-items: center; justify-content: center; gap: 3px; cursor: pointer; flex-shrink: 0; transition: all 0.15s ease;">
+            <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#ef4444" stroke-width="2.2" style="display:inline-block; vertical-align:middle;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            <span>Del</span>
           </button>
         </div>
       `);
@@ -10340,6 +10396,8 @@ setHtml(tr, `
       measureStorageUtilization();
     }
   }
+  window.renderCatalogScreen = renderCatalogScreen;
+  window.renderCatalogManagerScreen = renderCatalogScreen;
 
   // Bind Bulk Selection Controls
   document.getElementById('btn-catalog-toggle-select')?.addEventListener('click', () => {
@@ -10547,6 +10605,7 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
     }
     return Array.isArray(records) ? records : [];
   }
+  window.getBuybackRecords = getBuybackRecords;
 
   async function saveBuybackRecord(record) {
     try {
@@ -10563,6 +10622,7 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
       localStorage.setItem('valenixia_buyback_records', JSON.stringify(records));
     } catch (_) {}
   }
+  window.saveBuybackRecord = saveBuybackRecord;
 
   async function renderCustomerBuybackScreen() {
     updateBuybackNavVisibility();
@@ -10659,12 +10719,13 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
           <span style="font-size: 10px; font-weight: 700; color: ${r.added_to_inventory ? 'var(--accent-emerald)' : 'var(--text-gray)'};">
             ${r.added_to_inventory ? '✓ Added to Inventory' : '• Purchase Log Only'}
           </span>
-          <div style="display: flex; gap: 6px;">
-            <button type="button" class="btn-view-buyback-voucher action-btn action-primary" style="padding: 4px 10px; font-size: 10.5px; font-weight: 700; border-radius: 6px;">
-              View &amp; Print Voucher
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button type="button" class="btn-view-buyback-voucher" style="padding: 6px 14px; font-size: 11px; font-weight: 800; border-radius: 7px; background: rgba(0,214,143,0.15); border: 1px solid rgba(0,214,143,0.4); color: var(--accent-emerald); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.15s ease;">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              View Voucher
             </button>
-            <button type="button" class="btn-delete-buyback-record action-btn" style="padding: 4px 8px; font-size: 10.5px; color: var(--alert-coral); border-color: rgba(239,68,68,0.3); border-radius: 6px;" title="Delete Record">
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            <button type="button" class="btn-delete-buyback-record" style="padding: 6px 10px; font-size: 11px; min-height: 30px; border-radius: 7px; background: rgba(255,77,77,0.14); border: 1px solid rgba(255,77,77,0.45); color: #ff5252; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s ease;" title="Delete Inward Voucher">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#ff5252" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             </button>
           </div>
         </div>
@@ -10688,30 +10749,58 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
 
   async function deleteBuybackRecord(recordId, voucherNo) {
     if (!recordId) return;
-    showModal({
+    const choice = await showModal({
       title: 'Delete Inward Voucher?',
-      message: `Are you sure you want to delete inward purchase voucher "${voucherNo}"?\n\nThis will remove it from buyback ledger records.`,
+      message: `Are you sure you want to delete inward purchase voucher "${voucherNo}"?\n\nThis will permanently remove it from your device buyback ledger.`,
       type: 'danger',
-      onConfirm: async () => {
-        try {
-          if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.delete) {
-            await ValenixiaDB.delete('customer_buyback_records', recordId).catch(() => {});
-          }
-          const records = await getBuybackRecords();
-          const updated = records.filter(r => r.id !== recordId);
-          localStorage.setItem('valenixia_buyback_records', JSON.stringify(updated));
-          showNotificationToast(`Voucher ${voucherNo} deleted`, 'success');
-          renderCustomerBuybackScreen();
-        } catch (err) {
-          showNotificationToast(`Failed to delete record: ${err.message}`, 'error');
-        }
-      }
+      actions: [
+        { id: 'confirm', label: 'Yes, Delete Voucher', style: 'danger' },
+        { id: 'cancel', label: 'Cancel', style: 'secondary' }
+      ]
     });
+
+    if (choice !== 'confirm') return;
+
+    try {
+      if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.delete) {
+        await ValenixiaDB.delete('customer_buyback_records', recordId).catch(() => {});
+      }
+      const records = await getBuybackRecords();
+      const updated = records.filter(r => r.id !== recordId);
+      localStorage.setItem('valenixia_buyback_records', JSON.stringify(updated));
+      showNotificationToast(`Voucher ${voucherNo} deleted`, 'success');
+      renderCustomerBuybackScreen();
+    } catch (err) {
+      showNotificationToast(`Failed to delete record: ${err.message}`, 'error');
+    }
   }
   window.deleteBuybackRecord = deleteBuybackRecord;
 
   async function processCustomerBuyback(e) {
     if (e && e.preventDefault) e.preventDefault();
+
+    // Free Tier Quota Check: 5 Buybacks max on Free Basic plan
+    const existingBuybacks = await getBuybackRecords();
+    const activeTier = (window.getActiveTier && window.getActiveTier()) || 'FREE';
+    if (activeTier === 'FREE' && existingBuybacks.length >= 5) {
+      if (typeof showUpgradeModal === 'function') {
+        showUpgradeModal('customer-buyback');
+      } else {
+        const upgradeChoice = await showModal({
+          title: 'Customer Buy-In Limit Reached',
+          message: 'Free Basic tier includes up to 5 Customer Device Buy-In trade records.\n\nUpgrade to Valenixia Pro for unlimited customer device buybacks, automated multi-store ledger sync, and biometric verification.',
+          type: 'warning',
+          actions: [
+            { id: 'upgrade', label: 'View Upgrade Plans', style: 'primary' },
+            { id: 'close', label: 'Cancel', style: 'secondary' }
+          ]
+        });
+        if (upgradeChoice === 'upgrade' && typeof switchActiveScreen === 'function') {
+          switchActiveScreen('subscription');
+        }
+      }
+      return;
+    }
 
     const sellerName = document.getElementById('buyback-seller-name')?.value?.trim();
     const sellerPhone = document.getElementById('buyback-seller-phone')?.value?.trim();
@@ -12173,14 +12262,20 @@ setHtml(container, `
 
     matches.forEach(c => {
       const tr = document.createElement('tr');
-setHtml(tr, `
+      setHtml(tr, `
         <td style="font-weight: 700; color: var(--text-white);">${c.name}</td>
-        <td style="font-family: monospace;">${c.phone}</td>
-        <td>${c.email}</td>
-        <td style="text-align: center;">${c.visits}</td>
-        <td style="text-align: right; color: var(--accent-emerald); font-weight: 700;">Rs. ${(c.total_spend_cents / 100.0).toFixed(2)}</td>
+        <td style="font-family: monospace;">${c.phone || 'N/A'}</td>
+        <td>${c.email || 'N/A'}</td>
+        <td style="text-align: center;">${c.visits || 0}</td>
+        <td style="text-align: right; color: var(--accent-emerald); font-weight: 700;">Rs. ${((c.total_spend_cents || 0) / 100.0).toFixed(2)}</td>
         <td style="text-align: center;">
-          <button class="btn-edit-customer btn-edit-item" data-id="${c.id}">Edit</button>
+          <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <button class="btn-edit-customer btn-edit-item" data-id="${c.id}" style="padding: 4px 11px; font-size: 11px; font-weight: 800; min-height: 26px; border-radius: 6px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.22); color: #ffffff; cursor: pointer;">Edit</button>
+            <button class="btn-delete-customer action-danger" data-id="${c.id}" title="Delete customer profile" style="padding: 4px 9px; font-size: 10.5px; font-weight: 800; min-height: 26px; border-radius: 6px; background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.6); color: #ef4444; display: inline-flex; align-items: center; justify-content: center; gap: 3px; cursor: pointer;">
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#ef4444" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              <span>Del</span>
+            </button>
+          </div>
         </td>
       `);
 
@@ -12188,9 +12283,52 @@ setHtml(tr, `
         openCustomerEditModal(c.id);
       });
 
+      tr.querySelector('.btn-delete-customer').addEventListener('click', () => {
+        deleteCustomer(c.id);
+      });
+
       tbody.appendChild(tr);
     });
   }
+
+  async function deleteCustomer(id) {
+    const c = (state.customers || []).find(item => item.id === id);
+    if (!c) return;
+
+    const choice = await showModal({
+      title: `Delete Customer Profile?`,
+      message: `Are you sure you want to delete "${c.name}" (${c.phone || 'No phone'})?\n\nThis will archive the customer profile. Previous invoice records remain preserved for fiscal integrity.`,
+      type: 'danger',
+      actions: [
+        { id: 'confirm', label: 'Yes, Delete Customer', style: 'danger' },
+        { id: 'cancel', label: 'Cancel', style: 'secondary' }
+      ]
+    });
+
+    if (choice !== 'confirm') return;
+
+    c.is_deleted = 1;
+    c.updated_at = Date.now();
+
+    try {
+      if (typeof playAudioSignal === 'function') playAudioSignal('trash');
+      if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
+        await ValenixiaDB.put('customers', c).catch(() => {});
+      }
+      if (syncWorker) {
+        syncWorker.postMessage({ type: 'DELETE_CUSTOMER', payload: { id } });
+      }
+      state.customers = (state.customers || []).filter(item => item.id !== id);
+      showNotificationToast(`Customer "${c.name}" profile deleted.`, 'success', 2500);
+      document.getElementById('modal-customer')?.classList.remove('active');
+      renderCustomersScreen();
+      if (typeof renderCustomerLinkModalList === 'function') renderCustomerLinkModalList();
+    } catch (err) {
+      console.error('[Customers] Delete error:', err);
+      showNotificationToast(`Failed to delete customer: ${err.message}`, 'error');
+    }
+  }
+  window.deleteCustomer = deleteCustomer;
 
   function renderCustomerLinkModalList(query = '') {
     const list = document.getElementById('customer-link-results-list');
@@ -12416,7 +12554,13 @@ setHtml(row, `
         </td>
         <td style="font-size: 11px; font-family: monospace; color: var(--text-gray);">${syncClock}</td>
         <td style="text-align: center;">
-          <button class="btn-toggle-staff btn-edit-item" data-id="${emp.id}">${emp.is_active === 1 ? 'Deactivate' : 'Activate'}</button>
+          <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <button class="btn-toggle-staff btn-edit-item" data-id="${emp.id}" style="padding: 4px 10px; font-size: 11px; font-weight: 700; min-height: 26px; border-radius: 6px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.22); color: #ffffff; cursor: pointer;">${emp.is_active === 1 ? 'Deactivate' : 'Activate'}</button>
+            <button class="btn-delete-staff action-danger" data-id="${emp.id}" title="Delete staff account" style="padding: 4px 8px; font-size: 10.5px; font-weight: 800; min-height: 26px; border-radius: 6px; background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.6); color: #ef4444; display: inline-flex; align-items: center; justify-content: center; gap: 3px; cursor: pointer;">
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#ef4444" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              <span>Del</span>
+            </button>
+          </div>
         </td>
       `);
 
@@ -12432,9 +12576,55 @@ setHtml(row, `
         });
       });
 
+      tr.querySelector('.btn-delete-staff').addEventListener('click', () => {
+        deleteEmployee(emp.id);
+      });
+
       tbody.appendChild(tr);
     });
   }
+
+  async function deleteEmployee(id) {
+    const emp = (state.employees || []).find(e => e.id === id);
+    if (!emp) return;
+
+    const choice = await showModal({
+      title: `Delete Staff Account?`,
+      message: `Are you sure you want to remove staff member "${emp.id}" (${emp.role || 'Cashier'}) from this register?`,
+      type: 'danger',
+      actions: [
+        { id: 'confirm', label: 'Yes, Delete Staff', style: 'danger' },
+        { id: 'cancel', label: 'Cancel', style: 'secondary' }
+      ]
+    });
+
+    if (choice !== 'confirm') return;
+
+    try {
+      if (typeof playAudioSignal === 'function') playAudioSignal('trash');
+      if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.delete) {
+        await ValenixiaDB.delete('employees', id).catch(() => {});
+      }
+      if (syncWorker) {
+        syncWorker.postMessage({
+          type: 'SAVE_EMPLOYEE',
+          payload: {
+            id: emp.id,
+            role: emp.role,
+            is_active: 0,
+            is_deleted: 1
+          }
+        });
+      }
+      state.employees = (state.employees || []).filter(e => e.id !== id);
+      showNotificationToast(`Staff member "${emp.id}" deleted.`, 'success', 2500);
+      renderStaffScreen();
+    } catch (err) {
+      console.error('[Staff] Delete error:', err);
+      showNotificationToast(`Failed to delete staff: ${err.message}`, 'error');
+    }
+  }
+  window.deleteEmployee = deleteEmployee;
 
   function openEmployeeModal() {
     playAudioSignal('click');

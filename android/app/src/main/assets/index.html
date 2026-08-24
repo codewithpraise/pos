@@ -161,13 +161,6 @@
           </span>
           <span class="nav-label">Deals &amp; Combos</span>
         </button>
-        <button class="nav-item buyback-only-element" data-screen="customer-buyback" id="nav-customer-buyback" style="display: none;">
-          <span class="nav-icon">
-            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-          </span>
-          <span class="nav-label">Device Buy-In</span>
-          <span style="font-size:8.5px; background:rgba(0,214,143,0.15); color:var(--accent-emerald); padding:1px 4px; border-radius:4px; font-weight:800; border:1px solid rgba(0,214,143,0.3); margin-left:auto;">TRADE</span>
-        </button>
         <button class="nav-item" data-screen="history">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -179,6 +172,18 @@
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </span>
           <span class="nav-label">Customers</span>
+        </button>
+        <button class="nav-item" data-screen="credit-book">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z"/><path d="M6 6h10M6 10h10"/></svg>
+          </span>
+          <span class="nav-label">Credit</span>
+        </button>
+        <button class="nav-item" data-screen="customer-buyback" id="nav-customer-buyback">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          </span>
+          <span class="nav-label">Device Buy-In</span>
         </button>
         <button class="nav-item" data-screen="settings">
           <span class="nav-icon">
@@ -204,12 +209,6 @@
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v4"/><path d="M14 2v6h6"/><path d="M20 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/><path d="M12 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/><path d="M20 18h2v-4a2 2 0 0 0-2-2h-3"/><path d="M14 18h-2"/></svg>
           </span>
           <span class="nav-label">Suppliers</span>
-        </button>
-        <button class="nav-item" data-screen="credit-book">
-          <span class="nav-icon">
-            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z"/><path d="M6 6h10M6 10h10"/></svg>
-          </span>
-          <span class="nav-label">Credit</span>
         </button>
         <button class="nav-item" data-screen="staff">
           <span class="nav-icon">
@@ -854,59 +853,66 @@
           </div>
         </section>
 
-        <!-- View 2.b: Catalog Manager -->
         <section class="content-view" id="view-catalog-manager">
-          <div class="view-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap; border-bottom: 1px solid var(--border-titanium); padding-bottom: 12px;">
-            <h2>Inventory Ledger</h2>
-            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-              <button type="button" class="action-btn" id="btn-catalog-toggle-select" style="flex-shrink:0; font-size:12px; font-weight:700; padding:8px 14px; display:inline-flex; align-items:center; gap:6px; border:1px solid rgba(239,68,68,0.4); color:#ef4444; background:rgba(239,68,68,0.08); border-radius:6px; cursor:pointer;" title="Toggle multi-select mode to delete products in bulk">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                <span id="btn-catalog-select-label">Delete Products</span>
+          <div class="view-header" style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; flex-wrap:wrap; border-bottom: 1px solid var(--border-titanium); padding-bottom: 6px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <h2 style="margin:0; font-family:var(--font-display); font-size:20px; font-weight:900; color:var(--text-white); letter-spacing:-0.3px;">Inventory Ledger</h2>
+              <span style="font-size:10px; background:rgba(255,255,255,0.06); color:var(--text-gray); padding:3px 8px; border-radius:6px; font-weight:700; border:1px solid var(--border-titanium);" id="inventory-item-count-badge">Master Catalog</span>
+            </div>
+            <div class="catalog-header-actions" style="display:flex; gap:6px; align-items:center; flex-wrap:nowrap; overflow-x:auto;">
+              <button type="button" class="action-btn" id="btn-open-import-studio" style="flex-shrink:0; font-size:11px; font-weight:700; padding:6px 12px; display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,0.06); border:1px solid var(--border-titanium); color:var(--text-white); border-radius:6px; cursor:pointer;">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Import CSV
               </button>
-              <button type="button" class="action-btn dm-btn-primary" id="btn-open-import-studio" style="flex-shrink:0; font-size:12px; font-weight:700; padding:8px 14px; display:inline-flex; align-items:center; gap:6px;"> Import CSV / Excel</button>
-              <button type="button" class="action-btn dm-btn-secondary" id="btn-export-catalog-csv" style="flex-shrink:0; font-size:12px; font-weight:700; padding:8px 14px; display:inline-flex; align-items:center; gap:6px;"> Export Catalog</button>
-              <button type="button" class="action-btn action-success" id="btn-catalog-create-product" style="flex-shrink:0; font-size:12px; font-weight:700; padding:8px 14px;">+ Add Product</button>
+              <button type="button" class="action-btn" id="btn-export-catalog-csv" style="flex-shrink:0; font-size:11px; font-weight:700; padding:6px 12px; display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,0.06); border:1px solid var(--border-titanium); color:var(--text-white); border-radius:6px; cursor:pointer;">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Export CSV
+              </button>
+              <button type="button" class="action-btn action-success" id="btn-catalog-create-product" style="flex-shrink:0; font-size:11px; font-weight:900; padding:6px 14px; border-radius:6px; background:linear-gradient(135deg, #00d68f 0%, #00b377 100%); color:#03180f; box-shadow:0 2px 10px rgba(0,214,143,0.3); cursor:pointer;">+ Add Product</button>
+              <button type="button" class="action-btn btn-catalog-select-mode" id="btn-catalog-toggle-select" style="flex-shrink:0; font-size:11px; font-weight:800; padding:6px 12px; display:inline-flex; align-items:center; gap:6px; border:1px solid rgba(255,92,92,0.5); color:#ff6b6b; background:rgba(255,92,92,0.12); border-radius:6px; cursor:pointer; transition:all 0.2s ease;" title="Toggle multi-select mode to delete products in bulk">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#ff6b6b" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                <span id="btn-catalog-select-label">Select to Delete</span>
+              </button>
             </div>
           </div>
 
           <!-- Sticky / Floating Bulk Action Bar for Multi-Select Product Deletion -->
-          <div id="catalog-bulk-bar" style="display:none; align-items:center; justify-content:space-between; padding:10px 16px; margin-bottom:12px; border-radius:8px; background:linear-gradient(135deg, rgba(239,68,68,0.18) 0%, rgba(18,18,24,0.98) 100%); border:1px solid rgba(239,68,68,0.4); box-shadow:0 4px 20px rgba(0,0,0,0.5);">
-            <div style="display:flex; align-items:center; gap:10px;">
-              <span style="display:inline-flex; align-items:center; justify-content:center; min-width:24px; height:24px; padding:0 6px; border-radius:12px; background:#ef4444; color:#fff; font-size:11px; font-weight:800;" id="catalog-selected-count">0</span>
-              <span style="font-size:12.5px; font-weight:700; color:var(--text-white);">Products Selected</span>
+          <div id="catalog-bulk-bar" style="display:none; align-items:center; justify-content:space-between; padding:12px 18px; margin-bottom:12px; border-radius:10px; background:linear-gradient(135deg, rgba(239,68,68,0.22) 0%, rgba(24,18,22,0.98) 100%); border:1px solid rgba(239,68,68,0.5); box-shadow:0 8px 30px rgba(0,0,0,0.6); backdrop-filter:blur(10px);">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span style="display:inline-flex; align-items:center; justify-content:center; min-width:26px; height:26px; padding:0 8px; border-radius:13px; background:#ef4444; color:#ffffff; font-size:12px; font-weight:900; box-shadow:0 2px 8px rgba(239,68,68,0.4);" id="catalog-selected-count">0</span>
+              <span style="font-size:13px; font-weight:800; color:#ffffff; letter-spacing:0.2px;">Products Selected for Deletion</span>
             </div>
-            <div style="display:flex; gap:8px;">
-              <button type="button" class="action-btn" id="btn-catalog-cancel-bulk" style="padding:6px 14px; font-size:11px; font-weight:700; border-radius:6px; cursor:pointer;">Cancel</button>
-              <button type="button" class="action-btn action-danger" id="btn-catalog-delete-bulk" style="padding:6px 16px; font-size:11.5px; font-weight:800; border-radius:6px; background:#ef4444; color:#fff; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <button type="button" class="action-btn" id="btn-catalog-cancel-bulk" style="padding:7px 16px; font-size:12px; font-weight:700; border-radius:8px; background:rgba(255,255,255,0.08); border:1px solid var(--border-titanium); color:#ffffff; cursor:pointer;">Cancel</button>
+              <button type="button" class="action-btn action-danger" id="btn-catalog-delete-bulk" style="padding:7px 20px; font-size:12px; font-weight:900; border-radius:8px; background:linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color:#ffffff; display:inline-flex; align-items:center; gap:7px; cursor:pointer; box-shadow:0 4px 14px rgba(239,68,68,0.4);">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#ffffff" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 Delete Selected (<span id="catalog-btn-delete-count">0</span>)
               </button>
             </div>
           </div>
 
-          <div class="category-filters-scroll" style="width:100%; margin-bottom:12px;">
-            <div class="category-filters" id="catalog-category-list" style="display:flex; gap:6px; flex-wrap:wrap;">
+          <div class="category-filters-scroll" style="width:100%; margin-bottom:4px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none;">
+            <div class="category-filters" id="catalog-category-list" style="display:flex; gap:6px; flex-wrap:nowrap; align-items:center; width:max-content; min-width:100%; padding:2px 0;">
               <!-- populated dynamically -->
             </div>
           </div>
           
-          <div class="search-bar-row" style="margin-bottom:14px;">
+          <div class="search-bar-row" style="margin-bottom:6px;">
             <input type="text" id="catalog-search-input" class="pos-input" placeholder="Search by name, SKU, or barcode..." aria-label="Search catalog items...">
           </div>
           
           <div class="catalog-table-wrapper" style="width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch;">
-            <div class="catalog-grid-table" style="min-width:1020px; width:100%;">
-              <div class="catalog-grid-header" id="catalog-grid-header" style="display:grid; grid-template-columns: 44px 110px 130px minmax(min(100%, 200px), 2fr) 130px 110px 110px 160px; gap:8px; padding:10px 12px; font-weight:700; font-size:11px; background:var(--panel-graphite); border-bottom:1px solid var(--border-titanium); align-items:center;">
-                <div style="text-align: center;"><input type="checkbox" id="catalog-select-all-checkbox" title="Select All" style="accent-color:var(--accent-emerald); cursor:pointer; width:15px; height:15px;" aria-label="Select All Products"></div>
-                <div style="text-align: left;">SKU</div>
-                <div style="text-align: left;">GTIN</div>
-                <div style="text-align: left;">Product Name</div>
-                <div style="text-align: left;">Category</div>
-                <div style="text-align: right;">Base Price</div>
-                <div style="text-align: right;">Stock Level</div>
-                <div style="text-align: center;">Actions</div>
+            <div class="catalog-grid-table" style="width:100%; min-width:100%;">
+              <div class="catalog-grid-header" id="catalog-grid-header" style="display:grid; grid-template-columns: minmax(95px, 1.1fr) minmax(130px, 1.8fr) minmax(75px, 0.9fr) minmax(70px, 0.85fr) minmax(72px, 0.85fr) 118px; gap:6px; padding:8px 10px; font-weight:700; font-size:10.5px; background:#14171d; border-bottom:1px solid rgba(255,255,255,0.1); align-items:center;">
+                <div id="catalog-header-checkbox-cell" style="display: none; text-align: center;"><input type="checkbox" id="catalog-select-all-checkbox" title="Select All" style="accent-color:var(--accent-emerald); cursor:pointer; width:15px; height:15px;" aria-label="Select All Products"></div>
+                <div style="text-align: left; color: rgba(255,255,255,0.75);">SKU / CODE</div>
+                <div style="text-align: left; color: rgba(255,255,255,0.75);">PRODUCT NAME</div>
+                <div style="text-align: left; color: rgba(255,255,255,0.75);">CATEGORY</div>
+                <div style="text-align: right; color: rgba(255,255,255,0.75);">PRICE</div>
+                <div style="text-align: right; color: rgba(255,255,255,0.75);">STOCK</div>
+                <div style="text-align: center; color: rgba(255,255,255,0.75);">ACTIONS</div>
               </div>
-              <div id="catalog-virtual-container" style="width: 100%; min-width: 1020px;">
+              <div id="catalog-virtual-container" style="width: 100%; min-width: 100%;">
                 <!-- Catalog rows rendered dynamically here -->
               </div>
             </div>
@@ -5256,6 +5262,7 @@
   <script src="modules/deals-engine.js"></script>
   <!-- MULTI-INDUSTRY STORE MODES ENGINE -->
   <script src="modules/store-modes.js"></script>
+  <script src="digital-receipt.js"></script>
   <script src="app.js"></script>
 
   <script src="sw-loader.js"></script>

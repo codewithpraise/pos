@@ -732,12 +732,12 @@ button:not(:disabled):active,
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   box-sizing: border-box;
-  padding-bottom: calc(var(--bottom-nav-h) + 24px);
+  padding-bottom: 0px;
 }
 
 @media (min-width: 769px) {
   .content-view {
-    padding-bottom: 32px !important;
+    padding-bottom: 0px !important;
     height: 100% !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
@@ -1918,33 +1918,67 @@ button:not(:disabled):active,
 }
 
 
+.category-filters-scroll {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  margin-top: 4px !important;
+  margin-bottom: 6px !important;
+  padding: 2px 0 4px 0 !important;
+  flex-shrink: 0 !important;
+}
+.category-filters-scroll::-webkit-scrollbar {
+  display: none !important;
+}
+
 .category-filters {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 6px !important;
+  width: max-content !important;
+  min-width: 100% !important;
+  padding: 0 2px !important;
 }
 
 .cat-pill {
-  background: var(--panel-graphite);
-  border: 1px solid var(--border-titanium);
-  color: var(--text-gray);
-  font-size: 11px;
-  font-weight: 700;
-  padding: 6px 14px;
-  border-radius: 20px;
-  cursor: pointer;
-  min-height: 36px;
-  display: flex;
-  align-items: center;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: var(--text-gray) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  padding: 0 12px !important;
+  border-radius: 14px !important;
+  cursor: pointer !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+  line-height: 26px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  user-select: none !important;
 }
 
-.cat-pill:hover, .cat-pill.active {
-  border-color: var(--accent-emerald);
-  color: var(--text-white);
+.cat-pill:hover {
+  background: rgba(255, 255, 255, 0.09) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  color: #ffffff !important;
 }
 
 .cat-pill.active {
-  background: var(--accent-emerald-glow);
+  background: rgba(16, 185, 129, 0.18) !important;
+  border-color: var(--accent-emerald) !important;
+  color: var(--accent-emerald) !important;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.25) !important;
 }
 
 .action-btn {
@@ -4899,16 +4933,18 @@ html {
 
 /* ── CATALOG MANAGER SCROLL & BUTTON CONTAINER HARDENING ───────────────── */
 #catalog-virtual-container {
-  overflow-x: auto !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
   -webkit-overflow-scrolling: touch;
   width: 100% !important;
   box-sizing: border-box !important;
 }
 .catalog-grid-row {
-  min-width: 820px;
+  width: 100% !important;
+  min-width: 100% !important;
   box-sizing: border-box;
 }
-.btn-edit-item {
+.btn-edit-item, .btn-delete-single-product {
   white-space: nowrap !important;
   flex-shrink: 0 !important;
 }
@@ -5102,7 +5138,10 @@ body.theme-monochrome-ivory .skeleton-card {
   }
 
   .pos-topbar {
-    padding-top: max(env(safe-area-inset-top, 24px), 24px) !important;
+    padding-top: env(safe-area-inset-top, 0px) !important;
+    padding-bottom: 0px !important;
+    height: 48px !important;
+    min-height: 48px !important;
   }
 
   .auth-overlay {
@@ -5708,7 +5747,7 @@ table, .data-table, .report-table {
   }
 
   .content-view:not(#view-checkout):not(#view-subscription), .main-stage:not(#view-checkout):not(#view-subscription), .page-container:not(#view-checkout):not(#view-subscription) {
-    padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: 0px !important;
   }
 
   .content-view {
@@ -6429,13 +6468,14 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
   #view-suppliers,
   #view-staff,
   #view-credit-book,
+  #view-customer-buyback,
   #view-settings,
   #view-logs,
   #view-backup,
   #view-data-portability,
   #view-fbr-fiscal,
   #view-multi-store {
-    padding-bottom: 24px !important;
+    padding-bottom: 0px !important;
   }
 }
 
@@ -6499,62 +6539,174 @@ body.theme-monochrome-ivory .settings-row input:not(.pos-checkbox) {
   }
 }
 
-/* Single Unified Scrollbar Enforcement for Catalog Manager & FBR Fiscal Hub */
+/* Single Unified Full-Height Flex Layout for Catalog Manager */
+.pos-content-pane:has(#view-catalog-manager.active) {
+  padding-bottom: 0px !important;
+}
+
 #view-catalog-manager.active {
-  display: block !important;
+  display: flex !important;
+  flex-direction: column !important;
   height: 100% !important;
   min-height: 0 !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  -webkit-overflow-scrolling: touch !important;
-  padding: 24px !important;
+  flex: 1 1 auto !important;
+  overflow: hidden !important;
+  padding: 8px 12px 0 12px !important;
   box-sizing: border-box !important;
 }
 
 #view-catalog-manager .view-header {
+  flex-shrink: 0 !important;
   overflow: visible !important;
-  overflow-y: visible !important;
-  height: auto !important;
-  max-height: none !important;
-  padding: 0 0 14px 0 !important;
-  margin-bottom: 14px !important;
+  padding: 0 0 6px 0 !important;
+  margin-bottom: 4px !important;
 }
 
 #view-catalog-manager .category-filters-scroll {
-  overflow: visible !important;
-  overflow-y: visible !important;
-  height: auto !important;
-  max-height: none !important;
+  flex-shrink: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  scrollbar-width: none !important;
   padding: 0 !important;
-  margin-bottom: 12px !important;
+  margin-bottom: 4px !important;
+  width: 100% !important;
 }
 
 #view-catalog-manager .search-bar-row {
+  flex-shrink: 0 !important;
   overflow: visible !important;
-  overflow-y: visible !important;
-  height: auto !important;
-  max-height: none !important;
   padding: 0 !important;
-  margin-bottom: 14px !important;
+  margin-bottom: 4px !important;
 }
 
-#view-catalog-manager .catalog-table-wrapper,
-#view-catalog-manager .catalog-grid-table,
-#view-catalog-manager #catalog-virtual-container,
-#view-fbr-fiscal .catalog-table-wrapper,
-#view-fbr-fiscal .catalog-table {
-  height: auto !important;
-  max-height: none !important;
-  overflow-y: visible !important;
-  min-height: 0 !important;
-  padding: 0 !important;
+#view-catalog-manager .search-bar-row .pos-input,
+#catalog-search-input {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 4px 12px !important;
+  font-size: 11.5px !important;
+  border-radius: 6px !important;
+}
+
+#view-catalog-manager .view-header .action-btn,
+#btn-open-import-studio,
+#btn-export-catalog-csv,
+#btn-catalog-create-product,
+#btn-catalog-toggle-select {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 4px 10px !important;
+  font-size: 11px !important;
+  border-radius: 6px !important;
+  white-space: nowrap !important;
+}
+
+.catalog-header-actions {
+  display: flex !important;
+  gap: 6px !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-width: none !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+.catalog-header-actions::-webkit-scrollbar {
+  display: none !important;
+}
+
+@media (min-width: 769px) {
+  #view-catalog-manager .view-header {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+  }
+  .catalog-header-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+  }
+}
+
+@media (max-width: 768px) {
+  #view-catalog-manager .view-header {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 6px !important;
+    padding-bottom: 4px !important;
+    margin-bottom: 4px !important;
+  }
+  .catalog-header-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    width: 100% !important;
+  }
+  .catalog-header-actions .action-btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
 }
 
 #view-catalog-manager .catalog-table-wrapper {
-  display: block !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 0px !important;
+  min-height: 0 !important;
+  height: 100% !important;
   width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
   overflow-x: auto !important;
+  overflow-y: hidden !important;
   -webkit-overflow-scrolling: touch !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  background: #0d0f12 !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important;
+}
+
+#view-catalog-manager .catalog-grid-table {
+  width: 100% !important;
+  min-width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  flex: 1 1 auto !important;
+}
+
+#view-catalog-manager .catalog-grid-header {
+  flex-shrink: 0 !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 2 !important;
+  background: #14171d !important;
+  border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+}
+
+#view-catalog-manager #catalog-virtual-container {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  min-width: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  min-height: 80px !important;
+  padding-bottom: 2px !important;
+}
+
+#view-customer-buyback.active {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  padding: 16px 20px 8px 20px !important;
+  box-sizing: border-box !important;
 }
 
 #view-fbr-fiscal.active {
@@ -7190,21 +7342,41 @@ body.theme-monochrome-ivory .console-box {
 }
 .vx-modal-btn {
   flex: 1;
-  padding: 12px;
-  font-weight: 700;
-  border-radius: 6px;
+  padding: 12px 18px;
+  font-weight: 800;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 13px;
   font-family: inherit;
   min-height: 44px;
   touch-action: manipulation;
   border: none;
-  transition: opacity 0.15s, transform 0.1s;
+  transition: opacity 0.15s, transform 0.1s, background 0.15s, box-shadow 0.15s;
 }
 .vx-modal-btn:active { transform: scale(0.97); }
-.vx-modal-btn--primary   { background: #10b981; color: #000000; border: none; }
-.vx-modal-btn--danger    { background: #ef4444; color: #ffffff; border: none; }
-.vx-modal-btn--secondary { background: transparent; color: #9ca3af; border: 1px solid rgba(255,255,255,0.15); }
+.vx-modal-btn--primary {
+  background: linear-gradient(135deg, #00d68f 0%, #00b377 100%);
+  color: #03180f;
+  font-weight: 900;
+  box-shadow: 0 4px 14px rgba(0,214,143,0.3);
+  border: none;
+}
+.vx-modal-btn--danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  font-weight: 800;
+  box-shadow: 0 4px 14px rgba(239,68,68,0.4);
+  border: 1px solid rgba(255,255,255,0.15);
+}
+.vx-modal-btn--secondary {
+  background: rgba(255,255,255,0.08);
+  color: #f1f5f9;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+.vx-modal-btn--secondary:hover {
+  background: rgba(255,255,255,0.14);
+  color: #ffffff;
+}
 
 /* ── VX GLOBAL MODAL — light theme ────────────────────────── */
 body.theme-monochrome-ivory .__vx-global-modal-overlay {
@@ -7588,6 +7760,98 @@ body.theme-monochrome-ivory .pwa-install-banner .pwa-dismiss-btn:hover {
   background: #fee2e2 !important;
   border-color: #ef4444 !important;
   color: #ef4444 !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   CATALOG MANAGER FULL BLEED & ZERO DEAD SPACE ENGINE
+   ───────────────────────────────────────────────────────────────────────────── */
+#view-catalog-manager.active {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  flex: 1 1 auto !important;
+  padding: 8px 12px 2px 12px !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+
+#view-catalog-manager.active .catalog-table-wrapper {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 0px !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: #0d0f12 !important;
+}
+
+#view-catalog-manager.active #catalog-virtual-container {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  min-width: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding-bottom: 2px !important;
+}
+
+.pos-content-pane:has(#view-catalog-manager.active) {
+  padding-bottom: 0px !important;
+}
+
+.btn-edit-item {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.btn-edit-item:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  color: #ffffff !important;
+}
+.btn-edit-item:active {
+  transform: scale(0.97);
+}
+
+.btn-delete-single-product {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.btn-delete-single-product:hover {
+  background: rgba(239, 68, 68, 0.3) !important;
+  border-color: rgba(239, 68, 68, 0.8) !important;
+  color: #ffffff !important;
+}
+.btn-delete-single-product:active {
+  transform: scale(0.97);
+}
+
+/* Universal High-Contrast Dark-Themed Select Dropdowns & Options */
+select,
+select option,
+select optgroup,
+.__vxdm-sel,
+#__vxdm-sel {
+  background-color: #14141d !important;
+  color: #ffffff !important;
+}
+
+select option,
+#__vxdm-sel option {
+  background-color: #14141d !important;
+  color: #ffffff !important;
+  padding: 8px 12px !important;
+}
+
+select option:checked,
+select option:hover,
+select option:focus {
+  background-color: #10b981 !important;
+  color: #060d0d !important;
 }
 
 
