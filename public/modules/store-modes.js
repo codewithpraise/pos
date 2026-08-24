@@ -874,8 +874,11 @@
   function isBuybackSupported(mode) {
     const active = mode || (typeof window !== 'undefined' && window.state && window.state.preferences && (window.state.preferences.shop_mode || window.state.preferences.store_type)) || (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_shop_mode')) || 'simple-retail';
     const modeConfig = STORE_MODES[active];
-    if (modeConfig && modeConfig.features && modeConfig.features.hasCustomerBuyback !== undefined) return modeConfig.features.hasCustomerBuyback;
-    return true;
+    if (modeConfig && modeConfig.features && modeConfig.features.hasCustomerBuyback !== undefined) {
+      return Boolean(modeConfig.features.hasCustomerBuyback);
+    }
+    const BUYBACK_MODES = new Set(['electronics-highvalue', 'mobile-repair', 'jewellery', 'jewellery-gold', 'pawn-gold', 'computer-it', 'automotive-car']);
+    return BUYBACK_MODES.has(active);
   }
   globalScope.isBuybackSupported = isBuybackSupported;
 
