@@ -53,6 +53,12 @@
       renderer: 'renderDealsScreen',
       renderTargets: ['deals-list-container']
     },
+    'customer-buyback': {
+      viewId: 'view-customer-buyback',
+      title: 'Device Buy-In & Trade-In',
+      renderer: 'renderCustomerBuybackScreen',
+      renderTargets: ['buyback-records-list']
+    },
     'history': {
       viewId: 'view-history',
       title: 'Transaction History',
@@ -249,6 +255,18 @@
         if (!isSupported) {
           if (typeof global.showNotificationToast === 'function') {
             global.showNotificationToast('Kitchen Display System (KDS) is only available for Restaurant & Café store modes.', 'info', 4000);
+          }
+          return this.navigateTo('checkout', { push: false });
+        }
+      }
+
+      if (cleanName === 'customer-buyback') {
+        const isSupported = (global.ValenixiaStoreModes && typeof global.ValenixiaStoreModes.isBuybackSupported === 'function')
+          ? global.ValenixiaStoreModes.isBuybackSupported()
+          : (typeof global.isBuybackSupported === 'function' ? global.isBuybackSupported() : false);
+        if (!isSupported) {
+          if (typeof global.showNotificationToast === 'function') {
+            global.showNotificationToast('Device Buy-In & Trade-In is only available for Mobile & Electronics store modes.', 'info', 4000);
           }
           return this.navigateTo('checkout', { push: false });
         }

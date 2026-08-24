@@ -13,7 +13,7 @@ if (!self.location.search.includes('debug=true')) {
 }
 
 const urlParams = new URLSearchParams(self.location.search);
-const buildVersion = urlParams.get('v') || 'v3.0.0-prod-valenixia-pos';
+const buildVersion = urlParams.get('v') || 'v3.1.0-prod-valenixia-pos';
 const CACHE_NAME = `valenixia-pos-cache-${buildVersion}`;
 const ASSETS_TO_CACHE = [
   { url: '/', integrity: '' },
@@ -23,7 +23,7 @@ const ASSETS_TO_CACHE = [
   { url: '/styles/themes.css', integrity: '' },
   { url: '/styles/animations.css', integrity: '' },
   { url: '/styles/components.css', integrity: '' },
-  { url: '/app.js', integrity: 'sha384-GKq1HYh6sM2AxqSBWpoKHJa0n/ACR3zm2nLh6drCttOq42AHOoECPY0/T1WF074d' },
+  { url: '/app.js', integrity: 'sha384-zV7N0O0cOeFnlppaD31blUZXgOXp7Zh4Z/6hFe7J0TiksWUoXaqpcaeYWGbvV+p1' },
   { url: '/router.js', integrity: '' },
   { url: '/commercial-catalog.js', integrity: '' },
   { url: '/legal-documents.js', integrity: '' },
@@ -33,11 +33,11 @@ const ASSETS_TO_CACHE = [
   { url: '/modules/animations.js', integrity: '' },
   { url: '/modules/offline.js', integrity: '' },
   { url: '/modules/keyboard.js', integrity: '' },
-  { url: '/client-db.js', integrity: 'sha384-fgtn5YcGx0BgrCk5B+GC85uSHlf7o/CjDL48RF2QF9hjtYf1jj0o34hOdBt8cYBB' },
+  { url: '/client-db.js', integrity: 'sha384-V18ASjL8cbdjmiJypVyGdMRC4W/8qsmWuGvGPg+IyHAgj0BcGzOkbyT/FOOZR8qn' },
   { url: '/client-audio.js', integrity: 'sha384-dzfXcrClk7pat6tYQU3aJLGFAsJYZU+tbF2rng81DIlBp+iUkOMe5TfNLe9va3f9' },
   { url: '/client-speech.js', integrity: 'sha384-7W67xTwgWUVhwx4BuvdTRftJfKk/2TH/JVX0FQy18uTcjM2CFaRvzRq/GRhW5e8k' },
   { url: '/client-sync.js', integrity: 'sha384-dvzrIevtShpBfj3wmA+zFMChJ4QAQRWSLqsTq5I4J0SztsioY8irVJLJzLC/ZLKc' },
-  { url: '/sync-worker.js', integrity: 'sha384-zrEPQBWYzYL/WxBNd7xJkf7J+Z+MJ3VPxzzTm2PxGKGeXltWIAgA9WZIq2kXapFk' },
+  { url: '/sync-worker.js', integrity: 'sha384-gnJ/wp1pLVYCcangmPiwoZxbYH2syfYcKClKbhQRFzgxCfL8L4+N2MyUqyO4RSta' },
   { url: '/manifest.json', integrity: '' },
   { url: '/icon-192.png', integrity: '' },
   { url: '/icon-512.png', integrity: '' },

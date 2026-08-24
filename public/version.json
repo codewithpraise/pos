@@ -1,16 +1,14 @@
 {
-  "version": "3.0.0",
-  "build_id": "v3.0.0-prod-6a0857f",
-  "git_commit": "6a0857fb3ac2992bc3c5aaf5a7bd912f571c4262",
-  "updated_at": "2026-08-15",
-  "changelog": "Valenixia POS v3.0.0 Mobile Onboarding Scroll Hardening, Responsive Layout & Universal Download Packages Release.",
+  "version": "3.1.0",
+  "build_id": "v3.1.0-prod-smart-bargaining",
+  "git_commit": "HEAD",
+  "updated_at": "2026-08-24",
+  "changelog": "Valenixia POS v3.1.0 Smart Bargaining, On-The-Fly Pricing, Customer Buy-In & Bulk Inventory Management Release.",
   "changes": [
-    "Fixed onboarding/bootstrapping setup wizard overlay touch-scroll and overflow containment across all mobile browsers and webviews",
-    "Removed clipping overflow:hidden on wizard-card and normalized dynamic vertical sizing on small touch displays",
-    "Added -webkit-overflow-scrolling:touch, touch-action:pan-y, and overscroll-behavior-y:contain to all overlays and modal bodies",
-    "Implemented safe CSS-driven body scroll locking without unresettable body.style.overflow overrides",
-    "Rebuilt clean, unbloated 15MB Android APK (valenixia.apk) and desktop package (valenixia.exe)",
-    "Enhanced download center (download.html) with direct desktop and mobile installation links",
-    "Passed all 28 automated mobile scroll and runtime architecture validation checks"
+    "Smart Bargaining & on-the-fly negotiated price adjustment with visual tags",
+    "Optional buyer identification (Name, Phone, CNIC, Notes) on thermal & digital receipts",
+    "Customer Buy-In / Trade-In intake ledger with IMEI tracking & official legal purchase voucher",
+    "Multi-select bulk inventory deletion and single-item delete with non-blocking confirmation modals",
+    "Domain isolation ensuring buyback features are active only for relevant store modes"
   ]
 }

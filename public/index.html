@@ -52,7 +52,7 @@
 
   <!-- ELEGANT BOOTSTRAPPING SPLASH OVERLAY WITH DIAGNOSTIC TERMINAL -->
   <div id="app-boot-loader" style="position:fixed;inset:0;z-index:99999;background:#060609;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-family:'Manrope',sans-serif;transition:opacity 0.3s ease, visibility 0.3s ease;padding:20px;box-sizing:border-box;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;">
-    <div style="font-family:'Outfit',sans-serif;font-size:24px;font-weight:900;background:linear-gradient(135deg,#00d68f,#10b981);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:2px;">Valenixia POS <span style="font-size:12px; font-weight:800; color:#10b981; vertical-align:middle; letter-spacing:0;">v3.0.0</span></div>
+    <div style="font-family:'Outfit',sans-serif;font-size:24px;font-weight:900;background:linear-gradient(135deg,#00d68f,#10b981);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:2px;">Valenixia POS <span style="font-size:12px; font-weight:800; color:#10b981; vertical-align:middle; letter-spacing:0;">v3.1.0</span></div>
     <div style="font-size:11px;color:#6b7280;letter-spacing:0.05em;text-transform:uppercase;" id="app-boot-loader-status">Initializing local runtime...</div>
     <div style="width:180px;height:3px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;margin-top:2px;">
       <div id="app-boot-loader-progress" style="width:30%;height:100%;background:linear-gradient(90deg,#00d68f,#10b981);border-radius:99px;transition:width 0.3s ease;"></div>
@@ -125,7 +125,7 @@
         </div>
         <div class="brand-text">
           <h1 id="sidebar-store-name">VALENIXIA</h1>
-          <span>Point of Sale <span style="font-size:9px; background:rgba(0,214,143,0.15); color:var(--accent-emerald); padding:1px 5px; border-radius:4px; font-weight:800; border:1px solid rgba(0,214,143,0.3); margin-left:4px;">v3.0.0</span></span>
+          <span>Point of Sale <span style="font-size:9px; background:rgba(0,214,143,0.15); color:var(--accent-emerald); padding:1px 5px; border-radius:4px; font-weight:800; border:1px solid rgba(0,214,143,0.3); margin-left:4px;">v3.1.0</span></span>
         </div>
       </div>
       
@@ -160,6 +160,13 @@
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
           </span>
           <span class="nav-label">Deals &amp; Combos</span>
+        </button>
+        <button class="nav-item buyback-only-element" data-screen="customer-buyback" id="nav-customer-buyback" style="display: none;">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          </span>
+          <span class="nav-label">Device Buy-In</span>
+          <span style="font-size:8.5px; background:rgba(0,214,143,0.15); color:var(--accent-emerald); padding:1px 4px; border-radius:4px; font-weight:800; border:1px solid rgba(0,214,143,0.3); margin-left:auto;">TRADE</span>
         </button>
         <button class="nav-item" data-screen="history">
           <span class="nav-icon">
@@ -627,6 +634,32 @@
                 </div>
               </div>
 
+              <!-- Buyer Details on Receipt (Optional for High-Value & Mobile Sales) -->
+              <div class="action-card buyer-details-card collapsible" id="card-buyer-details">
+                <div class="card-toggle-header" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
+                  <span class="lbl" style="display:flex; align-items:center; gap:6px;">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="var(--accent-emerald)" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <span>Buyer Info on Receipt</span>
+                    <span style="font-size:9px; background:rgba(0,214,143,0.12); color:var(--accent-emerald); padding:1px 5px; border-radius:4px; font-weight:700;">Optional</span>
+                  </span>
+                  <span class="toggle-icon">▼</span>
+                </div>
+                <div class="card-collapsible-content">
+                  <div style="display:flex; flex-direction:column; gap:8px; padding-top:6px;">
+                    <div style="display:flex; gap:6px;">
+                      <input type="text" id="checkout-buyer-name" class="pos-input" placeholder="Buyer Full Name" style="font-size:11px; height:32px; flex:1;" aria-label="Buyer Name">
+                      <input type="tel" id="checkout-buyer-phone" class="pos-input" placeholder="Phone (0300-1234567)" style="font-size:11px; height:32px; flex:1;" aria-label="Buyer Phone">
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                      <input type="text" id="checkout-buyer-cnic" class="pos-input" placeholder="CNIC / ID Card # (Optional)" style="font-size:11px; height:32px; flex:1;" aria-label="Buyer CNIC">
+                      <button type="button" id="btn-clear-buyer-details" class="action-btn" style="font-size:10px; padding:0 8px; height:32px; color:var(--text-gray); border-color:var(--border-titanium); cursor:pointer;" title="Clear buyer fields">Clear</button>
+                    </div>
+                    <input type="text" id="checkout-buyer-notes" class="pos-input" placeholder="Receipt Notes / Warranty Terms / City" style="font-size:11px; height:32px; width:100%;" aria-label="Receipt Notes">
+                    <span style="font-size:9.5px; color:var(--text-gray); line-height:1.3;">Details print directly on thermal/PDF receipts and save with this sale. Leave blank for fast anonymous sales.</span>
+                  </div>
+                </div>
+              </div>
+
               <!-- Payment Panel -->
               <div class="action-card payment-card">
                 <span class="lbl">Payment Method</span>
@@ -736,7 +769,7 @@
                     </div>
                     <div>
                       <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: var(--text-white);">Android Mobile POS App</h3>
-                      <span style="font-size: 11px; color: var(--accent-emerald); font-weight: 700;">Native APK • v3.0.0 (16.4 MB)</span>
+                      <span style="font-size: 11px; color: var(--accent-emerald); font-weight: 700;">Native APK • v3.1.0 (16.4 MB)</span>
                     </div>
                   </div>
                   <p style="font-size: 12.5px; color: var(--text-gray); line-height: 1.5; margin-bottom: 16px;">
@@ -763,7 +796,7 @@
                     </div>
                     <div>
                       <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: var(--text-white);">Desktop Windows Application</h3>
-                      <span style="font-size: 11px; color: #3b82f6; font-weight: 700;">Windows x64 • v3.0.0 (124.8 MB)</span>
+                      <span style="font-size: 11px; color: #3b82f6; font-weight: 700;">Windows x64 • v3.1.0 (124.8 MB)</span>
                     </div>
                   </div>
                   <p style="font-size: 12.5px; color: var(--text-gray); line-height: 1.5; margin-bottom: 16px;">
@@ -826,9 +859,28 @@
           <div class="view-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap; border-bottom: 1px solid var(--border-titanium); padding-bottom: 12px;">
             <h2>Inventory Ledger</h2>
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <button type="button" class="action-btn" id="btn-catalog-toggle-select" style="flex-shrink:0; font-size:12px; font-weight:700; padding:8px 14px; display:inline-flex; align-items:center; gap:6px; border:1px solid rgba(239,68,68,0.4); color:#ef4444; background:rgba(239,68,68,0.08); border-radius:6px; cursor:pointer;" title="Toggle multi-select mode to delete products in bulk">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                <span id="btn-catalog-select-label">Delete Products</span>
+              </button>
               <button type="button" class="action-btn dm-btn-primary" id="btn-open-import-studio" style="flex-shrink:0; font-size:12px; font-weight:700; padding:8px 14px; display:inline-flex; align-items:center; gap:6px;"> Import CSV / Excel</button>
               <button type="button" class="action-btn dm-btn-secondary" id="btn-export-catalog-csv" style="flex-shrink:0; font-size:12px; font-weight:700; padding:8px 14px; display:inline-flex; align-items:center; gap:6px;"> Export Catalog</button>
               <button type="button" class="action-btn action-success" id="btn-catalog-create-product" style="flex-shrink:0; font-size:12px; font-weight:700; padding:8px 14px;">+ Add Product</button>
+            </div>
+          </div>
+
+          <!-- Sticky / Floating Bulk Action Bar for Multi-Select Product Deletion -->
+          <div id="catalog-bulk-bar" style="display:none; align-items:center; justify-content:space-between; padding:10px 16px; margin-bottom:12px; border-radius:8px; background:linear-gradient(135deg, rgba(239,68,68,0.18) 0%, rgba(18,18,24,0.98) 100%); border:1px solid rgba(239,68,68,0.4); box-shadow:0 4px 20px rgba(0,0,0,0.5);">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="display:inline-flex; align-items:center; justify-content:center; min-width:24px; height:24px; padding:0 6px; border-radius:12px; background:#ef4444; color:#fff; font-size:11px; font-weight:800;" id="catalog-selected-count">0</span>
+              <span style="font-size:12.5px; font-weight:700; color:var(--text-white);">Products Selected</span>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button type="button" class="action-btn" id="btn-catalog-cancel-bulk" style="padding:6px 14px; font-size:11px; font-weight:700; border-radius:6px; cursor:pointer;">Cancel</button>
+              <button type="button" class="action-btn action-danger" id="btn-catalog-delete-bulk" style="padding:6px 16px; font-size:11.5px; font-weight:800; border-radius:6px; background:#ef4444; color:#fff; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                Delete Selected (<span id="catalog-btn-delete-count">0</span>)
+              </button>
             </div>
           </div>
 
@@ -843,8 +895,9 @@
           </div>
           
           <div class="catalog-table-wrapper" style="width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch;">
-            <div class="catalog-grid-table" style="min-width:1000px; width:100%;">
-              <div class="catalog-grid-header" style="display:grid; grid-template-columns: 110px 130px minmax(min(100%, 220px), 2fr) 130px 110px 110px 150px; gap:8px; padding:10px 12px; font-weight:700; font-size:11px; background:var(--panel-graphite); border-bottom:1px solid var(--border-titanium);">
+            <div class="catalog-grid-table" style="min-width:1020px; width:100%;">
+              <div class="catalog-grid-header" id="catalog-grid-header" style="display:grid; grid-template-columns: 44px 110px 130px minmax(min(100%, 200px), 2fr) 130px 110px 110px 160px; gap:8px; padding:10px 12px; font-weight:700; font-size:11px; background:var(--panel-graphite); border-bottom:1px solid var(--border-titanium); align-items:center;">
+                <div style="text-align: center;"><input type="checkbox" id="catalog-select-all-checkbox" title="Select All" style="accent-color:var(--accent-emerald); cursor:pointer; width:15px; height:15px;" aria-label="Select All Products"></div>
                 <div style="text-align: left;">SKU</div>
                 <div style="text-align: left;">GTIN</div>
                 <div style="text-align: left;">Product Name</div>
@@ -853,7 +906,7 @@
                 <div style="text-align: right;">Stock Level</div>
                 <div style="text-align: center;">Actions</div>
               </div>
-              <div id="catalog-virtual-container" style="width: 100%; min-width: 1000px;">
+              <div id="catalog-virtual-container" style="width: 100%; min-width: 1020px;">
                 <!-- Catalog rows rendered dynamically here -->
               </div>
             </div>
@@ -909,6 +962,236 @@
           </div>
           <!-- Deals engine renders into this container -->
           <div id="deals-list-container" style="padding:0 20px 20px;"></div>
+        </section>
+
+        <!-- View 3c: Customer Device Buy-In & Trade-In (Mobile & Electronics specific) -->
+        <section class="content-view" id="view-customer-buyback">
+          <div style="padding: 20px; max-width: 1400px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; box-sizing: border-box;">
+            
+            <!-- View Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid var(--border-titanium); padding-bottom: 14px;">
+              <div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <h2 style="margin: 0; font-family: var(--font-display); font-weight: 900; font-size: 22px; color: var(--text-white); letter-spacing: -0.3px;">Device Buy-In &amp; Trade-In Hub</h2>
+                  <span style="font-size: 10px; background: rgba(0,214,143,0.15); color: var(--accent-emerald); padding: 2px 8px; border-radius: 6px; font-weight: 800; border: 1px solid rgba(0,214,143,0.3);">MOBILE &amp; ELECTRONICS</span>
+                </div>
+                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Purchase phones &amp; electronics from walk-in customers, verify CNIC/IMEI legality, and generate legal inward vouchers.</p>
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button type="button" class="action-btn action-secondary" id="btn-export-buyback-csv" style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 8px 14px;">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Export Records
+                </button>
+                <button type="button" class="action-btn action-success" id="btn-refresh-buyback-list" style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 8px 14px;">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                  Refresh Ledger
+                </button>
+              </div>
+            </div>
+
+            <!-- KPI Row -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px;">
+              <div class="kpi-card accent-emerald">
+                <span class="kpi-lbl">TODAY'S BUY-IN PAYOUT</span>
+                <span class="kpi-val" id="buyback-kpi-payout">Rs. 0</span>
+                <span style="font-size: 10px; color: var(--accent-emerald); font-weight: 700; margin-top: 2px;">Cash Disbursed</span>
+              </div>
+              <div class="kpi-card accent-blue">
+                <span class="kpi-lbl">DEVICES PURCHASED TODAY</span>
+                <span class="kpi-val" id="buyback-kpi-count">0</span>
+                <span style="font-size: 10px; color: #3b82f6; font-weight: 700; margin-top: 2px;">Inward Vouchers</span>
+              </div>
+              <div class="kpi-card accent-amber">
+                <span class="kpi-lbl">ACTIVE INVENTORY RESALE</span>
+                <span class="kpi-val" id="buyback-kpi-inventory">0</span>
+                <span style="font-size: 10px; color: #f59e0b; font-weight: 700; margin-top: 2px;">Used Stock Units</span>
+              </div>
+            </div>
+
+            <!-- Two-Column Layout: Left Form, Right History -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 16px; align-items: start;">
+              
+              <!-- Form Column -->
+              <div class="cloud-vault-card" style="padding: 20px; border-radius: 12px; border: 1px solid var(--border-titanium); display: flex; flex-direction: column; gap: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-titanium); padding-bottom: 10px;">
+                  <span style="font-size: 13px; font-weight: 800; color: var(--text-white); text-transform: uppercase; letter-spacing: 0.5px;">Customer Device Intake Form</span>
+                  <button type="button" class="action-btn" id="btn-clear-buyback-form" style="font-size: 11px; padding: 4px 10px;">Clear Form</button>
+                </div>
+
+                <form id="form-customer-buyback" autocomplete="off" onsubmit="event.preventDefault();">
+                  
+                  <!-- Section 1: Seller Details -->
+                  <div style="margin-bottom: 14px;">
+                    <span style="font-size: 11px; font-weight: 800; color: var(--accent-emerald); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px;">1. Customer / Seller Legal Details</span>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                      <div>
+                        <label for="buyback-seller-name" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Seller Full Name *</label>
+                        <input type="text" id="buyback-seller-name" class="pos-input" placeholder="e.g. Muhammad Usman" required style="font-size: 12px;" aria-label="Seller Full Name">
+                      </div>
+                      <div>
+                        <label for="buyback-seller-phone" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Phone / WhatsApp *</label>
+                        <input type="tel" id="buyback-seller-phone" class="pos-input" placeholder="e.g. 0300-1234567" required style="font-size: 12px;" aria-label="Seller Phone">
+                      </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                      <div>
+                        <label for="buyback-seller-cnic" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">CNIC / National ID *</label>
+                        <input type="text" id="buyback-seller-cnic" class="pos-input" placeholder="e.g. 42101-1234567-1" required style="font-size: 12px;" aria-label="Seller CNIC">
+                      </div>
+                      <div>
+                        <label for="buyback-seller-address" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">City / Address</label>
+                        <input type="text" id="buyback-seller-address" class="pos-input" placeholder="e.g. Saddar, Karachi" style="font-size: 12px;" aria-label="Seller Address">
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Section 2: Device Specs -->
+                  <div style="margin-bottom: 14px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
+                    <span style="font-size: 11px; font-weight: 800; color: #3b82f6; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px;">2. Device &amp; Hardware Specifications</span>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                      <div>
+                        <label for="buyback-device-brand" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Brand / Manufacturer *</label>
+                        <select id="buyback-device-brand" class="pos-input" required style="font-size: 12px;" aria-label="Device Brand">
+                          <option value="Apple">Apple iPhone</option>
+                          <option value="Samsung">Samsung</option>
+                          <option value="Xiaomi">Xiaomi / Redmi</option>
+                          <option value="Vivo">Vivo</option>
+                          <option value="Oppo">Oppo</option>
+                          <option value="Realme">Realme</option>
+                          <option value="Infinix">Infinix / Tecno</option>
+                          <option value="Google">Google Pixel</option>
+                          <option value="OnePlus">OnePlus</option>
+                          <option value="Laptop">Laptop / MacBook</option>
+                          <option value="Other">Other / Gadget</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label for="buyback-device-model" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Model Name &amp; Storage *</label>
+                        <input type="text" id="buyback-device-model" class="pos-input" placeholder="e.g. iPhone 13 Pro 256GB" required style="font-size: 12px;" aria-label="Model Name">
+                      </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                      <div>
+                        <label for="buyback-device-imei1" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Primary IMEI 1 / Serial # *</label>
+                        <input type="text" id="buyback-device-imei1" class="pos-input" placeholder="15-digit IMEI or Serial" required style="font-size: 12px; font-family: var(--font-mono);" aria-label="Primary IMEI">
+                      </div>
+                      <div>
+                        <label for="buyback-device-imei2" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Secondary IMEI 2 (eSIM/Dual)</label>
+                        <input type="text" id="buyback-device-imei2" class="pos-input" placeholder="Optional IMEI 2" style="font-size: 12px; font-family: var(--font-mono);" aria-label="Secondary IMEI">
+                      </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                      <div>
+                        <label for="buyback-device-color" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Device Color</label>
+                        <input type="text" id="buyback-device-color" class="pos-input" placeholder="e.g. Sierra Blue" style="font-size: 12px;" aria-label="Device Color">
+                      </div>
+                      <div>
+                        <label for="buyback-device-condition" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Physical Condition Grade *</label>
+                        <select id="buyback-device-condition" class="pos-input" style="font-size: 12px;" aria-label="Condition Grade">
+                          <option value="10/10 Mint (Box Pack / Flawless)">10/10 Mint (Box Pack / Flawless)</option>
+                          <option value="9/10 Excellent (Minor Signs of Use)" selected>9/10 Excellent (Minor Signs of Use)</option>
+                          <option value="8/10 Good (Visible Scratches/Dents)">8/10 Good (Visible Scratches/Dents)</option>
+                          <option value="7/10 Heavy Used / Worn Body">7/10 Heavy Used / Worn Body</option>
+                          <option value="Faulty (Screen/Battery/Camera issue)">Faulty (Screen/Battery/Camera issue)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Included Original Accessories:</label>
+                      <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="buyback-accessories-container">
+                        <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-gray); cursor: pointer; background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-titanium);"><input type="checkbox" value="Original Box" checked style="margin: 0;"> Box</label>
+                        <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-gray); cursor: pointer; background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-titanium);"><input type="checkbox" value="Original Charger" checked style="margin: 0;"> Charger</label>
+                        <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-gray); cursor: pointer; background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-titanium);"><input type="checkbox" value="Cable" checked style="margin: 0;"> Cable</label>
+                        <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-gray); cursor: pointer; background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-titanium);"><input type="checkbox" value="Original Purchase Receipt" style="margin: 0;"> Bill</label>
+                        <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-gray); cursor: pointer; background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-titanium);"><input type="checkbox" value="Handsfree" style="margin: 0;"> Handsfree</label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Section 3: Financial Valuation & Inventory Sync -->
+                  <div style="margin-bottom: 14px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
+                    <span style="font-size: 11px; font-weight: 800; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px;">3. Purchase Valuation &amp; Payout</span>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                      <div>
+                        <label for="buyback-payout-amount" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Agreed Buy-In Amount (PKR) *</label>
+                        <div style="position: relative;">
+                          <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-weight: 700; color: var(--accent-emerald); font-size: 12px;">Rs.</span>
+                          <input type="number" id="buyback-payout-amount" class="pos-input" placeholder="e.g. 75000" min="0" step="1" required style="padding-left: 36px; font-size: 14px; font-weight: 800; color: var(--text-white);" aria-label="Buy-In Payout Amount">
+                        </div>
+                      </div>
+                      <div>
+                        <label for="buyback-payout-method" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Disbursement Method *</label>
+                        <select id="buyback-payout-method" class="pos-input" style="font-size: 12px;" aria-label="Payout Method">
+                          <option value="CASH" selected>Cash from Register Till</option>
+                          <option value="BANK_TRANSFER">Bank / Raast Online Transfer</option>
+                          <option value="STORE_CREDIT">Store Credit / Trade-In Exchange</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <!-- Add to inventory toggle -->
+                    <div style="background: rgba(0,214,143,0.06); border: 1px solid rgba(0,214,143,0.2); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px;">
+                      <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                        <span style="font-size: 11.5px; font-weight: 700; color: var(--text-white);">
+                          Add to Catalog as Used Inventory Stock
+                        </span>
+                        <input type="checkbox" id="buyback-inventory-toggle" checked style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                      </label>
+                      <div id="buyback-resale-row" style="margin-top: 8px; display: flex; align-items: center; gap: 8px;">
+                        <label for="buyback-resale-price" style="font-size: 10.5px; color: var(--text-gray); white-space: nowrap;">Target Resale Price (PKR):</label>
+                        <input type="number" id="buyback-resale-price" class="pos-input" placeholder="e.g. 88000" min="0" step="1" style="font-size: 11.5px; height: 28px; flex: 1;" aria-label="Target Resale Price">
+                      </div>
+                    </div>
+
+                    <div>
+                      <label for="buyback-notes" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Diagnostic Notes / PTA Status</label>
+                      <input type="text" id="buyback-notes" class="pos-input" placeholder="e.g. PTA Approved • Battery 89% • Face ID working" style="font-size: 11px;" aria-label="Diagnostic Notes">
+                    </div>
+                  </div>
+
+                  <!-- Legal Affirmation -->
+                  <div style="background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.25); border-radius: 8px; padding: 10px 12px; margin-bottom: 16px;">
+                    <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer;">
+                      <input type="checkbox" id="buyback-legal-agreed" required checked style="margin-top: 2px; accent-color: #ef4444;">
+                      <span style="font-size: 10.5px; color: var(--text-gray); line-height: 1.4;">
+                        <strong>Legal Declaration &amp; Ownership Transfer:</strong> The seller affirms that this device is their lawful personal property, has not been stolen or blacklisted, and unconditionally transfers all ownership rights to the store.
+                      </span>
+                    </label>
+                  </div>
+
+                  <button type="submit" class="action-btn action-success" id="btn-submit-buyback" style="width: 100%; min-height: 44px; font-weight: 800; font-size: 13px; text-transform: uppercase; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 14px rgba(0,214,143,0.3);">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    Process Purchase &amp; Print Voucher
+                  </button>
+
+                </form>
+              </div>
+
+              <!-- History / Records Column -->
+              <div class="cloud-vault-card" style="padding: 20px; border-radius: 12px; border: 1px solid var(--border-titanium); display: flex; flex-direction: column; gap: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 13px; font-weight: 800; color: var(--text-white); text-transform: uppercase; letter-spacing: 0.5px;">Inward Purchase Vouchers</span>
+                  <span id="buyback-records-count" style="font-size: 10.5px; color: var(--accent-emerald); font-weight: 700;">0 Vouchers</span>
+                </div>
+
+                <div class="search-bar-row">
+                  <input type="text" id="buyback-search-input" class="pos-input" placeholder="Search by IMEI, Seller Name, CNIC, or Voucher #..." aria-label="Search Buy-In records">
+                </div>
+
+                <div id="buyback-records-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 620px; overflow-y: auto;">
+                  <div style="text-align: center; padding: 40px 20px; color: var(--text-gray); font-size: 12px;">
+                    No device buy-in records found. Complete a customer purchase to generate inward vouchers.
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
         </section>
 
         <!-- View 4: Performance Analytics -->
@@ -3786,6 +4069,111 @@
     </div>
   </div>
 
+  <!-- DIALOG MODAL: CUSTOMER DEVICE BUY-IN & TRANSFER VOUCHER (PRINTABLE) -->
+  <div class="modal-overlay" id="modal-buyback-voucher" style="display:none;">
+    <div class="modal-card" style="max-width: 620px; width: 100%;">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:36px; height:36px; border-radius:10px; background:rgba(0,214,143,0.15); color:var(--accent-emerald); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          </div>
+          <div>
+            <h3 style="margin:0; font-size:16px; font-weight:800; color:var(--text-white);">Device Purchase &amp; Transfer Voucher</h3>
+            <span style="font-size:11px; color:var(--text-gray);" id="buyback-voucher-modal-id">Voucher #---</span>
+          </div>
+        </div>
+        <button class="btn-close-modal" id="btn-close-buyback-modal-x">×</button>
+      </div>
+
+      <div class="modal-body" style="max-height: 70vh; overflow-y: auto; padding: 16px;">
+        <!-- Printable Voucher Sheet -->
+        <div id="buyback-voucher-sheet" style="background:#ffffff; color:#0f172a; padding:24px; border-radius:8px; font-family:'Inter', sans-serif; box-shadow:0 4px 16px rgba(0,0,0,0.2);">
+          
+          <div style="text-align:center; border-bottom:2px solid #0f172a; padding-bottom:12px; margin-bottom:14px;">
+            <h2 style="margin:0; font-size:18px; font-weight:900; color:#0f172a; text-transform:uppercase; letter-spacing:0.5px;" id="vch-store-name">VALENIXIA MOBILE CENTER</h2>
+            <p style="margin:2px 0 0; font-size:11px; color:#475569;" id="vch-store-sub">CUSTOMER DEVICE PURCHASE &amp; OWNERSHIP TRANSFER AGREEMENT</p>
+            <div style="margin-top:6px; display:flex; justify-content:space-between; font-size:10.5px; font-weight:700; color:#334155;">
+              <span id="vch-voucher-no">VOUCHER: VCH-2026-0001</span>
+              <span id="vch-date-time">DATE: 2026-08-24 12:00</span>
+            </div>
+          </div>
+
+          <!-- Seller Info Box -->
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:10px 12px; margin-bottom:12px;">
+            <div style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Seller (Customer) Legal Identification</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:11.5px; color:#1e293b;">
+              <div><strong>Name:</strong> <span id="vch-seller-name">---</span></div>
+              <div><strong>Phone:</strong> <span id="vch-seller-phone">---</span></div>
+              <div><strong>CNIC / ID #:</strong> <span id="vch-seller-cnic" style="font-family:monospace; font-weight:700;">---</span></div>
+              <div><strong>City / Address:</strong> <span id="vch-seller-address">---</span></div>
+            </div>
+          </div>
+
+          <!-- Device Info Box -->
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:10px 12px; margin-bottom:12px;">
+            <div style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Device &amp; Hardware Details</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:11.5px; color:#1e293b;">
+              <div><strong>Brand &amp; Model:</strong> <span id="vch-device-model">---</span></div>
+              <div><strong>Color / Storage:</strong> <span id="vch-device-color">---</span></div>
+              <div style="grid-column:1/-1;"><strong>IMEI 1 / Serial:</strong> <span id="vch-device-imei1" style="font-family:monospace; font-weight:800; color:#0f172a; letter-spacing:0.5px;">---</span></div>
+              <div style="grid-column:1/-1;" id="vch-imei2-row"><strong>IMEI 2:</strong> <span id="vch-device-imei2" style="font-family:monospace; font-weight:700;">---</span></div>
+              <div><strong>Condition Grade:</strong> <span id="vch-device-condition">---</span></div>
+              <div><strong>Accessories:</strong> <span id="vch-device-accessories">---</span></div>
+            </div>
+            <div style="margin-top:6px; font-size:11px; color:#475569;" id="vch-device-notes-row">
+              <strong>Notes:</strong> <span id="vch-device-notes">---</span>
+            </div>
+          </div>
+
+          <!-- Financial Payout Box -->
+          <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:12px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <span style="font-size:10px; font-weight:800; color:#166534; text-transform:uppercase; display:block;">Total Purchase Payout (Agreed)</span>
+              <span style="font-size:11px; color:#15803d;" id="vch-payment-method">Paid via Cash from Register</span>
+            </div>
+            <div style="font-size:20px; font-weight:900; color:#15803d;" id="vch-payout-amount">
+              Rs. 0.00
+            </div>
+          </div>
+
+          <!-- Legal Undertaking Declaration -->
+          <div style="border-top:1px dashed #cbd5e1; padding-top:10px; margin-bottom:18px; font-size:9.5px; color:#475569; line-height:1.4;">
+            <strong>LEGAL UNDERTAKING &amp; DECLARATION:</strong> I, the undersigned seller, hereby solemnly affirm and declare that the mobile phone / device described above is my bona fide, lawfully acquired personal property. It is free from any legal dispute, pledge, crime, theft, or PTA blacklist. I hereby surrender and transfer all ownership rights, title, and interest to the store upon receiving the agreed consideration above.
+          </div>
+
+          <!-- Signature Rows -->
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; padding-top:14px; border-top:1px solid #94a3b8; font-size:10.5px; color:#1e293b;">
+            <div style="text-align:center;">
+              <div style="height:36px;"></div>
+              <div style="border-top:1px solid #475569; padding-top:4px; font-weight:700;">Seller Signature / Thumbprint</div>
+              <div style="font-size:9px; color:#64748b;" id="vch-seller-sig-name">CNIC: ---</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="height:36px;"></div>
+              <div style="border-top:1px solid #475569; padding-top:4px; font-weight:700;">Store Manager / Stamp</div>
+              <div style="font-size:9px; color:#64748b;">Authorized Signature</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="modal-footer" style="display:flex; justify-content:space-between; gap:10px;">
+        <button type="button" class="action-btn" id="btn-close-buyback-modal">Close</button>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="action-btn action-secondary" id="btn-print-buyback-thermal" style="font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Print Thermal Slip
+          </button>
+          <button type="button" class="action-btn action-success" id="btn-print-buyback-pdf" style="font-weight:800; display:inline-flex; align-items:center; gap:6px;">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Print A4 Agreement
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- DIALOG MODAL 4: ADD EMPLOYEE -->
   <div class="modal-overlay" id="modal-employee">
     <div class="modal-card">
@@ -4868,6 +5256,7 @@
   <script src="modules/deals-engine.js"></script>
   <!-- MULTI-INDUSTRY STORE MODES ENGINE -->
   <script src="modules/store-modes.js"></script>
+  <script src="digital-receipt.js"></script>
   <script src="app.js"></script>
 
   <script src="sw-loader.js"></script>

@@ -138,19 +138,27 @@
     lines.push({ text: pad("Time:", ts.toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" }), storeWidth), size: 9 });
     lines.push({ text: pad("Receipt #:", (data.transactionId || "---").slice(-10).toUpperCase(), storeWidth), size: 9 });
     lines.push({ text: pad("Cashier:", data.cashierName || "N/A", storeWidth), size: 9 });
-    if (data.customerName) lines.push({ text: pad("Customer:", data.customerName, storeWidth), size: 9, bold: true });
-    if (data.customerPhone) lines.push({ text: pad("Phone:", data.customerPhone, storeWidth), size: 9 });
-    if (data.customerAddress) lines.push({ text: "Address: " + data.customerAddress, size: 8, color: "#333333" });
-    if (data.customerCnic) lines.push({ text: pad("CNIC/ID:", data.customerCnic, storeWidth), size: 8 });
+    const buyer = data.buyerDetails || {};
+    const custName = data.customerName || buyer.name || data.buyerName;
+    const custPhone = data.customerPhone || buyer.phone || data.buyerPhone;
+    const custAddress = data.customerAddress || buyer.address || data.buyerAddress;
+    const custCnic = data.customerCnic || buyer.cnic || data.buyerCnic;
+    const rcptNotes = data.notes || data.transactionNotes || buyer.notes || data.buyerNotes;
+
+    if (custName) lines.push({ text: pad("Customer/Buyer:", custName, storeWidth), size: 9, bold: true });
+    if (custPhone) lines.push({ text: pad("Phone:", custPhone, storeWidth), size: 9 });
+    if (custAddress) lines.push({ text: "Address: " + custAddress, size: 8, color: "#333333" });
+    if (custCnic) lines.push({ text: pad("CNIC / ID #:", custCnic, storeWidth), size: 8, bold: true });
     lines.push({ text: "-".repeat(storeWidth), size: 9 });
     lines.push({ text: pad("ITEM", "TOTAL", storeWidth), bold: true, size: 9 });
     lines.push({ text: "-".repeat(storeWidth), size: 9 });
     (data.items || []).forEach(function(item) {
       const name = String(item.name || "Unknown").substring(0, 22);
       // Integer math rounding to prevent floating point anomalies (Task 15)
-      const lineTotal = Math.round((item.unitPrice || 0) * (item.qty || 1));
+      const uPrice = (item.unitPrice !== undefined && item.unitPrice !== null) ? item.unitPrice : (item.price || 0);
+      const lineTotal = Math.round(uPrice * (item.qty || 1));
       lines.push({ text: pad(name, fmt(lineTotal), storeWidth), size: 9 });
-      let itemMeta = "  Qty: " + item.qty + " x " + fmt(item.unitPrice || 0);
+      let itemMeta = "  Qty: " + item.qty + " x " + fmt(uPrice);
       if (item.discount) itemMeta += " (-" + item.discount + "%)";
       if (item.negotiated) itemMeta += " [Negotiated]";
       lines.push({ text: itemMeta, size: 8, color: "#666" });
@@ -174,9 +182,9 @@
       const change = Math.max(0, (data.amountPaid || 0) - (data.total || 0));
       lines.push({ text: pad("Change:", fmt(change), storeWidth), size: 9 });
     }
-    if (data.notes || data.transactionNotes) {
+    if (rcptNotes) {
       lines.push({ text: "-".repeat(storeWidth), size: 9 });
-      lines.push({ text: "Terms / Notes: " + (data.notes || data.transactionNotes), size: 8, color: "#555" });
+      lines.push({ text: "Terms / Notes: " + rcptNotes, size: 8, color: "#555" });
     }
     lines.push({ text: "-".repeat(storeWidth), size: 9 });
     if (data.footerText) {
@@ -529,12 +537,14 @@
   }
 
   // Expose API
+  window.buildReceiptLines = buildReceiptLines;
   window.DigitalReceipt = {
     generate: generateReceiptPDF,
     download: downloadReceiptPDF,
     whatsapp: shareReceiptWhatsApp,
     email: shareReceiptEmail,
-    showDialog: showDigitalReceiptDialog
+    showDialog: showDigitalReceiptDialog,
+    buildReceiptLines: buildReceiptLines
   };
 
 })();

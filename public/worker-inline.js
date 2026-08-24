@@ -540,7 +540,7 @@ window.__VALENIXIA_WORKER_CODE = `// ===========================================
   const ValenixiaDB = {
     db: null,
     dbName: 'valenixia_db',
-    dbVersion: 5,
+    dbVersion: 6,
 
     runMigrations(oldVer, newVer) {
       console.log(\`[IndexedDB] Migration triggered from v\${oldVer} to v\${newVer}\`);
@@ -837,6 +837,14 @@ window.__VALENIXIA_WORKER_CODE = `// ===========================================
           // Domain 20 (v5): Pending Checkouts — crash recovery
           if (!db.objectStoreNames.contains('pending_checkouts')) {
             db.createObjectStore('pending_checkouts', { keyPath: 'id' });
+          }
+
+          // Domain 21 (v6): Customer Buy-In & Device Trade-In Records (High-Value / Mobile)
+          if (!db.objectStoreNames.contains('customer_buyback_records')) {
+            const bbStore = db.createObjectStore('customer_buyback_records', { keyPath: 'id' });
+            bbStore.createIndex('imei', 'imei', { unique: false });
+            bbStore.createIndex('seller_cnic', 'seller_cnic', { unique: false });
+            bbStore.createIndex('created_at', 'created_at', { unique: false });
           }
         };
 

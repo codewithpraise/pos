@@ -268,6 +268,18 @@ console.log('══════════════════════�
     assert.strictEqual(isKdsSupported('automotive-car'), false);
   });
 
+  test('isBuybackSupported helper: returns true ONLY for electronics, mobile & jewellery buyback modes', () => {
+    const { isBuybackSupported } = mockWindow.ValenixiaStoreModes;
+    assert.strictEqual(isBuybackSupported('electronics-highvalue'), true, 'electronics-highvalue must support buyback');
+    assert.strictEqual(isBuybackSupported('jewellery'), true, 'jewellery must support buyback');
+    assert.strictEqual(isBuybackSupported('food-restaurant'), false, 'food-restaurant must NOT support buyback');
+    assert.strictEqual(isBuybackSupported('grocery-mart'), false, 'grocery-mart must NOT support buyback');
+    assert.strictEqual(isBuybackSupported('pharmacy-medical'), false, 'pharmacy-medical must NOT support buyback');
+    assert.strictEqual(isBuybackSupported('bakery-cafe'), false, 'bakery-cafe must NOT support buyback');
+    assert.strictEqual(isBuybackSupported('clothing-fashion'), false, 'clothing-fashion must NOT support buyback');
+    assert.strictEqual(isBuybackSupported('simple-retail'), false, 'simple-retail must NOT support buyback');
+  });
+
   // ── 4. Test Diagnostics Report ────────────────────────────────────────────
   console.log('\n══════════════════════════════════════════════════');
   console.log(`  Tests completed: Passed: ${passed}, Failed: ${failed}`);

@@ -194,7 +194,7 @@ window.__realHandlers = window.__realHandlers || {};
   'handlePinDigit', 'handlePinClear', 'handlePinEnter',
   'showNotificationToast', 'performLogout',
   'renderCheckoutScreen', 'renderCatalogScreen', 'renderCatalogManagerScreen',
-  'renderDealsScreen', 'renderHistoryScreen', 'renderCustomersScreen',
+  'renderDealsScreen', 'renderCustomerBuybackScreen', 'renderHistoryScreen', 'renderCustomersScreen',
   'renderAnalyticsScreen', 'renderSuppliersScreen', 'renderStaffScreen',
   'renderCreditBookScreen', 'renderSettingsScreen', 'renderSyncLogsFeed',
   'renderSubscriptionScreen', 'renderFbrFiscalScreen', 'renderMultiStoreScreen',
@@ -9533,17 +9533,17 @@ setHtml(tr, `
     }
     updateDiscountBadge();
 
-    modal.querySelectorAll('.preset-discount-chip').forEach(chip => {
+    modal.querySelectorAll('.btn-discount-chip, .preset-discount-chip').forEach(chip => {
       chip.onclick = () => {
         if (typeof playAudioSignal === 'function') playAudioSignal('click');
-        const disc = parseFloat(chip.getAttribute('data-discount') || '0');
+        const disc = parseFloat(chip.getAttribute('data-pct') || chip.getAttribute('data-discount') || '0');
         const newPaise = Math.round(origPaise * (1 - disc / 100));
         if (priceInput) priceInput.value = (newPaise / 100).toFixed(2);
         updateDiscountBadge();
       };
     });
 
-    const resetMrpBtn = document.getElementById('btn-negotiate-reset-mrp');
+    const resetMrpBtn = document.getElementById('btn-reset-negotiate-price') || document.getElementById('btn-negotiate-reset-mrp');
     if (resetMrpBtn) {
       resetMrpBtn.onclick = () => {
         if (typeof playAudioSignal === 'function') playAudioSignal('click');
@@ -9553,6 +9553,7 @@ setHtml(tr, `
     }
 
     modal.classList.add('active');
+    modal.style.display = 'flex';
     setTimeout(() => {
       if (priceInput) {
         priceInput.focus();
@@ -9584,9 +9585,11 @@ setHtml(tr, `
     const newPaise = Math.round(enteredPrice * 100);
     item.price = newPaise;
     item.customNote = (noteInput?.value || '').trim();
-    item.negotiated = (item.price !== item.originalPrice);
-
-    document.getElementById('modal-item-negotiation')?.classList.remove('active');
+    const modalEl = document.getElementById('modal-item-negotiation');
+    if (modalEl) {
+      modalEl.classList.remove('active');
+      modalEl.style.display = 'none';
+    }
     if (typeof playAudioSignal === 'function') playAudioSignal('success');
     renderCart();
     showNotificationToast(`Agreed price set to Rs. ${(newPaise/100).toFixed(2)} for ${item.displayName || item.name}`, 'success', 2500);
@@ -9596,10 +9599,12 @@ setHtml(tr, `
   // Bind negotiation modal buttons once DOM is available
   document.getElementById('btn-save-negotiate-modal')?.addEventListener('click', saveNegotiatedItemDetails);
   document.getElementById('btn-close-negotiate-modal')?.addEventListener('click', () => {
-    document.getElementById('modal-item-negotiation')?.classList.remove('active');
+    const modalEl = document.getElementById('modal-item-negotiation');
+    if (modalEl) { modalEl.classList.remove('active'); modalEl.style.display = 'none'; }
   });
   document.getElementById('btn-cancel-negotiate-modal')?.addEventListener('click', () => {
-    document.getElementById('modal-item-negotiation')?.classList.remove('active');
+    const modalEl = document.getElementById('modal-item-negotiation');
+    if (modalEl) { modalEl.classList.remove('active'); modalEl.style.display = 'none'; }
   });
 
   function getCartStorageKey() {
@@ -10048,6 +10053,17 @@ setHtml(tr, `
         }
       };
 
+      const buyerName = document.getElementById('checkout-buyer-name')?.value?.trim() || '';
+      const buyerPhone = document.getElementById('checkout-buyer-phone')?.value?.trim() || '';
+      const buyerCnic = document.getElementById('checkout-buyer-cnic')?.value?.trim() || '';
+      const buyerNotes = document.getElementById('checkout-buyer-notes')?.value?.trim() || '';
+      const optionalBuyerDetails = (buyerName || buyerPhone || buyerCnic || buyerNotes) ? {
+        name: buyerName,
+        phone: buyerPhone,
+        cnic: buyerCnic,
+        notes: buyerNotes
+      } : null;
+
       syncWorker.addEventListener('message', checkoutResponseHandler);
       console.log(`[CheckoutTrace:${traceId}] Sending to worker...`);
 
@@ -10058,6 +10074,7 @@ setHtml(tr, `
           transactionId,
           employeeId: cashierId,
           customerId: state.attachedCustomer ? state.attachedCustomer.id : null,
+          buyerDetails: optionalBuyerDetails,
           cart: state.activeCart,
           subtotal,
           tax,
@@ -10067,13 +10084,95 @@ setHtml(tr, `
           fbr_integration_enabled: state.preferences['fbr_integration_enabled']
         }
       });
+
+      // Clear optional buyer details after transaction dispatch
+      if (document.getElementById('checkout-buyer-name')) document.getElementById('checkout-buyer-name').value = '';
+      if (document.getElementById('checkout-buyer-phone')) document.getElementById('checkout-buyer-phone').value = '';
+      if (document.getElementById('checkout-buyer-cnic')) document.getElementById('checkout-buyer-cnic').value = '';
+      if (document.getElementById('checkout-buyer-notes')) document.getElementById('checkout-buyer-notes').value = '';
     }
 
     verifyAndProceed();
   }
 
+  document.getElementById('btn-clear-buyer-details')?.addEventListener('click', () => {
+    if (document.getElementById('checkout-buyer-name')) document.getElementById('checkout-buyer-name').value = '';
+    if (document.getElementById('checkout-buyer-phone')) document.getElementById('checkout-buyer-phone').value = '';
+    if (document.getElementById('checkout-buyer-cnic')) document.getElementById('checkout-buyer-cnic').value = '';
+    if (document.getElementById('checkout-buyer-notes')) document.getElementById('checkout-buyer-notes').value = '';
+  });
 
-  // --- CATALOG LIST BUILDER ---
+
+  // --- CATALOG LIST BUILDER WITH BULK & SINGLE DELETION ---
+  let catalogSelectionMode = false;
+  let catalogSelectedSkus = new Set();
+
+  async function deleteSingleProduct(sku, productName) {
+    if (!sku) return;
+    const prodName = productName || sku;
+    
+    showModal({
+      title: 'Delete Product Confirmation',
+      message: `Are you sure you want to permanently delete "${prodName}" (SKU: ${sku}) from your inventory ledger?\n\nThis action cannot be undone.`,
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          if (typeof playAudioSignal === 'function') playAudioSignal('trash');
+          await ValenixiaDB.delete('inventory_catalog', sku);
+          state.catalog = (state.catalog || []).filter(p => p.sku !== sku);
+          catalogSelectedSkus.delete(sku);
+          if (syncWorker) {
+            syncWorker.postMessage({ type: 'DELETE_PRODUCT', payload: { sku } });
+          }
+          showNotificationToast(`Product "${prodName}" deleted successfully.`, 'success', 2500);
+          renderCatalogScreen();
+          if (typeof renderQuickCatalog === 'function') renderQuickCatalog();
+        } catch (err) {
+          console.error('[Catalog] Failed to delete product:', err);
+          showNotificationToast(`Failed to delete product: ${err.message}`, 'error');
+        }
+      }
+    });
+  }
+  window.deleteSingleProduct = deleteSingleProduct;
+
+  async function deleteBulkSelectedProducts() {
+    if (catalogSelectedSkus.size === 0) {
+      showNotificationToast('No products selected for deletion.', 'info');
+      return;
+    }
+
+    const count = catalogSelectedSkus.size;
+    const skusToDelete = Array.from(catalogSelectedSkus);
+
+    showModal({
+      title: `Delete ${count} Products?`,
+      message: `Are you sure you want to permanently delete all ${count} selected products from your inventory catalog?\n\nThis action will remove them from stock and cannot be undone.`,
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          if (typeof playAudioSignal === 'function') playAudioSignal('trash');
+          for (const sku of skusToDelete) {
+            await ValenixiaDB.delete('inventory_catalog', sku);
+            if (syncWorker) {
+              syncWorker.postMessage({ type: 'DELETE_PRODUCT', payload: { sku } });
+            }
+          }
+          state.catalog = (state.catalog || []).filter(p => !catalogSelectedSkus.has(p.sku));
+          catalogSelectedSkus.clear();
+          catalogSelectionMode = false;
+          showNotificationToast(`Successfully deleted ${count} products from catalog.`, 'success', 3000);
+          renderCatalogScreen();
+          if (typeof renderQuickCatalog === 'function') renderQuickCatalog();
+        } catch (err) {
+          console.error('[Catalog] Bulk deletion error:', err);
+          showNotificationToast(`Bulk deletion encountered an error: ${err.message}`, 'error');
+        }
+      }
+    });
+  }
+  window.deleteBulkSelectedProducts = deleteBulkSelectedProducts;
+
   function renderCatalogScreen() {
     EventListenerRegistry.cleanupScreen('catalog');
     const container = document.getElementById('catalog-virtual-container');
@@ -10103,6 +10202,26 @@ setHtml(tr, `
       });
       state.catalog = cleanCatalog;
     }
+
+    // Update Bulk Selection Bar UI
+    const bulkBar = document.getElementById('catalog-bulk-bar');
+    const toggleSelectBtn = document.getElementById('btn-catalog-toggle-select');
+    const selectLabel = document.getElementById('btn-catalog-select-label');
+    const selCountEl = document.getElementById('catalog-selected-count');
+    const btnDelCountEl = document.getElementById('catalog-btn-delete-count');
+    const selectAllCheckbox = document.getElementById('catalog-select-all-checkbox');
+
+    if (bulkBar) {
+      bulkBar.style.display = catalogSelectionMode ? 'flex' : 'none';
+    }
+    if (selectLabel) {
+      selectLabel.textContent = catalogSelectionMode ? 'Exit Selection' : 'Delete Products';
+    }
+    if (toggleSelectBtn) {
+      toggleSelectBtn.style.background = catalogSelectionMode ? 'rgba(239,68,68,0.25)' : 'rgba(239,68,68,0.08)';
+    }
+    if (selCountEl) selCountEl.textContent = catalogSelectedSkus.size;
+    if (btnDelCountEl) btnDelCountEl.textContent = catalogSelectedSkus.size;
 
     const filter = state.catalogManagerCategory || 'ALL';
     const searchEl = document.getElementById('catalog-search-input');
@@ -10134,6 +10253,19 @@ setHtml(tr, `
       return matchesCat && matchesQuery;
     });
 
+    if (selectAllCheckbox) {
+      selectAllCheckbox.checked = items.length > 0 && items.every(p => catalogSelectedSkus.has(p.sku));
+      selectAllCheckbox.onclick = () => {
+        if (selectAllCheckbox.checked) {
+          items.forEach(p => { if (p.sku) catalogSelectedSkus.add(p.sku); });
+          catalogSelectionMode = true;
+        } else {
+          items.forEach(p => { if (p.sku) catalogSelectedSkus.delete(p.sku); });
+        }
+        renderCatalogScreen();
+      };
+    }
+
     container.innerHTML = '';
 
     if (items.length === 0) {
@@ -10150,26 +10282,52 @@ setHtml(tr, `
     items.forEach(p => {
       const row = document.createElement('div');
       row.className = 'catalog-grid-row';
-      row.style.cssText = 'display: grid; grid-template-columns: 110px 130px minmax(220px, 2fr) 130px 110px 110px 150px; gap: 8px; padding: 10px 12px; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 12px;';
+      row.style.cssText = 'display: grid; grid-template-columns: 44px 110px 130px minmax(min(100%, 200px), 2fr) 130px 110px 110px 160px; gap: 8px; padding: 10px 12px; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 12px;';
 
+      const isChecked = catalogSelectedSkus.has(p.sku);
       const threshold = p.low_stock_threshold !== undefined ? p.low_stock_threshold : 10;
       const stockVal = (p.stock_level !== undefined && p.stock_level !== null) ? p.stock_level : ((p.stock_quantity !== undefined && p.stock_quantity !== null) ? p.stock_quantity : (p.stock || 0));
       const isLowStock = stockVal <= threshold;
 
       setHtml(row, `
+        <div style="text-align: center; display: flex; align-items: center; justify-content: center;">
+          <input type="checkbox" class="catalog-row-checkbox" data-sku="${p.sku}" ${isChecked ? 'checked' : ''} style="width: 15px; height: 15px; accent-color: var(--accent-emerald); cursor: pointer;" aria-label="Select ${p.name || p.sku}">
+        </div>
         <div style="font-family: monospace; font-size: 11px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-white);">${p.sku || 'N/A'}</div>
         <div style="font-family: monospace; font-size: 11px; color: var(--text-gray); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${p.gtin || 'N/A'}</div>
         <div style="font-weight: 700; color: var(--text-white); word-break: break-word; line-height: 1.3;" title="${p.name || ''}">${p.name || 'Unnamed Product'}</div>
         <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-gray);">${p.category || 'General'}</div>
         <div style="text-align: right; font-weight: 700; color: var(--text-white);">Rs. ${((p.base_price_minor_units || 0) / 100.0).toFixed(2)}</div>
         <div style="text-align: right; font-weight: 700; color: ${isLowStock ? 'var(--alert-coral)' : 'var(--success)'};">${stockVal} ${(p.unit || 'Units').toUpperCase()}</div>
-        <div style="text-align: center; display: flex; align-items: center; justify-content: center;">
-          <button class="btn-edit-item action-btn action-primary" data-sku="${p.sku}" style="padding: 4px 14px; font-size: 11px; font-weight: 800; min-height: 28px; border-radius: 6px;">Edit &amp; Stock</button>
+        <div style="text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <button class="btn-edit-item action-btn action-primary" data-sku="${p.sku}" style="padding: 4px 10px; font-size: 11px; font-weight: 800; min-height: 28px; border-radius: 6px;">Edit</button>
+          <button class="btn-delete-single-product action-btn" data-sku="${p.sku}" title="Delete this product" style="padding: 4px 8px; font-size: 11px; min-height: 28px; border-radius: 6px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #ef4444; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
         </div>
       `);
 
+      const chk = row.querySelector('.catalog-row-checkbox');
+      if (chk) {
+        chk.addEventListener('change', (e) => {
+          if (e.target.checked) {
+            catalogSelectedSkus.add(p.sku);
+            catalogSelectionMode = true;
+          } else {
+            catalogSelectedSkus.delete(p.sku);
+          }
+          if (selCountEl) selCountEl.textContent = catalogSelectedSkus.size;
+          if (btnDelCountEl) btnDelCountEl.textContent = catalogSelectedSkus.size;
+          if (bulkBar) bulkBar.style.display = catalogSelectionMode ? 'flex' : 'none';
+        });
+      }
+
       row.querySelector('.btn-edit-item')?.addEventListener('click', () => {
         openProductEditModal(p.sku);
+      });
+
+      row.querySelector('.btn-delete-single-product')?.addEventListener('click', () => {
+        deleteSingleProduct(p.sku, p.name);
       });
 
       fragment.appendChild(row);
@@ -10182,6 +10340,23 @@ setHtml(tr, `
       measureStorageUtilization();
     }
   }
+
+  // Bind Bulk Selection Controls
+  document.getElementById('btn-catalog-toggle-select')?.addEventListener('click', () => {
+    catalogSelectionMode = !catalogSelectionMode;
+    if (!catalogSelectionMode) {
+      catalogSelectedSkus.clear();
+    }
+    renderCatalogScreen();
+  });
+
+  document.getElementById('btn-catalog-cancel-bulk')?.addEventListener('click', () => {
+    catalogSelectionMode = false;
+    catalogSelectedSkus.clear();
+    renderCatalogScreen();
+  });
+
+  document.getElementById('btn-catalog-delete-bulk')?.addEventListener('click', deleteBulkSelectedProducts);
 
   async function quickStockAdjust(sku, delta) {
     const prod = state.catalog.find(p => p.sku === sku);
@@ -10330,7 +10505,510 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
     'wholesale-distribution':['ALL', ' LOW STOCK', 'Case Packs', 'Pallets', 'Bulk Beverages', 'Dry Groceries', 'Paper Products', 'Chemicals', 'Institutional', 'FMCG Bundles'],
     'custom-mixed':         ['ALL', ' LOW STOCK']
   };
-  window.SHOP_MODE_CATEGORIES = SHOP_MODE_CATEGORIES;
+  // ============================================================================
+  // CUSTOMER BUY-IN & DEVICE TRADE-IN MODULE (MOBILE / HIGH-VALUE ELECTRONICS)
+  // ============================================================================
+
+  function updateBuybackNavVisibility() {
+    const isSupported = (window.ValenixiaStoreModes && typeof window.ValenixiaStoreModes.isBuybackSupported === 'function')
+      ? window.ValenixiaStoreModes.isBuybackSupported()
+      : false;
+
+    const navBtn = document.getElementById('nav-customer-buyback');
+    if (navBtn) {
+      navBtn.style.display = isSupported ? 'flex' : 'none';
+    }
+
+    document.querySelectorAll('.buyback-only-element').forEach(el => {
+      el.style.display = isSupported ? (el.tagName === 'BUTTON' || el.classList.contains('nav-item') ? 'flex' : 'block') : 'none';
+    });
+
+    if (!isSupported && state && state.activeScreen === 'customer-buyback') {
+      if (typeof switchActiveScreen === 'function') {
+        switchActiveScreen('checkout');
+      }
+    }
+  }
+  window.updateBuybackNavVisibility = updateBuybackNavVisibility;
+
+  async function getBuybackRecords() {
+    let records = [];
+    try {
+      if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.getAll) {
+        records = await ValenixiaDB.getAll('customer_buyback_records').catch(() => []);
+      }
+    } catch (_) {}
+
+    if (!Array.isArray(records) || records.length === 0) {
+      try {
+        const raw = localStorage.getItem('valenixia_buyback_records');
+        if (raw) records = JSON.parse(raw);
+      } catch (_) {}
+    }
+    return Array.isArray(records) ? records : [];
+  }
+
+  async function saveBuybackRecord(record) {
+    try {
+      if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
+        await ValenixiaDB.put('customer_buyback_records', record);
+      }
+    } catch (_) {}
+
+    try {
+      const records = await getBuybackRecords();
+      const existingIdx = records.findIndex(r => r.id === record.id);
+      if (existingIdx >= 0) records[existingIdx] = record;
+      else records.unshift(record);
+      localStorage.setItem('valenixia_buyback_records', JSON.stringify(records));
+    } catch (_) {}
+  }
+
+  async function renderCustomerBuybackScreen() {
+    updateBuybackNavVisibility();
+    const container = document.getElementById('buyback-records-list');
+    if (!container) return;
+
+    const records = await getBuybackRecords();
+    const searchInput = document.getElementById('buyback-search-input');
+    const query = (searchInput?.value || '').toLowerCase().trim();
+
+    // Calculate KPIs
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayTs = todayStart.getTime();
+
+    let todayPayout = 0;
+    let todayCount = 0;
+    let activeInventoryCount = 0;
+
+    records.forEach(r => {
+      const rTime = r.created_at || 0;
+      if (rTime >= todayTs) {
+        todayPayout += (r.payout_paise || 0);
+        todayCount++;
+      }
+      if (r.added_to_inventory) {
+        activeInventoryCount++;
+      }
+    });
+
+    const kpiPayoutEl = document.getElementById('buyback-kpi-payout');
+    const kpiCountEl = document.getElementById('buyback-kpi-count');
+    const kpiInvEl = document.getElementById('buyback-kpi-inventory');
+    const countBadgeEl = document.getElementById('buyback-records-count');
+
+    if (kpiPayoutEl) kpiPayoutEl.textContent = `Rs. ${(todayPayout / 100).toLocaleString('en-PK', { minimumFractionDigits: 0 })}`;
+    if (kpiCountEl) kpiCountEl.textContent = String(todayCount);
+    if (kpiInvEl) kpiInvEl.textContent = String(activeInventoryCount);
+    if (countBadgeEl) countBadgeEl.textContent = `${records.length} Voucher${records.length === 1 ? '' : 's'}`;
+
+    const filtered = records.filter(r => {
+      if (!query) return true;
+      const haystack = [
+        r.voucher_no, r.seller_name, r.seller_phone, r.seller_cnic,
+        r.brand, r.model, r.imei, r.imei1, r.imei2, r.notes
+      ].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(query);
+    });
+
+    if (filtered.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 48px 20px; color: var(--text-gray); font-size: 12px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px dashed var(--border-titanium);">
+          <div style="font-size: 14px; font-weight: 700; color: var(--text-white); margin-bottom: 4px;">No Inward Purchase Vouchers Found</div>
+          <div>${query ? 'No records match your search filter.' : 'Fill the customer intake form to record a device purchase & print an official agreement voucher.'}</div>
+        </div>
+      `;
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    filtered.forEach(r => {
+      const card = document.createElement('div');
+      card.style.cssText = 'background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; transition: border-color 0.2s ease;';
+
+      const dateStr = new Date(r.created_at || Date.now()).toLocaleDateString('en-PK', {
+        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+      });
+
+      setHtml(card, `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-family: var(--font-mono); font-size: 11px; font-weight: 800; color: var(--accent-emerald);">${r.voucher_no || 'VCH-BUY'}</span>
+              <span style="font-size: 10px; color: var(--text-gray);">${dateStr}</span>
+            </div>
+            <h4 style="margin: 3px 0 0; font-size: 13px; font-weight: 800; color: var(--text-white);">${escapeHTML(r.brand || '')} ${escapeHTML(r.model || 'Device')}</h4>
+          </div>
+          <div style="text-align: right;">
+            <span style="font-size: 14px; font-weight: 900; color: var(--accent-emerald); display: block;">Rs. ${((r.payout_paise || 0) / 100).toLocaleString('en-PK', { minimumFractionDigits: 2 })}</span>
+            <span style="font-size: 9.5px; color: var(--text-gray);">${escapeHTML(r.payout_method || 'CASH')}</span>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px; color: var(--text-gray); background: rgba(0,0,0,0.2); padding: 8px 10px; border-radius: 6px;">
+          <div><strong>Seller:</strong> <span style="color: var(--text-white);">${escapeHTML(r.seller_name || 'N/A')}</span> (${escapeHTML(r.seller_phone || '')})</div>
+          <div><strong>CNIC:</strong> <span style="font-family: var(--font-mono); color: var(--text-white);">${escapeHTML(r.seller_cnic || 'N/A')}</span></div>
+          <div style="grid-column: 1/-1;"><strong>IMEI 1:</strong> <span style="font-family: var(--font-mono); font-weight: 700; color: var(--text-white);">${escapeHTML(r.imei1 || r.imei || 'N/A')}</span> ${r.imei2 ? `• <strong>IMEI 2:</strong> <span style="font-family: var(--font-mono);">${escapeHTML(r.imei2)}</span>` : ''}</div>
+          <div><strong>Condition:</strong> <span style="color: #60a5fa;">${escapeHTML(r.condition || 'Used')}</span></div>
+          <div><strong>Accessories:</strong> ${escapeHTML(r.accessories || 'None')}</div>
+          ${r.notes ? `<div style="grid-column: 1/-1; color: #cbd5e1;"><strong>Notes:</strong> ${escapeHTML(r.notes)}</div>` : ''}
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+          <span style="font-size: 10px; font-weight: 700; color: ${r.added_to_inventory ? 'var(--accent-emerald)' : 'var(--text-gray)'};">
+            ${r.added_to_inventory ? '✓ Added to Inventory' : '• Purchase Log Only'}
+          </span>
+          <div style="display: flex; gap: 6px;">
+            <button type="button" class="btn-view-buyback-voucher action-btn action-primary" style="padding: 4px 10px; font-size: 10.5px; font-weight: 700; border-radius: 6px;">
+              View &amp; Print Voucher
+            </button>
+            <button type="button" class="btn-delete-buyback-record action-btn" style="padding: 4px 8px; font-size: 10.5px; color: var(--alert-coral); border-color: rgba(239,68,68,0.3); border-radius: 6px;" title="Delete Record">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </div>
+        </div>
+      `);
+
+      card.querySelector('.btn-view-buyback-voucher')?.addEventListener('click', () => {
+        openBuybackVoucherModal(r);
+      });
+
+      card.querySelector('.btn-delete-buyback-record')?.addEventListener('click', () => {
+        deleteBuybackRecord(r.id, r.voucher_no);
+      });
+
+      fragment.appendChild(card);
+    });
+
+    container.innerHTML = '';
+    container.appendChild(fragment);
+  }
+  window.renderCustomerBuybackScreen = renderCustomerBuybackScreen;
+
+  async function deleteBuybackRecord(recordId, voucherNo) {
+    if (!recordId) return;
+    showModal({
+      title: 'Delete Inward Voucher?',
+      message: `Are you sure you want to delete inward purchase voucher "${voucherNo}"?\n\nThis will remove it from buyback ledger records.`,
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.delete) {
+            await ValenixiaDB.delete('customer_buyback_records', recordId).catch(() => {});
+          }
+          const records = await getBuybackRecords();
+          const updated = records.filter(r => r.id !== recordId);
+          localStorage.setItem('valenixia_buyback_records', JSON.stringify(updated));
+          showNotificationToast(`Voucher ${voucherNo} deleted`, 'success');
+          renderCustomerBuybackScreen();
+        } catch (err) {
+          showNotificationToast(`Failed to delete record: ${err.message}`, 'error');
+        }
+      }
+    });
+  }
+  window.deleteBuybackRecord = deleteBuybackRecord;
+
+  async function processCustomerBuyback(e) {
+    if (e && e.preventDefault) e.preventDefault();
+
+    const sellerName = document.getElementById('buyback-seller-name')?.value?.trim();
+    const sellerPhone = document.getElementById('buyback-seller-phone')?.value?.trim();
+    const sellerCnic = document.getElementById('buyback-seller-cnic')?.value?.trim();
+    const sellerAddress = document.getElementById('buyback-seller-address')?.value?.trim() || '';
+
+    const brand = document.getElementById('buyback-device-brand')?.value || 'Apple';
+    const model = document.getElementById('buyback-device-model')?.value?.trim();
+    const imei1 = document.getElementById('buyback-device-imei1')?.value?.trim();
+    const imei2 = document.getElementById('buyback-device-imei2')?.value?.trim() || '';
+    const color = document.getElementById('buyback-device-color')?.value?.trim() || '';
+    const condition = document.getElementById('buyback-device-condition')?.value || '9/10 Excellent (Minor Signs of Use)';
+
+    const accessoriesChecked = Array.from(document.querySelectorAll('#buyback-accessories-container input:checked')).map(cb => cb.value);
+
+    const payoutVal = parseFloat(document.getElementById('buyback-payout-amount')?.value || '0');
+    const payoutMethod = document.getElementById('buyback-payout-method')?.value || 'CASH';
+    const autoInventory = document.getElementById('buyback-inventory-toggle')?.checked || false;
+    const resaleVal = parseFloat(document.getElementById('buyback-resale-price')?.value || '0');
+    const notes = document.getElementById('buyback-notes')?.value?.trim() || '';
+    const legalAgreed = document.getElementById('buyback-legal-agreed')?.checked || false;
+
+    if (!sellerName || !sellerPhone || !sellerCnic) {
+      showNotificationToast('Please provide Seller Name, Phone Number, and CNIC.', 'warning');
+      return;
+    }
+    if (!model || !imei1) {
+      showNotificationToast('Please enter Device Model Name and Primary IMEI / Serial.', 'warning');
+      return;
+    }
+    if (isNaN(payoutVal) || payoutVal <= 0) {
+      showNotificationToast('Please enter a valid agreed purchase amount in PKR.', 'warning');
+      return;
+    }
+    if (!legalAgreed) {
+      showNotificationToast('Legal ownership declaration must be accepted by seller.', 'warning');
+      return;
+    }
+
+    const payoutPaise = Math.round(payoutVal * 100);
+    const resalePaise = resaleVal > 0 ? Math.round(resaleVal * 100) : Math.round(payoutVal * 1.15 * 100);
+
+    const record = {
+      id: 'bb_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      voucher_no: `VCH-BUY-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      seller_name: sellerName,
+      seller_phone: sellerPhone,
+      seller_cnic: sellerCnic,
+      seller_address: sellerAddress,
+      brand,
+      model,
+      imei: imei1,
+      imei1,
+      imei2,
+      color,
+      condition,
+      accessories: accessoriesChecked.join(', ') || 'None',
+      payout_paise: payoutPaise,
+      payout_method: payoutMethod,
+      added_to_inventory: autoInventory,
+      resale_paise: resalePaise,
+      notes,
+      cashier_id: state.activeCashier ? state.activeCashier.id : 'Admin',
+      store_name: state.preferences['store_name'] || 'VALENIXIA MOBILE CENTER',
+      created_at: Date.now()
+    };
+
+    try {
+      await saveBuybackRecord(record);
+
+      // Auto add to inventory if checked
+      if (autoInventory) {
+        const brandCode = brand.replace(/[^a-zA-Z]/g, '').substring(0, 3).toUpperCase() || 'DEV';
+        const usedSku = `USED-${brandCode}-${Date.now().toString().slice(-6)}`;
+        const usedProduct = {
+          sku: usedSku,
+          gtin: imei1,
+          name: `[USED] ${brand} ${model} (${condition.split(' ')[0]})`,
+          category: 'Used Devices',
+          base_price_minor_units: resalePaise,
+          cost_price_minor_units: payoutPaise,
+          stock_level: 1,
+          stock_quantity: 1,
+          stock: 1,
+          unit: 'pcs',
+          emoji: '📱',
+          low_stock_threshold: 0,
+          mode_fields: { imei: imei1, condition, warranty: 'Used / Testing' },
+          created_at: Date.now(),
+          updated_at: Date.now()
+        };
+
+        await ValenixiaDB.put('inventory_catalog', usedProduct);
+        if (!Array.isArray(state.catalog)) state.catalog = [];
+        state.catalog.unshift(usedProduct);
+        if (syncWorker) syncWorker.postMessage({ type: 'SAVE_PRODUCT', payload: usedProduct });
+      }
+
+      if (typeof playAudioSignal === 'function') playAudioSignal('success');
+      showNotificationToast(`Purchase voucher ${record.voucher_no} generated successfully!`, 'success', 3000);
+
+      // Reset form
+      document.getElementById('form-customer-buyback')?.reset();
+      const legalBox = document.getElementById('buyback-legal-agreed');
+      if (legalBox) legalBox.checked = true;
+      const invToggle = document.getElementById('buyback-inventory-toggle');
+      if (invToggle) invToggle.checked = true;
+
+      renderCustomerBuybackScreen();
+      openBuybackVoucherModal(record);
+
+    } catch (err) {
+      console.error('[Buyback] Process error:', err);
+      showNotificationToast(`Error processing device buy-in: ${err.message}`, 'error');
+    }
+  }
+  window.processCustomerBuyback = processCustomerBuyback;
+
+  let activeBuybackVoucherRecord = null;
+
+  function openBuybackVoucherModal(record) {
+    if (!record) return;
+    activeBuybackVoucherRecord = record;
+
+    const modal = document.getElementById('modal-buyback-voucher');
+    if (!modal) return;
+
+    const storeName = state.preferences['store_name'] || 'VALENIXIA MOBILE CENTER';
+    const dateStr = new Date(record.created_at || Date.now()).toLocaleString('en-PK', {
+      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+
+    const setT = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val || '---';
+    };
+
+    setT('buyback-voucher-modal-id', record.voucher_no);
+    setT('vch-store-name', storeName);
+    setT('vch-voucher-no', `VOUCHER: ${record.voucher_no}`);
+    setT('vch-date-time', `DATE: ${dateStr}`);
+    setT('vch-seller-name', record.seller_name);
+    setT('vch-seller-phone', record.seller_phone);
+    setT('vch-seller-cnic', record.seller_cnic);
+    setT('vch-seller-address', record.seller_address || 'N/A');
+    setT('vch-device-model', `${record.brand} ${record.model}`);
+    setT('vch-device-color', `${record.color || 'Standard'} / ${record.condition || 'Used'}`);
+    setT('vch-device-imei1', record.imei1 || record.imei);
+    
+    const imei2Row = document.getElementById('vch-imei2-row');
+    if (imei2Row) {
+      if (record.imei2) {
+        imei2Row.style.display = 'block';
+        setT('vch-device-imei2', record.imei2);
+      } else {
+        imei2Row.style.display = 'none';
+      }
+    }
+
+    setT('vch-device-condition', record.condition);
+    setT('vch-device-accessories', record.accessories || 'None');
+    
+    const notesRow = document.getElementById('vch-device-notes-row');
+    if (notesRow) {
+      if (record.notes) {
+        notesRow.style.display = 'block';
+        setT('vch-device-notes', record.notes);
+      } else {
+        notesRow.style.display = 'none';
+      }
+    }
+
+    const payMethodMap = {
+      'CASH': 'Cash Disbursed from Register Till',
+      'BANK_TRANSFER': 'Paid via Direct Bank / Raast Transfer',
+      'STORE_CREDIT': 'Store Credit / Trade-In Exchange Voucher'
+    };
+    setT('vch-payment-method', payMethodMap[record.payout_method] || record.payout_method);
+    setT('vch-payout-amount', `Rs. ${((record.payout_paise || 0) / 100).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`);
+    setT('vch-seller-sig-name', `CNIC: ${record.seller_cnic} • ${record.seller_name}`);
+
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+  }
+  window.openBuybackVoucherModal = openBuybackVoucherModal;
+
+  function printBuybackThermal(record) {
+    const rec = record || activeBuybackVoucherRecord;
+    if (!rec) return;
+
+    const lines = [
+      { text: "================================", size: 9 },
+      { text: "  INWARD DEVICE PURCHASE SLIP  ", bold: true, size: 12 },
+      { text: (state.preferences['store_name'] || "VALENIXIA POS").toUpperCase(), bold: true, size: 11 },
+      { text: "================================", size: 9 },
+      { text: `Voucher: ${rec.voucher_no}`, bold: true, size: 9 },
+      { text: `Date: ${new Date(rec.created_at || Date.now()).toLocaleString('en-PK')}`, size: 8 },
+      { text: "--------------------------------", size: 9 },
+      { text: `Seller: ${rec.seller_name}`, bold: true, size: 9 },
+      { text: `Phone:  ${rec.seller_phone}`, size: 8 },
+      { text: `CNIC:   ${rec.seller_cnic}`, bold: true, size: 8 },
+      { text: "--------------------------------", size: 9 },
+      { text: `Device: ${rec.brand} ${rec.model}`, bold: true, size: 9 },
+      { text: `IMEI 1: ${rec.imei1 || rec.imei}`, bold: true, size: 8 },
+      rec.imei2 ? { text: `IMEI 2: ${rec.imei2}`, size: 8 } : null,
+      { text: `Grade:  ${rec.condition}`, size: 8 },
+      { text: `Items:  ${rec.accessories}`, size: 8 },
+      { text: "================================", size: 9 },
+      { text: `PAYOUT: Rs. ${((rec.payout_paise || 0) / 100).toFixed(2)}`, bold: true, size: 13 },
+      { text: `Method: ${rec.payout_method}`, size: 9 },
+      { text: "================================", size: 9 },
+      { text: "LEGAL UNDERTAKING: I transfer full", size: 8 },
+      { text: "lawful ownership to the store.", size: 8 },
+      { text: "\n\n________________________", size: 9 },
+      { text: "Seller Signature & Thumbprint", size: 8 },
+      { text: "\n\n________________________", size: 9 },
+      { text: "Store Authorized Stamp", size: 8 }
+    ].filter(Boolean);
+
+    if (typeof window.printThermalReceiptDirect === 'function') {
+      window.printThermalReceiptDirect(lines);
+    } else {
+      window.print();
+    }
+  }
+  window.printBuybackThermal = printBuybackThermal;
+
+  function exportBuybackCsv() {
+    getBuybackRecords().then(records => {
+      if (!records || records.length === 0) {
+        showNotificationToast('No buy-in records to export.', 'info');
+        return;
+      }
+      const headers = ['Voucher No', 'Date', 'Seller Name', 'Seller Phone', 'Seller CNIC', 'Seller Address', 'Brand', 'Model', 'IMEI 1', 'IMEI 2', 'Condition', 'Accessories', 'Payout PKR', 'Payment Method', 'Added to Inventory', 'Notes'];
+      const rows = records.map(r => [
+        `"${r.voucher_no || ''}"`,
+        `"${new Date(r.created_at || Date.now()).toISOString()}"`,
+        `"${(r.seller_name || '').replace(/"/g, '""')}"`,
+        `"${r.seller_phone || ''}"`,
+        `"${r.seller_cnic || ''}"`,
+        `"${(r.seller_address || '').replace(/"/g, '""')}"`,
+        `"${r.brand || ''}"`,
+        `"${(r.model || '').replace(/"/g, '""')}"`,
+        `"${r.imei1 || r.imei || ''}"`,
+        `"${r.imei2 || ''}"`,
+        `"${r.condition || ''}"`,
+        `"${(r.accessories || '').replace(/"/g, '""')}"`,
+        ((r.payout_paise || 0) / 100).toFixed(2),
+        `"${r.payout_method || ''}"`,
+        r.added_to_inventory ? 'YES' : 'NO',
+        `"${(r.notes || '').replace(/"/g, '""')}"`
+      ]);
+
+      const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `customer_buyback_records_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showNotificationToast('Buyback records exported as CSV', 'success');
+    });
+  }
+  window.exportBuybackCsv = exportBuybackCsv;
+
+  // Bind Buyback Event Listeners
+  document.getElementById('form-customer-buyback')?.addEventListener('submit', processCustomerBuyback);
+  document.getElementById('btn-refresh-buyback-list')?.addEventListener('click', () => {
+    if (typeof playAudioSignal === 'function') playAudioSignal('click');
+    renderCustomerBuybackScreen();
+    showNotificationToast('Buyback ledger refreshed', 'info', 1500);
+  });
+  document.getElementById('btn-export-buyback-csv')?.addEventListener('click', exportBuybackCsv);
+  document.getElementById('buyback-search-input')?.addEventListener('input', renderCustomerBuybackScreen);
+  document.getElementById('btn-clear-buyback-form')?.addEventListener('click', () => {
+    document.getElementById('form-customer-buyback')?.reset();
+    const legalBox = document.getElementById('buyback-legal-agreed');
+    if (legalBox) legalBox.checked = true;
+    const invToggle = document.getElementById('buyback-inventory-toggle');
+    if (invToggle) invToggle.checked = true;
+  });
+
+  document.getElementById('btn-close-buyback-modal')?.addEventListener('click', () => {
+    const modal = document.getElementById('modal-buyback-voucher');
+    if (modal) { modal.classList.remove('active'); modal.style.display = 'none'; }
+  });
+  document.getElementById('btn-close-buyback-modal-x')?.addEventListener('click', () => {
+    const modal = document.getElementById('modal-buyback-voucher');
+    if (modal) { modal.classList.remove('active'); modal.style.display = 'none'; }
+  });
+  document.getElementById('btn-print-buyback-thermal')?.addEventListener('click', () => {
+    printBuybackThermal(activeBuybackVoucherRecord);
+  });
+  document.getElementById('btn-print-buyback-pdf')?.addEventListener('click', () => {
+    window.print();
+  });
 
   function renderCheckoutCategories() {
     const list = document.getElementById('catalog-category-list');

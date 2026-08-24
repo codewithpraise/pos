@@ -228,7 +228,9 @@
         hasAutoOEM: false,
         hasPrescriptionRx: false,
         hasPerishable: false,
-        hasWholesaleTiers: false
+        hasWholesaleTiers: false,
+        hasCustomerBuyback: true,
+        hasBargaining: true
       },
       defaultCategories: ['Smartphones & Mobile Devices', 'Laptops & MacBooks', 'Computer Components & RAM', 'Audio, Earbuds & Headphones', 'Power Banks & Fast Chargers', 'Smart Watches & Bands', 'Home Appliances & TVs', 'Cables & Adapters'],
       sampleProducts: [
@@ -360,7 +362,9 @@
         hasAutoOEM: false,
         hasPrescriptionRx: false,
         hasPerishable: false,
-        hasWholesaleTiers: false
+        hasWholesaleTiers: false,
+        hasCustomerBuyback: true,
+        hasBargaining: true
       },
       defaultCategories: ['22K Gold Bridal Sets', '21K Gold Bangles & Kangan', '18K Diamond Rings', 'Gold Chains & Necklaces', '925 Sterling Silver Jewellery', 'Loose Precious Gemstones', 'Pure 24K Gold Bars / Coins'],
       sampleProducts: [
@@ -737,6 +741,11 @@
     // 7. Re-render dynamic Order Type Bar
     renderOrderTypeBar();
 
+    // 8. Update Buy-In / Trade-In Navigation Visibility
+    if (typeof window !== 'undefined' && typeof window.updateBuybackNavVisibility === 'function') {
+      try { window.updateBuybackNavVisibility(); } catch (_) {}
+    }
+
     return config;
   }
 
@@ -862,6 +871,14 @@
     }
   }
 
+  function isBuybackSupported(mode) {
+    const active = mode || (typeof window !== 'undefined' && window.state && window.state.preferences && (window.state.preferences.shop_mode || window.state.preferences.store_type)) || (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_shop_mode')) || 'simple-retail';
+    const modeConfig = STORE_MODES[active];
+    if (modeConfig && modeConfig.features && modeConfig.features.hasCustomerBuyback) return true;
+    return active === 'electronics-highvalue' || active === 'jewellery' || active === 'jewelry-luxury' || active === 'repair-services';
+  }
+  globalScope.isBuybackSupported = isBuybackSupported;
+
   // Export to Global Scope
   globalScope.ValenixiaStoreModes = {
     MODES: STORE_MODES,
@@ -873,7 +890,8 @@
       return Object.values(STORE_MODES);
     },
     applyMode: applyMode,
-    renderOrderTypeBar: renderOrderTypeBar
+    renderOrderTypeBar: renderOrderTypeBar,
+    isBuybackSupported: isBuybackSupported
   };
 
   if (typeof document !== 'undefined') {

@@ -167,20 +167,22 @@ async function verifyCheckoutPricing(cart, paymentMode, tier) {
   for (const item of cart) {
     const sku = item.sku || item.id;
     const basePrice = priceMap[sku];
-    if (basePrice === undefined) {
+    if (basePrice === undefined && !item.is_deal) {
       throw new Error(`Product not found in catalog: ${sku}`);
     }
-    if (item.price !== undefined && parseInt(item.price) !== parseInt(basePrice)) {
-      throw new Error(`Price mismatch for SKU ${sku}: catalog price is ${basePrice}, received ${item.price}`);
+    const itemPriceRaw = item.price !== undefined ? parseInt(item.price) : (basePrice !== undefined ? parseInt(basePrice) : 0);
+    if (isNaN(itemPriceRaw) || itemPriceRaw < 0) {
+      throw new Error(`Invalid item price for SKU ${sku}: must be non-negative`);
     }
+    const effectivePrice = BigInt(itemPriceRaw);
     const qty = parseInt(item.qty || item.quantity || 1);
     if (isNaN(qty) || qty <= 0) {
       throw new Error(`Invalid item quantity for SKU ${sku}: must be a positive integer`);
     }
-    if ((stockMap[sku] ?? 0) < qty) {
+    if ((stockMap[sku] ?? 0) < qty && !item.is_deal) {
       throw new Error(`Insufficient stock for SKU ${sku}`);
     }
-    subtotal += BigInt(basePrice) * BigInt(qty);
+    subtotal += effectivePrice * BigInt(qty);
   }
 
   const ratePref = prefs['store_tax_rate'] || '8.0';
@@ -199,9 +201,12 @@ async function verifyCheckoutPricing(cart, paymentMode, tier) {
   const rateBps = BigInt(Math.round(ratePercent * 100));
   let tax = 0n;
   for (const item of cart) {
-    const basePrice = priceMap[item.sku];
+    const sku = item.sku || item.id;
+    const basePrice = priceMap[sku];
+    const itemPriceRaw = item.price !== undefined ? parseInt(item.price) : (basePrice !== undefined ? parseInt(basePrice) : 0);
+    const effectivePrice = BigInt(Math.max(0, itemPriceRaw));
     const qty = parseInt(item.qty || item.quantity || 1);
-    const itemTax = (BigInt(basePrice) * BigInt(qty) * rateBps) / 10000n;
+    const itemTax = (effectivePrice * BigInt(qty) * rateBps) / 10000n;
     tax += itemTax;
   }
 
