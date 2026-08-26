@@ -656,7 +656,7 @@ function showUpgradeModal(featureName, requiredTier) {
           <div style="font-size:20px;font-weight:900;color:#fff;margin:8px 0 4px;">${p.price}<span style="font-size:11px;font-weight:400;color:#94a3b8;">/mo</span></div>
           <div style="font-size:11px;color:#94a3b8;line-height:1.4;margin-bottom:16px;">${p.features}</div>
         </div>
-        <button class="__btn-select-tier" data-tier="${p.id}" style="width:100%;padding:10px 14px;background:${isCurrent ? 'rgba(255,255,255,0.1)' : p.themeColor};border:none;color:${isCurrent ? '#fff' : '#000'};font-size:12px;font-weight:900;border-radius:10px;cursor:pointer;transition:transform 0.15s ease, opacity 0.15s ease;">
+        <button class="__btn-select-tier" data-tier="${p.id}" style="width:100%;min-height:38px;padding:8px 10px;background:${isCurrent ? 'rgba(255,255,255,0.1)' : p.themeColor};border:none;color:${isCurrent ? '#fff' : '#000'};font-size:11.5px;font-weight:900;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center;white-space:normal!important;word-break:keep-all!important;hyphens:none!important;line-height:1.25!important;box-sizing:border-box!important;transition:transform 0.15s ease, opacity 0.15s ease;">
           ${p.buttonText}
         </button>
       </div>

@@ -15834,33 +15834,33 @@ setHtml(itemRow, `
         </div>
       </div>
 
-      <div class="kpi-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
-        <div class="kpi-card" style="padding: 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-titanium); border-radius: 8px;">
+      <div class="kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr)); gap: 12px; margin-top: 12px;">
+        <div class="kpi-card" style="padding: 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-titanium); border-radius: 8px; box-sizing: border-box; min-width: 0;">
           <span style="font-size: 10px; color: var(--text-gray); display: block; margin-bottom: 4px;">CREDIT LIMIT</span>
-          <span style="font-size: 16px; font-weight: 800; color: var(--text-white);">${formatCurrency(d.credit_limit_minor || 0)}</span>
+          <span style="font-size: 15px; font-weight: 800; color: var(--text-white); word-break: break-word;">${formatCurrency(d.credit_limit_minor || 0)}</span>
         </div>
-        <div class="kpi-card" style="padding: 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-titanium); border-radius: 8px;">
+        <div class="kpi-card" style="padding: 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-titanium); border-radius: 8px; box-sizing: border-box; min-width: 0;">
           <span style="font-size: 10px; color: var(--text-gray); display: block; margin-bottom: 4px;">CONTACT PHONE</span>
-          <span style="font-size: 16px; font-weight: 800; color: var(--text-white);">${d.phone || 'N/A'}</span>
+          <span style="font-size: 15px; font-weight: 800; color: var(--text-white); word-break: break-word;">${d.phone || 'N/A'}</span>
         </div>
-        <div class="kpi-card" style="padding: 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-titanium); border-radius: 8px;">
+        <div class="kpi-card" style="padding: 12px; background: rgba(255,255,255,0.01); border: 1px solid var(--border-titanium); border-radius: 8px; box-sizing: border-box; min-width: 0;">
           <span style="font-size: 10px; color: var(--text-gray); display: block; margin-bottom: 4px;">${balanceText.toUpperCase()}</span>
-          <span style="font-size: 16px; font-weight: 800;" class="${outstandingClass}">${formatCurrency(Math.abs(outstanding))}</span>
+          <span style="font-size: 15px; font-weight: 800; word-break: break-word;" class="${outstandingClass}">${formatCurrency(Math.abs(outstanding))}</span>
         </div>
       </div>
 
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
-        <div class="ledger-tab-bar">
-          <button class="ledger-tab-btn ${activeSupplierTab === 'pos' ? 'active' : ''}" id="tab-supplier-pos">Purchase Orders</button>
-          <button class="ledger-tab-btn ${activeSupplierTab === 'payments' ? 'active' : ''}" id="tab-supplier-payments">Payment Records</button>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; flex-wrap: wrap; gap: 10px;">
+        <div class="ledger-tab-bar" style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <button class="ledger-tab-btn ${activeSupplierTab === 'pos' ? 'active' : ''}" id="tab-supplier-pos" style="white-space: nowrap;">Purchase Orders</button>
+          <button class="ledger-tab-btn ${activeSupplierTab === 'payments' ? 'active' : ''}" id="tab-supplier-payments" style="white-space: nowrap;">Payment Records</button>
         </div>
-        <div style="display: flex; gap: 8px;">
-          <button class="action-btn action-success" id="btn-supplier-create-po" style="min-height:36px; font-size:11px; padding: 6px 12px;">+ Create PO</button>
-          <button class="action-btn action-success" id="btn-supplier-record-pay" style="min-height:36px; font-size:11px; padding: 6px 12px;">Post Payment</button>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; flex-shrink: 0;">
+          <button class="action-btn action-success" id="btn-supplier-create-po" style="min-height:36px; font-size:11px; padding: 6px 14px; white-space: nowrap;">+ Create PO</button>
+          <button class="action-btn action-success" id="btn-supplier-record-pay" style="min-height:36px; font-size:11px; padding: 6px 14px; white-space: nowrap;">Post Payment</button>
         </div>
       </div>
 
-      <div id="supplier-ledger-tab-content" style="flex-grow: 1;">
+      <div id="supplier-ledger-tab-content" style="flex-grow: 1; min-width: 0; overflow-x: auto;">
         <!-- dynamic tab content -->
       </div>
     `);

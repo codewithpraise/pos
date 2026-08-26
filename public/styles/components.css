@@ -8590,12 +8590,41 @@ button,
 .billing-cycle-btn,
 .checkout-tab-btn,
 .ledger-tab-btn,
-.cart-bargain-tag {
-  white-space: nowrap !important;
+.cart-bargain-tag,
+.__btn-select-tier {
   word-break: keep-all !important;
   overflow-wrap: normal !important;
   hyphens: none !important;
+  text-align: center;
+}
+
+/* Badges, Tabs, and Compact Controls that must stay single-line */
+.btn-remove-item,
+.qty-btn,
+.qty-val,
+.badge,
+.item-badge,
+.sub-nav-item,
+.pricing-badge,
+.billing-cycle-btn,
+.checkout-tab-btn,
+.ledger-tab-btn,
+.cart-bargain-tag {
+  white-space: nowrap !important;
   flex-shrink: 0 !important;
+}
+
+/* Action, CTA, and Paywall Buttons - Graceful whole-word wrap and strict containment */
+.__btn-select-tier,
+.action-btn,
+.pricing-card button,
+.btn-primary-action,
+.payment-btn {
+  white-space: normal !important;
+  word-break: keep-all !important;
+  line-height: 1.25 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 

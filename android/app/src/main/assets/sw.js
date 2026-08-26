@@ -23,7 +23,7 @@ const ASSETS_TO_CACHE = [
   { url: '/styles/themes.css', integrity: '' },
   { url: '/styles/animations.css', integrity: '' },
   { url: '/styles/components.css', integrity: '' },
-  { url: '/app.js', integrity: 'sha384-hlHt+I8MyUuNefTj7380Sqf+bLlp0gPrU4U8mT9fbnufz9/axeK3Nlj74RUKxbo2' },
+  { url: '/app.js', integrity: 'sha384-loMzb9q20+vCJDawXFr2y016MOehRduunXMxf+I/K/wJbIIRqIF3JA4yi+SmSucv' },
   { url: '/router.js', integrity: '' },
   { url: '/commercial-catalog.js', integrity: '' },
   { url: '/legal-documents.js', integrity: '' },
