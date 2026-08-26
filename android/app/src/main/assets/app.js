@@ -13885,17 +13885,27 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
   function initAnalyticsControls() {
     const group = document.getElementById('analytics-range-group');
     if (group) {
+      const activeRange = state.analyticsRange || 'today';
       group.querySelectorAll('.analytics-range-btn').forEach(btn => {
+        const isCurrent = btn.dataset.range === activeRange;
+        btn.style.background = isCurrent ? 'var(--accent-emerald)' : 'transparent';
+        btn.style.color = isCurrent ? '#fff' : 'var(--text-gray)';
+        btn.setAttribute('aria-pressed', isCurrent ? 'true' : 'false');
+        if (isCurrent) btn.classList.add('active');
+        else btn.classList.remove('active');
+
         btn.onclick = (e) => {
           e.preventDefault();
           group.querySelectorAll('.analytics-range-btn').forEach(b => {
             b.style.background = 'transparent';
             b.style.color = 'var(--text-gray)';
             b.setAttribute('aria-pressed', 'false');
+            b.classList.remove('active');
           });
           btn.style.background = 'var(--accent-emerald)';
           btn.style.color = '#fff';
           btn.setAttribute('aria-pressed', 'true');
+          btn.classList.add('active');
 
           state.analyticsRange = btn.dataset.range;
           
@@ -14286,7 +14296,7 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     window.calculateAnalytics = calculateAnalytics;
 
     if (!state.analyticsRange) {
-      state.analyticsRange = 'all';
+      state.analyticsRange = 'today';
     }
 
     if (typeof initAnalyticsControls === 'function' && !window.__analyticsControlsInitialized) {
@@ -14396,7 +14406,7 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
         if (insightsCard) insightsCard.style.display = '';
 
         // Peak Sales Hour: bucket transactions by hour, strictly ignoring future hours in today range
-        const isTodayRange = (state.analyticsRange || 'all') === 'today';
+        const isTodayRange = (state.analyticsRange || 'today') === 'today';
         const now = new Date();
         const currentHour = now.getHours();
         const hourBuckets = new Array(24).fill(0);
@@ -14404,13 +14414,24 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
           const ts = tx.timestampMs || tx.timestamp || tx.created_at || 0;
           if (ts && !isNaN(ts) && ts > 0) {
             const h = new Date(typeof ts === 'number' ? ts : Number(ts)).getHours();
-            if (h >= 0 && h < 24) hourBuckets[h]++;
+            if (h >= 0 && h < 24) {
+              if (isTodayRange && h > currentHour) return;
+              hourBuckets[h]++;
+            }
           }
         });
-        const peakHour = hourBuckets.indexOf(Math.max(...hourBuckets));
-        const peakCount = hourBuckets[peakHour];
+        let maxBucket = 0;
+        let peakHour = -1;
+        hourBuckets.forEach((cnt, h) => {
+          if (isTodayRange && h > currentHour) return;
+          if (cnt > maxBucket) {
+            maxBucket = cnt;
+            peakHour = h;
+          }
+        });
+        const peakCount = maxBucket;
         if (peakEl) {
-          if (peakCount > 0) {
+          if (peakCount > 0 && peakHour >= 0) {
             const padH = h => String(h).padStart(2, '0');
             peakEl.textContent = `${padH(peakHour)}:00 - ${padH((peakHour + 1) % 24)}:00`;
           } else {
@@ -14976,7 +14997,7 @@ setHtml(alertsContainer, alertsHtml);
     if (!chart) return;
     chart.replaceChildren();
 
-    const isTodayRange = (state.analyticsRange || 'all') === 'today';
+    const isTodayRange = (state.analyticsRange || 'today') === 'today';
     const now = new Date();
     const currentHour = now.getHours();
     const nowMs = now.getTime();
@@ -14997,6 +15018,7 @@ setHtml(alertsContainer, alertsHtml);
       if (isNaN(d.getTime())) return;
       const hr = d.getHours();
       if (hr < 0 || hr > 23) return;
+      if (isTodayRange && hr > currentHour) return;
 
       const amt = Number(tx.totalMinor !== undefined ? tx.totalMinor : (tx.total_minor_units || tx.total || 0));
       hours[hr] += isNaN(amt) ? 0 : amt;
@@ -15016,7 +15038,7 @@ setHtml(alertsContainer, alertsHtml);
       if (isTodayRange && hr > currentHour) return;
       totalRev += amt;
       if (amt > 0) activeHoursCount++;
-      if (amt > peakAmt) {
+      if (amt > 0 && amt > peakAmt) {
         peakAmt = amt;
         peakHour = hr;
       }
