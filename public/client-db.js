@@ -1208,6 +1208,23 @@
       });
     },
 
+    clear(storeName, tx = null) {
+      return new Promise((resolve, reject) => {
+        if (!this.db && !tx) return resolve(true);
+        try {
+          const store = tx ? tx.objectStore(storeName) : this.db.transaction([storeName], 'readwrite').objectStore(storeName);
+          const request = store.clear();
+          request.onsuccess = () => {
+            if (!tx) this.triggerOpfsBackupDebounced();
+            resolve(true);
+          };
+          request.onerror = (e) => reject(e.target.error);
+        } catch (err) {
+          reject(err);
+        }
+      });
+    },
+
     async count(storeName) {
       if (!this.db) return 0;
       return new Promise((resolve, reject) => {

@@ -420,15 +420,67 @@
   function openQuickAdd() {
     try { if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); } catch(_) {}
     document.getElementById('__vxdq')?.remove();
+    document.getElementById('__vxdq-empty')?.remove();
     const deals = getAll().filter(d => d.is_active !== false);
     const L = lbl();
+
     if (!deals || !deals.length) {
       try { if (typeof window.playAudioSignal === 'function') window.playAudioSignal('info'); } catch(_) {}
       if (typeof window.showNotificationToast === 'function') {
-        window.showNotificationToast(`No active product bundles or promotional deals available. Create one in the ${L.p} screen.`, 'info', 4000);
+        window.showNotificationToast(`No active ${L.p.toLowerCase()} configured yet. Let's create your first package!`, 'info', 4000);
       } else if (typeof window.showToast === 'function') {
         window.showToast(`No active ${L.p.toLowerCase()} available.`, 'info');
       }
+
+      const isLight = document.body.classList.contains('theme-monochrome-ivory');
+      const emptyModal = document.createElement('div');
+      emptyModal.id = '__vxdq-empty';
+      emptyModal.style.cssText = 'position:fixed;inset:0;z-index:2147483635;background:rgba(5,5,8,.82);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);padding:16px;box-sizing:border-box;animation:fadeIn 0.2s ease;';
+      emptyModal.innerHTML = `
+        <div class="pos-modal-card" style="max-width:480px;width:100%;background:${isLight?'#ffffff':'#0d0d12'};border-radius:18px;border:1.5px solid ${isLight?'#cbd5e1':'rgba(255,255,255,.1)'};box-shadow:0 25px 65px rgba(0,0,0,${isLight?'0.2':'0.6'});overflow:hidden;animation:modalEnter 0.22s cubic-bezier(0.16, 1, 0.3, 1);box-sizing:border-box;">
+          <div style="padding:28px 24px 20px;text-align:center;">
+            <div style="width:58px;height:58px;border-radius:16px;background:${isLight?'#ecfdf5':'rgba(0,214,143,0.12)'};border:1.5px solid ${isLight?'#a7f3d0':'rgba(0,214,143,0.25)'};margin:0 auto 16px;display:flex;align-items:center;justify-content:center;">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="${isLight?'#059669':'#00d68f'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+            </div>
+            <h3 style="margin:0 0 8px;font-size:18px;font-weight:900;font-family:var(--font-display);color:${isLight?'#0f172a':'#ffffff'};letter-spacing:-0.3px;">No Active ${L.p} Configured</h3>
+            <p style="margin:0;font-size:13px;line-height:1.55;color:${isLight?'#475569':'#94a3b8'};">
+              You have not created any promotional bundles or combo deals yet. Product bundles allow you to package multiple products together under a single discounted price with automated stock deduction.
+            </p>
+          </div>
+          <div style="display:flex;gap:10px;padding:16px 24px 24px;border-top:1px solid ${isLight?'#f1f5f9':'rgba(255,255,255,0.06)'};background:${isLight?'#f8fafc':'rgba(255,255,255,0.02)'};box-sizing:border-box;">
+            <button id="__vxdq-stay" style="flex:1;min-height:42px;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;border:1.5px solid ${isLight?'#cbd5e1':'rgba(255,255,255,0.12)'};background:${isLight?'#ffffff':'rgba(255,255,255,0.05)'};color:${isLight?'#334155':'#cbd5e1'};transition:all 0.15s ease;">
+              Stay in Checkout
+            </button>
+            <button id="__vxdq-goto-create" style="flex:1.2;min-height:42px;border-radius:10px;font-size:12.5px;font-weight:800;cursor:pointer;border:none;background:${isLight?'#059669':'#00d68f'};color:${isLight?'#ffffff':'#052e16'};box-shadow:0 4px 14px rgba(0,214,143,${isLight?'0.3':'0.25'});display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.15s ease;">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              + Create First ${L.s}
+            </button>
+          </div>
+        </div>
+      `;
+
+      emptyModal.querySelector('#__vxdq-stay').addEventListener('click', () => {
+        try { if (typeof window.playAudioSignal === 'function') window.playAudioSignal('click'); } catch(_) {}
+        emptyModal.remove();
+      });
+      emptyModal.addEventListener('click', (e) => {
+        if (e.target === emptyModal) emptyModal.remove();
+      });
+
+      emptyModal.querySelector('#__vxdq-goto-create').addEventListener('click', () => {
+        try { if (typeof window.playAudioSignal === 'function') window.playAudioSignal('click'); } catch(_) {}
+        emptyModal.remove();
+        if (typeof window.switchActiveScreen === 'function') {
+          window.switchActiveScreen('deals');
+        }
+        setTimeout(() => {
+          if (window.VXDeals && typeof window.VXDeals.openEdit === 'function') {
+            window.VXDeals.openEdit(null);
+          }
+        }, 150);
+      });
+
+      document.body.appendChild(emptyModal);
       return;
     }
 
@@ -578,12 +630,13 @@
   function injectCheckoutBtn() {
     if (document.getElementById('btn-deals-quick-add')) return;
     const voidBtn = document.getElementById('btn-void-order');
-    if (!voidBtn) { setTimeout(injectCheckoutBtn, 800); return; }
+    if (!voidBtn) { setTimeout(injectCheckoutBtn, 600); return; }
+    const L = lbl();
     const btn = document.createElement('button');
     btn.id = 'btn-deals-quick-add';
-    btn.className = 'action-btn';
-    btn.style.cssText = 'min-height:36px;padding:0 12px;font-size:12px;font-weight:700;';
-    btn.textContent = lbl().i + ' ' + lbl().p;
+    btn.className = 'action-btn action-secondary';
+    btn.style.cssText = 'min-height:36px;padding:0 12px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;';
+    btn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg><span>${L.p}</span>`;
     btn.addEventListener('click', openQuickAdd);
     voidBtn.parentElement?.insertBefore(btn, voidBtn.nextSibling);
   }
@@ -612,13 +665,14 @@
       }
       injectView();
       injectNav();
-      setTimeout(injectCheckoutBtn, 1000);
+      setTimeout(injectCheckoutBtn, 800);
       console.log('[VXDeals] Initialized. Mode:', _mode, '| Deals:', _deals.length);
     },
     renderView,
     openEdit,
     openEditModal: openEdit,
     openQuickAdd,
+    injectCheckoutBtn,
     addToCart,
     getAll,
     getById,

@@ -13060,6 +13060,7 @@ setHtml(row, `
     }
 
     switch (cleanName) {
+      case 'checkout': if (typeof renderCheckoutScreen === 'function') renderCheckoutScreen(); break;
       case 'staff': if (typeof renderStaffScreen === 'function') renderStaffScreen(); break;
       case 'customers': if (typeof renderCustomersScreen === 'function') renderCustomersScreen(); break;
       case 'catalog': if (typeof renderCatalogScreen === 'function') renderCatalogScreen(); break;
@@ -14233,6 +14234,53 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     });
   }
 
+  /**
+   * Safe Transaction History Purge / Reset
+   * Wipes test & historical transaction ledger while preserving products, categories, customers, and configuration.
+   */
+  async function wipeTransactionHistory() {
+    let confirmed = false;
+    if (typeof showModal === 'function') {
+      const choice = await showModal({
+        title: 'Purge Sales & Reset Analytics',
+        message: 'Are you sure you want to wipe all transaction history? This will reset your analytics telemetry metrics, sales ledger, and hourly charts to zero. Your catalog products, categories, customers, and configuration will NOT be affected.',
+        type: 'danger',
+        actions: [
+          { id: 'wipe', label: 'Wipe Transactions', style: 'danger' },
+          { id: 'cancel', label: 'Cancel', style: 'secondary' }
+        ]
+      });
+      confirmed = (choice === 'wipe' || choice === true);
+    } else {
+      confirmed = confirm('Are you sure you want to wipe all transaction history and reset analytics to zero?');
+    }
+    if (!confirmed) return;
+
+    state.transactions = [];
+    try { localStorage.removeItem('valenixia_transactions'); } catch(_) {}
+
+    if (window.syncWorker) {
+      window.syncWorker.postMessage({ type: 'WIPE_TRANSACTIONS' });
+    }
+    if (typeof ValenixiaDB !== 'undefined' && typeof ValenixiaDB.clear === 'function') {
+      try {
+        await ValenixiaDB.clear('transactions');
+        await ValenixiaDB.clear('transaction_line_items');
+      } catch (_) {}
+    }
+
+    if (typeof calculateAnalytics === 'function') calculateAnalytics();
+    if (typeof renderHistoryScreen === 'function') renderHistoryScreen();
+    if (typeof renderKdsScreen === 'function' && typeof isKdsSupported === 'function' && isKdsSupported()) renderKdsScreen();
+
+    try { if (typeof playAudioSignal === 'function') playAudioSignal('trash'); } catch(_) {}
+    if (typeof showNotificationToast === 'function') {
+      showNotificationToast('Transaction history wiped clean! Ledger and analytics reset.', 'success', 3500);
+    }
+  }
+  window.wipeTransactionHistory = wipeTransactionHistory;
+  window.__realHandlers.wipeTransactionHistory = wipeTransactionHistory;
+
   function calculateAnalytics() {
     window.__realHandlers.calculateAnalytics = calculateAnalytics;
     window.calculateAnalytics = calculateAnalytics;
@@ -14347,7 +14395,10 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
       } else {
         if (insightsCard) insightsCard.style.display = '';
 
-        // Peak Sales Hour: bucket transactions by hour, find the busiest
+        // Peak Sales Hour: bucket transactions by hour, strictly ignoring future hours in today range
+        const isTodayRange = (state.analyticsRange || 'all') === 'today';
+        const now = new Date();
+        const currentHour = now.getHours();
         const hourBuckets = new Array(24).fill(0);
         txs.forEach(tx => {
           const ts = tx.timestampMs || tx.timestamp || tx.created_at || 0;

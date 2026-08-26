@@ -681,6 +681,29 @@ self.onmessage = async (event) => {
         break;
       }
 
+      case 'WIPE_TRANSACTIONS': {
+        try {
+          if (ValenixiaDB && typeof ValenixiaDB.clear === 'function') {
+            await ValenixiaDB.clear('transactions');
+            await ValenixiaDB.clear('transaction_line_items');
+          } else {
+            const allTx = await ValenixiaDB.getAll('transactions');
+            for (const t of allTx) {
+              await ValenixiaDB.delete('transactions', t.id);
+            }
+            const allLi = await ValenixiaDB.getAll('transaction_line_items');
+            for (const li of allLi) {
+              await ValenixiaDB.delete('transaction_line_items', li.id);
+            }
+          }
+          postMessage({ type: 'TRANSACTIONS_DATA', transactions: [] });
+          postMessage({ type: 'TRANSACTIONS_WIPED_SUCCESS' });
+        } catch (err) {
+          postMessage({ type: 'ERROR', message: 'Failed to wipe transactions: ' + err.message });
+        }
+        break;
+      }
+
       case 'COMPLETE_TRANSACTION': {
         const { transactionId } = payload;
         const tickHlc = syncClient.hlc.tick();

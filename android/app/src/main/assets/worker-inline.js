@@ -1209,6 +1209,23 @@ window.__VALENIXIA_WORKER_CODE = `// ===========================================
       });
     },
 
+    clear(storeName, tx = null) {
+      return new Promise((resolve, reject) => {
+        if (!this.db && !tx) return resolve(true);
+        try {
+          const store = tx ? tx.objectStore(storeName) : this.db.transaction([storeName], 'readwrite').objectStore(storeName);
+          const request = store.clear();
+          request.onsuccess = () => {
+            if (!tx) this.triggerOpfsBackupDebounced();
+            resolve(true);
+          };
+          request.onerror = (e) => reject(e.target.error);
+        } catch (err) {
+          reject(err);
+        }
+      });
+    },
+
     async count(storeName) {
       if (!this.db) return 0;
       return new Promise((resolve, reject) => {
@@ -3080,6 +3097,29 @@ self.onmessage = async (event) => {
           enriched.push({ ...tx, items });
         }
         postMessage({ type: 'TRANSACTIONS_DATA', transactions: enriched });
+        break;
+      }
+
+      case 'WIPE_TRANSACTIONS': {
+        try {
+          if (ValenixiaDB && typeof ValenixiaDB.clear === 'function') {
+            await ValenixiaDB.clear('transactions');
+            await ValenixiaDB.clear('transaction_line_items');
+          } else {
+            const allTx = await ValenixiaDB.getAll('transactions');
+            for (const t of allTx) {
+              await ValenixiaDB.delete('transactions', t.id);
+            }
+            const allLi = await ValenixiaDB.getAll('transaction_line_items');
+            for (const li of allLi) {
+              await ValenixiaDB.delete('transaction_line_items', li.id);
+            }
+          }
+          postMessage({ type: 'TRANSACTIONS_DATA', transactions: [] });
+          postMessage({ type: 'TRANSACTIONS_WIPED_SUCCESS' });
+        } catch (err) {
+          postMessage({ type: 'ERROR', message: 'Failed to wipe transactions: ' + err.message });
+        }
         break;
       }
 
