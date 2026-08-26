@@ -935,14 +935,14 @@
           
           <div class="catalog-table-wrapper" style="width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch;">
             <div class="catalog-grid-table" style="width:100%; min-width:100%;">
-              <div class="catalog-grid-header" id="catalog-grid-header" style="display:grid; grid-template-columns: minmax(95px, 1.1fr) minmax(130px, 1.8fr) minmax(75px, 0.9fr) minmax(70px, 0.85fr) minmax(72px, 0.85fr) 118px; gap:6px; padding:8px 10px; font-weight:700; font-size:10.5px; background:#14171d; border-bottom:1px solid rgba(255,255,255,0.1); align-items:center;">
+              <div class="catalog-grid-header" id="catalog-grid-header" style="display:grid; grid-template-columns: minmax(95px, 1.1fr) minmax(130px, 1.8fr) minmax(75px, 0.9fr) minmax(70px, 0.85fr) minmax(72px, 0.85fr) 118px; gap:6px; padding:8px 10px; font-weight:700; font-size:10.5px; align-items:center;">
                 <div id="catalog-header-checkbox-cell" style="display: none; text-align: center;"><input type="checkbox" id="catalog-select-all-checkbox" title="Select All" style="accent-color:var(--accent-emerald); cursor:pointer; width:15px; height:15px;" aria-label="Select All Products"></div>
-                <div style="text-align: left; color: rgba(255,255,255,0.75);">SKU / CODE</div>
-                <div style="text-align: left; color: rgba(255,255,255,0.75);">PRODUCT NAME</div>
-                <div style="text-align: left; color: rgba(255,255,255,0.75);">CATEGORY</div>
-                <div style="text-align: right; color: rgba(255,255,255,0.75);">PRICE</div>
-                <div style="text-align: right; color: rgba(255,255,255,0.75);">STOCK</div>
-                <div style="text-align: center; color: rgba(255,255,255,0.75);">ACTIONS</div>
+                <div style="text-align: left;">SKU / CODE</div>
+                <div style="text-align: left;">PRODUCT NAME</div>
+                <div style="text-align: left;">CATEGORY</div>
+                <div style="text-align: right;">PRICE</div>
+                <div style="text-align: right;">STOCK</div>
+                <div style="text-align: center;">ACTIONS</div>
               </div>
               <div id="catalog-virtual-container" style="width: 100%; min-width: 100%;">
                 <!-- Catalog rows rendered dynamically here -->
@@ -1491,16 +1491,16 @@
             </div>
           </div>
           
-          <div class="customers-table-wrapper" style="flex: 1; display: flex; flex-direction: column; background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); min-height: 0;">
+          <div class="customers-table-wrapper" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
             <div class="search-bar-row" style="margin-bottom: 12px; display: flex; gap: 8px;">
-              <input type="text" id="customers-search-input" class="pos-input" placeholder="Search customers by name, phone, or email..." style="flex: 1; min-height: 40px; font-size: 12px; padding: 8px 14px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);" aria-label="Search profiles by name, phone or email...">
+              <input type="text" id="customers-search-input" class="pos-input" placeholder="Search customers by name, phone, or email..." style="flex: 1; min-height: 40px; font-size: 12px; padding: 8px 14px; border-radius: 8px;" aria-label="Search profiles by name, phone or email...">
             </div>
             
             <!-- Desktop Table View -->
             <div class="customers-desktop-table-container" style="overflow-x: auto; -webkit-overflow-scrolling: touch; flex: 1;">
               <table class="catalog-table" style="width: 100%; border-collapse: collapse;">
                 <thead>
-                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; color: var(--text-gray);">
+                  <tr style="text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; color: var(--text-gray);">
                     <th style="padding: 10px 12px; text-align: left;">Customer Profile</th>
                     <th style="padding: 10px 12px; text-align: left;">Phone Number</th>
                     <th style="padding: 10px 12px; text-align: left;">Email</th>
@@ -1535,15 +1535,15 @@
 
             <div class="suppliers-split-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 14px; align-items: stretch; flex: 1;">
               <!-- Left Pane: Supplier List -->
-              <div class="suppliers-left-pane" style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto;">
-                <input type="text" id="supplier-search-input" class="pos-input" placeholder="Search suppliers by name or phone..." oninput="if(window.renderSuppliersScreen)window.renderSuppliersScreen(this.value.toLowerCase().trim());" style="min-height: 40px; font-size: 12px; padding: 8px 14px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);" aria-label="Search suppliers by name or phone">
+              <div class="suppliers-left-pane" style="border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto;">
+                <input type="text" id="supplier-search-input" class="pos-input" placeholder="Search suppliers by name or phone..." oninput="if(window.renderSuppliersScreen)window.renderSuppliersScreen(this.value.toLowerCase().trim());" style="min-height: 40px; font-size: 12px; padding: 8px 14px; border-radius: 8px;" aria-label="Search suppliers by name or phone">
                 <div id="supplier-list-container" style="display: flex; flex-direction: column; gap: 8px;">
                   <!-- Populated dynamically by renderSuppliersScreen() -->
                 </div>
               </div>
 
               <!-- Right Pane: Supplier Detail Ledger -->
-              <div class="suppliers-right-pane" style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto;">
+              <div class="suppliers-right-pane" style="border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto;">
                 <div id="supplier-detail-empty" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 20px; text-align: center; color: var(--text-gray); flex: 1;">
                   <div style="width: 52px; height: 52px; border-radius: 14px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.08);">
                     <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 21h18M5 21V7l8-4v18M13 21V3l6 3v15"/></svg>
@@ -1614,15 +1614,15 @@
 
             <div class="suppliers-split-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 14px; align-items: stretch; flex: 1; min-height: 0;">
               <!-- Left Pane: Customer List -->
-              <div class="khata-left-pane" style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto;">
-                <input type="text" id="credit-customer-search" class="pos-input" placeholder="Search customer Khata accounts..." oninput="if(window.renderCreditBookScreen)window.renderCreditBookScreen(this.value.toLowerCase().trim());" style="min-height: 40px; font-size: 12px; padding: 8px 14px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);" aria-label="Search customer Khata accounts">
+              <div class="khata-left-pane" style="border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto;">
+                <input type="text" id="credit-customer-search" class="pos-input" placeholder="Search customer Khata accounts..." oninput="if(window.renderCreditBookScreen)window.renderCreditBookScreen(this.value.toLowerCase().trim());" style="min-height: 40px; font-size: 12px; padding: 8px 14px; border-radius: 8px;" aria-label="Search customer Khata accounts">
                 <div id="credit-customer-list-container" style="display: flex; flex-direction: column; gap: 8px; flex: 1; overflow-y: auto;">
                   <!-- Populated dynamically by renderCreditBookScreen() -->
                 </div>
               </div>
 
               <!-- Right Pane: Customer Khata Ledger Detail -->
-              <div class="khata-right-pane" style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow-y: auto;">
+              <div class="khata-right-pane" style="border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow-y: auto;">
                 <div id="credit-detail-empty" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 20px; text-align: center; color: var(--text-gray); flex: 1;">
                   <div style="width: 52px; height: 52px; border-radius: 14px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.08);">
                     <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>

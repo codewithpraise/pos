@@ -823,6 +823,549 @@ body.theme-monochrome-ivory .kpi-micro-card span {
   color: #475569 !important;
 }
 
+/* ── Inventory Manager (Catalog Ledger) in Light Theme ── */
+body.theme-monochrome-ivory #view-catalog-manager,
+body.theme-monochrome-ivory .catalog-view-header,
+body.theme-monochrome-ivory .catalog-grid-table,
+body.theme-monochrome-ivory .catalog-table-wrapper {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory .catalog-main-heading {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+
+body.theme-monochrome-ivory .catalog-count-badge {
+  background: #f1f5f9 !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #334155 !important;
+  font-weight: 700 !important;
+}
+
+body.theme-monochrome-ivory .catalog-table-wrapper {
+  border: 1.5px solid #cbd5e1 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05) !important;
+}
+
+body.theme-monochrome-ivory .catalog-grid-header {
+  background: #f1f5f9 !important;
+  border-bottom: 2px solid #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+body.theme-monochrome-ivory .catalog-grid-header > div,
+body.theme-monochrome-ivory .catalog-grid-header div {
+  color: #334155 !important;
+  font-weight: 800 !important;
+  font-size: 11px !important;
+}
+
+body.theme-monochrome-ivory .catalog-grid-row {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory .catalog-grid-row:hover {
+  background: #f8fafc !important;
+}
+
+body.theme-monochrome-ivory .catalog-grid-row.in-select-mode {
+  background: #fef2f2 !important;
+}
+
+body.theme-monochrome-ivory .catalog-sku-code {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+  font-family: monospace !important;
+}
+
+body.theme-monochrome-ivory .catalog-gtin-code {
+  color: #64748b !important;
+  font-weight: 600 !important;
+}
+
+body.theme-monochrome-ivory .catalog-cell-name {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+
+body.theme-monochrome-ivory .catalog-cat-badge {
+  background: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #1e293b !important;
+  font-weight: 700 !important;
+}
+
+body.theme-monochrome-ivory .catalog-cell-price {
+  color: #059669 !important;
+  font-weight: 900 !important;
+}
+
+body.theme-monochrome-ivory .catalog-stock-badge.is-ok {
+  color: #047857 !important;
+  background: #ecfdf5 !important;
+  border: 1px solid #a7f3d0 !important;
+  font-weight: 800 !important;
+}
+
+body.theme-monochrome-ivory .catalog-stock-badge.is-low {
+  color: #b91c1c !important;
+  background: #fef2f2 !important;
+  border: 1px solid #fca5a5 !important;
+  font-weight: 800 !important;
+}
+
+body.theme-monochrome-ivory .catalog-cell-actions .btn-edit-item {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  font-weight: 800 !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+}
+
+body.theme-monochrome-ivory .catalog-cell-actions .btn-edit-item:hover {
+  background: #f1f5f9 !important;
+  border-color: #94a3b8 !important;
+}
+
+body.theme-monochrome-ivory .catalog-cell-actions .btn-delete-single-product {
+  background: #fef2f2 !important;
+  border: 1.5px solid #fecaca !important;
+  color: #b91c1c !important;
+  font-weight: 800 !important;
+}
+
+body.theme-monochrome-ivory .catalog-cell-actions .btn-delete-single-product:hover {
+  background: #fee2e2 !important;
+  border-color: #f87171 !important;
+}
+
+body.theme-monochrome-ivory .category-filter-btn,
+body.theme-monochrome-ivory .category-btn,
+body.theme-monochrome-ivory .category-filter-pill,
+body.theme-monochrome-ivory #catalog-category-list button {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #334155 !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+}
+
+body.theme-monochrome-ivory .category-filter-btn:hover,
+body.theme-monochrome-ivory .category-btn:hover,
+body.theme-monochrome-ivory .category-filter-pill:hover,
+body.theme-monochrome-ivory #catalog-category-list button:hover {
+  background: #f1f5f9 !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory .category-filter-btn.active,
+body.theme-monochrome-ivory .category-btn.active,
+body.theme-monochrome-ivory .category-filter-pill.active,
+body.theme-monochrome-ivory #catalog-category-list button.active {
+  background: #ecfdf5 !important;
+  border: 2px solid #059669 !important;
+  color: #047857 !important;
+  font-weight: 800 !important;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.15) !important;
+}
+
+body.theme-monochrome-ivory .btn-add-prod,
+body.theme-monochrome-ivory #btn-catalog-create-product {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid #047857 !important;
+  font-weight: 800 !important;
+}
+
+body.theme-monochrome-ivory #btn-catalog-toggle-select,
+body.theme-monochrome-ivory #btn-open-import-studio,
+body.theme-monochrome-ivory #btn-export-catalog-csv {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+/* ── Customers Directory & Khata Profiles in Light Theme ── */
+body.theme-monochrome-ivory #view-customers,
+body.theme-monochrome-ivory #view-customers .customers-table-wrapper,
+body.theme-monochrome-ivory .customers-desktop-table-container {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory #view-customers .customers-table-wrapper {
+  border: 1.5px solid #cbd5e1 !important;
+  border-radius: 14px !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05) !important;
+}
+
+body.theme-monochrome-ivory .customer-mobile-card {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05) !important;
+  border-radius: 12px !important;
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory .customer-mobile-card:hover {
+  background: #f8fafc !important;
+  border-color: #059669 !important;
+  box-shadow: 0 8px 24px rgba(5, 150, 105, 0.12) !important;
+}
+
+body.theme-monochrome-ivory .cust-name {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+
+body.theme-monochrome-ivory .cust-spend {
+  color: #059669 !important;
+  font-weight: 900 !important;
+}
+
+body.theme-monochrome-ivory .cust-phone {
+  color: #1e293b !important;
+  font-weight: 700 !important;
+}
+
+body.theme-monochrome-ivory .cust-email {
+  color: #64748b !important;
+  font-weight: 500 !important;
+}
+
+body.theme-monochrome-ivory .cust-card-footer {
+  border-top: 1px solid #e2e8f0 !important;
+}
+
+body.theme-monochrome-ivory .cust-visits-chip {
+  background: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #334155 !important;
+  font-weight: 700 !important;
+}
+
+body.theme-monochrome-ivory .btn-cust-khata {
+  background: #ecfdf5 !important;
+  border: 1.5px solid #a7f3d0 !important;
+  color: #047857 !important;
+  font-weight: 800 !important;
+  padding: 4px 12px !important;
+  border-radius: 6px !important;
+}
+
+body.theme-monochrome-ivory .btn-cust-khata:hover {
+  background: #d1fae5 !important;
+  border-color: #059669 !important;
+}
+
+body.theme-monochrome-ivory .btn-cust-edit,
+body.theme-monochrome-ivory .btn-edit-customer {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  font-weight: 800 !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+  padding: 4px 12px !important;
+  border-radius: 6px !important;
+}
+
+body.theme-monochrome-ivory .btn-cust-edit:hover,
+body.theme-monochrome-ivory .btn-edit-customer:hover {
+  background: #f1f5f9 !important;
+  border-color: #94a3b8 !important;
+}
+
+body.theme-monochrome-ivory .btn-cust-del,
+body.theme-monochrome-ivory .btn-delete-customer {
+  background: #fef2f2 !important;
+  border: 1.5px solid #fecaca !important;
+  color: #b91c1c !important;
+  font-weight: 800 !important;
+  padding: 4px 10px !important;
+  border-radius: 6px !important;
+}
+
+body.theme-monochrome-ivory .btn-cust-del:hover,
+body.theme-monochrome-ivory .btn-delete-customer:hover {
+  background: #fee2e2 !important;
+  border-color: #f87171 !important;
+}
+
+body.theme-monochrome-ivory .cust-avatar-badge {
+  background: #ecfdf5 !important;
+  border: 1px solid #a7f3d0 !important;
+  color: #047857 !important;
+  font-weight: 900 !important;
+}
+
+body.theme-monochrome-ivory #customers-table-tbody tr {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+body.theme-monochrome-ivory #customers-table-tbody tr:hover {
+  background: #f8fafc !important;
+}
+
+body.theme-monochrome-ivory #customers-table-tbody td {
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory .customers-kpi-bar .kpi-micro-card {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
+}
+
+body.theme-monochrome-ivory #btn-customers-create {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid #047857 !important;
+  font-weight: 800 !important;
+}
+
+/* ── Suppliers & Accounts Payable in Light Theme ── */
+body.theme-monochrome-ivory #view-suppliers,
+body.theme-monochrome-ivory .suppliers-left-pane,
+body.theme-monochrome-ivory .suppliers-right-pane {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  border-radius: 14px !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05) !important;
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory .supplier-item-card {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  border-radius: 10px !important;
+}
+
+body.theme-monochrome-ivory .supplier-item-card:hover {
+  background: #f8fafc !important;
+  border-color: #059669 !important;
+}
+
+body.theme-monochrome-ivory .supplier-item-card.active {
+  background: #ecfdf5 !important;
+  border: 2px solid #059669 !important;
+  color: #047857 !important;
+}
+
+body.theme-monochrome-ivory .supplier-item-card .item-info .item-title {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+
+body.theme-monochrome-ivory .supplier-item-card .item-info .item-sub {
+  color: #475569 !important;
+}
+
+body.theme-monochrome-ivory #supplier-detail-empty {
+  color: #475569 !important;
+}
+
+body.theme-monochrome-ivory #supplier-detail-empty svg {
+  stroke: #059669 !important;
+}
+
+body.theme-monochrome-ivory #supplier-detail-name {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+
+body.theme-monochrome-ivory #supplier-detail-meta {
+  color: #475569 !important;
+}
+
+body.theme-monochrome-ivory #supplier-detail-balance {
+  color: #ef4444 !important;
+  font-weight: 900 !important;
+}
+
+/* ── Customer Khata Ledger (Credit Book) in Light Theme ── */
+body.theme-monochrome-ivory #view-credit-book,
+body.theme-monochrome-ivory .khata-left-pane,
+body.theme-monochrome-ivory .khata-right-pane {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  border-radius: 14px !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05) !important;
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory .khata-customer-item,
+body.theme-monochrome-ivory .credit-customer-card {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  border-radius: 10px !important;
+}
+
+body.theme-monochrome-ivory .khata-customer-item:hover,
+body.theme-monochrome-ivory .credit-customer-card:hover {
+  background: #f8fafc !important;
+  border-color: #059669 !important;
+}
+
+body.theme-monochrome-ivory .khata-customer-item.active,
+body.theme-monochrome-ivory .credit-customer-card.active {
+  background: #ecfdf5 !important;
+  border: 2px solid #059669 !important;
+  color: #047857 !important;
+}
+
+body.theme-monochrome-ivory .khata-kpi-bar .kpi-micro-card {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory #credit-detail-empty {
+  color: #475569 !important;
+}
+
+body.theme-monochrome-ivory #credit-detail-empty svg {
+  stroke: #059669 !important;
+}
+
+/* ── Deals & Bundles in Light Theme ── */
+body.theme-monochrome-ivory #view-deals,
+body.theme-monochrome-ivory .deal-card {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05) !important;
+  border-radius: 12px !important;
+}
+
+body.theme-monochrome-ivory .deal-title {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+
+body.theme-monochrome-ivory .deal-price {
+  color: #059669 !important;
+  font-weight: 900 !important;
+}
+
+body.theme-monochrome-ivory .deal-tag {
+  background: #ecfdf5 !important;
+  border: 1px solid #a7f3d0 !important;
+  color: #047857 !important;
+  font-weight: 800 !important;
+}
+
+body.theme-monochrome-ivory #btn-deals-create,
+body.theme-monochrome-ivory #btn-create-deal {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid #047857 !important;
+  font-weight: 800 !important;
+}
+
+/* ── Sales History & Receipt Ledger in Light Theme ── */
+body.theme-monochrome-ivory #view-history,
+body.theme-monochrome-ivory .history-list-pane,
+body.theme-monochrome-ivory .receipt-preview-pane {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  border-radius: 14px !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05) !important;
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory .history-item,
+body.theme-monochrome-ivory .history-tx-card {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04) !important;
+  border-radius: 10px !important;
+}
+
+body.theme-monochrome-ivory .history-item:hover,
+body.theme-monochrome-ivory .history-tx-card:hover {
+  background: #f8fafc !important;
+  border-color: #059669 !important;
+}
+
+body.theme-monochrome-ivory .history-filter-pill {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #334155 !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+}
+
+body.theme-monochrome-ivory .history-filter-pill:hover {
+  background: #f1f5f9 !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory .history-filter-pill.active {
+  background: #ecfdf5 !important;
+  border: 2px solid #059669 !important;
+  color: #047857 !important;
+  font-weight: 800 !important;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.15) !important;
+}
+
+/* ── Staff & Cashier Management in Light Theme ── */
+body.theme-monochrome-ivory #view-staff,
+body.theme-monochrome-ivory .staff-table-wrapper {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory .staff-table-wrapper {
+  border: 1.5px solid #cbd5e1 !important;
+  border-radius: 14px !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05) !important;
+}
+
+/* ── Native Apps & Companion Downloads in Light Theme ── */
+body.theme-monochrome-ivory #view-apps-download .app-download-card,
+body.theme-monochrome-ivory #view-apps-download .companion-download-card {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05) !important;
+  border-radius: 14px !important;
+}
+
+body.theme-monochrome-ivory .btn-download-apk,
+body.theme-monochrome-ivory .btn-download-win,
+body.theme-monochrome-ivory .btn-download-companion {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid #047857 !important;
+  font-weight: 800 !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.35) !important;
+}
+
+/* ── System Logs & Diagnostics in Light Theme ── */
+body.theme-monochrome-ivory #view-logs,
+body.theme-monochrome-ivory .sync-logs-feed,
+body.theme-monochrome-ivory .console-log-box {
+  background: #f8fafc !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  border-radius: 12px !important;
+}
+
 /* ── High Contrast Accessibility Override ── */
 body.theme-high-contrast {
   --bg-obsidian: #000000 !important;

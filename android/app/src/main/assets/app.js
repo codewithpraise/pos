@@ -12418,9 +12418,9 @@ setHtml(container, `
           <td style="text-align: right; color: var(--accent-emerald); font-weight: 800; font-family: var(--font-display);">Rs. ${spend.toFixed(2)}</td>
           <td style="text-align: center;">
             <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
-              <button class="btn-edit-customer btn-edit-item" data-id="${c.id}" style="padding: 4px 10px; font-size: 11px; font-weight: 800; min-height: 26px; border-radius: 6px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); color: #ffffff; cursor: pointer;">Edit</button>
-              <button class="btn-delete-customer action-danger" data-id="${c.id}" title="Delete customer" style="padding: 4px 8px; font-size: 10.5px; font-weight: 800; min-height: 26px; border-radius: 6px; background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.5); color: #ef4444; display: inline-flex; align-items: center; justify-content: center; gap: 3px; cursor: pointer;">
-                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#ef4444" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              <button class="btn-edit-customer btn-edit-item" data-id="${c.id}" style="padding: 4px 10px; font-size: 11px; font-weight: 800; min-height: 26px; border-radius: 6px; cursor: pointer;">Edit</button>
+              <button class="btn-delete-customer action-danger" data-id="${c.id}" title="Delete customer" style="padding: 4px 8px; font-size: 10.5px; font-weight: 800; min-height: 26px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; gap: 3px; cursor: pointer;">
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 <span>Del</span>
               </button>
             </div>
