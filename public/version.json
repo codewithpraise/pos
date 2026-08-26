@@ -1,14 +1,14 @@
 {
   "version": "3.1.0",
-  "build_id": "v3.1.0-prod-5b6d127",
-  "git_commit": "5b6d1278839a66dec834e545f48a0d927ccb9e28",
-  "updated_at": "2026-08-25",
-  "changelog": "Valenixia POS v3.1.0 Mobile Responsiveness, Floating Bulk Action Dock, Adaptive Grid & Native APK v3.1.0 Release.",
+  "build_id": "v3.1.0-prod-061fc9e",
+  "git_commit": "061fc9e4a4f48abfdcfb5ef0d9d9053a122a4ff4",
+  "updated_at": "2026-08-26",
+  "changelog": "Valenixia POS v3.1.0 Mobile UI Geometry, Checkout Qty Containment, Subscription Bottom Clearance & Native App Suite.",
   "changes": [
-    "Enhanced mobile responsiveness and card layout in Inventory Manager and table views with zero clipping or text squishing",
-    "Introduced modern floating glassmorphic bulk deletion dock with Select All counter and haptic action triggers",
-    "Streamlined mobile header actions into an adaptive 2x2 grid ensuring all action buttons remain 100% visible and accessible",
-    "Rebuilt clean Android production APK v3.1.0 with offline SQLite storage engine and updated native app companion download links",
-    "Harmonized universal horizontal scrolling for tables and multi-terminal sync protocols"
+    "Enhanced mobile responsiveness, single-section layout for Suppliers, and eliminated viewport height dead gaps across all screens",
+    "Optimized Checkout Cart quantity controls with precise vertical and horizontal containment",
+    "Applied universal button and badge word-break protection eliminating letter splitting across mobile viewports",
+    "Refined paywall modals with clean plan tiers and contextual free quota countdown placement",
+    "Rebuilt clean Android production APK v3.1.0 with synchronized assets and full companion download suite"
   ]
 }

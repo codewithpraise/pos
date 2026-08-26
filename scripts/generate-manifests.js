@@ -53,14 +53,14 @@ const versionJson = {
   version: VERSION,
   build_id: BUILD_ID,
   git_commit: GIT_COMMIT,
-  updated_at: '2026-08-25',
-  changelog: `Valenixia POS v${VERSION} Mobile Responsiveness, Floating Bulk Action Dock, Adaptive Grid & Native APK v3.1.0 Release.`,
+  updated_at: '2026-08-26',
+  changelog: `Valenixia POS v${VERSION} Mobile UI Geometry, Checkout Qty Containment, Subscription Bottom Clearance & Native App Suite.`,
   changes: [
-    'Enhanced mobile responsiveness and card layout in Inventory Manager and table views with zero clipping or text squishing',
-    'Introduced modern floating glassmorphic bulk deletion dock with Select All counter and haptic action triggers',
-    'Streamlined mobile header actions into an adaptive 2x2 grid ensuring all action buttons remain 100% visible and accessible',
-    'Rebuilt clean Android production APK v3.1.0 with offline SQLite storage engine and updated native app companion download links',
-    'Harmonized universal horizontal scrolling for tables and multi-terminal sync protocols'
+    'Enhanced mobile responsiveness, single-section layout for Suppliers, and eliminated viewport height dead gaps across all screens',
+    'Optimized Checkout Cart quantity controls with precise vertical and horizontal containment',
+    'Applied universal button and badge word-break protection eliminating letter splitting across mobile viewports',
+    'Refined paywall modals with clean plan tiers and contextual free quota countdown placement',
+    'Rebuilt clean Android production APK v3.1.0 with synchronized assets and full companion download suite'
   ]
 };
 fs.writeFileSync(path.join(publicDir, 'version.json'), JSON.stringify(versionJson, null, 2) + '\n');
