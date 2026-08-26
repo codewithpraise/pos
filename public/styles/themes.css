@@ -98,109 +98,190 @@ body.theme-minimalist-chrome {
   --warning: #d4a847;
 }
 
-/* Monochrome Ivory Theme (Light Mode) */
+/* ============================================================================
+   VALENIXIA COMMERCE — MONOCHROME IVORY (PRISTINE HIGH-CONTRAST LIGHT THEME)
+   Ultra-Crisp Slate & Emerald Architecture: Zero Muddy Gray, High Legibility, 
+   Clearly Distinguishable Component Borders & Rich Tactile Depth
+   ============================================================================ */
 body.theme-monochrome-ivory {
-  --bg-obsidian: #f7f6f3;
+  --bg-obsidian: #f8fafc;
   --panel-graphite: #ffffff;
-  --panel-graphite-mid: #f4f3ef;
-  --panel-graphite-light: #eae8e1;
+  --panel-graphite-mid: #ffffff;
+  --panel-graphite-light: #f1f5f9;
   --panel-slate: #ffffff;
-  --panel-hover: #e5e3de;
-  --border-titanium: rgba(0,0,0,0.12);
-  --border-bright: rgba(0,0,0,0.22);
-  --accent-emerald: #1a1a1a;
-  --accent-emerald-dim: #333333;
-  --accent-emerald-glow: rgba(0,0,0,0.06);
-  --accent-emerald-mid: rgba(0,0,0,0.20);
-  --accent-emerald-solid: rgba(0,0,0,0.10);
-  --accent-emerald-gradient: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
-  --alert-coral: #c0392b;
-  --alert-coral-dim: rgba(192,57,43,0.10);
-  --alert-amber: #c67c26;
-  --text-white: #111111;
-  --text-muted: #1e1e1e;
-  --text-gray: #333333;
-  --text-dim: #555555;
-  --text-dark: #f7f6f3;
-  --success: #1a7a4a;
-  --warning: #c67c26;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.08);
-  --shadow-md: 0 4px 16px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.08);
-  --shadow-lg: 0 20px 40px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.10);
+  --panel-hover: #f1f5f9;
+  --border-titanium: #cbd5e1;
+  --border-bright: #94a3b8;
+  --accent-emerald: #059669;
+  --accent-emerald-dim: #047857;
+  --accent-emerald-glow: rgba(5, 150, 105, 0.14);
+  --accent-emerald-mid: rgba(5, 150, 105, 0.22);
+  --accent-emerald-solid: rgba(5, 150, 105, 0.12);
+  --accent-emerald-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --alert-coral: #ef4444;
+  --alert-coral-dim: rgba(239, 68, 68, 0.10);
+  --alert-amber: #f59e0b;
+  --text-white: #0f172a;
+  --text-muted: #334155;
+  --text-gray: #475569;
+  --text-dim: #64748b;
+  --text-dark: #0f172a;
+  --success: #059669;
+  --warning: #d97706;
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 16px 36px rgba(15, 23, 42, 0.12), 0 4px 12px rgba(15, 23, 42, 0.06);
 }
 
+/* ── Universal Surfaces, Viewports & Content Panes ── */
+body.theme-monochrome-ivory,
+body.theme-monochrome-ivory .app-viewport,
+body.theme-monochrome-ivory .content-pane,
+body.theme-monochrome-ivory .content-view,
+body.theme-monochrome-ivory .main-content {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+/* ── High-Contrast Card System with Distinguishable Borders ── */
 body.theme-monochrome-ivory .settings-section,
 body.theme-monochrome-ivory .dm-card,
 body.theme-monochrome-ivory .cloud-vault-card,
-body.theme-monochrome-ivory .pricing-card {
+body.theme-monochrome-ivory .pricing-card,
+body.theme-monochrome-ivory .action-card,
+body.theme-monochrome-ivory .customer-card,
+body.theme-monochrome-ivory .search-card,
+body.theme-monochrome-ivory .payment-card,
+body.theme-monochrome-ivory .sub-vault-card,
+body.theme-monochrome-ivory .sync-log-card,
+body.theme-monochrome-ivory .audit-card,
+body.theme-monochrome-ivory .feature-card,
+body.theme-monochrome-ivory .voucher-card,
+body.theme-monochrome-ivory .deal-card,
+body.theme-monochrome-ivory .store-card,
+body.theme-monochrome-ivory .pos-card,
+body.theme-monochrome-ivory .checkout-summary-card,
+body.theme-monochrome-ivory .receipt-paper {
   background: #ffffff !important;
-  border: 1px solid rgba(0, 0, 0, 0.12) !important;
-  color: #111111 !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05) !important;
+  border-radius: 12px !important;
 }
 
+/* ── Typography & Label Legibility ── */
+body.theme-monochrome-ivory h1,
+body.theme-monochrome-ivory h2,
+body.theme-monochrome-ivory h3,
+body.theme-monochrome-ivory h4,
+body.theme-monochrome-ivory h5,
+body.theme-monochrome-ivory h6,
+body.theme-monochrome-ivory .card-title,
+body.theme-monochrome-ivory .section-title,
 body.theme-monochrome-ivory .settings-section h3,
-body.theme-monochrome-ivory .settings-section label,
-body.theme-monochrome-ivory .dm-card h3,
-body.theme-monochrome-ivory .dm-card label {
-  color: #111111 !important;
+body.theme-monochrome-ivory .dm-card h3 {
+  color: #0f172a !important;
+  font-weight: 800 !important;
 }
 
+body.theme-monochrome-ivory label,
+body.theme-monochrome-ivory .lbl,
+body.theme-monochrome-ivory .card-toggle-header .lbl,
+body.theme-monochrome-ivory .settings-section label,
+body.theme-monochrome-ivory .dm-card label {
+  color: #1e293b !important;
+  font-weight: 700 !important;
+}
+
+body.theme-monochrome-ivory p,
+body.theme-monochrome-ivory .desc,
 body.theme-monochrome-ivory .settings-section p,
 body.theme-monochrome-ivory .dm-card p {
-  color: #555555 !important;
+  color: #475569 !important;
 }
 
+body.theme-monochrome-ivory small,
+body.theme-monochrome-ivory .text-gray,
+body.theme-monochrome-ivory .text-dim,
+body.theme-monochrome-ivory .meta-text {
+  color: #64748b !important;
+}
+
+/* ── Buttons, Interface Scales & Interactive Controls ── */
 body.theme-monochrome-ivory ._scale-btn,
-body.theme-monochrome-ivory ._mobile-scale-btn {
-  background: #f0eee9 !important;
-  color: #111111 !important;
-  border: 1px solid rgba(0, 0, 0, 0.18) !important;
+body.theme-monochrome-ivory ._mobile-scale-btn,
+body.theme-monochrome-ivory .action-btn {
+  background: #ffffff !important;
+  color: #1e293b !important;
+  border: 1.5px solid #cbd5e1 !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
+  font-weight: 700 !important;
+}
+
+body.theme-monochrome-ivory ._scale-btn:hover,
+body.theme-monochrome-ivory ._mobile-scale-btn:hover,
+body.theme-monochrome-ivory .action-btn:hover {
+  background: #f1f5f9 !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
 }
 
 body.theme-monochrome-ivory ._scale-btn.active,
-body.theme-monochrome-ivory ._mobile-scale-btn.active {
-  background: #111111 !important;
-  color: #ffffff !important;
-  border-color: #111111 !important;
+body.theme-monochrome-ivory ._mobile-scale-btn.active,
+body.theme-monochrome-ivory .action-btn.active {
+  background: #ecfdf5 !important;
+  color: #065f46 !important;
+  border: 2px solid #059669 !important;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.18) !important;
+  font-weight: 800 !important;
 }
 
+/* ── Checkout Cart & Split Views ── */
 body.theme-monochrome-ivory .ledger-footer,
 body.theme-monochrome-ivory .checkout-cart,
 body.theme-monochrome-ivory .cart-list-header {
   background: #ffffff !important;
-  color: #111111 !important;
-  border-color: rgba(0, 0, 0, 0.1) !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
 }
 
 body.theme-monochrome-ivory .clh-product,
 body.theme-monochrome-ivory .clh-total {
-  color: #555555 !important;
+  color: #475569 !important;
+  font-weight: 700 !important;
 }
 
 body.theme-monochrome-ivory .cart-product-title,
 body.theme-monochrome-ivory .qty-val {
-  color: #111111 !important;
+  color: #0f172a !important;
+  font-weight: 800 !important;
 }
 
 body.theme-monochrome-ivory .cart-row-meta {
-  color: #666666 !important;
+  color: #475569 !important;
 }
 
 body.theme-monochrome-ivory .qty-btn {
-  background: #f0eee9 !important;
-  color: #111111 !important;
-  border-color: rgba(0, 0, 0, 0.18) !important;
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border: 1.5px solid #cbd5e1 !important;
+  font-weight: 800 !important;
+}
+
+body.theme-monochrome-ivory .qty-btn:hover {
+  background: #e2e8f0 !important;
+  border-color: #94a3b8 !important;
 }
 
 body.theme-monochrome-ivory .totals-row {
-  color: #333333 !important;
+  color: #334155 !important;
+  border-color: #e2e8f0 !important;
 }
 
 body.theme-monochrome-ivory .totals-row.grand-total,
 body.theme-monochrome-ivory .checkout-cart .ledger-footer .totals-row.grand-total {
   color: #065f46 !important;
-  border-top: 2px solid rgba(5, 150, 105, 0.25) !important;
+  border-top: 2px solid #059669 !important;
   text-shadow: none !important;
 }
 
@@ -209,18 +290,18 @@ body.theme-monochrome-ivory #txt-total {
   font-weight: 900 !important;
 }
 
-/* Payment Mode Buttons in Light Theme */
+/* ── Payment Mode Buttons in Light Theme ── */
 body.theme-monochrome-ivory .payment-btn {
   background: #ffffff !important;
-  border: 1px solid rgba(0, 0, 0, 0.14) !important;
-  color: #1f2937 !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #1e293b !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
   font-weight: 700 !important;
 }
 
 body.theme-monochrome-ivory .payment-btn:hover {
   background: #f8fafc !important;
-  border-color: rgba(0, 0, 0, 0.25) !important;
+  border-color: #94a3b8 !important;
   color: #0f172a !important;
 }
 
@@ -236,37 +317,39 @@ body.theme-monochrome-ivory .payment-btn.active svg {
   stroke: #059669 !important;
 }
 
-/* Complete Order CTA in Light Theme */
+/* ── Complete Order CTA & Action Primaries ── */
 body.theme-monochrome-ivory .btn-checkout-pay,
-body.theme-monochrome-ivory #btn-checkout-complete {
+body.theme-monochrome-ivory #btn-checkout-complete,
+body.theme-monochrome-ivory .btn-primary {
   background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
   color: #ffffff !important;
-  border: none !important;
+  border: 1px solid #047857 !important;
   font-weight: 800 !important;
   text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
   box-shadow: 0 4px 14px rgba(5, 150, 105, 0.35) !important;
 }
 
 body.theme-monochrome-ivory .btn-checkout-pay:hover,
-body.theme-monochrome-ivory #btn-checkout-complete:hover {
+body.theme-monochrome-ivory #btn-checkout-complete:hover,
+body.theme-monochrome-ivory .btn-primary:hover {
   background: linear-gradient(135deg, #047857 0%, #065f46 100%) !important;
   box-shadow: 0 6px 20px rgba(5, 150, 105, 0.45) !important;
 }
 
-/* PWA Banner in Light Theme */
+/* ── PWA Banner in Light Theme ── */
 body.theme-monochrome-ivory .pwa-install-banner {
   background: #ffffff !important;
-  border: 1px solid rgba(0, 0, 0, 0.12) !important;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06) !important;
+  border: 1.5px solid #cbd5e1 !important;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14), 0 2px 6px rgba(15, 23, 42, 0.06) !important;
 }
 
 body.theme-monochrome-ivory .pwa-install-banner .pwa-title {
-  color: #111827 !important;
-  font-weight: 700 !important;
+  color: #0f172a !important;
+  font-weight: 800 !important;
 }
 
 body.theme-monochrome-ivory .pwa-install-banner .pwa-desc {
-  color: #4b5563 !important;
+  color: #475569 !important;
 }
 
 body.theme-monochrome-ivory .pwa-install-banner .pwa-install-btn {
@@ -282,61 +365,63 @@ body.theme-monochrome-ivory .pwa-install-banner .pwa-install-btn:hover {
 }
 
 body.theme-monochrome-ivory .pwa-install-banner .pwa-dismiss-btn {
-  background: #f3f4f6 !important;
-  color: #374151 !important;
-  border: 1px solid #e5e7eb !important;
+  background: #f1f5f9 !important;
+  color: #334155 !important;
+  border: 1.5px solid #cbd5e1 !important;
 }
 
 body.theme-monochrome-ivory .pwa-install-banner .pwa-dismiss-btn:hover {
-  background: #e5e7eb !important;
-  color: #111827 !important;
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
 }
 
-/* Action Cards and Search Panels */
-body.theme-monochrome-ivory .action-card,
-body.theme-monochrome-ivory .customer-card,
-body.theme-monochrome-ivory .search-card,
-body.theme-monochrome-ivory .payment-card {
-  background: #ffffff !important;
-  border: 1px solid rgba(0, 0, 0, 0.1) !important;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
-}
-
-body.theme-monochrome-ivory .action-card .lbl,
-body.theme-monochrome-ivory .card-toggle-header .lbl {
-  color: #111827 !important;
-  font-weight: 700 !important;
-}
-
+/* ── Input Fields, Dropdowns & Textareas ── */
 body.theme-monochrome-ivory .pos-input,
 body.theme-monochrome-ivory input[type="text"],
 body.theme-monochrome-ivory input[type="number"],
 body.theme-monochrome-ivory input[type="search"],
-body.theme-monochrome-ivory select {
+body.theme-monochrome-ivory input[type="password"],
+body.theme-monochrome-ivory select,
+body.theme-monochrome-ivory textarea {
   background: #ffffff !important;
-  color: #111827 !important;
-  border: 1px solid #d1d5db !important;
+  color: #0f172a !important;
+  border: 1.5px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
+}
+
+body.theme-monochrome-ivory .pos-input:focus,
+body.theme-monochrome-ivory input:focus,
+body.theme-monochrome-ivory select:focus,
+body.theme-monochrome-ivory textarea:focus {
+  border-color: #059669 !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15) !important;
 }
 
 body.theme-monochrome-ivory .pos-input::placeholder,
-body.theme-monochrome-ivory input::placeholder {
-  color: #9ca3af !important;
+body.theme-monochrome-ivory input::placeholder,
+body.theme-monochrome-ivory textarea::placeholder {
+  color: #94a3b8 !important;
 }
 
-/* Order Type Pills */
+/* ── Order Type Pills & Segment Controls ── */
 body.theme-monochrome-ivory .order-type-btn,
-body.theme-monochrome-ivory .store-order-type-pill {
+body.theme-monochrome-ivory .store-order-type-pill,
+body.theme-monochrome-ivory .tab-btn {
   background: #ffffff !important;
-  border: 1px solid rgba(0, 0, 0, 0.14) !important;
-  color: #1f2937 !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #1e293b !important;
+  font-weight: 700 !important;
 }
 
 body.theme-monochrome-ivory .order-type-btn.active,
-body.theme-monochrome-ivory .store-order-type-pill.active {
+body.theme-monochrome-ivory .store-order-type-pill.active,
+body.theme-monochrome-ivory .tab-btn.active {
   background: #ecfdf5 !important;
-  border: 1.5px solid #059669 !important;
+  border: 2px solid #059669 !important;
   color: #065f46 !important;
-  font-weight: 700 !important;
+  font-weight: 800 !important;
 }
 
 body.theme-monochrome-ivory .order-type-btn.active svg,
@@ -344,15 +429,15 @@ body.theme-monochrome-ivory .store-order-type-pill.active svg {
   stroke: #059669 !important;
 }
 
-/* Quick Products & Product Cards - Crisp High-Contrast Outlines & Image Box */
+/* ── Quick Products & Product Cards ── */
 body.theme-monochrome-ivory .quick-product-card,
 body.theme-monochrome-ivory .product-card,
 body.theme-monochrome-ivory .product-quick-card {
   background: #ffffff !important;
   border: 1.5px solid #cbd5e1 !important;
-  color: #111111 !important;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05) !important;
-  border-radius: 10px !important;
+  color: #0f172a !important;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05) !important;
+  border-radius: 12px !important;
 }
 
 body.theme-monochrome-ivory .quick-product-card:hover,
@@ -360,14 +445,14 @@ body.theme-monochrome-ivory .product-card:hover,
 body.theme-monochrome-ivory .product-quick-card:hover {
   background: #ffffff !important;
   border-color: #059669 !important;
-  box-shadow: 0 6px 16px rgba(5, 150, 105, 0.15) !important;
+  box-shadow: 0 8px 20px rgba(5, 150, 105, 0.16) !important;
   transform: translateY(-2px);
 }
 
 body.theme-monochrome-ivory .quick-product-card .product-title,
 body.theme-monochrome-ivory .product-card .product-name,
 body.theme-monochrome-ivory .quick-card-title {
-  color: #111827 !important;
+  color: #0f172a !important;
   font-weight: 800 !important;
 }
 
@@ -388,10 +473,11 @@ body.theme-monochrome-ivory .quick-card-fallback-badge {
 }
 
 body.theme-monochrome-ivory .quick-card-stock-badge {
-  background: rgba(255, 255, 255, 0.92) !important;
+  background: rgba(255, 255, 255, 0.95) !important;
   color: #1e293b !important;
-  border: 1px solid #cbd5e1 !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  border: 1.5px solid #cbd5e1 !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06) !important;
+  font-weight: 800 !important;
 }
 
 body.theme-monochrome-ivory .quick-card-stock-badge.low-stock {
@@ -404,50 +490,57 @@ body.theme-monochrome-ivory .quick-card-sku {
   color: #64748b !important;
 }
 
-/* Toast Notifications in Light Theme */
+/* ── Toast Notifications in Light Theme ── */
 body.theme-monochrome-ivory .premium-toast {
   background: #ffffff !important;
-  border-color: #e2e8f0 !important;
+  border: 1.5px solid #cbd5e1 !important;
   color: #0f172a !important;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.14), 0 2px 8px rgba(15, 23, 42, 0.06) !important;
 }
 
 body.theme-monochrome-ivory .premium-toast .toast-title {
   font-weight: 800 !important;
+  color: #0f172a !important;
 }
 
 body.theme-monochrome-ivory .premium-toast .toast-msg {
   color: #334155 !important;
-  font-weight: 500 !important;
+  font-weight: 600 !important;
 }
 
 body.theme-monochrome-ivory .premium-toast.toast-success {
-  border-left: 4px solid #10b981 !important;
+  border-left: 5px solid #10b981 !important;
 }
 
 body.theme-monochrome-ivory .premium-toast.toast-error {
-  border-left: 4px solid #ef4444 !important;
+  border-left: 5px solid #ef4444 !important;
 }
 
 body.theme-monochrome-ivory .premium-toast.toast-warning {
-  border-left: 4px solid #f59e0b !important;
+  border-left: 5px solid #f59e0b !important;
 }
 
-/* Modals & Dialogs in Light Theme */
+/* ── Modals & Dialogs in Light Theme ── */
+body.theme-monochrome-ivory .pos-modal-overlay {
+  background: rgba(15, 23, 42, 0.5) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
 body.theme-monochrome-ivory .modal-card,
 body.theme-monochrome-ivory .paywall-card,
 body.theme-monochrome-ivory .pos-modal-card {
   background: #ffffff !important;
-  border: 1px solid rgba(0, 0, 0, 0.12) !important;
-  color: #111827 !important;
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.18) !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22) !important;
+  border-radius: 16px !important;
 }
 
 body.theme-monochrome-ivory .modal-card h2,
 body.theme-monochrome-ivory .modal-card h3,
 body.theme-monochrome-ivory .paywall-card h2,
 body.theme-monochrome-ivory .paywall-card h3 {
-  color: #111827 !important;
+  color: #0f172a !important;
 }
 
 /* ── Topbar & Screen Header Elements in Light Theme ── */
@@ -567,84 +660,111 @@ body.theme-monochrome-ivory .sub-vault-nav .sub-nav-item.active svg {
 /* ── Analytics Telemetry & Charts in Light Theme ── */
 body.theme-monochrome-ivory #analytics-multidim-filter-bar {
   background: #ffffff !important;
-  border: 1px solid #cbd5e1 !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05) !important;
+  border: 1.5px solid #cbd5e1 !important;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06) !important;
+  border-radius: 12px !important;
 }
 
 body.theme-monochrome-ivory #analytics-multidim-filter-bar h4 {
   color: #0f172a !important;
+  font-weight: 800 !important;
 }
 
-body.theme-monochrome-ivory #analytics-multidim-filter-bar span {
+body.theme-monochrome-ivory #analytics-multidim-filter-bar span,
+body.theme-monochrome-ivory #analytics-multidim-filter-bar p {
   color: #475569 !important;
 }
 
 body.theme-monochrome-ivory #analytics-multidim-filter-bar select {
-  background: #f8fafc !important;
+  background: #ffffff !important;
   color: #0f172a !important;
-  border: 1px solid #cbd5e1 !important;
+  border: 1.5px solid #cbd5e1 !important;
+  font-weight: 600 !important;
+}
+
+body.theme-monochrome-ivory #analytics-multidim-filter-bar select:focus {
+  border-color: #059669 !important;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15) !important;
 }
 
 body.theme-monochrome-ivory #analytics-active-chips {
   background: #f1f5f9 !important;
-  border: 1px solid #e2e8f0 !important;
+  border: 1.5px solid #cbd5e1 !important;
+  border-radius: 8px !important;
 }
 
 body.theme-monochrome-ivory #analytics-active-chips span,
 body.theme-monochrome-ivory #analytics-active-chips strong {
-  color: #1e293b !important;
+  color: #0f172a !important;
 }
 
 body.theme-monochrome-ivory #analytics-range-group {
   background: #f1f5f9 !important;
-  border-color: #cbd5e1 !important;
+  border: 1.5px solid #cbd5e1 !important;
+  border-radius: 8px !important;
 }
 
 body.theme-monochrome-ivory .analytics-range-btn {
   color: #475569 !important;
+  font-weight: 700 !important;
 }
 
 body.theme-monochrome-ivory .analytics-range-btn.active {
-  background: #10b981 !important;
+  background: #059669 !important;
   color: #ffffff !important;
+  font-weight: 800 !important;
 }
 
-body.theme-monochrome-ivory #btn-analytics-export-csv {
-  background: #f8fafc !important;
-  border-color: #cbd5e1 !important;
+body.theme-monochrome-ivory #btn-analytics-export-csv,
+body.theme-monochrome-ivory #analytics-filter-reset {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
   color: #1e293b !important;
+  font-weight: 700 !important;
+}
+
+body.theme-monochrome-ivory #btn-analytics-export-csv:hover,
+body.theme-monochrome-ivory #analytics-filter-reset:hover {
+  background: #f1f5f9 !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
 }
 
 body.theme-monochrome-ivory .chart-container-card {
   background: #ffffff !important;
-  border: 1px solid #e2e8f0 !important;
+  border: 1.5px solid #cbd5e1 !important;
   color: #0f172a !important;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04) !important;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05) !important;
+  border-radius: 12px !important;
 }
 
 body.theme-monochrome-ivory .chart-container-card h3 {
   color: #0f172a !important;
+  font-weight: 800 !important;
 }
 
 body.theme-monochrome-ivory .bar-chart-visual-wrapper {
   background: #f8fafc !important;
-  border-color: #e2e8f0 !important;
+  border: 1.5px solid #e2e8f0 !important;
+  border-radius: 8px !important;
 }
 
 body.theme-monochrome-ivory .bar-chart-visual-wrapper .bar-col-label {
-  color: #64748b !important;
+  color: #475569 !important;
+  font-weight: 600 !important;
 }
 
 body.theme-monochrome-ivory .kpi-card {
   background: #ffffff !important;
-  border: 1px solid #e2e8f0 !important;
+  border: 1.5px solid #cbd5e1 !important;
   color: #0f172a !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05) !important;
+  border-radius: 12px !important;
 }
 
 body.theme-monochrome-ivory .kpi-card .kpi-lbl,
 body.theme-monochrome-ivory .kpi-card span:first-child {
-  color: #64748b !important;
+  color: #475569 !important;
   font-weight: 700 !important;
 }
 
@@ -658,14 +778,19 @@ body.theme-monochrome-ivory .kpi-card span:nth-child(2) {
 body.theme-monochrome-ivory table,
 body.theme-monochrome-ivory th,
 body.theme-monochrome-ivory td {
-  color: #1e293b !important;
-  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
 }
 
 body.theme-monochrome-ivory th {
-  background: #f8fafc !important;
-  color: #475569 !important;
-  font-weight: 700 !important;
+  background: #f1f5f9 !important;
+  color: #1e293b !important;
+  font-weight: 800 !important;
+  border-bottom: 2px solid #cbd5e1 !important;
+}
+
+body.theme-monochrome-ivory td {
+  border-bottom: 1px solid #e2e8f0 !important;
 }
 
 body.theme-monochrome-ivory tbody tr:hover {
@@ -679,13 +804,15 @@ body.theme-monochrome-ivory .supplier-detail-pane,
 body.theme-monochrome-ivory .history-list-pane,
 body.theme-monochrome-ivory .receipt-preview-pane {
   background: #ffffff !important;
-  border: 1px solid #e2e8f0 !important;
+  border: 1.5px solid #cbd5e1 !important;
   color: #0f172a !important;
+  border-radius: 12px !important;
 }
 
 body.theme-monochrome-ivory .kpi-micro-card {
   background: #f8fafc !important;
-  border: 1px solid #e2e8f0 !important;
+  border: 1.5px solid #cbd5e1 !important;
+  border-radius: 8px !important;
 }
 
 body.theme-monochrome-ivory .kpi-micro-card strong {
@@ -693,7 +820,7 @@ body.theme-monochrome-ivory .kpi-micro-card strong {
 }
 
 body.theme-monochrome-ivory .kpi-micro-card span {
-  color: #64748b !important;
+  color: #475569 !important;
 }
 
 /* ── High Contrast Accessibility Override ── */

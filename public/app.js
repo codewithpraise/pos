@@ -4653,10 +4653,12 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
         payload: { key: 'store_theme_palette', val: palette }
       });
       
-      const themeClass = 'theme-' + palette.toLowerCase().replace(/\s+/g, '-');
+      const cleanTheme = palette ? palette.replace(/^theme-/i, '').toLowerCase().replace(/\s+/g, '-') : '';
+      const themeClass = cleanTheme ? 'theme-' + cleanTheme : 'theme-obsidian-emerald';
       const body = document.body;
       const themes = ['theme-obsidian-emerald', 'theme-midnight-sapphire', 'theme-warm-amber', 'theme-minimalist-chrome', 'theme-monochrome-ivory', 'theme-premium-navy'];
       themes.forEach(t => body.classList.remove(t));
+      body.classList.remove('theme-');
       body.classList.add(themeClass);
       localStorage.setItem('valenixia_theme_override', themeClass);
     });
@@ -7081,8 +7083,8 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
         }
       }
 
-      // STEP 3: Online Server Employee Auth Fallback (only if not matched locally)
-      if (!matched && location.protocol !== 'file:' && navigator.onLine) {
+      // STEP 3: Online Server Employee Auth Fallback (only if not matched locally and device is paired)
+      if (!matched && state.deviceToken && location.protocol !== 'file:' && navigator.onLine) {
         try {
           const serverBase = (window.__valenixiaServerUrl || location.origin);
           const resp = await fetch(serverBase + '/api/employee/login', {
@@ -7921,8 +7923,9 @@ setHtml(overlay, `
       if (settingReceiptWidth) settingReceiptWidth.value = width;
 
       const palette = state.preferences['store_theme_palette'] || '';
-      const themeClass = palette
-        ? 'theme-' + palette.toLowerCase().replace(/\s+/g, '-')
+      const cleanTheme = palette ? palette.replace(/^theme-/i, '').toLowerCase().replace(/\s+/g, '-') : '';
+      const themeClass = cleanTheme
+        ? 'theme-' + cleanTheme
         : (window.__valenixiaSystemTheme || 'theme-obsidian-emerald');
       const body = document.body;
       const themes = ['theme-obsidian-emerald', 'theme-midnight-sapphire', 'theme-warm-amber', 'theme-minimalist-chrome', 'theme-monochrome-ivory', 'theme-premium-navy'];
@@ -7931,7 +7934,15 @@ setHtml(overlay, `
       // Sync back to localStorage for next cold-boot
       if (palette) localStorage.setItem('valenixia_theme_override', themeClass);
       const themeSelect = document.getElementById('setting-theme-palette');
-      if (themeSelect) themeSelect.value = palette || 'Obsidian Emerald';
+      if (themeSelect) {
+        // Find matching option case-insensitively
+        const cleanName = cleanTheme.replace(/-/g, ' ');
+        const matchedOption = Array.from(themeSelect.options).find(opt => 
+          opt.value.toLowerCase().replace(/^theme-/, '').replace(/-/g, ' ') === cleanName ||
+          opt.text.toLowerCase().replace(/^theme-/, '').replace(/-/g, ' ') === cleanName
+        );
+        if (matchedOption) themeSelect.value = matchedOption.value;
+      }
 
       const mode = state.preferences['shop_mode'] || 'simple-retail';
       const modeEl = document.getElementById('setting-shop-mode');
@@ -13512,10 +13523,12 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
    */
   function ensureAnalyticsFiltersInitialized() {
     if (!state.analyticsFiltersInitialized || !state.analyticsFilters) {
+      // If a standard cashier is logged in, default scope to their account; for admins/owners, default to ALL
+      const isCashierRole = state.activeCashier && state.activeCashier.role === 'CASHIER';
       state.analyticsFilters = {
         branchId: 'ALL',
         terminalId: 'ALL',
-        cashierId: 'ALL',
+        cashierId: isCashierRole ? 'MY_ACCOUNT' : 'ALL',
         categoryId: 'ALL',
         paymentMethod: 'ALL'
       };
@@ -13552,8 +13565,25 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
 
     const filters = ensureAnalyticsFiltersInitialized();
     const branchFiltered = dateFiltered.filter(t => filters.branchId === 'ALL' || t.branchId === filters.branchId);
-    const termFiltered = branchFiltered.filter(t => filters.terminalId === 'ALL' || t.terminalId === filters.terminalId);
-    const cashierFiltered = termFiltered.filter(t => filters.cashierId === 'ALL' || t.cashierId === filters.cashierId);
+    const termFiltered = branchFiltered.filter(t => {
+      if (filters.terminalId === 'ALL') return true;
+      if (filters.terminalId === 'THIS_DEVICE') {
+        const myNode = (window.nodeId || localStorage.getItem('valenixia_node_id') || state.currentTerminal || 'term_01').trim().toLowerCase();
+        const tNode = (t.terminalId || t.nodeId || '').trim().toLowerCase();
+        return tNode === myNode;
+      }
+      return t.terminalId === filters.terminalId;
+    });
+    const cashierFiltered = termFiltered.filter(t => {
+      if (filters.cashierId === 'ALL') return true;
+      if (filters.cashierId === 'MY_ACCOUNT') {
+        const myName = (state.activeCashier?.name || '').trim().toLowerCase();
+        const myId = (state.activeCashier?.id || '').trim().toLowerCase();
+        const txC = (t.cashierId || '').trim().toLowerCase();
+        return txC === myName || txC === myId;
+      }
+      return (t.cashierId || '').trim().toLowerCase() === filters.cashierId.trim().toLowerCase();
+    });
     const catFiltered = cashierFiltered.filter(t => {
       if (filters.categoryId === 'ALL') return true;
       return (t.items || []).some(item => (item.category || '').toString().trim().toLowerCase() === filters.categoryId.trim().toLowerCase());
@@ -13619,8 +13649,27 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
 
     return timeFiltered.filter(t => {
       if (filters.branchId !== 'ALL' && t.branchId !== filters.branchId) return false;
-      if (filters.terminalId !== 'ALL' && t.terminalId !== filters.terminalId) return false;
-      if (filters.cashierId !== 'ALL' && t.cashierId !== filters.cashierId) return false;
+      if (filters.terminalId !== 'ALL') {
+        if (filters.terminalId === 'THIS_DEVICE') {
+          const myNode = (window.nodeId || localStorage.getItem('valenixia_node_id') || state.currentTerminal || 'term_01').trim().toLowerCase();
+          const tNode = (t.terminalId || t.nodeId || '').trim().toLowerCase();
+          if (tNode !== myNode) return false;
+        } else if (t.terminalId !== filters.terminalId) {
+          return false;
+        }
+      }
+      if (filters.cashierId !== 'ALL') {
+        if (filters.cashierId === 'MY_ACCOUNT') {
+          const myName = (state.activeCashier?.name || '').trim().toLowerCase();
+          const myId = (state.activeCashier?.id || '').trim().toLowerCase();
+          const txC = (t.cashierId || '').trim().toLowerCase();
+          if (txC !== myName && txC !== myId) return false;
+        } else {
+          const target = filters.cashierId.trim().toLowerCase();
+          const txC = (t.cashierId || '').trim().toLowerCase();
+          if (txC !== target) return false;
+        }
+      }
       if (filters.paymentMethod !== 'ALL' && t.paymentMethod !== filters.paymentMethod.toUpperCase()) return false;
       if (filters.categoryId !== 'ALL') {
         const targetCat = filters.categoryId.trim().toLowerCase();
@@ -13815,7 +13864,11 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
         const tId = t.terminalId || 'term_01';
         if (!termSet.has(tId)) termSet.set(tId, `Terminal (${tId})`);
       });
-      setHtml(termSelect, '<option value="ALL">All Terminals</option>' + Array.from(termSet.entries()).map(([id, name]) => `<option value="${id}" ${id === cur ? 'selected' : ''}>${name}</option>`).join(''));
+      const myNodeShort = (window.nodeId || 'Local Node').substring(0, 8);
+      let optionsHtml = '<option value="ALL">All Terminals (Fleet)</option>';
+      optionsHtml += `<option value="THIS_DEVICE" ${cur === 'THIS_DEVICE' ? 'selected' : ''}>📱 This Device (${myNodeShort})</option>`;
+      optionsHtml += Array.from(termSet.entries()).map(([id, name]) => `<option value="${id}" ${id === cur ? 'selected' : ''}>${name}</option>`).join('');
+      setHtml(termSelect, optionsHtml);
       termSelect.value = cur;
     }
 
@@ -13831,7 +13884,12 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
         const cName = t.cashierId;
         if (cName) cashierSet.add(cName);
       });
-      setHtml(cashierSelect, '<option value="ALL">All Cashiers</option>' + Array.from(cashierSet.values()).map(c => `<option value="${c}" ${c === cur ? 'selected' : ''}>${c}</option>`).join(''));
+      let cashierOptionsHtml = '<option value="ALL">All Cashiers (Store-Wide)</option>';
+      if (state.activeCashier && state.activeCashier.name) {
+        cashierOptionsHtml += `<option value="MY_ACCOUNT" ${cur === 'MY_ACCOUNT' ? 'selected' : ''}>👤 My Account (${state.activeCashier.name})</option>`;
+      }
+      cashierOptionsHtml += Array.from(cashierSet.values()).map(c => `<option value="${c}" ${c === cur ? 'selected' : ''}>${c}</option>`).join('');
+      setHtml(cashierSelect, cashierOptionsHtml);
       cashierSelect.value = cur;
     }
 
@@ -14592,21 +14650,31 @@ setHtml(alertsContainer, alertsHtml);
       col.style.borderRadius = '6px 6px 2px 2px';
       col.style.transition = 'all 0.2s ease';
 
+      const isLight = document.body.classList.contains('theme-monochrome-ivory');
       if (isPeak) {
-        col.style.background = 'linear-gradient(to top, rgba(245, 158, 11, 0.9), rgba(245, 158, 11, 0.4))';
-        col.style.boxShadow = '0 0 12px rgba(245, 158, 11, 0.35)';
+        col.style.background = isLight
+          ? 'linear-gradient(to top, #f59e0b 0%, #fbbf24 100%)'
+          : 'linear-gradient(to top, rgba(245, 158, 11, 0.9), rgba(245, 158, 11, 0.4))';
+        col.style.boxShadow = isLight ? '0 2px 8px rgba(245, 158, 11, 0.25)' : '0 0 12px rgba(245, 158, 11, 0.35)';
       } else if (amt > 0) {
-        col.style.background = 'linear-gradient(to top, rgba(0, 214, 143, 0.8), rgba(0, 214, 143, 0.25))';
+        col.style.background = isLight
+          ? 'linear-gradient(to top, #059669 0%, #10b981 100%)'
+          : 'linear-gradient(to top, rgba(0, 214, 143, 0.8), rgba(0, 214, 143, 0.25))';
+        col.style.boxShadow = isLight ? '0 2px 6px rgba(5, 150, 105, 0.2)' : 'none';
       } else {
-        col.style.background = 'rgba(255, 255, 255, 0.04)';
+        col.style.background = isLight ? '#f1f5f9' : 'rgba(255, 255, 255, 0.04)';
+        col.style.border = isLight ? '1px solid #e2e8f0' : 'none';
       }
 
       const ampm = hr === 0 ? '12AM' : (hr < 12 ? hr + 'AM' : (hr === 12 ? '12PM' : (hr - 12) + 'PM'));
       col.title = `${ampm} (${hr.toString().padStart(2, '0')}:00): Rs. ${(amt/100).toLocaleString('en-PK', { minimumFractionDigits: 2 })} (${txCount} sales)`;
       
+      const valColor = isPeak ? (isLight ? '#b45309' : '#f59e0b') : (isLight ? '#047857' : '#00d68f');
+      const lblColor = isPeak ? (isLight ? '#b45309' : '#f59e0b') : (isLight ? '#475569' : '#94a3b8');
+      const valShadow = isLight ? 'none' : '0 1px 4px rgba(0,0,0,0.8)';
       setHtml(col, `
-        <span class="chart-bar-val" style="font-size: 9px; font-weight: 800; color: ${isPeak ? '#f59e0b' : '#00d68f'}; white-space: nowrap; transform: translateY(-16px); text-shadow: 0 1px 4px rgba(0,0,0,0.8);">${amt > 0 ? 'Rs.' + Math.round(amt / 100).toLocaleString('en-PK') : ''}</span>
-        <span class="chart-bar-lbl" style="font-size: 9px; font-weight: 700; color: ${isPeak ? '#f59e0b' : '#94a3b8'}; margin-bottom: 2px;">${ampm}</span>
+        <span class="chart-bar-val" style="font-size: 9px; font-weight: 800; color: ${valColor}; white-space: nowrap; transform: translateY(-16px); text-shadow: ${valShadow};">${amt > 0 ? 'Rs.' + Math.round(amt / 100).toLocaleString('en-PK') : ''}</span>
+        <span class="chart-bar-lbl" style="font-size: 9px; font-weight: 700; color: ${lblColor}; margin-bottom: 2px;">${ampm}</span>
       `);
 
       chart.appendChild(col);

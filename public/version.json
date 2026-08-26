@@ -1,7 +1,7 @@
 {
   "version": "3.1.0",
-  "build_id": "v3.1.0-prod-4cd3a8e",
-  "git_commit": "4cd3a8e844b2a7ba629af969665310f959737182",
+  "build_id": "v3.1.0-prod-090ba14",
+  "git_commit": "090ba149b29a479a5f1c124471c672adae414865",
   "updated_at": "2026-08-26",
   "changelog": "Valenixia POS v3.1.0 Mobile UI Geometry, Checkout Qty Containment, Subscription Bottom Clearance & Native App Suite.",
   "changes": [
