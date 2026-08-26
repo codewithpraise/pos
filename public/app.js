@@ -11,7 +11,15 @@
   function updateKdsNavVisibility() {
     const supported = isKdsSupported();
     document.querySelectorAll('#nav-kds, [data-screen="kds"], #btn-quick-kds, .kds-only-element').forEach(el => {
-      el.style.setProperty('display', supported ? 'flex' : 'none', 'important');
+      if (supported) {
+        el.removeAttribute('hidden');
+        el.classList.remove('kds-hidden');
+        el.style.setProperty('display', el.tagName === 'BUTTON' ? 'flex' : 'block', 'important');
+      } else {
+        el.setAttribute('hidden', 'true');
+        el.classList.add('kds-hidden');
+        el.style.setProperty('display', 'none', 'important');
+      }
     });
 
     // If active screen is KDS and mode is unsupported, safely redirect to checkout
@@ -7382,12 +7390,17 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
           view.classList.add('active');
           view.removeAttribute('hidden');
           view.style.setProperty('display', 'flex', 'important');
+          view.scrollTop = 0;
         } else {
           view.classList.remove('active');
           view.setAttribute('hidden', 'true');
           view.style.setProperty('display', 'none', 'important');
         }
       });
+      try {
+        if (typeof updateKdsNavVisibility === 'function') updateKdsNavVisibility();
+        if (typeof updateBuybackNavVisibility === 'function') updateBuybackNavVisibility();
+      } catch (_) {}
       // STEP 1.5: ENFORCE IDEMPOTENT SCREEN INTEGRITY
       try {
         if (typeof window.checkScreenIntegrity === 'function') window.checkScreenIntegrity();
@@ -8498,6 +8511,9 @@ setHtml(qrContainer, '<span style="font-size: 8px; color: var(--text-gray); text
     try {
       if (typeof updateBuybackNavVisibility === 'function') {
         updateBuybackNavVisibility();
+      }
+      if (typeof updateKdsNavVisibility === 'function') {
+        updateKdsNavVisibility();
       }
     } catch (_) {}
   }
@@ -15668,6 +15684,20 @@ setHtml(alertsContainer, alertsHtml);
 
     const isLight = document.body.classList.contains('theme-monochrome-ivory');
 
+    if (totalRev === 0) {
+      const emptyContainer = document.createElement('div');
+      emptyContainer.style.cssText = 'width: 100%; height: 100%; min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; padding: 20px; box-sizing: border-box;';
+      setHtml(emptyContainer, `
+        <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(0, 214, 143, 0.08); border: 1px solid rgba(0, 214, 143, 0.25); display: flex; align-items: center; justify-content: center; color: var(--accent-emerald);">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div style="font-size: 13px; font-weight: 800; color: ${isLight ? '#0f172a' : 'var(--text-white)'};">24-Hour Timeline Awaiting Sales</div>
+        <span style="font-size: 11px; color: ${isLight ? '#475569' : 'var(--text-gray)'};">Completed register sales will plot in real-time by hourly density and revenue.</span>
+      `);
+      chart.appendChild(emptyContainer);
+      return;
+    }
+
     for (let hr = 0; hr < 24; hr++) {
       const isFutureHour = isTodayRange && hr > currentHour;
       const amt = isFutureHour ? 0 : (hours[hr] || 0);
@@ -16754,6 +16784,16 @@ setHtml(itemRow, `
       });
     }
 
+    // Delegated click listener for empty state Add Supplier button
+    document.getElementById('supplier-list-container')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('#btn-empty-add-supplier, [data-action="add-supplier"], .btn-trigger-add-supplier');
+      if (btn) {
+        e.preventDefault();
+        e.stopPropagation();
+        openSupplierEditModal();
+      }
+    });
+
     // Modal supplier cancel & submit
     document.getElementById('btn-close-supplier-modal')?.addEventListener('click', () => {
       document.getElementById('modal-supplier')?.classList.remove('active');
@@ -16845,7 +16885,19 @@ setHtml(itemRow, `
       const list = (state.distributors || []).filter(d => d && d.is_deleted !== 1 && (!query || (d.name && d.name.toLowerCase().includes(query)) || (d.phone && d.phone.includes(query))));
 
       if (list.length === 0) {
-        setHtml(listContainer, `<div style="padding: 32px 16px; text-align: center; color: var(--text-gray); font-size: 13px;"><p style="font-weight: 700; color: var(--text-white); margin-bottom: 8px;">No Suppliers Available</p><p style="margin-bottom: 16px;">No matching distributor accounts recorded.</p><button class="action-btn action-success" onclick="if(window.openSupplierModal)window.openSupplierModal();">+ Add Supplier</button></div>`);
+        setHtml(listContainer, `
+          <div style="padding: 36px 16px; text-align: center; color: var(--text-gray); font-size: 13px;">
+            <div style="width: 44px; height: 44px; margin: 0 auto 12px; border-radius: 12px; background: rgba(0, 214, 143, 0.08); border: 1px solid rgba(0, 214, 143, 0.2); display: flex; align-items: center; justify-content: center; color: var(--accent-emerald);">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v4"/><path d="M14 2v6h6"/><path d="M20 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/><path d="M12 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/><path d="M20 18h2v-4a2 2 0 0 0-2-2h-3"/><path d="M14 18h-2"/></svg>
+            </div>
+            <p style="font-weight: 800; color: var(--text-white); margin-bottom: 4px; font-size: 14px;">No Suppliers Available</p>
+            <p style="margin-bottom: 16px; font-size: 11.5px; color: var(--text-gray);">No matching distributor accounts recorded.</p>
+            <button id="btn-empty-add-supplier" class="action-btn action-success btn-trigger-add-supplier" data-action="add-supplier" style="padding: 8px 18px; font-weight: 800; font-size: 11.5px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">+ Add Supplier</button>
+          </div>
+        `);
+        document.getElementById('btn-empty-add-supplier')?.addEventListener('click', () => {
+          openSupplierEditModal();
+        });
         if (grid) grid.classList.remove('has-selection');
         const detailPanel = document.getElementById('supplier-detail-panel');
         const emptyPanel = document.getElementById('supplier-detail-empty');

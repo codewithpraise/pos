@@ -220,6 +220,24 @@
     touch-action: manipulation !important;
   }
 
+  .sidebar-nav .nav-item[hidden],
+  .sidebar-nav .nav-item.kds-hidden,
+  .sidebar-nav .nav-item.buyback-hidden,
+  .pos-sidebar .nav-item[hidden],
+  .pos-sidebar .nav-item.kds-hidden,
+  .pos-sidebar .nav-item.buyback-hidden,
+  .pos-bottom-nav .nav-item[hidden],
+  .pos-bottom-nav .nav-item.kds-hidden,
+  .pos-bottom-nav .nav-item.buyback-hidden,
+  #nav-kds[hidden],
+  #nav-kds.kds-hidden,
+  .kds-only-element[hidden],
+  .kds-only-element.kds-hidden,
+  .buyback-only-element[hidden],
+  .buyback-only-element.buyback-hidden {
+    display: none !important;
+  }
+
   .sidebar-nav .nav-item .nav-icon,
   .sidebar-nav .nav-item svg,
   .pos-sidebar .nav-item .nav-icon,
