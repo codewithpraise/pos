@@ -5684,14 +5684,19 @@ body.rtl .wiz-dot {
 }
 
 /* Light Mode Overrides for Action & Utility Buttons */
-body.theme-monochrome-ivory .action-success {
-  background: linear-gradient(135deg, #1b4f3e 0%, #113429 100%) !important;
+body.theme-monochrome-ivory .action-success,
+body.theme-monochrome-ivory .action-btn.action-success {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
   color: #ffffff !important;
-  box-shadow: 0 4px 12px rgba(25, 111, 61, 0.2), 0 1px 3px rgba(0,0,0,0.1) !important;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.35) !important;
+  border: 1px solid #047857 !important;
 }
-body.theme-monochrome-ivory .action-success:hover {
-  background: linear-gradient(135deg, #22644e 0%, #154133 100%) !important;
-  box-shadow: 0 6px 16px rgba(25, 111, 61, 0.3), 0 2px 5px rgba(0,0,0,0.15) !important;
+body.theme-monochrome-ivory .action-success:hover,
+body.theme-monochrome-ivory .action-btn.action-success:hover {
+  background: linear-gradient(135deg, #047857 0%, #065f46 100%) !important;
+  color: #ffffff !important;
+  border-color: #065f46 !important;
+  box-shadow: 0 6px 20px rgba(5, 150, 105, 0.45) !important;
 }
 
 body.theme-monochrome-ivory .action-warning {

@@ -210,7 +210,7 @@ body.theme-monochrome-ivory .meta-text {
 /* ── Buttons, Interface Scales & Interactive Controls ── */
 body.theme-monochrome-ivory ._scale-btn,
 body.theme-monochrome-ivory ._mobile-scale-btn,
-body.theme-monochrome-ivory .action-btn {
+body.theme-monochrome-ivory .action-btn:not(.action-success):not(.action-danger):not(.action-primary):not(.btn-primary):not(.btn-checkout-pay):not(.btn-success):not(#btn-checkout-complete):not(#btn-suppliers-create):not(.btn-trigger-add-supplier) {
   background: #ffffff !important;
   color: #1e293b !important;
   border: 1.5px solid #cbd5e1 !important;
@@ -220,7 +220,7 @@ body.theme-monochrome-ivory .action-btn {
 
 body.theme-monochrome-ivory ._scale-btn:hover,
 body.theme-monochrome-ivory ._mobile-scale-btn:hover,
-body.theme-monochrome-ivory .action-btn:hover {
+body.theme-monochrome-ivory .action-btn:not(.action-success):not(.action-danger):not(.action-primary):not(.btn-primary):not(.btn-checkout-pay):not(.btn-success):not(#btn-checkout-complete):not(#btn-suppliers-create):not(.btn-trigger-add-supplier):hover {
   background: #f1f5f9 !important;
   border-color: #94a3b8 !important;
   color: #0f172a !important;
@@ -228,7 +228,7 @@ body.theme-monochrome-ivory .action-btn:hover {
 
 body.theme-monochrome-ivory ._scale-btn.active,
 body.theme-monochrome-ivory ._mobile-scale-btn.active,
-body.theme-monochrome-ivory .action-btn.active {
+body.theme-monochrome-ivory .action-btn:not(.action-success):not(.action-danger):not(.action-primary):not(.btn-primary):not(.btn-checkout-pay):not(.btn-success):not(#btn-checkout-complete):not(#btn-suppliers-create):not(.btn-trigger-add-supplier).active {
   background: #ecfdf5 !important;
   color: #065f46 !important;
   border: 2px solid #059669 !important;
@@ -320,7 +320,29 @@ body.theme-monochrome-ivory .payment-btn.active svg {
 /* ── Complete Order CTA & Action Primaries ── */
 body.theme-monochrome-ivory .btn-checkout-pay,
 body.theme-monochrome-ivory #btn-checkout-complete,
-body.theme-monochrome-ivory .btn-primary {
+body.theme-monochrome-ivory .btn-primary,
+body.theme-monochrome-ivory .action-success,
+body.theme-monochrome-ivory .action-btn.action-success,
+body.theme-monochrome-ivory .btn-success,
+body.theme-monochrome-ivory .btn-add-prod,
+body.theme-monochrome-ivory #btn-catalog-create-product,
+body.theme-monochrome-ivory #btn-customers-create,
+body.theme-monochrome-ivory #btn-suppliers-create,
+body.theme-monochrome-ivory #btn-empty-add-supplier,
+body.theme-monochrome-ivory .btn-trigger-add-supplier,
+body.theme-monochrome-ivory #btn-deals-create,
+body.theme-monochrome-ivory #btn-create-deal,
+body.theme-monochrome-ivory #btn-staff-create,
+body.theme-monochrome-ivory #btn-create-staff,
+body.theme-monochrome-ivory #btn-submit-supplier-modal,
+body.theme-monochrome-ivory #btn-submit-po-modal,
+body.theme-monochrome-ivory #btn-submit-distributor-payment-modal,
+body.theme-monochrome-ivory #btn-submit-po-receive-modal,
+body.theme-monochrome-ivory #btn-submit-customer-modal,
+body.theme-monochrome-ivory #btn-submit-credit-payment-modal,
+body.theme-monochrome-ivory #btn-submit-staff-modal,
+body.theme-monochrome-ivory .btn-save-settings,
+body.theme-monochrome-ivory #btn-save-store-settings {
   background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
   color: #ffffff !important;
   border: 1px solid #047857 !important;
@@ -331,9 +353,54 @@ body.theme-monochrome-ivory .btn-primary {
 
 body.theme-monochrome-ivory .btn-checkout-pay:hover,
 body.theme-monochrome-ivory #btn-checkout-complete:hover,
-body.theme-monochrome-ivory .btn-primary:hover {
+body.theme-monochrome-ivory .btn-primary:hover,
+body.theme-monochrome-ivory .action-success:hover,
+body.theme-monochrome-ivory .action-btn.action-success:hover,
+body.theme-monochrome-ivory .btn-success:hover,
+body.theme-monochrome-ivory .btn-add-prod:hover,
+body.theme-monochrome-ivory #btn-catalog-create-product:hover,
+body.theme-monochrome-ivory #btn-customers-create:hover,
+body.theme-monochrome-ivory #btn-suppliers-create:hover,
+body.theme-monochrome-ivory #btn-empty-add-supplier:hover,
+body.theme-monochrome-ivory .btn-trigger-add-supplier:hover,
+body.theme-monochrome-ivory #btn-deals-create:hover,
+body.theme-monochrome-ivory #btn-create-deal:hover,
+body.theme-monochrome-ivory #btn-staff-create:hover,
+body.theme-monochrome-ivory #btn-create-staff:hover,
+body.theme-monochrome-ivory #btn-submit-supplier-modal:hover,
+body.theme-monochrome-ivory #btn-submit-po-modal:hover,
+body.theme-monochrome-ivory #btn-submit-distributor-payment-modal:hover,
+body.theme-monochrome-ivory #btn-submit-po-receive-modal:hover,
+body.theme-monochrome-ivory #btn-submit-customer-modal:hover,
+body.theme-monochrome-ivory #btn-submit-credit-payment-modal:hover,
+body.theme-monochrome-ivory #btn-submit-staff-modal:hover,
+body.theme-monochrome-ivory .btn-save-settings:hover,
+body.theme-monochrome-ivory #btn-save-store-settings:hover,
+body.theme-monochrome-ivory .btn-checkout-pay:focus,
+body.theme-monochrome-ivory #btn-checkout-complete:focus,
+body.theme-monochrome-ivory .btn-primary:focus,
+body.theme-monochrome-ivory .action-success:focus,
+body.theme-monochrome-ivory .action-btn.action-success:focus {
   background: linear-gradient(135deg, #047857 0%, #065f46 100%) !important;
+  color: #ffffff !important;
+  border-color: #065f46 !important;
   box-shadow: 0 6px 20px rgba(5, 150, 105, 0.45) !important;
+}
+
+body.theme-monochrome-ivory .action-danger,
+body.theme-monochrome-ivory .action-btn.action-danger,
+body.theme-monochrome-ivory .btn-danger {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border-color: #b91c1c !important;
+}
+
+body.theme-monochrome-ivory .action-danger:hover,
+body.theme-monochrome-ivory .action-btn.action-danger:hover,
+body.theme-monochrome-ivory .btn-danger:hover {
+  background: #b91c1c !important;
+  color: #ffffff !important;
+  border-color: #991b1b !important;
 }
 
 /* ── PWA Banner in Light Theme ── */
