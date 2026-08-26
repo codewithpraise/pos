@@ -661,7 +661,8 @@
         hasAutoOEM: true,
         hasPrescriptionRx: true,
         hasPerishable: true,
-        hasWholesaleTiers: true
+        hasWholesaleTiers: true,
+        hasCustomerBuyback: true
       },
       defaultCategories: ['Retail Merchandise', 'Perishables & Fresh', 'Electronics & Hardware', 'Services & Labor', 'Wholesale Bulk Packages'],
       sampleProducts: [
@@ -900,7 +901,7 @@
     if (modeConfig && modeConfig.features && modeConfig.features.hasCustomerBuyback !== undefined) {
       return Boolean(modeConfig.features.hasCustomerBuyback);
     }
-    const BUYBACK_MODES = new Set(['electronics-highvalue', 'mobile-repair', 'jewellery', 'jewellery-gold', 'pawn-gold', 'computer-it', 'automotive-car']);
+    const BUYBACK_MODES = new Set(['electronics-highvalue', 'mobile-repair', 'jewellery', 'jewellery-gold', 'jewelry-luxury', 'pawn-gold', 'computer-it', 'custom-hybrid', 'custom-mixed']);
     return BUYBACK_MODES.has(active);
   }
   globalScope.isBuybackSupported = isBuybackSupported;

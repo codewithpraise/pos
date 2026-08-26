@@ -227,7 +227,23 @@ window.ValenixiaStrings = {
     restore_db: "Restore Backup",
     vacuum_db: "Vacuum & Optimize DB",
     dark_mode: "Dark Theme",
-    light_mode: "Light Theme"
+    light_mode: "Light Theme",
+
+    // Gold & Jewellery Trade-In / Buyback
+    gold_trade_in: "Gold & Jewellery Trade-In",
+    gold_trade_in_sub: "Old gold exchange, karat valuation, and customer scrap buyback",
+    gold_exchange: "Gold Exchange",
+    trade_in_credit: "Trade-In Credit",
+    karat_purity: "Karat Purity",
+    gross_weight: "Gross Weight (g)",
+    stone_deduction: "Stone Deduction (g)",
+    net_gold_weight: "Net Gold Weight (g)",
+    wastage_katt: "Melting Loss / Katt (%)",
+    market_rate_gram: "Market Rate / Gram (PKR)",
+    tradein_valuation: "Trade-In Valuation",
+    apply_tradein_cart: "Apply Trade-In Credit to Order",
+    disburse_cash_buyback: "Disburse Cash Buyback",
+    scrap_gold_stock: "Add to Scrap Melting Inventory"
   },
   ur: {
     // Navigation & Primary Views
@@ -599,6 +615,22 @@ window.ValenixiaStrings = {
     sub_tab_pay: "ادائیگی اور اپ گریڈ",
     sub_tab_claims: "اپ گریڈ دعوے",
     monthly_cycle: "ماہانہ سبسکرپشن",
-    lifetime_cycle: "لائف ٹائم + اے ایم سی"
+    lifetime_cycle: "لائف ٹائم + اے ایم سی",
+
+    // Gold & Jewellery Trade-In / Buyback
+    gold_trade_in: "سونے کا تبادلہ اور خریداری",
+    gold_trade_in_sub: "پرانے سونے کا تبادلہ، قیراط خالصیت اور کسٹمر اسکریپ خریداری",
+    gold_exchange: "سونے کا تبادلہ",
+    trade_in_credit: "تبادلہ کریڈٹ",
+    karat_purity: "قیراط خالصیت",
+    gross_weight: "کل وزن (گرام)",
+    stone_deduction: "نگینہ و پتھر کٹوتی (گرام)",
+    net_gold_weight: "خالص سونا وزن (گرام)",
+    wastage_katt: "کاٹ و میل کچیل (%)",
+    market_rate_gram: "مارکیٹ ریٹ فی گرام (روپے)",
+    tradein_valuation: "تبادلہ کل قیمت",
+    apply_tradein_cart: "آرڈر میں سونا تبادلہ کریڈٹ لگائیں",
+    disburse_cash_buyback: "نقد ادائیگی برائے خریداری سونا",
+    scrap_gold_stock: "پگھلانے والے اسکریپ اسٹاک میں شامل کریں"
   }
 };

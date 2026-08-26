@@ -26,9 +26,35 @@
   function updateBuybackNavVisibility() {
     const isSupported = (window.ValenixiaStoreModes && typeof window.ValenixiaStoreModes.isBuybackSupported === 'function')
       ? window.ValenixiaStoreModes.isBuybackSupported()
-      : false;
+      : (typeof isBuybackSupported === 'function' ? isBuybackSupported() : false);
 
-    document.querySelectorAll('#nav-customer-buyback, [data-screen="customer-buyback"], .nav-item[data-screen="customer-buyback"], .buyback-only-element').forEach(el => {
+    const shopMode = (typeof state !== 'undefined' && state && state.preferences && (state.preferences['shop_mode'] || state.preferences['store_type'])) ||
+      (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_shop_mode')) || 'simple-retail';
+    const isJewellery = shopMode === 'jewellery' || shopMode === 'jewellery-gold' || shopMode === 'jewelry-luxury' || shopMode === 'pawn-gold';
+    const isElectronics = shopMode === 'electronics-highvalue' || shopMode === 'mobile-repair' || shopMode === 'computer-it' || shopMode === 'automotive-car';
+    const isUrdu = (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_language') === 'ur') || (typeof document !== 'undefined' && document.documentElement && document.documentElement.lang === 'ur');
+
+    document.querySelectorAll('#nav-customer-buyback, [data-screen="customer-buyback"], .nav-item[data-screen="customer-buyback"]').forEach(btn => {
+      if (isSupported) {
+        btn.style.setProperty('display', 'flex', 'important');
+        btn.removeAttribute('hidden');
+        const labelEl = btn.querySelector('.nav-label, span:not(.nav-icon)');
+        if (labelEl) {
+          if (isJewellery) {
+            labelEl.textContent = isUrdu ? 'سونا ٹریڈ ان / خریداری' : 'Gold Trade-In & Buyback';
+          } else if (isElectronics) {
+            labelEl.textContent = isUrdu ? 'ڈیوائس خریداری' : 'Device Buy-In';
+          } else {
+            labelEl.textContent = isUrdu ? 'ٹریڈ ان و خریداری' : 'Trade-In & Buyback';
+          }
+        }
+      } else {
+        btn.style.setProperty('display', 'none', 'important');
+        btn.setAttribute('hidden', '');
+      }
+    });
+
+    document.querySelectorAll('.buyback-only-element').forEach(el => {
       if (isSupported) {
         el.style.setProperty('display', el.tagName === 'BUTTON' || el.classList.contains('nav-item') ? 'flex' : 'block', 'important');
         el.removeAttribute('hidden');
@@ -37,6 +63,87 @@
         el.setAttribute('hidden', '');
       }
     });
+
+    const checkoutTradeInBtn = document.getElementById('btn-checkout-tradein');
+    if (checkoutTradeInBtn) {
+      if (isSupported) {
+        checkoutTradeInBtn.style.removeProperty('display');
+        checkoutTradeInBtn.style.display = 'inline-flex';
+        checkoutTradeInBtn.removeAttribute('hidden');
+        const spanText = checkoutTradeInBtn.querySelector('span');
+        if (isJewellery) {
+          checkoutTradeInBtn.style.background = 'rgba(255,215,0,0.12)';
+          checkoutTradeInBtn.style.border = '1px solid rgba(255,215,0,0.4)';
+          checkoutTradeInBtn.style.color = '#ffd700';
+          checkoutTradeInBtn.title = isUrdu ? 'پرانا سونا ایکسچینج کریں' : 'Exchange Old Gold against this order';
+          if (spanText) spanText.textContent = isUrdu ? 'سونا ٹریڈ ان' : 'Gold Trade-In';
+        } else if (isElectronics) {
+          checkoutTradeInBtn.style.background = 'rgba(59,130,246,0.12)';
+          checkoutTradeInBtn.style.border = '1px solid rgba(59,130,246,0.4)';
+          checkoutTradeInBtn.style.color = '#60a5fa';
+          checkoutTradeInBtn.title = isUrdu ? 'پرانا موبائل / ڈیوائس ایکسچینج کریں' : 'Exchange Used Device against this order';
+          if (spanText) spanText.textContent = isUrdu ? 'ڈیوائس ٹریڈ ان' : 'Device Trade-In';
+        } else {
+          checkoutTradeInBtn.style.background = 'rgba(0,214,143,0.12)';
+          checkoutTradeInBtn.style.border = '1px solid rgba(0,214,143,0.4)';
+          checkoutTradeInBtn.style.color = 'var(--accent-emerald)';
+          checkoutTradeInBtn.title = isUrdu ? 'ٹریڈ ان ایکسچینج کریں' : 'Trade-In / Buyback';
+          if (spanText) spanText.textContent = isUrdu ? 'ٹریڈ ان' : 'Trade-In';
+        }
+      } else {
+        checkoutTradeInBtn.style.setProperty('display', 'none', 'important');
+        checkoutTradeInBtn.setAttribute('hidden', '');
+      }
+    }
+
+    const payModeTradeInBtn = document.getElementById('btn-pay-mode-tradein');
+    if (payModeTradeInBtn) {
+      if (isSupported) {
+        payModeTradeInBtn.style.removeProperty('display');
+        payModeTradeInBtn.style.display = 'inline-flex';
+        payModeTradeInBtn.removeAttribute('hidden');
+        const lbl = payModeTradeInBtn.querySelector('.pay-btn-label, span');
+        if (lbl) {
+          if (isJewellery) {
+            lbl.textContent = isUrdu ? 'سونا ایکسچینج' : 'Gold Trade-In';
+          } else if (isElectronics) {
+            lbl.textContent = isUrdu ? 'ڈیوائس ٹریڈ ان' : 'Device Trade-In';
+          } else {
+            lbl.textContent = isUrdu ? 'ٹریڈ ان' : 'Trade-In';
+          }
+        }
+      } else {
+        payModeTradeInBtn.style.setProperty('display', 'none', 'important');
+        payModeTradeInBtn.setAttribute('hidden', '');
+      }
+    }
+
+    const btnDevTab = document.getElementById('btn-buyback-tab-device');
+    const btnGoldTab = document.getElementById('btn-buyback-tab-gold');
+    if (btnDevTab && btnGoldTab) {
+      if (isJewellery) {
+        btnDevTab.style.setProperty('display', 'none', 'important');
+        btnGoldTab.style.removeProperty('display');
+        btnGoldTab.style.display = 'inline-flex';
+        if (typeof switchBuybackIntakeTab === 'function') {
+          const currentType = document.getElementById('buyback-intake-type')?.value;
+          if (currentType !== 'GOLD') switchBuybackIntakeTab('GOLD');
+        }
+      } else if (isElectronics) {
+        btnGoldTab.style.setProperty('display', 'none', 'important');
+        btnDevTab.style.removeProperty('display');
+        btnDevTab.style.display = 'inline-flex';
+        if (typeof switchBuybackIntakeTab === 'function') {
+          const currentType = document.getElementById('buyback-intake-type')?.value;
+          if (currentType !== 'DEVICE') switchBuybackIntakeTab('DEVICE');
+        }
+      } else {
+        btnDevTab.style.removeProperty('display');
+        btnDevTab.style.display = 'inline-flex';
+        btnGoldTab.style.removeProperty('display');
+        btnGoldTab.style.display = 'inline-flex';
+      }
+    }
 
     if (!isSupported && typeof state !== 'undefined' && state && state.activeScreen === 'customer-buyback') {
       if (typeof window.switchActiveScreen === 'function') {
@@ -1201,7 +1308,7 @@ window.__realHandlers = window.__realHandlers || {};
     selectedPurchaseOrderId: null,
     preferencesLoaded: false,
     isCheckingOut: false,
-    analyticsRange: 'all'  // 'all' | 'today' | 'week' | 'month'
+    analyticsRange: 'today'  // 'today' | 'all' | 'week' | 'month' | 'custom'
   };
 
   // Global User-Friendly Error Boundary Modal
@@ -8387,6 +8494,12 @@ setHtml(qrContainer, '<span style="font-size: 8px; color: var(--text-gray); text
 
     const taxLabelEl = document.getElementById('txt-tax-rate-label');
     if (taxLabelEl) taxLabelEl.textContent = taxLabel;
+
+    try {
+      if (typeof updateBuybackNavVisibility === 'function') {
+        updateBuybackNavVisibility();
+      }
+    } catch (_) {}
   }
 
   window.setLanguage = setLanguage;
@@ -10662,26 +10775,125 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
   function updateBuybackNavVisibility() {
     const isSupported = (window.ValenixiaStoreModes && typeof window.ValenixiaStoreModes.isBuybackSupported === 'function')
       ? window.ValenixiaStoreModes.isBuybackSupported()
-      : false;
+      : (typeof isBuybackSupported === 'function' ? isBuybackSupported() : false);
+
+    const shopMode = (state && state.preferences && (state.preferences['shop_mode'] || state.preferences['store_type'])) ||
+      (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_shop_mode')) || 'simple-retail';
+    const isJewellery = shopMode === 'jewellery' || shopMode === 'jewellery-gold' || shopMode === 'jewelry-luxury' || shopMode === 'pawn-gold';
+    const isElectronics = shopMode === 'electronics-highvalue' || shopMode === 'mobile-repair' || shopMode === 'computer-it' || shopMode === 'automotive-car';
+    const isUrdu = (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_language') === 'ur') || (typeof document !== 'undefined' && document.documentElement && document.documentElement.lang === 'ur');
 
     const navBtns = document.querySelectorAll('#nav-customer-buyback, [data-screen="customer-buyback"], .nav-item[data-screen="customer-buyback"]');
     navBtns.forEach(btn => {
-      btn.style.display = isSupported ? 'flex' : 'none';
-      if (!isSupported) {
-        btn.setAttribute('hidden', '');
-      } else {
+      if (isSupported) {
+        btn.style.setProperty('display', 'flex', 'important');
         btn.removeAttribute('hidden');
+        const labelEl = btn.querySelector('.nav-label, span:not(.nav-icon)');
+        if (labelEl) {
+          if (isJewellery) {
+            labelEl.textContent = isUrdu ? 'سونا ٹریڈ ان / خریداری' : 'Gold Trade-In & Buyback';
+          } else if (isElectronics) {
+            labelEl.textContent = isUrdu ? 'ڈیوائس خریداری' : 'Device Buy-In';
+          } else {
+            labelEl.textContent = isUrdu ? 'ٹریڈ ان و خریداری' : 'Trade-In & Buyback';
+          }
+        }
+      } else {
+        btn.style.setProperty('display', 'none', 'important');
+        btn.setAttribute('hidden', '');
       }
     });
 
     document.querySelectorAll('.buyback-only-element').forEach(el => {
-      el.style.display = isSupported ? (el.tagName === 'BUTTON' || el.classList.contains('nav-item') ? 'flex' : 'block') : 'none';
-      if (!isSupported) {
-        el.setAttribute('hidden', '');
-      } else {
+      if (isSupported) {
+        el.style.setProperty('display', el.tagName === 'BUTTON' || el.classList.contains('nav-item') ? 'flex' : 'block', 'important');
         el.removeAttribute('hidden');
+      } else {
+        el.style.setProperty('display', 'none', 'important');
+        el.setAttribute('hidden', '');
       }
     });
+
+    const checkoutTradeInBtn = document.getElementById('btn-checkout-tradein');
+    if (checkoutTradeInBtn) {
+      if (isSupported) {
+        checkoutTradeInBtn.style.removeProperty('display');
+        checkoutTradeInBtn.style.display = 'inline-flex';
+        checkoutTradeInBtn.removeAttribute('hidden');
+        const spanText = checkoutTradeInBtn.querySelector('span');
+        if (isJewellery) {
+          checkoutTradeInBtn.style.background = 'rgba(255,215,0,0.12)';
+          checkoutTradeInBtn.style.border = '1px solid rgba(255,215,0,0.4)';
+          checkoutTradeInBtn.style.color = '#ffd700';
+          checkoutTradeInBtn.title = isUrdu ? 'پرانا سونا ایکسچینج کریں' : 'Exchange Old Gold against this order';
+          if (spanText) spanText.textContent = isUrdu ? 'سونا ٹریڈ ان' : 'Gold Trade-In';
+        } else if (isElectronics) {
+          checkoutTradeInBtn.style.background = 'rgba(59,130,246,0.12)';
+          checkoutTradeInBtn.style.border = '1px solid rgba(59,130,246,0.4)';
+          checkoutTradeInBtn.style.color = '#60a5fa';
+          checkoutTradeInBtn.title = isUrdu ? 'پرانا موبائل / ڈیوائس ایکسچینج کریں' : 'Exchange Used Device against this order';
+          if (spanText) spanText.textContent = isUrdu ? 'ڈیوائس ٹریڈ ان' : 'Device Trade-In';
+        } else {
+          checkoutTradeInBtn.style.background = 'rgba(0,214,143,0.12)';
+          checkoutTradeInBtn.style.border = '1px solid rgba(0,214,143,0.4)';
+          checkoutTradeInBtn.style.color = 'var(--accent-emerald)';
+          checkoutTradeInBtn.title = isUrdu ? 'ٹریڈ ان ایکسچینج کریں' : 'Trade-In / Buyback';
+          if (spanText) spanText.textContent = isUrdu ? 'ٹریڈ ان' : 'Trade-In';
+        }
+      } else {
+        checkoutTradeInBtn.style.setProperty('display', 'none', 'important');
+        checkoutTradeInBtn.setAttribute('hidden', '');
+      }
+    }
+
+    const payModeTradeInBtn = document.getElementById('btn-pay-mode-tradein');
+    if (payModeTradeInBtn) {
+      if (isSupported) {
+        payModeTradeInBtn.style.removeProperty('display');
+        payModeTradeInBtn.style.display = 'inline-flex';
+        payModeTradeInBtn.removeAttribute('hidden');
+        const lbl = payModeTradeInBtn.querySelector('.pay-btn-label, span');
+        if (lbl) {
+          if (isJewellery) {
+            lbl.textContent = isUrdu ? 'سونا ایکسچینج' : 'Gold Trade-In';
+          } else if (isElectronics) {
+            lbl.textContent = isUrdu ? 'ڈیوائس ٹریڈ ان' : 'Device Trade-In';
+          } else {
+            lbl.textContent = isUrdu ? 'ٹریڈ ان' : 'Trade-In';
+          }
+        }
+      } else {
+        payModeTradeInBtn.style.setProperty('display', 'none', 'important');
+        payModeTradeInBtn.setAttribute('hidden', '');
+      }
+    }
+
+    const btnDevTab = document.getElementById('btn-buyback-tab-device');
+    const btnGoldTab = document.getElementById('btn-buyback-tab-gold');
+    if (btnDevTab && btnGoldTab) {
+      if (isJewellery) {
+        btnDevTab.style.setProperty('display', 'none', 'important');
+        btnGoldTab.style.removeProperty('display');
+        btnGoldTab.style.display = 'inline-flex';
+        if (typeof switchBuybackIntakeTab === 'function') {
+          const currentType = document.getElementById('buyback-intake-type')?.value;
+          if (currentType !== 'GOLD') switchBuybackIntakeTab('GOLD');
+        }
+      } else if (isElectronics) {
+        btnGoldTab.style.setProperty('display', 'none', 'important');
+        btnDevTab.style.removeProperty('display');
+        btnDevTab.style.display = 'inline-flex';
+        if (typeof switchBuybackIntakeTab === 'function') {
+          const currentType = document.getElementById('buyback-intake-type')?.value;
+          if (currentType !== 'DEVICE') switchBuybackIntakeTab('DEVICE');
+        }
+      } else {
+        btnDevTab.style.removeProperty('display');
+        btnDevTab.style.display = 'inline-flex';
+        btnGoldTab.style.removeProperty('display');
+        btnGoldTab.style.display = 'inline-flex';
+      }
+    }
 
     if (!isSupported && state && state.activeScreen === 'customer-buyback') {
       if (typeof switchActiveScreen === 'function') {
@@ -10726,10 +10938,100 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
   }
   window.saveBuybackRecord = saveBuybackRecord;
 
+  function switchBuybackIntakeTab(tabType) {
+    const isGold = tabType === 'GOLD';
+    const typeInput = document.getElementById('buyback-intake-type');
+    if (typeInput) typeInput.value = isGold ? 'GOLD' : 'DEVICE';
+
+    const btnDev = document.getElementById('btn-buyback-tab-device');
+    const btnGold = document.getElementById('btn-buyback-tab-gold');
+    const secDev = document.getElementById('buyback-device-section');
+    const secGold = document.getElementById('buyback-gold-section');
+    const invLabel = document.getElementById('buyback-inv-label');
+
+    if (btnDev) btnDev.classList.toggle('active', !isGold);
+    if (btnGold) btnGold.classList.toggle('active', isGold);
+    if (secDev) secDev.style.display = isGold ? 'none' : 'block';
+    if (secGold) secGold.style.display = isGold ? 'block' : 'none';
+    if (invLabel) {
+      invLabel.textContent = isGold ? 'Add to Catalog as Scrap Melting Gold Stock' : 'Add to Catalog as Used Inventory Stock';
+    }
+
+    if (isGold) {
+      syncDefaultGoldRateInBuyback();
+      recalcCustomerBuybackGold();
+    }
+  }
+  window.switchBuybackIntakeTab = switchBuybackIntakeTab;
+
+  function syncDefaultGoldRateInBuyback() {
+    const rateInput = document.getElementById('buyback-gold-rate-gram');
+    if (!rateInput || (rateInput.value && parseFloat(rateInput.value) > 0)) return;
+
+    let defaultGramRate = 21612; // Standard default 22K rate
+    if (window.ValenixiaJewellery && typeof window.ValenixiaJewellery.getJewelleryConfig === 'function') {
+      const cfg = window.ValenixiaJewellery.getJewelleryConfig();
+      if (cfg && cfg.goldRatePerGram) defaultGramRate = Math.round(cfg.goldRatePerGram);
+      else if (cfg && cfg.goldRatePerTola) defaultGramRate = Math.round(cfg.goldRatePerTola / 11.6638);
+    }
+    rateInput.value = defaultGramRate;
+  }
+
+  function recalcCustomerBuybackGold() {
+    const grossWt = parseFloat(document.getElementById('buyback-gold-gross-weight')?.value || '0');
+    const stoneDed = parseFloat(document.getElementById('buyback-gold-stone-deduction')?.value || '0');
+    const kattPct = parseFloat(document.getElementById('buyback-gold-katt-pct')?.value || '0');
+    const rateGram = parseFloat(document.getElementById('buyback-gold-rate-gram')?.value || '0');
+    const karat = document.getElementById('buyback-gold-karat')?.value || '22K';
+
+    const netWeight = Math.max(0, parseFloat((grossWt - stoneDed).toFixed(3)));
+    const effWeight = Math.max(0, parseFloat((netWeight * (1 - (kattPct / 100))).toFixed(3)));
+    const rateTola = Math.round(rateGram * 11.6638);
+
+    let valuation = 0;
+    if (window.ValenixiaJewellery && typeof window.ValenixiaJewellery.calculateGoldTradeIn === 'function') {
+      const res = window.ValenixiaJewellery.calculateGoldTradeIn({
+        karat,
+        grossWeightGrams: grossWt,
+        stoneDeductionGrams: stoneDed,
+        wastagePct: kattPct,
+        goldRatePerGram: rateGram
+      });
+      valuation = res.valuationPKR;
+    } else {
+      valuation = Math.round(effWeight * rateGram);
+    }
+
+    const netEl = document.getElementById('buyback-gold-net-weight-display');
+    const effEl = document.getElementById('buyback-gold-eff-weight-display');
+    const tolaEl = document.getElementById('buyback-gold-rate-tola-display');
+    const valEl = document.getElementById('buyback-gold-valuation-display');
+    const payoutInput = document.getElementById('buyback-payout-amount');
+
+    if (netEl) netEl.textContent = `${netWeight.toFixed(3)} g`;
+    if (effEl) effEl.textContent = `${effWeight.toFixed(3)} g (${(100 - kattPct).toFixed(1)}%)`;
+    if (tolaEl) tolaEl.textContent = `Rs. ${rateTola.toLocaleString('en-PK')}`;
+    if (valEl) valEl.textContent = `Rs. ${valuation.toLocaleString('en-PK')}`;
+    if (payoutInput && document.getElementById('buyback-intake-type')?.value === 'GOLD') {
+      payoutInput.value = valuation;
+    }
+  }
+  window.recalcCustomerBuybackGold = recalcCustomerBuybackGold;
+
   async function renderCustomerBuybackScreen() {
     updateBuybackNavVisibility();
     const container = document.getElementById('buyback-records-list');
     if (!container) return;
+
+    const shopMode = (state && state.preferences && (state.preferences['shop_mode'] || state.preferences['store_type'])) ||
+      (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_shop_mode')) || 'simple-retail';
+    const isJewellery = shopMode === 'jewellery' || shopMode === 'jewellery-gold' || shopMode === 'jewelry-luxury' || shopMode === 'pawn-gold';
+
+    // Auto toggle tab matching active store mode
+    const currentIntakeType = document.getElementById('buyback-intake-type')?.value;
+    if (!currentIntakeType || (isJewellery && currentIntakeType === 'DEVICE')) {
+      switchBuybackIntakeTab(isJewellery ? 'GOLD' : 'DEVICE');
+    }
 
     const records = await getBuybackRecords();
     const searchInput = document.getElementById('buyback-search-input');
@@ -10769,7 +11071,7 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
       if (!query) return true;
       const haystack = [
         r.voucher_no, r.seller_name, r.seller_phone, r.seller_cnic,
-        r.brand, r.model, r.imei, r.imei1, r.imei2, r.notes
+        r.brand, r.model, r.karat, r.gold_item_type, r.imei, r.imei1, r.imei2, r.notes
       ].filter(Boolean).join(' ').toLowerCase();
       return haystack.includes(query);
     });
@@ -10778,7 +11080,7 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
       container.innerHTML = `
         <div style="text-align: center; padding: 48px 20px; color: var(--text-gray); font-size: 12px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px dashed var(--border-titanium);">
           <div style="font-size: 14px; font-weight: 700; color: var(--text-white); margin-bottom: 4px;">No Inward Purchase Vouchers Found</div>
-          <div>${query ? 'No records match your search filter.' : 'Fill the customer intake form to record a device purchase & print an official agreement voucher.'}</div>
+          <div>${query ? 'No records match your search filter.' : 'Fill the customer intake form to record an inward purchase / trade-in & print an official agreement voucher.'}</div>
         </div>
       `;
       return;
@@ -10789,37 +11091,62 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
       const card = document.createElement('div');
       card.style.cssText = 'background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; transition: border-color 0.2s ease;';
 
+      const isGoldRec = r.item_type === 'GOLD';
       const dateStr = new Date(r.created_at || Date.now()).toLocaleDateString('en-PK', {
         month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
       });
 
+      const badgeHtml = isGoldRec
+        ? `<span style="font-size: 10px; background: rgba(255,215,0,0.15); color: #ffd700; padding: 2px 7px; border-radius: 5px; font-weight: 800; border: 1px solid rgba(255,215,0,0.3);">👑 ${escapeHTML(r.karat || '22K')} GOLD TRADE-IN</span>`
+        : `<span style="font-size: 10px; background: rgba(59,130,246,0.15); color: #60a5fa; padding: 2px 7px; border-radius: 5px; font-weight: 800; border: 1px solid rgba(59,130,246,0.3);">📱 DEVICE BUY-IN</span>`;
+
+      const titleHtml = isGoldRec
+        ? `${escapeHTML(r.karat || '22K')} ${escapeHTML(r.gold_item_type || r.model || 'Gold Piece')} (${r.net_weight_g || 0}g Net)`
+        : `${escapeHTML(r.brand || '')} ${escapeHTML(r.model || 'Device')}`;
+
+      const detailsHtml = isGoldRec
+        ? `
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px; color: var(--text-gray); background: rgba(0,0,0,0.2); padding: 8px 10px; border-radius: 6px;">
+            <div><strong>Seller:</strong> <span style="color: var(--text-white);">${escapeHTML(r.seller_name || 'N/A')}</span> (${escapeHTML(r.seller_phone || '')})</div>
+            <div><strong>CNIC:</strong> <span style="font-family: var(--font-mono); color: var(--text-white);">${escapeHTML(r.seller_cnic || 'N/A')}</span></div>
+            <div style="grid-column: 1/-1;"><strong>Net Gold Wt:</strong> <span style="font-weight: 800; color: #00d68f;">${r.net_weight_g || 0}g</span> • <strong>Gross:</strong> ${r.gross_weight_g || 0}g • <strong>Stone:</strong> ${r.stone_deduction_g || 0}g</div>
+            <div><strong>Katt / Melting Loss:</strong> <span style="color: #ffd700;">${r.wastage_katt_pct || 0}%</span></div>
+            <div><strong>Market Rate:</strong> Rs. ${(r.rate_per_gram || 0).toLocaleString('en-PK')}/g</div>
+            ${r.notes ? `<div style="grid-column: 1/-1; color: #cbd5e1;"><strong>Testing/Notes:</strong> ${escapeHTML(r.notes)}</div>` : ''}
+          </div>
+        `
+        : `
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px; color: var(--text-gray); background: rgba(0,0,0,0.2); padding: 8px 10px; border-radius: 6px;">
+            <div><strong>Seller:</strong> <span style="color: var(--text-white);">${escapeHTML(r.seller_name || 'N/A')}</span> (${escapeHTML(r.seller_phone || '')})</div>
+            <div><strong>CNIC:</strong> <span style="font-family: var(--font-mono); color: var(--text-white);">${escapeHTML(r.seller_cnic || 'N/A')}</span></div>
+            <div style="grid-column: 1/-1;"><strong>IMEI 1:</strong> <span style="font-family: var(--font-mono); font-weight: 700; color: var(--text-white);">${escapeHTML(r.imei1 || r.imei || 'N/A')}</span> ${r.imei2 ? `• <strong>IMEI 2:</strong> <span style="font-family: var(--font-mono);">${escapeHTML(r.imei2)}</span>` : ''}</div>
+            <div><strong>Condition:</strong> <span style="color: #60a5fa;">${escapeHTML(r.condition || 'Used')}</span></div>
+            <div><strong>Accessories:</strong> ${escapeHTML(r.accessories || 'None')}</div>
+            ${r.notes ? `<div style="grid-column: 1/-1; color: #cbd5e1;"><strong>Notes:</strong> ${escapeHTML(r.notes)}</div>` : ''}
+          </div>
+        `;
+
       setHtml(card, `
         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap;">
           <div>
-            <div style="display: flex; align-items: center; gap: 6px;">
+            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
               <span style="font-family: var(--font-mono); font-size: 11px; font-weight: 800; color: var(--accent-emerald);">${r.voucher_no || 'VCH-BUY'}</span>
               <span style="font-size: 10px; color: var(--text-gray);">${dateStr}</span>
+              ${badgeHtml}
             </div>
-            <h4 style="margin: 3px 0 0; font-size: 13px; font-weight: 800; color: var(--text-white);">${escapeHTML(r.brand || '')} ${escapeHTML(r.model || 'Device')}</h4>
+            <h4 style="margin: 3px 0 0; font-size: 13px; font-weight: 800; color: var(--text-white);">${titleHtml}</h4>
           </div>
           <div style="text-align: right;">
-            <span style="font-size: 14px; font-weight: 900; color: var(--accent-emerald); display: block;">Rs. ${((r.payout_paise || 0) / 100).toLocaleString('en-PK', { minimumFractionDigits: 2 })}</span>
+            <span style="font-size: 14px; font-weight: 900; color: ${isGoldRec ? '#ffd700' : 'var(--accent-emerald)'}; display: block;">Rs. ${((r.payout_paise || 0) / 100).toLocaleString('en-PK', { minimumFractionDigits: 2 })}</span>
             <span style="font-size: 9.5px; color: var(--text-gray);">${escapeHTML(r.payout_method || 'CASH')}</span>
           </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px; color: var(--text-gray); background: rgba(0,0,0,0.2); padding: 8px 10px; border-radius: 6px;">
-          <div><strong>Seller:</strong> <span style="color: var(--text-white);">${escapeHTML(r.seller_name || 'N/A')}</span> (${escapeHTML(r.seller_phone || '')})</div>
-          <div><strong>CNIC:</strong> <span style="font-family: var(--font-mono); color: var(--text-white);">${escapeHTML(r.seller_cnic || 'N/A')}</span></div>
-          <div style="grid-column: 1/-1;"><strong>IMEI 1:</strong> <span style="font-family: var(--font-mono); font-weight: 700; color: var(--text-white);">${escapeHTML(r.imei1 || r.imei || 'N/A')}</span> ${r.imei2 ? `• <strong>IMEI 2:</strong> <span style="font-family: var(--font-mono);">${escapeHTML(r.imei2)}</span>` : ''}</div>
-          <div><strong>Condition:</strong> <span style="color: #60a5fa;">${escapeHTML(r.condition || 'Used')}</span></div>
-          <div><strong>Accessories:</strong> ${escapeHTML(r.accessories || 'None')}</div>
-          ${r.notes ? `<div style="grid-column: 1/-1; color: #cbd5e1;"><strong>Notes:</strong> ${escapeHTML(r.notes)}</div>` : ''}
-        </div>
+        ${detailsHtml}
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
           <span style="font-size: 10px; font-weight: 700; color: ${r.added_to_inventory ? 'var(--accent-emerald)' : 'var(--text-gray)'};">
-            ${r.added_to_inventory ? '✓ Added to Inventory' : '• Purchase Log Only'}
+            ${r.added_to_inventory ? (isGoldRec ? '✓ Scrap Gold Stock Added' : '✓ Added to Inventory') : '• Purchase Log Only'}
           </span>
           <div style="display: flex; gap: 8px; align-items: center;">
             <button type="button" class="btn-view-buyback-voucher" style="padding: 6px 14px; font-size: 11px; font-weight: 800; border-radius: 7px; background: rgba(0,214,143,0.15); border: 1px solid rgba(0,214,143,0.4); color: var(--accent-emerald); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.15s ease;">
@@ -10853,7 +11180,7 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
     if (!recordId) return;
     const choice = await showModal({
       title: 'Delete Inward Voucher?',
-      message: `Are you sure you want to delete inward purchase voucher "${voucherNo}"?\n\nThis will permanently remove it from your device buyback ledger.`,
+      message: `Are you sure you want to delete inward purchase voucher "${voucherNo}"?\n\nThis will permanently remove it from your trade-in / buyback ledger.`,
       type: 'danger',
       actions: [
         { id: 'confirm', label: 'Yes, Delete Voucher', style: 'danger' },
@@ -10881,42 +11208,13 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
   async function processCustomerBuyback(e) {
     if (e && e.preventDefault) e.preventDefault();
 
-    // Free Tier Quota Check: 5 Buybacks max on Free Basic plan
-    const existingBuybacks = await getBuybackRecords();
-    const activeTier = (window.getActiveTier && window.getActiveTier()) || 'FREE';
-    if (activeTier === 'FREE' && existingBuybacks.length >= 5) {
-      if (typeof showUpgradeModal === 'function') {
-        showUpgradeModal('customer-buyback');
-      } else {
-        const upgradeChoice = await showModal({
-          title: 'Customer Buy-In Limit Reached',
-          message: 'Free Basic tier includes up to 5 Customer Device Buy-In trade records.\n\nUpgrade to Valenixia Pro for unlimited customer device buybacks, automated multi-store ledger sync, and biometric verification.',
-          type: 'warning',
-          actions: [
-            { id: 'upgrade', label: 'View Upgrade Plans', style: 'primary' },
-            { id: 'close', label: 'Cancel', style: 'secondary' }
-          ]
-        });
-        if (upgradeChoice === 'upgrade' && typeof switchActiveScreen === 'function') {
-          switchActiveScreen('subscription');
-        }
-      }
-      return;
-    }
-
     const sellerName = document.getElementById('buyback-seller-name')?.value?.trim();
     const sellerPhone = document.getElementById('buyback-seller-phone')?.value?.trim();
     const sellerCnic = document.getElementById('buyback-seller-cnic')?.value?.trim();
     const sellerAddress = document.getElementById('buyback-seller-address')?.value?.trim() || '';
 
-    const brand = document.getElementById('buyback-device-brand')?.value || 'Apple';
-    const model = document.getElementById('buyback-device-model')?.value?.trim();
-    const imei1 = document.getElementById('buyback-device-imei1')?.value?.trim();
-    const imei2 = document.getElementById('buyback-device-imei2')?.value?.trim() || '';
-    const color = document.getElementById('buyback-device-color')?.value?.trim() || '';
-    const condition = document.getElementById('buyback-device-condition')?.value || '9/10 Excellent (Minor Signs of Use)';
-
-    const accessoriesChecked = Array.from(document.querySelectorAll('#buyback-accessories-container input:checked')).map(cb => cb.value);
+    const intakeType = document.getElementById('buyback-intake-type')?.value || 'DEVICE';
+    const isGold = intakeType === 'GOLD';
 
     const payoutVal = parseFloat(document.getElementById('buyback-payout-amount')?.value || '0');
     const payoutMethod = document.getElementById('buyback-payout-method')?.value || 'CASH';
@@ -10927,10 +11225,6 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
 
     if (!sellerName || !sellerPhone || !sellerCnic) {
       showNotificationToast('Please provide Seller Name, Phone Number, and CNIC.', 'warning');
-      return;
-    }
-    if (!model || !imei1) {
-      showNotificationToast('Please enter Device Model Name and Primary IMEI / Serial.', 'warning');
       return;
     }
     if (isNaN(payoutVal) || payoutVal <= 0) {
@@ -10944,65 +11238,170 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
 
     const payoutPaise = Math.round(payoutVal * 100);
     const resalePaise = resaleVal > 0 ? Math.round(resaleVal * 100) : Math.round(payoutVal * 1.15 * 100);
+    let record = null;
 
-    const record = {
-      id: 'bb_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
-      voucher_no: `VCH-BUY-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-      seller_name: sellerName,
-      seller_phone: sellerPhone,
-      seller_cnic: sellerCnic,
-      seller_address: sellerAddress,
-      brand,
-      model,
-      imei: imei1,
-      imei1,
-      imei2,
-      color,
-      condition,
-      accessories: accessoriesChecked.join(', ') || 'None',
-      payout_paise: payoutPaise,
-      payout_method: payoutMethod,
-      added_to_inventory: autoInventory,
-      resale_paise: resalePaise,
-      notes,
-      cashier_id: state.activeCashier ? state.activeCashier.id : 'Admin',
-      store_name: state.preferences['store_name'] || 'VALENIXIA MOBILE CENTER',
-      created_at: Date.now()
-    };
+    if (isGold) {
+      const goldItemType = document.getElementById('buyback-gold-item-type')?.value || '22K Gold Jewellery';
+      const karat = document.getElementById('buyback-gold-karat')?.value || '22K';
+      const grossWeight = parseFloat(document.getElementById('buyback-gold-gross-weight')?.value || '0');
+      const stoneDeduction = parseFloat(document.getElementById('buyback-gold-stone-deduction')?.value || '0');
+      const kattPct = parseFloat(document.getElementById('buyback-gold-katt-pct')?.value || '0');
+      const rateGram = parseFloat(document.getElementById('buyback-gold-rate-gram')?.value || '0');
+
+      if (isNaN(grossWeight) || grossWeight <= 0) {
+        showNotificationToast('Please enter a valid gross scale weight in grams.', 'warning');
+        return;
+      }
+      if (isNaN(rateGram) || rateGram <= 0) {
+        showNotificationToast('Please enter the current gold market rate per gram.', 'warning');
+        return;
+      }
+
+      const netWeight = Math.max(0, parseFloat((grossWeight - stoneDeduction).toFixed(3)));
+      const effWeight = Math.max(0, parseFloat((netWeight * (1 - (kattPct / 100))).toFixed(3)));
+      const rateTola = Math.round(rateGram * 11.6638);
+
+      record = {
+        id: 'bb_gold_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+        voucher_no: `VCH-GOLD-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        item_type: 'GOLD',
+        gold_item_type: goldItemType,
+        karat,
+        gross_weight_g: grossWeight,
+        stone_deduction_g: stoneDeduction,
+        net_weight_g: netWeight,
+        wastage_katt_pct: kattPct,
+        effective_weight_g: effWeight,
+        rate_per_gram: rateGram,
+        rate_per_tola: rateTola,
+        brand: 'Precious Metal',
+        model: `${karat} ${goldItemType} (${netWeight}g Net)`,
+        seller_name: sellerName,
+        seller_phone: sellerPhone,
+        seller_cnic: sellerCnic,
+        seller_address: sellerAddress,
+        payout_paise: payoutPaise,
+        payout_method: payoutMethod,
+        added_to_inventory: autoInventory,
+        resale_paise: resalePaise,
+        notes,
+        cashier_id: state.activeCashier ? state.activeCashier.id : 'Admin',
+        store_name: state.preferences['store_name'] || 'VALENIXIA JEWELLERS',
+        created_at: Date.now()
+      };
+
+    } else {
+      const brand = document.getElementById('buyback-device-brand')?.value || 'Apple';
+      const model = document.getElementById('buyback-device-model')?.value?.trim();
+      const imei1 = document.getElementById('buyback-device-imei1')?.value?.trim();
+      const imei2 = document.getElementById('buyback-device-imei2')?.value?.trim() || '';
+      const color = document.getElementById('buyback-device-color')?.value?.trim() || '';
+      const condition = document.getElementById('buyback-device-condition')?.value || '9/10 Excellent (Minor Signs of Use)';
+      const accessoriesChecked = Array.from(document.querySelectorAll('#buyback-accessories-container input:checked')).map(cb => cb.value);
+
+      if (!model || !imei1) {
+        showNotificationToast('Please enter Device Model Name and Primary IMEI / Serial.', 'warning');
+        return;
+      }
+
+      record = {
+        id: 'bb_dev_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+        voucher_no: `VCH-BUY-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        item_type: 'DEVICE',
+        seller_name: sellerName,
+        seller_phone: sellerPhone,
+        seller_cnic: sellerCnic,
+        seller_address: sellerAddress,
+        brand,
+        model,
+        imei: imei1,
+        imei1,
+        imei2,
+        color,
+        condition,
+        accessories: accessoriesChecked.join(', ') || 'None',
+        payout_paise: payoutPaise,
+        payout_method: payoutMethod,
+        added_to_inventory: autoInventory,
+        resale_paise: resalePaise,
+        notes,
+        cashier_id: state.activeCashier ? state.activeCashier.id : 'Admin',
+        store_name: state.preferences['store_name'] || 'VALENIXIA ELECTRONICS',
+        created_at: Date.now()
+      };
+    }
 
     try {
       await saveBuybackRecord(record);
 
       // Auto add to inventory if checked
       if (autoInventory) {
-        const brandCode = brand.replace(/[^a-zA-Z]/g, '').substring(0, 3).toUpperCase() || 'DEV';
-        const usedSku = `USED-${brandCode}-${Date.now().toString().slice(-6)}`;
-        const usedProduct = {
-          sku: usedSku,
-          gtin: imei1,
-          name: `[USED] ${brand} ${model} (${condition.split(' ')[0]})`,
-          category: 'Used Devices',
-          base_price_minor_units: resalePaise,
-          cost_price_minor_units: payoutPaise,
-          stock_level: 1,
-          stock_quantity: 1,
-          stock: 1,
-          unit: 'pcs',
-          emoji: '📱',
-          low_stock_threshold: 0,
-          mode_fields: { imei: imei1, condition, warranty: 'Used / Testing' },
-          created_at: Date.now(),
-          updated_at: Date.now()
-        };
+        if (isGold) {
+          const scrapSku = `SCRAP-GOLD-${(record.karat || '22K').toUpperCase()}-${Date.now().toString().slice(-6)}`;
+          const scrapProduct = {
+            sku: scrapSku,
+            gtin: `SCRAP-${Date.now().toString().slice(-8)}`,
+            name: `[SCRAP-GOLD] ${record.karat} Melting Gold Stock (${record.net_weight_g}g)`,
+            category: 'Scrap & Melting Gold',
+            base_price_minor_units: resalePaise,
+            cost_price_minor_units: payoutPaise,
+            stock_level: record.net_weight_g,
+            stock_quantity: record.net_weight_g,
+            stock: record.net_weight_g,
+            unit: 'g',
+            emoji: '👑',
+            low_stock_threshold: 0,
+            mode_fields: {
+              karat: record.karat,
+              net_weight_g: record.net_weight_g,
+              gross_weight_g: record.gross_weight_g,
+              stone_deduction_g: record.stone_deduction_g,
+              scrap_gold: true
+            },
+            created_at: Date.now(),
+            updated_at: Date.now()
+          };
 
-        await ValenixiaDB.put('inventory_catalog', usedProduct);
-        if (!Array.isArray(state.catalog)) state.catalog = [];
-        state.catalog.unshift(usedProduct);
-        if (syncWorker) syncWorker.postMessage({ type: 'SAVE_PRODUCT', payload: usedProduct });
+          await ValenixiaDB.put('inventory_catalog', scrapProduct);
+          if (!Array.isArray(state.catalog)) state.catalog = [];
+          state.catalog.unshift(scrapProduct);
+          if (syncWorker) syncWorker.postMessage({ type: 'SAVE_PRODUCT', payload: scrapProduct });
+
+        } else {
+          const brandCode = record.brand.replace(/[^a-zA-Z]/g, '').substring(0, 3).toUpperCase() || 'DEV';
+          const usedSku = `USED-${brandCode}-${Date.now().toString().slice(-6)}`;
+          const usedProduct = {
+            sku: usedSku,
+            gtin: record.imei1,
+            name: `[USED] ${record.brand} ${record.model} (${(record.condition || '').split(' ')[0]})`,
+            category: 'Used Devices',
+            base_price_minor_units: resalePaise,
+            cost_price_minor_units: payoutPaise,
+            stock_level: 1,
+            stock_quantity: 1,
+            stock: 1,
+            unit: 'pcs',
+            emoji: '📱',
+            low_stock_threshold: 0,
+            mode_fields: { imei: record.imei1, condition: record.condition, warranty: 'Used / Testing' },
+            created_at: Date.now(),
+            updated_at: Date.now()
+          };
+
+          await ValenixiaDB.put('inventory_catalog', usedProduct);
+          if (!Array.isArray(state.catalog)) state.catalog = [];
+          state.catalog.unshift(usedProduct);
+          if (syncWorker) syncWorker.postMessage({ type: 'SAVE_PRODUCT', payload: usedProduct });
+        }
       }
 
       if (typeof playAudioSignal === 'function') playAudioSignal('success');
       showNotificationToast(`Purchase voucher ${record.voucher_no} generated successfully!`, 'success', 3000);
+
+      // If store credit / trade-in, ask if user wants to apply to active cart
+      if (record.payout_method === 'STORE_CREDIT') {
+        applyTradeInToCart(record);
+      }
 
       // Reset form
       document.getElementById('form-customer-buyback')?.reset();
@@ -11016,7 +11415,7 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
 
     } catch (err) {
       console.error('[Buyback] Process error:', err);
-      showNotificationToast(`Error processing device buy-in: ${err.message}`, 'error');
+      showNotificationToast(`Error processing buyback: ${err.message}`, 'error');
     }
   }
   window.processCustomerBuyback = processCustomerBuyback;
@@ -11030,7 +11429,7 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
     const modal = document.getElementById('modal-buyback-voucher');
     if (!modal) return;
 
-    const storeName = state.preferences['store_name'] || 'VALENIXIA MOBILE CENTER';
+    const storeName = state.preferences['store_name'] || (record.item_type === 'GOLD' ? 'VALENIXIA JEWELLERS' : 'VALENIXIA POS');
     const dateStr = new Date(record.created_at || Date.now()).toLocaleString('en-PK', {
       year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
     });
@@ -11048,30 +11447,62 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
     setT('vch-seller-phone', record.seller_phone);
     setT('vch-seller-cnic', record.seller_cnic);
     setT('vch-seller-address', record.seller_address || 'N/A');
-    setT('vch-device-model', `${record.brand} ${record.model}`);
-    setT('vch-device-color', `${record.color || 'Standard'} / ${record.condition || 'Used'}`);
-    setT('vch-device-imei1', record.imei1 || record.imei);
-    
-    const imei2Row = document.getElementById('vch-imei2-row');
-    if (imei2Row) {
-      if (record.imei2) {
-        imei2Row.style.display = 'block';
-        setT('vch-device-imei2', record.imei2);
-      } else {
-        imei2Row.style.display = 'none';
-      }
-    }
 
-    setT('vch-device-condition', record.condition);
-    setT('vch-device-accessories', record.accessories || 'None');
-    
-    const notesRow = document.getElementById('vch-device-notes-row');
-    if (notesRow) {
-      if (record.notes) {
-        notesRow.style.display = 'block';
-        setT('vch-device-notes', record.notes);
-      } else {
-        notesRow.style.display = 'none';
+    const devBox = document.getElementById('vch-device-box');
+    const goldBox = document.getElementById('vch-gold-box');
+
+    if (record.item_type === 'GOLD') {
+      if (devBox) devBox.style.display = 'none';
+      if (goldBox) goldBox.style.display = 'block';
+
+      setT('vch-gold-item', record.gold_item_type || record.model || 'Gold Jewellery');
+      setT('vch-gold-karat', `${record.karat || '22K'}`);
+      setT('vch-gold-gross-wt', `${(record.gross_weight_g || 0).toFixed(3)} g`);
+      setT('vch-gold-stone-wt', `${(record.stone_deduction_g || 0).toFixed(3)} g`);
+      setT('vch-gold-net-wt', `${(record.net_weight_g || 0).toFixed(3)} g`);
+      setT('vch-gold-katt', `${(record.wastage_katt_pct || 0).toFixed(1)}%`);
+      setT('vch-gold-rate', `Rs. ${(record.rate_per_gram || 0).toLocaleString('en-PK')}`);
+      setT('vch-gold-tola-rate', `Rs. ${(record.rate_per_tola || Math.round((record.rate_per_gram || 0) * 11.6638)).toLocaleString('en-PK')}/tola`);
+      
+      const gNotesRow = document.getElementById('vch-gold-notes-row');
+      if (gNotesRow) {
+        if (record.notes) {
+          gNotesRow.style.display = 'block';
+          setT('vch-gold-notes', record.notes);
+        } else {
+          gNotesRow.style.display = 'none';
+        }
+      }
+
+    } else {
+      if (devBox) devBox.style.display = 'block';
+      if (goldBox) goldBox.style.display = 'none';
+
+      setT('vch-device-model', `${record.brand} ${record.model}`);
+      setT('vch-device-color', `${record.color || 'Standard'} / ${record.condition || 'Used'}`);
+      setT('vch-device-imei1', record.imei1 || record.imei);
+      
+      const imei2Row = document.getElementById('vch-imei2-row');
+      if (imei2Row) {
+        if (record.imei2) {
+          imei2Row.style.display = 'block';
+          setT('vch-device-imei2', record.imei2);
+        } else {
+          imei2Row.style.display = 'none';
+        }
+      }
+
+      setT('vch-device-condition', record.condition);
+      setT('vch-device-accessories', record.accessories || 'None');
+      
+      const notesRow = document.getElementById('vch-device-notes-row');
+      if (notesRow) {
+        if (record.notes) {
+          notesRow.style.display = 'block';
+          setT('vch-device-notes', record.notes);
+        } else {
+          notesRow.style.display = 'none';
+        }
       }
     }
 
@@ -11093,10 +11524,13 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
     const rec = record || activeBuybackVoucherRecord;
     if (!rec) return;
 
+    const isGold = rec.item_type === 'GOLD';
+    const storeName = (state.preferences['store_name'] || (isGold ? "VALENIXIA JEWELLERS" : "VALENIXIA POS")).toUpperCase();
+
     const lines = [
       { text: "================================", size: 9 },
-      { text: "  INWARD DEVICE PURCHASE SLIP  ", bold: true, size: 12 },
-      { text: (state.preferences['store_name'] || "VALENIXIA POS").toUpperCase(), bold: true, size: 11 },
+      { text: isGold ? "   GOLD TRADE-IN & BUYBACK SLIP   " : "  INWARD DEVICE PURCHASE SLIP  ", bold: true, size: 11 },
+      { text: storeName, bold: true, size: 11 },
       { text: "================================", size: 9 },
       { text: `Voucher: ${rec.voucher_no}`, bold: true, size: 9 },
       { text: `Date: ${new Date(rec.created_at || Date.now()).toLocaleString('en-PK')}`, size: 8 },
@@ -11104,12 +11538,31 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
       { text: `Seller: ${rec.seller_name}`, bold: true, size: 9 },
       { text: `Phone:  ${rec.seller_phone}`, size: 8 },
       { text: `CNIC:   ${rec.seller_cnic}`, bold: true, size: 8 },
-      { text: "--------------------------------", size: 9 },
-      { text: `Device: ${rec.brand} ${rec.model}`, bold: true, size: 9 },
-      { text: `IMEI 1: ${rec.imei1 || rec.imei}`, bold: true, size: 8 },
-      rec.imei2 ? { text: `IMEI 2: ${rec.imei2}`, size: 8 } : null,
-      { text: `Grade:  ${rec.condition}`, size: 8 },
-      { text: `Items:  ${rec.accessories}`, size: 8 },
+      { text: "--------------------------------", size: 9 }
+    ];
+
+    if (isGold) {
+      lines.push(
+        { text: `Piece:  ${rec.gold_item_type || rec.model}`, bold: true, size: 9 },
+        { text: `Karat:  ${rec.karat || '22K'}`, bold: true, size: 9 },
+        { text: `Gross Scale Wt: ${(rec.gross_weight_g || 0).toFixed(3)} g`, size: 8 },
+        { text: `Stone Deduction: ${(rec.stone_deduction_g || 0).toFixed(3)} g`, size: 8 },
+        { text: `NET GOLD WT: ${(rec.net_weight_g || 0).toFixed(3)} g`, bold: true, size: 9 },
+        { text: `Melting Katt: ${(rec.wastage_katt_pct || 0).toFixed(1)}%`, size: 8 },
+        { text: `Pure Yield: ${(rec.effective_weight_g || 0).toFixed(3)} g`, size: 8 },
+        { text: `Gold Rate: Rs. ${(rec.rate_per_gram || 0).toLocaleString('en-PK')}/g`, size: 8 }
+      );
+    } else {
+      lines.push(
+        { text: `Device: ${rec.brand} ${rec.model}`, bold: true, size: 9 },
+        { text: `IMEI 1: ${rec.imei1 || rec.imei}`, bold: true, size: 8 },
+        rec.imei2 ? { text: `IMEI 2: ${rec.imei2}`, size: 8 } : null,
+        { text: `Grade:  ${rec.condition}`, size: 8 },
+        { text: `Items:  ${rec.accessories}`, size: 8 }
+      );
+    }
+
+    lines.push(
       { text: "================================", size: 9 },
       { text: `PAYOUT: Rs. ${((rec.payout_paise || 0) / 100).toFixed(2)}`, bold: true, size: 13 },
       { text: `Method: ${rec.payout_method}`, size: 9 },
@@ -11120,36 +11573,83 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
       { text: "Seller Signature & Thumbprint", size: 8 },
       { text: "\n\n________________________", size: 9 },
       { text: "Store Authorized Stamp", size: 8 }
-    ].filter(Boolean);
+    );
 
+    const validLines = lines.filter(Boolean);
     if (typeof window.printThermalReceiptDirect === 'function') {
-      window.printThermalReceiptDirect(lines);
+      window.printThermalReceiptDirect(validLines);
     } else {
       window.print();
     }
   }
   window.printBuybackThermal = printBuybackThermal;
 
+  function applyTradeInToCart(tradeInRecord) {
+    if (!tradeInRecord) return;
+    const valuationMinor = tradeInRecord.payout_paise || 0;
+    const valuationPKR = valuationMinor / 100;
+    if (valuationPKR <= 0) return;
+
+    if (!Array.isArray(state.activeCart)) state.activeCart = [];
+
+    const isGold = tradeInRecord.item_type === 'GOLD';
+    const desc = isGold
+      ? `${tradeInRecord.karat || '22K'} Old Gold (${tradeInRecord.net_weight_g || 0}g)`
+      : `${tradeInRecord.brand || ''} ${tradeInRecord.model || 'Device'}`;
+
+    const existingIdx = state.activeCart.findIndex(item => item.isTradeInCredit || (item.sku && item.sku.startsWith('TRADEIN-CREDIT')));
+    const tradeInLineItem = {
+      sku: `TRADEIN-CREDIT-${Date.now().toString().slice(-6)}`,
+      name: `Trade-In Exchange Credit (${tradeInRecord.voucher_no || 'VCH'})`,
+      displayName: `[TRADE-IN OFFSET] ${desc} - ${tradeInRecord.voucher_no}`,
+      base_price_minor_units: -Math.abs(valuationMinor),
+      price: -Math.abs(valuationMinor),
+      cost_price_minor_units: 0,
+      cost: 0,
+      quantity: 1,
+      qty: 1,
+      emoji: '🪙',
+      isTradeInCredit: true,
+      tradeInVoucher: tradeInRecord.voucher_no,
+      tradeInRecord: tradeInRecord
+    };
+
+    if (existingIdx >= 0) {
+      state.activeCart[existingIdx] = tradeInLineItem;
+    } else {
+      state.activeCart.push(tradeInLineItem);
+    }
+
+    if (typeof renderCart === 'function') renderCart();
+    try { if (typeof playAudioSignal === 'function') playAudioSignal('success'); } catch (_) {}
+    showNotificationToast(`Trade-In credit of Rs. ${valuationPKR.toLocaleString('en-PK')} applied to cart!`, 'success', 3500);
+
+    if (state.activeScreen !== 'checkout' && typeof switchActiveScreen === 'function') {
+      switchActiveScreen('checkout');
+    }
+  }
+  window.applyTradeInToCart = applyTradeInToCart;
+
   function exportBuybackCsv() {
     getBuybackRecords().then(records => {
       if (!records || records.length === 0) {
-        showNotificationToast('No buy-in records to export.', 'info');
+        showNotificationToast('No buyback records to export.', 'info');
         return;
       }
-      const headers = ['Voucher No', 'Date', 'Seller Name', 'Seller Phone', 'Seller CNIC', 'Seller Address', 'Brand', 'Model', 'IMEI 1', 'IMEI 2', 'Condition', 'Accessories', 'Payout PKR', 'Payment Method', 'Added to Inventory', 'Notes'];
+      const headers = ['Voucher No', 'Date', 'Type', 'Seller Name', 'Seller Phone', 'Seller CNIC', 'Seller Address', 'Item Description', 'Karat', 'Net Weight (g)', 'Melting Loss (%)', 'Rate/Gram', 'Payout PKR', 'Payment Method', 'Added to Inventory', 'Notes'];
       const rows = records.map(r => [
         `"${r.voucher_no || ''}"`,
         `"${new Date(r.created_at || Date.now()).toISOString()}"`,
+        `"${r.item_type || 'DEVICE'}"`,
         `"${(r.seller_name || '').replace(/"/g, '""')}"`,
         `"${r.seller_phone || ''}"`,
         `"${r.seller_cnic || ''}"`,
         `"${(r.seller_address || '').replace(/"/g, '""')}"`,
-        `"${r.brand || ''}"`,
-        `"${(r.model || '').replace(/"/g, '""')}"`,
-        `"${r.imei1 || r.imei || ''}"`,
-        `"${r.imei2 || ''}"`,
-        `"${r.condition || ''}"`,
-        `"${(r.accessories || '').replace(/"/g, '""')}"`,
+        `"${(r.model || r.gold_item_type || '').replace(/"/g, '""')}"`,
+        `"${r.karat || ''}"`,
+        r.net_weight_g || '',
+        r.wastage_katt_pct || '',
+        r.rate_per_gram || '',
         ((r.payout_paise || 0) / 100).toFixed(2),
         `"${r.payout_method || ''}"`,
         r.added_to_inventory ? 'YES' : 'NO',
@@ -11178,12 +11678,63 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
   });
   document.getElementById('btn-export-buyback-csv')?.addEventListener('click', exportBuybackCsv);
   document.getElementById('buyback-search-input')?.addEventListener('input', renderCustomerBuybackScreen);
+  
+  document.getElementById('btn-buyback-tab-device')?.addEventListener('click', () => switchBuybackIntakeTab('DEVICE'));
+  document.getElementById('btn-buyback-tab-gold')?.addEventListener('click', () => switchBuybackIntakeTab('GOLD'));
+
+  ['buyback-gold-gross-weight', 'buyback-gold-stone-deduction', 'buyback-gold-katt-pct', 'buyback-gold-rate-gram', 'buyback-gold-karat'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', recalcCustomerBuybackGold);
+    document.getElementById(id)?.addEventListener('change', recalcCustomerBuybackGold);
+  });
+
+  document.querySelectorAll('.buyback-gold-step-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const delta = parseFloat(btn.dataset.delta || '0');
+      const grossInput = document.getElementById('buyback-gold-gross-weight');
+      if (grossInput) {
+        const cur = parseFloat(grossInput.value || '0');
+        grossInput.value = Math.max(0.01, parseFloat((cur + delta).toFixed(3)));
+        recalcCustomerBuybackGold();
+      }
+    });
+  });
+
+  document.getElementById('btn-checkout-tradein')?.addEventListener('click', () => {
+    const shopMode = (state && state.preferences && (state.preferences['shop_mode'] || state.preferences['store_type'])) ||
+      (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_shop_mode')) || 'simple-retail';
+    const isJewellery = shopMode === 'jewellery' || shopMode === 'jewellery-gold' || shopMode === 'jewelry-luxury' || shopMode === 'pawn-gold';
+
+    if (isJewellery && window.ValenixiaJewellery && typeof window.ValenixiaJewellery.openGoldTradeInModal === 'function') {
+      window.ValenixiaJewellery.openGoldTradeInModal({}, (tradeInResult) => {
+        applyTradeInToCart({
+          id: 'bb_gold_' + Date.now(),
+          voucher_no: `VCH-EXCH-${Date.now().toString().slice(-5)}`,
+          item_type: 'GOLD',
+          karat: tradeInResult.karat,
+          gold_item_type: 'Customer Gold Exchange',
+          net_weight_g: tradeInResult.netWeightGrams,
+          payout_paise: tradeInResult.valuationMinorUnits,
+          payout_method: 'STORE_CREDIT'
+        });
+      });
+    } else {
+      if (typeof switchActiveScreen === 'function') {
+        switchActiveScreen('customer-buyback');
+      }
+    }
+  });
+
+  document.getElementById('btn-pay-mode-tradein')?.addEventListener('click', () => {
+    document.getElementById('btn-checkout-tradein')?.click();
+  });
+
   document.getElementById('btn-clear-buyback-form')?.addEventListener('click', () => {
     document.getElementById('form-customer-buyback')?.reset();
     const legalBox = document.getElementById('buyback-legal-agreed');
     if (legalBox) legalBox.checked = true;
     const invToggle = document.getElementById('buyback-inventory-toggle');
     if (invToggle) invToggle.checked = true;
+    recalcCustomerBuybackGold();
   });
 
   document.getElementById('btn-close-buyback-modal')?.addEventListener('click', () => {
@@ -13960,6 +14511,39 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
       };
     }
 
+    const clearHistBtn = document.getElementById('btn-analytics-clear-history');
+    if (clearHistBtn) {
+      clearHistBtn.onclick = async (e) => {
+        e.preventDefault();
+        try { playAudioSignal('click'); } catch(_) {}
+        const confirmed = confirm('Clear All Sales History? This will purge recorded transactions and reset all telemetry counters. Continue?');
+        if (!confirmed) return;
+
+        try {
+          if (typeof ValenixiaDB !== 'undefined' && typeof ValenixiaDB.getAll === 'function') {
+            const allTxs = await ValenixiaDB.getAll('transactions');
+            for (const tx of allTxs) {
+              if (tx && tx.id) {
+                await ValenixiaDB.delete('transactions', tx.id);
+              }
+            }
+          }
+          state.transactions = [];
+          if (syncWorker) {
+            syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
+          }
+          calculateAnalytics();
+          if (typeof showNotificationToast === 'function') {
+            showNotificationToast('Sales history cleared successfully.', 'success', 3000);
+          }
+        } catch (err) {
+          console.warn('[Analytics] Failed to clear transactions:', err);
+          state.transactions = [];
+          calculateAnalytics();
+        }
+      };
+    }
+
     // Bind Filter Dropdowns & Reset Button
     const filters = ensureAnalyticsFiltersInitialized();
     const filterKeys = ['branch', 'terminal', 'cashier', 'category', 'payment'];
@@ -14337,13 +14921,27 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
       });
 
       const histEl = document.getElementById('analytics-histogram-bars');
-      if (histEl)setHtml(histEl, '<p class="text-center text-muted" style="width:100%;">No sales history to plot chart.</p>');
+      if (histEl) setHtml(histEl, '<p class="text-center text-muted" style="width:100%;">No sales history to plot chart.</p>');
       
+      const insightsRow = document.getElementById('analytics-hourly-insights-row');
+      if (insightsRow) {
+        insightsRow.replaceChildren();
+        const peakBadge = document.createElement('div');
+        peakBadge.style.cssText = 'padding: 4px 10px; border-radius: 20px; background: rgba(100, 116, 139, 0.1); border: 1px solid rgba(100, 116, 139, 0.2); color: var(--text-gray); font-size: 10px; font-weight: 700;';
+        peakBadge.textContent = (state.analyticsRange || 'today') === 'today' ? 'No sales recorded yet today' : 'No sales in selected range';
+        insightsRow.appendChild(peakBadge);
+      }
+
+      const peakEl = document.getElementById('analytics-insight-peak-hour');
+      if (peakEl) peakEl.textContent = 'No data';
+      const topPayEl = document.getElementById('analytics-insight-top-payment');
+      if (topPayEl) topPayEl.textContent = '--';
+
       const catChart = document.getElementById('analytics-category-chart');
-      if (catChart)setHtml(catChart, '<p class="text-muted" style="text-align: center; margin-top: 20px;">No category sales data to display for this timeframe.</p>');
+      if (catChart) setHtml(catChart, '<p class="text-muted" style="text-align: center; margin-top: 20px;">No category sales data to display for this timeframe.</p>');
 
       const paySplit = document.getElementById('analytics-payment-split');
-      if (paySplit)setHtml(paySplit, '<p class="text-muted" style="text-align: center; margin-top: 20px;">No transactions recorded for this range.</p>');
+      if (paySplit) setHtml(paySplit, '<p class="text-muted" style="text-align: center; margin-top: 20px;">No transactions recorded for this range.</p>');
 
       return;
     }

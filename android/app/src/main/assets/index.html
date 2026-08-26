@@ -532,7 +532,13 @@
                   <span class="title">Active Order</span>
                   <button class="btn-toggle-catalog" id="btn-toggle-quick-catalog" style="background: transparent; border: 1px solid var(--border-titanium); color: var(--text-gray); font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 4px; cursor: pointer; transition: var(--transition-tactile); min-height: 24px; text-transform: uppercase; letter-spacing: 0.5px;">Hide Grid</button>
                 </div>
-                <button class="btn-clear-cart action-danger" id="btn-void-order">Void Order</button>
+                <div style="display: flex; gap: 6px; align-items: center;">
+                  <button type="button" class="action-btn" id="btn-checkout-tradein" style="background: rgba(255,215,0,0.12); border: 1px solid rgba(255,215,0,0.4); color: #ffd700; font-size: 10.5px; font-weight: 800; padding: 4px 10px; display: inline-flex; align-items: center; gap: 5px; border-radius: 4px; cursor: pointer;" title="Exchange Old Gold / Device against this order">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                    <span>Trade-In</span>
+                  </button>
+                  <button class="btn-clear-cart action-danger" id="btn-void-order">Void Order</button>
+                </div>
               </div>
 
               <!-- Dynamic Store-Mode Order Type Bar -->
@@ -694,6 +700,10 @@
                     <svg class="svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z"/><path d="M6 6h10M6 10h10"/></svg>
                     <span class="pay-btn-label">Credit (Udhaar)</span>
                   </button>
+                  <button class="payment-btn" data-mode="TRADE_IN" id="btn-pay-mode-tradein" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 11px;">
+                    <svg class="svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                    <span class="pay-btn-label">Trade-In</span>
+                  </button>
                 </div>
 
                 <!-- Hidden split details form -->
@@ -798,7 +808,7 @@
                 <div style="display: flex; flex-direction: column; gap: 10px;">
                   <a href="/downloads/valenixia-pos.apk" download="valenixia-pos.apk" id="btn-download-apk" class="action-btn action-success" style="display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; padding: 12px 20px; font-weight: 800; font-size: 12.5px; border-radius: 10px; background: linear-gradient(135deg, #00d68f 0%, #00b377 100%); color: #03180f; box-shadow: 0 4px 14px rgba(0,214,143,0.3);">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    <span class="btn-text">DOWNLOAD ANDROID APK (16.25 MB)</span>
+                    <span class="btn-text">DOWNLOAD ANDROID APK (16.74 MB)</span>
                   </a>
                   
                   <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
@@ -806,7 +816,7 @@
                     <a href="/downloads/Valenixia-POS-v3.1.0-armeabi-v7a.apk" download="Valenixia-POS-v3.1.0-armeabi-v7a.apk" style="font-size: 10px; padding: 6px 4px; text-align: center; text-decoration: none; border-radius: 6px; font-weight: 700; background: rgba(255,255,255,0.04); color: var(--text-gray); border: 1px solid var(--border-titanium);">ARMv7 (32-bit)</a>
                     <a href="/downloads/Valenixia-POS-v3.1.0-x86_64.apk" download="Valenixia-POS-v3.1.0-x86_64.apk" style="font-size: 10px; padding: 6px 4px; text-align: center; text-decoration: none; border-radius: 6px; font-weight: 700; background: rgba(255,255,255,0.04); color: var(--text-gray); border: 1px solid var(--border-titanium);">x86_64 (Intel)</a>
                   </div>
-                  <span style="font-family: var(--font-mono); font-size: 10.5px; color: var(--text-gray); text-align: center;">valenixia-pos.apk • 16.25 MB • Android 8.0+</span>
+                  <span style="font-family: var(--font-mono); font-size: 10.5px; color: var(--text-gray); text-align: center;">valenixia-pos.apk • 16.74 MB • Android 8.0+</span>
                 </div>
               </div>
 
@@ -1054,11 +1064,24 @@
               <!-- Form Column -->
               <div class="cloud-vault-card" style="padding: 20px; border-radius: 12px; border: 1px solid var(--border-titanium); display: flex; flex-direction: column; gap: 16px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-titanium); padding-bottom: 10px;">
-                  <span style="font-size: 13px; font-weight: 800; color: var(--text-white); text-transform: uppercase; letter-spacing: 0.5px;">Customer Device Intake Form</span>
+                  <span style="font-size: 13px; font-weight: 800; color: var(--text-white); text-transform: uppercase; letter-spacing: 0.5px;">Customer Trade-In &amp; Buyback Intake</span>
                   <button type="button" class="action-btn" id="btn-clear-buyback-form" style="font-size: 11px; padding: 4px 10px;">Clear Form</button>
                 </div>
 
+                <!-- Intake Type Selector (Mobile/Electronics vs Gold/Jewellery) -->
+                <div style="display: flex; gap: 8px; background: rgba(0,0,0,0.3); padding: 4px; border-radius: 8px; border: 1px solid var(--border-titanium);" id="buyback-intake-type-toggle">
+                  <button type="button" id="btn-buyback-tab-device" class="action-btn active" style="flex: 1; font-size: 11.5px; font-weight: 800; padding: 7px 10px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                    Mobile &amp; Electronics
+                  </button>
+                  <button type="button" id="btn-buyback-tab-gold" class="action-btn" style="flex: 1; font-size: 11.5px; font-weight: 800; padding: 7px 10px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#ffd700" stroke-width="2"><path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20"/><path d="M10 3l2 6 2-6"/></svg>
+                    Gold &amp; Jewellery Trade-In
+                  </button>
+                </div>
+
                 <form id="form-customer-buyback" autocomplete="off" onsubmit="event.preventDefault();">
+                  <input type="hidden" id="buyback-intake-type" value="DEVICE">
                   
                   <!-- Section 1: Seller Details -->
                   <div style="margin-bottom: 14px;">
@@ -1085,13 +1108,13 @@
                     </div>
                   </div>
 
-                  <!-- Section 2: Device Specs -->
-                  <div style="margin-bottom: 14px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
+                  <!-- Section 2A: Device Specs (Mobile / Electronics) -->
+                  <div id="buyback-device-section" style="margin-bottom: 14px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
                     <span style="font-size: 11px; font-weight: 800; color: #3b82f6; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px;">2. Device &amp; Hardware Specifications</span>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
                       <div>
                         <label for="buyback-device-brand" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Brand / Manufacturer *</label>
-                        <select id="buyback-device-brand" class="pos-input" required style="font-size: 12px;" aria-label="Device Brand">
+                        <select id="buyback-device-brand" class="pos-input" style="font-size: 12px;" aria-label="Device Brand">
                           <option value="Apple">Apple iPhone</option>
                           <option value="Samsung">Samsung</option>
                           <option value="Xiaomi">Xiaomi / Redmi</option>
@@ -1107,14 +1130,14 @@
                       </div>
                       <div>
                         <label for="buyback-device-model" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Model Name &amp; Storage *</label>
-                        <input type="text" id="buyback-device-model" class="pos-input" placeholder="e.g. iPhone 13 Pro 256GB" required style="font-size: 12px;" aria-label="Model Name">
+                        <input type="text" id="buyback-device-model" class="pos-input" placeholder="e.g. iPhone 13 Pro 256GB" style="font-size: 12px;" aria-label="Model Name">
                       </div>
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
                       <div>
                         <label for="buyback-device-imei1" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Primary IMEI 1 / Serial # *</label>
-                        <input type="text" id="buyback-device-imei1" class="pos-input" placeholder="15-digit IMEI or Serial" required style="font-size: 12px; font-family: var(--font-mono);" aria-label="Primary IMEI">
+                        <input type="text" id="buyback-device-imei1" class="pos-input" placeholder="15-digit IMEI or Serial" style="font-size: 12px; font-family: var(--font-mono);" aria-label="Primary IMEI">
                       </div>
                       <div>
                         <label for="buyback-device-imei2" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Secondary IMEI 2 (eSIM/Dual)</label>
@@ -1151,6 +1174,97 @@
                     </div>
                   </div>
 
+                  <!-- Section 2B: Gold & Precious Metals Specs -->
+                  <div id="buyback-gold-section" style="display: none; margin-bottom: 14px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
+                    <span style="font-size: 11px; font-weight: 800; color: #ffd700; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px;">2. Gold &amp; Precious Metal Specifications (سونے کی تفصیلات)</span>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                      <div>
+                        <label for="buyback-gold-item-type" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Piece / Item Type *</label>
+                        <select id="buyback-gold-item-type" class="pos-input" style="font-size: 12px;" aria-label="Gold Item Type">
+                          <option value="22K Old Bridal Jewellery Sets">22K Old Bridal Jewellery Set (زیور)</option>
+                          <option value="21K Gold Bangles & Kangan" selected>21K Gold Bangles / Kangan (چوڑیاں)</option>
+                          <option value="18K Diamond / Gemstone Ring">18K Diamond / Gemstone Ring (انگوٹھی)</option>
+                          <option value="Gold Chains & Necklaces">Gold Chains &amp; Necklaces (ہار / چین)</option>
+                          <option value="Pure 24K Gold Bar / Coin">Pure 24K Gold Bar / Coin (بسکٹ)</option>
+                          <option value="925 Sterling Silver Jewellery">925 Sterling Silver Jewellery (چاندی)</option>
+                          <option value="Scrap & Melting Gold (Kacha Sona)">Scrap &amp; Melting Gold (کچا سونا)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label for="buyback-gold-karat" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Karat Purity Grade *</label>
+                        <select id="buyback-gold-karat" class="pos-input" style="font-size: 12px; font-weight: 700; color: #ffd700;" aria-label="Gold Karat Grade">
+                          <option value="24K">24K Pure Gold (99.9%)</option>
+                          <option value="22K" selected>22K Standard Jewellery (91.6%)</option>
+                          <option value="21K">21K Gulf Gold (87.5%)</option>
+                          <option value="18K">18K Diamond / Gem Setting (75.0%)</option>
+                          <option value="14K">14K Commercial Gold (58.3%)</option>
+                          <option value="925">925 Sterling Silver</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <!-- Rates & Weight Calculator Box -->
+                    <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-titanium); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px;">
+                      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                        <div>
+                          <label for="buyback-gold-gross-weight" style="font-size: 10.5px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Gross Scale Wt (g) *</label>
+                          <input type="number" id="buyback-gold-gross-weight" class="pos-input" placeholder="0.000" min="0.01" step="0.001" value="10.000" style="font-size: 13px; font-weight: 800; color: var(--text-white);" aria-label="Gross Gold Weight">
+                        </div>
+                        <div>
+                          <label for="buyback-gold-stone-deduction" style="font-size: 10.5px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Stone/Nagina (g)</label>
+                          <input type="number" id="buyback-gold-stone-deduction" class="pos-input" placeholder="0.000" min="0" step="0.001" value="0.000" style="font-size: 13px; font-weight: 800; color: #ef4444;" aria-label="Stone Deduction">
+                        </div>
+                        <div>
+                          <label style="font-size: 10.5px; font-weight: 700; color: #00d68f; display: block; margin-bottom: 4px;">Net Metal Wt (g)</label>
+                          <div id="buyback-gold-net-weight-display" style="padding: 7px 10px; background: rgba(0,214,143,0.1); border: 1px solid rgba(0,214,143,0.3); border-radius: 6px; font-size: 13px; font-weight: 900; color: #00d68f; text-align: right;">10.000 g</div>
+                        </div>
+                      </div>
+
+                      <!-- Quick Gross Weight Step Adjusters -->
+                      <div style="display: flex; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: wrap;">
+                        <span style="font-size: 10px; color: var(--text-gray); margin-right: auto;">Gross Weight Step:</span>
+                        <button type="button" class="action-btn buyback-gold-step-btn" data-delta="0.5" style="font-size: 10px; padding: 2px 7px;">+0.5g</button>
+                        <button type="button" class="action-btn buyback-gold-step-btn" data-delta="1.0" style="font-size: 10px; padding: 2px 7px;">+1.0g</button>
+                        <button type="button" class="action-btn buyback-gold-step-btn" data-delta="5.0" style="font-size: 10px; padding: 2px 7px;">+5.0g</button>
+                        <button type="button" class="action-btn buyback-gold-step-btn" data-delta="-1.0" style="font-size: 10px; padding: 2px 7px;">-1.0g</button>
+                      </div>
+
+                      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: center; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px;">
+                        <div>
+                          <label for="buyback-gold-rate-gram" style="font-size: 10.5px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Market Rate / Gram (PKR) *</label>
+                          <div style="position: relative;">
+                            <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 800; color: #ffd700;">Rs.</span>
+                            <input type="number" id="buyback-gold-rate-gram" class="pos-input" placeholder="e.g. 21612" min="1" step="1" style="padding-left: 30px; font-size: 12px; font-weight: 800; color: var(--text-white);" aria-label="Gold Rate Per Gram">
+                          </div>
+                        </div>
+                        <div>
+                          <label for="buyback-gold-katt-pct" style="font-size: 10.5px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Melting Loss / Katt (% کاٹ)</label>
+                          <div style="position: relative;">
+                            <input type="number" id="buyback-gold-katt-pct" class="pos-input" placeholder="e.g. 2.0" min="0" max="50" step="0.1" value="2.0" style="font-size: 12px; font-weight: 700;" aria-label="Melting Katt Percentage">
+                            <span style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10px; color: var(--text-gray);">%</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Pure Yield Summary -->
+                      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-gray); border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 6px;">
+                        <span>Pure Melt Yield: <strong id="buyback-gold-eff-weight-display" style="color: var(--text-white);">9.800 g (98%)</strong></span>
+                        <span>Gold Rate/Tola: <strong id="buyback-gold-rate-tola-display" style="color: #ffd700;">Rs. 252,083</strong></span>
+                      </div>
+                    </div>
+
+                    <!-- Live Gold Valuation Banner -->
+                    <div style="background: linear-gradient(135deg, rgba(255,215,0,0.12), rgba(0,214,143,0.1)); border: 1px solid rgba(255,215,0,0.4); border-radius: 8px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+                      <div>
+                        <span style="font-size: 10px; font-weight: 800; color: #ffd700; text-transform: uppercase; letter-spacing: 0.5px; display: block;">Calculated Gold Trade-In Valuation</span>
+                        <span style="font-size: 9.5px; color: var(--text-gray);">Effective Metal &times; Market Rate</span>
+                      </div>
+                      <span id="buyback-gold-valuation-display" style="font-size: 17px; font-weight: 900; color: #ffd700; font-family: var(--font-display);">Rs. 0</span>
+                    </div>
+
+                  </div>
+
                   <!-- Section 3: Financial Valuation & Inventory Sync -->
                   <div style="margin-bottom: 14px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
                     <span style="font-size: 11px; font-weight: 800; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px;">3. Purchase Valuation &amp; Payout</span>
@@ -1176,20 +1290,20 @@
                     <!-- Add to inventory toggle -->
                     <div style="background: rgba(0,214,143,0.06); border: 1px solid rgba(0,214,143,0.2); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px;">
                       <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
-                        <span style="font-size: 11.5px; font-weight: 700; color: var(--text-white);">
-                          Add to Catalog as Used Inventory Stock
+                        <span id="buyback-inv-label" style="font-size: 11.5px; font-weight: 700; color: var(--text-white);">
+                          Add to Catalog as Used / Scrap Inventory Stock
                         </span>
                         <input type="checkbox" id="buyback-inventory-toggle" checked style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
                       </label>
                       <div id="buyback-resale-row" style="margin-top: 8px; display: flex; align-items: center; gap: 8px;">
-                        <label for="buyback-resale-price" style="font-size: 10.5px; color: var(--text-gray); white-space: nowrap;">Target Resale Price (PKR):</label>
+                        <label for="buyback-resale-price" style="font-size: 10.5px; color: var(--text-gray); white-space: nowrap;">Target Resale / Scrap Price (PKR):</label>
                         <input type="number" id="buyback-resale-price" class="pos-input" placeholder="e.g. 88000" min="0" step="1" style="font-size: 11.5px; height: 28px; flex: 1;" aria-label="Target Resale Price">
                       </div>
                     </div>
 
                     <div>
-                      <label for="buyback-notes" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Diagnostic Notes / PTA Status</label>
-                      <input type="text" id="buyback-notes" class="pos-input" placeholder="e.g. PTA Approved • Battery 89% • Face ID working" style="font-size: 11px;" aria-label="Diagnostic Notes">
+                      <label for="buyback-notes" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Diagnostic / Hallmarking Notes</label>
+                      <input type="text" id="buyback-notes" class="pos-input" placeholder="e.g. Tested with acid & stone • 22K Hallmarked • Battery 89%" style="font-size: 11px;" aria-label="Diagnostic Notes">
                     </div>
                   </div>
 
@@ -1198,7 +1312,7 @@
                     <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer;">
                       <input type="checkbox" id="buyback-legal-agreed" required checked style="margin-top: 2px; accent-color: #ef4444;">
                       <span style="font-size: 10.5px; color: var(--text-gray); line-height: 1.4;">
-                        <strong>Legal Declaration &amp; Ownership Transfer:</strong> The seller affirms that this device is their lawful personal property, has not been stolen or blacklisted, and unconditionally transfers all ownership rights to the store.
+                        <strong>Legal Declaration &amp; Ownership Transfer:</strong> The seller affirms that this item/gold is their lawful personal property, has not been stolen, pledged, or encumbered, and unconditionally transfers all ownership rights to the store.
                       </span>
                     </label>
                   </div>
@@ -4574,7 +4688,7 @@
           </div>
 
           <!-- Device Info Box -->
-          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:10px 12px; margin-bottom:12px;">
+          <div id="vch-device-box" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:10px 12px; margin-bottom:12px;">
             <div style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Device &amp; Hardware Details</div>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:11.5px; color:#1e293b;">
               <div><strong>Brand &amp; Model:</strong> <span id="vch-device-model">---</span></div>
@@ -4586,6 +4700,23 @@
             </div>
             <div style="margin-top:6px; font-size:11px; color:#475569;" id="vch-device-notes-row">
               <strong>Notes:</strong> <span id="vch-device-notes">---</span>
+            </div>
+          </div>
+
+          <!-- Gold & Bullion Info Box -->
+          <div id="vch-gold-box" style="display:none; background:#fffbeb; border:1px solid #fef3c7; border-radius:6px; padding:10px 12px; margin-bottom:12px;">
+            <div style="font-size:10px; font-weight:800; color:#b45309; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Precious Metal Specifications (سونے کی تفصیلات)</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:11.5px; color:#1e293b;">
+              <div><strong>Piece / Item:</strong> <span id="vch-gold-item">---</span></div>
+              <div><strong>Karat Purity:</strong> <span id="vch-gold-karat" style="font-weight:800; color:#b45309;">---</span></div>
+              <div><strong>Gross Weight:</strong> <span id="vch-gold-gross-wt">0.000 g</span></div>
+              <div><strong>Stone Deduction:</strong> <span id="vch-gold-stone-wt" style="color:#dc2626;">0.000 g</span></div>
+              <div><strong>Net Metal Weight:</strong> <span id="vch-gold-net-wt" style="font-weight:800; color:#166534;">0.000 g</span></div>
+              <div><strong>Melting Loss / Katt:</strong> <span id="vch-gold-katt">0.0%</span></div>
+              <div style="grid-column:1/-1;"><strong>Market Rate / Gram:</strong> <span id="vch-gold-rate" style="font-weight:700;">Rs. 0</span> (<span id="vch-gold-tola-rate">Rs. 0/tola</span>)</div>
+            </div>
+            <div style="margin-top:6px; font-size:11px; color:#475569;" id="vch-gold-notes-row">
+              <strong>Hallmark / Testing:</strong> <span id="vch-gold-notes">---</span>
             </div>
           </div>
 
@@ -4602,7 +4733,7 @@
 
           <!-- Legal Undertaking Declaration -->
           <div style="border-top:1px dashed #cbd5e1; padding-top:10px; margin-bottom:18px; font-size:9.5px; color:#475569; line-height:1.4;">
-            <strong>LEGAL UNDERTAKING &amp; DECLARATION:</strong> I, the undersigned seller, hereby solemnly affirm and declare that the mobile phone / device described above is my bona fide, lawfully acquired personal property. It is free from any legal dispute, pledge, crime, theft, or PTA blacklist. I hereby surrender and transfer all ownership rights, title, and interest to the store upon receiving the agreed consideration above.
+            <strong>LEGAL UNDERTAKING &amp; DECLARATION:</strong> I, the undersigned seller, hereby solemnly affirm and declare that the mobile device / precious metal item described above is my bona fide, lawfully acquired personal property. It is free from any legal dispute, pledge, crime, theft, or encumbrance. I hereby surrender and transfer all ownership rights, title, and interest to the store upon receiving the agreed consideration above.
           </div>
 
           <!-- Signature Rows -->

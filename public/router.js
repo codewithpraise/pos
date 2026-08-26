@@ -266,7 +266,7 @@
           : (typeof global.isBuybackSupported === 'function' ? global.isBuybackSupported() : false);
         if (!isSupported) {
           if (typeof global.showNotificationToast === 'function') {
-            global.showNotificationToast('Device Buy-In & Trade-In is only available for Mobile & Electronics store modes.', 'info', 4000);
+            global.showNotificationToast('Customer Trade-In & Buyback is only available for Mobile & Jewellery store modes.', 'info', 4000);
           }
           return this.navigateTo('checkout', { push: false });
         }

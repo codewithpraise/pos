@@ -193,6 +193,57 @@
   }
 
   /**
+   * Calculate Gold / Bullion / Old Jewellery Trade-In Valuation
+   * @param {Object} spec
+   * @param {string} spec.karat - '24K' | '22K' | '21K' | '18K' | '14K' | '925'
+   * @param {number} spec.grossWeightGrams - Gross scale weight in grams
+   * @param {number} spec.stoneDeductionGrams - Deducted weight for stones, enamel, beads, wax
+   * @param {number} [spec.wastagePct] - Melting / Katt % deduction (e.g. 2.0%)
+   * @param {number} [spec.goldRatePerGram] - Rate override (optional, defaults to currentRates)
+   * @param {number} [spec.goldRatePerTola] - Rate per tola override (optional)
+   * @returns {Object} Full breakdown of trade-in value
+   */
+  function calculateGoldTradeIn(spec) {
+    if (!spec) return null;
+    const karat = spec.karat || '22K';
+    const grossWeight = Math.max(0, parseFloat(spec.grossWeightGrams || spec.grossWeight || 0));
+    const stoneDeduction = Math.max(0, parseFloat(spec.stoneDeductionGrams || spec.stoneWeight || 0));
+    const netWeight = Math.max(0, parseFloat((grossWeight - stoneDeduction).toFixed(3)));
+    
+    const wastagePct = Math.max(0, parseFloat(spec.wastagePct !== undefined ? spec.wastagePct : (spec.kattPct !== undefined ? spec.kattPct : (currentRates.defaultWastagePct || 2.0))));
+    
+    let ratePerGram = 0;
+    if (spec.goldRatePerGram && spec.goldRatePerGram > 0) {
+      ratePerGram = parseFloat(spec.goldRatePerGram);
+    } else if (spec.goldRatePerTola && spec.goldRatePerTola > 0) {
+      ratePerGram = parseFloat(spec.goldRatePerTola) / TOLA_TO_GRAMS;
+    } else {
+      ratePerGram = getRatePerGram(karat);
+    }
+
+    const effectiveWeightGrams = Math.max(0, parseFloat((netWeight * (1 - (wastagePct / 100))).toFixed(3)));
+    const grossValuation = netWeight * ratePerGram;
+    const kattDeductionVal = grossValuation * (wastagePct / 100);
+    const netValuation = Math.round(effectiveWeightGrams * ratePerGram);
+    const netValuationMinor = netValuation * 100;
+
+    return {
+      karat,
+      grossWeight,
+      stoneDeduction,
+      netWeight,
+      wastagePct,
+      ratePerGram: Math.round(ratePerGram),
+      ratePerTola: Math.round(ratePerGram * TOLA_TO_GRAMS),
+      grossValuation: Math.round(grossValuation),
+      kattDeductionVal: Math.round(kattDeductionVal),
+      effectiveWeightGrams,
+      netValuation,
+      netValuationMinor
+    };
+  }
+
+  /**
    * Render Topbar Gold & Bullion Rate Ticker without emojis
    */
   function renderGoldRateTicker() {
@@ -576,14 +627,278 @@
       };
     }
 
-    const btnClose = document.getElementById('btn-close-jewel-pricing-modal');
-    const btnCancel = document.getElementById('btn-cancel-jewel-pricing-modal');
-    const closeFn = () => modal.classList.remove('active');
-    if (btnClose) btnClose.onclick = closeFn;
-    if (btnCancel) btnCancel.onclick = closeFn;
+  /**
+   * Open Gold Trade-In & Old Gold Exchange Appraisal Modal
+   * @param {Object} options
+   * @param {Function} onApplyCallback
+   */
+  function openGoldTradeInModal(options, onApplyCallback) {
+    let modal = document.getElementById('modal-gold-tradein');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'modal-gold-tradein';
+      modal.className = 'pos-modal-overlay';
+      modal.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 9999; padding: 16px; box-sizing: border-box;';
+      modal.innerHTML = `
+        <div class="pos-modal-card" style="background: var(--bg-surface-elevated, #11141a); border: 1px solid var(--border-titanium, rgba(255,255,255,0.12)); border-radius: 14px; max-width: 580px; width: 100%; max-height: 92vh; overflow-y: auto; box-shadow: 0 24px 60px rgba(0,0,0,0.8); display: flex; flex-direction: column;">
+          
+          <!-- Modal Header -->
+          <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-titanium, rgba(255,255,255,0.1)); display: flex; justify-content: space-between; align-items: center; background: rgba(255,215,0,0.04);">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(255,215,0,0.15); border: 1px solid rgba(255,215,0,0.4); display: flex; align-items: center; justify-content: center; color: #ffd700;">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20"/><path d="M10 3l2 6 2-6"/></svg>
+              </div>
+              <div>
+                <h3 style="margin: 0; font-size: 15px; font-weight: 900; color: var(--text-white, #fff); letter-spacing: -0.2px;">Old Gold &amp; Jewellery Trade-In Calculator</h3>
+                <span style="font-size: 11px; color: #f59e0b; font-weight: 700;">سونے کا تبادلہ اور ویلیویشن</span>
+              </div>
+            </div>
+            <button type="button" id="btn-close-gold-tradein-modal-x" class="action-btn" style="background: transparent; border: none; font-size: 20px; color: var(--text-gray, #94a3b8); cursor: pointer; padding: 4px 8px;">&times;</button>
+          </div>
 
-    refreshModalCalc();
+          <!-- Modal Body -->
+          <div style="padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+            
+            <!-- Item Description -->
+            <div>
+              <label for="gold-tradein-item-name" style="font-size: 11px; font-weight: 700; color: var(--text-white, #fff); display: block; margin-bottom: 4px;">Item Description / Category *</label>
+              <input type="text" id="gold-tradein-item-name" class="pos-input" placeholder="e.g. 22K Old Bridal Bangles / Kangan (چوڑیاں)" value="22K Old Jewellery Exchange" style="font-size: 12px;" aria-label="Item Description">
+            </div>
+
+            <!-- Karat & Market Rate Row -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <label for="gold-tradein-karat" style="font-size: 11px; font-weight: 700; color: var(--text-white, #fff); display: block; margin-bottom: 4px;">Karat Purity Grade *</label>
+                <select id="gold-tradein-karat" class="pos-input" style="font-size: 12px; font-weight: 700; color: #ffd700;" aria-label="Karat Grade">
+                  <option value="24K">24K Pure Gold (99.9%)</option>
+                  <option value="22K" selected>22K Standard Jewellery (91.6%)</option>
+                  <option value="21K">21K Gulf Gold (87.5%)</option>
+                  <option value="18K">18K Diamond / Gem Setting (75.0%)</option>
+                  <option value="14K">14K Commercial Gold (58.3%)</option>
+                  <option value="925">925 Sterling Silver</option>
+                </select>
+              </div>
+              <div>
+                <label for="gold-tradein-rate-gram" style="font-size: 11px; font-weight: 700; color: var(--text-white, #fff); display: block; margin-bottom: 4px;">Agreed Rate / Gram (PKR) *</label>
+                <div style="position: relative;">
+                  <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 800; color: #ffd700;">Rs.</span>
+                  <input type="number" id="gold-tradein-rate-gram" class="pos-input" placeholder="e.g. 21612" min="1" step="1" style="padding-left: 32px; font-size: 12px; font-weight: 800; color: var(--text-white, #fff);" aria-label="Rate Per Gram">
+                </div>
+              </div>
+            </div>
+
+            <!-- Weight Breakdown: Gross, Stone, Net -->
+            <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-titanium, rgba(255,255,255,0.08)); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                <div>
+                  <label for="gold-tradein-gross-weight" style="font-size: 10.5px; font-weight: 700; color: var(--text-white, #fff); display: block; margin-bottom: 4px;">Gross Scale Wt (g) *</label>
+                  <input type="number" id="gold-tradein-gross-weight" class="pos-input" placeholder="0.000" min="0.01" step="0.001" value="10.000" style="font-size: 13px; font-weight: 800; color: var(--text-white, #fff);" aria-label="Gross Weight">
+                </div>
+                <div>
+                  <label for="gold-tradein-stone-deduction" style="font-size: 10.5px; font-weight: 700; color: var(--text-white, #fff); display: block; margin-bottom: 4px;">Stone/Beads Wt (g)</label>
+                  <input type="number" id="gold-tradein-stone-deduction" class="pos-input" placeholder="0.000" min="0" step="0.001" value="0.000" style="font-size: 13px; font-weight: 800; color: #ef4444;" aria-label="Stone Deduction">
+                </div>
+                <div>
+                  <label style="font-size: 10.5px; font-weight: 700; color: #00d68f; display: block; margin-bottom: 4px;">Net Metal Wt (g)</label>
+                  <div id="gold-tradein-net-weight-display" style="padding: 7px 10px; background: rgba(0,214,143,0.1); border: 1px solid rgba(0,214,143,0.3); border-radius: 6px; font-size: 13px; font-weight: 900; color: #00d68f; text-align: right;">10.000 g</div>
+                </div>
+              </div>
+
+              <!-- Quick Step Buttons -->
+              <div style="display: flex; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: wrap;">
+                <span style="font-size: 10px; color: var(--text-gray, #94a3b8); margin-right: auto;">Quick Adjust Gross:</span>
+                <button type="button" class="action-btn gold-tradein-step-btn" data-delta="0.5" style="font-size: 10.5px; padding: 2px 8px;">+0.5g</button>
+                <button type="button" class="action-btn gold-tradein-step-btn" data-delta="1.0" style="font-size: 10.5px; padding: 2px 8px;">+1.0g</button>
+                <button type="button" class="action-btn gold-tradein-step-btn" data-delta="5.0" style="font-size: 10.5px; padding: 2px 8px;">+5.0g</button>
+                <button type="button" class="action-btn gold-tradein-step-btn" data-delta="-1.0" style="font-size: 10.5px; padding: 2px 8px;">-1.0g</button>
+              </div>
+            </div>
+
+            <!-- Melting / Katt % & Wastage -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: center;">
+              <div>
+                <label for="gold-tradein-katt-pct" style="font-size: 11px; font-weight: 700; color: var(--text-white, #fff); display: block; margin-bottom: 4px;">Melting Loss / Katt (% کاٹ)</label>
+                <div style="position: relative;">
+                  <input type="number" id="gold-tradein-katt-pct" class="pos-input" placeholder="e.g. 2.0" min="0" max="50" step="0.1" value="2.0" style="font-size: 12px; font-weight: 700;" aria-label="Melting Katt Percentage">
+                  <span style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 11px; color: var(--text-gray, #94a3b8);">%</span>
+                </div>
+              </div>
+              <div>
+                <span style="font-size: 10.5px; color: var(--text-gray, #94a3b8); display: block; margin-bottom: 4px;">Pure Melt Yield:</span>
+                <div id="gold-tradein-effective-weight-display" style="font-size: 12px; font-weight: 800; color: var(--text-white, #fff);">9.800 g (98%)</div>
+              </div>
+            </div>
+
+            <!-- Customer Legal Details (Brief) -->
+            <div style="border-top: 1px solid var(--border-titanium, rgba(255,255,255,0.08)); padding-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <label for="gold-tradein-seller-name" style="font-size: 10.5px; font-weight: 700; color: var(--text-white, #fff); display: block; margin-bottom: 4px;">Seller Name</label>
+                <input type="text" id="gold-tradein-seller-name" class="pos-input" placeholder="Walk-in Client" style="font-size: 11.5px;" aria-label="Seller Name">
+              </div>
+              <div>
+                <label for="gold-tradein-seller-cnic" style="font-size: 10.5px; font-weight: 700; color: var(--text-white, #fff); display: block; margin-bottom: 4px;">CNIC / Phone #</label>
+                <input type="text" id="gold-tradein-seller-cnic" class="pos-input" placeholder="CNIC or Mobile #" style="font-size: 11.5px;" aria-label="Seller CNIC or Phone">
+              </div>
+            </div>
+
+            <!-- Total Valuation Banner -->
+            <div style="background: linear-gradient(135deg, rgba(255,215,0,0.12), rgba(0,214,143,0.1)); border: 1px solid rgba(255,215,0,0.4); border-radius: 10px; padding: 14px; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <span style="font-size: 10.5px; font-weight: 800; color: #ffd700; text-transform: uppercase; letter-spacing: 0.5px; display: block;">Total Trade-In Valuation</span>
+                <span style="font-size: 10px; color: var(--text-gray, #94a3b8);">Net Metal &times; Rate &minus; Katt</span>
+              </div>
+              <div style="text-align: right;">
+                <span id="gold-tradein-total-valuation-display" style="font-size: 20px; font-weight: 900; color: #ffd700; font-family: var(--font-display, sans-serif); display: block;">Rs. 0</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Modal Footer Actions -->
+          <div style="padding: 14px 20px; border-top: 1px solid var(--border-titanium, rgba(255,255,255,0.1)); display: flex; gap: 10px; justify-content: flex-end; background: rgba(0,0,0,0.2);">
+            <button type="button" id="btn-cancel-gold-tradein-modal" class="action-btn" style="font-size: 12px; padding: 8px 16px;">Cancel</button>
+            <button type="button" id="btn-apply-gold-tradein-cart" class="action-btn action-success" style="font-size: 12px; font-weight: 800; padding: 8px 18px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 14px rgba(0,214,143,0.3);">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Apply Trade-In Credit to Order
+            </button>
+          </div>
+
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+
+    try { if (typeof window.playAudioSignal === 'function') window.playAudioSignal('click'); } catch (_) {}
+
+    const itemNameInput = modal.querySelector('#gold-tradein-item-name');
+    const karatSelect = modal.querySelector('#gold-tradein-karat');
+    const rateInput = modal.querySelector('#gold-tradein-rate-gram');
+    const grossWeightInput = modal.querySelector('#gold-tradein-gross-weight');
+    const stoneDeductionInput = modal.querySelector('#gold-tradein-stone-deduction');
+    const kattInput = modal.querySelector('#gold-tradein-katt-pct');
+    const sellerNameInput = modal.querySelector('#gold-tradein-seller-name');
+    const sellerCnicInput = modal.querySelector('#gold-tradein-seller-cnic');
+    const netWeightDisplay = modal.querySelector('#gold-tradein-net-weight-display');
+    const effWeightDisplay = modal.querySelector('#gold-tradein-effective-weight-display');
+    const totalValuationDisplay = modal.querySelector('#gold-tradein-total-valuation-display');
+
+    if (options && options.sellerName && sellerNameInput) sellerNameInput.value = options.sellerName;
+    if (options && options.sellerPhone && sellerCnicInput) sellerCnicInput.value = options.sellerPhone;
+
+    // Set initial rate based on karat
+    const updateRateFromKarat = () => {
+      const k = karatSelect.value;
+      const r = getRatePerGram(k);
+      if (rateInput) rateInput.value = r;
+    };
+    updateRateFromKarat();
+
+    const refreshCalc = () => {
+      const karat = karatSelect ? karatSelect.value : '22K';
+      const grossW = parseFloat(grossWeightInput?.value || '0');
+      const stoneW = parseFloat(stoneDeductionInput?.value || '0');
+      const katt = parseFloat(kattInput?.value || '0');
+      const rateG = parseFloat(rateInput?.value || '0');
+
+      const calc = calculateGoldTradeIn({
+        karat,
+        grossWeightGrams: grossW,
+        stoneDeductionGrams: stoneW,
+        wastagePct: katt,
+        goldRatePerGram: rateG
+      });
+
+      if (netWeightDisplay) netWeightDisplay.textContent = `${calc.netWeight.toFixed(3)} g`;
+      if (effWeightDisplay) effWeightDisplay.textContent = `${calc.effectiveWeightGrams.toFixed(3)} g (${(100 - calc.wastagePct).toFixed(1)}%)`;
+      if (totalValuationDisplay) totalValuationDisplay.textContent = `Rs. ${calc.netValuation.toLocaleString('en-PK')}`;
+
+      return calc;
+    };
+
+    karatSelect.onchange = () => {
+      updateRateFromKarat();
+      refreshCalc();
+    };
+    if (rateInput) rateInput.oninput = refreshCalc;
+    if (grossWeightInput) grossWeightInput.oninput = refreshCalc;
+    if (stoneDeductionInput) stoneDeductionInput.oninput = refreshCalc;
+    if (kattInput) kattInput.oninput = refreshCalc;
+
+    modal.querySelectorAll('.gold-tradein-step-btn').forEach(btn => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        const delta = parseFloat(btn.getAttribute('data-delta') || '0');
+        if (grossWeightInput) {
+          const cur = parseFloat(grossWeightInput.value || '0');
+          grossWeightInput.value = Math.max(0.01, parseFloat((cur + delta).toFixed(3)));
+          refreshCalc();
+        }
+      };
+    });
+
+    const closeModal = () => {
+      modal.classList.remove('active');
+      modal.style.display = 'none';
+    };
+
+    const btnCloseX = modal.querySelector('#btn-close-gold-tradein-modal-x');
+    const btnCancel = modal.querySelector('#btn-cancel-gold-tradein-modal');
+    if (btnCloseX) btnCloseX.onclick = closeModal;
+    if (btnCancel) btnCancel.onclick = closeModal;
+
+    const btnApply = modal.querySelector('#btn-apply-gold-tradein-cart');
+    if (btnApply) {
+      btnApply.onclick = (e) => {
+        e.preventDefault();
+        const calc = refreshCalc();
+        if (!calc || calc.netValuation <= 0) {
+          if (typeof window.showNotificationToast === 'function') {
+            window.showNotificationToast('Please enter a valid weight and rate for gold valuation.', 'warning');
+          }
+          return;
+        }
+
+        const tradeInRecord = {
+          id: 'bb_gold_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+          voucher_no: `VCH-GOLD-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+          item_type: 'GOLD',
+          brand: 'Gold Trade-In',
+          model: `${calc.karat} Old Gold (${calc.netWeight}g)`,
+          seller_name: sellerNameInput?.value?.trim() || 'Walk-in Client',
+          seller_phone: sellerCnicInput?.value?.trim() || '',
+          seller_cnic: sellerCnicInput?.value?.trim() || '',
+          karat: calc.karat,
+          gross_weight_g: calc.grossWeight,
+          stone_deduction_g: calc.stoneDeduction,
+          net_weight_g: calc.netWeight,
+          rate_per_gram: calc.ratePerGram,
+          rate_per_tola: calc.ratePerTola,
+          wastage_katt_pct: calc.wastagePct,
+          effective_weight_g: calc.effectiveWeightGrams,
+          payout_paise: calc.netValuationMinor,
+          payout_method: 'STORE_CREDIT',
+          added_to_inventory: true,
+          notes: itemNameInput?.value?.trim() || 'Old gold exchange trade-in voucher',
+          created_at: Date.now()
+        };
+
+        if (typeof window.saveBuybackRecord === 'function') {
+          window.saveBuybackRecord(tradeInRecord).catch(() => {});
+        }
+
+        closeModal();
+
+        if (typeof onApplyCallback === 'function') {
+          onApplyCallback(tradeInRecord, calc);
+        } else if (typeof window.applyTradeInToCart === 'function') {
+          window.applyTradeInToCart(tradeInRecord);
+        }
+      };
+    }
+
+    refreshCalc();
     modal.classList.add('active');
+    modal.style.display = 'flex';
   }
 
   function updateJewelPricingDisplays() {
@@ -619,14 +934,17 @@
     getRatePerGram,
     getRatePerTola,
     calculatePiecePrice,
+    calculateGoldTradeIn,
     saveRates,
     deriveRates,
     renderGoldRateTicker,
     openGoldRatesModal,
     openJewelPricingModal,
+    openGoldTradeInModal,
     init
   };
 
   init();
 
 })(typeof window !== 'undefined' ? window : global);
+

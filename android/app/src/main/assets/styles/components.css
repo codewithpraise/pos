@@ -778,6 +778,10 @@ button:not(:disabled):active,
   flex-direction: column !important;
 }
 
+.content-view:not(#view-checkout) > * {
+  flex-shrink: 0 !important;
+}
+
 #view-checkout.active {
   display: flex !important;
   flex-direction: column !important;
