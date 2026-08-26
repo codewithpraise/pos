@@ -192,11 +192,29 @@ if (typeof window.switchActiveScreen !== 'function') {
         v.style.setProperty('display', 'none', 'important');
       }
     });
-    const navItems = document.querySelectorAll('.nav-item, .pos-bottom-nav .nav-btn');
+    const navItems = document.querySelectorAll('.nav-item, .sidebar-nav .nav-item, .pos-bottom-nav .nav-btn, .pos-bottom-nav .nav-item');
+    let activeNavElement = null;
     navItems.forEach(item => {
       const isTarget = item.getAttribute('data-screen') === screenId || item.id === 'nav-' + screenId.replace('view-', '');
       item.classList.toggle('active', isTarget);
+      if (isTarget && !activeNavElement) {
+        activeNavElement = item;
+      }
     });
+    if (activeNavElement) {
+      try {
+        const sidebar = document.querySelector('.pos-sidebar');
+        const sidebarNav = document.querySelector('.sidebar-nav');
+        const container = (sidebarNav && sidebarNav.scrollWidth > (sidebar ? sidebar.clientWidth : 0)) ? sidebarNav : sidebar;
+        if (container && typeof container.scrollTo === 'function') {
+          const containerWidth = container.clientWidth || window.innerWidth;
+          const targetLeft = activeNavElement.offsetLeft - (containerWidth / 2) + (activeNavElement.clientWidth / 2);
+          container.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+        } else {
+          activeNavElement.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+      } catch (_) {}
+    }
     if (window.__realHandlers && typeof window.__realHandlers.switchActiveScreen === 'function') {
       try { window.__realHandlers.switchActiveScreen(screenId); } catch (_) {}
     }
@@ -1377,6 +1395,12 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
             document.body.style.overflow = '';
             document.body.style.position = '';
             document.body.style.width = '';
+            if (typeof window.updateBuybackNavVisibility === 'function') {
+              try { window.updateBuybackNavVisibility(); } catch (_) {}
+            }
+            if (typeof window.updateKdsNavVisibility === 'function') {
+              try { window.updateKdsNavVisibility(); } catch (_) {}
+            }
           }
         }
       } catch (_) {}

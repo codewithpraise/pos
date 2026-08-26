@@ -1,8 +1,8 @@
 {
   "product": "VALENIXIA POS",
   "version": "3.1.0",
-  "build_id": "v3.1.0-prod-smart-bargaining",
-  "git_commit": "HEAD",
+  "build_id": "v3.1.0-prod-5b6d127",
+  "git_commit": "5b6d1278839a66dec834e545f48a0d927ccb9e28",
   "environment": "production",
   "schema_version": "17",
   "commercial_catalog_version": "3.1.0",

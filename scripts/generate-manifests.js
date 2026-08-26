@@ -4,7 +4,7 @@ const crypto = require('crypto');
 
 const { execSync } = require('child_process');
 
-const VERSION = '3.0.0';
+const VERSION = '3.1.0';
 let GIT_COMMIT = 'badda34f768186762f400ba553eef5e7dc46a5b8';
 try {
   GIT_COMMIT = execSync('git rev-parse HEAD', { cwd: path.join(__dirname, '..') }).toString().trim();
@@ -53,16 +53,14 @@ const versionJson = {
   version: VERSION,
   build_id: BUILD_ID,
   git_commit: GIT_COMMIT,
-  updated_at: '2026-08-15',
-  changelog: `Valenixia POS v${VERSION} Mobile Onboarding Scroll Hardening, Responsive Layout & Universal Download Packages Release.`,
+  updated_at: '2026-08-25',
+  changelog: `Valenixia POS v${VERSION} Mobile Responsiveness, Floating Bulk Action Dock, Adaptive Grid & Native APK v3.1.0 Release.`,
   changes: [
-    'Fixed onboarding/bootstrapping setup wizard overlay touch-scroll and overflow containment across all mobile browsers and webviews',
-    'Removed clipping overflow:hidden on wizard-card and normalized dynamic vertical sizing on small touch displays',
-    'Added -webkit-overflow-scrolling:touch, touch-action:pan-y, and overscroll-behavior-y:contain to all overlays and modal bodies',
-    'Implemented safe CSS-driven body scroll locking without unresettable body.style.overflow overrides',
-    'Rebuilt clean, unbloated 15MB Android APK (valenixia.apk) and desktop package (valenixia.exe)',
-    'Enhanced download center (download.html) with direct desktop and mobile installation links',
-    'Passed all 28 automated mobile scroll and runtime architecture validation checks'
+    'Enhanced mobile responsiveness and card layout in Inventory Manager and table views with zero clipping or text squishing',
+    'Introduced modern floating glassmorphic bulk deletion dock with Select All counter and haptic action triggers',
+    'Streamlined mobile header actions into an adaptive 2x2 grid ensuring all action buttons remain 100% visible and accessible',
+    'Rebuilt clean Android production APK v3.1.0 with offline SQLite storage engine and updated native app companion download links',
+    'Harmonized universal horizontal scrolling for tables and multi-terminal sync protocols'
   ]
 };
 fs.writeFileSync(path.join(publicDir, 'version.json'), JSON.stringify(versionJson, null, 2) + '\n');

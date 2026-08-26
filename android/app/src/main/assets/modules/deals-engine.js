@@ -185,25 +185,31 @@
         ? `<span style="background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">DISABLED</span>` : '';
       const card = document.createElement('div');
       card.className = 'deal-card';
-      card.style.cssText = 'display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid var(--border-titanium);border-radius:10px;margin-bottom:10px;background:var(--panel-graphite);transition:border-color .15s;';
+      card.style.cssText = 'display:flex;flex-direction:column;gap:10px;padding:14px 16px;border:1px solid rgba(255,255,255,0.08);border-radius:12px;margin-bottom:12px;background:linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(20,20,30,0.6) 100%);box-shadow:0 4px 16px rgba(0,0,0,0.25);transition:all .15s ease;';
       card.innerHTML = `
-        <div style="font-size:28px;flex-shrink:0;">${deal.icon||L.i}</div>
-        <div style="flex:1;min-width:0;">
-          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px;">
-            <span style="font-weight:700;color:var(--text-white);font-size:14px;">${deal.name}</span>
-            ${customBadge}${disabledBadge}
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;">
+            <div style="font-size:24px;flex-shrink:0;width:38px;height:38px;border-radius:8px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;">${deal.icon||L.i}</div>
+            <div style="min-width:0;flex:1;">
+              <div style="font-weight:800;color:var(--text-white);font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${deal.name}</div>
+              <div style="display:flex;align-items:center;gap:6px;margin-top:2px;">
+                ${customBadge}${disabledBadge}
+              </div>
+            </div>
           </div>
-          <div style="font-size:12px;color:var(--text-gray);">${cnt} item${cnt!==1?'s':''} bundled${deal.description?' · '+deal.description:''}</div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-size:15px;font-weight:900;color:var(--accent-emerald);font-family:var(--font-display);">${fmt(deal.price_cents)}</div>
+            ${deal.original_price_cents&&deal.original_price_cents>deal.price_cents?`<div style="font-size:11px;color:var(--text-gray);text-decoration:line-through;">${fmt(deal.original_price_cents)}</div>`:''}
+          </div>
         </div>
-        <div style="text-align:right;flex-shrink:0;">
-          <div style="font-size:16px;font-weight:800;color:var(--accent-emerald);">${fmt(deal.price_cents)}</div>
-          ${deal.original_price_cents&&deal.original_price_cents>deal.price_cents?`<div style="font-size:11px;color:var(--text-gray);text-decoration:line-through;">${fmt(deal.original_price_cents)}</div>`:''}
+        <div style="font-size:12px;color:var(--text-gray);line-height:1.4;border-top:1px solid rgba(255,255,255,0.05);padding-top:8px;">
+          <strong style="color:var(--text-white);">${cnt} item${cnt!==1?'s':''} bundled:</strong> ${deal.description||'Fixed price combination bundle'}
         </div>
-        <div style="display:flex;flex-direction:column;gap:6px;">
-          <button class="action-btn _deal-edit" data-id="${deal.id}" style="min-height:32px;padding:0 12px;font-size:11px;">Edit</button>
-          <button class="action-btn action-danger _deal-del" data-id="${deal.id}" style="min-height:32px;padding:0 12px;font-size:11px;background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.6);color:#ef4444;display:inline-flex;align-items:center;justify-content:center;gap:3px;">
-            <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#ef4444" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-            <span>Del</span>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;padding-top:4px;">
+          <button class="action-btn _deal-edit" data-id="${deal.id}" style="min-height:30px;padding:4px 14px;font-size:11px;font-weight:800;border-radius:6px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#fff;">Edit Deal</button>
+          <button class="action-btn action-danger _deal-del" data-id="${deal.id}" style="min-height:30px;padding:4px 10px;font-size:11px;font-weight:800;border-radius:6px;background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.5);color:#ef4444;display:inline-flex;align-items:center;justify-content:center;gap:4px;">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#ef4444" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            <span>Delete</span>
           </button>
         </div>`;
       card.querySelector('._deal-edit').addEventListener('click', e => { e.stopPropagation(); openEdit(deal.id); });

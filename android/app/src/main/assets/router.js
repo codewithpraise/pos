@@ -319,15 +319,30 @@
         global.state.activeScreen = cleanName;
       }
 
-      // 3. Update Navigation Bar UI & Active Buttons
-      document.querySelectorAll('.nav-item').forEach(item => {
+      // 3. Update Navigation Bar UI & Active Buttons & Center Active Tab in Mobile Viewport
+      let activeNavElement = null;
+      document.querySelectorAll('.nav-item, .sidebar-nav .nav-item, .pos-bottom-nav .nav-btn, .pos-bottom-nav .nav-item').forEach(item => {
         const itemScreen = item.getAttribute('data-screen');
-        item.classList.toggle('active', itemScreen === cleanName || item.id === 'nav-' + cleanName);
+        const isActive = (itemScreen === cleanName || item.id === 'nav-' + cleanName);
+        item.classList.toggle('active', isActive);
+        if (isActive && !activeNavElement) {
+          activeNavElement = item;
+        }
       });
-      document.querySelectorAll('.pos-bottom-nav .nav-btn').forEach(btn => {
-        const btnScreen = btn.getAttribute('data-screen');
-        btn.classList.toggle('active', btnScreen === cleanName);
-      });
+      if (activeNavElement) {
+        try {
+          const sidebar = document.querySelector('.pos-sidebar');
+          const sidebarNav = document.querySelector('.sidebar-nav');
+          const container = (sidebarNav && sidebarNav.scrollWidth > (sidebar ? sidebar.clientWidth : 0)) ? sidebarNav : sidebar;
+          if (container && typeof container.scrollTo === 'function') {
+            const containerWidth = container.clientWidth || window.innerWidth;
+            const targetLeft = activeNavElement.offsetLeft - (containerWidth / 2) + (activeNavElement.clientWidth / 2);
+            container.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+          } else {
+            activeNavElement.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }
+        } catch (_) {}
+      }
 
       // 4. Update Top Navigation Bar Title
       const regMeta = SCREEN_REGISTRY[cleanName];

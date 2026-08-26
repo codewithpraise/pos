@@ -623,6 +623,9 @@ function showUpgradeModal(featureName, requiredTier) {
     targetPlans = ['PRO', 'ENTERPRISE'];
   }
 
+  // Check if this modal was triggered by a daily free quota exhaustion
+  const isFreeQuotaFeature = featureName && (featureName.toLowerCase().includes('quota') || featureName.toLowerCase().includes('buyback') || featureName.toLowerCase().includes('import') || featureName.toLowerCase().includes('limit'));
+
   // Header Subtitle & Explanation
   let subText = '';
   if (reqTier === 'ENTERPRISE') {
@@ -661,9 +664,11 @@ function showUpgradeModal(featureName, requiredTier) {
   }).join("");
 
   modal.innerHTML = `
-    <div style="width:100%;max-width:${targetPlans.length === 1 ? '420px' : (targetPlans.length === 2 ? '540px' : '680px')};background:#0f111a;border:1px solid rgba(255,255,255,0.12);border-radius:24px;padding:32px;box-shadow:0 24px 64px rgba(0,0,0,0.95);color:#fff;font-family:sans-serif;margin:auto;">
+    <div style="width:100%;max-width:${targetPlans.length === 1 ? '420px' : (targetPlans.length === 2 ? '540px' : '680px')};background:#0f111a;border:1px solid rgba(255,255,255,0.12);border-radius:24px;padding:28px 24px;box-shadow:0 24px 64px rgba(0,0,0,0.95);color:#fff;font-family:sans-serif;margin:auto;position:relative;box-sizing:border-box;">
       
-      <div style="text-align:center;margin-bottom:20px;">
+      <button id="__paywall-close-btn" type="button" aria-label="Close" style="position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#94a3b8;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1;transition:all 0.15s ease;">×</button>
+
+      <div style="text-align:center;margin-bottom:20px;padding-right:20px;padding-left:20px;">
         <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;background:${reqTier==='ENTERPRISE'?'rgba(245,158,11,0.15)':'rgba(16,185,129,0.15)'};border:1px solid ${reqTier==='ENTERPRISE'?'rgba(245,158,11,0.4)':'rgba(16,185,129,0.4)'};border-radius:50%;font-size:26px;margin-bottom:12px;">
           🔒
         </div>
@@ -674,11 +679,12 @@ function showUpgradeModal(featureName, requiredTier) {
           ${subText}
         </p>
 
+        ${isFreeQuotaFeature ? `
         <!-- Daily Quota Live Reset Countdown Banner -->
         <div style="margin-top:14px; padding:8px 14px; border-radius:10px; background:rgba(255,179,71,0.1); border:1px solid rgba(255,179,71,0.3); font-size:11.5px; font-weight:700; color:#fbbf24; display:inline-flex; align-items:center; gap:8px;">
           <span>⏳ Daily Free Quota resets at midnight in:</span>
           <span id="vx-modal-live-countdown" style="font-family:monospace; font-weight:900; font-size:13px; color:#ffffff; background:rgba(0,0,0,0.4); padding:2px 8px; border-radius:5px;">${liveCountdownStr}</span>
-        </div>
+        </div>` : ''}
       </div>
 
       <!-- Plan Cards Grid -->
@@ -709,6 +715,7 @@ function showUpgradeModal(featureName, requiredTier) {
   };
 
   document.getElementById("__paywall-dismiss")?.addEventListener("click", handleDismiss);
+  document.getElementById("__paywall-close-btn")?.addEventListener("click", handleDismiss);
   modal.addEventListener("click", (e) => { if (e.target === modal) handleDismiss(); });
 
   modal.querySelectorAll(".__btn-select-tier").forEach(btn => {

@@ -23,6 +23,40 @@
   }
   window.updateKdsNavVisibility = updateKdsNavVisibility;
 
+  function updateBuybackNavVisibility() {
+    const isSupported = (window.ValenixiaStoreModes && typeof window.ValenixiaStoreModes.isBuybackSupported === 'function')
+      ? window.ValenixiaStoreModes.isBuybackSupported()
+      : false;
+
+    document.querySelectorAll('#nav-customer-buyback, [data-screen="customer-buyback"], .nav-item[data-screen="customer-buyback"], .buyback-only-element').forEach(el => {
+      if (isSupported) {
+        el.style.setProperty('display', el.tagName === 'BUTTON' || el.classList.contains('nav-item') ? 'flex' : 'block', 'important');
+        el.removeAttribute('hidden');
+      } else {
+        el.style.setProperty('display', 'none', 'important');
+        el.setAttribute('hidden', '');
+      }
+    });
+
+    if (!isSupported && typeof state !== 'undefined' && state && state.activeScreen === 'customer-buyback') {
+      if (typeof window.switchActiveScreen === 'function') {
+        window.switchActiveScreen('checkout');
+      }
+    }
+  }
+  window.updateBuybackNavVisibility = updateBuybackNavVisibility;
+
+  // Run initial visibility guards immediately
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        try { updateKdsNavVisibility(); updateBuybackNavVisibility(); } catch (_) {}
+      });
+    } else {
+      try { updateKdsNavVisibility(); updateBuybackNavVisibility(); } catch (_) {}
+    }
+  }
+
 // ============================================================================
 // VALENIXIA COMMERCE ECOSYSTEM - MAIN REGISTER CONTROLLER
 // Handles transaction flows, catalog views, shift logic, and background sync. UI thread bindings and Web Worker event choreography
@@ -7257,15 +7291,30 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
     // Stop device poll when navigating away from settings
     if (screenName !== 'settings' && typeof stopDevicePoll === 'function') stopDevicePoll();
 
-    // STEP 2: TOGGLE ACTIVE CLASSES ON NAV BUTTONS
-
+    // STEP 2: TOGGLE ACTIVE CLASSES ON NAV BUTTONS & CENTER ACTIVE TAB ON MOBILE
     try {
-      document.querySelectorAll('.nav-item').forEach(item => {
-        item.classList.toggle('active', item.getAttribute('data-screen') === screenName);
+      let activeNavElement = null;
+      document.querySelectorAll('.nav-item, .sidebar-nav .nav-item, .pos-bottom-nav .nav-btn, .pos-bottom-nav .nav-item').forEach(item => {
+        const isTarget = item.getAttribute('data-screen') === screenName || item.id === 'nav-' + screenName;
+        item.classList.toggle('active', isTarget);
+        if (isTarget && !activeNavElement) {
+          activeNavElement = item;
+        }
       });
-      document.querySelectorAll('.pos-bottom-nav .nav-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-screen') === screenName);
-      });
+      if (activeNavElement) {
+        try {
+          const sidebar = document.querySelector('.pos-sidebar');
+          const sidebarNav = document.querySelector('.sidebar-nav');
+          const container = (sidebarNav && sidebarNav.scrollWidth > (sidebar ? sidebar.clientWidth : 0)) ? sidebarNav : sidebar;
+          if (container && typeof container.scrollTo === 'function') {
+            const containerWidth = container.clientWidth || window.innerWidth;
+            const targetLeft = activeNavElement.offsetLeft - (containerWidth / 2) + (activeNavElement.clientWidth / 2);
+            container.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+          } else {
+            activeNavElement.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }
+        } catch (_) {}
+      }
     } catch (_) {}
 
     // STEP 3: UPDATE TOP NAVIGATION BAR TITLE
@@ -10230,6 +10279,7 @@ setHtml(tr, `
     const selectLabel = document.getElementById('btn-catalog-select-label');
     const selCountEl = document.getElementById('catalog-selected-count');
     const btnDelCountEl = document.getElementById('catalog-btn-delete-count');
+    const selectAllBtn = document.getElementById('catalog-bulk-select-all-toggle');
     const selectAllCheckbox = document.getElementById('catalog-select-all-checkbox');
 
     if (bulkBar) {
@@ -10242,8 +10292,15 @@ setHtml(tr, `
       toggleSelectBtn.style.background = catalogSelectionMode ? 'rgba(255,92,92,0.28)' : 'rgba(255,92,92,0.12)';
       toggleSelectBtn.style.borderColor = catalogSelectionMode ? '#ff5252' : 'rgba(255,92,92,0.5)';
     }
-    if (selCountEl) selCountEl.textContent = catalogSelectedSkus.size;
-    if (btnDelCountEl) btnDelCountEl.textContent = catalogSelectedSkus.size;
+    const selCount = catalogSelectedSkus.size;
+    if (selCountEl) selCountEl.textContent = selCount;
+    if (btnDelCountEl) btnDelCountEl.textContent = selCount;
+
+    const visibleSkus = (Array.isArray(state.catalog) ? state.catalog : []).map(p => p.sku).filter(Boolean);
+    if (selectAllBtn) {
+      const isAllSelected = visibleSkus.length > 0 && selCount >= visibleSkus.length;
+      selectAllBtn.textContent = isAllSelected ? 'Deselect All' : `Select All (${visibleSkus.length})`;
+    }
 
     if (typeof renderCheckoutCategories === 'function') {
       renderCheckoutCategories();
@@ -10328,7 +10385,10 @@ setHtml(tr, `
     items.forEach(p => {
       const row = document.createElement('div');
       row.className = 'catalog-grid-row';
-      row.style.cssText = `display: grid; grid-template-columns: ${currentCols}; gap: 6px; padding: 8px 10px; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 12px;`;
+      row.style.setProperty('--catalog-cols', currentCols);
+      if (catalogSelectionMode) {
+        row.classList.add('in-select-mode');
+      }
 
       const isChecked = catalogSelectedSkus.has(p.sku);
       const threshold = p.low_stock_threshold !== undefined ? p.low_stock_threshold : 10;
@@ -10339,25 +10399,25 @@ setHtml(tr, `
       const unitLabel = p.unit ? (p.unit.charAt(0).toUpperCase() + p.unit.slice(1).toLowerCase()) : 'Units';
 
       const checkCellHtml = catalogSelectionMode ? `
-        <div style="text-align: center; display: flex; align-items: center; justify-content: center;">
-          <input type="checkbox" class="catalog-row-checkbox" data-sku="${p.sku}" ${isChecked ? 'checked' : ''} style="width: 15px; height: 15px; accent-color: var(--accent-emerald); cursor: pointer;" aria-label="Select ${p.name || p.sku}">
+        <div class="catalog-cell catalog-cell-checkbox" style="text-align: center; display: flex; align-items: center; justify-content: center;">
+          <input type="checkbox" class="catalog-row-checkbox" data-sku="${p.sku}" ${isChecked ? 'checked' : ''} style="width: 16px; height: 16px; accent-color: var(--accent-emerald); cursor: pointer;" aria-label="Select ${p.name || p.sku}">
         </div>
       ` : '';
 
       setHtml(row, `
         ${checkCellHtml}
-        <div class="sku-stack" style="display: flex; flex-direction: column; gap: 1px; min-width: 0; overflow: hidden;">
-          <span style="font-family: monospace; font-size: 11.5px; font-weight: 700; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.sku || 'N/A'}</span>
-          ${gtinText ? `<span style="font-family: monospace; font-size: 9.5px; color: rgba(255,255,255,0.45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">GTIN: ${gtinText}</span>` : ''}
+        <div class="catalog-cell catalog-cell-sku sku-stack">
+          <span class="catalog-sku-code">${p.sku || 'N/A'}</span>
+          ${gtinText ? `<span class="catalog-gtin-code">GTIN: ${gtinText}</span>` : ''}
         </div>
-        <div style="font-weight: 700; font-size: 12.5px; color: var(--text-white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;" title="${p.name || p.title || ''}">${p.name || p.title || 'Unnamed Product'}</div>
-        <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;"><span style="background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;">${p.category || 'General'}</span></div>
-        <div style="text-align: right; font-weight: 700; font-size: 12px; color: var(--text-white); min-width: 0;">Rs. ${priceVal.toFixed(2)}</div>
-        <div style="text-align: right; min-width: 0;"><span style="color: ${isLowStock ? 'var(--alert-coral)' : '#10b981'}; font-weight: 700; font-size: 11px; background: ${isLowStock ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)'}; padding: 2px 6px; border-radius: 4px;">${stockVal} ${unitLabel}</span></div>
-        <div style="text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0; min-width: 110px;">
-          <button class="btn-edit-item" data-sku="${p.sku}" style="padding: 4px 11px; font-size: 11px; font-weight: 800; min-height: 26px; border-radius: 6px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.22); color: #ffffff; cursor: pointer; flex-shrink: 0; transition: all 0.15s ease;">Edit</button>
-          <button class="btn-delete-single-product" data-sku="${p.sku}" title="Delete this product" style="padding: 4px 9px; font-size: 10.5px; font-weight: 800; min-height: 26px; border-radius: 6px; background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.6); color: #ef4444; display: inline-flex; align-items: center; justify-content: center; gap: 3px; cursor: pointer; flex-shrink: 0; transition: all 0.15s ease;">
-            <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#ef4444" stroke-width="2.2" style="display:inline-block; vertical-align:middle;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        <div class="catalog-cell catalog-cell-name" title="${p.name || p.title || ''}">${p.name || p.title || 'Unnamed Product'}</div>
+        <div class="catalog-cell catalog-cell-cat"><span class="catalog-cat-badge">${p.category || 'General'}</span></div>
+        <div class="catalog-cell catalog-cell-price">Rs. ${priceVal.toFixed(2)}</div>
+        <div class="catalog-cell catalog-cell-stock"><span class="catalog-stock-badge ${isLowStock ? 'is-low' : 'is-ok'}">${stockVal} ${unitLabel}</span></div>
+        <div class="catalog-cell catalog-cell-actions">
+          <button class="btn-edit-item" data-sku="${p.sku}">Edit</button>
+          <button class="btn-delete-single-product" data-sku="${p.sku}" title="Delete this product">
+            <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" style="display:inline-block; vertical-align:middle;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             <span>Del</span>
           </button>
         </div>
@@ -10415,6 +10475,16 @@ setHtml(tr, `
   });
 
   document.getElementById('btn-catalog-delete-bulk')?.addEventListener('click', deleteBulkSelectedProducts);
+
+  document.getElementById('catalog-bulk-select-all-toggle')?.addEventListener('click', () => {
+    const visibleSkus = (Array.isArray(state.catalog) ? state.catalog : []).map(p => p.sku).filter(Boolean);
+    if (catalogSelectedSkus.size >= visibleSkus.length && visibleSkus.length > 0) {
+      catalogSelectedSkus.clear();
+    } else {
+      visibleSkus.forEach(s => catalogSelectedSkus.add(s));
+    }
+    renderCatalogScreen();
+  });
 
   async function quickStockAdjust(sku, delta) {
     const prod = state.catalog.find(p => p.sku === sku);
@@ -10572,13 +10642,23 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
       ? window.ValenixiaStoreModes.isBuybackSupported()
       : false;
 
-    const navBtn = document.getElementById('nav-customer-buyback');
-    if (navBtn) {
-      navBtn.style.display = isSupported ? 'flex' : 'none';
-    }
+    const navBtns = document.querySelectorAll('#nav-customer-buyback, [data-screen="customer-buyback"], .nav-item[data-screen="customer-buyback"]');
+    navBtns.forEach(btn => {
+      btn.style.display = isSupported ? 'flex' : 'none';
+      if (!isSupported) {
+        btn.setAttribute('hidden', '');
+      } else {
+        btn.removeAttribute('hidden');
+      }
+    });
 
     document.querySelectorAll('.buyback-only-element').forEach(el => {
       el.style.display = isSupported ? (el.tagName === 'BUTTON' || el.classList.contains('nav-item') ? 'flex' : 'block') : 'none';
+      if (!isSupported) {
+        el.setAttribute('hidden', '');
+      } else {
+        el.removeAttribute('hidden');
+      }
     });
 
     if (!isSupported && state && state.activeScreen === 'customer-buyback') {
@@ -12237,15 +12317,34 @@ setHtml(container, `
     window.__realHandlers.renderCustomersScreen = renderCustomersScreen;
     window.renderCustomersScreen = renderCustomersScreen;
     EventListenerRegistry.cleanupScreen('customers');
-    const tbody = document.getElementById('customers-table-tbody');
-    if (!tbody) return;
-    tbody.replaceChildren();
 
+    const tbody = document.getElementById('customers-table-tbody');
+    const mobileList = document.getElementById('customers-mobile-card-list');
     const searchInput = document.getElementById('customers-search-input');
     const q = searchInput ? searchInput.value.toLowerCase().trim() : '';
 
-    const matches = (state.customers || []).filter(c => {
-      if (c.is_deleted === 1 || c.is_deleted === true) return false;
+    const allValidCusts = (state.customers || []).filter(c => c && c.is_deleted !== 1 && c.is_deleted !== true);
+    
+    // Update KPI micro-cards
+    const kpiTotal = document.getElementById('cust-kpi-total');
+    const kpiVip = document.getElementById('cust-kpi-vip');
+    const kpiUdhaar = document.getElementById('cust-kpi-udhaar');
+
+    if (kpiTotal) kpiTotal.textContent = allValidCusts.length;
+    if (kpiVip) {
+      const vipCount = allValidCusts.filter(c => ((c.total_spend_cents || 0) / 100.0) >= 5000 || (c.visits || 0) >= 10).length;
+      kpiVip.textContent = `${vipCount} VIP`;
+    }
+    if (kpiUdhaar) {
+      let totalDue = 0;
+      allValidCusts.forEach(c => {
+        const bal = typeof getCustomerCreditBalance === 'function' ? getCustomerCreditBalance(c.id) : 0;
+        if (bal > 0) totalDue += bal;
+      });
+      kpiUdhaar.textContent = formatCurrency(totalDue);
+    }
+
+    const matches = allValidCusts.filter(c => {
       if (!q) return true;
       const name  = (c.name  || '').toLowerCase();
       const phone = (c.phone || '');
@@ -12253,41 +12352,127 @@ setHtml(container, `
       return name.includes(q) || phone.includes(q) || email.includes(q);
     });
 
+    if (tbody) tbody.replaceChildren();
+    if (mobileList) mobileList.replaceChildren();
+
     if (matches.length === 0) {
-      const tr = document.createElement('tr');
-      setHtml(tr, `<td colspan="6" style="text-align: center; padding: 32px 16px; color: var(--text-gray); font-size: 13px;">No customer profiles recorded. Tap <strong>"+ Create Profile"</strong> to add your first customer.</td>`);
-      tbody.appendChild(tr);
+      const emptyHtml = `
+        <div class="empty-state-modern" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 16px; text-align: center; color: var(--text-gray); flex: 1;">
+          <div style="width: 52px; height: 52px; border-radius: 14px; background: rgba(0, 214, 143, 0.08); border: 1px solid rgba(0, 214, 143, 0.25); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; color: var(--accent-emerald);">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          </div>
+          <h3 style="margin: 0; color: var(--text-white); font-size: 15px; font-weight: 800;">No Customers Found</h3>
+          <p style="font-size: 12px; max-width: 280px; margin: 4px 0 14px 0;">Add your first customer to track loyalty, purchase history, and Khata credit.</p>
+          <button class="action-btn action-primary" onclick="if(window.openCustomerModal)window.openCustomerModal();" style="padding: 8px 18px; font-size: 11.5px; font-weight: 800; border-radius: 8px;">+ Create Customer Profile</button>
+        </div>
+      `;
+      if (tbody) {
+        const tr = document.createElement('tr');
+        setHtml(tr, `<td colspan="6" style="padding: 0;">${emptyHtml}</td>`);
+        tbody.appendChild(tr);
+      }
+      if (mobileList) {
+        setHtml(mobileList, emptyHtml);
+      }
       return;
     }
 
     matches.forEach(c => {
-      const tr = document.createElement('tr');
-      setHtml(tr, `
-        <td style="font-weight: 700; color: var(--text-white);">${c.name}</td>
-        <td style="font-family: monospace;">${c.phone || 'N/A'}</td>
-        <td>${c.email || 'N/A'}</td>
-        <td style="text-align: center;">${c.visits || 0}</td>
-        <td style="text-align: right; color: var(--accent-emerald); font-weight: 700;">Rs. ${((c.total_spend_cents || 0) / 100.0).toFixed(2)}</td>
-        <td style="text-align: center;">
-          <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
-            <button class="btn-edit-customer btn-edit-item" data-id="${c.id}" style="padding: 4px 11px; font-size: 11px; font-weight: 800; min-height: 26px; border-radius: 6px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.22); color: #ffffff; cursor: pointer;">Edit</button>
-            <button class="btn-delete-customer action-danger" data-id="${c.id}" title="Delete customer profile" style="padding: 4px 9px; font-size: 10.5px; font-weight: 800; min-height: 26px; border-radius: 6px; background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.6); color: #ef4444; display: inline-flex; align-items: center; justify-content: center; gap: 3px; cursor: pointer;">
-              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#ef4444" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-              <span>Del</span>
-            </button>
+      const initials = (c.name || 'C').split(' ').map(w => w.charAt(0)).slice(0, 2).join('').toUpperCase();
+      const spend = ((c.total_spend_cents || 0) / 100.0);
+      const balance = typeof getCustomerCreditBalance === 'function' ? getCustomerCreditBalance(c.id) : 0;
+      
+      let khataBadge = '';
+      if (balance > 0) {
+        khataBadge = `<span style="font-size: 10px; font-weight: 800; color: #ef4444; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); border-radius: 4px; padding: 2px 6px;">Udhaar: ${formatCurrency(balance)}</span>`;
+      } else if (balance === 0) {
+        khataBadge = `<span style="font-size: 10px; font-weight: 700; color: #00d68f; background: rgba(0,214,143,0.1); border: 1px solid rgba(0,214,143,0.25); border-radius: 4px; padding: 2px 6px;">Settled</span>`;
+      } else {
+        khataBadge = `<span style="font-size: 10px; font-weight: 700; color: #3b82f6; background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.3); border-radius: 4px; padding: 2px 6px;">Adv: ${formatCurrency(Math.abs(balance))}</span>`;
+      }
+
+      // 1. Desktop Table Row
+      if (tbody) {
+        const tr = document.createElement('tr');
+        setHtml(tr, `
+          <td style="font-weight: 700; color: var(--text-white);">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 6px; background: rgba(0,214,143,0.12); border: 1px solid rgba(0,214,143,0.3); color: var(--accent-emerald); font-size: 10.5px; font-weight: 900;">${initials}</span>
+              <span>${c.name}</span>
+            </div>
+          </td>
+          <td style="font-family: monospace; font-size: 11.5px;">${c.phone || 'N/A'}</td>
+          <td style="font-size: 11.5px; color: var(--text-gray);">${c.email || 'N/A'}</td>
+          <td style="text-align: center; font-weight: 700;">${c.visits || 0}</td>
+          <td style="text-align: right; color: var(--accent-emerald); font-weight: 800; font-family: var(--font-display);">Rs. ${spend.toFixed(2)}</td>
+          <td style="text-align: center;">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+              <button class="btn-edit-customer btn-edit-item" data-id="${c.id}" style="padding: 4px 10px; font-size: 11px; font-weight: 800; min-height: 26px; border-radius: 6px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); color: #ffffff; cursor: pointer;">Edit</button>
+              <button class="btn-delete-customer action-danger" data-id="${c.id}" title="Delete customer" style="padding: 4px 8px; font-size: 10.5px; font-weight: 800; min-height: 26px; border-radius: 6px; background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.5); color: #ef4444; display: inline-flex; align-items: center; justify-content: center; gap: 3px; cursor: pointer;">
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#ef4444" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                <span>Del</span>
+              </button>
+            </div>
+          </td>
+        `);
+
+        tr.querySelector('.btn-edit-customer')?.addEventListener('click', () => openCustomerEditModal(c.id));
+        tr.querySelector('.btn-delete-customer')?.addEventListener('click', () => deleteCustomer(c.id));
+        tbody.appendChild(tr);
+      }
+
+      // 2. Mobile Responsive Card
+      if (mobileList) {
+        const card = document.createElement('div');
+        card.className = 'customer-mobile-card';
+        setHtml(card, `
+          <div class="cust-card-row cust-card-header">
+            <div class="cust-avatar-group">
+              <span class="cust-avatar-badge">${initials}</span>
+              <span class="cust-name">${c.name}</span>
+            </div>
+            <span class="cust-spend">Rs. ${spend.toFixed(2)}</span>
           </div>
-        </td>
-      `);
 
-      tr.querySelector('.btn-edit-customer').addEventListener('click', () => {
-        openCustomerEditModal(c.id);
-      });
+          <div class="cust-card-row cust-card-meta">
+            <span class="cust-phone">${c.phone || 'No phone'}</span>
+            <span class="cust-email">${c.email || ''}</span>
+          </div>
 
-      tr.querySelector('.btn-delete-customer').addEventListener('click', () => {
-        deleteCustomer(c.id);
-      });
+          <div class="cust-card-row cust-card-footer">
+            <div class="cust-stats-chips">
+              <span class="cust-visits-chip">${c.visits || 0} Visits</span>
+              ${khataBadge}
+            </div>
+            <div class="cust-actions">
+              <button type="button" class="btn-cust-khata" title="Open Khata Ledger" data-id="${c.id}">Khata</button>
+              <button type="button" class="btn-cust-edit" title="Edit Profile" data-id="${c.id}">Edit</button>
+              <button type="button" class="btn-cust-del" title="Delete Profile" data-id="${c.id}">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#ef4444" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              </button>
+            </div>
+          </div>
+        `);
 
-      tbody.appendChild(tr);
+        card.querySelector('.btn-cust-edit')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openCustomerEditModal(c.id);
+        });
+        card.querySelector('.btn-cust-del')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          deleteCustomer(c.id);
+        });
+        card.querySelector('.btn-cust-khata')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          state.selectedCreditCustomerId = c.id;
+          if (typeof window.switchActiveScreen === 'function') {
+            window.switchActiveScreen('credit-book');
+          }
+        });
+        card.addEventListener('click', () => openCustomerEditModal(c.id));
+
+        mobileList.appendChild(card);
+      }
     });
   }
 
@@ -15638,14 +15823,14 @@ setHtml(itemRow, `
       <div class="detail-header-mobile" style="display: none; margin-bottom: 12px;">
         <button type="button" class="action-btn" id="btn-supplier-back-mobile" style="padding: 6px 12px; font-size: 11px; font-weight: 700; width: 100%;">← Back to Suppliers List</button>
       </div>
-      <div style="display: flex; justify-content: space-between; align-items: start; border-bottom: 1px solid var(--border-titanium); padding-bottom: 16px;">
-        <div>
-          <h2 style="font-family: var(--font-display); font-weight: 800; font-size: 20px; color: var(--text-white); margin-bottom: 4px;">${d.name}</h2>
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-titanium); padding-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+        <div style="flex: 1 1 auto; min-width: 180px;">
+          <h2 style="font-family: var(--font-display); font-weight: 800; font-size: 20px; color: var(--text-white); margin-bottom: 4px; word-break: break-word;">${d.name}</h2>
           <span style="font-size: 11px; color: var(--text-gray);">${d.address || 'No address registered'}</span>
         </div>
-        <div style="display: flex; gap: 8px;">
-          <button class="action-btn" id="btn-supplier-edit" style="min-height:36px; font-size:11px; padding: 6px 12px;">Edit Details</button>
-          <button class="action-btn action-danger" id="btn-supplier-delete" style="min-height:36px; font-size:11px; padding: 6px 12px;">Delete</button>
+        <div style="display: flex; gap: 8px; flex-shrink: 0; align-items: center;">
+          <button class="action-btn" id="btn-supplier-edit" style="min-height:36px; font-size:11px; padding: 6px 14px; white-space: nowrap; flex-shrink: 0;">Edit Details</button>
+          <button class="action-btn action-danger" id="btn-supplier-delete" style="min-height:36px; font-size:11px; padding: 6px 14px; white-space: nowrap; flex-shrink: 0;">Delete</button>
         </div>
       </div>
 
@@ -16155,10 +16340,43 @@ setHtml(tr, `
       // Filter customers who have active credit accounts or list all active customers if no credits recorded yet
       const linkedCustomerIds = [...new Set((state.customerCredits || []).filter(Boolean).map(c => c.customer_id || c.customerId))];
       const hasCredits = linkedCustomerIds.length > 0;
-      const list = (state.customers || []).filter(c => c && c.is_deleted !== 1 && (!hasCredits || linkedCustomerIds.includes(c.id)) && (!query || (c.name && c.name.toLowerCase().includes(query)) || (c.phone && c.phone.includes(query))));
+      const allActiveCusts = (state.customers || []).filter(c => c && c.is_deleted !== 1);
+      
+      // Calculate Khata KPI metrics
+      let totalUdhaarDue = 0;
+      let totalWasoolRepaid = 0;
+      allActiveCusts.forEach(c => {
+        const bal = typeof getCustomerCreditBalance === 'function' ? getCustomerCreditBalance(c.id) : 0;
+        if (bal > 0) totalUdhaarDue += bal;
+      });
+      (state.customerCredits || []).forEach(cc => {
+        if (cc && cc.is_deleted !== 1 && (cc.type === 'PAYMENT' || cc.type === 'CUSTOMER_PAYMENT')) {
+          const amt = cc.amount_minor !== undefined ? cc.amount_minor : (cc.amount || 0);
+          totalWasoolRepaid += amt;
+        }
+      });
+
+      const kpiDueEl = document.getElementById('khata-kpi-due');
+      const kpiRepaidEl = document.getElementById('khata-kpi-repaid');
+      const kpiAccountsEl = document.getElementById('khata-kpi-accounts');
+
+      if (kpiDueEl) kpiDueEl.textContent = formatCurrency(totalUdhaarDue);
+      if (kpiRepaidEl) kpiRepaidEl.textContent = formatCurrency(totalWasoolRepaid);
+      if (kpiAccountsEl) kpiAccountsEl.textContent = linkedCustomerIds.length || allActiveCusts.length;
+
+      const list = allActiveCusts.filter(c => (!hasCredits || linkedCustomerIds.includes(c.id)) && (!query || (c.name && c.name.toLowerCase().includes(query)) || (c.phone && c.phone.includes(query))));
 
       if (list.length === 0) {
-        setHtml(listContainer, `<p class="text-center text-muted" style="padding: 32px 16px; color: var(--text-gray); font-size: 13px;">No credit accounts recorded. Select a customer or create a new profile to open an Udhaar Khata ledger.</p>`);
+        setHtml(listContainer, `
+          <div class="empty-state-modern" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 16px; text-align: center; color: var(--text-gray); flex: 1;">
+            <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; color: var(--alert-coral);">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            </div>
+            <h3 style="margin: 0; color: var(--text-white); font-size: 14.5px; font-weight: 800;">No Khata Accounts</h3>
+            <p style="font-size: 12px; max-width: 260px; margin: 4px 0 12px 0;">No credit accounts matched your search. Select a customer or create a profile to open a ledger.</p>
+            <button class="btn-tactile btn-tactile-primary" onclick="if(window.openCustomerModal)window.openCustomerModal();" style="padding: 8px 16px; font-size: 11px; font-weight: 800; border-radius: 8px;">+ Add Customer</button>
+          </div>
+        `);
         if (grid) grid.classList.remove('has-selection');
         const detailPanel = document.getElementById('credit-detail-panel');
         const emptyPanel = document.getElementById('credit-detail-empty');
@@ -16173,24 +16391,30 @@ setHtml(tr, `
 
       list.forEach(c => {
         const balance = getCustomerCreditBalance(c.id);
+        const initials = (c.name || 'C').split(' ').map(w => w.charAt(0)).slice(0, 2).join('').toUpperCase();
         const card = document.createElement('div');
         card.className = `credit-item-card ${state.selectedCreditCustomerId === c.id ? 'active' : ''}`;
         
         let badgeHtml = '';
         if (balance > 0) {
-          badgeHtml = `<span class="item-badge badge-red" style="font-weight:800;">Due: ${formatCurrency(balance)}</span>`;
+          badgeHtml = `<span class="item-badge badge-red" style="font-weight:900; font-size:11px; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.35); color:#ef4444; border-radius:6px; padding:3px 8px;">Due: ${formatCurrency(balance)}</span>`;
         } else if (balance === 0) {
-          badgeHtml = `<span class="item-badge badge-gray" style="background:rgba(16,185,129,0.12); color:var(--accent-emerald); font-weight:800;"> Settled</span>`;
+          badgeHtml = `<span class="item-badge badge-gray" style="background:rgba(0,214,143,0.12); border:1px solid rgba(0,214,143,0.3); color:var(--accent-emerald); font-weight:800; font-size:11px; border-radius:6px; padding:3px 8px;">Settled</span>`;
         } else {
-          badgeHtml = `<span class="item-badge badge-blue" style="background:rgba(59,130,246,0.15); color:#3b82f6; font-weight:800;">Advance: ${formatCurrency(Math.abs(balance))}</span>`;
+          badgeHtml = `<span class="item-badge badge-blue" style="background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.35); color:#3b82f6; font-weight:800; font-size:11px; border-radius:6px; padding:3px 8px;">Advance: ${formatCurrency(Math.abs(balance))}</span>`;
         }
 
         setHtml(card, `
-          <div class="item-info">
-            <span class="item-title" style="font-weight:700;">${c.name}</span>
-            <span class="item-sub">${c.phone || 'No phone'}</span>
+          <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+            <span style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #ffffff; font-size: 11px; font-weight: 900; flex-shrink: 0;">${initials}</span>
+            <div class="item-info" style="display: flex; flex-direction: column; min-width: 0; flex: 1;">
+              <span class="item-title" style="font-weight: 800; font-size: 13px; color: var(--text-white); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${c.name}</span>
+              <span class="item-sub" style="font-size: 11px; color: var(--text-gray); font-family: monospace;">${c.phone || 'No phone'}</span>
+            </div>
           </div>
-          ${badgeHtml}
+          <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+            ${badgeHtml}
+          </div>
         `);
 
         card.addEventListener('click', () => {
@@ -16280,47 +16504,52 @@ setHtml(tr, `
 
     setHtml(detailPanel, `
       <div class="detail-header-mobile" style="display: none; margin-bottom: 12px;">
-        <button type="button" class="action-btn" id="btn-credit-back-mobile" style="padding: 6px 12px; font-size: 11px; font-weight: 700; width: 100%;">← Back to Customer List</button>
+        <button type="button" class="btn-tactile" id="btn-credit-back-mobile" style="padding: 8px 14px; font-size: 11.5px; font-weight: 800; width: 100%; border-radius: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18); color: #ffffff; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          <span>Back to All Khata Accounts</span>
+        </button>
       </div>
       ${alertBox}
 
-      <div style="display: flex; justify-content: space-between; align-items: start; border-bottom: 1px solid var(--border-titanium); padding-bottom: 16px; flex-wrap:wrap; gap:12px;">
+      <div style="display: flex; justify-content: space-between; align-items: start; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 14px; flex-wrap:wrap; gap:12px;">
         <div>
-          <h2 style="font-family: var(--font-display); font-weight: 800; font-size: 20px; color: var(--text-white); margin-bottom: 4px;">${c.name}</h2>
-          <span style="font-size: 11px; color: var(--text-gray);">Linked Phone: <strong style="color:var(--text-white);">${c.phone || 'N/A'}</strong> | Email: ${c.email || 'N/A'}</span>
+          <h2 style="font-family: var(--font-display); font-weight: 800; font-size: 19px; color: var(--text-white); margin-bottom: 3px;">${c.name}</h2>
+          <span style="font-size: 11px; color: var(--text-gray);">Phone: <strong style="color:var(--text-white); font-family:monospace;">${c.phone || 'N/A'}</strong> | Email: ${c.email || 'N/A'}</span>
         </div>
-        <div style="display: flex; gap: 8px; flex-wrap:wrap;">
-          <button class="action-btn action-primary" id="btn-credit-add-entry" style="min-height:36px; font-size:11px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px;">
-            + Give Udhaar (Credit)
+        <div style="display: flex; gap: 8px; flex-wrap:wrap; width: 100%;">
+          <button class="btn-tactile" id="btn-credit-add-entry" style="flex: 1 1 140px; min-height:36px; font-size:11px; font-weight:800; padding: 6px 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 8px; background: rgba(239,68,68,0.14); border: 1px solid rgba(239,68,68,0.45); color: #ff5252;">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>+ Give Udhaar</span>
           </button>
-          <button class="action-btn action-success" id="btn-credit-record-repay" style="min-height:36px; font-size:11px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px;">
-             Receive Payment
+          <button class="btn-tactile" id="btn-credit-record-repay" style="flex: 1 1 140px; min-height:36px; font-size:11px; font-weight:800; padding: 6px 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 8px; background: rgba(0,214,143,0.14); border: 1px solid rgba(0,214,143,0.45); color: #00d68f;">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            <span>Receive Payment</span>
           </button>
-          <button class="action-btn action-secondary" id="btn-credit-whatsapp" style="min-height:36px; font-size:11px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px;">
+          <button class="btn-tactile" id="btn-credit-whatsapp" style="flex: 1 1 100%; min-height:36px; font-size:11px; font-weight:800; padding: 6px 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 8px; background: rgba(37,211,102,0.12); border: 1px solid rgba(37,211,102,0.35); color: #25D366;">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            WhatsApp Reminder
+            <span>Send WhatsApp Statement</span>
           </button>
         </div>
       </div>
 
-      <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 10px; margin-top:12px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; margin-top:8px;">
         <div>
           <span style="font-size: 10px; color: var(--text-gray); display: block; margin-bottom: 4px; text-transform: uppercase; font-weight:800; letter-spacing:0.5px;">${balanceLabel}</span>
-          <span style="font-size: 24px; font-weight: 900;" class="${balanceClass}">${balanceValueStr}</span>
+          <span style="font-size: 22px; font-weight: 900; font-family: var(--font-display);" class="${balanceClass}">${balanceValueStr}</span>
           <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">${balanceSubtitle}</div>
         </div>
         <div style="text-align: right;">
           <span style="font-size: 10px; color: var(--text-gray); display: block; margin-bottom: 4px; text-transform: uppercase; font-weight:800;">TOTAL VISITS</span>
-          <span style="font-size: 18px; font-weight: 800; color: var(--text-white);">${c.visits || 0} visits</span>
+          <span style="font-size: 16px; font-weight: 800; color: var(--text-white);">${c.visits || 0} visits</span>
         </div>
       </div>
 
-      <div style="margin-top: 14px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-titanium); padding-bottom: 8px;">
-          <h4 style="font-family: var(--font-display); font-weight: 800; font-size: 13px; color: var(--text-white);">Ledger Transaction Statement</h4>
-          <span style="font-size:11px; color:var(--text-muted);">Real-Time Audit Ledger</span>
+      <div style="margin-top: 12px; flex: 1; display: flex; flex-direction: column; min-height: 0;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
+          <h4 style="font-family: var(--font-display); font-weight: 800; font-size: 13px; color: var(--text-white); margin: 0;">Ledger Transaction Statement</h4>
+          <span style="font-size:10.5px; color:var(--text-muted);">Real-Time Audit</span>
         </div>
-        <div class="ledger-timeline-list" id="credit-timeline-container" style="margin-top:10px;">
+        <div class="ledger-timeline-list" id="credit-timeline-container" style="margin-top:8px; display: flex; flex-direction: column; gap: 8px; flex: 1; overflow-y: auto;">
           <!-- dynamic ledger entries -->
         </div>
       </div>
@@ -20640,7 +20869,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   });
 
   // ══════════════════════════════════════════════════════════════════════════════
-  // TOPBAR RESPONSIVE OVERFLOW MENU CONTROLLER (STATE MACHINE & GEOMETRY-SAFE)
+  // TOPBAR RESPONSIVE OVERFLOW MENU CONTROLLER (STATE MACHINE & FIXED PORTAL)
   // ══════════════════════════════════════════════════════════════════════════════
   window.ValenixiaOverflowMenu = {
     menuState: 'CLOSED', // CLOSED, OPENING, OPEN, CLOSING
@@ -20652,8 +20881,13 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       const btn = document.getElementById('btn-topbar-overflow-toggle');
       const menu = document.getElementById('topbar-overflow-menu');
       if (!btn || !menu) return;
+      if (menu.parentElement !== document.body) {
+        try { document.body.appendChild(menu); } catch (_) {}
+      }
       this.menuState = 'OPENING';
       menu.style.display = 'flex';
+      menu.style.opacity = '1';
+      menu.style.visibility = 'visible';
       btn.setAttribute('aria-expanded', 'true');
       this.reposition();
       this.menuState = 'OPEN';
@@ -20664,6 +20898,8 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       if (!btn || !menu) return;
       this.menuState = 'CLOSING';
       menu.style.display = 'none';
+      menu.style.opacity = '0';
+      menu.style.visibility = 'hidden';
       btn.setAttribute('aria-expanded', 'false');
       this.menuState = 'CLOSED';
     },
@@ -20672,18 +20908,18 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       const menu = document.getElementById('topbar-overflow-menu');
       if (!btn || !menu) return;
 
-      const btnRect = btn.getBoundingClientRect();
-      menu.style.position = 'absolute';
-      menu.style.top = 'calc(100% + 6px)';
-      menu.style.right = '0';
-      menu.style.left = 'auto';
-      menu.style.zIndex = '10000';
+      const rect = btn.getBoundingClientRect();
+      const rightGap = Math.max(8, window.innerWidth - rect.right);
+      const topPos = rect.bottom + 6;
+      const menuWidth = Math.min(280, window.innerWidth - 16);
+      const calculatedLeft = Math.max(8, window.innerWidth - rightGap - menuWidth);
 
-      const actualWidth = menu.offsetWidth || 200;
-      if (btnRect.right < actualWidth) {
-        menu.style.right = 'auto';
-        menu.style.left = '0';
-      }
+      menu.style.position = 'fixed';
+      menu.style.top = `${topPos}px`;
+      menu.style.right = `${rightGap}px`;
+      menu.style.left = `${calculatedLeft}px`;
+      menu.style.zIndex = '9999999';
+      menu.style.maxWidth = `${menuWidth}px`;
     }
   };
 
@@ -20691,7 +20927,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   const overflowMenu = document.getElementById('topbar-overflow-menu');
 
   if (overflowToggleBtn && overflowMenu) {
-    overflowToggleBtn.onclick = (e) => {
+    const handleToggle = (e) => {
       e.preventDefault();
       e.stopPropagation();
       if (window.ValenixiaOverflowMenu) {
@@ -20699,17 +20935,32 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       }
     };
 
-    overflowMenu.onclick = (e) => {
-      if (e.target.closest('button')) {
+    overflowToggleBtn.addEventListener('click', handleToggle);
+
+    overflowMenu.addEventListener('click', (e) => {
+      const clickedBtn = e.target.closest('button');
+      if (clickedBtn) {
+        const screen = clickedBtn.getAttribute('data-screen');
+        if (screen && typeof window.switchActiveScreen === 'function') {
+          window.switchActiveScreen(screen);
+        }
         setTimeout(() => {
           if (window.ValenixiaOverflowMenu) window.ValenixiaOverflowMenu.close();
-        }, 100);
+        }, 120);
       }
-    };
+    });
 
-    document.addEventListener('click', (e) => {
+    document.addEventListener('pointerdown', (e) => {
       const wrapper = document.querySelector('.topbar-overflow-wrapper');
-      if (wrapper && !wrapper.contains(e.target) && window.ValenixiaOverflowMenu && window.ValenixiaOverflowMenu.menuState === 'OPEN') {
+      const menu = document.getElementById('topbar-overflow-menu');
+      if (
+        window.ValenixiaOverflowMenu &&
+        window.ValenixiaOverflowMenu.menuState === 'OPEN' &&
+        wrapper &&
+        !wrapper.contains(e.target) &&
+        menu &&
+        !menu.contains(e.target)
+      ) {
         window.ValenixiaOverflowMenu.close();
       }
     });
@@ -20721,7 +20972,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     });
 
     window.addEventListener('resize', () => {
-      if (window.ValenixiaOverflowMenu.menuState === 'OPEN') {
+      if (window.ValenixiaOverflowMenu && window.ValenixiaOverflowMenu.menuState === 'OPEN') {
         window.ValenixiaOverflowMenu.reposition();
       }
     });

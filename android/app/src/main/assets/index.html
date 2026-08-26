@@ -27,13 +27,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <script src="polyfill.min.js"></script>
-  <link rel="stylesheet" href="styles/design-tokens.css?v=1.0.9">
-  <link rel="stylesheet" href="styles/themes.css?v=1.0.9">
-  <link rel="stylesheet" href="styles/animations.css?v=1.0.9">
-  <link rel="stylesheet" href="styles/components.css?v=1.0.9">
-  <link rel="stylesheet" href="styles/mobile-scale.css?v=1.0.9">
-  <link rel="stylesheet" href="style.css?v=1.0.9">
-  <script src="theme-transfer.js?v=1.0.9"></script>
+  <link rel="stylesheet" href="styles/design-tokens.css?v=3.1.0-prod-5b6d127">
+  <link rel="stylesheet" href="styles/themes.css?v=3.1.0-prod-5b6d127">
+  <link rel="stylesheet" href="styles/animations.css?v=3.1.0-prod-5b6d127">
+  <link rel="stylesheet" href="styles/components.css?v=3.1.0-prod-5b6d127">
+  <link rel="stylesheet" href="styles/mobile-scale.css?v=3.1.0-prod-5b6d127">
+  <link rel="stylesheet" href="style.css?v=3.1.0-prod-5b6d127">
+  <script src="theme-transfer.js?v=3.1.0-prod-5b6d127"></script>
 </head>
 <body>
   <!-- STATIC EMERGENCY RECOVERY FALLBACK (No-JS / Catastrophic Fallback Node) -->
@@ -62,16 +62,16 @@
   <!-- AUTH LOCK SCREEN (Centered login PIN pad overlay) -->
   <div class="auth-overlay" id="auth-lock-screen" style="display:none;">
     <div class="auth-card" role="region" aria-label="PIN authorization panel" aria-live="polite">
-      <div class="security-shield" style="display: flex; justify-content: center; margin-bottom: 16px; color: var(--accent-emerald);">
-        <svg class="svg-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <div class="security-shield" style="display: flex; justify-content: center; margin-bottom: 8px; color: var(--accent-emerald);">
+        <svg class="svg-icon" viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       </div>
       <h3>SECURE REGISTER LOGIN</h3>
-      <p>Enter Cashier Security PIN to open shift register</p>
+      <p style="margin-bottom: 10px;">Enter Cashier Security PIN to open shift register</p>
 
       <!-- Terminal Mode Selector -->
-      <div style="margin-bottom: 16px; width: 100%; text-align: left;">
+      <div style="margin-bottom: 10px; width: 100%; text-align: left;">
         <label style="font-size: 10px; color: var(--text-gray); text-transform: uppercase; font-weight: 700; margin-bottom: 4px; display: block;">Terminal Mode:</label>
-        <select id="login-terminal-role" class="pos-input" style="min-height: 40px; height: 40px; padding: 6px 12px; font-size: 12px;" aria-label="Login Terminal Role">
+        <select id="login-terminal-role" class="pos-input" style="min-height: 36px; height: 36px; padding: 4px 10px; font-size: 11.5px;" aria-label="Login Terminal Role">
           <option value="REGISTER">Register Mode (POS Checkout)</option>
           <option value="CFD">Customer Facing Display (CFD)</option>
           <option value="KDS">Kitchen Display System (KDS)</option>
@@ -79,7 +79,7 @@
       </div>
 
       <!-- Real passcode input for native keyboard, physical keyboard, and scanner support -->
-      <form id="pin-form" autocomplete="off" onsubmit="event.preventDefault();" style="margin-bottom: 20px; display: flex; justify-content: center; position: relative; width: 100%;">
+      <form id="pin-form" autocomplete="off" onsubmit="event.preventDefault();" style="margin-bottom: 10px; display: flex; justify-content: center; position: relative; width: 100%;">
         <input type="text" name="username" autocomplete="username" style="display:none;" aria-hidden="true" tabindex="-1" value="cashier">
         <input type="password" autocomplete="current-password" id="pin-input" class="secure-input pin-input-field" 
                inputmode="numeric" pattern="[0-9]*" maxlength="6" minlength="4" placeholder="••••••"
@@ -106,7 +106,7 @@
       <div class="auth-error-msg" id="auth-error"></div>
 
       <!-- Loopback Reset Trigger for recovery -->
-      <div style="margin-top: 16px; text-align: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
+      <div style="margin-top: 10px; text-align: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px;">
         <button type="button" class="btn-link" id="btn-lock-screen-reset" style="font-size: 10px; color: var(--text-gray); background: none; border: none; text-decoration: underline; cursor: pointer; opacity: 0.6; transition: opacity 0.2s;">
           Factory Reset / Re-Onboard Register
         </button>
@@ -179,7 +179,7 @@
           </span>
           <span class="nav-label">Credit</span>
         </button>
-        <button class="nav-item" data-screen="customer-buyback" id="nav-customer-buyback">
+        <button class="nav-item buyback-only-element" data-screen="customer-buyback" id="nav-customer-buyback" style="display: none;">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
           </span>
@@ -366,22 +366,25 @@
           <!-- RESPONSIVE UTILITY OVERFLOW MENU -->
           <div class="topbar-overflow-wrapper" style="position: relative;">
             <button class="topbar-btn" id="btn-topbar-overflow-toggle" aria-expanded="false" aria-controls="topbar-overflow-menu" title="More Utilities" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--border-titanium); background: transparent; color: var(--text-white); cursor: pointer; font-size: 16px; font-weight: 700;">⋮</button>
-            <div class="topbar-overflow-menu" id="topbar-overflow-menu" style="display: none; position: absolute; top: calc(100% + 6px); right: 0; min-width: 220px; max-width: calc(100vw - 16px); border-radius: 8px; padding: 8px; box-shadow: var(--shadow-lg); z-index: 10000; flex-direction: column; gap: 8px; background: var(--panel-graphite-dark, #16181d); border: 1px solid var(--border-titanium, rgba(255,255,255,0.12));">
-              <button class="topbar-btn" id="lang-toggle-btn" onclick="if(window.toggleAppLanguage)window.toggleAppLanguage();" style="display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border-titanium); background: var(--panel-graphite-mid, rgba(255,255,255,0.05)); color: var(--text-white); cursor: pointer; font-size: 12px; font-weight: 700;">
+            <div class="topbar-overflow-menu" id="topbar-overflow-menu" style="display: none; position: fixed; border-radius: 12px; padding: 10px; box-shadow: 0 16px 40px rgba(0,0,0,0.75); z-index: 9999999; flex-direction: column; gap: 8px; background: rgba(18, 20, 30, 0.98); border: 1px solid rgba(255,255,255,0.16); min-width: 230px; box-sizing: border-box;">
+              <button class="overflow-menu-btn" id="overflow-lang-toggle-btn" onclick="if(window.toggleAppLanguage)window.toggleAppLanguage();">
                 <span style="display: flex; align-items: center; gap: 6px;"><span class="lang-text-lbl">Language</span></span>
-                <span class="lang-current-val" style="background: rgba(0,214,143,0.15); color: var(--accent-emerald); padding: 2px 6px; border-radius: 4px; font-size: 11px;">اردو / ENG</span>
+                <span class="lang-current-val" style="background: rgba(0,214,143,0.15); color: var(--accent-emerald); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 800;">اردو / ENG</span>
               </button>
-              <button class="topbar-btn" id="btn-mobile-lock-register" onclick="if(typeof performLogout==='function'){performLogout();}else{if(window.ValenixiaBootstrap)window.ValenixiaBootstrap.transition('AUTH_LOCK');}" style="display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid rgba(239,68,68,0.3); background: rgba(239,68,68,0.1); color: #ef4444; cursor: pointer; font-size: 12px; font-weight: 700;">
+              <button class="overflow-menu-btn btn-lock" id="btn-mobile-lock-register" onclick="if(typeof performLogout==='function'){performLogout();}else{if(window.ValenixiaBootstrap)window.ValenixiaBootstrap.transition('AUTH_LOCK');}">
                 <span style="display: flex; align-items: center; gap: 6px;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> <span class="lock-reg-lbl">Lock Register</span></span>
-                <span style="font-size: 10px; opacity: 0.7;">LOCK</span>
+                <span style="font-size: 10px; font-weight: 800; opacity: 0.85;">LOCK</span>
               </button>
-              <button class="topbar-btn web-only-btn" id="btn-topbar-apps-download" data-screen="apps-download" style="display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--accent-emerald); background: rgba(0, 214, 143, 0.12); color: var(--accent-emerald); cursor: pointer; font-size: 12px; font-weight: 800; text-transform: uppercase;">
-                <span>Native Apps</span>
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <button class="overflow-menu-btn btn-apps" id="btn-topbar-apps-download" data-screen="apps-download">
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  <span>Native Apps</span>
+                </span>
+                <span style="font-size: 10px; font-weight: 800; background: rgba(0,214,143,0.2); padding: 2px 6px; border-radius: 4px;">APK / EXE</span>
               </button>
-              <div class="clock-badge-menu" style="display: flex; flex-direction: column; padding: 8px; background: var(--panel-graphite-mid, rgba(255,255,255,0.03)); border-radius: 6px;">
-                <span class="badge-lbl" style="font-size: 10px; color: var(--text-gray);">HLC Clock:</span>
-                <span class="badge-val" id="hlc-clock" style="font-size: 10px; font-family: var(--font-mono); color: var(--accent-emerald); word-break: break-all; overflow-wrap: anywhere;">0000000000000:000000:web_node</span>
+              <div class="clock-badge-menu" style="display: flex; flex-direction: column; padding: 8px 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
+                <span class="badge-lbl" style="font-size: 9.5px; color: var(--text-gray); text-transform: uppercase; font-weight: 700;">HLC Sync Clock:</span>
+                <span class="badge-val" id="hlc-clock" style="font-size: 10px; font-family: var(--font-mono); color: var(--accent-emerald); word-break: break-all; margin-top: 2px;">0000000000000:000000:web_node</span>
               </div>
             </div>
           </div>
@@ -861,12 +864,12 @@
         <!-- View 2: Quick-Access Catalog (For Mobile) -->
         <section class="content-view" id="view-catalog">
           <div class="quick-catalog-mobile-view" style="padding: 20px; display: flex; flex-direction: column; gap: 16px; height: 100%; overflow: hidden;">
-            <div class="quick-catalog-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-titanium); padding-bottom: 12px; flex-shrink: 0;">
+            <div class="quick-catalog-header" style="display: flex; flex-direction: column; align-items: stretch; gap: 8px; border-bottom: 1px solid var(--border-titanium); padding-bottom: 10px; flex-shrink: 0;">
               <div>
-                <h2 style="font-family: var(--font-display); font-size: 20px; color: var(--text-white); font-weight: 800; margin: 0; text-transform: uppercase;">Quick Products</h2>
+                <h2 style="font-family: var(--font-display); font-size: 19px; color: var(--text-white); font-weight: 800; margin: 0; text-transform: uppercase;">Quick Products</h2>
                 <span style="font-size: 11px; color: var(--text-gray);">Tap items to add directly to checkout.</span>
               </div>
-              <div class="quick-catalog-filters" id="mobile-quick-filters" style="display: flex; gap: 8px; overflow-x: auto;">
+              <div class="quick-catalog-filters" id="mobile-quick-filters" style="display: flex; gap: 6px; overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; padding-bottom: 2px;">
                 <!-- dynamic category pills -->
               </div>
             </div>
@@ -880,39 +883,42 @@
         </section>
 
         <section class="content-view" id="view-catalog-manager">
-          <div class="view-header" style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; flex-wrap:wrap; border-bottom: 1px solid var(--border-titanium); padding-bottom: 6px;">
-            <div style="display:flex; align-items:center; gap:10px;">
-              <h2 style="margin:0; font-family:var(--font-display); font-size:20px; font-weight:900; color:var(--text-white); letter-spacing:-0.3px;">Inventory Ledger</h2>
-              <span style="font-size:10px; background:rgba(255,255,255,0.06); color:var(--text-gray); padding:3px 8px; border-radius:6px; font-weight:700; border:1px solid var(--border-titanium);" id="inventory-item-count-badge">Master Catalog</span>
+          <div class="view-header catalog-view-header">
+            <div class="catalog-header-title-group">
+              <h2 class="catalog-main-heading">Inventory Ledger</h2>
+              <span class="catalog-count-badge" id="inventory-item-count-badge">Master Catalog</span>
             </div>
-            <div class="catalog-header-actions" style="display:flex; gap:6px; align-items:center; flex-wrap:nowrap; overflow-x:auto;">
-              <button type="button" class="action-btn" id="btn-open-import-studio" style="flex-shrink:0; font-size:11px; font-weight:700; padding:6px 12px; display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,0.06); border:1px solid var(--border-titanium); color:var(--text-white); border-radius:6px; cursor:pointer;">
+            <div class="catalog-header-actions">
+              <button type="button" class="action-btn action-success btn-add-prod" id="btn-catalog-create-product">+ Add Product</button>
+              <button type="button" class="action-btn btn-catalog-select-mode" id="btn-catalog-toggle-select" title="Toggle multi-select mode to delete products in bulk">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#ff6b6b" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                <span id="btn-catalog-select-label">Select to Delete</span>
+              </button>
+              <button type="button" class="action-btn btn-import-csv" id="btn-open-import-studio">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 Import CSV
               </button>
-              <button type="button" class="action-btn" id="btn-export-catalog-csv" style="flex-shrink:0; font-size:11px; font-weight:700; padding:6px 12px; display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,0.06); border:1px solid var(--border-titanium); color:var(--text-white); border-radius:6px; cursor:pointer;">
+              <button type="button" class="action-btn btn-export-csv" id="btn-export-catalog-csv">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 Export CSV
-              </button>
-              <button type="button" class="action-btn action-success" id="btn-catalog-create-product" style="flex-shrink:0; font-size:11px; font-weight:900; padding:6px 14px; border-radius:6px; background:linear-gradient(135deg, #00d68f 0%, #00b377 100%); color:#03180f; box-shadow:0 2px 10px rgba(0,214,143,0.3); cursor:pointer;">+ Add Product</button>
-              <button type="button" class="action-btn btn-catalog-select-mode" id="btn-catalog-toggle-select" style="flex-shrink:0; font-size:11px; font-weight:800; padding:6px 12px; display:inline-flex; align-items:center; gap:6px; border:1px solid rgba(255,92,92,0.5); color:#ff6b6b; background:rgba(255,92,92,0.12); border-radius:6px; cursor:pointer; transition:all 0.2s ease;" title="Toggle multi-select mode to delete products in bulk">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#ff6b6b" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                <span id="btn-catalog-select-label">Select to Delete</span>
               </button>
             </div>
           </div>
 
-          <!-- Sticky / Floating Bulk Action Bar for Multi-Select Product Deletion -->
-          <div id="catalog-bulk-bar" style="display:none; align-items:center; justify-content:space-between; padding:12px 18px; margin-bottom:12px; border-radius:10px; background:linear-gradient(135deg, rgba(239,68,68,0.22) 0%, rgba(24,18,22,0.98) 100%); border:1px solid rgba(239,68,68,0.5); box-shadow:0 8px 30px rgba(0,0,0,0.6); backdrop-filter:blur(10px);">
-            <div style="display:flex; align-items:center; gap:12px;">
-              <span style="display:inline-flex; align-items:center; justify-content:center; min-width:26px; height:26px; padding:0 8px; border-radius:13px; background:#ef4444; color:#ffffff; font-size:12px; font-weight:900; box-shadow:0 2px 8px rgba(239,68,68,0.4);" id="catalog-selected-count">0</span>
-              <span style="font-size:13px; font-weight:800; color:#ffffff; letter-spacing:0.2px;">Products Selected for Deletion</span>
+          <!-- Floating Smart Bulk Action Dock for Multi-Select Product Deletion -->
+          <div id="catalog-bulk-bar" class="catalog-bulk-bar" role="region" aria-label="Bulk actions dock">
+            <div class="catalog-bulk-info">
+              <div class="catalog-bulk-badge-row">
+                <span class="catalog-bulk-counter" id="catalog-selected-count">0</span>
+                <span class="catalog-bulk-text">Selected</span>
+              </div>
+              <button type="button" class="catalog-bulk-select-all-btn" id="catalog-bulk-select-all-toggle">Select All</button>
             </div>
-            <div style="display:flex; gap:10px; align-items:center;">
-              <button type="button" class="action-btn" id="btn-catalog-cancel-bulk" style="padding:7px 16px; font-size:12px; font-weight:700; border-radius:8px; background:rgba(255,255,255,0.08); border:1px solid var(--border-titanium); color:#ffffff; cursor:pointer;">Cancel</button>
-              <button type="button" class="action-btn action-danger" id="btn-catalog-delete-bulk" style="padding:7px 20px; font-size:12px; font-weight:900; border-radius:8px; background:linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color:#ffffff; display:inline-flex; align-items:center; gap:7px; cursor:pointer; box-shadow:0 4px 14px rgba(239,68,68,0.4);">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#ffffff" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                Delete Selected (<span id="catalog-btn-delete-count">0</span>)
+            <div class="catalog-bulk-buttons">
+              <button type="button" class="action-btn btn-bulk-cancel" id="btn-catalog-cancel-bulk">Cancel</button>
+              <button type="button" class="action-btn action-danger btn-bulk-delete" id="btn-catalog-delete-bulk">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#ffffff" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                <span>Delete (<span id="catalog-btn-delete-count">0</span>)</span>
               </button>
             </div>
           </div>
@@ -1252,6 +1258,7 @@
                 Export CSV
               </button>
             </div>
+          </div>
           <!-- Multi-Dimensional Telemetry & Dynamic Store/Branch Filter Panel -->
           <div id="analytics-multidim-filter-bar" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(12, 14, 24, 0.95) 100%); border: 1px solid rgba(0, 214, 143, 0.25); border-radius: 14px; padding: 18px; margin-bottom: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.35); backdrop-filter: blur(12px); display: flex; flex-direction: column; gap: 14px;">
             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 12px;">
@@ -1460,29 +1467,46 @@
 
         <!-- View 5: Customer Directory -->
         <section class="content-view" id="view-customers">
-          <div class="view-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 18px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+          <div class="view-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
             <div>
               <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Customer &amp; Khata Directory</h2>
-              <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Loyalty profiles, purchase history, and customer credit ledger</p>
+              <p style="margin: 3px 0 0; font-size: 11.5px; color: var(--text-gray);">Loyalty profiles, purchase history, and customer credit ledger</p>
             </div>
-            <button class="action-btn action-primary" id="btn-customers-create" style="padding: 10px 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; border-radius: 10px; background: linear-gradient(135deg, #00d68f 0%, #00a876 100%); color: #060d0d; border: none; box-shadow: 0 4px 14px rgba(0,214,143,0.3); cursor: pointer; transition: all 0.2s;">+ Create Customer Profile</button>
+            <button class="action-btn action-primary" id="btn-customers-create" style="padding: 8px 18px; font-size: 11.5px; font-weight: 800; border-radius: 8px; background: linear-gradient(135deg, #00d68f 0%, #00a876 100%); color: #060d0d; border: none; box-shadow: 0 4px 14px rgba(0,214,143,0.3); cursor: pointer; transition: all 0.2s;">+ Create Customer Profile</button>
+          </div>
+
+          <!-- Customer KPI Quick Metrics -->
+          <div class="customers-kpi-bar" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 12px;">
+            <div class="kpi-micro-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 8px 12px;">
+              <span style="font-size: 10px; color: var(--text-gray); text-transform: uppercase; font-weight: 700; display: block;">Total Customers</span>
+              <strong id="cust-kpi-total" style="font-size: 15px; color: var(--text-white); font-family: var(--font-display);">0</strong>
+            </div>
+            <div class="kpi-micro-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 8px 12px;">
+              <span style="font-size: 10px; color: var(--text-gray); text-transform: uppercase; font-weight: 700; display: block;">VIP Loyalty</span>
+              <strong id="cust-kpi-vip" style="font-size: 15px; color: var(--accent-emerald); font-family: var(--font-display);">0</strong>
+            </div>
+            <div class="kpi-micro-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 8px 12px;">
+              <span style="font-size: 10px; color: var(--text-gray); text-transform: uppercase; font-weight: 700; display: block;">Active Udhaar</span>
+              <strong id="cust-kpi-udhaar" style="font-size: 15px; color: var(--alert-coral); font-family: var(--font-display);">Rs. 0</strong>
+            </div>
           </div>
           
-          <div class="customers-table-wrapper" style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
-            <div class="search-bar-row" style="margin-bottom: 16px;">
-              <input type="text" id="customers-search-input" class="pos-input" placeholder=" Search customers by name, phone, or email..." style="min-height: 42px; font-size: 12px; padding: 10px 16px; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);" aria-label="Search profiles by name, phone or email...">
+          <div class="customers-table-wrapper" style="flex: 1; display: flex; flex-direction: column; background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); min-height: 0;">
+            <div class="search-bar-row" style="margin-bottom: 12px; display: flex; gap: 8px;">
+              <input type="text" id="customers-search-input" class="pos-input" placeholder="Search customers by name, phone, or email..." style="flex: 1; min-height: 40px; font-size: 12px; padding: 8px 14px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);" aria-label="Search profiles by name, phone or email...">
             </div>
             
-            <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+            <!-- Desktop Table View -->
+            <div class="customers-desktop-table-container" style="overflow-x: auto; -webkit-overflow-scrolling: touch; flex: 1;">
               <table class="catalog-table" style="width: 100%; border-collapse: collapse;">
                 <thead>
                   <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; color: var(--text-gray);">
-                    <th style="padding: 12px; text-align: left;">Customer Profile</th>
-                    <th style="padding: 12px; text-align: left;">Phone Number</th>
-                    <th style="padding: 12px; text-align: left;">Email</th>
-                    <th style="padding: 12px; text-align: center;">Visits</th>
-                    <th style="padding: 12px; text-align: right;">Total Spend</th>
-                    <th style="padding: 12px; text-align: center;">Actions</th>
+                    <th style="padding: 10px 12px; text-align: left;">Customer Profile</th>
+                    <th style="padding: 10px 12px; text-align: left;">Phone Number</th>
+                    <th style="padding: 10px 12px; text-align: left;">Email</th>
+                    <th style="padding: 10px 12px; text-align: center;">Visits</th>
+                    <th style="padding: 10px 12px; text-align: right;">Total Spend</th>
+                    <th style="padding: 10px 12px; text-align: center;">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="customers-table-tbody">
@@ -1490,23 +1514,28 @@
                 </tbody>
               </table>
             </div>
+
+            <!-- Mobile Card View Container -->
+            <div class="customers-mobile-card-list" id="customers-mobile-card-list" style="display: none; flex-direction: column; gap: 8px; flex: 1; overflow-y: auto;">
+              <!-- dynamic mobile customer cards inserted by app.js -->
+            </div>
           </div>
         </section>
 
         <!-- View 9: Suppliers & Accounts Payable Directory -->
         <section class="content-view" id="view-suppliers">
-          <div style="padding: 20px; max-width: 1400px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; overflow-x: hidden;">
-            <div class="view-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+          <div style="padding: 14px; max-width: 1400px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box; overflow-x: hidden; flex: 1;">
+            <div class="view-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
               <div>
                 <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Supplier Directory &amp; Accounts Payable</h2>
-                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Distributor ledgers, purchase orders, goods receive notes (GRN), and vendor debts</p>
+                <p style="margin: 3px 0 0; font-size: 11.5px; color: var(--text-gray);">Distributor ledgers, purchase orders, goods receive notes (GRN), and vendor debts</p>
               </div>
-              <button class="btn-tactile btn-tactile-primary" id="btn-suppliers-create" onclick="if(window.openSupplierModal)window.openSupplierModal();" style="padding: 10px 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; border-radius: 10px;">+ Add New Supplier</button>
+              <button class="btn-tactile btn-tactile-primary" id="btn-suppliers-create" onclick="if(window.openSupplierModal)window.openSupplierModal();" style="padding: 8px 18px; font-size: 11.5px; font-weight: 800; border-radius: 8px;">+ Add New Supplier</button>
             </div>
 
-            <div class="suppliers-split-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 20px; align-items: start;">
+            <div class="suppliers-split-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 14px; align-items: stretch; flex: 1;">
               <!-- Left Pane: Supplier List -->
-              <div style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+              <div class="suppliers-left-pane" style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto;">
                 <input type="text" id="supplier-search-input" class="pos-input" placeholder="Search suppliers by name or phone..." oninput="if(window.renderSuppliersScreen)window.renderSuppliersScreen(this.value.toLowerCase().trim());" style="min-height: 40px; font-size: 12px; padding: 8px 14px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);" aria-label="Search suppliers by name or phone">
                 <div id="supplier-list-container" style="display: flex; flex-direction: column; gap: 8px;">
                   <!-- Populated dynamically by renderSuppliersScreen() -->
@@ -1514,16 +1543,16 @@
               </div>
 
               <!-- Right Pane: Supplier Detail Ledger -->
-              <div style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
-                <div id="supplier-detail-empty" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 20px; text-align: center; color: var(--text-gray);">
-                  <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.08);">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 21h18M5 21V7l8-4v18M13 21V3l6 3v15"/></svg>
+              <div class="suppliers-right-pane" style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto;">
+                <div id="supplier-detail-empty" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 20px; text-align: center; color: var(--text-gray); flex: 1;">
+                  <div style="width: 52px; height: 52px; border-radius: 14px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.08);">
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 21h18M5 21V7l8-4v18M13 21V3l6 3v15"/></svg>
                   </div>
-                  <h3 style="margin: 0; color: var(--text-white); font-size: 16px;">Select a Supplier</h3>
+                  <h3 style="margin: 0; color: var(--text-white); font-size: 16px; font-weight: 800;">Select a Supplier</h3>
                   <p style="font-size: 12px; max-width: 320px; margin-top: 6px;">Choose a supplier from the list to view outstanding balance, purchase order history, and payment transactions.</p>
                 </div>
 
-                <div id="supplier-detail-panel" style="display: none; flex-direction: column; gap: 16px;">
+                <div id="supplier-detail-panel" style="display: none; flex-direction: column; gap: 14px; flex: 1;">
                   <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 14px; flex-wrap: wrap; gap: 10px;">
                     <div>
                       <h3 id="supplier-detail-name" style="margin: 0; font-size: 18px; color: var(--text-white); font-family: var(--font-display);">Supplier Name</h3>
@@ -1535,10 +1564,10 @@
                     </div>
                   </div>
 
-                  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                    <button class="btn-tactile btn-tactile-primary" id="btn-supplier-create-po" style="font-size: 11px; padding: 8px 16px; border-radius: 8px;">+ New Purchase Order</button>
-                    <button class="btn-tactile btn-tactile-secondary" id="btn-supplier-record-payment" style="font-size: 11px; padding: 8px 16px; border-radius: 8px;">Record Vendor Payment</button>
-                    <button class="btn-tactile btn-tactile-secondary" id="btn-supplier-edit-profile" style="font-size: 11px; padding: 8px 16px; border-radius: 8px;">Edit Details</button>
+                  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button class="btn-tactile btn-tactile-primary" id="btn-supplier-create-po" style="font-size: 11px; padding: 6px 14px; border-radius: 8px;">+ New Purchase Order</button>
+                    <button class="btn-tactile btn-tactile-secondary" id="btn-supplier-record-payment" style="font-size: 11px; padding: 6px 14px; border-radius: 8px;">Record Vendor Payment</button>
+                    <button class="btn-tactile btn-tactile-secondary" id="btn-supplier-edit-profile" style="font-size: 11px; padding: 6px 14px; border-radius: 8px;">Edit Details</button>
                   </div>
 
                   <!-- Tabs: PO History vs Payments -->
@@ -1558,58 +1587,52 @@
 
         <!-- View 10: Credit Book (Customer Khata Ledger) -->
         <section class="content-view" id="view-credit-book">
-          <div style="padding: 20px; max-width: 1400px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; overflow-x: hidden;">
-            <div class="view-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+          <div class="credit-book-container" style="display: flex; flex-direction: column; height: 100%; flex: 1; box-sizing: border-box; overflow-x: hidden; min-height: 0;">
+            <div class="view-header" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
               <div>
                 <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Customer Credit Book (Khata Ledger)</h2>
-                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Manage customer credit accounts, track receivables, and record cash/online balance repayments</p>
+                <p style="margin: 3px 0 0; font-size: 11.5px; color: var(--text-gray);">Manage customer credit accounts, track receivables, and record cash/online balance repayments</p>
               </div>
-              <button class="btn-tactile btn-tactile-primary" onclick="if(window.openCustomerModal)window.openCustomerModal();" style="padding: 10px 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; border-radius: 10px;">+ Add Customer Account</button>
+              <button class="btn-tactile btn-tactile-primary" onclick="if(window.openCustomerModal)window.openCustomerModal();" style="padding: 8px 18px; font-size: 11.5px; font-weight: 800; border-radius: 8px;">+ Add Customer Account</button>
             </div>
 
-            <div class="suppliers-split-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 20px; align-items: start;">
+            <!-- Khata KPI Bar -->
+            <div class="khata-kpi-bar" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 12px;">
+              <div class="kpi-micro-card" style="background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.25); border-radius: 10px; padding: 8px 12px;">
+                <span style="font-size: 10px; color: var(--alert-coral); text-transform: uppercase; font-weight: 700; display: block;">Total Udhaar Due</span>
+                <strong id="khata-kpi-due" style="font-size: 15px; color: var(--alert-coral); font-family: var(--font-display);">Rs. 0.00</strong>
+              </div>
+              <div class="kpi-micro-card" style="background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.25); border-radius: 10px; padding: 8px 12px;">
+                <span style="font-size: 10px; color: var(--accent-emerald); text-transform: uppercase; font-weight: 700; display: block;">Wasool (Repaid)</span>
+                <strong id="khata-kpi-repaid" style="font-size: 15px; color: var(--accent-emerald); font-family: var(--font-display);">Rs. 0.00</strong>
+              </div>
+              <div class="kpi-micro-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 8px 12px;">
+                <span style="font-size: 10px; color: var(--text-gray); text-transform: uppercase; font-weight: 700; display: block;">Active Accounts</span>
+                <strong id="khata-kpi-accounts" style="font-size: 15px; color: var(--text-white); font-family: var(--font-display);">0</strong>
+              </div>
+            </div>
+
+            <div class="suppliers-split-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 14px; align-items: stretch; flex: 1; min-height: 0;">
               <!-- Left Pane: Customer List -->
-              <div style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+              <div class="khata-left-pane" style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto;">
                 <input type="text" id="credit-customer-search" class="pos-input" placeholder="Search customer Khata accounts..." oninput="if(window.renderCreditBookScreen)window.renderCreditBookScreen(this.value.toLowerCase().trim());" style="min-height: 40px; font-size: 12px; padding: 8px 14px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);" aria-label="Search customer Khata accounts">
-                <div id="credit-customer-list-container" style="display: flex; flex-direction: column; gap: 8px;">
+                <div id="credit-customer-list-container" style="display: flex; flex-direction: column; gap: 8px; flex: 1; overflow-y: auto;">
                   <!-- Populated dynamically by renderCreditBookScreen() -->
                 </div>
               </div>
 
               <!-- Right Pane: Customer Khata Ledger Detail -->
-              <div style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
-                <div id="credit-detail-empty" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 20px; text-align: center; color: var(--text-gray);">
-                  <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.08);">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+              <div class="khata-right-pane" style="background: rgba(6,6,12,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow-y: auto;">
+                <div id="credit-detail-empty" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 20px; text-align: center; color: var(--text-gray); flex: 1;">
+                  <div style="width: 52px; height: 52px; border-radius: 14px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.08);">
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
                   </div>
-                  <h3 style="margin: 0; color: var(--text-white); font-size: 16px;">Select a Khata Account</h3>
-                  <p style="font-size: 12px; max-width: 320px; margin-top: 6px;">Select a customer from the left panel to inspect their credit balance, sales history, and record repayments.</p>
+                  <h3 style="margin: 0; color: var(--text-white); font-size: 16px; font-weight: 800;">Select a Khata Account</h3>
+                  <p style="font-size: 12px; max-width: 320px; margin-top: 6px;">Select a customer from the left list to inspect their credit balance, sales history, and record repayments.</p>
                 </div>
 
-                <div id="credit-detail-panel" style="display: none; flex-direction: column; gap: 16px;">
-                  <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 14px; flex-wrap: wrap; gap: 10px;">
-                    <div>
-                      <h3 id="credit-detail-name" style="margin: 0; font-size: 18px; color: var(--text-white); font-family: var(--font-display);">Customer Name</h3>
-                      <span id="credit-detail-phone" style="font-size: 11px; color: var(--text-gray);">Phone: —</span>
-                    </div>
-                    <div style="text-align: right;">
-                      <span style="font-size: 10px; color: var(--text-gray); text-transform: uppercase; font-weight: 700; display: block;">Udhaar Balance Due</span>
-                      <strong id="credit-detail-balance" style="font-size: 18px; color: var(--accent-emerald); font-family: var(--font-display);">Rs. 0.00</strong>
-                    </div>
-                  </div>
-
-                  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                    <button class="btn-tactile btn-tactile-primary" id="btn-credit-collect-payment" style="font-size: 11px; padding: 8px 16px; border-radius: 8px;">Collect Payment (Wasool)</button>
-                    <button class="btn-tactile btn-tactile-amber" id="btn-credit-add-manual" style="font-size: 11px; padding: 8px 16px; border-radius: 8px;">Record Manual Credit (Udhaar)</button>
-                  </div>
-
-                  <div style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
-                    <h4 style="margin: 0; font-size: 13px; color: var(--text-white); font-family: var(--font-display);">Khata Transaction Timeline</h4>
-                  </div>
-
-                  <div id="credit-ledger-timeline" style="display: flex; flex-direction: column; gap: 8px;">
-                    <!-- Ledger timeline items populated dynamically -->
-                  </div>
+                <div id="credit-detail-panel" style="display: none; flex-direction: column; gap: 14px; flex: 1;">
+                  <!-- Dynamic detail header, balance banner, and timeline inserted by renderCreditDetails() -->
                 </div>
               </div>
             </div>

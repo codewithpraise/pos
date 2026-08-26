@@ -675,10 +675,16 @@
     const config = STORE_MODES[modeKey] || STORE_MODES['simple-retail'];
     console.log(`[StoreModes] Applying store mode: ${config.name} (${config.id})`);
 
-    // 1. Update localStorage
+    // 1. Update localStorage & state preferences
     try {
       localStorage.setItem('valenixia_shop_mode', config.id);
-      if (window.state) window.state.shopMode = config.id;
+      if (window.state) {
+        window.state.shopMode = config.id;
+        if (window.state.preferences) {
+          window.state.preferences.shop_mode = config.id;
+          window.state.preferences.store_type = config.id;
+        }
+      }
     } catch (_) {}
 
     // 2. Adjust Product Add/Edit Modal Dynamic Sections
@@ -872,7 +878,7 @@
   }
 
   function isBuybackSupported(mode) {
-    const active = mode || (typeof window !== 'undefined' && window.state && window.state.preferences && (window.state.preferences.shop_mode || window.state.preferences.store_type)) || (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_shop_mode')) || 'simple-retail';
+    const active = mode || (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_shop_mode')) || (typeof window !== 'undefined' && window.state && window.state.preferences && (window.state.preferences.shop_mode || window.state.preferences.store_type)) || 'simple-retail';
     const modeConfig = STORE_MODES[active];
     if (modeConfig && modeConfig.features && modeConfig.features.hasCustomerBuyback !== undefined) {
       return Boolean(modeConfig.features.hasCustomerBuyback);
@@ -898,10 +904,18 @@
   };
 
   if (typeof document !== 'undefined') {
+    const onReady = () => {
+      setTimeout(() => {
+        renderOrderTypeBar();
+        if (typeof window !== 'undefined' && typeof window.updateBuybackNavVisibility === 'function') {
+          try { window.updateBuybackNavVisibility(); } catch (_) {}
+        }
+      }, 50);
+    };
     if (document.readyState === 'interactive' || document.readyState === 'complete') {
-      setTimeout(renderOrderTypeBar, 100);
+      onReady();
     } else {
-      document.addEventListener('DOMContentLoaded', () => setTimeout(renderOrderTypeBar, 100));
+      document.addEventListener('DOMContentLoaded', onReady);
     }
   }
 
