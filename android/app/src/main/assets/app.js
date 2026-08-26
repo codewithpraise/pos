@@ -8839,6 +8839,17 @@ setHtml(overlay, `
         );
         return;
       }
+
+      if (shopMode === 'jewellery' && window.ValenixiaJewellery && typeof window.ValenixiaJewellery.openJewelPricingModal === 'function') {
+        window.ValenixiaJewellery.openJewelPricingModal(prod, (p, calc) => {
+          addProductToCheckoutCart(sku, {
+            priceOverride: calc.grandTotalMinor,
+            display: `(${calc.karat} • ${calc.weightG}g • Making: Rs.${calc.makingValue.toLocaleString('en-PK')})`,
+            jewelCalc: calc
+          });
+        });
+        return;
+      }
     }
 
     const isOversellBlocked = state.preferences['oversell_block_enabled'] !== 'false';
@@ -8853,7 +8864,7 @@ setHtml(overlay, `
       }
     }
 
-    let price = prod.base_price_minor_units;
+    let price = (options && options.priceOverride !== undefined) ? options.priceOverride : prod.base_price_minor_units;
     let displayName = prod.name;
     if (options && options.priceAdjustment) {
       price += options.priceAdjustment;
@@ -11509,29 +11520,164 @@ setHtml(container, `
         </div>
       `);
     } else if (mode === 'jewellery') {
-setHtml(container, `
-        <label style="font-weight:700; font-size:11px; text-transform:uppercase; color:var(--accent-emerald);">Jewellery Purity &amp; Weight</label>
-        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
+      const karatVal = fields.karat || '22K';
+      const weightVal = fields.weight_g !== undefined ? fields.weight_g : '';
+      const grossVal = fields.gross_weight_g !== undefined ? fields.gross_weight_g : '';
+      const makingVal = fields.making_fee !== undefined ? fields.making_fee : '';
+      const makingType = fields.making_type || 'fixed';
+      const wastageVal = fields.wastage_pct !== undefined ? fields.wastage_pct : 2.0;
+      const stoneDesc = fields.stone_desc || '';
+      const stoneWt = fields.stone_weight_ct !== undefined ? fields.stone_weight_ct : '';
+      const stoneVal = fields.stone_price !== undefined ? fields.stone_price : '';
+      const certId = fields.cert_id || '';
+      const metalType = fields.metal_type || 'gold';
+
+      setHtml(container, `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <label style="font-weight:700; font-size:11px; text-transform:uppercase; color:#f59e0b; display:flex; align-items:center; gap:6px;">
+            Jewellery Purity, Precious Metal &amp; Stone Specs
+          </label>
+          <button type="button" class="action-btn" id="btn-jewel-form-calc-price" style="font-size:10px; font-weight:700; padding:2px 8px; border-radius:4px; background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.3); cursor:pointer;">
+            Auto-Set Selling Price from Daily Rate
+          </button>
+        </div>
+
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:10px; background:rgba(245,158,11,0.03); border:1px solid rgba(245,158,11,0.15); border-radius:8px; padding:12px;">
           <div>
-            <span style="font-size:10px; color:var(--text-gray);">Purity Karat</span>
-            <select id="form-jewel-karat" class="pos-input" style="margin-top:4px; font-size:11px;" aria-label="Karat">
-              <option value="24K" ${fields.karat === '24K' ? 'selected' : ''}>24K Pure Gold</option>
-              <option value="22K" ${fields.karat === '22K' || !fields.karat ? 'selected' : ''}>22K Standard</option>
-              <option value="21K" ${fields.karat === '21K' ? 'selected' : ''}>21K</option>
-              <option value="18K" ${fields.karat === '18K' ? 'selected' : ''}>18K</option>
-              <option value="925" ${fields.karat === '925' ? 'selected' : ''}>925 Silver</option>
+            <span style="font-size:10px; font-weight:700; color:var(--text-gray);">Metal Type</span>
+            <select id="form-jewel-metal" class="pos-input" style="margin-top:4px; font-size:11px;" aria-label="Metal Type">
+              <option value="gold" ${metalType === 'gold' ? 'selected' : ''}>Gold (سونا)</option>
+              <option value="silver" ${metalType === 'silver' ? 'selected' : ''}>Silver (چاندی)</option>
+              <option value="diamond" ${metalType === 'diamond' ? 'selected' : ''}>Diamond Jewellery (ہیرے)</option>
+              <option value="platinum" ${metalType === 'platinum' ? 'selected' : ''}>Platinum (پلاٹینم)</option>
             </select>
           </div>
           <div>
-            <span style="font-size:10px; color:var(--text-gray);">Net Weight (Grams)</span>
-            <input type="number" id="form-jewel-weight" class="pos-input" step="0.01" placeholder="e.g. 12.45" value="${fields.weight_g || ''}" style="margin-top:4px; font-size:11px;" aria-label="Net Weight">
+            <span style="font-size:10px; font-weight:700; color:var(--text-gray);">Purity Karat</span>
+            <select id="form-jewel-karat" class="pos-input" style="margin-top:4px; font-size:11px;" aria-label="Karat">
+              <option value="24K" ${karatVal === '24K' ? 'selected' : ''}>24K Pure Gold (99.9%)</option>
+              <option value="22K" ${karatVal === '22K' ? 'selected' : ''}>22K Standard (91.6%)</option>
+              <option value="21K" ${karatVal === '21K' ? 'selected' : ''}>21K Gulf Gold (87.5%)</option>
+              <option value="18K" ${karatVal === '18K' ? 'selected' : ''}>18K Diamond Setting (75%)</option>
+              <option value="14K" ${karatVal === '14K' ? 'selected' : ''}>14K Gold (58.3%)</option>
+              <option value="925" ${karatVal === '925' ? 'selected' : ''}>925 Sterling Silver</option>
+            </select>
           </div>
           <div>
-            <span style="font-size:10px; color:var(--text-gray);">Making Charge (PKR)</span>
-            <input type="number" id="form-jewel-making" class="pos-input" placeholder="e.g. 2500" value="${fields.making_fee || ''}" style="margin-top:4px; font-size:11px;" aria-label="Making Charge">
+            <span style="font-size:10px; font-weight:700; color:var(--text-gray);">Net Metal Weight (Grams)</span>
+            <input type="number" id="form-jewel-weight" class="pos-input" step="0.001" min="0" placeholder="e.g. 12.450" value="${weightVal}" style="margin-top:4px; font-size:11px;" aria-label="Net Weight">
+          </div>
+          <div>
+            <span style="font-size:10px; font-weight:700; color:var(--text-gray);">Gross Weight (Grams)</span>
+            <input type="number" id="form-jewel-gross" class="pos-input" step="0.001" min="0" placeholder="e.g. 14.200" value="${grossVal}" style="margin-top:4px; font-size:11px;" aria-label="Gross Weight">
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:10px; background:rgba(245,158,11,0.03); border:1px solid rgba(245,158,11,0.15); border-radius:8px; padding:12px; margin-top:8px;">
+          <div>
+            <span style="font-size:10px; font-weight:700; color:var(--text-gray);">Making Charge (PKR)</span>
+            <input type="number" id="form-jewel-making" class="pos-input" step="1" min="0" placeholder="e.g. 3500" value="${makingVal}" style="margin-top:4px; font-size:11px;" aria-label="Making Charge">
+          </div>
+          <div>
+            <span style="font-size:10px; font-weight:700; color:var(--text-gray);">Making Charge Type</span>
+            <select id="form-jewel-making-type" class="pos-input" style="margin-top:4px; font-size:11px;" aria-label="Making Charge Type">
+              <option value="fixed" ${makingType === 'fixed' ? 'selected' : ''}>Fixed Total (مقررہ کٹائی)</option>
+              <option value="per_gram" ${makingType === 'per_gram' ? 'selected' : ''}>Per Gram (فی گرام کٹائی)</option>
+            </select>
+          </div>
+          <div>
+            <span style="font-size:10px; font-weight:700; color:var(--text-gray);">Wastage / Karta (%)</span>
+            <input type="number" id="form-jewel-wastage" class="pos-input" step="0.1" min="0" max="50" placeholder="Default: 2%" value="${wastageVal}" style="margin-top:4px; font-size:11px;" aria-label="Wastage Percentage">
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1.5fr 1fr 1fr; gap:10px; background:rgba(245,158,11,0.03); border:1px solid rgba(245,158,11,0.15); border-radius:8px; padding:12px; margin-top:8px;">
+          <div>
+            <span style="font-size:10px; font-weight:700; color:var(--text-gray);">Stone / Gemstone Details</span>
+            <input type="text" id="form-jewel-stone-desc" class="pos-input" placeholder="e.g. Natural Ruby, VVS Diamond, CZ" value="${escapeHtml(stoneDesc)}" style="margin-top:4px; font-size:11px;" aria-label="Stone Details">
+          </div>
+          <div>
+            <span style="font-size:10px; font-weight:700; color:var(--text-gray);">Stone Weight (Carats)</span>
+            <input type="number" id="form-jewel-stone-wt" class="pos-input" step="0.01" min="0" placeholder="e.g. 0.75" value="${stoneWt}" style="margin-top:4px; font-size:11px;" aria-label="Stone Weight">
+          </div>
+          <div>
+            <span style="font-size:10px; font-weight:700; color:var(--text-gray);">Stone Value (PKR)</span>
+            <input type="number" id="form-jewel-stone-val" class="pos-input" step="1" min="0" placeholder="e.g. 45000" value="${stoneVal}" style="margin-top:4px; font-size:11px;" aria-label="Stone Value">
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1.5fr; gap:10px; background:rgba(245,158,11,0.03); border:1px solid rgba(245,158,11,0.15); border-radius:8px; padding:12px; margin-top:8px;">
+          <div>
+            <span style="font-size:10px; font-weight:700; color:var(--text-gray);">Certificate / Hallmark / HUID #</span>
+            <input type="text" id="form-jewel-cert" class="pos-input" placeholder="e.g. GIA-99201 / Hallmark 22K" value="${escapeHtml(certId)}" style="margin-top:4px; font-size:11px;" aria-label="Certificate ID">
+          </div>
+          <div id="form-jewel-live-calc-box" style="display:flex; flex-direction:column; justify-content:center; background:rgba(245,158,11,0.08); border-radius:6px; padding:6px 10px; border:1px dashed rgba(245,158,11,0.3);">
+            <div style="font-size:10px; color:#f59e0b; font-weight:700;">Live Valuation Preview:</div>
+            <div id="form-jewel-calc-text" style="font-size:11px; color:var(--text-white); font-weight:800; margin-top:2px;">—</div>
           </div>
         </div>
       `);
+
+      // Dynamic valuation updater for the form
+      const updateFormValuation = () => {
+        const k = document.getElementById('form-jewel-karat')?.value || '22K';
+        const w = parseFloat(document.getElementById('form-jewel-weight')?.value || '0');
+        const was = parseFloat(document.getElementById('form-jewel-wastage')?.value || '0');
+        const mf = parseFloat(document.getElementById('form-jewel-making')?.value || '0');
+        const mt = document.getElementById('form-jewel-making-type')?.value || 'fixed';
+        const stVal = parseFloat(document.getElementById('form-jewel-stone-val')?.value || '0');
+
+        if (window.ValenixiaJewellery && typeof window.ValenixiaJewellery.calculatePiecePrice === 'function') {
+          const calc = window.ValenixiaJewellery.calculatePiecePrice({
+            karat: k,
+            weight_g: w,
+            wastage_pct: was,
+            making_fee: mf,
+            making_type: mt,
+            stone_price: stVal
+          });
+          const textEl = document.getElementById('form-jewel-calc-text');
+          if (textEl) {
+            textEl.textContent = `Estimated Value: Rs. ${calc.grandTotal.toLocaleString('en-PK')} (Metal: Rs. ${calc.metalBaseValue.toLocaleString('en-PK')} + Making: Rs. ${calc.makingValue.toLocaleString('en-PK')})`;
+          }
+        }
+      };
+
+      // Wire auto-set selling price button
+      document.getElementById('btn-jewel-form-calc-price')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        const k = document.getElementById('form-jewel-karat')?.value || '22K';
+        const w = parseFloat(document.getElementById('form-jewel-weight')?.value || '0');
+        const was = parseFloat(document.getElementById('form-jewel-wastage')?.value || '0');
+        const mf = parseFloat(document.getElementById('form-jewel-making')?.value || '0');
+        const mt = document.getElementById('form-jewel-making-type')?.value || 'fixed';
+        const stVal = parseFloat(document.getElementById('form-jewel-stone-val')?.value || '0');
+
+        if (window.ValenixiaJewellery) {
+          const calc = window.ValenixiaJewellery.calculatePiecePrice({
+            karat: k,
+            weight_g: w,
+            wastage_pct: was,
+            making_fee: mf,
+            making_type: mt,
+            stone_price: stVal
+          });
+          const priceInput = document.getElementById('form-product-price');
+          if (priceInput) {
+            priceInput.value = calc.grandTotal.toFixed(2);
+            if (typeof window.showNotificationToast === 'function') {
+              window.showNotificationToast(`Updated price to Rs. ${calc.grandTotal.toLocaleString('en-PK')} based on ${k} daily rate`, 'success', 2000);
+            }
+          }
+        }
+      });
+
+      ['form-jewel-karat', 'form-jewel-weight', 'form-jewel-making', 'form-jewel-making-type', 'form-jewel-wastage', 'form-jewel-stone-val'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', updateFormValuation);
+        document.getElementById(id)?.addEventListener('change', updateFormValuation);
+      });
+
+      updateFormValuation();
     } else if (mode === 'books-stationery') {
 setHtml(container, `
         <label style="font-weight:700; font-size:11px; text-transform:uppercase; color:var(--accent-emerald);">Publication Metadata</label>
@@ -11673,12 +11819,29 @@ setHtml(container, `
       fields.part_number = pEl ? pEl.value.trim() : '';
       fields.labor_hours = lEl ? parseFloat(lEl.value || 0) : 0;
     } else if (mode === 'jewellery') {
+      const mTypeEl = document.getElementById('form-jewel-metal');
       const kEl = document.getElementById('form-jewel-karat');
       const wEl = document.getElementById('form-jewel-weight');
+      const grossEl = document.getElementById('form-jewel-gross');
       const mEl = document.getElementById('form-jewel-making');
+      const mtEl = document.getElementById('form-jewel-making-type');
+      const wasEl = document.getElementById('form-jewel-wastage');
+      const sDescEl = document.getElementById('form-jewel-stone-desc');
+      const sWtEl = document.getElementById('form-jewel-stone-wt');
+      const sValEl = document.getElementById('form-jewel-stone-val');
+      const certEl = document.getElementById('form-jewel-cert');
+
+      fields.metal_type = mTypeEl ? mTypeEl.value : 'gold';
       fields.karat = kEl ? kEl.value : '22K';
       fields.weight_g = wEl ? parseFloat(wEl.value || 0) : 0;
+      fields.gross_weight_g = grossEl ? parseFloat(grossEl.value || 0) : 0;
       fields.making_fee = mEl ? parseFloat(mEl.value || 0) : 0;
+      fields.making_type = mtEl ? mtEl.value : 'fixed';
+      fields.wastage_pct = wasEl ? parseFloat(wasEl.value || 0) : 2.0;
+      fields.stone_desc = sDescEl ? sDescEl.value.trim() : '';
+      fields.stone_weight_ct = sWtEl ? parseFloat(sWtEl.value || 0) : 0;
+      fields.stone_price = sValEl ? parseFloat(sValEl.value || 0) : 0;
+      fields.cert_id = certEl ? certEl.value.trim() : '';
     } else if (mode === 'books-stationery') {
       const iEl = document.getElementById('form-book-isbn');
       const aEl = document.getElementById('form-book-author');
@@ -14223,6 +14386,12 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     renderBranchTelemetryMatrix(txs);
     renderKamaiBusinessAdvisor(txs);
 
+    // Render Top Products widgets (fully dynamic, reacts to all filters)
+    renderTopProducts(txs);
+
+    // Render jewellery-mode specific analytics (hidden unless jewellery mode active)
+    renderJewelleryAnalytics(txs);
+
     // Check stock thresholds and generate draft POs if needed
     runSmartReorderCheck();
   }
@@ -14494,6 +14663,178 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
         <div style="font-size: 11px; color: var(--text-gray); line-height: 1.4;">${item.text}</div>
       </div>
     `).join(''));
+  }
+
+  // ── Top Products Leaderboard (fully dynamic, reacts to all filters) ────────
+  function renderTopProducts(txs) {
+    const qtyContainer = document.getElementById('analytics-top-products-qty');
+    const revContainer = document.getElementById('analytics-top-products-rev');
+    if (!qtyContainer && !revContainer) return;
+
+    // Aggregate items across all filtered transactions
+    const productMap = {}; // sku/name -> { name, qty, revenue }
+    (txs || []).forEach(tx => {
+      (tx.items || []).forEach(item => {
+        const key = (item.sku || item.barcode || item.id || item.name || 'Unknown').trim();
+        const name = (item.name || item.product_name || key).trim();
+        const qty = Number(item.quantity || item.qty || 1);
+        const unitPrice = Number(item.unitPrice || item.unit_price || item.price || 0);
+        const lineTotal = item.lineTotal !== undefined ? Number(item.lineTotal) : (unitPrice * qty);
+        if (!productMap[key]) {
+          productMap[key] = { name, qty: 0, revenue: 0 };
+        }
+        productMap[key].qty += isNaN(qty) ? 1 : qty;
+        productMap[key].revenue += isNaN(lineTotal) ? 0 : lineTotal;
+      });
+    });
+
+    const products = Object.values(productMap);
+    const TOP_N = 10;
+
+    // ── Top by Quantity ──────────────────────────────────────────────────────
+    if (qtyContainer) {
+      const topByQty = [...products].sort((a, b) => b.qty - a.qty).slice(0, TOP_N);
+      if (topByQty.length === 0) {
+        setHtml(qtyContainer, '<p class="text-muted" style="text-align:center;margin-top:20px;font-size:11px;">No sales data in selected range.</p>');
+      } else {
+        const maxQty = topByQty[0].qty || 1;
+        const colors = ['#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444','#ec4899','#06b6d4','#a78bfa','#84cc16','#f97316'];
+        setHtml(qtyContainer, topByQty.map((p, i) => {
+          const pct = ((p.qty / maxQty) * 100).toFixed(1);
+          const revFmt = (p.revenue / 100).toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+          const color = colors[i % colors.length];
+          return `
+            <div style="display:flex;flex-direction:column;gap:5px;padding:9px;background:rgba(255,255,255,0.02);border:1px solid var(--border-titanium);border-radius:8px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;gap:8px;">
+                <div style="display:flex;align-items:center;gap:7px;min-width:0;">
+                  <span style="width:20px;height:20px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:#000;flex-shrink:0;">${i+1}</span>
+                  <span style="font-weight:700;color:var(--text-white);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p.name}">${p.name}</span>
+                </div>
+                <span style="font-weight:800;color:${color};white-space:nowrap;flex-shrink:0;">${p.qty} units</span>
+              </div>
+              <div style="height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">
+                <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;transition:width 0.4s ease;"></div>
+              </div>
+              <span style="font-size:10px;color:var(--text-gray);">Rs. ${revFmt} gross revenue</span>
+            </div>
+          `;
+        }).join(''));
+      }
+    }
+
+    // ── Top by Revenue ───────────────────────────────────────────────────────
+    if (revContainer) {
+      const topByRev = [...products].sort((a, b) => b.revenue - a.revenue).slice(0, TOP_N);
+      if (topByRev.length === 0) {
+        setHtml(revContainer, '<p class="text-muted" style="text-align:center;margin-top:20px;font-size:11px;">No sales data in selected range.</p>');
+      } else {
+        const maxRev = topByRev[0].revenue || 1;
+        setHtml(revContainer, topByRev.map((p, i) => {
+          const pct = ((p.revenue / maxRev) * 100).toFixed(1);
+          const revFmt = (p.revenue / 100).toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+          const barColor = i === 0 ? 'var(--accent-emerald)' : i === 1 ? '#10b981' : i === 2 ? '#34d399' : 'rgba(0,214,143,0.5)';
+          return `
+            <div style="display:flex;flex-direction:column;gap:5px;padding:9px;background:rgba(255,255,255,0.02);border:1px solid var(--border-titanium);border-radius:8px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;gap:8px;">
+                <div style="display:flex;align-items:center;gap:7px;min-width:0;">
+                  <span style="width:20px;height:20px;border-radius:50%;background:${barColor};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:#000;flex-shrink:0;">${i+1}</span>
+                  <span style="font-weight:700;color:var(--text-white);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p.name}">${p.name}</span>
+                </div>
+                <span style="font-weight:800;color:var(--accent-emerald);white-space:nowrap;flex-shrink:0;">Rs. ${revFmt}</span>
+              </div>
+              <div style="height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">
+                <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#10b981 0%,#059669 100%);border-radius:3px;transition:width 0.4s ease;"></div>
+              </div>
+              <span style="font-size:10px;color:var(--text-gray);">${p.qty} units sold</span>
+            </div>
+          `;
+        }).join(''));
+      }
+    }
+  }
+
+  // ── Jewellery Mode Analytics (gold weight, karat distribution, making charges) ──
+  function renderJewelleryAnalytics(txs) {
+    const panel = document.getElementById('analytics-jewellery-panel');
+    if (!panel) return;
+
+    const mode = (window.state && window.state.preferences && (window.state.preferences.shop_mode || window.state.preferences.store_type)) ||
+                 (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_shop_mode')) || 'simple-retail';
+    const isJewellery = (mode === 'jewellery');
+    panel.style.display = isJewellery ? 'block' : 'none';
+    if (!isJewellery) return;
+
+    let totalWeightG = 0;
+    let totalMakingFee = 0;
+    let totalPieces = 0;
+    const karatMap = {}; // karat -> { qty, revenue }
+
+    (txs || []).forEach(tx => {
+      (tx.items || []).forEach(item => {
+        // Jewellery fields may be stored in mode_fields JSON or directly on item
+        let mf = {};
+        try {
+          if (item.mode_fields) mf = (typeof item.mode_fields === 'string') ? JSON.parse(item.mode_fields) : item.mode_fields;
+        } catch (_) {}
+
+        const karat = mf.karat || item.karat || null;
+        const weightG = parseFloat(mf.weight_g || item.netWeightGrams || item.weight_g || 0);
+        const makingFee = parseFloat(mf.making_fee || item.makingCharge || item.making_fee || 0);
+        const qty = Number(item.quantity || item.qty || 1);
+        const unitPrice = Number(item.unitPrice || item.unit_price || item.price || 0);
+        const lineTotal = item.lineTotal !== undefined ? Number(item.lineTotal) : (unitPrice * qty);
+
+        if (weightG > 0) totalWeightG += weightG * qty;
+        if (makingFee > 0) totalMakingFee += makingFee * qty;
+        totalPieces += qty;
+
+        if (karat) {
+          if (!karatMap[karat]) karatMap[karat] = { qty: 0, revenue: 0 };
+          karatMap[karat].qty += qty;
+          karatMap[karat].revenue += isNaN(lineTotal) ? 0 : lineTotal;
+        }
+      });
+    });
+
+    // Update KPI cards
+    const weightEl = document.getElementById('jewel-kpi-weight');
+    const makingEl = document.getElementById('jewel-kpi-making');
+    const topKaratEl = document.getElementById('jewel-kpi-top-karat');
+    const piecesEl = document.getElementById('jewel-kpi-pieces');
+
+    if (weightEl) weightEl.textContent = totalWeightG.toFixed(3) + ' g';
+    if (makingEl) makingEl.textContent = 'Rs. ' + Math.round(totalMakingFee).toLocaleString('en-PK');
+    if (piecesEl) piecesEl.textContent = totalPieces;
+
+    const karatEntries = Object.entries(karatMap).sort((a, b) => b[1].revenue - a[1].revenue);
+    if (topKaratEl) topKaratEl.textContent = karatEntries.length > 0 ? karatEntries[0][0] : '—';
+
+    // Karat distribution bar chart
+    const distContainer = document.getElementById('jewel-karat-distribution');
+    if (distContainer) {
+      if (karatEntries.length === 0) {
+        setHtml(distContainer, '<p class="text-muted" style="font-size:11px;text-align:center;">No jewellery transactions with karat data yet.</p>');
+      } else {
+        const totalRevAll = karatEntries.reduce((s, [, v]) => s + v.revenue, 0) || 1;
+        const karatColors = { '24K': '#f59e0b', '22K': '#d97706', '21K': '#b45309', '18K': '#92400e', '14K': '#78350f', '925': '#94a3b8' };
+        setHtml(distContainer, karatEntries.map(([karat, data]) => {
+          const pct = ((data.revenue / totalRevAll) * 100).toFixed(1);
+          const revFmt = (data.revenue / 100).toLocaleString('en-PK', { minimumFractionDigits: 0 });
+          const col = karatColors[karat] || '#f59e0b';
+          return `
+            <div style="display:flex;flex-direction:column;gap:5px;padding:10px;background:rgba(245,158,11,0.04);border:1px solid rgba(245,158,11,0.12);border-radius:8px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-weight:800;color:${col};font-size:13px;">${karat}</span>
+                <span style="font-size:11px;color:var(--text-gray);">${data.qty} pcs • Rs. ${revFmt} (${pct}%)</span>
+              </div>
+              <div style="height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">
+                <div style="height:100%;width:${pct}%;background:${col};border-radius:3px;transition:width 0.4s ease;"></div>
+              </div>
+            </div>
+          `;
+        }).join(''));
+      }
+    }
   }
 
   // Stock tracking & auto PO generation
