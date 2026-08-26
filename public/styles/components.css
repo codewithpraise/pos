@@ -5175,24 +5175,61 @@ button:not(:disabled):active,
    ───────────────────────────────────────────────────────────────────────────── */
 
 /* Layout & Navigation */
-body.theme-monochrome-ivory .pos-sidebar {
-  background: linear-gradient(180deg, #eeece8 0%, #e5e3de 100%);
-  border-right: 1px solid rgba(0,0,0,0.1);
+body.theme-monochrome-ivory .pos-sidebar,
+body.theme-monochrome-ivory .pos-bottom-nav,
+body.theme-monochrome-ivory aside#app-sidebar {
+  background: #ffffff !important;
+  border-top: 1px solid rgba(0,0,0,0.12) !important;
+  border-right: 1px solid rgba(0,0,0,0.12) !important;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.06) !important;
 }
 body.theme-monochrome-ivory .pos-topbar {
-  background: rgba(247,246,243,0.92);
-  border-bottom-color: rgba(0,0,0,0.09);
+  background: #ffffff !important;
+  border-bottom: 1px solid rgba(0,0,0,0.12) !important;
+  color: #0f172a !important;
 }
-body.theme-monochrome-ivory .pos-main { background: var(--bg-obsidian, #f7f6f3); }
-body.theme-monochrome-ivory .content-view { background: var(--bg-obsidian, #f7f6f3); }
+body.theme-monochrome-ivory .pos-main { background: var(--bg-obsidian, #f7f6f3) !important; }
+body.theme-monochrome-ivory .content-view { background: var(--bg-obsidian, #f7f6f3) !important; }
 
-/* Sidebar Nav Items */
-body.theme-monochrome-ivory .nav-item { color: #333; }
-body.theme-monochrome-ivory .nav-item:hover { background: rgba(0,0,0,0.06); color: #111; }
-body.theme-monochrome-ivory .nav-item.active { background: rgba(0,0,0,0.09); color: #111; font-weight:700; }
-body.theme-monochrome-ivory .nav-item .nav-label { color: inherit; }
-body.theme-monochrome-ivory .sidebar-brand-block { border-bottom-color: rgba(0,0,0,0.1); }
-body.theme-monochrome-ivory #sidebar-store-name { color: #111; }
+/* Sidebar & Bottom Nav Items */
+body.theme-monochrome-ivory .nav-item,
+body.theme-monochrome-ivory .sidebar-nav .nav-item,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-btn,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-item {
+  color: #475569 !important;
+  background: transparent !important;
+}
+body.theme-monochrome-ivory .nav-item:hover,
+body.theme-monochrome-ivory .sidebar-nav .nav-item:hover {
+  background: rgba(0,0,0,0.04) !important;
+  color: #0f172a !important;
+}
+body.theme-monochrome-ivory .nav-item.active,
+body.theme-monochrome-ivory .sidebar-nav .nav-item.active,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-btn.active,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-item.active {
+  background: rgba(16, 185, 129, 0.12) !important;
+  border: 1.5px solid #10b981 !important;
+  color: #047857 !important;
+  font-weight: 800 !important;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.18) !important;
+}
+body.theme-monochrome-ivory .nav-item .nav-label,
+body.theme-monochrome-ivory .sidebar-nav .nav-item .nav-label,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-btn .nav-label,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-item .nav-label {
+  color: inherit !important;
+  font-weight: 700 !important;
+}
+body.theme-monochrome-ivory .nav-item svg,
+body.theme-monochrome-ivory .sidebar-nav .nav-item svg,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-btn svg,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-item svg {
+  stroke: currentColor !important;
+  color: inherit !important;
+}
+body.theme-monochrome-ivory .sidebar-brand-block { border-bottom-color: rgba(0,0,0,0.1) !important; }
+body.theme-monochrome-ivory #sidebar-store-name { color: #111 !important; }
 
 /* Inputs */
 body.theme-monochrome-ivory .pos-input {

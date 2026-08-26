@@ -272,6 +272,59 @@
     font-weight: 800 !important;
   }
 
+  /* ── Light Theme Mobile Navigation Overrides ── */
+  body.theme-monochrome-ivory .pos-sidebar,
+  body.theme-monochrome-ivory .pos-bottom-nav,
+  body.theme-monochrome-ivory aside#app-sidebar {
+    background: #ffffff !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.12) !important;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08) !important;
+  }
+  body.theme-monochrome-ivory .sidebar-nav .nav-item,
+  body.theme-monochrome-ivory .pos-sidebar .nav-item,
+  body.theme-monochrome-ivory .pos-bottom-nav .nav-btn,
+  body.theme-monochrome-ivory .pos-bottom-nav .nav-item {
+    color: #475569 !important;
+    background: transparent !important;
+  }
+  body.theme-monochrome-ivory .sidebar-nav .nav-item .nav-label,
+  body.theme-monochrome-ivory .pos-sidebar .nav-item .nav-label,
+  body.theme-monochrome-ivory .pos-bottom-nav .nav-btn .nav-label,
+  body.theme-monochrome-ivory .pos-bottom-nav .nav-item .nav-label {
+    color: #475569 !important;
+    font-weight: 700 !important;
+  }
+  body.theme-monochrome-ivory .sidebar-nav .nav-item svg,
+  body.theme-monochrome-ivory .pos-sidebar .nav-item svg,
+  body.theme-monochrome-ivory .pos-bottom-nav .nav-btn svg,
+  body.theme-monochrome-ivory .pos-bottom-nav .nav-item svg {
+    stroke: #475569 !important;
+    color: #475569 !important;
+  }
+  body.theme-monochrome-ivory .sidebar-nav .nav-item.active,
+  body.theme-monochrome-ivory .pos-sidebar .nav-item.active,
+  body.theme-monochrome-ivory .pos-bottom-nav .nav-btn.active,
+  body.theme-monochrome-ivory .pos-bottom-nav .nav-item.active {
+    background: rgba(16, 185, 129, 0.14) !important;
+    border: 1.5px solid #10b981 !important;
+    color: #047857 !important;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2) !important;
+  }
+  body.theme-monochrome-ivory .sidebar-nav .nav-item.active .nav-label,
+  body.theme-monochrome-ivory .pos-sidebar .nav-item.active .nav-label,
+  body.theme-monochrome-ivory .pos-bottom-nav .nav-btn.active .nav-label,
+  body.theme-monochrome-ivory .pos-bottom-nav .nav-item.active .nav-label {
+    color: #047857 !important;
+    font-weight: 800 !important;
+  }
+  body.theme-monochrome-ivory .sidebar-nav .nav-item.active svg,
+  body.theme-monochrome-ivory .pos-sidebar .nav-item.active svg,
+  body.theme-monochrome-ivory .pos-bottom-nav .nav-btn.active svg,
+  body.theme-monochrome-ivory .pos-bottom-nav .nav-item.active svg {
+    stroke: #047857 !important;
+    color: #047857 !important;
+  }
+
   .pos-topbar {
     height: var(--vx-topbar-h, 50px) !important;
     padding: 0 var(--vx-space-lg, 12px) !important;

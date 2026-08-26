@@ -450,6 +450,252 @@ body.theme-monochrome-ivory .paywall-card h3 {
   color: #111827 !important;
 }
 
+/* ── Topbar & Screen Header Elements in Light Theme ── */
+body.theme-monochrome-ivory .topbar {
+  background: #ffffff !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12) !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+body.theme-monochrome-ivory .topbar-screen-title,
+body.theme-monochrome-ivory .topbar h1,
+body.theme-monochrome-ivory .topbar h2,
+body.theme-monochrome-ivory .topbar h3,
+body.theme-monochrome-ivory .view-header h2,
+body.theme-monochrome-ivory .view-header h3 {
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory .topbar-btn,
+body.theme-monochrome-ivory .btn-topbar,
+body.theme-monochrome-ivory .overflow-menu-btn,
+body.theme-monochrome-ivory #btn-overflow-menu,
+body.theme-monochrome-ivory #theme-toggle-btn,
+body.theme-monochrome-ivory #btn-toggle-lang,
+body.theme-monochrome-ivory .btn-toggle-preview {
+  background: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #1e293b !important;
+}
+
+body.theme-monochrome-ivory .topbar-btn svg,
+body.theme-monochrome-ivory .btn-topbar svg,
+body.theme-monochrome-ivory #btn-overflow-menu svg,
+body.theme-monochrome-ivory #theme-toggle-btn svg {
+  stroke: #1e293b !important;
+  fill: currentColor !important;
+}
+
+/* ── Bottom Navbar & Sidebar in Light Theme ── */
+body.theme-monochrome-ivory .pos-bottom-nav,
+body.theme-monochrome-ivory .pos-sidebar,
+body.theme-monochrome-ivory aside#main-sidebar {
+  background: #ffffff !important;
+  border-top: 1px solid rgba(0, 0, 0, 0.12) !important;
+  border-right: 1px solid rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08) !important;
+}
+
+body.theme-monochrome-ivory .sidebar-nav .nav-item,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-btn,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-item,
+body.theme-monochrome-ivory .pos-sidebar .nav-btn,
+body.theme-monochrome-ivory .pos-sidebar .nav-item,
+body.theme-monochrome-ivory .sub-vault-nav .sub-nav-item {
+  color: #475569 !important;
+  background: transparent !important;
+}
+
+body.theme-monochrome-ivory .sidebar-nav .nav-item .nav-label,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-btn .nav-label,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-item .nav-label,
+body.theme-monochrome-ivory .pos-sidebar .nav-btn .nav-label,
+body.theme-monochrome-ivory .pos-sidebar .nav-item .nav-label {
+  color: #475569 !important;
+  font-weight: 700 !important;
+}
+
+body.theme-monochrome-ivory .sidebar-nav .nav-item .nav-icon,
+body.theme-monochrome-ivory .sidebar-nav .nav-item svg,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-btn .nav-icon,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-item .nav-icon,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-btn svg,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-item svg,
+body.theme-monochrome-ivory .pos-sidebar .nav-btn svg,
+body.theme-monochrome-ivory .pos-sidebar .nav-item svg,
+body.theme-monochrome-ivory .sub-vault-nav .sub-nav-item svg {
+  stroke: #475569 !important;
+  color: #475569 !important;
+}
+
+body.theme-monochrome-ivory .sidebar-nav .nav-item.active,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-btn.active,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-item.active,
+body.theme-monochrome-ivory .pos-sidebar .nav-btn.active,
+body.theme-monochrome-ivory .pos-sidebar .nav-item.active,
+body.theme-monochrome-ivory .sub-vault-nav .sub-nav-item.active {
+  background: rgba(16, 185, 129, 0.14) !important;
+  border: 1.5px solid #10b981 !important;
+  color: #047857 !important;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2) !important;
+}
+
+body.theme-monochrome-ivory .sidebar-nav .nav-item.active .nav-label,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-btn.active .nav-label,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-item.active .nav-label,
+body.theme-monochrome-ivory .pos-sidebar .nav-btn.active .nav-label,
+body.theme-monochrome-ivory .pos-sidebar .nav-item.active .nav-label,
+body.theme-monochrome-ivory .sub-vault-nav .sub-nav-item.active {
+  color: #047857 !important;
+  font-weight: 800 !important;
+}
+
+body.theme-monochrome-ivory .sidebar-nav .nav-item.active .nav-icon,
+body.theme-monochrome-ivory .sidebar-nav .nav-item.active svg,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-btn.active .nav-icon,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-item.active .nav-icon,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-btn.active svg,
+body.theme-monochrome-ivory .pos-bottom-nav .nav-item.active svg,
+body.theme-monochrome-ivory .pos-sidebar .nav-btn.active svg,
+body.theme-monochrome-ivory .pos-sidebar .nav-item.active svg,
+body.theme-monochrome-ivory .sub-vault-nav .sub-nav-item.active svg {
+  stroke: #047857 !important;
+  color: #047857 !important;
+}
+
+/* ── Analytics Telemetry & Charts in Light Theme ── */
+body.theme-monochrome-ivory #analytics-multidim-filter-bar {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05) !important;
+}
+
+body.theme-monochrome-ivory #analytics-multidim-filter-bar h4 {
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory #analytics-multidim-filter-bar span {
+  color: #475569 !important;
+}
+
+body.theme-monochrome-ivory #analytics-multidim-filter-bar select {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+body.theme-monochrome-ivory #analytics-active-chips {
+  background: #f1f5f9 !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+body.theme-monochrome-ivory #analytics-active-chips span,
+body.theme-monochrome-ivory #analytics-active-chips strong {
+  color: #1e293b !important;
+}
+
+body.theme-monochrome-ivory #analytics-range-group {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+
+body.theme-monochrome-ivory .analytics-range-btn {
+  color: #475569 !important;
+}
+
+body.theme-monochrome-ivory .analytics-range-btn.active {
+  background: #10b981 !important;
+  color: #ffffff !important;
+}
+
+body.theme-monochrome-ivory #btn-analytics-export-csv {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  color: #1e293b !important;
+}
+
+body.theme-monochrome-ivory .chart-container-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04) !important;
+}
+
+body.theme-monochrome-ivory .chart-container-card h3 {
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory .bar-chart-visual-wrapper {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+body.theme-monochrome-ivory .bar-chart-visual-wrapper .bar-col-label {
+  color: #64748b !important;
+}
+
+body.theme-monochrome-ivory .kpi-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+}
+
+body.theme-monochrome-ivory .kpi-card .kpi-lbl,
+body.theme-monochrome-ivory .kpi-card span:first-child {
+  color: #64748b !important;
+  font-weight: 700 !important;
+}
+
+body.theme-monochrome-ivory .kpi-card .kpi-val,
+body.theme-monochrome-ivory .kpi-card span:nth-child(2) {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+
+/* ── Tables & Directories in Light Theme ── */
+body.theme-monochrome-ivory table,
+body.theme-monochrome-ivory th,
+body.theme-monochrome-ivory td {
+  color: #1e293b !important;
+  border-color: #e2e8f0 !important;
+}
+
+body.theme-monochrome-ivory th {
+  background: #f8fafc !important;
+  color: #475569 !important;
+  font-weight: 700 !important;
+}
+
+body.theme-monochrome-ivory tbody tr:hover {
+  background: #f8fafc !important;
+}
+
+body.theme-monochrome-ivory .customers-table-wrapper,
+body.theme-monochrome-ivory .suppliers-split-grid,
+body.theme-monochrome-ivory .supplier-list-pane,
+body.theme-monochrome-ivory .supplier-detail-pane,
+body.theme-monochrome-ivory .history-list-pane,
+body.theme-monochrome-ivory .receipt-preview-pane {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory .kpi-micro-card {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+body.theme-monochrome-ivory .kpi-micro-card strong {
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory .kpi-micro-card span {
+  color: #64748b !important;
+}
+
 /* ── High Contrast Accessibility Override ── */
 body.theme-high-contrast {
   --bg-obsidian: #000000 !important;
