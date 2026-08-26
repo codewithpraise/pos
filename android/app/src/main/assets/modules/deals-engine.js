@@ -394,41 +394,69 @@
     document.getElementById('__vxdq')?.remove();
     const deals = getAll().filter(d => d.is_active !== false);
     const L = lbl();
-    if (!deals.length) {
-      if (window.showNotificationToast) window.showNotificationToast(`No active ${L.p.toLowerCase()}. Create one in the ${L.p} screen.`, 'info', 3000);
+    if (!deals || !deals.length) {
+      try { if (typeof window.playAudioSignal === 'function') window.playAudioSignal('info'); } catch(_) {}
+      if (typeof window.showNotificationToast === 'function') {
+        window.showNotificationToast(`No active product bundles or promotional deals available. Create one in the ${L.p} screen.`, 'info', 4000);
+      } else if (typeof window.showToast === 'function') {
+        window.showToast(`No active ${L.p.toLowerCase()} available.`, 'info');
+      }
       return;
     }
+
+    const isLight = document.body.classList.contains('theme-monochrome-ivory');
     const ov = document.createElement('div');
     ov.id = '__vxdq';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483635;background:rgba(5,5,8,.88);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px);';
-    ov.innerHTML = `<div style="max-width:600px;width:100%;background:#0d0d12;border-radius:16px 16px 0 0;border:1px solid rgba(255,255,255,.08);max-height:70vh;display:flex;flex-direction:column;">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.07);">
-        <span style="font-size:15px;font-weight:800;color:#fff;">${L.i} Select ${L.s}</span>
-        <button id="__vxdq-close" style="background:transparent;border:1px solid rgba(255,255,255,.1);color:#94a3b8;width:30px;height:30px;border-radius:6px;cursor:pointer;"></button>
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483635;background:rgba(5,5,8,.82);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);padding:16px;box-sizing:border-box;';
+    ov.innerHTML = `
+      <div class="pos-modal-card" style="max-width:580px;width:100%;background:${isLight?'#ffffff':'#0d0d12'};border-radius:16px;border:1.5px solid ${isLight?'#cbd5e1':'rgba(255,255,255,.1)'};box-shadow:0 24px 60px rgba(0,0,0,${isLight?'0.18':'0.5'});max-height:85vh;display:flex;flex-direction:column;overflow:hidden;animation:modalEnter 0.2s cubic-bezier(0.16, 1, 0.3, 1);">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1.5px solid ${isLight?'#e2e8f0':'rgba(255,255,255,.08)'};background:${isLight?'#f8fafc':'rgba(255,255,255,0.02)'};flex-shrink:0;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:32px;height:32px;border-radius:8px;background:${isLight?'#ecfdf5':'rgba(0,214,143,0.12)'};border:1px solid ${isLight?'#a7f3d0':'rgba(0,214,143,0.25)'};display:flex;align-items:center;justify-content:center;">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="${isLight?'#059669':'#00d68f'}" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+            </div>
+            <div>
+              <span style="font-size:16px;font-weight:800;color:${isLight?'#0f172a':'#ffffff'};font-family:var(--font-display);letter-spacing:-0.2px;">Select ${L.s} Bundle</span>
+              <div style="font-size:11px;color:${isLight?'#64748b':'#94a3b8'};font-weight:600;">Choose promotional bundle or combo to add to cart</div>
+            </div>
+          </div>
+          <button id="__vxdq-close" aria-label="Close Bundles Modal" style="background:${isLight?'#f1f5f9':'rgba(255,255,255,0.06)'};border:1px solid ${isLight?'#cbd5e1':'rgba(255,255,255,.1)'};color:${isLight?'#475569':'#94a3b8'};width:32px;height:32px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s ease;font-size:18px;font-weight:700;line-height:1;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+        <div style="overflow-y:auto;overflow-x:hidden;padding:16px;flex:1;max-height:calc(85vh - 120px);display:flex;flex-direction:column;gap:10px;overscroll-behavior:contain;" id="__vxdq-list"></div>
       </div>
-      <div style="overflow-y:auto;padding:12px 16px;flex:1;" id="__vxdq-list"></div>
-    </div>`;
+    `;
     const list = ov.querySelector('#__vxdq-list');
     deals.forEach(deal => {
       const short = stockShortages(deal, 1);
       const oos = short.length > 0;
       const card = document.createElement('div');
-      card.style.cssText = `display:flex;align-items:center;gap:12px;padding:12px;border:1px solid ${oos?'rgba(239,68,68,.2)':'rgba(255,255,255,.07)'};border-radius:10px;margin-bottom:8px;background:rgba(255,255,255,.02);`;
-      card.innerHTML = `<span style="font-size:28px;">${deal.icon||L.i}</span>
+      card.style.cssText = `display:flex;align-items:center;gap:14px;padding:14px;border:1.5px solid ${oos?(isLight?'#fecaca':'rgba(239,68,68,.25)'):(isLight?'#e2e8f0':'rgba(255,255,255,.08)')};border-radius:12px;background:${isLight?(oos?'#fff1f2':'#ffffff'):(oos?'rgba(239,68,68,0.03)':'rgba(255,255,255,.02)')};box-shadow:0 2px 6px rgba(0,0,0,${isLight?'0.04':'0.2'});transition:all 0.15s ease;`;
+      
+      const itemsCount = (deal.items || []).length;
+      const itemsSummary = (deal.items || []).map(i => `${i.qty || 1}x ${i.name || 'Item'}`).join(', ');
+
+      card.innerHTML = `
+        <div style="width:44px;height:44px;border-radius:10px;background:${isLight?'#f1f5f9':'rgba(255,255,255,0.06)'};border:1px solid ${isLight?'#cbd5e1':'rgba(255,255,255,0.1)'};display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="${isLight?'#059669':'#00d68f'}" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+        </div>
         <div style="flex:1;min-width:0;">
-          <div style="font-weight:700;color:${oos?'#94a3b8':'#fff'};font-size:14px;">${deal.name}</div>
-          <div style="font-size:11px;color:#64748b;">${(deal.items||[]).length} items · ${deal.customizable?'Customizable':'Fixed'}</div>
-          ${oos?'<div style="font-size:11px;color:#ef4444;margin-top:2px;">Out of stock</div>':''}
+          <div style="font-weight:800;color:${oos?(isLight?'#94a3b8':'#64748b'):(isLight?'#0f172a':'#ffffff')};font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${deal.name}</div>
+          <div style="font-size:11px;color:${isLight?'#64748b':'#94a3b8'};margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${itemsCount} items · ${itemsSummary || (deal.customizable ? 'Customizable' : 'Fixed')}</div>
+          ${oos ? `<div style="font-size:11px;color:#ef4444;font-weight:700;margin-top:3px;display:flex;align-items:center;gap:4px;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> Out of Stock (Insufficient Items)</div>` : ''}
         </div>
-        <div style="text-align:right;">
-          <div style="font-size:16px;font-weight:800;color:${oos?'#64748b':'#10b981'};">${fmt(deal.price_cents)}</div>
-          ${deal.original_price_cents?`<div style="font-size:11px;color:#64748b;text-decoration:line-through;">${fmt(deal.original_price_cents)}</div>`:''}
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:15px;font-weight:900;color:${oos?(isLight?'#94a3b8':'#64748b'):(isLight?'#059669':'#10b981')};font-family:var(--font-display);">${fmt(deal.price_cents)}</div>
+          ${deal.original_price_cents ? `<div style="font-size:11px;color:${isLight?'#94a3b8':'#64748b'};text-decoration:line-through;">${fmt(deal.original_price_cents)}</div>` : ''}
         </div>
-        <button class="__vxdq-add" data-id="${deal.id}" ${oos?'disabled':''} style="min-height:40px;padding:0 16px;font-size:13px;font-weight:700;border-radius:8px;cursor:${oos?'not-allowed':'pointer'};border:none;background:${oos?'rgba(100,116,139,.15)':'rgba(16,185,129,.15)'};color:${oos?'#64748b':'#10b981'};">
-          ${oos?'N/A':'+ Add'}
-        </button>`;
+        <button class="__vxdq-add" data-id="${deal.id}" ${oos?'disabled':''} style="min-height:38px;padding:0 16px;font-size:12px;font-weight:800;border-radius:8px;cursor:${oos?'not-allowed':'pointer'};border:${isLight?'1.5px solid #059669':'none'};background:${oos?(isLight?'#f1f5f9':'rgba(100,116,139,.15)'):(isLight?'#ecfdf5':'rgba(16,185,129,.18)')};color:${oos?(isLight?'#94a3b8':'#64748b'):(isLight?'#065f46':'#10b981')};flex-shrink:0;transition:all 0.15s ease;">
+          ${oos ? 'Out of Stock' : '+ Add'}
+        </button>
+      `;
       list.appendChild(card);
     });
+
     list.querySelectorAll('.__vxdq-add:not([disabled])').forEach(btn => {
       btn.addEventListener('click', async () => {
         try { if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); } catch(_) {}
@@ -461,8 +489,12 @@
         if (!res.ok && window.showNotificationToast) window.showNotificationToast(res.error, 'error', 3000);
       });
     });
-    ov.querySelector('#__vxdq-close').addEventListener('click', () => ov.remove());
-    ov.addEventListener('click', e => { if (e.target===ov) ov.remove(); });
+
+    ov.querySelector('#__vxdq-close').addEventListener('click', () => {
+      try { if (typeof window.playAudioSignal === 'function') window.playAudioSignal('click'); } catch(_) {}
+      ov.remove();
+    });
+    ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
     document.body.appendChild(ov);
   }
 

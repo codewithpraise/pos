@@ -13786,27 +13786,29 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     const validTransactions = normalizedAll.filter(t => t.status !== 'CANCELLED' && t.status !== 'VOIDED' && t.status !== 'PENDING');
 
     const d = new Date();
-    let cutoff = 0;
+    const now = Date.now();
     let timeFiltered = validTransactions;
 
     if (range === 'today') {
-      cutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime();
-      timeFiltered = validTransactions.filter(t => t.timestampMs >= cutoff);
+      const todayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime();
+      const todayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();
+      // Strictly today's sales up to current time (never future or previous dates)
+      timeFiltered = validTransactions.filter(t => t.timestampMs >= todayStart && t.timestampMs <= Math.min(todayEnd, now));
     } else if (range === 'week') {
       const dayOfWeek = d.getDay();
       const diffToMonday = (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
-      cutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate() - diffToMonday, 0, 0, 0, 0).getTime();
-      timeFiltered = validTransactions.filter(t => t.timestampMs >= cutoff);
+      const weekStart = new Date(d.getFullYear(), d.getMonth(), d.getDate() - diffToMonday, 0, 0, 0, 0).getTime();
+      timeFiltered = validTransactions.filter(t => t.timestampMs >= weekStart && t.timestampMs <= now);
     } else if (range === 'month') {
-      cutoff = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0).getTime();
-      timeFiltered = validTransactions.filter(t => t.timestampMs >= cutoff);
+      const monthStart = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0).getTime();
+      timeFiltered = validTransactions.filter(t => t.timestampMs >= monthStart && t.timestampMs <= now);
     } else if (range === 'custom') {
       const fromVal = document.getElementById('analytics-date-from')?.value;
       const toVal = document.getElementById('analytics-date-to')?.value;
       if (fromVal && toVal) {
         const fromTs = new Date(fromVal + 'T00:00:00').getTime();
         const toTs = new Date(toVal + 'T23:59:59').getTime();
-        timeFiltered = validTransactions.filter(t => t.timestampMs >= fromTs && t.timestampMs <= toTs);
+        timeFiltered = validTransactions.filter(t => t.timestampMs >= fromTs && t.timestampMs <= toTs && t.timestampMs <= now);
       }
     }
 
@@ -14923,30 +14925,44 @@ setHtml(alertsContainer, alertsHtml);
     if (!chart) return;
     chart.replaceChildren();
 
+    const isTodayRange = (state.analyticsRange || 'all') === 'today';
+    const now = new Date();
+    const currentHour = now.getHours();
+    const nowMs = now.getTime();
+
     // Create 24 hours buckets (00:00 to 23:00)
     const hours = Array(24).fill(0);
     const counts = Array(24).fill(0);
+
     (txs || []).forEach(tx => {
       if (!tx) return;
       const ts = tx.timestampMs || tx.timestamp || tx.created_at || 0;
       if (!ts || isNaN(ts) || ts <= 0) return;
-      const d = new Date(typeof ts === 'number' ? ts : Number(ts));
+      const numTs = typeof ts === 'number' ? ts : Number(ts);
+      // Strictly prevent future timestamp leaks
+      if (numTs > nowMs + 60000) return;
+
+      const d = new Date(numTs);
       if (isNaN(d.getTime())) return;
       const hr = d.getHours();
+      if (hr < 0 || hr > 23) return;
+
       const amt = Number(tx.totalMinor !== undefined ? tx.totalMinor : (tx.total_minor_units || tx.total || 0));
-      hours[hr] += amt;
+      hours[hr] += isNaN(amt) ? 0 : amt;
       counts[hr] += 1;
     });
 
     const maxAmt = Math.max(...hours, 1);
 
     // Calculate Insights: Peak Sales Hour & Active Hours
-    let peakHour = 0;
+    let peakHour = -1;
     let peakAmt = 0;
     let totalRev = 0;
     let activeHoursCount = 0;
 
     hours.forEach((amt, hr) => {
+      // In "today" range, do not compute peak for future hours
+      if (isTodayRange && hr > currentHour) return;
       totalRev += amt;
       if (amt > 0) activeHoursCount++;
       if (amt > peakAmt) {
@@ -14960,27 +14976,37 @@ setHtml(alertsContainer, alertsHtml);
     if (insightsRow) {
       insightsRow.replaceChildren();
       
-      const peakAmpm = peakHour === 0 ? '12 AM' : (peakHour < 12 ? peakHour + ' AM' : (peakHour === 12 ? '12 PM' : (peakHour - 12) + ' PM'));
       const peakBadge = document.createElement('div');
-      peakBadge.style.cssText = 'padding: 4px 10px; border-radius: 20px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); color: var(--accent-amber); font-size: 10px; font-weight: 800; display: flex; align-items: center; gap: 4px;';
-      setHtml(peakBadge, ` Peak Hour: ${peakAmpm} (Rs. ${Math.round(peakAmt/100).toLocaleString('en-PK')})`);
+      if (peakHour >= 0 && peakAmt > 0) {
+        const peakAmpm = peakHour === 0 ? '12 AM' : (peakHour < 12 ? peakHour + ' AM' : (peakHour === 12 ? '12 PM' : (peakHour - 12) + ' PM'));
+        peakBadge.style.cssText = 'padding: 4px 10px; border-radius: 20px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); color: var(--accent-amber); font-size: 10px; font-weight: 800; display: flex; align-items: center; gap: 4px;';
+        setHtml(peakBadge, `Peak Hour: ${peakAmpm} (Rs. ${Math.round(peakAmt/100).toLocaleString('en-PK')})`);
+      } else {
+        peakBadge.style.cssText = 'padding: 4px 10px; border-radius: 20px; background: rgba(100, 116, 139, 0.1); border: 1px solid rgba(100, 116, 139, 0.2); color: var(--text-gray); font-size: 10px; font-weight: 700;';
+        peakBadge.textContent = isTodayRange ? 'No sales recorded yet today' : 'No sales in selected range';
+      }
       insightsRow.appendChild(peakBadge);
 
-      const avgBadge = document.createElement('div');
-      avgBadge.style.cssText = 'padding: 4px 10px; border-radius: 20px; background: rgba(0, 214, 143, 0.1); border: 1px solid rgba(0, 214, 143, 0.25); color: var(--accent-emerald); font-size: 10px; font-weight: 800;';
-      avgBadge.textContent = `Avg Volume: Rs. ${Math.round(avgHourlyRev/100).toLocaleString('en-PK')} / hr`;
-      insightsRow.appendChild(avgBadge);
+      if (totalRev > 0) {
+        const avgBadge = document.createElement('div');
+        avgBadge.style.cssText = 'padding: 4px 10px; border-radius: 20px; background: rgba(0, 214, 143, 0.1); border: 1px solid rgba(0, 214, 143, 0.25); color: var(--accent-emerald); font-size: 10px; font-weight: 800;';
+        avgBadge.textContent = `Avg Volume: Rs. ${Math.round(avgHourlyRev/100).toLocaleString('en-PK')} / hr`;
+        insightsRow.appendChild(avgBadge);
+      }
     }
 
+    const isLight = document.body.classList.contains('theme-monochrome-ivory');
+
     for (let hr = 0; hr < 24; hr++) {
-      const amt = hours[hr] || 0;
-      const txCount = counts[hr] || 0;
+      const isFutureHour = isTodayRange && hr > currentHour;
+      const amt = isFutureHour ? 0 : (hours[hr] || 0);
+      const txCount = isFutureHour ? 0 : (counts[hr] || 0);
       const pct = maxAmt > 0 ? (amt / maxAmt) * 100 : 0;
-      const isPeak = amt > 0 && amt === peakAmt;
+      const isPeak = amt > 0 && amt === peakAmt && (!isTodayRange || hr <= currentHour);
 
       const col = document.createElement('div');
-      col.className = 'chart-bar-col' + (isPeak ? ' peak-bar' : '');
-      col.style.height = `${Math.max(pct, 6)}%`;
+      col.className = 'chart-bar-col' + (isPeak ? ' peak-bar' : '') + (isFutureHour ? ' future-hour-bar' : '');
+      col.style.height = `${Math.max(pct, isFutureHour ? 4 : 6)}%`;
       col.style.flex = '1 1 0%';
       col.style.minWidth = '14px';
       col.style.boxSizing = 'border-box';
@@ -14991,8 +15017,11 @@ setHtml(alertsContainer, alertsHtml);
       col.style.borderRadius = '6px 6px 2px 2px';
       col.style.transition = 'all 0.2s ease';
 
-      const isLight = document.body.classList.contains('theme-monochrome-ivory');
-      if (isPeak) {
+      if (isFutureHour) {
+        col.style.background = isLight ? '#f8fafc' : 'rgba(255, 255, 255, 0.02)';
+        col.style.border = isLight ? '1px dashed #e2e8f0' : '1px dashed rgba(255, 255, 255, 0.06)';
+        col.style.opacity = '0.55';
+      } else if (isPeak) {
         col.style.background = isLight
           ? 'linear-gradient(to top, #f59e0b 0%, #fbbf24 100%)'
           : 'linear-gradient(to top, rgba(245, 158, 11, 0.9), rgba(245, 158, 11, 0.4))';
@@ -15008,10 +15037,14 @@ setHtml(alertsContainer, alertsHtml);
       }
 
       const ampm = hr === 0 ? '12AM' : (hr < 12 ? hr + 'AM' : (hr === 12 ? '12PM' : (hr - 12) + 'PM'));
-      col.title = `${ampm} (${hr.toString().padStart(2, '0')}:00): Rs. ${(amt/100).toLocaleString('en-PK', { minimumFractionDigits: 2 })} (${txCount} sales)`;
+      if (isFutureHour) {
+        col.title = `${ampm} (${hr.toString().padStart(2, '0')}:00): Upcoming time slot`;
+      } else {
+        col.title = `${ampm} (${hr.toString().padStart(2, '0')}:00): Rs. ${(amt/100).toLocaleString('en-PK', { minimumFractionDigits: 2 })} (${txCount} sales)`;
+      }
       
       const valColor = isPeak ? (isLight ? '#b45309' : '#f59e0b') : (isLight ? '#047857' : '#00d68f');
-      const lblColor = isPeak ? (isLight ? '#b45309' : '#f59e0b') : (isLight ? '#475569' : '#94a3b8');
+      const lblColor = isFutureHour ? (isLight ? '#94a3b8' : '#64748b') : (isPeak ? (isLight ? '#b45309' : '#f59e0b') : (isLight ? '#475569' : '#94a3b8'));
       const valShadow = isLight ? 'none' : '0 1px 4px rgba(0,0,0,0.8)';
       setHtml(col, `
         <span class="chart-bar-val" style="font-size: 9px; font-weight: 800; color: ${valColor}; white-space: nowrap; transform: translateY(-16px); text-shadow: ${valShadow};">${amt > 0 ? 'Rs.' + Math.round(amt / 100).toLocaleString('en-PK') : ''}</span>

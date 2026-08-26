@@ -1366,6 +1366,150 @@ body.theme-monochrome-ivory .console-log-box {
   border-radius: 12px !important;
 }
 
+/* ── Comprehensive Light Theme Form & Modal Readability Master Suite ── */
+body.theme-monochrome-ivory .pos-input,
+body.theme-monochrome-ivory .form-input,
+body.theme-monochrome-ivory .settings-input,
+body.theme-monochrome-ivory input[type="text"],
+body.theme-monochrome-ivory input[type="number"],
+body.theme-monochrome-ivory input[type="search"],
+body.theme-monochrome-ivory input[type="password"],
+body.theme-monochrome-ivory input[type="email"],
+body.theme-monochrome-ivory input[type="tel"],
+body.theme-monochrome-ivory input[type="date"],
+body.theme-monochrome-ivory input[type="time"],
+body.theme-monochrome-ivory select,
+body.theme-monochrome-ivory textarea {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1.5px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
+}
+
+body.theme-monochrome-ivory .pos-input:focus,
+body.theme-monochrome-ivory .form-input:focus,
+body.theme-monochrome-ivory .settings-input:focus,
+body.theme-monochrome-ivory input:focus,
+body.theme-monochrome-ivory select:focus,
+body.theme-monochrome-ivory textarea:focus {
+  border-color: #059669 !important;
+  outline: none !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15) !important;
+}
+
+body.theme-monochrome-ivory .pos-input::placeholder,
+body.theme-monochrome-ivory .form-input::placeholder,
+body.theme-monochrome-ivory input::placeholder,
+body.theme-monochrome-ivory textarea::placeholder {
+  color: #64748b !important;
+  opacity: 1 !important;
+  font-weight: 500 !important;
+}
+
+body.theme-monochrome-ivory select option {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  font-weight: 600 !important;
+  padding: 6px 10px !important;
+}
+
+body.theme-monochrome-ivory label,
+body.theme-monochrome-ivory .form-label,
+body.theme-monochrome-ivory .field-label,
+body.theme-monochrome-ivory .form-group label,
+body.theme-monochrome-ivory .modal-card label,
+body.theme-monochrome-ivory .pos-modal-card label,
+body.theme-monochrome-ivory #mode-specific-fields label,
+body.theme-monochrome-ivory .settings-section label {
+  color: #1e293b !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  letter-spacing: 0.02em !important;
+}
+
+body.theme-monochrome-ivory #mode-specific-fields,
+body.theme-monochrome-ivory #mode-specific-fields > div {
+  background: #f8fafc !important;
+  border: 1.5px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  color: #0f172a !important;
+  padding: 12px !important;
+}
+
+body.theme-monochrome-ivory #mode-specific-fields span {
+  color: #475569 !important;
+  font-weight: 600 !important;
+}
+
+body.theme-monochrome-ivory .pos-modal-overlay {
+  background: rgba(15, 23, 42, 0.55) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+body.theme-monochrome-ivory .modal-card,
+body.theme-monochrome-ivory .pos-modal-card,
+body.theme-monochrome-ivory .paywall-card,
+body.theme-monochrome-ivory .dialog-card {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18) !important;
+  border-radius: 16px !important;
+}
+
+body.theme-monochrome-ivory .modal-header,
+body.theme-monochrome-ivory .pos-modal-header {
+  background: #f8fafc !important;
+  border-bottom: 1.5px solid #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory .modal-header h2,
+body.theme-monochrome-ivory .modal-header h3,
+body.theme-monochrome-ivory .pos-modal-header h2,
+body.theme-monochrome-ivory .pos-modal-header h3 {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+
+body.theme-monochrome-ivory .modal-footer,
+body.theme-monochrome-ivory .pos-modal-footer {
+  background: #f8fafc !important;
+  border-top: 1.5px solid #e2e8f0 !important;
+}
+
+body.theme-monochrome-ivory .btn-modal-close,
+body.theme-monochrome-ivory .modal-close-btn,
+body.theme-monochrome-ivory button[id$="-close"] {
+  background: #f1f5f9 !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #334155 !important;
+  border-radius: 8px !important;
+}
+
+body.theme-monochrome-ivory .btn-modal-close:hover,
+body.theme-monochrome-ivory .modal-close-btn:hover,
+body.theme-monochrome-ivory button[id$="-close"]:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+  border-color: #94a3b8 !important;
+}
+
+body.theme-monochrome-ivory input[type="checkbox"],
+body.theme-monochrome-ivory input[type="radio"] {
+  accent-color: #059669 !important;
+}
+
+body.theme-monochrome-ivory #__vxdq .pos-modal-card {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18) !important;
+}
+
 /* ── High Contrast Accessibility Override ── */
 body.theme-high-contrast {
   --bg-obsidian: #000000 !important;
