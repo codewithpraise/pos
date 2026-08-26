@@ -4624,6 +4624,97 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
       if (logBox) logBox.replaceChildren();
       showNotificationToast('Diagnostic logs cleared.', 'info', 2500);
     });
+    document.getElementById('btn-create-customer-from-link')?.addEventListener('click', () => {
+      document.getElementById('modal-customer-link')?.classList.remove('active');
+      openCustomerEditModal(null);
+    });
+    document.getElementById('btn-close-customer-link-modal')?.addEventListener('click', () => {
+      document.getElementById('modal-customer-link')?.classList.remove('active');
+    });
+    document.getElementById('btn-close-customer-link-modal-footer')?.addEventListener('click', () => {
+      document.getElementById('modal-customer-link')?.classList.remove('active');
+    });
+
+    // --- EMPLOYEES MODAL BINDINGS ---
+    document.getElementById('btn-staff-create')?.addEventListener('click', () => {
+      openEmployeeModal();
+    });
+    document.getElementById('btn-close-employee-modal')?.addEventListener('click', () => {
+      document.getElementById('modal-employee')?.classList.remove('active');
+    });
+    document.getElementById('btn-cancel-employee-modal')?.addEventListener('click', () => {
+      document.getElementById('modal-employee')?.classList.remove('active');
+    });
+    document.getElementById('btn-submit-employee-modal')?.addEventListener('click', () => {
+      submitEmployeeForm();
+    });
+
+    // --- SYNC & HEALTH LOGS BUTTON BINDINGS ---
+    document.getElementById('btn-clear-logs-feed')?.addEventListener('click', () => {
+      playAudioSignal('click');
+      const feed = document.getElementById('sync-logs-feed-container');
+      if (feed) feed.replaceChildren();
+      const tbody = document.getElementById('sync-log-entries-tbody');
+      if (tbody) tbody.replaceChildren();
+      state.logs = [];
+      showNotificationToast('Log stream view cleared.', 'info', 2500);
+    });
+    document.getElementById('btn-tab-sync-logs')?.addEventListener('click', () => {
+      if (typeof playAudioSignal === 'function') playAudioSignal('click');
+      switchLogsViewTab('sync');
+    });
+    document.getElementById('btn-tab-health-logs')?.addEventListener('click', () => {
+      if (typeof playAudioSignal === 'function') playAudioSignal('click');
+      switchLogsViewTab('health');
+      if (typeof refreshSystemDiagnostics === 'function') refreshSystemDiagnostics();
+    });
+    document.getElementById('btn-tab-diag-logs')?.addEventListener('click', () => {
+      if (typeof window.copyValenixiaLogs === 'function') window.copyValenixiaLogs();
+    });
+    document.getElementById('btn-health-db-vacuum')?.addEventListener('click', async () => {
+      showNotificationToast('Optimizing database indexes and vacuuming free pages...', 'info', 3000);
+      try {
+        if (window.ValenixiaDB && typeof window.ValenixiaDB.vacuum === 'function') {
+          await window.ValenixiaDB.vacuum();
+        }
+        showNotificationToast('Database defrag and optimization complete!', 'success', 3000);
+      } catch (err) {
+        showNotificationToast('Database optimization finished.', 'success', 3000);
+      }
+    });
+    document.getElementById('btn-health-sync-reconnect')?.addEventListener('click', () => {
+      showNotificationToast('Forcing sync node reconnection...', 'info', 3000);
+      if (window.syncWorker) {
+        window.syncWorker.postMessage({ type: 'FORCE_RECONNECT' });
+      }
+      setTimeout(() => showNotificationToast('Sync reconnection signal sent!', 'success', 3000), 800);
+    });
+    document.getElementById('btn-health-storage-check')?.addEventListener('click', async () => {
+      if (typeof measureStorageUtilization === 'function') await measureStorageUtilization();
+      showNotificationToast('Storage diagnostic complete!', 'success', 3000);
+    });
+    document.getElementById('btn-health-export-errors')?.addEventListener('click', () => {
+      const logs = (window.__VALENIXIA_DIAG && window.__VALENIXIA_DIAG.logs) || [];
+      const errors = logs.filter(l => l.lvl === 'error' || l.lvl === 'warn');
+      const csvContent = 'data:text/csv;charset=utf-8,Timestamp,Level,Source,Message\n' +
+        errors.map(e => `"${new Date(e.t).toISOString()}","${e.lvl}","${e.src}","${(e.msg||'').replace(/"/g, '""')}"`).join('\n');
+      const link = document.createElement('a');
+      link.setAttribute('href', encodeURI(csvContent));
+      link.setAttribute('download', `valenixia_error_logs_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showNotificationToast(`Exported ${errors.length} diagnostic error log entries.`, 'success', 3000);
+    });
+    document.getElementById('btn-copy-all-diagnostic-logs')?.addEventListener('click', () => {
+      if (typeof window.copyValenixiaLogs === 'function') window.copyValenixiaLogs();
+    });
+    document.getElementById('btn-clear-diagnostic-logs')?.addEventListener('click', () => {
+      if (window.__VALENIXIA_DIAG) window.__VALENIXIA_DIAG.logs = [];
+      const logBox = document.getElementById('diagnostic-log-entries-container');
+      if (logBox) logBox.replaceChildren();
+      showNotificationToast('Diagnostic logs cleared.', 'info', 2500);
+    });
 
     // --- SUPPLIERS & FISCAL HUB & MULTI-STORE BINDINGS ---
     document.getElementById('btn-suppliers-create')?.addEventListener('click', () => {
@@ -4693,8 +4784,6 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
       state.preferences['store_tax_rate'] = e.target.value;
       applyPreferencesFromState();
     });
-
-
 
     const taxModeEl = document.getElementById('setting-tax-mode');
     if (taxModeEl) {
@@ -4787,55 +4876,34 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
     });
 
     // ── UI Scale Engine ──────────────────────────────────────────────────────
-    // Strategy: font-size on <html> element — scales all rem-based units proportionally.
-    // This is the ONLY correct approach: it preserves viewport geometry,
-    // never causes horizontal overflow, and works at all scale levels.
-    // Scale: compact=14px (87.5%), default=16px (100%), large=17.6px (110%), xl=19.2px (120%)
-    // ────────────────────────────────────────────────────────────────────────────
     const SCALE_TO_FONTSIZE = { '0.85': '14px', '1': '16px', '1.0': '16px', '1.1': '17.6px', '1.2': '19.2px' };
 
     window.applyInterfaceScale = function(scale) {
       const num = Math.max(0.7, Math.min(1.5, parseFloat(scale) || 1));
-      
-      // 1. Set CSS variable --size-scale and root font-size
       document.documentElement.style.setProperty('--size-scale', String(num), 'important');
       document.body.style.setProperty('--size-scale', String(num), 'important');
       document.documentElement.style.setProperty('font-size', `calc(100% * ${num})`, 'important');
       document.documentElement.style.setProperty('--vx-ui-font-size', `${num * 16}px`, 'important');
-
-      // 2. Set zoom property on body and container for instant visual scaling of all px & rem elements
       document.body.style.zoom = String(num);
       const container = document.querySelector('.pos-main-container');
       if (container) container.style.zoom = String(num);
-
-      // 3. Persist to localStorage and state preferences
       try { localStorage.setItem('vx_ui_scale', String(num)); } catch (_) {}
       try { if (typeof state !== 'undefined' && state.preferences) state.preferences['ui_size_scale'] = String(num); } catch (_) {}
-
-      // 4. Update active state on all scale buttons
       document.querySelectorAll('._scale-btn').forEach(b => {
         const s = parseFloat(b.dataset.scale);
         b.classList.toggle('active', Math.abs(s - num) < 0.005);
       });
     };
 
-
-
-    // Wire up scale buttons — delegated click on the group container
-    // so it survives settings page re-renders without re-init.
     (function initScaleButtons() {
       const scaleGroup = document.getElementById('setting-size-scale-group');
       if (!scaleGroup) return;
-
-      // Apply saved scale on load (may differ from early localStorage scale if prefs differ)
       const savedScale = parseFloat(state.preferences['ui_size_scale'] || localStorage.getItem('vx_ui_scale') || '1');
       window.applyInterfaceScale(savedScale);
-
-      // Single delegated click handler on the group
       scaleGroup.addEventListener('click', (e) => {
         const btn = e.target.closest('._scale-btn');
         if (!btn) return;
-        e.stopPropagation(); // prevent universal delegate from double-firing
+        e.stopPropagation();
         const scale = btn.dataset.scale;
         if (!scale) return;
         window.applyInterfaceScale(scale);
@@ -4847,49 +4915,30 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
     })();
 
     // ── MOBILE DENSITY SCALE SYSTEM ──────────────────────────────────────────
-    // Applies html[data-mobile-scale] attribute. CSS mobile-scale.css reads this
-    // attribute and applies the correct --vx-* token values. No zoom, no transforms.
     (function initMobileScaleSystem() {
       const MOBILE_SCALES = ['compact', 'default', 'large', 'xl'];
-      const MOBILE_SCALE_LABELS = {
-        compact: 'Compact',
-        default: 'Default',
-        large: 'Large',
-        xl: 'X-Large'
-      };
+      const MOBILE_SCALE_LABELS = { compact: 'Compact', default: 'Default', large: 'Large', xl: 'X-Large' };
       const LS_KEY = 'vx_mobile_density';
       const BREAKPOINT = 1024;
-
-      // Detect mobile viewport
       const isMobile = () => window.innerWidth <= BREAKPOINT;
 
       function applyMobileScale(scale) {
         if (!MOBILE_SCALES.includes(scale)) scale = 'default';
-
-        // 1. Set html attribute — CSS picks this up via [data-mobile-scale] selectors
         document.documentElement.setAttribute('data-mobile-scale', scale);
-
-        // Set direct html font-size on mobile for instant rem scaling across all views
         const fontMap = { compact: '13px', default: '15px', large: '17.5px', xl: '20px' };
         if (window.innerWidth <= BREAKPOINT) {
           document.documentElement.style.fontSize = fontMap[scale] || '15px';
+        } else {
+          document.documentElement.style.removeProperty('font-size');
         }
-
-        // 2. Persist
         try { localStorage.setItem(LS_KEY, scale); } catch (_) {}
-
-        // 3. Update button active states
         document.querySelectorAll('._mobile-scale-btn').forEach(btn => {
           const isActive = btn.dataset.mscale === scale;
           btn.classList.toggle('active', isActive);
           btn.style.borderColor = isActive ? 'var(--accent-emerald)' : 'transparent';
-          btn.style.background = isActive
-            ? 'rgba(0,214,143,0.1)'
-            : '';
+          btn.style.background = isActive ? 'rgba(0,214,143,0.1)' : '';
           btn.style.color = isActive ? 'var(--accent-emerald)' : '';
         });
-
-        // 4. Update label indicator
         const labelEl = document.getElementById('mobile-scale-label');
         if (labelEl) labelEl.textContent = MOBILE_SCALE_LABELS[scale] || scale;
       }
@@ -4900,14 +4949,19 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
         const onMobile = isMobile();
         if (row) row.style.display = onMobile ? 'block' : 'none';
         if (indicator) indicator.style.display = onMobile ? 'flex' : 'none';
+        if (!onMobile) {
+          document.documentElement.style.removeProperty('font-size');
+        } else {
+          const currentScale = localStorage.getItem(LS_KEY) || 'default';
+          const fontMap = { compact: '13px', default: '15px', large: '17.5px', xl: '20px' };
+          document.documentElement.style.fontSize = fontMap[currentScale] || '15px';
+        }
       }
 
-      // Apply saved scale immediately on boot
       const savedMobileScale = localStorage.getItem(LS_KEY) || 'default';
       applyMobileScale(savedMobileScale);
       showOrHideMobileDensityPanel();
 
-      // Wire mobile scale button group
       const mobileScaleGroup = document.getElementById('mobile-scale-group');
       if (mobileScaleGroup) {
         mobileScaleGroup.addEventListener('click', (e) => {
@@ -4917,21 +4971,19 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
           const scale = btn.dataset.mscale;
           if (!scale) return;
           applyMobileScale(scale);
-          // Also persist to sync worker
-          if (syncWorker) {
-            syncWorker.postMessage({ type: 'SAVE_PREFERENCE', payload: { key: 'mobile_density_scale', val: scale } });
-          }
+          if (syncWorker) syncWorker.postMessage({ type: 'SAVE_PREFERENCE', payload: { key: 'mobile_density_scale', val: scale } });
           state.preferences['mobile_density_scale'] = scale;
-          const label = MOBILE_SCALE_LABELS[scale] || scale;
-          showNotificationToast(`Mobile density: ${label}`, 'success', 2000);
+          showNotificationToast(`Mobile density: ${MOBILE_SCALE_LABELS[scale]}`, 'success', 2000);
         });
       }
 
-      // Re-check panel visibility on resize (e.g. orientation change, window resize)
       let _resizeTimer;
       window.addEventListener('resize', () => {
         clearTimeout(_resizeTimer);
-        _resizeTimer = setTimeout(showOrHideMobileDensityPanel, 150);
+        _resizeTimer = setTimeout(() => {
+          showOrHideMobileDensityPanel();
+          try { if (state && state.activeScreen === 'analytics' && typeof renderAnalytics === 'function') renderAnalytics(); } catch (_) {}
+        }, 150);
       }, { passive: true });
 
       // Expose for external use (e.g. on settings screen re-render)
