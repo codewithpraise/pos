@@ -1510,6 +1510,35 @@ body.theme-monochrome-ivory #__vxdq .pos-modal-card {
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18) !important;
 }
 
+body.theme-monochrome-ivory #__vxdm,
+body.theme-monochrome-ivory #__vxdm > div {
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory #__vxdm-sel,
+body.theme-monochrome-ivory .__vxdm-sel,
+body.theme-monochrome-ivory select,
+body.theme-monochrome-ivory select optgroup {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1.5px solid #cbd5e1 !important;
+}
+
+body.theme-monochrome-ivory #__vxdm-sel option,
+body.theme-monochrome-ivory .__vxdm-sel option,
+body.theme-monochrome-ivory select option {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory #__vxdm-items > div {
+  background: #ffffff !important;
+  border: 1.5px solid #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
 /* ── High Contrast Accessibility Override ── */
 body.theme-high-contrast {
   --bg-obsidian: #000000 !important;

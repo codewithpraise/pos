@@ -158,18 +158,22 @@
   }
 
   // ── Render deals list view ─────────────────────────────────────────────────
+  // ── Render deals list view ─────────────────────────────────────────────────
   function renderView() {
     const el = document.getElementById('deals-list-container');
     if (!el) return;
     const deals = getAll();
     const L = lbl();
+    const isLight = document.body.classList.contains('theme-monochrome-ivory');
 
     if (!deals.length) {
       el.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--text-gray);">
-        <div style="font-size:48px;margin-bottom:16px;">${L.i}</div>
-        <p style="font-size:15px;font-weight:600;color:var(--text-white);margin-bottom:8px;">No ${L.p} Yet</p>
-        <p style="font-size:13px;margin-bottom:24px;">Create your first ${L.s.toLowerCase()} to bundle products with special pricing.</p>
-        <button class="action-btn action-success" id="btn-deals-create-empty" style="min-height:44px;padding:0 24px;">+ Create ${L.s}</button>
+        <div style="width:64px;height:64px;margin:0 auto 16px auto;border-radius:50%;background:${isLight?'#ecfdf5':'rgba(0,214,143,0.1)'};border:1.5px solid ${isLight?'#a7f3d0':'rgba(0,214,143,0.3)'};display:flex;align-items:center;justify-content:center;">
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="${isLight?'#059669':'#00d68f'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+        </div>
+        <p style="font-size:16px;font-weight:800;color:var(--text-white);margin-bottom:8px;">No ${L.p} Configured Yet</p>
+        <p style="font-size:13px;margin-bottom:24px;color:var(--text-gray);max-width:380px;margin-left:auto;margin-right:auto;">Create your first ${L.s.toLowerCase()} to bundle multiple inventory items together with custom discount pricing.</p>
+        <button class="action-btn action-success" id="btn-deals-create-empty" style="min-height:44px;padding:0 24px;font-weight:800;font-size:13.5px;">+ Create ${L.s}</button>
       </div>`;
       document.getElementById('btn-deals-create-empty')?.addEventListener('click', () => openEdit(null));
       return;
@@ -179,36 +183,40 @@
     deals.forEach(deal => {
       const cnt = (deal.items||[]).length;
       const customBadge = deal.customizable
-        ? `<span style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3);font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">CUSTOMIZABLE</span>`
-        : `<span style="background:rgba(100,116,139,.15);color:#94a3b8;border:1px solid rgba(100,116,139,.2);font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">FIXED</span>`;
+        ? `<span style="background:${isLight?'#ecfdf5':'rgba(16,185,129,.15)'};color:${isLight?'#047857':'#10b981'};border:1px solid ${isLight?'#a7f3d0':'rgba(16,185,129,.3)'};font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;">CUSTOMIZABLE</span>`
+        : `<span style="background:${isLight?'#f1f5f9':'rgba(100,116,139,.15)'};color:${isLight?'#475569':'#94a3b8'};border:1px solid ${isLight?'#cbd5e1':'rgba(100,116,139,.2)'};font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;">FIXED</span>`;
       const disabledBadge = !deal.is_active
-        ? `<span style="background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">DISABLED</span>` : '';
+        ? `<span style="background:${isLight?'#fef2f2':'rgba(239,68,68,.15)'};color:${isLight?'#b91c1c':'#ef4444'};border:1px solid ${isLight?'#fecaca':'rgba(239,68,68,.3)'};font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;">DISABLED</span>` : '';
+      
       const card = document.createElement('div');
       card.className = 'deal-card';
-      card.style.cssText = 'display:flex;flex-direction:column;gap:10px;padding:14px 16px;border:1px solid rgba(255,255,255,0.08);border-radius:12px;margin-bottom:12px;background:linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(20,20,30,0.6) 100%);box-shadow:0 4px 16px rgba(0,0,0,0.25);transition:all .15s ease;';
+      card.style.cssText = `display:flex;flex-direction:column;gap:12px;padding:16px 18px;border:1.5px solid ${isLight?'#cbd5e1':'rgba(255,255,255,0.08)'};border-radius:14px;margin-bottom:12px;background:${isLight?'#ffffff':'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(20,20,30,0.6) 100%)'};box-shadow:${isLight?'0 4px 14px rgba(15,23,42,0.05)':'0 4px 16px rgba(0,0,0,0.25)'};transition:all .15s ease;`;
+      
       card.innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-          <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;">
-            <div style="font-size:24px;flex-shrink:0;width:38px;height:38px;border-radius:8px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;">${deal.icon||L.i}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div style="display:flex;align-items:center;gap:12px;min-width:0;flex:1;">
+            <div style="width:40px;height:40px;border-radius:10px;background:${isLight?'#ecfdf5':'rgba(0,214,143,0.1)'};border:1.5px solid ${isLight?'#a7f3d0':'rgba(0,214,143,0.3)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="${isLight?'#059669':'#00d68f'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+            </div>
             <div style="min-width:0;flex:1;">
-              <div style="font-weight:800;color:var(--text-white);font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${deal.name}</div>
-              <div style="display:flex;align-items:center;gap:6px;margin-top:2px;">
+              <div style="font-weight:800;color:var(--text-white);font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${deal.name}</div>
+              <div style="display:flex;align-items:center;gap:6px;margin-top:3px;">
                 ${customBadge}${disabledBadge}
               </div>
             </div>
           </div>
           <div style="text-align:right;flex-shrink:0;">
-            <div style="font-size:15px;font-weight:900;color:var(--accent-emerald);font-family:var(--font-display);">${fmt(deal.price_cents)}</div>
-            ${deal.original_price_cents&&deal.original_price_cents>deal.price_cents?`<div style="font-size:11px;color:var(--text-gray);text-decoration:line-through;">${fmt(deal.original_price_cents)}</div>`:''}
+            <div style="font-size:16px;font-weight:900;color:var(--accent-emerald);font-family:var(--font-display);">${fmt(deal.price_cents)}</div>
+            ${deal.original_price_cents&&deal.original_price_cents>deal.price_cents?`<div style="font-size:11px;color:var(--text-gray);text-decoration:line-through;font-weight:600;">${fmt(deal.original_price_cents)}</div>`:''}
           </div>
         </div>
-        <div style="font-size:12px;color:var(--text-gray);line-height:1.4;border-top:1px solid rgba(255,255,255,0.05);padding-top:8px;">
-          <strong style="color:var(--text-white);">${cnt} item${cnt!==1?'s':''} bundled:</strong> ${deal.description||'Fixed price combination bundle'}
+        <div style="font-size:12px;color:var(--text-gray);line-height:1.4;border-top:1px solid ${isLight?'#e2e8f0':'rgba(255,255,255,0.06)'};padding-top:10px;">
+          <strong style="color:var(--text-white);">${cnt} item${cnt!==1?'s':''} bundled:</strong> ${deal.description||'Fixed-price promotional combination bundle.'}
         </div>
         <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;padding-top:4px;">
-          <button class="action-btn _deal-edit" data-id="${deal.id}" style="min-height:30px;padding:4px 14px;font-size:11px;font-weight:800;border-radius:6px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#fff;">Edit Deal</button>
-          <button class="action-btn action-danger _deal-del" data-id="${deal.id}" style="min-height:30px;padding:4px 10px;font-size:11px;font-weight:800;border-radius:6px;background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.5);color:#ef4444;display:inline-flex;align-items:center;justify-content:center;gap:4px;">
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#ef4444" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          <button class="action-btn _deal-edit" data-id="${deal.id}" style="min-height:32px;padding:4px 14px;font-size:11.5px;font-weight:800;border-radius:8px;background:${isLight?'#f1f5f9':'rgba(255,255,255,0.08)'};border:1.5px solid ${isLight?'#cbd5e1':'rgba(255,255,255,0.2)'};color:${isLight?'#1e293b':'#ffffff'};">Edit Deal</button>
+          <button class="action-btn action-danger _deal-del" data-id="${deal.id}" style="min-height:32px;padding:4px 12px;font-size:11.5px;font-weight:800;border-radius:8px;background:${isLight?'#fef2f2':'rgba(239,68,68,0.18)'};border:1.5px solid ${isLight?'#fca5a5':'rgba(239,68,68,0.5)'};color:#ef4444;display:inline-flex;align-items:center;justify-content:center;gap:4px;">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#ef4444" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             <span>Delete</span>
           </button>
         </div>`;
@@ -245,63 +253,90 @@
     const L    = lbl();
     const isNew = !deal;
     const selItems = deal ? JSON.parse(JSON.stringify(deal.items||[])) : [];
-    let dealIcon  = deal ? (deal.icon||L.i) : L.i;
+    const isLight = document.body.classList.contains('theme-monochrome-ivory');
 
     const ov = document.createElement('div');
     ov.id = '__vxdm';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483640;background:rgba(5,5,8,.94);display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;backdrop-filter:blur(6px);';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483640;background:' + (isLight ? 'rgba(15,23,42,0.65)' : 'rgba(5,5,8,0.92)') + ';display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;backdrop-filter:blur(8px);';
 
-    ov.innerHTML = `<div style="max-width:540px;width:100%;background:#0d0d12;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:28px;box-shadow:0 32px 64px rgba(0,0,0,.8);margin:auto;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
-        <h2 style="font-size:18px;font-weight:800;color:#fff;margin:0;">${isNew?'Create':'Edit'} ${L.s}</h2>
-        <button id="__vxdm-close" style="background:transparent;border:1px solid rgba(255,255,255,.1);color:#94a3b8;width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:16px;"></button>
-      </div>
-      <div style="display:grid;grid-template-columns:auto 1fr;gap:12px;margin-bottom:16px;align-items:center;">
-        <button id="__vxdm-icon" style="width:52px;height:52px;font-size:26px;background:rgba(255,255,255,.04);border:1px solid var(--border-titanium);border-radius:8px;cursor:pointer;">${dealIcon}</button>
-        <div>
-          <label style="display:block;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">${L.s} Name *</label>
-          <input id="__vxdm-name" type="text" maxlength="80" placeholder="e.g. Breakfast Special..." value="${deal?deal.name:''}" style="width:100%;padding:10px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:#fff;border-radius:8px;font-size:14px;box-sizing:border-box;">
+    const cardBg = isLight ? '#ffffff' : '#0d0d12';
+    const cardBorder = isLight ? '#cbd5e1' : 'rgba(255,255,255,.1)';
+    const inputBg = isLight ? '#ffffff' : 'rgba(255,255,255,.04)';
+    const inputBorder = isLight ? '#cbd5e1' : 'rgba(255,255,255,.14)';
+    const inputColor = isLight ? '#0f172a' : '#ffffff';
+    const subPanelBg = isLight ? '#f8fafc' : 'rgba(255,255,255,.03)';
+    const subPanelBorder = isLight ? '#e2e8f0' : 'rgba(255,255,255,.07)';
+    const labelColor = isLight ? '#1e293b' : '#94a3b8';
+    const selectOptBg = isLight ? '#ffffff' : '#14141d';
+    const selectOptColor = isLight ? '#0f172a' : '#ffffff';
+
+    ov.innerHTML = `<div style="max-width:560px;width:100%;background:${cardBg};border:1.5px solid ${cardBorder};border-radius:16px;padding:24px;box-shadow:${isLight?'0 32px 64px rgba(15,23,42,0.18)':'0 32px 64px rgba(0,0,0,.8)'};margin:auto;max-height:90vh;overflow-y:auto;box-sizing:border-box;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:12px;border-bottom:1.5px solid ${subPanelBorder};">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:36px;height:36px;border-radius:10px;background:${isLight?'#ecfdf5':'rgba(0,214,143,0.1)'};border:1.5px solid ${isLight?'#a7f3d0':'rgba(0,214,143,0.3)'};display:flex;align-items:center;justify-content:center;">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="${isLight?'#059669':'#00d68f'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+          </div>
+          <h2 style="font-size:18px;font-weight:800;color:${isLight?'#0f172a':'#ffffff'};margin:0;">${isNew?'Create':'Edit'} ${L.s}</h2>
         </div>
+        <button id="__vxdm-close" style="background:${isLight?'#f1f5f9':'rgba(255,255,255,0.06)'};border:1.5px solid ${cardBorder};color:${isLight?'#475569':'#94a3b8'};width:34px;height:34px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
       </div>
+
       <div style="margin-bottom:16px;">
-        <label style="display:block;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Description (optional)</label>
-        <input id="__vxdm-desc" type="text" maxlength="120" placeholder="Short description..." value="${deal?deal.description||'':''}" style="width:100%;padding:10px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:#fff;border-radius:8px;font-size:14px;box-sizing:border-box;">
+        <label style="display:block;font-size:11px;font-weight:700;color:${labelColor};text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">${L.s} Package Name *</label>
+        <input id="__vxdm-name" type="text" maxlength="80" placeholder="e.g. Breakfast Special Combo..." value="${deal?deal.name:''}" style="width:100%;padding:11px 14px;background:${inputBg};border:1.5px solid ${inputBorder};color:${inputColor};border-radius:8px;font-size:14px;font-weight:600;box-sizing:border-box;outline:none;">
       </div>
+
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:11px;font-weight:700;color:${labelColor};text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Description (Optional)</label>
+        <input id="__vxdm-desc" type="text" maxlength="120" placeholder="Short description or tagline..." value="${deal?deal.description||'':''}" style="width:100%;padding:11px 14px;background:${inputBg};border:1.5px solid ${inputBorder};color:${inputColor};border-radius:8px;font-size:14px;font-weight:600;box-sizing:border-box;outline:none;">
+      </div>
+
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
         <div>
-          <label style="display:block;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">${L.s} Price (Rs.) *</label>
-          <input id="__vxdm-price" type="number" min="1" step="1" required placeholder="Required" value="${deal?(deal.price_cents/100).toFixed(0):''}" style="width:100%;padding:10px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:#fff;border-radius:8px;font-size:14px;box-sizing:border-box;">
+          <label style="display:block;font-size:11px;font-weight:700;color:${labelColor};text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">${L.s} Price (Rs.) *</label>
+          <input id="__vxdm-price" type="number" min="1" step="1" required placeholder="Required" value="${deal?(deal.price_cents/100).toFixed(0):''}" style="width:100%;padding:11px 14px;background:${inputBg};border:1.5px solid ${inputBorder};color:${isLight?'#047857':'#00d68f'};border-radius:8px;font-size:15px;font-weight:800;box-sizing:border-box;outline:none;">
         </div>
         <div>
-          <label style="display:block;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Original Price (Rs.) — Strikethrough</label>
-          <input id="__vxdm-orig" type="number" min="0" step="1" placeholder="Optional" value="${deal&&deal.original_price_cents?(deal.original_price_cents/100).toFixed(0):''}" style="width:100%;padding:10px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:#fff;border-radius:8px;font-size:14px;box-sizing:border-box;">
+          <label style="display:block;font-size:11px;font-weight:700;color:${labelColor};text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Original Value (Rs.) — Optional</label>
+          <input id="__vxdm-orig" type="number" min="0" step="1" placeholder="Optional strikethrough" value="${deal&&deal.original_price_cents?(deal.original_price_cents/100).toFixed(0):''}" style="width:100%;padding:11px 14px;background:${inputBg};border:1.5px solid ${inputBorder};color:${inputColor};border-radius:8px;font-size:14px;font-weight:600;box-sizing:border-box;outline:none;">
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
-        <label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);padding:12px;border-radius:8px;cursor:pointer;">
-          <input type="checkbox" id="__vxdm-cust" ${!deal||deal.customizable?'checked':''} style="width:18px;height:18px;accent-color:#10b981;">
-          <div><div style="font-size:13px;font-weight:600;color:#fff;">Customizable</div><div style="font-size:11px;color:#64748b;">Customers can modify</div></div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;">
+        <label style="display:flex;align-items:center;gap:10px;background:${subPanelBg};border:1.5px solid ${subPanelBorder};padding:12px 14px;border-radius:10px;cursor:pointer;">
+          <input type="checkbox" id="__vxdm-cust" ${!deal||deal.customizable?'checked':''} style="width:18px;height:18px;accent-color:#059669;">
+          <div><div style="font-size:13px;font-weight:700;color:${isLight?'#0f172a':'#ffffff'};">Customizable</div><div style="font-size:11px;color:${labelColor};font-weight:500;">Cashier can modify items</div></div>
         </label>
-        <label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);padding:12px;border-radius:8px;cursor:pointer;">
-          <input type="checkbox" id="__vxdm-active" ${!deal||deal.is_active!==false?'checked':''} style="width:18px;height:18px;accent-color:#10b981;">
-          <div><div style="font-size:13px;font-weight:600;color:#fff;">Active</div><div style="font-size:11px;color:#64748b;">Show in checkout</div></div>
+        <label style="display:flex;align-items:center;gap:10px;background:${subPanelBg};border:1.5px solid ${subPanelBorder};padding:12px 14px;border-radius:10px;cursor:pointer;">
+          <input type="checkbox" id="__vxdm-active" ${!deal||deal.is_active!==false?'checked':''} style="width:18px;height:18px;accent-color:#059669;">
+          <div><div style="font-size:13px;font-weight:700;color:${isLight?'#0f172a':'#ffffff'};">Active Status</div><div style="font-size:11px;color:${labelColor};font-weight:500;">Show in POS checkout</div></div>
         </label>
       </div>
-      <div style="margin-bottom:16px;">
-        <label style="display:block;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Bundled Items * <span style="text-transform:none;color:#475569;">(all deducted from stock simultaneously when sold)</span></label>
-        <div id="__vxdm-items"></div>
-        <div style="display:flex;gap:8px;margin-top:6px;">
-          <select id="__vxdm-sel" style="flex:1;padding:10px 12px;background:#14141d;border:1px solid rgba(255,255,255,.18);color:#ffffff;border-radius:8px;font-size:13.5px;font-weight:600;outline:none;">
-            <option value="" style="background:#14141d;color:#94a3b8;">— Select product to add —</option>
-            ${cat.map(p=>`<option value="${p.id||p.sku}" data-price="${p.price_cents||p.base_price_minor_units||0}" style="background:#14141d;color:#ffffff;padding:8px;">${p.name} (${fmt(p.price_cents||p.base_price_minor_units||0)})</option>`).join('')}
+
+      <div style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <label style="font-size:11px;font-weight:700;color:${labelColor};text-transform:uppercase;letter-spacing:.05em;">Bundled Products *</label>
+          <span style="font-size:11px;color:${labelColor};font-weight:500;">Deducted simultaneously upon sale</span>
+        </div>
+        <div id="__vxdm-items" style="max-height:160px;overflow-y:auto;margin-bottom:10px;"></div>
+        <div style="display:flex;gap:8px;">
+          <select id="__vxdm-sel" style="flex:1;padding:10px 12px;background:${inputBg};border:1.5px solid ${inputBorder};color:${inputColor};border-radius:8px;font-size:13.5px;font-weight:600;outline:none;">
+            <option value="" style="background:${selectOptBg};color:${isLight?'#64748b':'#94a3b8'};">— Select inventory product to add —</option>
+            ${cat.map(p=>`<option value="${p.id||p.sku}" data-price="${p.price_cents||p.base_price_minor_units||0}" style="background:${selectOptBg};color:${selectOptColor};padding:8px;">${p.name} (${fmt(p.price_cents||p.base_price_minor_units||0)})</option>`).join('')}
           </select>
-          <button id="__vxdm-add-item" style="padding:8px 16px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.4);color:#10b981;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">+ Add</button>
+          <button id="__vxdm-add-item" style="padding:8px 18px;background:${isLight?'#ecfdf5':'rgba(16,185,129,.15)'};border:1.5px solid ${isLight?'#a7f3d0':'rgba(16,185,129,.4)'};color:${isLight?'#047857':'#10b981'};border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;">+ Add</button>
         </div>
       </div>
-      <div style="display:flex;gap:10px;">
-        <button id="__vxdm-save" style="flex:1;height:48px;background:linear-gradient(135deg,#00d68f,#10b981);border:none;color:#060d0d;font-size:14px;font-weight:800;border-radius:10px;cursor:pointer;font-family:inherit;">${isNew?'Create '+L.s:'Save Changes'}</button>
-        ${!isNew ? `<button id="__vxdm-delete" style="height:48px;padding:0 16px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.5);color:#ef4444;border-radius:10px;cursor:pointer;font-size:13.5px;font-weight:800;font-family:inherit;display:inline-flex;align-items:center;gap:4px;">🗑 Delete</button>` : ''}
-        <button id="__vxdm-cancel" style="height:48px;padding:0 20px;background:transparent;border:1px solid rgba(255,255,255,.1);color:#64748b;border-radius:10px;cursor:pointer;font-size:14px;font-family:inherit;">Cancel</button>
+
+      <div style="display:flex;gap:10px;padding-top:12px;border-top:1.5px solid ${subPanelBorder};">
+        <button id="__vxdm-save" style="flex:1;height:46px;background:linear-gradient(135deg,#059669,#047857);border:none;color:#ffffff;font-size:14px;font-weight:800;border-radius:10px;cursor:pointer;font-family:inherit;box-shadow:0 4px 12px rgba(5,150,105,0.25);">${isNew?'Create '+L.s:'Save Changes'}</button>
+        ${!isNew ? `<button id="__vxdm-delete" style="height:46px;padding:0 16px;background:${isLight?'#fef2f2':'rgba(239,68,68,0.15)'};border:1.5px solid ${isLight?'#fca5a5':'rgba(239,68,68,0.5)'};color:#ef4444;border-radius:10px;cursor:pointer;font-size:13.5px;font-weight:800;font-family:inherit;display:inline-flex;align-items:center;gap:6px;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#ef4444" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          <span>Delete</span>
+        </button>` : ''}
+        <button id="__vxdm-cancel" style="height:46px;padding:0 20px;background:${isLight?'#f1f5f9':'transparent'};border:1.5px solid ${cardBorder};color:${isLight?'#334155':'#94a3b8'};border-radius:10px;cursor:pointer;font-size:14px;font-weight:700;font-family:inherit;">Cancel</button>
       </div>
     </div>`;
     document.body.appendChild(ov);
@@ -310,12 +345,15 @@
     const redrawItems = () => {
       const el = ov.querySelector('#__vxdm-items');
       if (!el) return;
-      if (!selItems.length) { el.innerHTML = '<p style="color:var(--text-gray);font-size:12px;text-align:center;padding:10px 0;">No items yet.</p>'; return; }
-      el.innerHTML = selItems.map((item,i) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--border-titanium);border-radius:8px;margin-bottom:6px;background:rgba(255,255,255,.02);">
-        <span style="flex:1;font-size:13px;font-weight:700;color:var(--text-white);">${item.name}</span>
-        <span style="font-size:11px;color:var(--text-gray);font-weight:600;">Qty:</span>
-        <input type="number" min="1" value="${item.qty}" data-i="${i}" class="__vxdm-qty" style="width:52px;padding:4px 6px;background:var(--panel-graphite);border:1px solid var(--border-titanium);color:var(--text-white);border-radius:4px;font-size:13px;text-align:center;font-weight:700;">
-        <button data-i="${i}" class="__vxdm-rm action-danger" title="Remove item" style="background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.6);color:#ef4444;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:3px;min-height:26px;">
+      if (!selItems.length) {
+        el.innerHTML = `<p style="color:${isLight?'#64748b':'var(--text-gray)'};font-size:12px;text-align:center;padding:12px 0;background:${subPanelBg};border:1.5px dashed ${subPanelBorder};border-radius:8px;margin:0;">No products added yet. Select a product below and click "+ Add".</p>`;
+        return;
+      }
+      el.innerHTML = selItems.map((item,i) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1.5px solid ${subPanelBorder};border-radius:8px;margin-bottom:6px;background:${isLight?'#ffffff':'rgba(255,255,255,.02)'};">
+        <span style="flex:1;font-size:13px;font-weight:700;color:${isLight?'#0f172a':'var(--text-white)'};">${item.name}</span>
+        <span style="font-size:11px;color:${labelColor};font-weight:700;">Qty:</span>
+        <input type="number" min="1" value="${item.qty}" data-i="${i}" class="__vxdm-qty" style="width:52px;padding:4px 6px;background:${inputBg};border:1.5px solid ${inputBorder};color:${inputColor};border-radius:6px;font-size:13px;text-align:center;font-weight:800;outline:none;">
+        <button data-i="${i}" class="__vxdm-rm action-danger" title="Remove item" style="background:${isLight?'#fef2f2':'rgba(239,68,68,0.2)'};border:1.5px solid ${isLight?'#fca5a5':'rgba(239,68,68,0.6)'};color:#ef4444;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:3px;min-height:26px;">
           <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#ef4444" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
           <span>Del</span>
         </button>
@@ -324,16 +362,6 @@
       el.querySelectorAll('.__vxdm-rm').forEach(btn => btn.addEventListener('click', () => { selItems.splice(+btn.dataset.i, 1); redrawItems(); }));
     };
     redrawItems();
-
-    // Icon picker
-    const ICONS = ['','','','','','','','','','','','','','','','','','','','','','',''];
-    ov.querySelector('#__vxdm-icon').addEventListener('click', () => {
-      const p = document.createElement('div');
-      p.style.cssText = 'position:absolute;background:#0d0d12;border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px;display:flex;flex-wrap:wrap;gap:4px;z-index:2147483641;max-width:220px;box-shadow:0 8px 32px rgba(0,0,0,.8);';
-      ICONS.forEach(ic => { const b=document.createElement('button'); b.textContent=ic; b.style.cssText='width:32px;height:32px;font-size:18px;background:transparent;border:none;cursor:pointer;border-radius:4px;'; b.addEventListener('click',()=>{ dealIcon=ic; ov.querySelector('#__vxdm-icon').textContent=ic; p.remove(); }); p.appendChild(b); });
-      ov.querySelector('#__vxdm-icon').insertAdjacentElement('afterend', p);
-      setTimeout(() => document.addEventListener('click', () => p.remove(), { once:true }), 100);
-    });
 
     ov.querySelector('#__vxdm-add-item').addEventListener('click', () => {
       const sel = ov.querySelector('#__vxdm-sel');
@@ -383,7 +411,7 @@
       if (isNaN(price)||price<=0)  { alert('Deal price is required and must be greater than Rs. 0.'); return; }
       if (!selItems.length)       { alert('Add at least one product to this deal.'); return; }
 
-      upsert({ id: deal?deal.id:genId(), name, description:desc, icon:dealIcon, price_cents:Math.round(price*100), original_price_cents:orig>0?Math.round(orig*100):null, customizable, is_active, items:selItems, business_mode:_mode });
+      upsert({ id: deal?deal.id:genId(), name, description:desc, icon:'', price_cents:Math.round(price*100), original_price_cents:orig>0?Math.round(orig*100):null, customizable, is_active, items:selItems, business_mode:_mode });
       ov.remove();
       if (window.showNotificationToast) window.showNotificationToast(name + (isNew ? ' created!' : ' updated!'), 'success', 2500);
     });
