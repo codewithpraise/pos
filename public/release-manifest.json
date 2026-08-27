@@ -1,8 +1,8 @@
 {
   "product": "VALENIXIA POS",
   "version": "3.2.0",
-  "build_id": "v3.2.0-prod-979c642",
-  "git_commit": "979c64265282f24983faec145c18e3e17431db05",
+  "build_id": "v3.2.0-prod-def9bdf",
+  "git_commit": "def9bdf74f6bc7412bf4f40df8bae7567229db56",
   "environment": "production",
   "schema_version": "17",
   "commercial_catalog_version": "3.2.0",
