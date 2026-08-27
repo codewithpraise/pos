@@ -10,7 +10,7 @@ module.exports = (req, res) => {
   return res.status(200).json({
     success: true,
     name: 'Valenixia POS Cloud Node',
-    version: '2.6.0',
+    version: '3.2.0',
     status: 'ONLINE',
     time: new Date().toISOString(),
     node_id: 'valenixia_cloud_primary'
