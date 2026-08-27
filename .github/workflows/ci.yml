@@ -76,12 +76,14 @@ jobs:
         run: npm test
 
       - name: Setup Chrome Browser
+        id: setup-chrome
         uses: browser-actions/setup-chrome@v1
         with:
           install-chromedriver: false
 
       - name: Run Full E2E & Diagnostic Suites with Headless Services
         env:
+          CHROME_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
           TEST_ADMIN_PIN: ${{ secrets.TEST_ADMIN_PIN || '1234' }}
           TEST_LICENSE_KEY: ${{ secrets.TEST_LICENSE_KEY || 'VALENIXIA-FREE-TRIAL' }}
           TEST_PASSPHRASE: ${{ secrets.TEST_PASSPHRASE || 'valenixia_secure_passphrase' }}
@@ -94,7 +96,7 @@ jobs:
           SERVER_PID=$!
 
           # Start Headless Chrome for Chrome DevTools Protocol
-          CHROME_BIN=$(which google-chrome || which chromium-browser || which chromium || echo "google-chrome")
+          CHROME_BIN="${CHROME_PATH:-$(which google-chrome || which chromium-browser || which chromium || echo "google-chrome")}"
           $CHROME_BIN \
             --headless=new \
             --remote-debugging-port=9222 \
