@@ -1,7 +1,7 @@
 {
   "version": "3.2.0",
-  "git_commit": "33a3f98fec39dcb51d77f2f858ce7a03ec8d7e5b",
-  "build_id": "v3.2.0-prod-33a3f98",
+  "git_commit": "4f7e6910c108d0368c31d45e891722269ade9930",
+  "build_id": "v3.2.0-prod-4f7e691",
   "artifacts": {
     "app.js": {
       "path": "app.js",
@@ -26,7 +26,7 @@
     "build-id": {
       "path": "build-id",
       "size": 20,
-      "sha256": "26b8009652d2aadb63dd4f240477d2a5fd387705a26860cbeae92a1e2202e1ad"
+      "sha256": "d636f8ca660a498d03e705f1db067d237ee334e9bb4475c3892ba430b838332e"
     },
     "commercial-catalog.js": {
       "path": "commercial-catalog.js",
@@ -40,8 +40,8 @@
     },
     "index.html": {
       "path": "index.html",
-      "size": 521254,
-      "sha256": "8da3a10a3db4a08646397bb3a65901a4fe9a7102b61c3c9fe9675c00f5e1d06b"
+      "size": 521236,
+      "sha256": "2e92b4f24b1f53c05c5798db8f3369c2546a1ff1adcdab2fd05133e427478e8c"
     },
     "legal-documents.js": {
       "path": "legal-documents.js",
@@ -56,22 +56,22 @@
     "release-manifest.json": {
       "path": "release-manifest.json",
       "size": 395,
-      "sha256": "e2d5910a4ffb5399e2acc6e4e4a97567b17d1b46efce616fce1074765cd37374"
+      "sha256": "c04f5fe242eaeb91710af202d175e7bf2d001988a13632b895f92fc3dbc9334e"
     },
     "sw-loader.js": {
       "path": "sw-loader.js",
       "size": 3782,
-      "sha256": "1f2ebfc97f6747828d44e3ebf9091bf1ec76133edf9e3b3eebe1f4933d7b947b"
+      "sha256": "3e4a959f87d3833f21cfac265698ad53f666ff9ecf9f119bfcec62c5d079b744"
     },
     "sw.js": {
       "path": "sw.js",
       "size": 9582,
-      "sha256": "842a7ff6ed42b6ad89ef2303612750f78e420a110e5b79313799183603895577"
+      "sha256": "b150af5031d8616602e2ba6578ade30961c2fd479fd31ff8df3f19bf460ccb7d"
     },
     "version.json": {
       "path": "version.json",
       "size": 1006,
-      "sha256": "f58f6275801bebe03ccb74d16ed8be12c3293b3027e9514e142f58c190ff5995"
+      "sha256": "d9225a52c0dd6be8dd2859b1a7ee27873b72681b736932ab0846ade1c89f4103"
     }
   }
 }

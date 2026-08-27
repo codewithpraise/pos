@@ -13,7 +13,7 @@ if (!self.location.search.includes('debug=true')) {
 }
 
 const urlParams = new URLSearchParams(self.location.search);
-const buildVersion = urlParams.get('v') || 'v3.1.0-prod-valenixia-pos';
+const buildVersion = urlParams.get('v') || 'v3.2.0-prod-valenixia-pos';
 const CACHE_NAME = `valenixia-pos-cache-${buildVersion}`;
 const ASSETS_TO_CACHE = [
   { url: '/', integrity: '' },
