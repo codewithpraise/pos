@@ -4,7 +4,7 @@ const crypto = require('crypto');
 
 const { execSync } = require('child_process');
 
-const VERSION = '3.1.0';
+const VERSION = '3.2.0';
 let GIT_COMMIT = 'badda34f768186762f400ba553eef5e7dc46a5b8';
 try {
   GIT_COMMIT = execSync('git rev-parse HEAD', { cwd: path.join(__dirname, '..') }).toString().trim();
@@ -53,14 +53,14 @@ const versionJson = {
   version: VERSION,
   build_id: BUILD_ID,
   git_commit: GIT_COMMIT,
-  updated_at: '2026-08-26',
-  changelog: `Valenixia POS v${VERSION} Mobile UI Geometry, Checkout Qty Containment, Subscription Bottom Clearance & Native App Suite.`,
+  updated_at: '2026-08-27',
+  changelog: `Valenixia POS v${VERSION} Real-Time Dynamic Analytics Engine, Top Products Revenue & Unit Velocity Leaderboards, Zero-Mock Empty States, Immutable Cloud Entitlements & PWA Performance Polish.`,
   changes: [
-    'Enhanced mobile responsiveness, single-section layout for Suppliers, and eliminated viewport height dead gaps across all screens',
-    'Optimized Checkout Cart quantity controls with precise vertical and horizontal containment',
-    'Applied universal button and badge word-break protection eliminating letter splitting across mobile viewports',
-    'Refined paywall modals with clean plan tiers and contextual free quota countdown placement',
-    'Rebuilt clean Android production APK v3.1.0 with synchronized assets and full companion download suite'
+    'Fully dynamic Top Products by Units Sold (Velocity) and Revenue Leaderboard with paisa-safe revenue aggregation and catalog name resolution',
+    'Replaced all static fallback and mock placeholders across Analytics with authentic dynamic zero-state messaging',
+    'Enhanced multi-store branch performance telemetry matrix, Kamai business recommendations, and gold jewellery karat purity analytics',
+    'Sanitized cloud database queries and hardened hardware-anchored device entitlement countdowns',
+    'Optimized PWA installation lifecycle and eliminated console intervention warnings across desktop and mobile browsers'
   ]
 };
 fs.writeFileSync(path.join(publicDir, 'version.json'), JSON.stringify(versionJson, null, 2) + '\n');

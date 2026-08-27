@@ -4950,7 +4950,10 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
         if (row) row.style.display = onMobile ? 'block' : 'none';
         if (indicator) indicator.style.display = onMobile ? 'flex' : 'none';
         if (!onMobile) {
-          document.documentElement.style.removeProperty('font-size');
+          const savedScale = localStorage.getItem('vx_ui_scale') || '1';
+          const num = parseFloat(savedScale) || 1;
+          document.documentElement.style.setProperty('--size-scale', String(num), 'important');
+          document.documentElement.style.setProperty('font-size', `calc(100% * ${num})`, 'important');
         } else {
           const currentScale = localStorage.getItem(LS_KEY) || 'default';
           const fontMap = { compact: '13px', default: '15px', large: '17.5px', xl: '20px' };
@@ -4982,11 +4985,14 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
         clearTimeout(_resizeTimer);
         _resizeTimer = setTimeout(() => {
           showOrHideMobileDensityPanel();
-          try { if (state && state.activeScreen === 'analytics' && typeof renderAnalytics === 'function') renderAnalytics(); } catch (_) {}
+          try {
+            if (state && state.activeScreen === 'analytics') {
+              if (typeof calculateAnalytics === 'function') calculateAnalytics();
+              else if (typeof window.calculateAnalytics === 'function') window.calculateAnalytics();
+            }
+          } catch (_) {}
         }, 150);
       }, { passive: true });
-
-      // Expose for external use (e.g. on settings screen re-render)
       window.applyMobileScale = applyMobileScale;
       window.showOrHideMobileDensityPanel = showOrHideMobileDensityPanel;
     })();
@@ -14168,7 +14174,7 @@ setHtml(row, `
       `;
     }
 
-setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt); white-space: pre-wrap; word-break: break-all; margin: 0; font-size: 11px;">${text}</pre>${fbrHtml}`);
+    setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt); white-space: pre-wrap; word-break: break-all; margin: 0; font-size: 11px;">${text}</pre>${fbrHtml}`);
 
     if (fbrInvoiceNumber && fbrQrUrl && typeof QRCode !== 'undefined') {
       setTimeout(() => {
@@ -14194,10 +14200,24 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
    * Authoritative transaction normalizer for Analytics and History projections.
    * Produces a unified schema object across all storage formats.
    */
-  /**
-   * Canonical Analytics Transaction View Model Normalizer
-   * Returns a standardized transaction object with unified property names and alias getters.
-   */
+  function extractTimestampMs(raw) {
+    if (raw === undefined || raw === null || raw === '') return 0;
+    if (typeof raw === 'number' && !isNaN(raw) && raw > 0) {
+      return raw < 10000000000 ? raw * 1000 : raw;
+    }
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if (!trimmed) return 0;
+      if (/^\d+$/.test(trimmed)) {
+        const num = Number(trimmed);
+        if (!isNaN(num) && num > 0) return num < 10000000000 ? num * 1000 : num;
+      }
+      const parsed = new Date(trimmed).getTime();
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    return 0;
+  }
+
   function normalizeTransactionForAnalytics(t) {
     if (!t) return null;
 
@@ -14207,25 +14227,25 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     const terminalId = (t.terminalId || t.terminal_id || 'term_01').toString();
     const cashierId = (t.cashierId || t.cashier_name || t.cashier_id || t.cashier || 'Cashier').toString();
 
-    let timestampMs = 0;
-    if (typeof t.timestampMs === 'number' && !isNaN(t.timestampMs) && t.timestampMs > 0) {
-      timestampMs = t.timestampMs;
-    } else if (typeof t.timestamp === 'number' && !isNaN(t.timestamp) && t.timestamp > 0) {
-      timestampMs = t.timestamp;
-    } else if (typeof t.created_at === 'number' && !isNaN(t.created_at) && t.created_at > 0) {
-      timestampMs = t.created_at;
-    } else if (typeof t.created_at_epoch === 'number' && !isNaN(t.created_at_epoch) && t.created_at_epoch > 0) {
-      timestampMs = t.created_at_epoch;
-    } else if (typeof t.completed_at === 'number' && !isNaN(t.completed_at) && t.completed_at > 0) {
-      timestampMs = t.completed_at;
-    } else if (t.created_at) {
-      const parsed = new Date(t.created_at).getTime();
-      if (!isNaN(parsed) && parsed > 0) timestampMs = parsed;
-    } else if (t.timestamp) {
-      const parsed = new Date(t.timestamp).getTime();
-      if (!isNaN(parsed) && parsed > 0) timestampMs = parsed;
+    let timestampMs = extractTimestampMs(t.timestampMs)
+      || extractTimestampMs(t.timestamp)
+      || extractTimestampMs(t.created_at)
+      || extractTimestampMs(t.created_at_epoch)
+      || extractTimestampMs(t.completed_at)
+      || extractTimestampMs(t.updated_at)
+      || extractTimestampMs(t.date);
+
+    // Fallback timestamp recovery from sync_hlc or transactionId if missing
+    if (!timestampMs || timestampMs <= 0) {
+      if (typeof t.sync_hlc === 'string') {
+        const match = t.sync_hlc.match(/^0*(\d{13})/);
+        if (match) timestampMs = Number(match[1]);
+      }
+      if (!timestampMs && typeof transactionId === 'string') {
+        const match = transactionId.match(/tx_(\d{13})/);
+        if (match) timestampMs = Number(match[1]);
+      }
     }
-    // Strict Validation: DO NOT use Date.now() fallback for missing timestamps!
 
     const status = (t.status || 'COMPLETED').toString().toUpperCase();
 
@@ -14285,7 +14305,7 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
       totalMinor,
       paymentMethod,
       items,
-      // Alias getters for full backwards-compatibility
+      // Backwards-compatible aliases
       id: transactionId,
       timestamp: timestampMs,
       created_at: timestampMs,
@@ -14306,12 +14326,10 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
    */
   function ensureAnalyticsFiltersInitialized() {
     if (!state.analyticsFiltersInitialized || !state.analyticsFilters) {
-      // If a standard cashier is logged in, default scope to their account; for admins/owners, default to ALL
-      const isCashierRole = state.activeCashier && state.activeCashier.role === 'CASHIER';
       state.analyticsFilters = {
         branchId: 'ALL',
         terminalId: 'ALL',
-        cashierId: isCashierRole ? 'MY_ACCOUNT' : 'ALL',
+        cashierId: 'ALL',
         categoryId: 'ALL',
         paymentMethod: 'ALL'
       };
@@ -14328,21 +14346,20 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
   window.__VALENIXIA_ANALYTICS_DEBUG__ = function() {
     const rawAll = state.transactions || [];
     const normalizedAll = rawAll.map(normalizeTransactionForAnalytics).filter(Boolean);
-    const validStatus = normalizedAll.filter(t => t.status !== 'CANCELLED' && t.status !== 'VOIDED' && t.status !== 'PENDING');
+    const validStatus = normalizedAll.filter(t => t.status !== 'CANCELLED' && t.status !== 'VOIDED' && t.status !== 'DRAFT');
     
     const d = new Date();
-    const range = state.analyticsRange || 'all';
+    const range = (state.analyticsRange || 'all').toLowerCase();
     let cutoff = 0;
     let dateFiltered = validStatus;
     if (range === 'today') {
       cutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime();
       dateFiltered = validStatus.filter(t => t.timestampMs >= cutoff);
-    } else if (range === 'week') {
-      const diffToMonday = (d.getDay() === 0 ? 6 : d.getDay() - 1);
-      cutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate() - diffToMonday, 0, 0, 0, 0).getTime();
+    } else if (range === 'week' || range === '7days') {
+      cutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate() - 6, 0, 0, 0, 0).getTime();
       dateFiltered = validStatus.filter(t => t.timestampMs >= cutoff);
-    } else if (range === 'month') {
-      cutoff = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0).getTime();
+    } else if (range === 'month' || range === '30days') {
+      cutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate() - 29, 0, 0, 0, 0).getTime();
       dateFiltered = validStatus.filter(t => t.timestampMs >= cutoff);
     }
 
@@ -14400,41 +14417,48 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     const filters = ensureAnalyticsFiltersInitialized();
     const rawAll = state.transactions || [];
     const normalizedAll = rawAll.map(normalizeTransactionForAnalytics).filter(Boolean);
-    const range = state.analyticsRange || 'all';
+    const range = (state.analyticsRange || 'all').toLowerCase();
 
-    // Canonical Status Policy Filter: exclude CANCELLED, VOIDED, PENDING
-    const validTransactions = normalizedAll.filter(t => t.status !== 'CANCELLED' && t.status !== 'VOIDED' && t.status !== 'PENDING');
+    // Canonical Status Policy: Include all valid revenue transactions (exclude CANCELLED, VOIDED, DRAFT, VOID_CONTRA)
+    const isExcludedStatus = (status) => {
+      const s = String(status || '').toUpperCase();
+      return s === 'CANCELLED' || s === 'VOIDED' || s === 'DRAFT' || s === 'VOID_CONTRA';
+    };
+    const validTransactions = normalizedAll.filter(t => !isExcludedStatus(t.status));
 
-    const d = new Date();
-    const now = Date.now();
+    const now = new Date();
+    const nowMs = now.getTime();
+    // Clock drift buffer (allow up to 10 minutes into the future)
+    const maxFutureMs = nowMs + (10 * 60 * 1000);
     let timeFiltered = validTransactions;
 
     if (range === 'today') {
-      const todayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime();
-      const todayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();
-      // Strictly today's sales up to current time (never future or previous dates)
-      timeFiltered = validTransactions.filter(t => t.timestampMs >= todayStart && t.timestampMs <= Math.min(todayEnd, now));
-    } else if (range === 'week') {
-      const dayOfWeek = d.getDay();
-      const diffToMonday = (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
-      const weekStart = new Date(d.getFullYear(), d.getMonth(), d.getDate() - diffToMonday, 0, 0, 0, 0).getTime();
-      timeFiltered = validTransactions.filter(t => t.timestampMs >= weekStart && t.timestampMs <= now);
-    } else if (range === 'month') {
-      const monthStart = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0).getTime();
-      timeFiltered = validTransactions.filter(t => t.timestampMs >= monthStart && t.timestampMs <= now);
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
+      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
+      timeFiltered = validTransactions.filter(t => t.timestampMs >= todayStart && t.timestampMs <= Math.min(todayEnd, maxFutureMs));
+    } else if (range === 'week' || range === '7days' || range === '7 days' || range === '7_days') {
+      const sevenDaysAgoStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0).getTime();
+      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
+      timeFiltered = validTransactions.filter(t => t.timestampMs >= sevenDaysAgoStart && t.timestampMs <= Math.min(todayEnd, maxFutureMs));
+    } else if (range === 'month' || range === '30days' || range === '30 days' || range === '30_days') {
+      const thirtyDaysAgoStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29, 0, 0, 0, 0).getTime();
+      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
+      timeFiltered = validTransactions.filter(t => t.timestampMs >= thirtyDaysAgoStart && t.timestampMs <= Math.min(todayEnd, maxFutureMs));
     } else if (range === 'custom') {
       const fromVal = document.getElementById('analytics-date-from')?.value;
       const toVal = document.getElementById('analytics-date-to')?.value;
       if (fromVal && toVal) {
         const fromTs = new Date(fromVal + 'T00:00:00').getTime();
-        const toTs = new Date(toVal + 'T23:59:59').getTime();
-        timeFiltered = validTransactions.filter(t => t.timestampMs >= fromTs && t.timestampMs <= toTs && t.timestampMs <= now);
+        const toTs = new Date(toVal + 'T23:59:59.999').getTime();
+        timeFiltered = validTransactions.filter(t => t.timestampMs >= fromTs && t.timestampMs <= toTs);
       }
+    } else {
+      timeFiltered = validTransactions;
     }
 
     return timeFiltered.filter(t => {
-      if (filters.branchId !== 'ALL' && t.branchId !== filters.branchId) return false;
-      if (filters.terminalId !== 'ALL') {
+      if (filters.branchId && filters.branchId !== 'ALL' && t.branchId !== filters.branchId) return false;
+      if (filters.terminalId && filters.terminalId !== 'ALL') {
         if (filters.terminalId === 'THIS_DEVICE') {
           const myNode = (window.nodeId || localStorage.getItem('valenixia_node_id') || state.currentTerminal || 'term_01').trim().toLowerCase();
           const tNode = (t.terminalId || t.nodeId || '').trim().toLowerCase();
@@ -14443,7 +14467,7 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
           return false;
         }
       }
-      if (filters.cashierId !== 'ALL') {
+      if (filters.cashierId && filters.cashierId !== 'ALL') {
         if (filters.cashierId === 'MY_ACCOUNT') {
           const myName = (state.activeCashier?.name || '').trim().toLowerCase();
           const myId = (state.activeCashier?.id || '').trim().toLowerCase();
@@ -14455,8 +14479,18 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
           if (txC !== target) return false;
         }
       }
-      if (filters.paymentMethod !== 'ALL' && t.paymentMethod !== filters.paymentMethod.toUpperCase()) return false;
-      if (filters.categoryId !== 'ALL') {
+      if (filters.paymentMethod && filters.paymentMethod !== 'ALL') {
+        const pFilter = filters.paymentMethod.toUpperCase();
+        const tPay = (t.paymentMethod || t.payment_mode || 'CASH').toUpperCase();
+        if (pFilter === 'MOBILE') {
+          if (!['QR', 'EASYPAISA', 'NAYAPAY', 'JAZZCASH', 'MOBILE'].includes(tPay)) return false;
+        } else if (pFilter === 'KHATA') {
+          if (!['CREDIT', 'CREDIT_BOOK', 'UDHAAR', 'KHATA'].includes(tPay)) return false;
+        } else if (tPay !== pFilter) {
+          return false;
+        }
+      }
+      if (filters.categoryId && filters.categoryId !== 'ALL') {
         const targetCat = filters.categoryId.trim().toLowerCase();
         const hasCategory = (t.items || []).some(item => (item.category || '').toString().trim().toLowerCase() === targetCat);
         if (!hasCategory) return false;
@@ -14465,40 +14499,43 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     });
   }
 
+  window.getFilteredTransactions = getFilteredTransactions;
+  window.__realHandlers.getFilteredTransactions = getFilteredTransactions;
+
   function getPriorPeriodTransactions() {
     const rawAll = state.transactions || [];
     const all = rawAll.map(normalizeTransactionForAnalytics).filter(Boolean);
-    const range = state.analyticsRange || 'all';
+    const range = (state.analyticsRange || 'all').toLowerCase();
     if (range === 'all') return [];
 
-    const d = new Date();
-    let currentCutoff = 0;
-    let priorCutoff = 0;
+    const now = new Date();
+    let priorFromTs = 0;
+    let priorToTs = 0;
 
     if (range === 'today') {
-      currentCutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime();
-      priorCutoff = currentCutoff - (24 * 60 * 60 * 1000); // yesterday 00:00:00
-    } else if (range === 'week') {
-      const dayOfWeek = d.getDay();
-      const diffToMonday = (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
-      currentCutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate() - diffToMonday, 0, 0, 0, 0).getTime();
-      priorCutoff = currentCutoff - (7 * 24 * 60 * 60 * 1000); // last week
-    } else if (range === 'month') {
-      currentCutoff = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0).getTime();
-      priorCutoff = new Date(d.getFullYear(), d.getMonth() - 1, 1, 0, 0, 0, 0).getTime(); // last month 1st
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
+      priorFromTs = todayStart - (24 * 60 * 60 * 1000);
+      priorToTs = todayStart - 1;
+    } else if (range === 'week' || range === '7days' || range === '7 days' || range === '7_days') {
+      const sevenDaysAgoStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0).getTime();
+      priorFromTs = sevenDaysAgoStart - (7 * 24 * 60 * 60 * 1000);
+      priorToTs = sevenDaysAgoStart - 1;
+    } else if (range === 'month' || range === '30days' || range === '30 days' || range === '30_days') {
+      const thirtyDaysAgoStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29, 0, 0, 0, 0).getTime();
+      priorFromTs = thirtyDaysAgoStart - (30 * 24 * 60 * 60 * 1000);
+      priorToTs = thirtyDaysAgoStart - 1;
     } else if (range === 'custom') {
       const fromVal = document.getElementById('analytics-date-from')?.value;
       const toVal = document.getElementById('analytics-date-to')?.value;
       if (!fromVal || !toVal) return [];
       const fromTs = new Date(fromVal + 'T00:00:00').getTime();
-      const toTs = new Date(toVal + 'T23:59:59').getTime();
+      const toTs = new Date(toVal + 'T23:59:59.999').getTime();
       const diff = toTs - fromTs;
-      const priorFromTs = fromTs - diff - 1000;
-      const priorToTs = fromTs - 1000;
-      return all.filter(t => t.timestampMs >= priorFromTs && t.timestampMs <= priorToTs);
+      priorFromTs = fromTs - diff - 1;
+      priorToTs = fromTs - 1;
     }
 
-    return all.filter(t => t.timestampMs >= priorCutoff && t.timestampMs < currentCutoff);
+    return all.filter(t => t.timestampMs >= priorFromTs && t.timestampMs <= priorToTs);
   }
 
   function initAnalyticsControls() {
@@ -14988,28 +15025,35 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
         if (el) el.style.display = 'none';
       });
 
-      const histEl = document.getElementById('analytics-histogram-bars');
-      if (histEl) setHtml(histEl, '<p class="text-center text-muted" style="width:100%;">No sales history to plot chart.</p>');
-      
-      const insightsRow = document.getElementById('analytics-hourly-insights-row');
-      if (insightsRow) {
-        insightsRow.replaceChildren();
-        const peakBadge = document.createElement('div');
-        peakBadge.style.cssText = 'padding: 4px 10px; border-radius: 20px; background: rgba(100, 116, 139, 0.1); border: 1px solid rgba(100, 116, 139, 0.2); color: var(--text-gray); font-size: 10px; font-weight: 700;';
-        peakBadge.textContent = (state.analyticsRange || 'today') === 'today' ? 'No sales recorded yet today' : 'No sales in selected range';
-        insightsRow.appendChild(peakBadge);
-      }
+      // Sales histogram by hour empty state
+      plotHourlySalesChart([]);
+
+      // Category breakdown & payment splits empty state
+      renderCategoryBreakdownChart([]);
+      renderPaymentMethodSplit([]);
 
       const peakEl = document.getElementById('analytics-insight-peak-hour');
       if (peakEl) peakEl.textContent = 'No data';
       const topPayEl = document.getElementById('analytics-insight-top-payment');
       if (topPayEl) topPayEl.textContent = '--';
+      const insightsCard = peakEl && peakEl.closest('[style]');
+      if (insightsCard) insightsCard.style.display = 'none';
 
-      const catChart = document.getElementById('analytics-category-chart');
-      if (catChart) setHtml(catChart, '<p class="text-muted" style="text-align: center; margin-top: 20px;">No category sales data to display for this timeframe.</p>');
+      // Business Intelligence calculations (receivables, payables, net cash)
+      calculateBiDashboardMetrics();
 
-      const paySplit = document.getElementById('analytics-payment-split');
-      if (paySplit) setHtml(paySplit, '<p class="text-muted" style="text-align: center; margin-top: 20px;">No transactions recorded for this range.</p>');
+      // Multi-Store Branch Telemetry Matrix & Kamai Business Advisor
+      renderBranchTelemetryMatrix([]);
+      renderKamaiBusinessAdvisor([]);
+
+      // Top Products widgets (fully dynamic empty state)
+      renderTopProducts([]);
+
+      // Jewellery panel empty state
+      renderJewelleryAnalytics([]);
+
+      // Stock thresholds check
+      runSmartReorderCheck();
 
       return;
     }
@@ -15019,7 +15063,7 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
       return s === 'COMPLETED' || s === 'PAID' || s === 'SUCCESS' || s === 'PARTIALLY_REFUNDED' || !s;
     };
 
-    const totalRevenue = txs.reduce((sum, t) => sum + (isCompletedStatus(t.status) ? (t.totalMinor !== undefined ? t.totalMinor : (t.total || 0)) : 0), 0);
+    const totalRevenue = txs.reduce((sum, t) => sum + (isCompletedStatus(t.status) ? (t.totalMinor !== undefined ? t.totalMinor : (t.total_minor_units !== undefined ? t.total_minor_units : (t.total || 0))) : 0), 0);
     const orderCount = txs.filter(t => isCompletedStatus(t.status)).length;
     const avgTicket = orderCount > 0 ? Math.round(totalRevenue / orderCount) : 0;
 
@@ -15037,7 +15081,7 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
 
     // Prior period calculations and delta rendering
     const priorTxs = getPriorPeriodTransactions();
-    const priorRevenue = priorTxs.reduce((sum, t) => sum + (t.totalMinor !== undefined ? t.totalMinor : (t.total || 0)), 0);
+    const priorRevenue = priorTxs.reduce((sum, t) => sum + (t.totalMinor !== undefined ? t.totalMinor : (t.total_minor_units !== undefined ? t.total_minor_units : (t.total || 0))), 0);
     const priorOrders = priorTxs.length;
     const priorAvgTicket = priorOrders > 0 ? Math.round(priorRevenue / priorOrders) : 0;
     let priorItems = 0;
@@ -15066,7 +15110,6 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
       const insightsCard = peakEl && peakEl.closest('[style]');
 
       if (txs.length === 0) {
-        // Hide insights card when no data
         if (insightsCard) insightsCard.style.display = 'none';
       } else {
         if (insightsCard) insightsCard.style.display = '';
@@ -15109,7 +15152,7 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
         const payTotals = {};
         txs.forEach(tx => {
           const mode = (tx.paymentMethod || tx.payment_mode || 'CASH').toUpperCase().replace('_BOOK','').replace('UDHAAR','CREDIT');
-          const amt = Number(tx.totalMinor !== undefined ? tx.totalMinor : (tx.total || 0));
+          const amt = Number(tx.totalMinor !== undefined ? tx.totalMinor : (tx.total_minor_units !== undefined ? tx.total_minor_units : (tx.total || 0)));
           payTotals[mode] = (payTotals[mode] || 0) + (isNaN(amt) ? 0 : amt);
         });
         const topMode = Object.keys(payTotals).reduce((a, b) => payTotals[a] > payTotals[b] ? a : b, 'CASH');
@@ -15159,19 +15202,57 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     if (!container) return;
 
     const breakdown = {};
-    txs.forEach(t => {
+    (txs || []).forEach(t => {
       (t.items || []).forEach(item => {
-        const cat = (item.category || item.category_name || 'Uncategorized').trim();
-        const unitPrice = Number(item.unitPrice || item.unit_price || item.price || 0);
-        const qty = Number(item.quantity || item.qty || 1);
-        const lineTotal = item.lineTotal !== undefined ? Number(item.lineTotal) : (unitPrice * qty);
-        breakdown[cat] = (breakdown[cat] || 0) + (isNaN(lineTotal) ? 0 : lineTotal);
+        if (!item) return;
+        const rawCat = (item.category || item.category_name || item.category_id || '').toString().trim();
+        let cat = rawCat;
+        if (!cat || cat === 'General' || cat === 'Default') {
+          const rawKey = (item.sku || item.barcode || item.id || item.name || '').trim();
+          const catItem = (state.catalog || []).find(p => p && (
+            (rawKey && (p.sku === rawKey || p.id === rawKey || p.barcode === rawKey)) ||
+            (item.sku && p.sku === item.sku) ||
+            (item.id && p.id === item.id)
+          ));
+          if (catItem && catItem.category) cat = catItem.category;
+        }
+        if (!cat) cat = 'General';
+
+        const qty = Math.max(1, Number(item.quantity || item.qty || 1));
+        let itemMinor = 0;
+        if (item.total_minor_units !== undefined && !isNaN(Number(item.total_minor_units)) && Number(item.total_minor_units) > 0) {
+          itemMinor = Number(item.total_minor_units);
+        } else if (item.line_total_minor_units !== undefined && !isNaN(Number(item.line_total_minor_units)) && Number(item.line_total_minor_units) > 0) {
+          itemMinor = Number(item.line_total_minor_units);
+        } else if (item.totalMinor !== undefined && !isNaN(Number(item.totalMinor)) && Number(item.totalMinor) > 0) {
+          itemMinor = Number(item.totalMinor);
+        } else if (item.lineTotalMinor !== undefined && !isNaN(Number(item.lineTotalMinor)) && Number(item.lineTotalMinor) > 0) {
+          itemMinor = Number(item.lineTotalMinor);
+        } else if (item.unit_price_minor_units !== undefined && !isNaN(Number(item.unit_price_minor_units)) && Number(item.unit_price_minor_units) > 0) {
+          itemMinor = Number(item.unit_price_minor_units) * qty;
+        } else if (item.unitPriceMinor !== undefined && !isNaN(Number(item.unitPriceMinor)) && Number(item.unitPriceMinor) > 0) {
+          itemMinor = Number(item.unitPriceMinor) * qty;
+        } else if (item.price_minor_units !== undefined && !isNaN(Number(item.price_minor_units)) && Number(item.price_minor_units) > 0) {
+          itemMinor = Number(item.price_minor_units) * qty;
+        } else if (item.base_price_minor_units !== undefined && !isNaN(Number(item.base_price_minor_units)) && Number(item.base_price_minor_units) > 0) {
+          itemMinor = Number(item.base_price_minor_units) * qty;
+        } else if (item.price !== undefined && !isNaN(Number(item.price)) && Number(item.price) > 0) {
+          itemMinor = Number(item.price) * qty;
+        } else if (item.unitPrice !== undefined && !isNaN(Number(item.unitPrice)) && Number(item.unitPrice) > 0) {
+          itemMinor = Number(item.unitPrice) * qty;
+        } else if (item.unit_price !== undefined && !isNaN(Number(item.unit_price)) && Number(item.unit_price) > 0) {
+          itemMinor = Number(item.unit_price) * qty;
+        } else if (item.lineTotal !== undefined && !isNaN(Number(item.lineTotal)) && Number(item.lineTotal) > 0) {
+          itemMinor = Number(item.lineTotal);
+        }
+
+        breakdown[cat] = (breakdown[cat] || 0) + (isNaN(itemMinor) ? 0 : itemMinor);
       });
     });
 
     const categories = Object.keys(breakdown);
     if (categories.length === 0) {
-      setHtml(container, '<p class="text-muted" style="text-align: center; margin-top: 20px;">No category sales data to display for this timeframe.</p>');
+      setHtml(container, '<p class="text-muted" style="text-align: center; margin-top: 20px; font-size: 11px;">No category sales data to display for this timeframe.</p>');
       return;
     }
 
@@ -15183,8 +15264,8 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
       return `
         <div style="display: flex; flex-direction: column; gap: 6px; padding: 10px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 6px;">
           <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; gap: 8px;">
-            <span style="font-weight: 700; color: var(--text-white); letter-spacing: 0.03em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cat.toUpperCase()}</span>
-            <span style="font-weight: 600; color: var(--text-gray); white-space: nowrap; flex-shrink: 0;">Rs. ${valFormatted} <span style="font-size: 11px; opacity: 0.8;">(${pct}%)</span></span>
+            <span style="font-weight: 700; color: var(--text-white); letter-spacing: 0.03em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(cat.toUpperCase())}</span>
+            <span style="font-weight: 600; color: var(--accent-emerald); white-space: nowrap; flex-shrink: 0;">Rs. ${valFormatted} <span style="font-size: 11px; opacity: 0.8; color: var(--text-gray);">(${pct}%)</span></span>
           </div>
           <div style="height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden;">
             <div style="height: 100%; width: ${pct}%; background: linear-gradient(90deg, #10b981 0%, #059669 100%); border-radius: 3px; transition: width 0.4s ease;"></div>
@@ -15199,9 +15280,10 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     if (!container) return;
 
     const splits = { CASH: 0, CARD: 0, QR: 0, CREDIT: 0 };
-    txs.forEach(t => {
-      const mode = (t.payment_mode || t.paymentMode || 'CASH').toUpperCase();
-      const amount = Number(t.total_minor_units || t.total || 0);
+    (txs || []).forEach(t => {
+      if (!t) return;
+      const mode = (t.payment_mode || t.paymentMode || t.paymentMethod || 'CASH').toUpperCase();
+      const amount = Number(t.totalMinor !== undefined ? t.totalMinor : (t.total_minor_units !== undefined ? t.total_minor_units : (t.total || 0)));
       if (mode === 'SPLIT') {
         const cashPt = Number(t.split_cash_minor_units || 0);
         const cardPt = Number(t.split_card_minor_units || 0);
@@ -15219,6 +15301,11 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     });
 
     const totalRev = Object.values(splits).reduce((sum, v) => sum + (isNaN(v) ? 0 : v), 0);
+    if (totalRev === 0 && (!txs || txs.length === 0)) {
+      setHtml(container, '<p class="text-muted" style="text-align: center; margin-top: 20px; font-size: 11px;">No transactions recorded for this range.</p>');
+      return;
+    }
+
     setHtml(container, Object.keys(splits).map(mode => {
       const val = splits[mode] || 0;
       const pct = totalRev > 0 ? ((val / totalRev) * 100).toFixed(1) : '0.0';
@@ -15248,15 +15335,15 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
   // Calculate Net Cash Position and Margin analysis
   function calculateBiDashboardMetrics() {
     let totalReceivables = 0;
-    state.customerCredits.forEach(c => {
-      if (c.is_deleted === 1) return;
-      if (c.type === 'CREDIT') totalReceivables += c.amount_minor;
-      else if (c.type === 'PAYMENT') totalReceivables -= c.amount_minor;
+    (state.customerCredits || []).forEach(c => {
+      if (!c || c.is_deleted === 1) return;
+      if (c.type === 'CREDIT') totalReceivables += (c.amount_minor || 0);
+      else if (c.type === 'PAYMENT') totalReceivables -= (c.amount_minor || 0);
     });
 
     let totalPayables = 0;
-    state.distributors.forEach(d => {
-      if (d.is_deleted === 1) return;
+    (state.distributors || []).forEach(d => {
+      if (!d || d.is_deleted === 1) return;
       totalPayables += getDistributorOutstanding(d.id);
     });
 
@@ -15265,7 +15352,8 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     let totalMarginRate = 0;
     let productCount = 0;
 
-    state.catalog.forEach(item => {
+    (state.catalog || []).forEach(item => {
+      if (!item) return;
       const basePrice = item.base_price_minor_units;
       if (!basePrice) return;
       
@@ -15305,7 +15393,7 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
 
     if (Array.isArray(state.branches)) {
       state.branches.forEach(b => {
-        if (b.id && !branchMap[b.id]) {
+        if (b && b.id && !branchMap[b.id]) {
           branchMap[b.id] = { id: b.id, name: b.name || b.id, revenue: 0, orders: 0, cost: 0 };
         }
       });
@@ -15313,25 +15401,32 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
 
     const sourceTxs = txs || state.transactions || [];
     sourceTxs.forEach(t => {
+      if (!t) return;
       const bId = t.branch_id || t.store_id || 'main';
       if (!branchMap[bId]) {
         branchMap[bId] = { id: bId, name: bId === 'main' ? defaultBranch : `Branch (${bId})`, revenue: 0, orders: 0, cost: 0 };
       }
-      const rev = Number(t.total_minor_units || t.total || 0);
-      branchMap[bId].revenue += rev;
+      const rev = Number(t.totalMinor !== undefined ? t.totalMinor : (t.total_minor_units !== undefined ? t.total_minor_units : (t.total || 0)));
+      branchMap[bId].revenue += isNaN(rev) ? 0 : rev;
       branchMap[bId].orders += 1;
       
       (t.items || []).forEach(item => {
-        const uPrice = Number(item.unit_price_minor_units || item.price || 0);
+        if (!item) return;
         const qty = Number(item.quantity || item.qty || 1);
+        let uPrice = 0;
+        if (item.unit_price_minor_units !== undefined && Number(item.unit_price_minor_units) > 0) {
+          uPrice = Number(item.unit_price_minor_units);
+        } else if (item.price !== undefined && Number(item.price) > 0) {
+          uPrice = Number(item.price);
+        }
         const cost = Number(item.cost_price_minor_units || Math.round(uPrice * 0.7));
         branchMap[bId].cost += cost * qty;
       });
     });
 
     const branches = Object.values(branchMap);
-    if (branches.length === 0) {
-      setHtml(tbody, `<tr><td colspan="4" class="text-center text-muted" style="padding: 16px;">No multi-store branch telemetry.</td></tr>`);
+    if (branches.length === 0 || sourceTxs.length === 0) {
+      setHtml(tbody, `<tr><td colspan="4" class="text-center text-muted" style="padding: 16px; font-size: 11px;">No sales activity recorded for branch telemetry in this range.</td></tr>`);
       return;
     }
 
@@ -15342,8 +15437,8 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
       tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
       setHtml(tr, `
         <td style="padding: 10px 6px; font-weight: 700; color: var(--text-white);">
-          ${b.name}<br>
-          <span style="font-size: 9px; color: var(--text-gray); font-family: var(--font-mono);">ID: ${b.id}</span>
+          ${escapeHtml(b.name)}<br>
+          <span style="font-size: 9px; color: var(--text-gray); font-family: var(--font-mono);">ID: ${escapeHtml(b.id)}</span>
         </td>
         <td style="padding: 10px 6px; text-align: right; font-weight: 700; color: var(--accent-emerald);">Rs. ${(b.revenue / 100).toFixed(2)}</td>
         <td style="padding: 10px 6px; text-align: right; font-weight: 700; color: var(--text-white);">${b.orders}</td>
@@ -15359,38 +15454,39 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     container.replaceChildren();
 
     const filtered = txs || [];
-    const totalRev = filtered.reduce((sum, t) => sum + Number(t.total_minor_units || 0), 0);
+    const totalRev = filtered.reduce((sum, t) => sum + Number(t.totalMinor !== undefined ? t.totalMinor : (t.total_minor_units !== undefined ? t.total_minor_units : (t.total || 0))), 0);
     const orderCount = filtered.length;
     const avgTicket = orderCount > 0 ? totalRev / orderCount : 0;
 
     const insights = [];
 
     if (orderCount === 0) {
-      insights.push({ icon: '', title: 'Start Processing Transactions', text: 'Register sales to trigger real-time smart inventory velocity & margin analysis.' });
+      insights.push({ icon: '📊', title: 'Start Processing Transactions', text: 'Register sales in this timeframe to trigger real-time smart inventory velocity & margin analysis.' });
+      insights.push({ icon: '💼', title: 'Khata & Credit Ledgers Active', text: 'Distributor payables and customer receivables are continuously monitored under Business Intelligence.' });
     } else {
       if (avgTicket < 150000) {
-        insights.push({ icon: '', title: 'Basket Size Opportunity', text: 'Average ticket is Rs. ' + (avgTicket/100).toFixed(2) + '. Consider bundling high-margin add-on items at checkout.' });
+        insights.push({ icon: '🎯', title: 'Basket Size Opportunity', text: 'Average ticket is Rs. ' + (avgTicket/100).toFixed(2) + '. Consider bundling high-margin add-on items at checkout.' });
       } else {
-        insights.push({ icon: '', title: 'Strong Average Ticket', text: 'High ticket size (Rs. ' + (avgTicket/100).toFixed(2) + ') indicates strong product value perception.' });
+        insights.push({ icon: '💎', title: 'Strong Average Ticket', text: 'High ticket size (Rs. ' + (avgTicket/100).toFixed(2) + ') indicates strong product value perception.' });
       }
 
       let totalUdhaar = 0;
       (state.customerCredits || []).forEach(c => {
-        if (c.is_deleted !== 1) {
-          if (c.type === 'CREDIT') totalUdhaar += c.amount_minor;
-          else if (c.type === 'PAYMENT') totalUdhaar -= c.amount_minor;
+        if (c && c.is_deleted !== 1) {
+          if (c.type === 'CREDIT') totalUdhaar += (c.amount_minor || 0);
+          else if (c.type === 'PAYMENT') totalUdhaar -= (c.amount_minor || 0);
         }
       });
 
       if (totalUdhaar > 500000) {
-        insights.push({ icon: '', title: 'Khata Credit Risk Alert', text: 'Outstanding Udhaar receivables are Rs. ' + (totalUdhaar/100).toFixed(2) + '. Send automated WhatsApp debt reminders to recover liquid cash.' });
+        insights.push({ icon: '⚠️', title: 'Khata Credit Risk Alert', text: 'Outstanding Udhaar receivables are Rs. ' + (totalUdhaar/100).toFixed(2) + '. Send automated WhatsApp debt reminders to recover liquid cash.' });
       } else {
-        insights.push({ icon: '', title: 'Liquid Cash Health', text: 'Credit receivables are well within safety thresholds. Working capital remains liquid.' });
+        insights.push({ icon: '✅', title: 'Liquid Cash Health', text: 'Credit receivables are well within safety thresholds. Working capital remains liquid.' });
       }
 
-      const lowStockCount = (state.catalog || []).filter(p => (p.stock_level || 0) < (p.low_stock_threshold || 10)).length;
+      const lowStockCount = (state.catalog || []).filter(p => p && (p.stock_level || 0) < (p.low_stock_threshold || 10)).length;
       if (lowStockCount > 0) {
-        insights.push({ icon: '', title: 'Stock Replenishment Needed', text: lowStockCount + ' products are below safety thresholds. Generate auto purchase orders to prevent lost sales.' });
+        insights.push({ icon: '📦', title: 'Stock Replenishment Needed', text: lowStockCount + ' products are below safety thresholds. Generate auto purchase orders to prevent lost sales.' });
       }
     }
 
@@ -15412,50 +15508,120 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
     if (!qtyContainer && !revContainer) return;
 
     // Aggregate items across all filtered transactions
-    const productMap = {}; // sku/name -> { name, qty, revenue }
+    const productMap = {}; // key -> { name, sku, qty, revenue }
+    
     (txs || []).forEach(tx => {
-      (tx.items || []).forEach(item => {
-        const key = (item.sku || item.barcode || item.id || item.name || 'Unknown').trim();
-        const name = (item.name || item.product_name || key).trim();
-        const qty = Number(item.quantity || item.qty || 1);
-        const unitPrice = Number(item.unitPrice || item.unit_price || item.price || 0);
-        const lineTotal = item.lineTotal !== undefined ? Number(item.lineTotal) : (unitPrice * qty);
-        if (!productMap[key]) {
-          productMap[key] = { name, qty: 0, revenue: 0 };
+      if (!tx || !Array.isArray(tx.items)) return;
+      tx.items.forEach(item => {
+        if (!item) return;
+        
+        // Resolve product identification
+        const rawKey = (item.sku || item.barcode || item.id || item.name || '').trim();
+        const catItem = (state.catalog || []).find(p => p && (
+          (rawKey && (p.sku === rawKey || p.id === rawKey || p.barcode === rawKey)) ||
+          (item.sku && p.sku === item.sku) ||
+          (item.id && p.id === item.id) ||
+          (item.barcode && p.barcode === item.barcode) ||
+          (item.name && (p.name === item.name || p.displayName === item.name))
+        ));
+
+        const canonicalSku = (catItem && catItem.sku) || item.sku || rawKey || 'unknown_item';
+        const displayName = (
+          item.displayName ||
+          item.name ||
+          item.product_name ||
+          (catItem && (catItem.name || catItem.displayName)) ||
+          (rawKey && rawKey !== 'Unknown' && rawKey !== 'unknown_item' ? rawKey : 'Unnamed Product')
+        ).trim();
+
+        const qty = Math.max(1, Number(item.quantity || item.qty || 1));
+
+        // Determine item revenue in minor units (paisas)
+        let itemRevMinor = 0;
+        if (item.total_minor_units !== undefined && !isNaN(Number(item.total_minor_units)) && Number(item.total_minor_units) > 0) {
+          itemRevMinor = Number(item.total_minor_units);
+        } else if (item.line_total_minor_units !== undefined && !isNaN(Number(item.line_total_minor_units)) && Number(item.line_total_minor_units) > 0) {
+          itemRevMinor = Number(item.line_total_minor_units);
+        } else if (item.totalMinor !== undefined && !isNaN(Number(item.totalMinor)) && Number(item.totalMinor) > 0) {
+          itemRevMinor = Number(item.totalMinor);
+        } else if (item.lineTotalMinor !== undefined && !isNaN(Number(item.lineTotalMinor)) && Number(item.lineTotalMinor) > 0) {
+          itemRevMinor = Number(item.lineTotalMinor);
+        } else if (item.unit_price_minor_units !== undefined && !isNaN(Number(item.unit_price_minor_units)) && Number(item.unit_price_minor_units) > 0) {
+          itemRevMinor = Number(item.unit_price_minor_units) * qty;
+        } else if (item.unitPriceMinor !== undefined && !isNaN(Number(item.unitPriceMinor)) && Number(item.unitPriceMinor) > 0) {
+          itemRevMinor = Number(item.unitPriceMinor) * qty;
+        } else if (item.price_minor_units !== undefined && !isNaN(Number(item.price_minor_units)) && Number(item.price_minor_units) > 0) {
+          itemRevMinor = Number(item.price_minor_units) * qty;
+        } else if (item.base_price_minor_units !== undefined && !isNaN(Number(item.base_price_minor_units)) && Number(item.base_price_minor_units) > 0) {
+          itemRevMinor = Number(item.base_price_minor_units) * qty;
+        } else if (item.price !== undefined && !isNaN(Number(item.price)) && Number(item.price) > 0) {
+          itemRevMinor = Number(item.price) * qty;
+        } else if (item.unitPrice !== undefined && !isNaN(Number(item.unitPrice)) && Number(item.unitPrice) > 0) {
+          itemRevMinor = Number(item.unitPrice) * qty;
+        } else if (item.unit_price !== undefined && !isNaN(Number(item.unit_price)) && Number(item.unit_price) > 0) {
+          itemRevMinor = Number(item.unit_price) * qty;
+        } else if (item.lineTotal !== undefined && !isNaN(Number(item.lineTotal)) && Number(item.lineTotal) > 0) {
+          itemRevMinor = Number(item.lineTotal);
+        } else if (catItem && catItem.base_price_minor_units) {
+          itemRevMinor = Number(catItem.base_price_minor_units) * qty;
         }
-        productMap[key].qty += isNaN(qty) ? 1 : qty;
-        productMap[key].revenue += isNaN(lineTotal) ? 0 : lineTotal;
+
+        // Subtract line discount if present
+        const discountMinor = Number(item.applied_discount_minor_units || item.discount_minor || item.discount || 0);
+        if (discountMinor > 0 && discountMinor < itemRevMinor) {
+          itemRevMinor -= discountMinor;
+        }
+
+        const mapKey = canonicalSku;
+        if (!productMap[mapKey]) {
+          productMap[mapKey] = { name: displayName, sku: canonicalSku, qty: 0, revenue: 0 };
+        }
+        if (productMap[mapKey].name === 'Unnamed Product' || productMap[mapKey].name === canonicalSku) {
+          productMap[mapKey].name = displayName;
+        }
+        productMap[mapKey].qty += isNaN(qty) ? 1 : qty;
+        productMap[mapKey].revenue += isNaN(itemRevMinor) ? 0 : itemRevMinor;
       });
     });
 
     const products = Object.values(productMap);
     const TOP_N = 10;
 
+    const emptyStateHtml = (subtext) => `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 16px;text-align:center;background:rgba(255,255,255,0.015);border:1px dashed var(--border-titanium);border-radius:10px;gap:6px;">
+        <span style="font-size:11px;font-weight:800;color:var(--text-gray);text-transform:uppercase;letter-spacing:0.06em;">No sales recorded</span>
+        <span style="font-size:10px;color:var(--text-dim);line-height:1.4;">${subtext}</span>
+      </div>
+    `;
+
     // ── Top by Quantity ──────────────────────────────────────────────────────
     if (qtyContainer) {
-      const topByQty = [...products].sort((a, b) => b.qty - a.qty).slice(0, TOP_N);
+      const topByQty = [...products].filter(p => p.qty > 0).sort((a, b) => b.qty - a.qty).slice(0, TOP_N);
       if (topByQty.length === 0) {
-        setHtml(qtyContainer, '<p class="text-muted" style="text-align:center;margin-top:20px;font-size:11px;">No sales data in selected range.</p>');
+        setHtml(qtyContainer, emptyStateHtml('Items sold in the selected time range will rank here by unit velocity.'));
       } else {
         const maxQty = topByQty[0].qty || 1;
         const colors = ['#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444','#ec4899','#06b6d4','#a78bfa','#84cc16','#f97316'];
         setHtml(qtyContainer, topByQty.map((p, i) => {
-          const pct = ((p.qty / maxQty) * 100).toFixed(1);
-          const revFmt = (p.revenue / 100).toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+          const pct = Math.max(8, Math.min(100, (p.qty / maxQty) * 100)).toFixed(1);
+          const revFmt = (p.revenue / 100.0).toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
           const color = colors[i % colors.length];
           return `
-            <div style="display:flex;flex-direction:column;gap:5px;padding:9px;background:rgba(255,255,255,0.02);border:1px solid var(--border-titanium);border-radius:8px;">
+            <div style="display:flex;flex-direction:column;gap:5px;padding:9px 12px;background:rgba(255,255,255,0.02);border:1px solid var(--border-titanium);border-radius:8px;transition:background 0.15s ease;">
               <div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;gap:8px;">
                 <div style="display:flex;align-items:center;gap:7px;min-width:0;">
                   <span style="width:20px;height:20px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:#000;flex-shrink:0;">${i+1}</span>
-                  <span style="font-weight:700;color:var(--text-white);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p.name}">${p.name}</span>
+                  <span style="font-weight:700;color:var(--text-white);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
                 </div>
-                <span style="font-weight:800;color:${color};white-space:nowrap;flex-shrink:0;">${p.qty} units</span>
+                <span style="font-weight:800;color:${color};white-space:nowrap;flex-shrink:0;">${p.qty.toLocaleString('en-PK')} units</span>
               </div>
               <div style="height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">
                 <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;transition:width 0.4s ease;"></div>
               </div>
-              <span style="font-size:10px;color:var(--text-gray);">Rs. ${revFmt} gross revenue</span>
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--text-gray);">
+                <span>Rs. ${revFmt} gross revenue</span>
+                <span style="font-family:var(--font-mono);font-size:9px;opacity:0.7;">SKU: ${escapeHtml(p.sku.substring(0, 12))}</span>
+              </div>
             </div>
           `;
         }).join(''));
@@ -15464,28 +15630,31 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
 
     // ── Top by Revenue ───────────────────────────────────────────────────────
     if (revContainer) {
-      const topByRev = [...products].sort((a, b) => b.revenue - a.revenue).slice(0, TOP_N);
+      const topByRev = [...products].filter(p => p.revenue > 0).sort((a, b) => b.revenue - a.revenue).slice(0, TOP_N);
       if (topByRev.length === 0) {
-        setHtml(revContainer, '<p class="text-muted" style="text-align:center;margin-top:20px;font-size:11px;">No sales data in selected range.</p>');
+        setHtml(revContainer, emptyStateHtml('High-value sales in the selected period will rank here by gross turnover.'));
       } else {
         const maxRev = topByRev[0].revenue || 1;
         setHtml(revContainer, topByRev.map((p, i) => {
-          const pct = ((p.revenue / maxRev) * 100).toFixed(1);
-          const revFmt = (p.revenue / 100).toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-          const barColor = i === 0 ? 'var(--accent-emerald)' : i === 1 ? '#10b981' : i === 2 ? '#34d399' : 'rgba(0,214,143,0.5)';
+          const pct = Math.max(8, Math.min(100, (p.revenue / maxRev) * 100)).toFixed(1);
+          const revFmt = (p.revenue / 100.0).toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+          const barColor = i === 0 ? 'var(--accent-emerald)' : i === 1 ? '#10b981' : i === 2 ? '#34d399' : 'rgba(0,214,143,0.55)';
           return `
-            <div style="display:flex;flex-direction:column;gap:5px;padding:9px;background:rgba(255,255,255,0.02);border:1px solid var(--border-titanium);border-radius:8px;">
+            <div style="display:flex;flex-direction:column;gap:5px;padding:9px 12px;background:rgba(255,255,255,0.02);border:1px solid var(--border-titanium);border-radius:8px;transition:background 0.15s ease;">
               <div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;gap:8px;">
                 <div style="display:flex;align-items:center;gap:7px;min-width:0;">
                   <span style="width:20px;height:20px;border-radius:50%;background:${barColor};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:#000;flex-shrink:0;">${i+1}</span>
-                  <span style="font-weight:700;color:var(--text-white);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p.name}">${p.name}</span>
+                  <span style="font-weight:700;color:var(--text-white);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
                 </div>
                 <span style="font-weight:800;color:var(--accent-emerald);white-space:nowrap;flex-shrink:0;">Rs. ${revFmt}</span>
               </div>
               <div style="height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">
                 <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#10b981 0%,#059669 100%);border-radius:3px;transition:width 0.4s ease;"></div>
               </div>
-              <span style="font-size:10px;color:var(--text-gray);">${p.qty} units sold</span>
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--text-gray);">
+                <span>${p.qty.toLocaleString('en-PK')} units sold</span>
+                <span style="font-family:var(--font-mono);font-size:9px;opacity:0.7;">SKU: ${escapeHtml(p.sku.substring(0, 12))}</span>
+              </div>
             </div>
           `;
         }).join(''));
@@ -15511,6 +15680,7 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
 
     (txs || []).forEach(tx => {
       (tx.items || []).forEach(item => {
+        if (!item) return;
         // Jewellery fields may be stored in mode_fields JSON or directly on item
         let mf = {};
         try {
@@ -15519,10 +15689,32 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
 
         const karat = mf.karat || item.karat || null;
         const weightG = parseFloat(mf.weight_g || item.netWeightGrams || item.weight_g || 0);
-        const makingFee = parseFloat(mf.making_fee || item.makingCharge || item.making_fee || 0);
-        const qty = Number(item.quantity || item.qty || 1);
-        const unitPrice = Number(item.unitPrice || item.unit_price || item.price || 0);
-        const lineTotal = item.lineTotal !== undefined ? Number(item.lineTotal) : (unitPrice * qty);
+        const rawMaking = mf.making_fee || item.makingCharge || item.making_fee || 0;
+        const makingFee = parseFloat(rawMaking);
+        const qty = Math.max(1, Number(item.quantity || item.qty || 1));
+
+        let itemRevMinor = 0;
+        if (item.total_minor_units !== undefined && !isNaN(Number(item.total_minor_units)) && Number(item.total_minor_units) > 0) {
+          itemRevMinor = Number(item.total_minor_units);
+        } else if (item.line_total_minor_units !== undefined && !isNaN(Number(item.line_total_minor_units)) && Number(item.line_total_minor_units) > 0) {
+          itemRevMinor = Number(item.line_total_minor_units);
+        } else if (item.totalMinor !== undefined && !isNaN(Number(item.totalMinor)) && Number(item.totalMinor) > 0) {
+          itemRevMinor = Number(item.totalMinor);
+        } else if (item.lineTotalMinor !== undefined && !isNaN(Number(item.lineTotalMinor)) && Number(item.lineTotalMinor) > 0) {
+          itemRevMinor = Number(item.lineTotalMinor);
+        } else if (item.unit_price_minor_units !== undefined && !isNaN(Number(item.unit_price_minor_units)) && Number(item.unit_price_minor_units) > 0) {
+          itemRevMinor = Number(item.unit_price_minor_units) * qty;
+        } else if (item.unitPriceMinor !== undefined && !isNaN(Number(item.unitPriceMinor)) && Number(item.unitPriceMinor) > 0) {
+          itemRevMinor = Number(item.unitPriceMinor) * qty;
+        } else if (item.price !== undefined && !isNaN(Number(item.price)) && Number(item.price) > 0) {
+          itemRevMinor = Number(item.price) * qty;
+        } else if (item.unitPrice !== undefined && !isNaN(Number(item.unitPrice)) && Number(item.unitPrice) > 0) {
+          itemRevMinor = Number(item.unitPrice) * qty;
+        } else if (item.unit_price !== undefined && !isNaN(Number(item.unit_price)) && Number(item.unit_price) > 0) {
+          itemRevMinor = Number(item.unit_price) * qty;
+        } else if (item.lineTotal !== undefined && !isNaN(Number(item.lineTotal)) && Number(item.lineTotal) > 0) {
+          itemRevMinor = Number(item.lineTotal);
+        }
 
         if (weightG > 0) totalWeightG += weightG * qty;
         if (makingFee > 0) totalMakingFee += makingFee * qty;
@@ -15531,7 +15723,7 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
         if (karat) {
           if (!karatMap[karat]) karatMap[karat] = { qty: 0, revenue: 0 };
           karatMap[karat].qty += qty;
-          karatMap[karat].revenue += isNaN(lineTotal) ? 0 : lineTotal;
+          karatMap[karat].revenue += isNaN(itemRevMinor) ? 0 : itemRevMinor;
         }
       });
     });
@@ -15559,7 +15751,7 @@ setHtml(renderDiv, `<h4>${store}</h4><pre style="font-family: var(--font-receipt
         const karatColors = { '24K': '#f59e0b', '22K': '#d97706', '21K': '#b45309', '18K': '#92400e', '14K': '#78350f', '925': '#94a3b8' };
         setHtml(distContainer, karatEntries.map(([karat, data]) => {
           const pct = ((data.revenue / totalRevAll) * 100).toFixed(1);
-          const revFmt = (data.revenue / 100).toLocaleString('en-PK', { minimumFractionDigits: 0 });
+          const revFmt = (data.revenue / 100).toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
           const col = karatColors[karat] || '#f59e0b';
           return `
             <div style="display:flex;flex-direction:column;gap:5px;padding:10px;background:rgba(245,158,11,0.04);border:1px solid rgba(245,158,11,0.12);border-radius:8px;">
@@ -20372,11 +20564,18 @@ setHtml(dz, '<span>');
       try { navCount = parseInt((typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('_pwa_nav_count') : '0') || '0', 10); } catch (_) {}
 
       window.addEventListener('beforeinstallprompt', e => {
-        e.preventDefault();
+        try {
+          if (e && typeof e.preventDefault === 'function') {
+            e.preventDefault();
+          }
+        } catch (_) {}
         deferredPrompt = e;
         window.__pwaDeferredPrompt = e;
-        // Show banner after 3 navigation events
-        if (navCount >= 3 && !sessionStorage.getItem('_pwa_dismissed')) showInstallBanner();
+        const installBtn = document.getElementById('btn-pwa-install') || document.getElementById('pwa-header-install-btn');
+        if (installBtn) installBtn.style.display = 'inline-flex';
+        if (!sessionStorage.getItem('_pwa_dismissed')) {
+          showInstallBanner();
+        }
       });
 
       window.triggerPWAInstall = async function() {
@@ -23945,6 +24144,12 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
 
   window.__realHandlers = window.__realHandlers || {};
   window.__realHandlers.renderDashboardScreen = renderDashboardScreen;
+  window.__realHandlers.renderAnalyticsScreen = calculateAnalytics;
+  window.__realHandlers.renderAnalytics = calculateAnalytics;
+  window.__realHandlers.calculateAnalytics = calculateAnalytics;
+  window.renderAnalyticsScreen = calculateAnalytics;
+  window.renderAnalytics = calculateAnalytics;
+  window.calculateAnalytics = calculateAnalytics;
   window.__realHandlers.renderKdsScreen = renderKdsScreen;
   window.__realHandlers.renderPettyCashScreen = renderPettyCashScreen;
   window.__realHandlers.renderAttendanceScreen = renderAttendanceScreen;

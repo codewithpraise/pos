@@ -427,6 +427,7 @@
   global.navigateTo = function(screenId, opts) {
     return router.navigateTo(screenId, opts);
   };
+  global.ValenixiaRouter = router;
   global.switchActiveScreen = function(screenId) {
     return router.navigateTo(screenId, { push: false });
   };

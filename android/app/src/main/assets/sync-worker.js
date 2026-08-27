@@ -869,6 +869,7 @@ self.onmessage = async (event) => {
               id: liId,
               transaction_id: transactionId,
               sku: item.sku,
+              name: item.displayName || item.name || item.product_name || '',
               quantity: item.qty,
               unit_price_minor_units: item.price,
               applied_discount_minor_units: item.discount || 0,
@@ -880,6 +881,9 @@ self.onmessage = async (event) => {
             // Log line item fields to CRDT
             await logFieldChange('line_items', liId, 'transaction_id', transactionId, txHlc, 1, 1, idbTx);
             await logFieldChange('line_items', liId, 'sku', item.sku, txHlc, 1, 1, idbTx);
+            if (liRecord.name) {
+              await logFieldChange('line_items', liId, 'name', liRecord.name, txHlc, 1, 1, idbTx);
+            }
             await logFieldChange('line_items', liId, 'quantity', item.qty, txHlc, 1, 1, idbTx);
             await logFieldChange('line_items', liId, 'unit_price_minor_units', item.price, txHlc, 1, 1, idbTx);
             await logFieldChange('line_items', liId, 'applied_discount_minor_units', item.discount || 0, txHlc, 1, 1, idbTx);

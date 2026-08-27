@@ -1,7 +1,7 @@
 {
   "name": "Valenixia Commerce Point of Sale",
   "short_name": "Valenixia POS",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "id": "/",
   "lang": "en",
   "description": "Enterprise-grade local-first Point of Sale client with real-time CRDT synchronization.",

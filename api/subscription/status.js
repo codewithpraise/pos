@@ -42,10 +42,20 @@ module.exports = async (req, res) => {
         auth: { persistSession: false, autoRefreshToken: false }
       });
 
+      const isHex32 = cleanHwid.length === 32 && /^[0-9a-fA-F]{32}$/.test(cleanHwid);
+      const formattedUuid = isHex32
+        ? `${cleanHwid.slice(0,8)}-${cleanHwid.slice(8,12)}-${cleanHwid.slice(12,16)}-${cleanHwid.slice(16,20)}-${cleanHwid.slice(20,32)}`.toLowerCase()
+        : cleanHwid;
+
+      const conds = [`id.eq.${cleanHwid}`, `id.eq.${cleanHwid.toLowerCase()}`];
+      if (formattedUuid !== cleanHwid) {
+        conds.push(`id.eq.${formattedUuid}`);
+      }
+
       const { data, error } = await supabase
         .from('stores')
         .select('*')
-        .or(`id.eq.${cleanHwid},id.eq.${cleanHwid.toLowerCase()}`);
+        .or(conds.join(','));
 
       if (!error && data && data.length > 0) {
         const store = data[0];
@@ -65,7 +75,7 @@ module.exports = async (req, res) => {
           const anchorStart = clientStartTime || nowIso;
           const anchorExp = new Date(Date.parse(anchorStart) + durationMs).toISOString();
           await supabase.from('stores').insert([{
-            id: cleanHwid,
+            id: formattedUuid,
             name: `Store (${cleanHwid.slice(0, 8)})`,
             plan: 'starter',
             tier: 'STARTER',

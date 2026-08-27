@@ -1,12 +1,12 @@
 {
-  "version": "3.1.0",
-  "git_commit": "b8e2b076995965773a375a6cfafe013283218f1d",
-  "build_id": "v3.1.0-prod-b8e2b07",
+  "version": "3.2.0",
+  "git_commit": "979c64265282f24983faec145c18e3e17431db05",
+  "build_id": "v3.2.0-prod-979c642",
   "artifacts": {
     "app.js": {
       "path": "app.js",
-      "size": 1146247,
-      "sha256": "699ea78ee80737a751076c8a9215aa0bcb01275f5e551ab524114282a3126fc4"
+      "size": 1200496,
+      "sha256": "8145e9296e43182a17177dee8e300f1a79193f7e91c79d12353f7fbfdd7a87ea"
     },
     "barcode-decoder.js": {
       "path": "barcode-decoder.js",
@@ -26,7 +26,7 @@
     "build-id": {
       "path": "build-id",
       "size": 20,
-      "sha256": "a73cd493def8255a4455a0b0d6e3c909d36cfe36f682ca92777d3262b4ef4e19"
+      "sha256": "a180c21d8b3cf045056103432f1291b326ab8c6126a7248c30e07540a25a293f"
     },
     "commercial-catalog.js": {
       "path": "commercial-catalog.js",
@@ -40,8 +40,8 @@
     },
     "index.html": {
       "path": "index.html",
-      "size": 469492,
-      "sha256": "7c97de45f2ff281cc7e7d63a6d100c42abc016a80bb0bb8222c8bc23edc60b24"
+      "size": 519605,
+      "sha256": "82b7cb061a72a6d289c995bf0ee4748641787a21f35db1b09c62c40fbd13bf4f"
     },
     "legal-documents.js": {
       "path": "legal-documents.js",
@@ -51,12 +51,12 @@
     "manifest.json": {
       "path": "manifest.json",
       "size": 750,
-      "sha256": "cedcb0ea1333fa585f8f5b907b76765db42c6c2d553bb32f308ecbf2f27766d0"
+      "sha256": "a98dc2335b793110db3b07258b17b333ba9bbadda1172c39318639b03e32c870"
     },
     "release-manifest.json": {
       "path": "release-manifest.json",
       "size": 395,
-      "sha256": "85233fe06884107ec677c626c38923bf099dbb7b2e921e73be5728abf946be13"
+      "sha256": "60fa25ca3a3fb42fbcef9ed25a616a93384aa05e56d18a1a96460fb14c65b3cc"
     },
     "sw-loader.js": {
       "path": "sw-loader.js",
@@ -65,13 +65,13 @@
     },
     "sw.js": {
       "path": "sw.js",
-      "size": 9889,
-      "sha256": "4cbe88b9ba564e138974712ba8279189b7b6311323960c0ba9473b754518732e"
+      "size": 9582,
+      "sha256": "82a173b82ffea9b0921389e8c88a145c7867c7a64296248c9f522baed0bee55a"
     },
     "version.json": {
       "path": "version.json",
-      "size": 865,
-      "sha256": "1a2b6c92d13dcc7ff1abaedbe4ecd196ae4d8cc68838d50f78d208612bdd1e87"
+      "size": 1006,
+      "sha256": "7cd71c985c4c6836fac119577b27e96e3e86507e0908d5418537aea66ce5857a"
     }
   }
 }

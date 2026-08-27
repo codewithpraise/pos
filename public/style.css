@@ -538,9 +538,10 @@ section.content-view.active,
 
 .content-view > div {
   width: 100% !important;
-  max-width: 1400px !important;
+  max-width: 1600px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
   box-sizing: border-box !important;
-  overflow-x: hidden !important;
 }
 
 .table-responsive,

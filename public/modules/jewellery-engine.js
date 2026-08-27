@@ -626,6 +626,7 @@
         }
       };
     }
+  }
 
   /**
    * Open Gold Trade-In & Old Gold Exchange Appraisal Modal

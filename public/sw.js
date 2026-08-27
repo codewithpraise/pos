@@ -23,7 +23,7 @@ const ASSETS_TO_CACHE = [
   { url: '/styles/themes.css', integrity: '' },
   { url: '/styles/animations.css', integrity: '' },
   { url: '/styles/components.css', integrity: '' },
-  { url: '/app.js', integrity: 'sha384-0WgsX+MmFT0qbwOSKgm3nbwu3vdKelVZXj6Lt0gzFgtGWhgnOyFzwQhGEDDxdDsl' },
+  { url: '/app.js', integrity: 'sha384-CckcgbvUpKgrx87QjHB9ekyt1MpBok9FzDlOT2TpGiG2YdQ79Z2RTKtoscB2qvl8' },
   { url: '/router.js', integrity: '' },
   { url: '/commercial-catalog.js', integrity: '' },
   { url: '/legal-documents.js', integrity: '' },
@@ -37,7 +37,7 @@ const ASSETS_TO_CACHE = [
   { url: '/client-audio.js', integrity: 'sha384-dzfXcrClk7pat6tYQU3aJLGFAsJYZU+tbF2rng81DIlBp+iUkOMe5TfNLe9va3f9' },
   { url: '/client-speech.js', integrity: 'sha384-7W67xTwgWUVhwx4BuvdTRftJfKk/2TH/JVX0FQy18uTcjM2CFaRvzRq/GRhW5e8k' },
   { url: '/client-sync.js', integrity: 'sha384-dvzrIevtShpBfj3wmA+zFMChJ4QAQRWSLqsTq5I4J0SztsioY8irVJLJzLC/ZLKc' },
-  { url: '/sync-worker.js', integrity: 'sha384-knoj2KHpaFZPkeCGwo2acvS81XztzOfa6/H6JWyYDm3zYgRZL4egVUUDathTl6at' },
+  { url: '/sync-worker.js', integrity: 'sha384-iN7TcOZ/utiznqMWlgSickb9heYoMqBK167rVaVXioXZzYBoKnKBNNldrAhVGfFE' },
   { url: '/manifest.json', integrity: '' },
   { url: '/icon-192.png', integrity: '' },
   { url: '/icon-512.png', integrity: '' },
@@ -104,7 +104,7 @@ self.addEventListener('activate', (event) => {
           }
         })
       )
-    // clients.claim() is only valid inside activate Ãƒ¢Ã¢š¬Ã¢â‚¬ calling it elsewhere
+    // clients.claim() is only valid inside activate — calling it elsewhere
     // throws InvalidStateError: Only the active worker can claim clients.
     ).then(() => self.clients.claim())
   );
@@ -112,21 +112,20 @@ self.addEventListener('activate', (event) => {
 
 // Fetch Interceptor
 // - WebSocket upgrade requests: never intercept (let browser handle natively)
-// - API routes + version.json: network-only, offline Ãƒ¢Ã¢â‚¬ Ã¢â‚¬â„¢ 503 JSON (no unhandled rejections)
+// - API routes + version.json: network-only, offline -> 503 JSON (no unhandled rejections)
 // - Static assets: network-first, fall back to cache, then 503
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // 1. WebSocket upgrade requests Ãƒ¢Ã¢š¬Ã¢â‚¬ these arrive as http(s):// but with
-  // 1. WebSocket upgrade requests Ãƒ¢Ã¢š¬Ã¢â‚¬  these arrive as http(s):// but with
+  // 1. WebSocket upgrade requests -- these arrive as http(s):// but with
   //    mode 'websocket'. The browser handles them natively; never call
   //    event.respondWith() or fetch() on them.
   if (request.mode === 'websocket') {
     return; // Let browser handle WebSocket upgrades natively
   }
 
-  // 2. Cross-origin requests (Google Fonts, Supabase, etc.) Ãƒ¢Ã¢š¬Ã¢â‚¬  never intercept.
+  // 2. Cross-origin requests (Google Fonts, Supabase, etc.) -- never intercept.
   //    Attempting to fetch() external URLs that are blocked by CSP produces
   //    a 503 in the console. Let the browser handle these directly.
   if (url.origin !== self.location.origin) {
@@ -134,7 +133,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // 3. Binary and package downloads (.apk, .exe, .msi, .zip, /downloads/)
-  //    Never intercept downloads in Service Worker — let browser native download manager handle them.
+  //    Never intercept downloads in Service Worker - let browser native download manager handle them.
   if (
     url.pathname.startsWith('/downloads/') ||
     url.pathname.endsWith('.apk') ||
@@ -159,14 +158,14 @@ self.addEventListener('fetch', (event) => {
   if (isDynamic) {
     event.respondWith(
       fetch(request).catch((err) => {
-        console.warn('[ServiceWorker] Offline Ãƒ¢Ã¢š¬Ã¢â‚¬Å“ dynamic request failed:', url.pathname, err.message);
+        console.warn('[ServiceWorker] Offline - dynamic request failed:', url.pathname, err.message);
         return offlineJsonResponse('Server offline: ' + err.message, 503);
       })
     );
     return;
   }
 
-  // 3. Static assets: network-first Ãƒ¢Ã¢â‚¬ Ã¢â‚¬â„¢ cache Ãƒ¢Ã¢â‚¬ Ã¢â‚¬â„¢ offline fallback
+  // 5. Static assets: network-first -> cache -> offline fallback
   event.respondWith(
     fetch(request)
       .then((networkResponse) => {

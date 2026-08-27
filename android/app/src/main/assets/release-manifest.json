@@ -1,13 +1,13 @@
 {
   "product": "VALENIXIA POS",
-  "version": "3.1.0",
-  "build_id": "v3.1.0-prod-b8e2b07",
-  "git_commit": "b8e2b076995965773a375a6cfafe013283218f1d",
+  "version": "3.2.0",
+  "build_id": "v3.2.0-prod-979c642",
+  "git_commit": "979c64265282f24983faec145c18e3e17431db05",
   "environment": "production",
   "schema_version": "17",
-  "commercial_catalog_version": "3.1.0",
-  "legal_documents_version": "3.1.0",
-  "minimum_client_version": "3.1.0",
+  "commercial_catalog_version": "3.2.0",
+  "legal_documents_version": "3.2.0",
+  "minimum_client_version": "3.2.0",
   "rollback_allowed": false,
   "minimum_compatible_version": "2.6.0"
 }

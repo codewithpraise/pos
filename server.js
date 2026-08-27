@@ -75,6 +75,8 @@ const {
   saveTelemetryLog,
   factoryResetDatabase,
   recalculateCachedStock,
+  getHardwareEntitlement,
+  setHardwareEntitlement,
   SERVER_SCHEMA_VERSION
 } = require('./database');
 const { pushOfflineBackupsToCloud } = require('./supabase-sync');
@@ -2728,10 +2730,20 @@ async function fetchOnlineSupabaseStoreTier(hwid) {
     if (!cleanHwid) return null;
 
     // 1. Strict exact lookup by hardware ID in stores table
+    const isHex32 = cleanHwid.length === 32 && /^[0-9a-fA-F]{32}$/.test(cleanHwid);
+    const formattedUuid = isHex32
+      ? `${cleanHwid.slice(0,8)}-${cleanHwid.slice(8,12)}-${cleanHwid.slice(12,16)}-${cleanHwid.slice(16,20)}-${cleanHwid.slice(20,32)}`.toLowerCase()
+      : cleanHwid;
+
+    const conds = [`id.eq.${cleanHwid}`, `id.eq.${cleanHwid.toLowerCase()}`];
+    if (formattedUuid !== cleanHwid) {
+      conds.push(`id.eq.${formattedUuid}`);
+    }
+
     const { data: directData, error: dirErr } = await supa
       .from('stores')
       .select('*')
-      .or(`id.eq.${cleanHwid},id.eq.${cleanHwid.toLowerCase()}`);
+      .or(conds.join(','));
     
     if (!dirErr && directData && directData.length > 0) {
       const match = directData[0];
@@ -2767,11 +2779,9 @@ app.get('/api/subscription/status', async (req, res) => {
     const nowIso = new Date().toISOString();
     const nowMs = Date.now();
 
-    // 1. Check local persistent hardware_entitlements table
+    // 1. Check local persistent hardware_entitlements table (SQLite — survives restarts)
     let localEnt = null;
-    if (typeof getHardwareEntitlement === 'function') {
-      localEnt = await getHardwareEntitlement(cleanHwid);
-    }
+    try { localEnt = await getHardwareEntitlement(cleanHwid); } catch (_) {}
 
     // 2. Check Supabase cloud registry
     const onlineInfo = await fetchOnlineSupabaseStoreTier(cleanHwid);
@@ -2795,8 +2805,8 @@ app.get('/api/subscription/status', async (req, res) => {
         expiresAt = new Date(Date.parse(subStartTime) + durationMs).toISOString();
       }
 
-      // Mirror to local hardware_entitlements table for offline resilience
-      if (typeof setHardwareEntitlement === 'function') {
+      // Mirror Supabase data to local SQLite hardware_entitlements for offline resilience
+      try {
         localEnt = await setHardwareEntitlement(cleanHwid, {
           tier: effectiveTier,
           first_activated_at: firstActivatedAt,
@@ -2805,7 +2815,10 @@ app.get('/api/subscription/status', async (req, res) => {
           duration_ms: durationMs,
           status: 'ACTIVE'
         });
+      } catch (mirrorErr) {
+        console.warn('[SubscriptionStatus] Failed to mirror Supabase entitlement to SQLite:', mirrorErr.message);
       }
+
     } else if (localEnt) {
       effectiveTier = localEnt.tier || 'STARTER';
       subStartTime = localEnt.subscription_start_time || localEnt.first_activated_at || nowIso;
@@ -2820,28 +2833,52 @@ app.get('/api/subscription/status', async (req, res) => {
         expiresAt = new Date(Date.parse(subStartTime) + durationMs).toISOString();
       }
     } else {
-      // First time this device has ever connected: anchor immutable registration
-      if (HWID_FIRST_SEEN_MAP.has(cleanHwid)) {
-        subStartTime = HWID_FIRST_SEEN_MAP.get(cleanHwid);
-        firstActivatedAt = subStartTime;
+      // No Supabase record — fall back to the already-fetched SQLite hardware_entitlements record.
+      // localEnt was read at the top of this handler (line ~2773) and survives server restarts.
+      if (localEnt) {
+        // Existing persisted entry found — use its immutable anchor, never re-initialize
+        effectiveTier = localEnt.tier || 'STARTER';
+        subStartTime = localEnt.subscription_start_time || localEnt.first_activated_at || nowIso;
+        firstActivatedAt = localEnt.first_activated_at || subStartTime;
+        expiresAt = localEnt.expires_at || null;
+        durationMs = localEnt.duration_ms || (30 * 24 * 60 * 60 * 1000);
+        trialUsed = localEnt.trial_used || 0;
+        trialStartedAt = localEnt.trial_started_at || null;
+        billingCycle = localEnt.billing_cycle || 'MONTHLY';
+        status = localEnt.status ? localEnt.status.toLowerCase() : 'active';
+        if (!expiresAt && billingCycle !== 'LIFETIME') {
+          expiresAt = new Date(Date.parse(subStartTime) + durationMs).toISOString();
+        }
       } else {
-        subStartTime = nowIso;
-        firstActivatedAt = nowIso;
-        HWID_FIRST_SEEN_MAP.set(cleanHwid, nowIso);
-      }
-      expiresAt = new Date(Date.parse(subStartTime) + durationMs).toISOString();
+        // Truly first time this device has ever connected with no Supabase or SQLite record.
+        // Use client-provided start_time hint if available (e.g. device knows its real activation date).
+        const clientStartIso = (req.query && req.query.start_time) || req.headers['x-subscription-start-time'] || null;
+        const clientStartMs = clientStartIso ? Date.parse(clientStartIso) : NaN;
+        const anchorIso = (!isNaN(clientStartMs) && clientStartMs > 0 && clientStartMs <= nowMs)
+          ? new Date(clientStartMs).toISOString()
+          : nowIso;
+        subStartTime = anchorIso;
+        firstActivatedAt = anchorIso;
+        expiresAt = new Date(Date.parse(anchorIso) + durationMs).toISOString();
 
-      if (typeof setHardwareEntitlement === 'function') {
-        localEnt = await setHardwareEntitlement(cleanHwid, {
-          tier: effectiveTier,
-          first_activated_at: firstActivatedAt,
-          subscription_start_time: subStartTime,
-          expires_at: expiresAt,
-          duration_ms: durationMs,
-          status: 'ACTIVE'
-        });
+        // Persist anchor to SQLite so it survives all future server restarts
+        try {
+          await setHardwareEntitlement(cleanHwid, {
+            tier: effectiveTier,
+            first_activated_at: firstActivatedAt,
+            subscription_start_time: subStartTime,
+            expires_at: expiresAt,
+            duration_ms: durationMs,
+            status: 'ACTIVE',
+            approved_by: 'DEVICE_INITIALIZED',
+            notes: 'Auto-anchored on first device connection'
+          });
+        } catch (entErr) {
+          console.warn('[SubscriptionStatus] Failed to persist initial entitlement anchor:', entErr.message);
+        }
       }
     }
+
 
     const expiresAtMs = expiresAt ? Date.parse(expiresAt) : (Date.parse(subStartTime) + durationMs);
 

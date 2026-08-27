@@ -324,12 +324,48 @@ async function syncOnlineSubscriptionTier() {
         const serverExpIso = data?.expires_at;
         const serverExpMs = data?.expires_at_ms || (serverExpIso ? Date.parse(serverExpIso) : NaN);
 
-        // Only update local expiration if server provides a non-sliding authoritative value
+        // ── Server Start Time Guard ─────────────────────────────────────────────
+        // CRITICAL: Only accept the server's subscription_start_time if it is EARLIER
+        // (older) than what we have locally. A server returning a NEWER start_time
+        // means it had no stored record and just initialized fresh (device_initialized).
+        // In that case, the local stored anchor is authoritative and must be preserved.
+        const serverSource = data?.source || '';
+        const isServerInitializedFresh = serverSource === 'device_initialized' || serverSource === 'local_fallback';
+
+        if (!isNaN(serverStartMs) && serverStartMs > 0 && !isServerInitializedFresh) {
+          const startDiff = serverStartMs - existingStartMs;
+          // Accept server start only if it is EARLIER than local (true older activation date)
+          // or if we have no local start yet (existingStartMs is 0).
+          const serverIsEarlier = (existingStartMs <= 0) || (startDiff < -300000);
+          if (serverIsEarlier) {
+            existingStartMs = serverStartMs;
+            localStorage.setItem('valenixia_subscription_start_time', String(existingStartMs));
+            if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
+              ValenixiaDB.put('local_preferences', {
+                key: 'valenixia_subscription_start_time',
+                value_type: 'STR',
+                value_payload: String(existingStartMs),
+                is_idempotent_flag: 0,
+                updated_at: Date.now()
+              }).catch(() => {});
+            }
+          }
+        } else if ((existingStartMs <= 0) && !isServerInitializedFresh && !isNaN(serverStartMs) && serverStartMs > 0) {
+          // First ever boot with a real anchored server time
+          existingStartMs = serverStartMs;
+          localStorage.setItem('valenixia_subscription_start_time', String(existingStartMs));
+        }
+        // If server returned device_initialized or local_fallback: ignore server's start time entirely.
+        // The local existing start is the authoritative anchor.
+
+        // ── Server Expiry Guard ─────────────────────────────────────────────────
+        // Only accept server expires_at if the server's start time is trustworthy
+        // (i.e., it is real and not a fresh device_initialized reset)
         const currentExpMs = parseInt(localStorage.getItem('valenixia_subscription_expires_at') || '0', 10);
-        if (!isNaN(serverExpMs) && serverExpMs > 0) {
-          const diff = Math.abs(serverExpMs - currentExpMs);
-          // Only overwrite if initial setup (currentExpMs is 0) or genuine renewal drift > 5 minutes
-          if (currentExpMs === 0 || diff > 300000) {
+        if (!isNaN(serverExpMs) && serverExpMs > 0 && !isServerInitializedFresh) {
+          const expDiff = Math.abs(serverExpMs - currentExpMs);
+          // Only overwrite if initial setup (currentExpMs is 0) or genuine renewal > 5 minutes
+          if (currentExpMs === 0 || expDiff > 300000) {
             localStorage.setItem('valenixia_subscription_expires_at', String(serverExpMs));
             if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
               ValenixiaDB.put('local_preferences', {
@@ -350,21 +386,6 @@ async function syncOnlineSubscriptionTier() {
               key: 'valenixia_subscription_expires_at',
               value_type: 'STR',
               value_payload: String(initialExp),
-              is_idempotent_flag: 0,
-              updated_at: Date.now()
-            }).catch(() => {});
-          }
-        }
-
-        // Authoritative server timestamp anchors the countdown timer if explicitly older or valid
-        if (!isNaN(serverStartMs) && serverStartMs > 0 && Math.abs(serverStartMs - existingStartMs) > 300000) {
-          existingStartMs = serverStartMs;
-          localStorage.setItem('valenixia_subscription_start_time', String(existingStartMs));
-          if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
-            ValenixiaDB.put('local_preferences', {
-              key: 'valenixia_subscription_start_time',
-              value_type: 'STR',
-              value_payload: String(existingStartMs),
               is_idempotent_flag: 0,
               updated_at: Date.now()
             }).catch(() => {});
