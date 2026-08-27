@@ -101,6 +101,7 @@ jobs:
           $CHROME_BIN \
             --headless=new \
             --remote-debugging-port=9222 \
+            --remote-debugging-address=0.0.0.0 \
             --remote-allow-origins="*" \
             --user-data-dir="$CHROME_TMP_DIR" \
             --disable-gpu \
@@ -116,7 +117,7 @@ jobs:
           # Wait for both services to become ready
           READY=false
           for i in {1..30}; do
-            if curl -s http://localhost:3000 > /dev/null && curl -s http://localhost:9222/json > /dev/null; then
+            if curl -s http://127.0.0.1:3000 > /dev/null && curl -s http://127.0.0.1:9222/json > /dev/null; then
               echo "Services are ready!"
               READY=true
               break

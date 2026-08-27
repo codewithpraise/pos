@@ -6193,12 +6193,13 @@ app.use((err, req, res, next) => {
 });
 
 // Start Server
+const defaultTerminalId = process.env.TERMINAL_ID || 'TERM-001';
 if (process.env.VERCEL) {
-  initDatabase(terminalId).catch(err => {
+  initDatabase(defaultTerminalId).catch(err => {
     console.warn('[Vercel Serverless] Non-fatal DB init warning:', err.message);
   });
 } else {
-  initDatabase(terminalId)
+  initDatabase(defaultTerminalId)
     .then(async () => {
       await loadServerPassphrase();
       server.listen(port, () => {
