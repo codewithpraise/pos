@@ -3082,9 +3082,9 @@ button:not(:disabled):active,
 .kpi-card.accent-coral { border-top: none; border-left: none; }
 
 .kpi-lbl {
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 800;
-  color: var(--text-dim);
+  color: var(--text-gray);
   letter-spacing: 0.8px;
   text-transform: uppercase;
 }
@@ -5304,21 +5304,21 @@ body.theme-monochrome-ivory .kpi-card.accent-emerald { border-left-color: #1a7a4
 body.theme-monochrome-ivory .kpi-card.accent-blue { border-left-color: #2563eb; }
 body.theme-monochrome-ivory .kpi-card.accent-amber { border-left-color: #c67c26; }
 body.theme-monochrome-ivory .kpi-card.accent-coral { border-left-color: #c0392b; }
-body.theme-monochrome-ivory .kpi-lbl { color: #555; }
-body.theme-monochrome-ivory .kpi-val { color: #111; }
+body.theme-monochrome-ivory .kpi-lbl { color: #475569; font-weight: 800; }
+body.theme-monochrome-ivory .kpi-val { color: #0f172a; }
 
 /* Cart & Checkout */
 body.theme-monochrome-ivory .checkout-cart { background: rgba(255,255,255,0.6); }
 body.theme-monochrome-ivory .checkout-actions { background: rgba(255,255,255,0.5); }
 body.theme-monochrome-ivory .cart-item-row { background: rgba(255,255,255,0.8); border-color: rgba(0,0,0,0.08); }
 body.theme-monochrome-ivory .cart-item-row:hover { background: rgba(255,255,255,0.95); }
-body.theme-monochrome-ivory .cart-item-name { color: #111; }
-body.theme-monochrome-ivory .cart-item-price { color: #333; }
+body.theme-monochrome-ivory .cart-item-name { color: #0f172a; font-weight: 700; }
+body.theme-monochrome-ivory .cart-item-price { color: #0f172a; font-weight: 700; }
 body.theme-monochrome-ivory .totals-section { background: rgba(240,240,240,0.8); border-top-color: rgba(0,0,0,0.08); }
-body.theme-monochrome-ivory .totals-row { border-bottom-color: rgba(0,0,0,0.06); color: #333; }
-body.theme-monochrome-ivory .totals-row.grand-total { color: #111; }
-body.theme-monochrome-ivory #txt-total { color: #111; }
-body.theme-monochrome-ivory #txt-subtotal, body.theme-monochrome-ivory #txt-tax { color: #555; }
+body.theme-monochrome-ivory .totals-row { border-bottom-color: rgba(0,0,0,0.06); color: #1e293b; }
+body.theme-monochrome-ivory .totals-row.grand-total { color: #0f172a; }
+body.theme-monochrome-ivory #txt-total { color: #0f172a; }
+body.theme-monochrome-ivory #txt-subtotal, body.theme-monochrome-ivory #txt-tax { color: #334155; font-weight: 600; }
 
 /* Quick Catalog Grid */
 body.theme-monochrome-ivory .checkout-quick-catalog { background: rgba(240,238,234,0.9); }

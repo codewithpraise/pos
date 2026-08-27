@@ -1,7 +1,7 @@
 {
   "version": "3.2.0",
-  "build_id": "v3.2.0-prod-def9bdf",
-  "git_commit": "def9bdf74f6bc7412bf4f40df8bae7567229db56",
+  "build_id": "v3.2.0-prod-4c09952",
+  "git_commit": "4c09952b2e925d750e34d39425bc40ef73795945",
   "updated_at": "2026-08-27",
   "changelog": "Valenixia POS v3.2.0 Real-Time Dynamic Analytics Engine, Top Products Revenue & Unit Velocity Leaderboards, Zero-Mock Empty States, Immutable Cloud Entitlements & PWA Performance Polish.",
   "changes": [

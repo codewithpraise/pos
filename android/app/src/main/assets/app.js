@@ -5782,7 +5782,7 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
 <p style="font-size:12px;color:#94a3b8;line-height:1.8;"><strong style="color:#e2e8f0;">5. PROHIBITED USE</strong><br>You may not reverse-engineer, decompile, redistribute, or resell the software. Use for any illegal activity is strictly prohibited.</p>
 <p style="font-size:12px;color:#94a3b8;line-height:1.8;"><strong style="color:#e2e8f0;">6. TERMINATION</strong><br>Valenixia reserves the right to terminate your license if you breach these terms. Upon termination, you must cease all use of the software.</p>
 <p style="font-size:12px;color:#94a3b8;line-height:1.8;"><strong style="color:#e2e8f0;">7. GOVERNING LAW</strong><br>These terms are governed by the laws of Pakistan. Disputes shall be resolved in the courts of Lahore, Punjab.</p>
-<p style="font-size:12px;color:#64748b;margin-top:20px;">Last updated: July 2025 | Contact: support@valenixia.com</p>`
+<p style="font-size:12px;color:#94a3b8;margin-top:20px;">Last updated: July 2025 | Contact: support@valenixia.com</p>`
       },
       privacy: {
         title: ' Privacy Policy',
@@ -5793,7 +5793,7 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
 <p style="font-size:12px;color:#94a3b8;line-height:1.8;"><strong style="color:#e2e8f0;">4. LICENSE VERIFICATION</strong><br>To verify your subscription, the app contacts our licensing server with only your hardware ID and license key. No business data is transmitted during this check.</p>
 <p style="font-size:12px;color:#94a3b8;line-height:1.8;"><strong style="color:#e2e8f0;">5. ANALYTICS</strong><br>We may collect anonymous crash reports and usage statistics to improve the product. These contain no personally identifiable information or business data.</p>
 <p style="font-size:12px;color:#94a3b8;line-height:1.8;"><strong style="color:#e2e8f0;">6. YOUR RIGHTS</strong><br>You may export all your data at any time from Settings > Data Portability. You may delete all local data via Settings > Factory Reset.</p>
-<p style="font-size:12px;color:#64748b;margin-top:20px;">Last updated: July 2025 | Contact: privacy@valenixia.com</p>`
+<p style="font-size:12px;color:#94a3b8;margin-top:20px;">Last updated: July 2025 | Contact: privacy@valenixia.com</p>`
       },
       refund: {
         title: ' Refund & Cancellation Policy',
@@ -5803,7 +5803,7 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
 <p style="font-size:12px;color:#94a3b8;line-height:1.8;"><strong style="color:#e2e8f0;">3. HOW TO REQUEST</strong><br>Contact support@valenixia.com or WhatsApp +92-331-5133226 with your license key and payment proof. Refunds are processed within 5-10 business days to your original payment method.</p>
 <p style="font-size:12px;color:#94a3b8;line-height:1.8;"><strong style="color:#e2e8f0;">4. NON-REFUNDABLE CASES</strong><br>Refunds are not available for: violation of Terms of Service, fraudulent activation, or requests made after the eligibility window.</p>
 <p style="font-size:12px;color:#94a3b8;line-height:1.8;"><strong style="color:#e2e8f0;">5. PLAN DOWNGRADES</strong><br>Downgrading to a lower plan takes effect at the next billing cycle. No partial refunds are issued for mid-cycle downgrades.</p>
-<p style="font-size:12px;color:#64748b;margin-top:20px;">Last updated: July 2025 | Contact: support@valenixia.com</p>`
+<p style="font-size:12px;color:#94a3b8;margin-top:20px;">Last updated: July 2025 | Contact: support@valenixia.com</p>`
       }
     };
 
@@ -15588,9 +15588,9 @@ setHtml(row, `
     const TOP_N = 10;
 
     const emptyStateHtml = (subtext) => `
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 16px;text-align:center;background:rgba(255,255,255,0.015);border:1px dashed var(--border-titanium);border-radius:10px;gap:6px;">
-        <span style="font-size:11px;font-weight:800;color:var(--text-gray);text-transform:uppercase;letter-spacing:0.06em;">No sales recorded</span>
-        <span style="font-size:10px;color:var(--text-dim);line-height:1.4;">${subtext}</span>
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 16px;text-align:center;background:rgba(255,255,255,0.02);border:1px dashed var(--border-bright);border-radius:10px;gap:6px;">
+        <span style="font-size:12px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;">No sales recorded</span>
+        <span style="font-size:11.5px;color:var(--text-gray);line-height:1.4;">${subtext}</span>
       </div>
     `;
 
@@ -18438,9 +18438,9 @@ setHtml(tr, `
 
     const changesList = Array.isArray(changes) ? changes : [String(changes)];
     const bulletsHtml = changesList.map(c =>
-      `<li style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; color: var(--text-white); display: flex; gap: 10px; align-items: flex-start;">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--accent-emerald)" stroke-width="2.5" style="flex-shrink:0; margin-top:2px;"><polyline points="20 6 9 17 4 12"/></svg>
-        <span>${c}</span>
+      `<li style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 13.5px; line-height: 1.55; color: #f1f5f9; display: flex; gap: 12px; align-items: flex-start;">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#10b981" stroke-width="2.5" style="flex-shrink:0; margin-top:3px;"><polyline points="20 6 9 17 4 12"/></svg>
+        <span style="color: #f8fafc; font-weight: 500; text-shadow: 0 1px 2px rgba(0,0,0,0.4);">${c}</span>
       </li>`
     ).join('');
 
@@ -18456,37 +18456,38 @@ setHtml(tr, `
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
-setHtml(modal, `
+    setHtml(modal, `
       <style>
         @keyframes rnFadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes rnSlideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         @keyframes spin { to { transform: rotate(360deg); } }
       </style>
       <div style="
-        width: 100%; max-width: 520px;
-        background: linear-gradient(160deg, #0d1320 0%, #0a0f1a 100%);
-        border: 1px solid rgba(16,185,129,0.2);
-        border-radius: 16px; padding: 36px;
-        box-shadow: 0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(16,185,129,0.05);
+        width: 100%; max-width: 540px;
+        background: linear-gradient(160deg, #0f172a 0%, #090e17 100%);
+        border: 1px solid rgba(16,185,129,0.35);
+        border-radius: 16px; padding: 32px;
+        box-shadow: 0 30px 80px rgba(0,0,0,0.85), 0 0 0 1px rgba(16,185,129,0.12);
         animation: rnSlideUp 0.35s cubic-bezier(0.34,1.56,0.64,1);
         position: relative;
+        color: #f8fafc;
       ">
         <!-- Version badge -->
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <div style="width: 40px; height: 40px; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--accent-emerald, #10b981)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 42px; height: 42px; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.35); border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             </div>
             <div>
-              <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;">Valenixia POS</div>
-              <div style="font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 800; color: #f1f5f9; letter-spacing: -0.03em;">What's New in v${version}</div>
+              <div style="font-size: 11px; color: #34d399; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;">Valenixia POS</div>
+              <div style="font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: -0.02em;">What's New in v${version}</div>
             </div>
           </div>
-          <span style="font-size: 10px; color: #475569;">${dateStr}</span>
+          <span style="font-size: 11px; color: #94a3b8; font-weight: 600;">${dateStr}</span>
         </div>
 
         <!-- Divider -->
-        <div style="height: 1px; background: rgba(255,255,255,0.05); margin-bottom: 20px;"></div>
+        <div style="height: 1px; background: rgba(255,255,255,0.1); margin-bottom: 18px;"></div>
 
         <!-- Changelog list -->
         <ul style="list-style: none; padding: 0; margin: 0 0 24px 0; max-height: 320px; overflow-y: auto;">
@@ -18494,11 +18495,13 @@ setHtml(modal, `
         </ul>
 
         <!-- Download links -->
-        <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
-          <a href="/downloads/valenixia-pos.apk" download="valenixia-pos.apk" target="_blank" style="flex: 1; min-width: 120px; text-align: center; text-decoration: none; padding: 10px 12px; background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.2); border-radius: 6px; font-size: 11px; font-weight: 700;">
+        <div style="display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap;">
+          <a href="/downloads/valenixia-pos.apk" download="valenixia-pos.apk" target="_blank" style="flex: 1; min-width: 130px; text-align: center; text-decoration: none; padding: 11px 14px; background: rgba(16,185,129,0.16); color: #34d399; border: 1px solid rgba(16,185,129,0.35); border-radius: 8px; font-size: 12px; font-weight: 800; letter-spacing: 0.03em; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             GET APK (Android)
           </a>
-          <a href="/downloads/valenixia-pos.exe" download="valenixia-pos.exe" target="_blank" style="flex: 1; min-width: 120px; text-align: center; text-decoration: none; padding: 10px 12px; background: rgba(255,255,255,0.04); color: #94a3b8; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; font-size: 11px; font-weight: 700;">
+          <a href="/downloads/valenixia-pos.exe" download="valenixia-pos.exe" target="_blank" style="flex: 1; min-width: 130px; text-align: center; text-decoration: none; padding: 11px 14px; background: rgba(255,255,255,0.08); color: #f8fafc; border: 1px solid rgba(255,255,255,0.22); border-radius: 8px; font-size: 12px; font-weight: 800; letter-spacing: 0.03em; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             GET WINDOWS
           </a>
         </div>
@@ -18506,11 +18509,13 @@ setHtml(modal, `
         <!-- Dismiss -->
         <button id="btn-dismiss-release-notes" style="
           width: 100%; padding: 14px;
-          background: #10b981; color: #060608;
-          font-family: 'Manrope', sans-serif; font-size: 13px; font-weight: 800;
-          border: none; border-radius: 8px; cursor: pointer;
-          text-transform: uppercase; letter-spacing: 0.05em;
-          transition: opacity 0.15s;
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: #022c22;
+          font-family: 'Manrope', sans-serif; font-size: 14px; font-weight: 800;
+          border: none; border-radius: 10px; cursor: pointer;
+          text-transform: uppercase; letter-spacing: 0.06em;
+          box-shadow: 0 4px 14px rgba(16,185,129,0.35);
+          transition: all 0.15s;
         ">Got it, let's go!</button>
       </div>
     `);
@@ -22074,26 +22079,26 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       .replace(/>/g, '&gt;');
     
     // Headers
-    html = html.replace(/^### (.*$)/gim, '<h4 style="color:var(--accent-emerald);margin:16px 0 8px;font-size:13px;font-weight:700;">$1</h4>');
-    html = html.replace(/^## (.*$)/gim, '<h3 style="color:var(--text-white);margin:20px 0 10px;font-size:15px;font-weight:800;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:6px;">$1</h3>');
-    html = html.replace(/^# (.*$)/gim, '<h2 style="color:var(--text-white);margin:0 0 14px;font-size:17px;font-weight:900;">$1</h2>');
+    html = html.replace(/^### (.*$)/gim, '<h4 style="color:var(--accent-emerald);margin:16px 0 8px;font-size:13.5px;font-weight:800;">$1</h4>');
+    html = html.replace(/^## (.*$)/gim, '<h3 style="color:var(--text-white);margin:20px 0 10px;font-size:15px;font-weight:800;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:6px;">$1</h3>');
+    html = html.replace(/^# (.*$)/gim, '<h2 style="color:var(--text-white);margin:0 0 14px;font-size:18px;font-weight:900;">$1</h2>');
 
     // Bold & Italic
-    html = html.replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--text-white);">$1</strong>');
-    html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--text-white);font-weight:700;">$1</strong>');
+    html = html.replace(/\*(.*?)\*/g, '<em style="color:var(--text-white);">$1</em>');
 
     // Horizontal rules
-    html = html.replace(/^---$/gim, '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:16px 0;">');
+    html = html.replace(/^---$/gim, '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.1);margin:16px 0;">');
 
     // Bullet points
-    html = html.replace(/^\- (.*$)/gim, '<li style="margin-bottom:6px;color:var(--text-light);list-style:disc inside;">$1</li>');
+    html = html.replace(/^\- (.*$)/gim, '<li style="margin-bottom:8px;color:var(--text-muted);list-style:disc inside;line-height:1.55;">$1</li>');
 
     // Paragraphs
     html = html.split('\n\n').map(p => {
       const trimmed = p.trim();
       if (!trimmed) return '';
       if (trimmed.startsWith('<h') || trimmed.startsWith('<hr') || trimmed.startsWith('<li')) return trimmed;
-      return `<p style="margin:0 0 12px;line-height:1.6;color:var(--text-light);">${trimmed.replace(/\n/g, '<br>')}</p>`;
+      return `<p style="margin:0 0 12px;line-height:1.6;color:var(--text-muted);font-size:12.5px;">${trimmed.replace(/\n/g, '<br>')}</p>`;
     }).filter(Boolean).join('');
 
     return html;

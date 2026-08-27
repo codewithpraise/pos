@@ -40,10 +40,11 @@
   --alert-amber: #ffb347;
   
   /* === Typography === */
-  --text-white: #f0f4ff;              /* Cooler, more premium off-white */
-  --text-muted: #c8d0e7;              /* Bright secondary text */
-  --text-gray: #7a8bb0;               /* Muted tertiary */
-  --text-dim: #4a5478;                /* Very muted quaternary */
+  --text-white: #f8fafc;              /* Pure crisp high-contrast off-white */
+  --text-light: #f1f5f9;              /* High-contrast reading white */
+  --text-muted: #e2e8f0;              /* Bright legible secondary text */
+  --text-gray: #94a3b8;               /* High-contrast tertiary (WCAG AAA) */
+  --text-dim: #64748b;                /* Clean quaternary caption text */
   --text-dark: #080810;
   --success: #00d68f;
   --warning: #ffb347;
