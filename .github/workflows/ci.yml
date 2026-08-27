@@ -97,10 +97,12 @@ jobs:
 
           # Start Headless Chrome for Chrome DevTools Protocol
           CHROME_BIN="${CHROME_PATH:-$(which google-chrome || which chromium-browser || which chromium || echo "google-chrome")}"
+          CHROME_TMP_DIR=$(mktemp -d)
           $CHROME_BIN \
             --headless=new \
             --remote-debugging-port=9222 \
-            --remote-allow-origins=* \
+            --remote-allow-origins="*" \
+            --user-data-dir="$CHROME_TMP_DIR" \
             --disable-gpu \
             --no-sandbox \
             --disable-setuid-sandbox \
