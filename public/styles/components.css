@@ -6919,11 +6919,13 @@ table.report-table * {
 /* 2. Filter Pills, Category Bars & Button Nav Strips */
 .quick-catalog-filters,
 .history-filter-pills,
+.history-filter-row,
 .analytics-range-group,
 .logs-tabs-nav,
 #checkout-quick-filters,
 #logs-tabs-nav,
 #analytics-range-group,
+#history-filter-row,
 .pill-bar,
 .filter-bar,
 .nav-row {

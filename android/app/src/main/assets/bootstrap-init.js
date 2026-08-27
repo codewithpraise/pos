@@ -138,13 +138,38 @@ window.logDiagnostic = function(lvl, src, msg, meta) {
 
 // ══════════════════════════════════════════════════════════════════════════════
 // RUNTIME PLATFORM CAPABILITY MODEL
-// Restricts 'Get Apps' topbar button exclusively to WEB application surface
+// Restricts 'Get Apps' download buttons exclusively to WEB browser application surface
 // ══════════════════════════════════════════════════════════════════════════════
-window.APP_SURFACE = (function() {
+window.detectAppSurface = function() {
   const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
-  const isCapacitor = !!(window.Capacitor || window.AndroidBridge || window.AndroidPOS || window.AndroidHardware || window.Android || ua.includes('ValenixiaAndroidApp') || ua.includes('ValenixiaPOSApp'));
-  const isElectron = !!(window.electron || window.electronAPI || window.isDesktopApp || window.desktopNative || window.__VALENIXIA_DESKTOP__ || (typeof process !== 'undefined' && process.versions && process.versions.electron) || ua.includes('Electron'));
-  const isPwa = !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || (typeof navigator !== 'undefined' && navigator.standalone === true);
+  const isCapacitor = !!(
+    window.Capacitor ||
+    window.AndroidBridge ||
+    window.AndroidPOS ||
+    window.AndroidHardware ||
+    window.Android ||
+    window.AndroidInterface ||
+    ua.includes('ValenixiaAndroidApp') ||
+    ua.includes('ValenixiaPOSApp') ||
+    ua.includes('; wv') ||
+    (ua.includes('Android') && ua.includes('Version/4.0')) ||
+    (typeof location !== 'undefined' && (location.protocol === 'file:' || location.protocol === 'capacitor:'))
+  );
+  const isElectron = !!(
+    window.electron ||
+    window.electronAPI ||
+    window.isDesktopApp ||
+    window.desktopNative ||
+    window.__VALENIXIA_DESKTOP__ ||
+    (typeof process !== 'undefined' && process.versions && process.versions.electron) ||
+    ua.includes('Electron') ||
+    ua.includes('ValenixiaDesktop')
+  );
+  const isPwa = !!(
+    (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) ||
+    (typeof navigator !== 'undefined' && navigator.standalone === true) ||
+    (typeof document !== 'undefined' && document.referrer && document.referrer.includes('android-app://'))
+  );
 
   let kind = 'WEB';
   if (isCapacitor) kind = 'MOBILE';
@@ -156,19 +181,29 @@ window.APP_SURFACE = (function() {
     kind: kind,
     isWeb: isWeb,
     canInstallApps: isWeb,
-    showGetApps: isWeb
+    showGetApps: isWeb,
+    isNative: !isWeb,
+    toString: function() { return kind; },
+    valueOf: function() { return kind; }
   });
-})();
+};
+
+window.applyAppSurfaceVisibility = function() {
+  const surface = window.APP_SURFACE || window.detectAppSurface();
+  if (!surface || !surface.showGetApps) {
+    const targets = document.querySelectorAll(
+      '#btn-topbar-apps-download, #nav-apps-download, #nav-item-apps-download, [data-screen="apps-download"], .btn-apps, .web-only-btn'
+    );
+    targets.forEach(el => {
+      try { el.remove(); } catch (_) { el.style.display = 'none'; }
+    });
+  }
+};
+
+window.APP_SURFACE = window.detectAppSurface();
 
 document.addEventListener('DOMContentLoaded', () => {
-  const btnGetApps = document.getElementById('btn-topbar-apps-download');
-  if (btnGetApps) {
-    if (window.APP_SURFACE && window.APP_SURFACE.showGetApps) {
-      btnGetApps.style.setProperty('display', 'inline-flex', 'important');
-    } else {
-      btnGetApps.remove();
-    }
-  }
+  window.applyAppSurfaceVisibility();
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -2453,28 +2488,8 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 (function initAppSurfaceAndIdentity() {
-  const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
-  const isPWA = (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) || (typeof navigator !== 'undefined' && navigator.standalone === true);
-  const isDesktop = ua.includes('Electron') || ua.includes('ValenixiaDesktop');
-  const isMobileApp = (typeof location !== 'undefined' && location.protocol === 'file:' && ua.includes('Android')) || typeof window.AndroidInterface !== 'undefined';
-
-  const kind = isPWA ? 'PWA' : (isDesktop ? 'DESKTOP' : (isMobileApp ? 'MOBILE' : 'WEB'));
-  const showGetApps = kind === 'WEB';
-
-  window.APP_SURFACE = Object.assign(kind, {
-    kind: kind,
-    showGetApps: showGetApps,
-    toString: function() { return kind; },
-    valueOf: function() { return kind; }
-  });
-
-  const btnGetApps = typeof document !== 'undefined' ? document.getElementById('btn-topbar-apps-download') : null;
-  if (btnGetApps) {
-    if (!showGetApps) {
-      try { btnGetApps.remove(); } catch (_) { btnGetApps.style.display = 'none'; }
-    } else {
-      btnGetApps.style.display = 'inline-flex';
-    }
+  if (typeof window.applyAppSurfaceVisibility === 'function') {
+    window.applyAppSurfaceVisibility();
   }
 })();
 

@@ -4306,7 +4306,13 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
     // Hide or wire web-only Get Apps download button based on APP_SURFACE
     const showGetApps = window.APP_SURFACE ? window.APP_SURFACE.showGetApps : true;
     if (!showGetApps) {
-      document.querySelectorAll('#nav-item-apps-download, #btn-topbar-apps-download, .web-only-btn').forEach(el => el.remove());
+      if (typeof window.applyAppSurfaceVisibility === 'function') {
+        window.applyAppSurfaceVisibility();
+      } else {
+        document.querySelectorAll('#btn-topbar-apps-download, #nav-apps-download, #nav-item-apps-download, [data-screen="apps-download"], .btn-apps, .web-only-btn').forEach(el => {
+          try { el.remove(); } catch(_) { el.style.display = 'none'; }
+        });
+      }
     } else {
       const getAppsBtn = document.getElementById('btn-topbar-apps-download');
       if (getAppsBtn) {
@@ -14280,15 +14286,82 @@ setHtml(row, `
 
     const paymentMethod = (t.paymentMethod || t.payment_mode || t.paymentMode || t.payment_method || t.mode || 'CASH').toString().toUpperCase();
 
-    const items = (t.items || []).map(item => ({
-      productId: (item.productId || item.id || item.product_id || '').toString(),
-      sku: (item.sku || item.product_sku || '').toString(),
-      name: (item.name || item.title || 'Product').toString(),
-      category: (item.category || item.category_name || item.category_id || item.categoryId || 'General').toString(),
-      quantity: Number(item.quantity || item.qty || 1),
-      unitPriceMinor: item.unitPriceMinor !== undefined ? Number(item.unitPriceMinor || 0) : (item.unit_price_minor_units !== undefined ? Number(item.unit_price_minor_units || 0) : Math.round(Number(item.price || item.unitPrice || 0) * 100)),
-      totalMinor: item.totalMinor !== undefined ? Number(item.totalMinor || 0) : (item.total_minor_units !== undefined ? Number(item.total_minor_units || 0) : Math.round(Number(item.price || item.unitPrice || 0) * (item.quantity || 1) * 100))
-    }));
+    let rawItems = t.items;
+    if (typeof rawItems === 'string') {
+      try { rawItems = JSON.parse(rawItems); } catch (_) { rawItems = []; }
+    }
+    if (!Array.isArray(rawItems)) rawItems = [];
+
+    const items = rawItems.map(item => {
+      if (!item) return null;
+      const sku = (item.sku || item.product_sku || '').toString();
+      const productId = (item.productId || item.id || item.product_id || '').toString();
+      const name = (item.name || item.title || 'Product').toString();
+      const category = (item.category || item.category_name || item.category_id || item.categoryId || 'General').toString();
+      const quantity = Number(item.quantity || item.qty || 1);
+
+      let unitPriceMinor = 0;
+      if (item.unitPriceMinor !== undefined && Number(item.unitPriceMinor) > 0) {
+        unitPriceMinor = Number(item.unitPriceMinor);
+      } else if (item.unit_price_minor_units !== undefined && Number(item.unit_price_minor_units) > 0) {
+        unitPriceMinor = Number(item.unit_price_minor_units);
+      } else if (item.price !== undefined && Number(item.price) > 0) {
+        unitPriceMinor = Math.round(Number(item.price) * 100);
+      } else if (item.unitPrice !== undefined && Number(item.unitPrice) > 0) {
+        unitPriceMinor = Math.round(Number(item.unitPrice) * 100);
+      }
+
+      let totalMinor = item.totalMinor !== undefined ? Number(item.totalMinor || 0) : (item.total_minor_units !== undefined ? Number(item.total_minor_units || 0) : Math.round(unitPriceMinor * quantity));
+
+      // Cost price resolution:
+      // 1. Direct from item properties
+      let costPriceMinor = 0;
+      if (item.costPriceMinor !== undefined && Number(item.costPriceMinor) > 0) {
+        costPriceMinor = Number(item.costPriceMinor);
+      } else if (item.cost_price_minor_units !== undefined && Number(item.cost_price_minor_units) > 0) {
+        costPriceMinor = Number(item.cost_price_minor_units);
+      } else if (item.cost_price !== undefined && Number(item.cost_price) > 0) {
+        costPriceMinor = Math.round(Number(item.cost_price) * 100);
+      } else if (item.cost !== undefined && Number(item.cost) > 0) {
+        costPriceMinor = Math.round(Number(item.cost) * 100);
+      }
+
+      // 2. Catalog product lookup
+      if (!costPriceMinor || costPriceMinor <= 0) {
+        const cat = (state.catalog || []).find(p => p && (p.sku === sku || (productId && p.id === productId)));
+        if (cat) {
+          if (cat.cost_price_minor_units && Number(cat.cost_price_minor_units) > 0) {
+            costPriceMinor = Number(cat.cost_price_minor_units);
+          } else if (cat.cost_price && Number(cat.cost_price) > 0) {
+            costPriceMinor = Math.round(Number(cat.cost_price) * 100);
+          } else if (cat.cost && Number(cat.cost) > 0) {
+            costPriceMinor = Math.round(Number(cat.cost) * 100);
+          }
+        }
+      }
+
+      // 3. Realistic wholesale cost fallback (~70% cost, ~30% margin) if no PO/cost was ever recorded
+      if (!costPriceMinor || costPriceMinor <= 0) {
+        costPriceMinor = Math.round(unitPriceMinor * 0.70);
+      }
+
+      return {
+        productId,
+        sku,
+        name,
+        category,
+        quantity,
+        unitPriceMinor,
+        totalMinor,
+        costPriceMinor,
+        // Compatibility aliases for legacy matrix and export functions:
+        unit_price_minor_units: unitPriceMinor,
+        cost_price_minor_units: costPriceMinor,
+        price: unitPriceMinor / 100.0,
+        cost: costPriceMinor / 100.0,
+        total_minor_units: totalMinor
+      };
+    }).filter(Boolean);
 
     return {
       transactionId,
@@ -14538,37 +14611,40 @@ setHtml(row, `
     return all.filter(t => t.timestampMs >= priorFromTs && t.timestampMs <= priorToTs);
   }
 
+  function updateAnalyticsRangeUI(range) {
+    state.analyticsRange = range;
+    const group = document.getElementById('analytics-range-group');
+    if (group) {
+      group.querySelectorAll('.analytics-range-btn').forEach(b => {
+        const isCurrent = b.dataset.range === range;
+        b.style.background = isCurrent ? 'var(--accent-emerald)' : 'transparent';
+        b.style.color = isCurrent ? '#fff' : 'var(--text-gray)';
+        b.setAttribute('aria-pressed', isCurrent ? 'true' : 'false');
+        if (isCurrent) b.classList.add('active');
+        else b.classList.remove('active');
+      });
+    }
+    const periodSelect = document.getElementById('analytics-filter-period');
+    if (periodSelect && periodSelect.value !== range) {
+      periodSelect.value = range;
+    }
+    const customContainer = document.getElementById('analytics-custom-date-container');
+    if (customContainer) {
+      customContainer.style.display = range === 'custom' ? 'flex' : 'none';
+    }
+  }
+
   function initAnalyticsControls() {
     const group = document.getElementById('analytics-range-group');
     if (group) {
       const activeRange = state.analyticsRange || 'today';
-      group.querySelectorAll('.analytics-range-btn').forEach(btn => {
-        const isCurrent = btn.dataset.range === activeRange;
-        btn.style.background = isCurrent ? 'var(--accent-emerald)' : 'transparent';
-        btn.style.color = isCurrent ? '#fff' : 'var(--text-gray)';
-        btn.setAttribute('aria-pressed', isCurrent ? 'true' : 'false');
-        if (isCurrent) btn.classList.add('active');
-        else btn.classList.remove('active');
+      updateAnalyticsRangeUI(activeRange);
 
+      group.querySelectorAll('.analytics-range-btn').forEach(btn => {
         btn.onclick = (e) => {
           e.preventDefault();
-          group.querySelectorAll('.analytics-range-btn').forEach(b => {
-            b.style.background = 'transparent';
-            b.style.color = 'var(--text-gray)';
-            b.setAttribute('aria-pressed', 'false');
-            b.classList.remove('active');
-          });
-          btn.style.background = 'var(--accent-emerald)';
-          btn.style.color = '#fff';
-          btn.setAttribute('aria-pressed', 'true');
-          btn.classList.add('active');
-
-          state.analyticsRange = btn.dataset.range;
-          
-          const customContainer = document.getElementById('analytics-custom-date-container');
-          if (customContainer) {
-            customContainer.style.display = state.analyticsRange === 'custom' ? 'flex' : 'none';
-          }
+          const chosen = btn.dataset.range;
+          updateAnalyticsRangeUI(chosen);
           
           if (state.analyticsRange !== 'custom') {
             const loader = document.getElementById('analytics-loading-overlay');
@@ -14586,6 +14662,28 @@ setHtml(row, `
           announceToScreenReader(`Analytics filtered to ${btn.textContent.trim()}`);
         };
       });
+    }
+
+    const periodSelect = document.getElementById('analytics-filter-period');
+    if (periodSelect) {
+      periodSelect.value = state.analyticsRange || 'today';
+      periodSelect.onchange = () => {
+        const val = periodSelect.value || 'today';
+        updateAnalyticsRangeUI(val);
+        if (val !== 'custom') {
+          const loader = document.getElementById('analytics-loading-overlay');
+          if (loader) {
+            loader.style.display = 'flex';
+            setTimeout(() => {
+              loader.style.display = 'none';
+              calculateAnalytics();
+            }, 300);
+          } else {
+            calculateAnalytics();
+          }
+        }
+        try { playAudioSignal('click'); } catch(_) {}
+      };
     }
 
     const applyBtn = document.getElementById('btn-analytics-custom-apply');
@@ -14685,6 +14783,7 @@ setHtml(row, `
           const s = document.getElementById(`analytics-filter-${fKey}`);
           if (s) s.value = 'ALL';
         });
+        updateAnalyticsRangeUI('today');
         try { playAudioSignal('click'); } catch(_) {}
         calculateAnalytics();
       };
@@ -15354,18 +15453,46 @@ setHtml(row, `
 
     (state.catalog || []).forEach(item => {
       if (!item) return;
-      const basePrice = item.base_price_minor_units;
-      if (!basePrice) return;
+      const basePrice = Number(item.base_price_minor_units || (item.price !== undefined ? Math.round(Number(item.price) * 100) : 0));
+      if (!basePrice || basePrice <= 0) return;
       
-      // Assume wholesale cost is ~70% of retail price if no PO costs exist
-      const cost = Math.round(basePrice * 0.7);
-      const margin = basePrice - cost;
+      let cost = 0;
+      if (item.cost_price_minor_units && Number(item.cost_price_minor_units) > 0) {
+        cost = Number(item.cost_price_minor_units);
+      } else if (item.cost_price && Number(item.cost_price) > 0) {
+        cost = Math.round(Number(item.cost_price) * 100);
+      } else if (item.cost && Number(item.cost) > 0) {
+        cost = Math.round(Number(item.cost) * 100);
+      } else {
+        cost = Math.round(basePrice * 0.70);
+      }
+
+      const margin = Math.max(0, basePrice - cost);
       const marginRate = (margin / basePrice) * 100;
       totalMarginRate += marginRate;
       productCount++;
     });
 
-    const avgMarginRate = productCount > 0 ? (totalMarginRate / productCount) : 0;
+    let avgMarginRate = productCount > 0 ? (totalMarginRate / productCount) : 0;
+    
+    // If catalog has no price items yet, calculate average margin from actual transaction items
+    if (avgMarginRate === 0 && Array.isArray(state.transactions) && state.transactions.length > 0) {
+      let realizedRev = 0;
+      let realizedCost = 0;
+      state.transactions.forEach(t => {
+        const norm = normalizeTransactionForAnalytics(t);
+        if (!norm) return;
+        realizedRev += norm.totalMinor;
+        (norm.items || []).forEach(it => {
+          const qty = Number(it.quantity || it.qty || 1);
+          const c = Number(it.costPriceMinor || it.cost_price_minor_units || Math.round((it.unitPriceMinor || 0) * 0.70));
+          realizedCost += c * qty;
+        });
+      });
+      if (realizedRev > 0) {
+        avgMarginRate = Math.max(0, ((realizedRev - realizedCost) / realizedRev) * 100);
+      }
+    }
 
     const recvVal = document.getElementById('bi-receivables-val');
     const payVal = document.getElementById('bi-payables-val');
@@ -15402,7 +15529,7 @@ setHtml(row, `
     const sourceTxs = txs || state.transactions || [];
     sourceTxs.forEach(t => {
       if (!t) return;
-      const bId = t.branch_id || t.store_id || 'main';
+      const bId = t.branch_id || t.branchId || t.store_id || 'main';
       if (!branchMap[bId]) {
         branchMap[bId] = { id: bId, name: bId === 'main' ? defaultBranch : `Branch (${bId})`, revenue: 0, orders: 0, cost: 0 };
       }
@@ -15414,12 +15541,14 @@ setHtml(row, `
         if (!item) return;
         const qty = Number(item.quantity || item.qty || 1);
         let uPrice = 0;
-        if (item.unit_price_minor_units !== undefined && Number(item.unit_price_minor_units) > 0) {
+        if (item.unitPriceMinor !== undefined && Number(item.unitPriceMinor) > 0) {
+          uPrice = Number(item.unitPriceMinor);
+        } else if (item.unit_price_minor_units !== undefined && Number(item.unit_price_minor_units) > 0) {
           uPrice = Number(item.unit_price_minor_units);
         } else if (item.price !== undefined && Number(item.price) > 0) {
-          uPrice = Number(item.price);
+          uPrice = Math.round(Number(item.price) * 100);
         }
-        const cost = Number(item.cost_price_minor_units || Math.round(uPrice * 0.7));
+        const cost = Number(item.costPriceMinor || item.cost_price_minor_units || Math.round(uPrice * 0.70));
         branchMap[bId].cost += cost * qty;
       });
     });
@@ -15431,7 +15560,7 @@ setHtml(row, `
     }
 
     branches.forEach(b => {
-      const margin = b.revenue - b.cost;
+      const margin = Math.max(0, b.revenue - b.cost);
       const marginPct = b.revenue > 0 ? ((margin / b.revenue) * 100).toFixed(1) : '0.0';
       const tr = document.createElement('tr');
       tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
@@ -22302,6 +22431,9 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       const btn = document.getElementById('btn-topbar-overflow-toggle');
       const menu = document.getElementById('topbar-overflow-menu');
       if (!btn || !menu) return;
+      if (typeof window.applyAppSurfaceVisibility === 'function') {
+        window.applyAppSurfaceVisibility();
+      }
       if (menu.parentElement !== document.body) {
         try { document.body.appendChild(menu); } catch (_) {}
       }

@@ -453,6 +453,55 @@
     flex-direction: column !important;
     gap: 14px !important;
   }
+  .analytics-header-row {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+  .analytics-header-row > div {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+  #analytics-range-group,
+  .analytics-range-group {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    gap: 6px !important;
+    padding: 4px !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid var(--border-titanium) !important;
+    border-radius: 10px !important;
+    box-sizing: border-box !important;
+  }
+  #analytics-range-group::-webkit-scrollbar,
+  .analytics-range-group::-webkit-scrollbar {
+    display: none !important;
+  }
+  #analytics-range-group .analytics-range-btn,
+  .analytics-range-group .analytics-range-btn {
+    flex: 1 0 auto !important;
+    min-width: 64px !important;
+    min-height: 38px !important;
+    padding: 8px 12px !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    border-radius: 8px !important;
+    text-align: center !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
   #analytics-multidim-filter-bar {
     display: flex !important;
     flex-direction: column !important;
@@ -463,6 +512,12 @@
     gap: 12px !important;
     padding: 14px !important;
     box-sizing: border-box !important;
+  }
+  .analytics-filters-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)) !important;
+    gap: 10px !important;
+    width: 100% !important;
   }
   #view-analytics .kpi-grid {
     display: grid !important;
