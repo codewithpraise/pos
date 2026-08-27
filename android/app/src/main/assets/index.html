@@ -27,13 +27,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <script src="polyfill.min.js"></script>
-  <link rel="stylesheet" href="styles/design-tokens.css?v=3.1.0-prod-5b6d127">
-  <link rel="stylesheet" href="styles/themes.css?v=3.1.0-prod-5b6d127">
-  <link rel="stylesheet" href="styles/animations.css?v=3.1.0-prod-5b6d127">
-  <link rel="stylesheet" href="styles/components.css?v=3.1.0-prod-5b6d127">
-  <link rel="stylesheet" href="styles/mobile-scale.css?v=3.1.0-prod-5b6d127">
-  <link rel="stylesheet" href="style.css?v=3.1.0-prod-5b6d127">
-  <script src="theme-transfer.js?v=3.1.0-prod-5b6d127"></script>
+  <link rel="stylesheet" href="styles/design-tokens.css?v=3.2.0-prod-5b6d127">
+  <link rel="stylesheet" href="styles/themes.css?v=3.2.0-prod-5b6d127">
+  <link rel="stylesheet" href="styles/animations.css?v=3.2.0-prod-5b6d127">
+  <link rel="stylesheet" href="styles/components.css?v=3.2.0-prod-5b6d127">
+  <link rel="stylesheet" href="styles/mobile-scale.css?v=3.2.0-prod-5b6d127">
+  <link rel="stylesheet" href="style.css?v=3.2.0-prod-5b6d127">
+  <script src="theme-transfer.js?v=3.2.0-prod-5b6d127"></script>
 </head>
 <body>
   <!-- STATIC EMERGENCY RECOVERY FALLBACK (No-JS / Catastrophic Fallback Node) -->
@@ -52,7 +52,7 @@
 
   <!-- ELEGANT BOOTSTRAPPING SPLASH OVERLAY WITH DIAGNOSTIC TERMINAL -->
   <div id="app-boot-loader" style="position:fixed;inset:0;z-index:99999;background:#060609;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-family:'Manrope',sans-serif;transition:opacity 0.3s ease, visibility 0.3s ease;padding:20px;box-sizing:border-box;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;">
-    <div style="font-family:'Outfit',sans-serif;font-size:24px;font-weight:900;background:linear-gradient(135deg,#00d68f,#10b981);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:2px;">Valenixia POS <span style="font-size:12px; font-weight:800; color:#10b981; vertical-align:middle; letter-spacing:0;">v3.1.0</span></div>
+    <div style="font-family:'Outfit',sans-serif;font-size:24px;font-weight:900;background:linear-gradient(135deg,#00d68f,#10b981);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:2px;">Valenixia POS <span style="font-size:12px; font-weight:800; color:#10b981; vertical-align:middle; letter-spacing:0;">v3.2.0</span></div>
     <div style="font-size:11px;color:#6b7280;letter-spacing:0.05em;text-transform:uppercase;" id="app-boot-loader-status">Initializing local runtime...</div>
     <div style="width:180px;height:3px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;margin-top:2px;">
       <div id="app-boot-loader-progress" style="width:30%;height:100%;background:linear-gradient(90deg,#00d68f,#10b981);border-radius:99px;transition:width 0.3s ease;"></div>
@@ -125,7 +125,7 @@
         </div>
         <div class="brand-text">
           <h1 id="sidebar-store-name">VALENIXIA</h1>
-          <span>Point of Sale <span style="font-size:9px; background:rgba(0,214,143,0.15); color:var(--accent-emerald); padding:1px 5px; border-radius:4px; font-weight:800; border:1px solid rgba(0,214,143,0.3); margin-left:4px;">v3.1.0</span></span>
+          <span>Point of Sale <span style="font-size:9px; background:rgba(0,214,143,0.15); color:var(--accent-emerald); padding:1px 5px; border-radius:4px; font-weight:800; border:1px solid rgba(0,214,143,0.3); margin-left:4px;">v3.2.0</span></span>
         </div>
       </div>
       
@@ -790,7 +790,7 @@
                       </div>
                       <div>
                         <h3 style="margin: 0; font-size: 18px; font-weight: 800; color: var(--text-white);">Android Mobile &amp; Tablet</h3>
-                        <span style="font-size: 11px; color: var(--accent-emerald); font-weight: 700;">Native APK • v3.1.0 Production</span>
+                        <span style="font-size: 11px; color: var(--accent-emerald); font-weight: 700;">Native APK • v3.2.0 Production</span>
                       </div>
                     </div>
                     <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 4px 8px; border-radius: 6px; background: rgba(0,214,143,0.15); color: var(--accent-emerald); border: 1px solid rgba(0,214,143,0.3);">Handheld / POS</span>
@@ -812,9 +812,9 @@
                   </a>
                   
                   <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
-                    <a href="/downloads/Valenixia-POS-v3.1.0-arm64-v8a.apk" download="Valenixia-POS-v3.1.0-arm64-v8a.apk" style="font-size: 10px; padding: 6px 4px; text-align: center; text-decoration: none; border-radius: 6px; font-weight: 700; background: rgba(255,255,255,0.04); color: var(--text-gray); border: 1px solid var(--border-titanium);">ARM64 (64-bit)</a>
-                    <a href="/downloads/Valenixia-POS-v3.1.0-armeabi-v7a.apk" download="Valenixia-POS-v3.1.0-armeabi-v7a.apk" style="font-size: 10px; padding: 6px 4px; text-align: center; text-decoration: none; border-radius: 6px; font-weight: 700; background: rgba(255,255,255,0.04); color: var(--text-gray); border: 1px solid var(--border-titanium);">ARMv7 (32-bit)</a>
-                    <a href="/downloads/Valenixia-POS-v3.1.0-x86_64.apk" download="Valenixia-POS-v3.1.0-x86_64.apk" style="font-size: 10px; padding: 6px 4px; text-align: center; text-decoration: none; border-radius: 6px; font-weight: 700; background: rgba(255,255,255,0.04); color: var(--text-gray); border: 1px solid var(--border-titanium);">x86_64 (Intel)</a>
+                    <a href="/downloads/Valenixia-POS-v3.2.0-arm64-v8a.apk" download="Valenixia-POS-v3.2.0-arm64-v8a.apk" style="font-size: 10px; padding: 6px 4px; text-align: center; text-decoration: none; border-radius: 6px; font-weight: 700; background: rgba(255,255,255,0.04); color: var(--text-gray); border: 1px solid var(--border-titanium);">ARM64 (64-bit)</a>
+                    <a href="/downloads/Valenixia-POS-v3.2.0-armeabi-v7a.apk" download="Valenixia-POS-v3.2.0-armeabi-v7a.apk" style="font-size: 10px; padding: 6px 4px; text-align: center; text-decoration: none; border-radius: 6px; font-weight: 700; background: rgba(255,255,255,0.04); color: var(--text-gray); border: 1px solid var(--border-titanium);">ARMv7 (32-bit)</a>
+                    <a href="/downloads/Valenixia-POS-v3.2.0-x86_64.apk" download="Valenixia-POS-v3.2.0-x86_64.apk" style="font-size: 10px; padding: 6px 4px; text-align: center; text-decoration: none; border-radius: 6px; font-weight: 700; background: rgba(255,255,255,0.04); color: var(--text-gray); border: 1px solid var(--border-titanium);">x86_64 (Intel)</a>
                   </div>
                   <span style="font-family: var(--font-mono); font-size: 10.5px; color: var(--text-gray); text-align: center;">valenixia-pos.apk • 16.74 MB • Android 8.0+</span>
                 </div>
@@ -830,7 +830,7 @@
                       </div>
                       <div>
                         <h3 style="margin: 0; font-size: 18px; font-weight: 800; color: var(--text-white);">Desktop Windows Application</h3>
-                        <span style="font-size: 11px; color: #3b82f6; font-weight: 700;">Windows x64 • v3.1.0 Production</span>
+                        <span style="font-size: 11px; color: #3b82f6; font-weight: 700;">Windows x64 • v3.2.0 Production</span>
                       </div>
                     </div>
                     <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 4px 8px; border-radius: 6px; background: rgba(59,130,246,0.15); color: #3b82f6; border: 1px solid rgba(59,130,246,0.3);">Master Server</span>

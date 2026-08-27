@@ -1,7 +1,7 @@
 {
   "version": "3.2.0",
-  "git_commit": "def9bdf74f6bc7412bf4f40df8bae7567229db56",
-  "build_id": "v3.2.0-prod-def9bdf",
+  "git_commit": "1bbbbad6051d6ae1adbb40ac58df434cbe18c12a",
+  "build_id": "v3.2.0-prod-1bbbbad",
   "artifacts": {
     "app.js": {
       "path": "app.js",
@@ -26,7 +26,7 @@
     "build-id": {
       "path": "build-id",
       "size": 20,
-      "sha256": "dbc21c58daa9ab070b50f409bff674c434c2ae9d8d5c893cab94f924873bbed4"
+      "sha256": "4da4ffbf84fa15296e8fd6f122e8d6b1d6335fe90f8d7241ec1aeee321a47f49"
     },
     "commercial-catalog.js": {
       "path": "commercial-catalog.js",
@@ -41,7 +41,7 @@
     "index.html": {
       "path": "index.html",
       "size": 519605,
-      "sha256": "82b7cb061a72a6d289c995bf0ee4748641787a21f35db1b09c62c40fbd13bf4f"
+      "sha256": "f755fe1b469e200ab3e71adb0e21c182f2d839a4be99f78857f941948de35b46"
     },
     "legal-documents.js": {
       "path": "legal-documents.js",
@@ -56,7 +56,7 @@
     "release-manifest.json": {
       "path": "release-manifest.json",
       "size": 395,
-      "sha256": "5739834bb510ae104f3e6a9f3181bede76bd124e220e6487002c80b5a766fc50"
+      "sha256": "86ded937e745121bd29456c00c6a803f845842fbf2400269fce7240fdd8f6292"
     },
     "sw-loader.js": {
       "path": "sw-loader.js",
@@ -71,7 +71,7 @@
     "version.json": {
       "path": "version.json",
       "size": 1006,
-      "sha256": "bdd7ed3bbe6ae9454f8f689946ba9f874839caac2d9971c717bce7dfc3e4fcb1"
+      "sha256": "d7193f521686bcaf5d30b184a822bb589b6e8164d70272201fd8e1df2018828f"
     }
   }
 }
