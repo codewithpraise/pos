@@ -135,9 +135,11 @@ jobs:
             exit 1
           fi
 
-          # Execute E2E test suites
+          # Execute E2E test suites with error trapping
+          set +e
           npm run test:e2e
           TEST_EXIT_CODE=$?
+          set -e
 
           if [ $TEST_EXIT_CODE -ne 0 ]; then
             echo "=== E2E SUITE FAILED (exit code: $TEST_EXIT_CODE) ==="
@@ -145,11 +147,15 @@ jobs:
             cat server.log || true
             echo "=== CHROME LOG ==="
             cat chrome.log || true
+            if [ -f test-diagnostics.json ]; then
+              echo "=== TEST DIAGNOSTICS ==="
+              cat test-diagnostics.json || true
+            fi
           fi
 
           # Clean up background services
-          kill $SERVER_PID || true
-          kill $CHROME_PID || true
+          kill $SERVER_PID 2>/dev/null || true
+          kill $CHROME_PID 2>/dev/null || true
 
           exit $TEST_EXIT_CODE
 
