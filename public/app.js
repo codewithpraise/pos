@@ -2147,6 +2147,23 @@ setHtml(overlay, `
               window.ValenixiaBootstrap.completeStage('DATABASE_DISCOVERY', { source: 'ValenixiaDB' });
             }
             try {
+              const cachedCatalog = await ValenixiaDB.getAll('inventory_catalog');
+              if (Array.isArray(cachedCatalog) && cachedCatalog.length > 0) {
+                state.catalog = cachedCatalog;
+                state.catalogLoaded = true;
+                if (typeof renderCheckoutScreen === 'function') renderCheckoutScreen();
+                if (typeof renderQuickCatalog === 'function') renderQuickCatalog();
+              } else {
+                const cachedProd = await ValenixiaDB.getAll('products');
+                if (Array.isArray(cachedProd) && cachedProd.length > 0) {
+                  state.catalog = cachedProd;
+                  state.catalogLoaded = true;
+                  if (typeof renderCheckoutScreen === 'function') renderCheckoutScreen();
+                  if (typeof renderQuickCatalog === 'function') renderQuickCatalog();
+                }
+              }
+            } catch (_) {}
+            try {
               const clockOverridePref = await ValenixiaDB.get('local_preferences', 'clock_override_active_until');
               if (clockOverridePref && parseInt(clockOverridePref.value_payload, 10) > Date.now()) {
                 if (!document.getElementById('clock-override-warning-banner')) {
@@ -2763,12 +2780,24 @@ setHtml(overlay, `
 
   function setupGlobalErrorHandlers() {
     function handleGlobalError(errorType, err) {
+      // Filter out non-error DOM Event objects (e.g. image/font/resource 404 load error events)
+      if (err instanceof Event && !(err instanceof ErrorEvent)) {
+        return;
+      }
+      if (err && typeof err === 'object' && !err.message && !err.stack && (err.type === 'error' || err.target)) {
+        return;
+      }
+      const msg = err?.message || (typeof err === 'string' ? err : String(err));
+      if (!msg || msg === '[object Event]' || msg === '[object Object]') {
+        return;
+      }
+
       const hlc = document.getElementById('hlc-clock')?.textContent || '';
       const log = {
         id: generateSecureRandomId(`tl_${Date.now()}_`, 4),
         nodeId: state.nodeId || 'unknown',
         errorType: errorType,
-        errorMessage: err?.message || String(err),
+        errorMessage: msg,
         stackTrace: err?.stack || '',
         hlc,
         lastClicks: _lastClicks.join(' > '),
@@ -2779,7 +2808,13 @@ setHtml(overlay, `
         syncWorker.postMessage({ type: 'SAVE_TELEMETRY', payload: log });
       }
     }
-    window.addEventListener('error', (e) => handleGlobalError('UNCAUGHT_ERROR', e.error || e), { capture: true });
+    window.addEventListener('error', (e) => {
+      if (e && e.error) {
+        handleGlobalError('UNCAUGHT_ERROR', e.error);
+      } else if (e && e.message) {
+        handleGlobalError('UNCAUGHT_ERROR', new Error(e.message));
+      }
+    }, { capture: true });
     window.addEventListener('unhandledrejection', (e) => handleGlobalError('UNHANDLED_REJECTION', e.reason), { capture: true });
   }
 
@@ -3503,6 +3538,9 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
         case 'CHECKOUT_SUCCESS':
           if (window.incrementMonthlyTransactionCount) {
             window.incrementMonthlyTransactionCount(); // Increments transactions_this_month counter
+          }
+          if (window.incrementDailyTransactionCount) {
+            window.incrementDailyTransactionCount(); // Increments daily sales counter
           }
           state.isCheckingOut = false;
           window.__isSubmitting = false;
@@ -10105,10 +10143,21 @@ setHtml(tr, `
 
   // Complete checkout process
   function submitCheckoutTransaction() {
-    if (window.isLimitReached) {
+    if (typeof window.isLimitReached === 'function') {
       const limitStatus = window.isLimitReached();
       if (limitStatus && limitStatus.blocked) {
-        if (window.showUpgradeModal) window.showUpgradeModal('transactions');
+        playAudioSignal('error');
+        state.isCheckingOut = false;
+        window.__isSubmitting = false;
+        if (typeof showUpgradeModal === 'function') {
+          showUpgradeModal(limitStatus.type || 'daily_transactions_quota');
+        } else {
+          showModal({
+            title: 'Free Tier Quota Reached',
+            message: `Free quota reached: Maximum ${limitStatus.limit} transactions per ${limitStatus.period || 'day'} allowed on Free Basic tier.\n\nPlease upgrade to Starter or Pro to process unlimited sales.`,
+            type: 'info'
+          });
+        }
         return;
       }
     }
@@ -10812,8 +10861,28 @@ setHtml(tr, `
   window.quickStockAdjust = quickStockAdjust;
 
   // Render a responsive Quick-Access Product Grid for desktop/tablet middle-column and mobile tab
+  // Render a responsive Quick-Access Product Grid for desktop/tablet middle-column and mobile tab
   function renderQuickGrid(gridContainer, filtersContainer, searchInput, categoryKey, searchKey) {
     if (!gridContainer) return;
+
+    // Asynchronous IndexedDB hydration fallback if state.catalog is empty
+    if ((!Array.isArray(state.catalog) || state.catalog.length === 0) && typeof ValenixiaDB !== 'undefined' && ValenixiaDB.getAll) {
+      ValenixiaDB.getAll('inventory_catalog').then(dbItems => {
+        if (Array.isArray(dbItems) && dbItems.length > 0) {
+          state.catalog = dbItems;
+          state.catalogLoaded = true;
+          renderQuickGrid(gridContainer, filtersContainer, searchInput, categoryKey, searchKey);
+        } else {
+          ValenixiaDB.getAll('products').then(prodItems => {
+            if (Array.isArray(prodItems) && prodItems.length > 0) {
+              state.catalog = prodItems;
+              state.catalogLoaded = true;
+              renderQuickGrid(gridContainer, filtersContainer, searchInput, categoryKey, searchKey);
+            }
+          }).catch(() => {});
+        }
+      }).catch(() => {});
+    }
 
     // 1. Populate category filters if filter container exists
     if (filtersContainer) {
@@ -10868,7 +10937,41 @@ setHtml(tr, `
       return matchesCat && matchesQuery;
     });
 
-    // 3. Render grid cards
+    // 3. Bind container click delegation once for 100% reliable tap handling
+    if (!gridContainer.__hasCardDelegationListener) {
+      gridContainer.__hasCardDelegationListener = true;
+      gridContainer.addEventListener('click', (e) => {
+        if (e.__handledByCard) return;
+        const card = e.target.closest('.product-quick-card');
+        if (!card) return;
+        const sku = card.dataset.sku;
+        if (!sku) return;
+
+        const p = (state.catalog || []).find(prod => prod && (prod.sku === sku || String(prod.sku) === String(sku) || (prod.id && String(prod.id) === String(sku))));
+        if (!p) return;
+
+        const totalStock = (p.stock_quantity !== undefined && p.stock_quantity !== null) ? Number(p.stock_quantity) : ((p.stock_level !== undefined && p.stock_level !== null) ? Number(p.stock_level) : (p.stock !== undefined ? Number(p.stock) : 0));
+        const curInCart = (state.activeCart || []).filter(item => item.sku === p.sku).reduce((sum, item) => sum + (item.qty || 0), 0);
+        const isOversellBlocked = state.preferences['oversell_block_enabled'] !== 'false';
+        if (totalStock - curInCart <= 0 && isOversellBlocked) {
+          playAudioSignal('error');
+          showModal({ title: "Notice", message: `Warning: Product "${p.name || p.sku}" has no remaining available stock!`, type: "info" });
+          return;
+        }
+
+        card.style.transform = 'scale(0.94)';
+        setTimeout(() => { card.style.transform = ''; }, 120);
+
+        const added = addProductToCheckoutCart(p.sku);
+        if (added) {
+          if (typeof showNotificationToast === 'function') {
+            showNotificationToast(`Added "${p.name || p.sku}" to cart`, 'success', 1500);
+          }
+        }
+      });
+    }
+
+    // 4. Render grid cards
     gridContainer.replaceChildren();
     
     if (items.length === 0) {
@@ -10881,6 +10984,7 @@ setHtml(tr, `
     items.forEach(p => {
       const card = document.createElement('div');
       card.className = 'product-quick-card';
+      card.dataset.sku = p.sku || '';
       
       const totalStock = (p.stock_quantity !== undefined && p.stock_quantity !== null) ? Number(p.stock_quantity) : ((p.stock_level !== undefined && p.stock_level !== null) ? Number(p.stock_level) : (p.stock !== undefined ? Number(p.stock) : 0));
       const inCart = (state.activeCart || []).filter(item => item.sku === p.sku).reduce((sum, item) => sum + (item.qty || 0), 0);
@@ -10911,6 +11015,7 @@ setHtml(tr, `
       card.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
+        e.__handledByCard = true;
 
         const curInCart = (state.activeCart || []).filter(item => item.sku === p.sku).reduce((sum, item) => sum + (item.qty || 0), 0);
         const isOversellBlocked = state.preferences['oversell_block_enabled'] !== 'false';
@@ -10919,9 +11024,9 @@ setHtml(tr, `
           showModal({ title: "Notice", message: `Warning: Product "${p.name || p.sku}" has no remaining available stock!`, type: "info" });
           return;
         }
-        
-        card.style.transform = 'scale(0.95)';
-        setTimeout(() => { card.style.transform = ''; }, 100);
+
+        card.style.transform = 'scale(0.94)';
+        setTimeout(() => { card.style.transform = ''; }, 120);
 
         const added = addProductToCheckoutCart(p.sku);
         if (added) {
@@ -10943,6 +11048,24 @@ setHtml(tr, `
     const mobileFilters = document.getElementById('mobile-quick-filters');
     const mobileSearch = document.getElementById('mobile-quick-search');
     if (!mobileGrid) return;
+
+    if ((!Array.isArray(state.catalog) || state.catalog.length === 0) && typeof ValenixiaDB !== 'undefined' && ValenixiaDB.getAll) {
+      ValenixiaDB.getAll('inventory_catalog').then(dbItems => {
+        if (Array.isArray(dbItems) && dbItems.length > 0) {
+          state.catalog = dbItems;
+          state.catalogLoaded = true;
+          renderQuickCatalog();
+        } else {
+          ValenixiaDB.getAll('products').then(prodItems => {
+            if (Array.isArray(prodItems) && prodItems.length > 0) {
+              state.catalog = prodItems;
+              state.catalogLoaded = true;
+              renderQuickCatalog();
+            }
+          }).catch(() => {});
+        }
+      }).catch(() => {});
+    }
 
     if (mobileSearch && !mobileSearch.__hasQuickCatalogSearchListener) {
       mobileSearch.__hasQuickCatalogSearchListener = true;
@@ -11442,6 +11565,18 @@ setHtml(tr, `
     }
 
     try {
+      if (window.checkLimit) {
+        const records = await getBuybackRecords();
+        const todayStart = new Date().setHours(0,0,0,0);
+        const todayCount = records.filter(r => (r.created_at || 0) >= todayStart).length;
+        const limit = window.checkLimit('buybacks', todayCount);
+        if (!limit.allowed) {
+          if (window.showUpgradeModal) window.showUpgradeModal('buybacks');
+          else showModal({ title: 'Buyback Quota Reached', message: limit.reason, type: 'info' });
+          return;
+        }
+      }
+
       await saveBuybackRecord(record);
 
       // Auto add to inventory if checked
@@ -13479,6 +13614,16 @@ setHtml(row, `
     if (!name) {
       showModal({ title: 'Name Required', message: 'Please enter the customer\'s name to save their profile.', type: 'info' });
       return;
+    }
+
+    const isNew = !Array.isArray(state.customers) || !state.customers.some(c => c.id === id);
+    if (isNew && window.checkLimit) {
+      const limit = window.checkLimit('customers', (state.customers || []).length);
+      if (!limit.allowed) {
+        if (window.showUpgradeModal) window.showUpgradeModal('customers');
+        else showModal({ title: 'Customer Quota Reached', message: limit.reason, type: 'info' });
+        return;
+      }
     }
 
     const customerObj = {

@@ -35,16 +35,16 @@ const PLAN_LIMITS = {
   [PLANS.FREE]: {
     displayName: "Valenixia Free Basic",
     monthlyPKR: 0, annualPKR: 0, lifetimePKR: null,
-    devices: 1, branches: 1, transactionsPerMonth: Infinity, products: 25, customers: Infinity, employees: 1,
+    devices: 1, branches: 1, transactionsPerDay: 20, transactionsPerMonth: 50, products: 25, customers: 50, employees: 1,
     buybacks: 5,
-    transactionHistoryDays: Infinity, receiptBranding: "valenixia",
-    backup: "manual", fbrCompliance: true, multiDeviceSync: false, apiAccess: false,
-    analytics: "basic", importLimit: Infinity, support: "community"
+    transactionHistoryDays: 30, receiptBranding: "valenixia",
+    backup: "manual", fbrCompliance: false, multiDeviceSync: false, apiAccess: false,
+    analytics: "basic", importLimit: 25, support: "community"
   },
   [PLANS.STARTER]: {
     displayName: "Valenixia Starter",
     monthlyPKR: 3499, lifetimePKR: 79000,
-    devices: 1, branches: 1, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: 5,
+    devices: 1, branches: 1, transactionsPerDay: Infinity, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: 5,
     buybacks: Infinity,
     transactionHistoryDays: Infinity, receiptBranding: "custom",
     backup: "manual", fbrCompliance: true, multiDeviceSync: false, apiAccess: false,
@@ -53,7 +53,7 @@ const PLAN_LIMITS = {
   [PLANS.GROWTH]: {
     displayName: "Valenixia Pro",
     monthlyPKR: 6999, annualPKR: 69999, lifetimePKR: 149000,
-    devices: 2, branches: 1, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: 20,
+    devices: 2, branches: 1, transactionsPerDay: Infinity, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: 20,
     buybacks: Infinity,
     transactionHistoryDays: Infinity, receiptBranding: "custom",
     backup: "auto_daily", fbrCompliance: true, multiDeviceSync: true, apiAccess: false,
@@ -62,7 +62,7 @@ const PLAN_LIMITS = {
   [PLANS.PRO]: {
     displayName: "Valenixia Pro",
     monthlyPKR: 6999, lifetimePKR: 149000,
-    devices: 2, branches: 1, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: 50,
+    devices: 2, branches: 1, transactionsPerDay: Infinity, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: 50,
     buybacks: Infinity,
     transactionHistoryDays: Infinity, receiptBranding: "white_label",
     backup: "auto_daily", fbrCompliance: true, multiDeviceSync: true, apiAccess: true,
@@ -71,7 +71,7 @@ const PLAN_LIMITS = {
   [PLANS.ENTERPRISE]: {
     displayName: "Valenixia Enterprise",
     monthlyPKR: 11999, lifetimePKR: 249000,
-    devices: 3, branches: 2, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: Infinity,
+    devices: 3, branches: 2, transactionsPerDay: Infinity, transactionsPerMonth: Infinity, products: Infinity, customers: Infinity, employees: Infinity,
     buybacks: Infinity,
     transactionHistoryDays: Infinity, receiptBranding: "white_label",
     backup: "auto_realtime", fbrCompliance: true, multiDeviceSync: true, apiAccess: true,
@@ -531,6 +531,22 @@ window.getNextMidnightMs = getNextMidnightMs;
 window.getMidnightRemainingSeconds = getMidnightRemainingSeconds;
 window.formatCountdown = formatCountdown;
 
+function getDailyTransactionCount() {
+  const now = new Date();
+  const dateKey = "vx_tx_daily_" + now.getFullYear() + "_" + String(now.getMonth() + 1).padStart(2, '0') + "_" + String(now.getDate()).padStart(2, '0');
+  const stored = JSON.parse(localStorage.getItem(dateKey) || "{\"count\":0}");
+  return { count: stored.count || 0, dateKey };
+}
+
+function incrementDailyTransactionCount() {
+  const { count, dateKey } = getDailyTransactionCount();
+  const newCount = count + 1;
+  localStorage.setItem(dateKey, JSON.stringify({ count: newCount }));
+  return newCount;
+}
+window.getDailyTransactionCount = getDailyTransactionCount;
+window.incrementDailyTransactionCount = incrementDailyTransactionCount;
+
 function checkLimit(type, currentCount) {
   const limits = getLimits();
   const limitMap = {
@@ -539,7 +555,10 @@ function checkLimit(type, currentCount) {
     employees: limits.employees,
     devices: limits.devices,
     buybacks: limits.buybacks,
+    daily_transactions: limits.transactionsPerDay,
+    transactions_per_day: limits.transactionsPerDay,
     transactions_per_month: limits.transactionsPerMonth,
+    monthly_transactions: limits.transactionsPerMonth,
     import_rows: limits.importLimit
   };
   const limit = limitMap[type];
@@ -550,13 +569,14 @@ function checkLimit(type, currentCount) {
   const formattedCountdown = formatCountdown(remSec);
 
   if (currentCount >= limit) {
+    let friendlyName = type.replace(/_/g, ' ');
     return {
       allowed: false,
       limit,
       current: currentCount,
       resetMs,
       formattedCountdown,
-      reason: `Limit reached (${currentCount}/${limit} ${type}). Free quota refreshes tomorrow at midnight (in ${formattedCountdown}).`
+      reason: `Free Tier Quota reached (${currentCount}/${limit} ${friendlyName}). Free daily quota resets at midnight (in ${formattedCountdown}). Upgrade to Starter or Pro to unlock unlimited access.`
     };
   }
   return { allowed: true, limit, remaining: limit - currentCount, resetMs, formattedCountdown };
@@ -570,7 +590,7 @@ function getMonthlyTransactionCount() {
   const now = new Date();
   const monthKey = "vx_tx_" + now.getFullYear() + "_" + now.getMonth();
   const stored = JSON.parse(localStorage.getItem(monthKey) || "{\"count\":0}");
-  return { count: stored.count, monthKey };
+  return { count: stored.count || 0, monthKey };
 }
 
 function incrementMonthlyTransactionCount() {
@@ -591,12 +611,24 @@ window.incrementMonthlyTransactionCount = incrementMonthlyTransactionCount;
 
 function isLimitReached() {
   const limits = getLimits();
-  if (limits.transactionsPerMonth === Infinity) return { blocked: false, current: 0, limit: Infinity };
-  const { count } = getMonthlyTransactionCount();
-  if (count >= limits.transactionsPerMonth) {
-    return { blocked: true, current: count, limit: limits.transactionsPerMonth };
+  
+  // 1. Check daily transaction limit (Free tier default 20/day)
+  if (limits.transactionsPerDay !== Infinity) {
+    const { count: dailyCount } = getDailyTransactionCount();
+    if (dailyCount >= limits.transactionsPerDay) {
+      return { blocked: true, type: 'daily_transactions', current: dailyCount, limit: limits.transactionsPerDay, period: 'day' };
+    }
   }
-  return { blocked: false, current: count, limit: limits.transactionsPerMonth };
+
+  // 2. Check monthly transaction limit (Free tier default 50/month)
+  if (limits.transactionsPerMonth !== Infinity) {
+    const { count: monthlyCount } = getMonthlyTransactionCount();
+    if (monthlyCount >= limits.transactionsPerMonth) {
+      return { blocked: true, type: 'transactions_per_month', current: monthlyCount, limit: limits.transactionsPerMonth, period: 'month' };
+    }
+  }
+
+  return { blocked: false, current: 0, limit: Infinity };
 }
 window.isLimitReached = isLimitReached;
 
