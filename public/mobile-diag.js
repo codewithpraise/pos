@@ -273,14 +273,7 @@
     return report;
   };
 
-  // Run audit on load and whenever view-settings becomes active
-  document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => {
-      if (typeof window.dumpSettingsDiagnostics === 'function') {
-        window.dumpSettingsDiagnostics();
-      }
-    }, 1500);
-  });
+  // Manual diagnostics available via window.dumpSettingsDiagnostics()
 
   window.dumpUIDiagnostics = function() {
     const offenders = [];

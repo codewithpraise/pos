@@ -1015,18 +1015,22 @@ window.__realHandlers = window.__realHandlers || {};
       window.AndroidPOS ||
       window.Android ||
       window.AndroidHardware ||
+      window.AndroidBridge ||
+      window.AndroidInterface ||
       (window.location.protocol === 'file:') ||
-      /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|valenixi/i.test(ua) ||
-      window.innerWidth <= 1024 ||
-      ('ontouchstart' in window)
+      ua.includes('valenixiaandroidapp') ||
+      ua.includes('valenixiaposapp')
     );
   }
   function isDesktopApp() {
+    var ua = (navigator.userAgent || '').toLowerCase();
     return !!(
       window.electron ||
-      window.isDesktopApp ||
+      window.electronAPI ||
       window.desktopNative ||
-      window.__VALENIXIA_DESKTOP__
+      window.__VALENIXIA_DESKTOP__ ||
+      ua.includes('electron') ||
+      ua.includes('valenixiadesktop')
     );
   }
   function isWebApp() {
@@ -1037,18 +1041,21 @@ window.__realHandlers = window.__realHandlers || {};
   window.isWebApp = isWebApp;
 
   function isNativeEnvironment() {
-    var isFileProtocol = location.protocol === 'file:';
-    var isStandalone = (window.matchMedia && typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) || (window.navigator && window.navigator.standalone) || false;
+    var isFileProtocol = (typeof location !== 'undefined' && location.protocol === 'file:');
+    var ua = (navigator.userAgent || '').toLowerCase();
     return !!(
       window.AndroidPOS ||
       window.Android ||
       window.AndroidHardware ||
+      window.AndroidBridge ||
+      window.AndroidInterface ||
       window.electron ||
-      window.isDesktopApp ||
+      window.electronAPI ||
       window.desktopNative ||
       window.__VALENIXIA_DESKTOP__ ||
       isFileProtocol ||
-      isStandalone
+      ua.includes('valenixiaandroidapp') ||
+      ua.includes('valenixiaposapp')
     );
   }
   window.isNativeEnvironment = isNativeEnvironment;
@@ -1074,6 +1081,7 @@ window.__realHandlers = window.__realHandlers || {};
         }
       });
       document.querySelectorAll('.download-apps-btn, #download-apps-link, .app-download-banner, [data-download-apps], .btn-apps').forEach(function(el) {
+        if (el.classList.contains('content-view') || el.id === 'view-apps-download') return;
         if (showDownloadUI) {
           el.style.removeProperty('display');
           el.removeAttribute('hidden');
@@ -2586,15 +2594,9 @@ setHtml(overlay, `
         });
         console.warn(`[AUTOTEST]  System Auto-Audit complete with ${errors.length} issue(s). Checked ${totalButtons} buttons across ${views.length} views.`);
         log('WARN', 'AUTOTEST', `System Auto-Audit complete with ${errors.length} issue(s). Checked ${totalButtons} buttons across ${views.length} views.`);
-        if (typeof showToast === 'function') {
-          showToast(` Auto-Test detected ${errors.length} UI issue(s). Check Diagnostic Logs.`, 'warn');
-        }
       } else {
         console.log(`[AUTOTEST]  System Auto-Audit PASSED: ${passedButtons}/${totalButtons} buttons & ${views.length} views fully operational.`);
         log('INFO', 'AUTOTEST', ` System Auto-Audit PASSED: ${passedButtons}/${totalButtons} buttons & ${views.length} views verified 100% operational.`);
-        if (typeof showToast === 'function') {
-          showToast(` Auto-Test Suite complete: ${passedButtons} page buttons & ${views.length} views verified 100% operational.`, 'success');
-        }
       }
     }, 1500);
   }
@@ -4363,21 +4365,13 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
       }
     });
 
-    // Wire Native Apps download button in topbar overflow menu
-    const getAppsBtn = document.getElementById('btn-topbar-apps-download');
-    if (getAppsBtn) {
-      const isNative = (typeof isNativeEnvironment === 'function' ? isNativeEnvironment() : (location.protocol === 'file:' || !!window.AndroidPOS || !!window.Android || !!window.electron));
-      if (isNative) {
-        getAppsBtn.style.setProperty('display', 'none', 'important');
-        getAppsBtn.setAttribute('hidden', '');
-      } else {
-        getAppsBtn.style.removeProperty('display');
-        getAppsBtn.style.display = 'flex';
-        getAppsBtn.removeAttribute('hidden');
-      }
-      if (!getAppsBtn.dataset.bound) {
-        getAppsBtn.dataset.bound = 'true';
-        getAppsBtn.addEventListener('click', () => {
+    // Wire Native Apps download button in topbar overflow menu and sidebar
+    const appDownloadBtns = document.querySelectorAll('#btn-topbar-apps-download, #nav-item-apps-download, .btn-apps');
+    appDownloadBtns.forEach(btn => {
+      if (btn && !btn.dataset.bound) {
+        btn.dataset.bound = 'true';
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
           if (window.ValenixiaRouter) {
             window.ValenixiaRouter.navigateTo('apps-download', { push: true });
           } else if (window.switchActiveScreen) {
@@ -4385,7 +4379,7 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
           }
         });
       }
-    }
+    });
 
     // Subscription Vault sub-sidebar navigation handler
     window.renderSubscriptionScreen = function() {
@@ -7365,9 +7359,6 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
         // Transition surface to READY through ValenixiaBootstrap controller
         if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('READY');
 
-        // Run autotest now that we are in READY state (first post-auth opportunity)
-        try { if (typeof runAutomatedSystemAudit === 'function') setTimeout(runAutomatedSystemAudit, 800); } catch(_) {}
-
         const vCfd = document.getElementById('view-cfd'); if (vCfd) vCfd.style.display = 'none';
         const vKds = document.getElementById('view-kds'); if (vKds) vKds.style.display = 'none';
 
@@ -8098,8 +8089,6 @@ setHtml(overlay, `
           if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('AUTH_LOCK');
         } else {
           if (window.ValenixiaBootstrap) window.ValenixiaBootstrap.transition('READY');
-          // Run autotest now that we are in READY state (active session resume)
-          try { if (typeof runAutomatedSystemAudit === 'function') setTimeout(runAutomatedSystemAudit, 800); } catch(_) {}
         }
       }
     }

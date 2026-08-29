@@ -152,13 +152,11 @@ window.detectAppSurface = function() {
     ua.includes('ValenixiaAndroidApp') ||
     ua.includes('ValenixiaPOSApp') ||
     ua.includes('; wv') ||
-    (ua.includes('Android') && ua.includes('Version/4.0')) ||
     (typeof location !== 'undefined' && (location.protocol === 'file:' || location.protocol === 'capacitor:'))
   );
   const isElectron = !!(
     window.electron ||
     window.electronAPI ||
-    window.isDesktopApp ||
     window.desktopNative ||
     window.__VALENIXIA_DESKTOP__ ||
     (typeof process !== 'undefined' && process.versions && process.versions.electron) ||
@@ -167,8 +165,7 @@ window.detectAppSurface = function() {
   );
   const isPwa = !!(
     (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) ||
-    (typeof navigator !== 'undefined' && navigator.standalone === true) ||
-    (typeof document !== 'undefined' && document.referrer && document.referrer.includes('android-app://'))
+    (typeof navigator !== 'undefined' && navigator.standalone === true)
   );
 
   let kind = 'WEB';
@@ -188,12 +185,31 @@ window.detectAppSurface = function() {
   });
 };
 
+window.isNativeEnvironment = function() {
+  const isFileProtocol = (typeof location !== 'undefined' && location.protocol === 'file:');
+  const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+  return !!(
+    window.AndroidPOS ||
+    window.Android ||
+    window.AndroidHardware ||
+    window.AndroidBridge ||
+    window.AndroidInterface ||
+    window.electron ||
+    window.electronAPI ||
+    window.desktopNative ||
+    window.__VALENIXIA_DESKTOP__ ||
+    isFileProtocol ||
+    (ua.includes('ValenixiaAndroidApp') || ua.includes('ValenixiaPOSApp'))
+  );
+};
+
 window.applyAppSurfaceVisibility = function() {
-  const isNative = (typeof window.isNativeEnvironment === 'function' ? window.isNativeEnvironment() : (location.protocol === 'file:' || !!window.AndroidPOS || !!window.Android || !!window.AndroidHardware || !!window.electron || !!window.__VALENIXIA_DESKTOP__));
+  const isNative = (typeof window.isNativeEnvironment === 'function' ? window.isNativeEnvironment() : false);
   const targets = document.querySelectorAll(
-    '#btn-topbar-apps-download, #nav-item-apps-download, .btn-apps'
+    '#btn-topbar-apps-download, #nav-item-apps-download, .btn-apps, [data-screen="apps-download"]'
   );
   targets.forEach(el => {
+    if (el.classList.contains('content-view') || el.id === 'view-apps-download') return;
     if (isNative) {
       el.style.setProperty('display', 'none', 'important');
       el.setAttribute('hidden', '');
