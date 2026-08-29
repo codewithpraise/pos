@@ -969,7 +969,7 @@ const LicenseEngine = (() => {
         // On HTTP context: if token is present but just can't be crypto-verified,
         // still allow boot — server middleware already enforces authorization.
         if (isHttpContext && result.reason && result.reason.includes('Verification error')) {
-          const activeTier = (localStorage.getItem('valenixia_tier') || 'STARTER').toUpperCase();
+          const activeTier = (typeof getActiveTier === 'function' ? getActiveTier() : localStorage.getItem('valenixia_tier') || 'FREE').toUpperCase();
           console.warn('[License] HTTP context: crypto verification skipped — active tier:', activeTier);
           window.__valenixiaTier = activeTier;
           window.__valenixiaHWID = hwid;
@@ -978,7 +978,7 @@ const LicenseEngine = (() => {
       }
     } else if (isHttpContext || isAndroidApp) {
       // No stored license AND on HTTP/Android context — SaaS subscription mode.
-      const activeTier = (localStorage.getItem('valenixia_tier') || 'STARTER').toUpperCase();
+      const activeTier = (typeof getActiveTier === 'function' ? getActiveTier() : localStorage.getItem('valenixia_tier') || 'FREE').toUpperCase();
       console.log('[License] SaaS subscription mode active — active tier:', activeTier);
       window.__valenixiaTier = activeTier;
       window.__valenixiaHWID = hwid;
@@ -1196,7 +1196,7 @@ const LicenseEngine = (() => {
         if (trialRemaining <= 0) {
           // Trial expired! Revert to pre-trial tier & resume paused countdown
           console.warn('[Trial] 7-Day Free Trial expired. Reverting to previous subscription plan...');
-          const preTrialTier = (localStorage.getItem('valenixia_pre_trial_tier') || 'STARTER').toUpperCase();
+          const preTrialTier = (localStorage.getItem('valenixia_pre_trial_tier') || 'FREE').toUpperCase();
           const pausedRemainingMs = parseInt(localStorage.getItem('valenixia_pre_trial_paused_remaining_ms'), 10) || (30 * 24 * 60 * 60 * 1000);
           
           localStorage.removeItem('valenixia_trial_active');

@@ -759,7 +759,7 @@ self.onmessage = async (event) => {
               }
             }
             if (claims && claims.exp > Date.now()) {
-              tier = claims.tier || 'STARTER';
+              tier = claims.tier || 'FREE';
             }
           }
         } catch (e) {

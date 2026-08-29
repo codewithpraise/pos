@@ -1097,7 +1097,7 @@ window.__realHandlers = window.__realHandlers || {};
 
   // --- SUBSCRIPTION TIER NAVBAR GATING & PAYWALL ENFORCEMENT ---
   function renderNavbarByTier(currentTier) {
-    const activeTier = currentTier || window.__valenixiaTier || (typeof getActiveTier === 'function' ? getActiveTier() : 'GROWTH');
+    const activeTier = currentTier || window.__valenixiaTier || (typeof getActiveTier === 'function' ? getActiveTier() : 'FREE');
     const nav = document.querySelector('.sidebar-nav');
     if (!nav) return;
     Array.from(nav.querySelectorAll('.nav-item')).forEach(item => {
@@ -2244,8 +2244,8 @@ setHtml(overlay, `
         console.log('[Boot] License lockout modal present; dismissing bootloader to allow user input.');
         updateBootProgress(100, 'Ready');
       } else if (!licenseOk) {
-        window.__valenixiaTier = window.__valenixiaTier || 'STARTER';
-        window.__valenixiaPlan = 'starter';
+        window.__valenixiaTier = window.__valenixiaTier || (typeof getActiveTier === 'function' ? getActiveTier() : 'FREE');
+        window.__valenixiaPlan = (window.__valenixiaTier || 'FREE').toLowerCase();
       }
 
       function withBootTimeout(promise, ms = 2000, fallback = null) {
@@ -2450,13 +2450,13 @@ setHtml(overlay, `
             // Normalize status to 'active' so the freemium-engine setter accepts the update
             const normalizedStatus = (authData.status === 'active' || authData.status === 'APPROVED' || authData.status === 'valid') ? authData.status : 'active';
             window.__vxSession = {
-              tier: authData.tier || window.__valenixiaTier || 'STARTER',
+              tier: authData.tier || window.__valenixiaTier || (typeof getActiveTier === 'function' ? getActiveTier() : 'FREE'),
               status: normalizedStatus,
               expiresAt: authData.expiresAt,
               invoiceCount: authData.invoiceCount,
               trialStart: authData.trialStart || trialStart
             };
-            window.__valenixiaTier = authData.tier || window.__valenixiaTier || 'STARTER';
+            window.__valenixiaTier = authData.tier || window.__valenixiaTier || (typeof getActiveTier === 'function' ? getActiveTier() : 'FREE');
           } else if (resp && resp.status === 401) {
             state.deviceToken = null;
             await ValenixiaDB.delete('local_preferences', 'device_token');
@@ -6509,7 +6509,7 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
 
   // Definitive POS Tier Architecture & Feature Mapping
   function applyTierRestrictions() {
-    let tier = window.__valenixiaTier || 'STARTER';
+    let tier = (typeof getActiveTier === 'function' ? getActiveTier() : window.__valenixiaTier || 'FREE');
     
     // Grace trial or explicit TRIAL tier gets full ENTERPRISE capabilities
     if (tier === 'TRIAL') {
@@ -9995,7 +9995,8 @@ setHtml(tr, `
   function calculateGrandTotal() {
     const payModeBtn = document.querySelector('.payment-btn.active');
     const paymentMode = payModeBtn ? payModeBtn.getAttribute('data-mode') : 'CASH';
-    return CheckoutEngine.calculateGrandTotal(state.activeCart, state.preferences, paymentMode, window.__valenixiaTier || 'STARTER');
+    const tier = (typeof getActiveTier === 'function' ? getActiveTier() : window.__valenixiaTier || 'FREE');
+    return CheckoutEngine.calculateGrandTotal(state.activeCart, state.preferences, paymentMode, tier);
   }
 
   function updateTotalsBoard() {
@@ -10357,7 +10358,7 @@ setHtml(tr, `
         }
       }
 
-      const meta = { verified_token: checkoutToken, tier: window.__valenixiaTier || 'STARTER' };
+      const meta = { verified_token: checkoutToken, tier: (typeof getActiveTier === 'function' ? getActiveTier() : window.__valenixiaTier || 'FREE') };
       if (finalDetails && finalDetails.startsWith('{')) {
         try {
           const parsed = JSON.parse(finalDetails);
@@ -17285,11 +17286,12 @@ setHtml(itemRow, `
   window.openSupplierModal = function(id) {
     if (typeof openSupplierEditModal === 'function') openSupplierEditModal(id);
   };
+  window.__realHandlers = window.__realHandlers || {};
   window.__realHandlers.openSupplierModal = window.openSupplierModal;
 
   // --- SUPPLIERS VIEW CONTROLLER ---
-  // --- SUPPLIERS VIEW CONTROLLER ---
   function renderSuppliersScreen(query = '') {
+    window.__realHandlers = window.__realHandlers || {};
     window.__realHandlers.renderSuppliersScreen = renderSuppliersScreen;
     window.renderSuppliersScreen = renderSuppliersScreen;
     try {
@@ -17383,6 +17385,7 @@ setHtml(itemRow, `
       }
     }
   }
+  window.renderSuppliersScreen = renderSuppliersScreen;
 
   // Render detail panel for selected supplier
   let activeSupplierTab = 'pos'; // pos, payments
@@ -17910,6 +17913,7 @@ setHtml(tr, `
 
   // --- CREDIT BOOK / KHATA VIEW CONTROLLER ---
   function renderCreditBookScreen(query = '') {
+    window.__realHandlers = window.__realHandlers || {};
     window.__realHandlers.renderCreditBookScreen = renderCreditBookScreen;
     window.renderCreditBookScreen = renderCreditBookScreen;
     try {
@@ -18038,6 +18042,7 @@ setHtml(tr, `
       }
     }
   }
+  window.renderCreditBookScreen = renderCreditBookScreen;
 
   // Render detail panel for customer credit
   function renderCreditDetails(id) {
@@ -22263,7 +22268,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     }
     state.hwid = hwid;
 
-    const activeTier = (window.__valenixiaTier || (state.preferences && state.preferences['store_subscription_tier']) || (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_tier')) || 'STARTER').toUpperCase();
+    const activeTier = (typeof getActiveTier === 'function' ? getActiveTier() : (window.__valenixiaTier || (state.preferences && state.preferences['store_subscription_tier']) || (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_tier')) || 'FREE')).toUpperCase();
 
     const badgeEl = document.getElementById('platform-admin-current-runtime-badge');
     const modeEl = document.getElementById('platform-admin-runtime-mode');

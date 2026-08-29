@@ -111,8 +111,30 @@ function getActiveTier() {
     }
   }
 
-  // Priority 3: Fallback to stored tier (MUST default to FREE for new devices per policy)
-  const rawStored = (localStorage.getItem('valenixia_tier') || '').toUpperCase();
+  // Priority 3: Store-Scoped Preference Tier (Isolates stores on same device)
+  const storeTier = (window.__valenixiaState && window.__valenixiaState.preferences && window.__valenixiaState.preferences['store_subscription_tier']) || (window.__valenixiaState && window.__valenixiaState.currentTier);
+  if (storeTier && VALID_TIERS.includes(String(storeTier).toUpperCase())) {
+    const norm = String(storeTier).toUpperCase();
+    window.__valenixiaTier = norm;
+    window.__valenixiaPlan = PLANS[norm] || PLANS.FREE;
+    return norm;
+  }
+
+  // Priority 4: Scoped store storage key (valenixia_store_{storeId}_tier)
+  try {
+    const storeId = (window.__valenixiaState?.preferences?.store_id) || (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_store_id'));
+    if (storeId) {
+      const scopedTier = (localStorage.getItem(`valenixia_store_${storeId}_tier`) || '').toUpperCase();
+      if (VALID_TIERS.includes(scopedTier)) {
+        window.__valenixiaTier = scopedTier;
+        window.__valenixiaPlan = PLANS[scopedTier] || PLANS.FREE;
+        return scopedTier;
+      }
+    }
+  } catch (_) {}
+
+  // Priority 5: Fallback to stored tier (MUST default to FREE for unverified stores/devices)
+  const rawStored = (typeof localStorage !== 'undefined' ? (localStorage.getItem('valenixia_tier') || '') : '').toUpperCase();
   const storedTier = VALID_TIERS.includes(rawStored) ? rawStored : 'FREE';
   window.__valenixiaTier = storedTier;
   window.__valenixiaPlan = PLANS[storedTier] || PLANS.FREE;
@@ -141,9 +163,12 @@ const FEATURE_TIER_REQ = {
   'catalog-manager': 'FREE',
   'inventory': 'FREE',
   'suppliers': 'FREE',
-  'credit-book': 'FREE',
-  'khata': 'FREE',
   'analytics': 'FREE',
+
+  // Starter Tier Views & Modules (PKR 3,499/mo)
+  'credit-book': 'STARTER',
+  'khata': 'STARTER',
+  'customer-khata': 'STARTER',
 
   // Growth / Pro Tier Views & Modules (PKR 6,999/mo)
   'logs': 'PRO', // System Health, CRDT Broadcast & Sync Stream logs
@@ -180,6 +205,9 @@ const FEATURE_TIER_REQ = {
 };
 
 const FEATURE_DISPLAY_NAMES = {
+  'credit-book': 'Customer Khata & Udhaar Credit Ledger',
+  'khata': 'Customer Khata & Udhaar Credit Ledger',
+  'customer-khata': 'Customer Khata & Udhaar Credit Ledger',
   'customer-buyback': 'Customer Device Buy-In & Legal Transfer Ledger',
   'logs': 'CRDT Sync Stream & System Diagnostics',
   'sync-logs': 'Live Replication Stream & Sync Logs',

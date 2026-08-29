@@ -311,7 +311,7 @@
     },
 
     async addCapacity(type) {
-      const activeTier = (typeof window.getActiveTier === 'function' ? window.getActiveTier() : localStorage.getItem('valenixia_tier') || 'STARTER').toUpperCase();
+      const activeTier = (typeof window.getActiveTier === 'function' ? window.getActiveTier() : localStorage.getItem('valenixia_tier') || 'FREE').toUpperCase();
       if (type === 'branch' && activeTier === 'STARTER') {
         if (typeof showNotificationToast === 'function') {
           showNotificationToast('Branch expansion is available on Growth (PRO) and Enterprise plans.', 'warning', 4500);
@@ -392,7 +392,7 @@
     },
 
     async refresh() {
-      const rawTier = (typeof window.getActiveTier === 'function' ? window.getActiveTier() : (window.__valenixiaTier || localStorage.getItem('valenixia_tier') || 'STARTER')).toUpperCase();
+      const rawTier = (typeof window.getActiveTier === 'function' ? window.getActiveTier() : (window.__valenixiaTier || localStorage.getItem('valenixia_tier') || 'FREE')).toUpperCase();
       const curTier = rawTier === 'GROWTH' ? 'PRO' : rawTier;
       const isTrialActive = localStorage.getItem('valenixia_trial_active') === 'true';
 

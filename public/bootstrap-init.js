@@ -189,12 +189,18 @@ window.detectAppSurface = function() {
 };
 
 window.applyAppSurfaceVisibility = function() {
-  // Native Apps and companion downloads are available across all platforms
+  const isNative = (typeof window.isNativeEnvironment === 'function' ? window.isNativeEnvironment() : (location.protocol === 'file:' || !!window.AndroidPOS || !!window.Android || !!window.AndroidHardware || !!window.electron || !!window.__VALENIXIA_DESKTOP__));
   const targets = document.querySelectorAll(
     '#btn-topbar-apps-download, #nav-item-apps-download, .btn-apps'
   );
   targets.forEach(el => {
-    el.style.display = 'flex';
+    if (isNative) {
+      el.style.setProperty('display', 'none', 'important');
+      el.setAttribute('hidden', '');
+    } else {
+      el.style.removeProperty('display');
+      el.removeAttribute('hidden');
+    }
   });
 };
 
@@ -2210,7 +2216,7 @@ window.showModal = function({ title, message, type = 'info', actions = [{ id: 'o
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
     // Backdrop only — actual card background is controlled by CSS classes
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:999999999;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:max(env(safe-area-inset-top, 24px), 24px) 16px max(env(safe-area-inset-bottom, 24px), 24px) 16px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);font-family:inherit;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior-y:auto;box-sizing:border-box;';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:max(env(safe-area-inset-top, 24px), 24px) 16px max(env(safe-area-inset-bottom, 24px), 24px) 16px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);font-family:inherit;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior-y:auto;box-sizing:border-box;';
 
     let inputHtml = '';
     if (input) {

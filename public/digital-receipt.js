@@ -372,10 +372,10 @@
       }
       return;
     }
-    if ((window.__valenixiaTier || 'STARTER').toUpperCase() === 'FREE') {
+    if ((typeof window.getActiveTier === 'function' ? window.getActiveTier() : window.__valenixiaTier || 'FREE').toUpperCase() === 'FREE') {
       // Append branding watermark for free tier
       if (!receiptData.footerText || !receiptData.footerText.includes('Powered by Valenixia')) {
-        receiptData.footerText = (receiptData.footerText || '') + '\nPowered by Valenixia POS\nvalenixia.com';
+        receiptData.footerText = (receiptData.footerText || '') + '\nPowered by Valenixia POS (Free Tier)\nvalenixia.com';
       }
     }
     try { if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); } catch(_) {}
@@ -418,12 +418,20 @@
 
     // CRITICAL: Always release the checkout lock regardless of which button was pressed.
     // closeModalSafe MUST be called before any async/navigation logic so the
-    // isCheckingOut / __isSubmitting flags are reset even if the app cannot
-    // send the receipt (no app installed, network error, user cancels prompt, etc.)
+    // transaction lock is released immediately and overlays do not conflict.
+    var modalClosed = false;
     var closeModalSafe = function() {
+      if (modalClosed) return;
+      modalClosed = true;
+      try { modal.remove(); } catch(_) {}
       document.removeEventListener('keydown', onEscKey, true);
-      var m = document.getElementById("__vx-receipt-share-modal");
-      if (m) m.remove();
+      try {
+        const layout = document.getElementById('pos-app-layout');
+        if (layout) {
+          layout.style.removeProperty('pointer-events');
+          layout.style.removeProperty('user-select');
+        }
+      } catch(_) {}
       // Sweep any leaked showModal overlays so they cannot block UI interaction
       if (typeof window.cleanupModalOverlays === 'function') window.cleanupModalOverlays();
       if (window.state) { window.state.isCheckingOut = false; }
@@ -435,13 +443,6 @@
       // Explicitly restore pointer events & scrolling on body and app containers
       try { document.body.style.removeProperty('pointer-events'); } catch(_) {}
       try { document.body.style.removeProperty('overflow'); } catch(_) {}
-      try {
-        const layout = document.getElementById('pos-app-layout');
-        if (layout) {
-          layout.style.removeProperty('pointer-events');
-          layout.style.removeProperty('user-select');
-        }
-      } catch(_) {}
       try { if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); } catch(_) {}
     };
 
@@ -456,6 +457,9 @@
     document.getElementById("__vx-rcpt-whatsapp").addEventListener("click", async function() {
       try { if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); } catch(_) {}
 
+      // Close the share overlay FIRST so the phone prompt is fully visible without blockage
+      closeModalSafe();
+
       let phone = customerPhone || storePhone;
       if (!phone && window.showModal) {
         const res = await showModal({
@@ -465,14 +469,13 @@
           actions: [{ id: "ok", label: "Send Receipt", style: "primary" }, { id: "cancel", label: "Cancel", style: "secondary" }],
           input: { placeholder: "03001234567", defaultValue: "" }
         });
-        if (!res || res === "cancel" || res === false) { closeModalSafe(); return; }
+        if (!res || res === "cancel" || res === false) return;
         phone = (typeof res === "string" && res !== "ok") ? res.trim() : "";
       }
       if (!phone) {
         if (window.showNotificationToast) {
           showNotificationToast('No phone number provided. You can set one in Settings → Store → Store Phone.', 'warning', 4000);
         }
-        closeModalSafe();
         return;
       }
 
@@ -495,11 +498,10 @@
         console.warn('[WhatsApp] Server authorization check warning:', err);
       }
 
-      // Release checkout lock
-      closeModalSafe();
-
       try {
         shareReceiptWhatsApp(receiptData, phone);
+      } catch (err) {
+        console.error('[WhatsApp] Share error:', err);
       } finally {
         closeModalSafe();
       }

@@ -272,6 +272,18 @@
         }
       }
 
+      // Feature Tier & Freemium Access Gate
+      if (cleanName !== 'checkout' && cleanName !== 'settings' && cleanName !== 'subscription' && cleanName !== 'apps-download') {
+        if (typeof global.can === 'function' && !global.can(cleanName)) {
+          if (typeof global.showUpgradeModal === 'function') {
+            global.showUpgradeModal(cleanName);
+          } else if (typeof global.showPaywallModal === 'function') {
+            global.showPaywallModal(cleanName);
+          }
+          return false;
+        }
+      }
+
       const targetId = screenId.startsWith('view-') ? screenId : (SCREEN_MAP[cleanName] || 'view-' + cleanName);
       
       const pane = this.rootContainer || document.querySelector('.pos-content-pane');

@@ -43,6 +43,7 @@ window.fetchWithTimeout = async function(url, opts) {
   return { ok: true, status: 200, json: async () => ({ success: true, verified: true }) };
 };
 window.ValenixiaDB = {
+  init: async () => {},
   get: async () => null,
   getAll: async () => [],
   put: async () => {},
@@ -51,11 +52,13 @@ window.ValenixiaDB = {
 
 // Load app scripts into DOM context
 const bootstrapScript = fs.readFileSync(path.join(__dirname, '../public/bootstrap-init.js'), 'utf8');
+const freemiumScript = fs.readFileSync(path.join(__dirname, '../public/freemium-engine.js'), 'utf8');
 const routerScript = fs.readFileSync(path.join(__dirname, '../public/router.js'), 'utf8');
 const appScript = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8');
 const receiptScript = fs.readFileSync(path.join(__dirname, '../public/digital-receipt.js'), 'utf8');
 
 window.eval(bootstrapScript);
+window.eval(freemiumScript);
 window.eval(routerScript);
 window.eval(appScript);
 window.eval(receiptScript);
@@ -117,33 +120,49 @@ async function main() {
   console.log('\n--- 2. SUPPLIERS & CREDIT BOOK LEDGER RENDER TESTS ---');
 
   runTest('Suppliers screen renders valid distributor list or empty state without crashing', () => {
-    window.state.distributors = [
+    if (typeof window.setTier === 'function') window.setTier('ENTERPRISE');
+    window.__valenixiaTier = 'ENTERPRISE';
+    const s = window.__valenixiaState || window.state;
+    s.distributors = [
       { id: 'dist_t1', name: 'Test Distributor A', phone: '03001112233', credit_limit_minor: 500000 }
     ];
-    window.state.purchaseOrders = [
+    s.purchaseOrders = [
       { id: 'po_t1', distributor_id: 'dist_t1', total_minor: 100000, status: 'RECEIVED' }
     ];
-    window.state.distributorPayments = [
+    s.distributorPayments = [
       { id: 'pay_t1', distributor_id: 'dist_t1', amount_minor: 40000 }
     ];
 
-    window.renderSuppliersScreen();
-    const listContainer = document.getElementById('supplier-list-container');
+    if (window.ValenixiaRouter && typeof window.ValenixiaRouter.navigateTo === 'function') {
+      window.ValenixiaRouter.navigateTo('suppliers');
+    }
+    if (typeof window.renderSuppliersScreen === 'function') {
+      window.renderSuppliersScreen();
+    }
+    const listContainer = window.document.getElementById('supplier-list-container');
     assert.ok(listContainer, 'Supplier list container must exist');
     assert.ok(listContainer.children.length > 0, 'Supplier list must contain rendered cards');
     assert.ok(listContainer.innerHTML.includes('Test Distributor A'), 'Supplier card must contain distributor name');
   });
 
   runTest('Credit Book renders valid customer khata entries or explicit empty state', () => {
-    window.state.customers = [
+    if (typeof window.setTier === 'function') window.setTier('ENTERPRISE');
+    window.__valenixiaTier = 'ENTERPRISE';
+    const s = window.__valenixiaState || window.state;
+    s.customers = [
       { id: 'cust_t1', name: 'Test Customer Khata', phone: '03214445566' }
     ];
-    window.state.customerCredits = [
+    s.customerCredits = [
       { id: 'cred_t1', customer_id: 'cust_t1', type: 'CREDIT', amount_minor: 15000 }
     ];
 
-    window.renderCreditBookScreen();
-    const listContainer = document.getElementById('credit-customer-list-container');
+    if (window.ValenixiaRouter && typeof window.ValenixiaRouter.navigateTo === 'function') {
+      window.ValenixiaRouter.navigateTo('credit-book');
+    }
+    if (typeof window.renderCreditBookScreen === 'function') {
+      window.renderCreditBookScreen();
+    }
+    const listContainer = window.document.getElementById('credit-customer-list-container');
     assert.ok(listContainer, 'Credit customer list container must exist');
     assert.ok(listContainer.children.length > 0, 'Credit list must contain customer cards');
     assert.ok(listContainer.innerHTML.includes('Test Customer Khata'), 'Customer card must render name');
