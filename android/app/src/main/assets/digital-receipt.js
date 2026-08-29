@@ -208,6 +208,19 @@
     const margin = 4;
     const pageWidth = 80;
 
+    const logoUrl = (data && data.storeLogo) || (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_store_logo')) || (window.__valenixiaState && window.__valenixiaState.preferences && window.__valenixiaState.preferences.store_logo) || '';
+    if (logoUrl && (logoUrl.startsWith('data:image/') || logoUrl.startsWith('http'))) {
+      try {
+        const logoWidth = 24;
+        const logoHeight = 12;
+        const logoX = (pageWidth - logoWidth) / 2;
+        doc.addImage(logoUrl, 'PNG', logoX, y, logoWidth, logoHeight);
+        y += logoHeight + 4;
+      } catch (err) {
+        console.warn('[ReceiptPDF] Could not embed store logo:', err);
+      }
+    }
+
     lines.forEach(function(line) {
       if (!line || !line.text) { y += 3; return; }
       doc.setFontSize(line.size || 9);
@@ -375,13 +388,15 @@
     const customerEmail = receiptData.customerEmail || "";
 
     const isUrdu = (window.ValenixiaLanguage && window.ValenixiaLanguage.getLanguage() === 'ur') || localStorage.getItem('valenixia_lang') === 'ur';
+    const logoUrl = receiptData.storeLogo || (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_store_logo')) || (window.__valenixiaState && window.__valenixiaState.preferences && window.__valenixiaState.preferences.store_logo) || '';
+    const logoHtml = logoUrl ? '<div style="margin-bottom:12px;display:flex;justify-content:center;"><img src="' + logoUrl + '" alt="Store Logo" style="max-height:48px;max-width:140px;object-fit:contain;border-radius:6px;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.5));"></div>' : '';
 
     const modal = document.createElement("div");
     modal.id = "__vx-receipt-share-modal";
     modal.style.cssText = "position:fixed;inset:0;z-index:2147483645;background:rgba(5,5,8,0.92);display:flex;align-items:flex-end;justify-content:center;padding:16px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);" + (isUrdu ? "direction:rtl;font-family:'Noto Nastaliq Urdu',sans-serif;" : "");
     modal.innerHTML = '<div style="width:100%;max-width:480px;background:#111118;border:1px solid rgba(255,255,255,0.08);border-radius:16px 16px 12px 12px;padding:24px;box-shadow:0 -16px 64px rgba(0,0,0,0.8);">'
       + '<div style="text-align:center;margin-bottom:20px;">'
-      + '<div style="font-size:32px;margin-bottom:8px;"></div>'
+      + logoHtml
       + '<h2 style="font-size:16px;font-weight:800;color:#fff;margin:0 0 4px;">' + (isUrdu ? 'ڈیجیٹل رسید ارسال کریں' : 'Send Digital Receipt') + '</h2>'
       + '<p id="__vx-rcpt-info" style="font-size:12px;color:#64748b;margin:0;"></p>'
       + '</div>'

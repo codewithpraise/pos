@@ -1,14 +1,12 @@
 {
-  "version": "3.2.0",
-  "build_id": "v3.2.0-prod-4f7e691",
-  "git_commit": "4f7e6910c108d0368c31d45e891722269ade9930",
-  "updated_at": "2026-08-27",
-  "changelog": "Valenixia POS v3.2.0 Real-Time Dynamic Analytics Engine, Top Products Revenue & Unit Velocity Leaderboards, Zero-Mock Empty States, Immutable Cloud Entitlements & PWA Performance Polish.",
+  "version": "3.2.2",
+  "build_id": "v3.2.2-prod-fae3cfe",
+  "git_commit": "fae3cfe0ee35af5c527e1dac2b66ccf03d934fd5eb6b5951fb91bd024b84f4f4",
+  "updated_at": "2026-08-29",
+  "changelog": "Valenixia POS v3.2.2 — Install button now downloads real native APK/EXE instead of lightweight PWA cache.",
   "changes": [
-    "Fully dynamic Top Products by Units Sold (Velocity) and Revenue Leaderboard with paisa-safe revenue aggregation and catalog name resolution",
-    "Replaced all static fallback and mock placeholders across Analytics with authentic dynamic zero-state messaging",
-    "Enhanced multi-store branch performance telemetry matrix, Kamai business recommendations, and gold jewellery karat purity analytics",
-    "Sanitized cloud database queries and hardened hardware-anchored device entitlement countdowns",
-    "Optimized PWA installation lifecycle and eliminated console intervention warnings across desktop and mobile browsers"
+    "Install banner now redirects to full native APK (~16 MB) on Android or Windows EXE on desktop",
+    "Platform-aware banner icon and description (Android robot icon vs desktop monitor icon)",
+    "Browser PWA install (1.55 MB cache) is fully suppressed — users always get the hardware-capable native build"
   ]
 }

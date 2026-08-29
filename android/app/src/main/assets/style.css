@@ -457,6 +457,9 @@ section.content-view:not(.active),
 #view-inventory-ai:not(.active),
 #view-loyalty:not(.active),
 #view-marketing:not(.active),
+#view-customer-buyback:not(.active),
+#view-admin-commerce:not(.active),
+#view-platform-admin:not(.active),
 #view-stock-transfer:not(.active) {
   display: none !important;
   height: 0 !important;
@@ -501,6 +504,9 @@ section.content-view.active,
 #view-inventory-ai.active,
 #view-loyalty.active,
 #view-marketing.active,
+#view-customer-buyback.active,
+#view-admin-commerce.active,
+#view-platform-admin.active,
 #view-stock-transfer.active {
   display: flex !important;
   flex-direction: column !important;

@@ -1,12 +1,12 @@
 {
-  "version": "3.2.0",
-  "git_commit": "4f7e6910c108d0368c31d45e891722269ade9930",
-  "build_id": "v3.2.0-prod-4f7e691",
+  "version": "3.2.2",
+  "git_commit": "fae3cfe0ee35af5c527e1dac2b66ccf03d934fd5eb6b5951fb91bd024b84f4f4",
+  "build_id": "v3.2.2-prod-fae3cfe",
   "artifacts": {
     "app.js": {
       "path": "app.js",
-      "size": 1206785,
-      "sha256": "c6888da3b1e20320008d63fe4ad0a496d90939f865196b8baf9eba0bd441e5d5"
+      "size": 1207284,
+      "sha256": "fae3cfe0ee35af5c527e1dac2b66ccf03d934fd5eb6b5951fb91bd024b84f4f4"
     },
     "barcode-decoder.js": {
       "path": "barcode-decoder.js",
@@ -20,8 +20,8 @@
     },
     "bootstrap-init.js": {
       "path": "bootstrap-init.js",
-      "size": 132017,
-      "sha256": "0be94e2f68081be849071c474a918831b17f4449741760e1adba6bcec444be29"
+      "size": 131966,
+      "sha256": "053d5a39e1bbaa07c9d367701acf5150439fc1845edab200624ee563f2050407"
     },
     "build-id": {
       "path": "build-id",
@@ -40,8 +40,8 @@
     },
     "index.html": {
       "path": "index.html",
-      "size": 521236,
-      "sha256": "2e92b4f24b1f53c05c5798db8f3369c2546a1ff1adcdab2fd05133e427478e8c"
+      "size": 520713,
+      "sha256": "7cbc494c75e37e20330199c1d2aa433b02dfe8f518aeceeaebe7afd5d037d720"
     },
     "legal-documents.js": {
       "path": "legal-documents.js",
@@ -55,8 +55,8 @@
     },
     "release-manifest.json": {
       "path": "release-manifest.json",
-      "size": 395,
-      "sha256": "c04f5fe242eaeb91710af202d175e7bf2d001988a13632b895f92fc3dbc9334e"
+      "size": 419,
+      "sha256": "eb8b5a60f7b0d768636dc66fba86b829d9e19a65e4512e81bccdb7db989f5f21"
     },
     "sw-loader.js": {
       "path": "sw-loader.js",
@@ -70,8 +70,8 @@
     },
     "version.json": {
       "path": "version.json",
-      "size": 1006,
-      "sha256": "d9225a52c0dd6be8dd2859b1a7ee27873b72681b736932ab0846ade1c89f4103"
+      "size": 635,
+      "sha256": "341b920e126daf992c5c1b9cdda7131b5435608f2ee5b7354bf1c3b36e1d362e"
     }
   }
 }

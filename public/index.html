@@ -120,8 +120,9 @@
     <!-- SIDEBAR (Desktop / Tablet viewports) -->
     <aside class="pos-sidebar" id="app-sidebar">
       <div class="sidebar-brand">
-        <div class="sidebar-logo-icon" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,rgba(0,214,143,0.2),rgba(0,214,143,0.05));border:1px solid rgba(0,214,143,0.3);">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--accent-emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        <div class="sidebar-logo-icon" id="sidebar-logo-icon-container" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,rgba(0,214,143,0.2),rgba(0,214,143,0.05));border:1px solid rgba(0,214,143,0.3);overflow:hidden;flex-shrink:0;">
+          <img id="sidebar-store-logo-img" src="" alt="Logo" style="display:none;width:100%;height:100%;object-fit:contain;">
+          <svg id="sidebar-default-logo-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--accent-emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
         </div>
         <div class="brand-text">
           <h1 id="sidebar-store-name">VALENIXIA</h1>
@@ -288,12 +289,7 @@
           </span>
           <span class="nav-label">Data Migration</span>
         </button>
-        <button class="nav-item" data-screen="apps-download" id="nav-apps-download">
-          <span class="nav-icon">
-            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          </span>
-          <span class="nav-label">Native Apps</span>
-        </button>
+
       </nav>
       
       <div class="sidebar-footer">
@@ -775,7 +771,7 @@
                 <svg class="svg-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--accent-emerald)" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 Valenixia Apps &amp; Companion Downloads
               </h2>
-              <span style="font-size: 13px; color: var(--text-gray);">Download official native mobile and desktop applications. Both Web &amp; Apps stay 100% real-time synchronized with 1 unified account.</span>
+              <span style="font-size: 13px; color: var(--text-gray);">Download official native mobile and desktop apps. Sign in with your store's <strong style="color:var(--text-white)">same licence key</strong> on any device and all your data syncs automatically.</span>
             </div>
 
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 24px;">
@@ -860,16 +856,17 @@
 
             </div>
 
-            <!-- Unified Realtime Sync Architecture Banner -->
-            <div style="padding: 20px; border-radius: 14px; background: rgba(0, 214, 143, 0.06); border: 1px solid rgba(0, 214, 143, 0.2); display: flex; align-items: center; gap: 16px;">
+            <!-- How Sync Works Info Panel -->
+            <div style="padding: 20px; border-radius: 14px; background: rgba(0, 214, 143, 0.06); border: 1px solid rgba(0, 214, 143, 0.2); display: flex; align-items: flex-start; gap: 16px;">
               <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(0, 214, 143, 0.15); display: flex; align-items: center; justify-content: center; color: var(--accent-emerald); flex-shrink: 0;">
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               </div>
               <div>
-                <strong style="color: var(--accent-emerald); font-size: 13px; display: block; margin-bottom: 2px;">Unified Single Account &amp; Multi-Device Sync Active</strong>
-                <span style="font-size: 11.5px; color: var(--text-gray);">Whether you use the Web App, Mobile App, or Desktop App on the same device or store network, all transactions, inventory changes, and sales records sync in real-time via WebSocket SyncHub with zero duplicate accounts or split ledgers.</span>
+                <strong style="color: var(--accent-emerald); font-size: 13px; display: block; margin-bottom: 4px;">How data sync works across devices</strong>
+                <span style="font-size: 11.5px; color: var(--text-gray); line-height: 1.6;">Each new device (Android APK or Windows Desktop) requires a <strong style="color:var(--text-white)">quick 1–2 minute first-time setup</strong> where you enter your store's licence key &amp; PIN. Once signed in with the same key, all products, sales, customers and inventory sync automatically — no manual export needed. Think of it like signing into WhatsApp on a new phone: the data follows your account.</span>
               </div>
             </div>
+
           </div>
         </section>
 
@@ -1014,7 +1011,7 @@
           <div id="deals-list-container" style="padding:0 20px 20px;"></div>
         </section>
 
-        <!-- View 3c: Customer Device Buy-In & Trade-In (Mobile & Electronics specific) -->
+        <!-- View 3c: Customer Device Buy-In & Trade-In (Mobile & Electronics & Jewellery) -->
         <section class="content-view" id="view-customer-buyback">
           <div style="padding: 20px; max-width: 1400px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; box-sizing: border-box;">
             
@@ -1022,10 +1019,10 @@
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid var(--border-titanium); padding-bottom: 14px;">
               <div>
                 <div style="display: flex; align-items: center; gap: 8px;">
-                  <h2 style="margin: 0; font-family: var(--font-display); font-weight: 900; font-size: 22px; color: var(--text-white); letter-spacing: -0.3px;">Device Buy-In &amp; Trade-In Hub</h2>
-                  <span style="font-size: 10px; background: rgba(0,214,143,0.15); color: var(--accent-emerald); padding: 2px 8px; border-radius: 6px; font-weight: 800; border: 1px solid rgba(0,214,143,0.3);">MOBILE &amp; ELECTRONICS</span>
+                  <h2 id="buyback-view-title" style="margin: 0; font-family: var(--font-display); font-weight: 900; font-size: 22px; color: var(--text-white); letter-spacing: -0.3px;">Device Buy-In &amp; Trade-In Hub</h2>
+                  <span id="buyback-view-badge" style="font-size: 10px; background: rgba(0,214,143,0.15); color: var(--accent-emerald); padding: 2px 8px; border-radius: 6px; font-weight: 800; border: 1px solid rgba(0,214,143,0.3);">MOBILE &amp; ELECTRONICS</span>
                 </div>
-                <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Purchase phones &amp; electronics from walk-in customers, verify CNIC/IMEI legality, and generate legal inward vouchers.</p>
+                <p id="buyback-view-subtitle" style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Purchase phones &amp; electronics from walk-in customers, verify CNIC/IMEI legality, and generate legal inward vouchers.</p>
               </div>
               <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                 <button type="button" class="action-btn action-secondary" id="btn-export-buyback-csv" style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 8px 14px;">
@@ -1042,40 +1039,40 @@
             <!-- KPI Row -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px;">
               <div class="kpi-card accent-emerald">
-                <span class="kpi-lbl">TODAY'S BUY-IN PAYOUT</span>
+                <span class="kpi-lbl" id="buyback-kpi-payout-lbl">TODAY'S BUY-IN PAYOUT</span>
                 <span class="kpi-val" id="buyback-kpi-payout">Rs. 0</span>
                 <span style="font-size: 10px; color: var(--accent-emerald); font-weight: 700; margin-top: 2px;">Cash Disbursed</span>
               </div>
               <div class="kpi-card accent-blue">
-                <span class="kpi-lbl">DEVICES PURCHASED TODAY</span>
+                <span class="kpi-lbl" id="buyback-kpi-count-lbl">DEVICES PURCHASED TODAY</span>
                 <span class="kpi-val" id="buyback-kpi-count">0</span>
-                <span style="font-size: 10px; color: #3b82f6; font-weight: 700; margin-top: 2px;">Inward Vouchers</span>
+                <span id="buyback-kpi-count-sub" style="font-size: 10px; color: #3b82f6; font-weight: 700; margin-top: 2px;">Inward Vouchers</span>
               </div>
               <div class="kpi-card accent-amber">
-                <span class="kpi-lbl">ACTIVE INVENTORY RESALE</span>
+                <span class="kpi-lbl" id="buyback-kpi-inv-lbl">ACTIVE INVENTORY RESALE</span>
                 <span class="kpi-val" id="buyback-kpi-inventory">0</span>
-                <span style="font-size: 10px; color: #f59e0b; font-weight: 700; margin-top: 2px;">Used Stock Units</span>
+                <span id="buyback-kpi-inv-sub" style="font-size: 10px; color: #f59e0b; font-weight: 700; margin-top: 2px;">Used Stock Units</span>
               </div>
             </div>
 
             <!-- Two-Column Layout: Left Form, Right History -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 16px; align-items: start;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); gap: 16px; align-items: start;">
               
               <!-- Form Column -->
-              <div class="cloud-vault-card" style="padding: 20px; border-radius: 12px; border: 1px solid var(--border-titanium); display: flex; flex-direction: column; gap: 16px;">
+              <div class="cloud-vault-card" style="padding: 20px; border-radius: 12px; border: 1px solid var(--border-titanium); display: flex; flex-direction: column; gap: 16px; box-sizing: border-box;">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-titanium); padding-bottom: 10px;">
                   <span style="font-size: 13px; font-weight: 800; color: var(--text-white); text-transform: uppercase; letter-spacing: 0.5px;">Customer Trade-In &amp; Buyback Intake</span>
                   <button type="button" class="action-btn" id="btn-clear-buyback-form" style="font-size: 11px; padding: 4px 10px;">Clear Form</button>
                 </div>
 
                 <!-- Intake Type Selector (Mobile/Electronics vs Gold/Jewellery) -->
-                <div style="display: flex; gap: 8px; background: rgba(0,0,0,0.3); padding: 4px; border-radius: 8px; border: 1px solid var(--border-titanium);" id="buyback-intake-type-toggle">
+                <div style="display: flex; gap: 8px; background: rgba(0,0,0,0.08); padding: 4px; border-radius: 8px; border: 1px solid var(--border-titanium);" id="buyback-intake-type-toggle">
                   <button type="button" id="btn-buyback-tab-device" class="action-btn active" style="flex: 1; font-size: 11.5px; font-weight: 800; padding: 7px 10px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
                     Mobile &amp; Electronics
                   </button>
                   <button type="button" id="btn-buyback-tab-gold" class="action-btn" style="flex: 1; font-size: 11.5px; font-weight: 800; padding: 7px 10px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#ffd700" stroke-width="2"><path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20"/><path d="M10 3l2 6 2-6"/></svg>
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20"/><path d="M10 3l2 6 2-6"/></svg>
                     Gold &amp; Jewellery Trade-In
                   </button>
                 </div>
@@ -1086,24 +1083,24 @@
                   <!-- Section 1: Seller Details -->
                   <div style="margin-bottom: 14px;">
                     <span style="font-size: 11px; font-weight: 800; color: var(--accent-emerald); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px;">1. Customer / Seller Legal Details</span>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                    <div class="buyback-2col-grid" style="margin-bottom: 8px;">
                       <div>
                         <label for="buyback-seller-name" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Seller Full Name *</label>
-                        <input type="text" id="buyback-seller-name" class="pos-input" placeholder="e.g. Muhammad Usman" required style="font-size: 12px;" aria-label="Seller Full Name">
+                        <input type="text" id="buyback-seller-name" class="pos-input" placeholder="e.g. Muhammad Usman" required style="font-size: 12px; width: 100%; box-sizing: border-box;" aria-label="Seller Full Name">
                       </div>
                       <div>
                         <label for="buyback-seller-phone" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Phone / WhatsApp *</label>
-                        <input type="tel" id="buyback-seller-phone" class="pos-input" placeholder="e.g. 0300-1234567" required style="font-size: 12px;" aria-label="Seller Phone">
+                        <input type="tel" id="buyback-seller-phone" class="pos-input" placeholder="e.g. 0300-1234567" required style="font-size: 12px; width: 100%; box-sizing: border-box;" aria-label="Seller Phone">
                       </div>
                     </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="buyback-2col-grid">
                       <div>
                         <label for="buyback-seller-cnic" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">CNIC / National ID *</label>
-                        <input type="text" id="buyback-seller-cnic" class="pos-input" placeholder="e.g. 42101-1234567-1" required style="font-size: 12px;" aria-label="Seller CNIC">
+                        <input type="text" id="buyback-seller-cnic" class="pos-input" placeholder="e.g. 42101-1234567-1" required style="font-size: 12px; width: 100%; box-sizing: border-box;" aria-label="Seller CNIC">
                       </div>
                       <div>
                         <label for="buyback-seller-address" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">City / Address</label>
-                        <input type="text" id="buyback-seller-address" class="pos-input" placeholder="e.g. Saddar, Karachi" style="font-size: 12px;" aria-label="Seller Address">
+                        <input type="text" id="buyback-seller-address" class="pos-input" placeholder="e.g. Saddar, Karachi" style="font-size: 12px; width: 100%; box-sizing: border-box;" aria-label="Seller Address">
                       </div>
                     </div>
                   </div>
@@ -1111,10 +1108,10 @@
                   <!-- Section 2A: Device Specs (Mobile / Electronics) -->
                   <div id="buyback-device-section" style="margin-bottom: 14px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
                     <span style="font-size: 11px; font-weight: 800; color: #3b82f6; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px;">2. Device &amp; Hardware Specifications</span>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                    <div class="buyback-2col-grid" style="margin-bottom: 8px;">
                       <div>
                         <label for="buyback-device-brand" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Brand / Manufacturer *</label>
-                        <select id="buyback-device-brand" class="pos-input" style="font-size: 12px;" aria-label="Device Brand">
+                        <select id="buyback-device-brand" class="pos-input" style="font-size: 12px; width: 100%; box-sizing: border-box;" aria-label="Device Brand">
                           <option value="Apple">Apple iPhone</option>
                           <option value="Samsung">Samsung</option>
                           <option value="Xiaomi">Xiaomi / Redmi</option>
@@ -1130,29 +1127,29 @@
                       </div>
                       <div>
                         <label for="buyback-device-model" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Model Name &amp; Storage *</label>
-                        <input type="text" id="buyback-device-model" class="pos-input" placeholder="e.g. iPhone 13 Pro 256GB" style="font-size: 12px;" aria-label="Model Name">
+                        <input type="text" id="buyback-device-model" class="pos-input" placeholder="e.g. iPhone 13 Pro 256GB" style="font-size: 12px; width: 100%; box-sizing: border-box;" aria-label="Model Name">
                       </div>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                    <div class="buyback-2col-grid" style="margin-bottom: 8px;">
                       <div>
                         <label for="buyback-device-imei1" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Primary IMEI 1 / Serial # *</label>
-                        <input type="text" id="buyback-device-imei1" class="pos-input" placeholder="15-digit IMEI or Serial" style="font-size: 12px; font-family: var(--font-mono);" aria-label="Primary IMEI">
+                        <input type="text" id="buyback-device-imei1" class="pos-input" placeholder="15-digit IMEI or Serial" style="font-size: 12px; font-family: var(--font-mono); width: 100%; box-sizing: border-box;" aria-label="Primary IMEI">
                       </div>
                       <div>
                         <label for="buyback-device-imei2" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Secondary IMEI 2 (eSIM/Dual)</label>
-                        <input type="text" id="buyback-device-imei2" class="pos-input" placeholder="Optional IMEI 2" style="font-size: 12px; font-family: var(--font-mono);" aria-label="Secondary IMEI">
+                        <input type="text" id="buyback-device-imei2" class="pos-input" placeholder="Optional IMEI 2" style="font-size: 12px; font-family: var(--font-mono); width: 100%; box-sizing: border-box;" aria-label="Secondary IMEI">
                       </div>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                    <div class="buyback-2col-grid" style="margin-bottom: 8px;">
                       <div>
                         <label for="buyback-device-color" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Device Color</label>
-                        <input type="text" id="buyback-device-color" class="pos-input" placeholder="e.g. Sierra Blue" style="font-size: 12px;" aria-label="Device Color">
+                        <input type="text" id="buyback-device-color" class="pos-input" placeholder="e.g. Sierra Blue" style="font-size: 12px; width: 100%; box-sizing: border-box;" aria-label="Device Color">
                       </div>
                       <div>
                         <label for="buyback-device-condition" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Physical Condition Grade *</label>
-                        <select id="buyback-device-condition" class="pos-input" style="font-size: 12px;" aria-label="Condition Grade">
+                        <select id="buyback-device-condition" class="pos-input" style="font-size: 12px; width: 100%; box-sizing: border-box;" aria-label="Condition Grade">
                           <option value="10/10 Mint (Box Pack / Flawless)">10/10 Mint (Box Pack / Flawless)</option>
                           <option value="9/10 Excellent (Minor Signs of Use)" selected>9/10 Excellent (Minor Signs of Use)</option>
                           <option value="8/10 Good (Visible Scratches/Dents)">8/10 Good (Visible Scratches/Dents)</option>
@@ -1176,12 +1173,12 @@
 
                   <!-- Section 2B: Gold & Precious Metals Specs -->
                   <div id="buyback-gold-section" style="display: none; margin-bottom: 14px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
-                    <span style="font-size: 11px; font-weight: 800; color: #ffd700; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px;">2. Gold &amp; Precious Metal Specifications (سونے کی تفصیلات)</span>
+                    <span style="font-size: 11px; font-weight: 800; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px;">2. Gold &amp; Precious Metal Specifications (سونے کی تفصیلات)</span>
                     
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                    <div class="buyback-2col-grid" style="margin-bottom: 8px;">
                       <div>
                         <label for="buyback-gold-item-type" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Piece / Item Type *</label>
-                        <select id="buyback-gold-item-type" class="pos-input" style="font-size: 12px;" aria-label="Gold Item Type">
+                        <select id="buyback-gold-item-type" class="pos-input" style="font-size: 12px; width: 100%; box-sizing: border-box;" aria-label="Gold Item Type">
                           <option value="22K Old Bridal Jewellery Sets">22K Old Bridal Jewellery Set (زیور)</option>
                           <option value="21K Gold Bangles & Kangan" selected>21K Gold Bangles / Kangan (چوڑیاں)</option>
                           <option value="18K Diamond / Gemstone Ring">18K Diamond / Gemstone Ring (انگوٹھی)</option>
@@ -1193,7 +1190,7 @@
                       </div>
                       <div>
                         <label for="buyback-gold-karat" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Karat Purity Grade *</label>
-                        <select id="buyback-gold-karat" class="pos-input" style="font-size: 12px; font-weight: 700; color: #ffd700;" aria-label="Gold Karat Grade">
+                        <select id="buyback-gold-karat" class="pos-input" style="font-size: 12px; font-weight: 700; color: #f59e0b; width: 100%; box-sizing: border-box;" aria-label="Gold Karat Grade">
                           <option value="24K">24K Pure Gold (99.9%)</option>
                           <option value="22K" selected>22K Standard Jewellery (91.6%)</option>
                           <option value="21K">21K Gulf Gold (87.5%)</option>
@@ -1205,62 +1202,64 @@
                     </div>
 
                     <!-- Rates & Weight Calculator Box -->
-                    <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-titanium); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px;">
-                      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                    <div class="buyback-calc-card" style="margin-bottom: 8px;">
+                      <div class="buyback-weight-grid">
                         <div>
                           <label for="buyback-gold-gross-weight" style="font-size: 10.5px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Gross Scale Wt (g) *</label>
-                          <input type="number" id="buyback-gold-gross-weight" class="pos-input" placeholder="0.000" min="0.01" step="0.001" value="10.000" style="font-size: 13px; font-weight: 800; color: var(--text-white);" aria-label="Gross Gold Weight">
+                          <input type="number" id="buyback-gold-gross-weight" class="pos-input" placeholder="0.000" min="0.01" step="0.001" value="10.000" style="font-size: 13px; font-weight: 800; width: 100%; box-sizing: border-box;" aria-label="Gross Gold Weight">
                         </div>
                         <div>
                           <label for="buyback-gold-stone-deduction" style="font-size: 10.5px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Stone/Nagina (g)</label>
-                          <input type="number" id="buyback-gold-stone-deduction" class="pos-input" placeholder="0.000" min="0" step="0.001" value="0.000" style="font-size: 13px; font-weight: 800; color: #ef4444;" aria-label="Stone Deduction">
+                          <input type="number" id="buyback-gold-stone-deduction" class="pos-input" placeholder="0.000" min="0" step="0.001" value="0.000" style="font-size: 13px; font-weight: 800; color: #ef4444; width: 100%; box-sizing: border-box;" aria-label="Stone Deduction">
                         </div>
                         <div>
-                          <label style="font-size: 10.5px; font-weight: 700; color: #00d68f; display: block; margin-bottom: 4px;">Net Metal Wt (g)</label>
-                          <div id="buyback-gold-net-weight-display" style="padding: 7px 10px; background: rgba(0,214,143,0.1); border: 1px solid rgba(0,214,143,0.3); border-radius: 6px; font-size: 13px; font-weight: 900; color: #00d68f; text-align: right;">10.000 g</div>
+                          <label style="font-size: 10.5px; font-weight: 700; color: var(--accent-emerald, #00d68f); display: block; margin-bottom: 4px;">Net Metal Wt (g)</label>
+                          <div id="buyback-gold-net-weight-display" class="buyback-net-wt-display">10.000 g</div>
                         </div>
                       </div>
 
                       <!-- Quick Gross Weight Step Adjusters -->
-                      <div style="display: flex; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: wrap;">
-                        <span style="font-size: 10px; color: var(--text-gray); margin-right: auto;">Gross Weight Step:</span>
-                        <button type="button" class="action-btn buyback-gold-step-btn" data-delta="0.5" style="font-size: 10px; padding: 2px 7px;">+0.5g</button>
-                        <button type="button" class="action-btn buyback-gold-step-btn" data-delta="1.0" style="font-size: 10px; padding: 2px 7px;">+1.0g</button>
-                        <button type="button" class="action-btn buyback-gold-step-btn" data-delta="5.0" style="font-size: 10px; padding: 2px 7px;">+5.0g</button>
-                        <button type="button" class="action-btn buyback-gold-step-btn" data-delta="-1.0" style="font-size: 10px; padding: 2px 7px;">-1.0g</button>
+                      <div style="display: flex; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: wrap; margin-top: 2px;">
+                        <span style="font-size: 10.5px; color: var(--text-gray, #94a3b8); margin-right: auto;">Gross Weight Step:</span>
+                        <button type="button" class="action-btn buyback-gold-step-btn" data-delta="0.5" style="font-size: 11px; padding: 3px 8px; border-radius: 6px;">+0.5g</button>
+                        <button type="button" class="action-btn buyback-gold-step-btn" data-delta="1.0" style="font-size: 11px; padding: 3px 8px; border-radius: 6px;">+1.0g</button>
+                        <button type="button" class="action-btn buyback-gold-step-btn" data-delta="5.0" style="font-size: 11px; padding: 3px 8px; border-radius: 6px;">+5.0g</button>
+                        <button type="button" class="action-btn buyback-gold-step-btn" data-delta="-1.0" style="font-size: 11px; padding: 3px 8px; border-radius: 6px;">-1.0g</button>
                       </div>
 
-                      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: center; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px;">
+                      <div class="buyback-2col-grid" style="align-items: center; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px;">
                         <div>
                           <label for="buyback-gold-rate-gram" style="font-size: 10.5px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Market Rate / Gram (PKR) *</label>
-                          <div style="position: relative;">
-                            <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 800; color: #ffd700;">Rs.</span>
-                            <input type="number" id="buyback-gold-rate-gram" class="pos-input" placeholder="e.g. 21612" min="1" step="1" style="padding-left: 30px; font-size: 12px; font-weight: 800; color: var(--text-white);" aria-label="Gold Rate Per Gram">
+                          <div class="pos-input-group gold-focus">
+                            <span class="pos-input-prefix gold-text">Rs.</span>
+                            <input type="number" id="buyback-gold-rate-gram" class="pos-input" placeholder="e.g. 21612" min="1" step="1" style="font-size: 13px; font-weight: 800;" aria-label="Gold Rate Per Gram">
                           </div>
                         </div>
                         <div>
                           <label for="buyback-gold-katt-pct" style="font-size: 10.5px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Melting Loss / Katt (% کاٹ)</label>
-                          <div style="position: relative;">
+                          <div class="pos-input-group gold-focus">
                             <input type="number" id="buyback-gold-katt-pct" class="pos-input" placeholder="e.g. 2.0" min="0" max="50" step="0.1" value="2.0" style="font-size: 12px; font-weight: 700;" aria-label="Melting Katt Percentage">
-                            <span style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10px; color: var(--text-gray);">%</span>
+                            <span class="pos-input-suffix gold-text">%</span>
                           </div>
                         </div>
                       </div>
 
                       <!-- Pure Yield Summary -->
-                      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-gray); border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 6px;">
-                        <span>Pure Melt Yield: <strong id="buyback-gold-eff-weight-display" style="color: var(--text-white);">9.800 g (98%)</strong></span>
-                        <span>Gold Rate/Tola: <strong id="buyback-gold-rate-tola-display" style="color: #ffd700;">Rs. 252,083</strong></span>
+                      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-gray); border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 6px; flex-wrap: wrap; gap: 6px;">
+                        <span>Pure Melt Yield: <strong id="buyback-gold-eff-weight-display" style="color: var(--text-white);">9.800 g (98.0%)</strong></span>
+                        <span>Gold Rate/Tola: <strong id="buyback-gold-rate-tola-display" class="gold-meta-label">Rs. 252,083</strong></span>
                       </div>
                     </div>
 
                     <!-- Live Gold Valuation Banner -->
-                    <div style="background: linear-gradient(135deg, rgba(255,215,0,0.12), rgba(0,214,143,0.1)); border: 1px solid rgba(255,215,0,0.4); border-radius: 8px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+                    <div class="buyback-valuation-card">
                       <div>
-                        <span style="font-size: 10px; font-weight: 800; color: #ffd700; text-transform: uppercase; letter-spacing: 0.5px; display: block;">Calculated Gold Trade-In Valuation</span>
-                        <span style="font-size: 9.5px; color: var(--text-gray);">Effective Metal &times; Market Rate</span>
+                        <span class="val-title">Calculated Gold Trade-In Valuation</span>
+                        <span class="val-sub">Effective Metal &times; Market Rate</span>
                       </div>
-                      <span id="buyback-gold-valuation-display" style="font-size: 17px; font-weight: 900; color: #ffd700; font-family: var(--font-display);">Rs. 0</span>
+                      <div>
+                        <span id="buyback-gold-valuation-display" class="val-amount">Rs. 0</span>
+                      </div>
                     </div>
 
                   </div>
@@ -1269,17 +1268,17 @@
                   <div style="margin-bottom: 14px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
                     <span style="font-size: 11px; font-weight: 800; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px;">3. Purchase Valuation &amp; Payout</span>
                     
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                    <div class="buyback-2col-grid" style="margin-bottom: 8px;">
                       <div>
                         <label for="buyback-payout-amount" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Agreed Buy-In Amount (PKR) *</label>
-                        <div style="position: relative;">
-                          <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-weight: 700; color: var(--accent-emerald); font-size: 12px;">Rs.</span>
-                          <input type="number" id="buyback-payout-amount" class="pos-input" placeholder="e.g. 75000" min="0" step="1" required style="padding-left: 36px; font-size: 14px; font-weight: 800; color: var(--text-white);" aria-label="Buy-In Payout Amount">
+                        <div class="pos-input-group">
+                          <span class="pos-input-prefix emerald-text">Rs.</span>
+                          <input type="number" id="buyback-payout-amount" class="pos-input" placeholder="e.g. 75000" min="0" step="1" required style="font-size: 14px; font-weight: 800;" aria-label="Buy-In Payout Amount">
                         </div>
                       </div>
                       <div>
                         <label for="buyback-payout-method" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Disbursement Method *</label>
-                        <select id="buyback-payout-method" class="pos-input" style="font-size: 12px;" aria-label="Payout Method">
+                        <select id="buyback-payout-method" class="pos-input" style="font-size: 12px; width: 100%; box-sizing: border-box;" aria-label="Payout Method">
                           <option value="CASH" selected>Cash from Register Till</option>
                           <option value="BANK_TRANSFER">Bank / Raast Online Transfer</option>
                           <option value="STORE_CREDIT">Store Credit / Trade-In Exchange</option>
@@ -1295,15 +1294,15 @@
                         </span>
                         <input type="checkbox" id="buyback-inventory-toggle" checked style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
                       </label>
-                      <div id="buyback-resale-row" style="margin-top: 8px; display: flex; align-items: center; gap: 8px;">
+                      <div id="buyback-resale-row" style="margin-top: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                         <label for="buyback-resale-price" style="font-size: 10.5px; color: var(--text-gray); white-space: nowrap;">Target Resale / Scrap Price (PKR):</label>
-                        <input type="number" id="buyback-resale-price" class="pos-input" placeholder="e.g. 88000" min="0" step="1" style="font-size: 11.5px; height: 28px; flex: 1;" aria-label="Target Resale Price">
+                        <input type="number" id="buyback-resale-price" class="pos-input" placeholder="e.g. 88000" min="0" step="1" style="font-size: 11.5px; height: 32px; flex: 1; min-width: 140px;" aria-label="Target Resale Price">
                       </div>
                     </div>
 
                     <div>
                       <label for="buyback-notes" style="font-size: 11px; font-weight: 700; color: var(--text-white); display: block; margin-bottom: 4px;">Diagnostic / Hallmarking Notes</label>
-                      <input type="text" id="buyback-notes" class="pos-input" placeholder="e.g. Tested with acid & stone • 22K Hallmarked • Battery 89%" style="font-size: 11px;" aria-label="Diagnostic Notes">
+                      <input type="text" id="buyback-notes" class="pos-input" placeholder="e.g. Tested with acid & stone • 22K Hallmarked • Battery 89%" style="font-size: 11px; width: 100%; box-sizing: border-box;" aria-label="Diagnostic Notes">
                     </div>
                   </div>
 
@@ -1326,14 +1325,14 @@
               </div>
 
               <!-- History / Records Column -->
-              <div class="cloud-vault-card" style="padding: 20px; border-radius: 12px; border: 1px solid var(--border-titanium); display: flex; flex-direction: column; gap: 14px;">
+              <div class="cloud-vault-card" style="padding: 20px; border-radius: 12px; border: 1px solid var(--border-titanium); display: flex; flex-direction: column; gap: 14px; box-sizing: border-box;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                   <span style="font-size: 13px; font-weight: 800; color: var(--text-white); text-transform: uppercase; letter-spacing: 0.5px;">Inward Purchase Vouchers</span>
                   <span id="buyback-records-count" style="font-size: 10.5px; color: var(--accent-emerald); font-weight: 700;">0 Vouchers</span>
                 </div>
 
                 <div class="search-bar-row">
-                  <input type="text" id="buyback-search-input" class="pos-input" placeholder="Search by IMEI, Seller Name, CNIC, or Voucher #..." aria-label="Search Buy-In records">
+                  <input type="text" id="buyback-search-input" class="pos-input" placeholder="Search by IMEI, Seller Name, CNIC, or Voucher #..." aria-label="Search Buy-In records" style="width: 100%; box-sizing: border-box;">
                 </div>
 
                 <div id="buyback-records-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 620px; overflow-y: auto;">
@@ -2034,6 +2033,22 @@
               <div class="settings-row">
                 <label for="setting-receipt-tagline">Print Tagline footer:</label>
                 <input type="text" id="setting-receipt-tagline" class="pos-input" aria-label="Setting Receipt Tagline">
+              </div>
+              <div class="settings-row" style="align-items: flex-start;">
+                <label for="setting-store-logo-input">Custom Store Logo:</label>
+                <div style="display: flex; flex-direction: column; gap: 8px; flex: 1;">
+                  <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <div id="setting-store-logo-preview" style="width: 52px; height: 52px; border-radius: 10px; border: 1.5px dashed var(--border-titanium); background: rgba(255,255,255,0.03); display: flex; align-items: center; justify-content: center; overflow: hidden; background-size: contain; background-repeat: no-repeat; background-position: center; flex-shrink: 0;">
+                      <span id="setting-store-logo-placeholder" style="font-size: 10px; color: var(--text-gray); text-align: center;">No Logo</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                      <input type="file" id="setting-store-logo-input" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display: none;">
+                      <button type="button" class="btn-tactile btn-tactile-secondary" id="btn-upload-store-logo" onclick="document.getElementById('setting-store-logo-input').click();" style="font-size: 11px; padding: 6px 14px;">Upload Store Logo</button>
+                      <button type="button" class="btn-tactile" id="btn-remove-store-logo" style="font-size: 10px; padding: 4px 10px; color: #ff5252; background: rgba(255,82,82,0.1); border: 1px solid rgba(255,82,82,0.3); display: none;">Remove Logo</button>
+                    </div>
+                  </div>
+                  <span style="font-size: 10px; color: var(--text-gray);">Custom logo automatically renders on the Main Header, Digital Receipts &amp; PDF Invoices.</span>
+                </div>
               </div>
             </div>
 
@@ -3286,6 +3301,56 @@
                     <tr><td colspan="8" style="text-align:center; color:var(--text-dim); padding:16px;">Loading platform admin claims queue...</td></tr>
                   </tbody>
                 </table>
+              </div>
+            </div>
+
+            <!-- Device Multi-Store & Multi-Runtime Licensing Engine -->
+            <div class="cloud-vault-card" style="border:1px solid rgba(0,214,143,0.3); background:linear-gradient(180deg, rgba(17,17,24,0.95), rgba(10,25,18,0.7));">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+                <div>
+                  <h3 style="margin:0 0 4px; font-size:16px; font-weight:800; color:var(--text-white); display:flex; align-items:center; gap:8px;">
+                    <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--accent-emerald); box-shadow:0 0 8px var(--accent-emerald);"></span>
+                    Device Runtime &amp; Multi-Store Tier Controller
+                  </h3>
+                  <p style="margin:0; font-size:11px; color:var(--text-gray);">Independent paid tiers and storage sandboxes for Web App vs Native App on the same device</p>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span id="platform-admin-current-runtime-badge" style="padding:4px 10px; border-radius:8px; font-size:10px; font-weight:800; background:rgba(0,214,143,0.15); color:var(--accent-emerald); border:1px solid rgba(0,214,143,0.3);">Detecting Runtime...</span>
+                </div>
+              </div>
+
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-bottom:16px;">
+                <!-- Active Device Details -->
+                <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-titanium); border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:8px;">
+                  <span style="font-size:11px; font-weight:800; color:var(--accent-cyan); text-transform:uppercase; letter-spacing:0.5px;">Active Instance Hardware Info</span>
+                  <div style="display:flex; justify-content:space-between; font-size:12px;">
+                    <span style="color:var(--text-gray);">Runtime Mode:</span>
+                    <strong id="platform-admin-runtime-mode" style="color:var(--text-white); font-family:var(--font-mono);">—</strong>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; font-size:12px;">
+                    <span style="color:var(--text-gray);">Device HWID:</span>
+                    <strong id="platform-admin-hwid" style="color:var(--accent-emerald); font-family:var(--font-mono); font-size:11px;">—</strong>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; font-size:12px;">
+                    <span style="color:var(--text-gray);">Active Store Tier:</span>
+                    <strong id="platform-admin-active-tier" style="color:#ffc107; font-weight:800;">—</strong>
+                  </div>
+                </div>
+
+                <!-- Independent License Switcher -->
+                <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-titanium); border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:10px;">
+                  <span style="font-size:11px; font-weight:800; color:var(--accent-emerald); text-transform:uppercase; letter-spacing:0.5px;">Switch Instance License Tier</span>
+                  <div style="display:flex; gap:8px; align-items:center;">
+                    <select id="platform-admin-tier-select" class="pos-input" style="flex:1; height:38px; font-size:12px; font-weight:700;">
+                      <option value="FREE">FREE TIER (Basic Counter &amp; Sales)</option>
+                      <option value="STARTER">STARTER TIER (Full Standard POS)</option>
+                      <option value="PRO">PRO TIER (Cloud Sync &amp; Multi-Staff)</option>
+                      <option value="ENTERPRISE">ENTERPRISE TIER (Unlimited Multi-Store)</option>
+                    </select>
+                    <button type="button" class="btn-tactile btn-tactile-primary" id="btn-admin-apply-tier" onclick="if(window.applyAdminTierOverride)window.applyAdminTierOverride();" style="padding:0 14px; height:38px; font-size:11px; font-weight:800; white-space:nowrap;">Apply Tier</button>
+                  </div>
+                  <span style="font-size:10px; color:var(--text-gray);">Changes apply immediately to this specific runtime sandbox without affecting other stores.</span>
+                </div>
               </div>
             </div>
           </div>

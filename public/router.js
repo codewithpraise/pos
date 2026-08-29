@@ -38,14 +38,14 @@
     'catalog': {
       viewId: 'view-catalog',
       title: 'Product Catalog',
-      renderer: 'renderCatalogScreen',
-      renderTargets: ['catalog-search-input']
+      renderer: 'renderQuickCatalog',
+      renderTargets: ['mobile-quick-grid']
     },
     'catalog-manager': {
       viewId: 'view-catalog-manager',
-      title: 'Catalog Manager',
-      renderer: 'renderCatalogManagerScreen',
-      renderTargets: ['catalog-search-input']
+      title: 'Inventory Ledger',
+      renderer: 'renderCatalogScreen',
+      renderTargets: ['catalog-virtual-container']
     },
     'deals': {
       viewId: 'view-deals',

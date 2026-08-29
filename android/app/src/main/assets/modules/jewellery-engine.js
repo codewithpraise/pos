@@ -239,6 +239,7 @@
       kattDeductionVal: Math.round(kattDeductionVal),
       effectiveWeightGrams,
       netValuation,
+      valuationPKR: netValuation,
       netValuationMinor
     };
   }
@@ -639,14 +640,14 @@
       modal = document.createElement('div');
       modal.id = 'modal-gold-tradein';
       modal.className = 'pos-modal-overlay';
-      modal.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 9999; padding: 16px; box-sizing: border-box;';
+      modal.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 9999; padding: 16px; box-sizing: border-box;';
       modal.innerHTML = `
-        <div class="pos-modal-card" style="background: var(--bg-surface-elevated, #11141a); border: 1px solid var(--border-titanium, rgba(255,255,255,0.12)); border-radius: 14px; max-width: 580px; width: 100%; max-height: 92vh; overflow-y: auto; box-shadow: 0 24px 60px rgba(0,0,0,0.8); display: flex; flex-direction: column;">
+        <div class="pos-modal-card" style="background: var(--bg-surface-elevated, #11141a); border: 1px solid var(--border-titanium, rgba(255,255,255,0.15)); border-radius: 14px; max-width: 580px; width: 100%; max-height: 92vh; overflow-y: auto; box-shadow: 0 24px 60px rgba(0,0,0,0.5); display: flex; flex-direction: column; box-sizing: border-box;">
           
           <!-- Modal Header -->
-          <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-titanium, rgba(255,255,255,0.1)); display: flex; justify-content: space-between; align-items: center; background: rgba(255,215,0,0.04);">
+          <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-titanium, rgba(255,255,255,0.1)); display: flex; justify-content: space-between; align-items: center; background: rgba(245,158,11,0.06); box-sizing: border-box;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(255,215,0,0.15); border: 1px solid rgba(255,215,0,0.4); display: flex; align-items: center; justify-content: center; color: #ffd700;">
+              <div style="width: 34px; height: 34px; border-radius: 8px; background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.4); display: flex; align-items: center; justify-content: center; color: #f59e0b;">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20"/><path d="M10 3l2 6 2-6"/></svg>
               </div>
               <div>
@@ -658,19 +659,19 @@
           </div>
 
           <!-- Modal Body -->
-          <div style="padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+          <div class="modal-body-wrapper" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box;">
             
             <!-- Item Description -->
             <div>
               <label for="gold-tradein-item-name" style="font-size: 11px; font-weight: 700; color: var(--text-white, #fff); display: block; margin-bottom: 4px;">Item Description / Category *</label>
-              <input type="text" id="gold-tradein-item-name" class="pos-input" placeholder="e.g. 22K Old Bridal Bangles / Kangan (چوڑیاں)" value="22K Old Jewellery Exchange" style="font-size: 12px;" aria-label="Item Description">
+              <input type="text" id="gold-tradein-item-name" class="pos-input" placeholder="e.g. 22K Old Bridal Bangles / Kangan (چوڑیاں)" value="22K Old Jewellery Exchange" style="font-size: 12px; width: 100%; box-sizing: border-box;" aria-label="Item Description">
             </div>
 
             <!-- Karat & Market Rate Row -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="buyback-2col-grid">
               <div>
                 <label for="gold-tradein-karat" style="font-size: 11px; font-weight: 700; color: var(--text-white, #fff); display: block; margin-bottom: 4px;">Karat Purity Grade *</label>
-                <select id="gold-tradein-karat" class="pos-input" style="font-size: 12px; font-weight: 700; color: #ffd700;" aria-label="Karat Grade">
+                <select id="gold-tradein-karat" class="pos-input" style="font-size: 12px; font-weight: 700; color: #f59e0b; width: 100%; box-sizing: border-box;" aria-label="Karat Grade">
                   <option value="24K">24K Pure Gold (99.9%)</option>
                   <option value="22K" selected>22K Standard Jewellery (91.6%)</option>
                   <option value="21K">21K Gulf Gold (87.5%)</option>
@@ -681,82 +682,82 @@
               </div>
               <div>
                 <label for="gold-tradein-rate-gram" style="font-size: 11px; font-weight: 700; color: var(--text-white, #fff); display: block; margin-bottom: 4px;">Agreed Rate / Gram (PKR) *</label>
-                <div style="position: relative;">
-                  <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 800; color: #ffd700;">Rs.</span>
-                  <input type="number" id="gold-tradein-rate-gram" class="pos-input" placeholder="e.g. 21612" min="1" step="1" style="padding-left: 32px; font-size: 12px; font-weight: 800; color: var(--text-white, #fff);" aria-label="Rate Per Gram">
+                <div class="pos-input-group gold-focus">
+                  <span class="pos-input-prefix gold-text">Rs.</span>
+                  <input type="number" id="gold-tradein-rate-gram" class="pos-input" placeholder="e.g. 21612" min="1" step="1" style="font-size: 13px; font-weight: 800;" aria-label="Rate Per Gram">
                 </div>
               </div>
             </div>
 
             <!-- Weight Breakdown: Gross, Stone, Net -->
-            <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-titanium, rgba(255,255,255,0.08)); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px;">
-              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+            <div class="buyback-calc-card">
+              <div class="buyback-weight-grid">
                 <div>
                   <label for="gold-tradein-gross-weight" style="font-size: 10.5px; font-weight: 700; color: var(--text-white, #fff); display: block; margin-bottom: 4px;">Gross Scale Wt (g) *</label>
-                  <input type="number" id="gold-tradein-gross-weight" class="pos-input" placeholder="0.000" min="0.01" step="0.001" value="10.000" style="font-size: 13px; font-weight: 800; color: var(--text-white, #fff);" aria-label="Gross Weight">
+                  <input type="number" id="gold-tradein-gross-weight" class="pos-input" placeholder="0.000" min="0.01" step="0.001" value="10.000" style="font-size: 13px; font-weight: 800; width: 100%; box-sizing: border-box;" aria-label="Gross Weight">
                 </div>
                 <div>
                   <label for="gold-tradein-stone-deduction" style="font-size: 10.5px; font-weight: 700; color: var(--text-white, #fff); display: block; margin-bottom: 4px;">Stone/Beads Wt (g)</label>
-                  <input type="number" id="gold-tradein-stone-deduction" class="pos-input" placeholder="0.000" min="0" step="0.001" value="0.000" style="font-size: 13px; font-weight: 800; color: #ef4444;" aria-label="Stone Deduction">
+                  <input type="number" id="gold-tradein-stone-deduction" class="pos-input" placeholder="0.000" min="0" step="0.001" value="0.000" style="font-size: 13px; font-weight: 800; color: #ef4444; width: 100%; box-sizing: border-box;" aria-label="Stone Deduction">
                 </div>
                 <div>
-                  <label style="font-size: 10.5px; font-weight: 700; color: #00d68f; display: block; margin-bottom: 4px;">Net Metal Wt (g)</label>
-                  <div id="gold-tradein-net-weight-display" style="padding: 7px 10px; background: rgba(0,214,143,0.1); border: 1px solid rgba(0,214,143,0.3); border-radius: 6px; font-size: 13px; font-weight: 900; color: #00d68f; text-align: right;">10.000 g</div>
+                  <label style="font-size: 10.5px; font-weight: 700; color: var(--accent-emerald, #00d68f); display: block; margin-bottom: 4px;">Net Metal Wt (g)</label>
+                  <div id="gold-tradein-net-weight-display" class="buyback-net-wt-display">10.000 g</div>
                 </div>
               </div>
 
               <!-- Quick Step Buttons -->
-              <div style="display: flex; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: wrap;">
-                <span style="font-size: 10px; color: var(--text-gray, #94a3b8); margin-right: auto;">Quick Adjust Gross:</span>
-                <button type="button" class="action-btn gold-tradein-step-btn" data-delta="0.5" style="font-size: 10.5px; padding: 2px 8px;">+0.5g</button>
-                <button type="button" class="action-btn gold-tradein-step-btn" data-delta="1.0" style="font-size: 10.5px; padding: 2px 8px;">+1.0g</button>
-                <button type="button" class="action-btn gold-tradein-step-btn" data-delta="5.0" style="font-size: 10.5px; padding: 2px 8px;">+5.0g</button>
-                <button type="button" class="action-btn gold-tradein-step-btn" data-delta="-1.0" style="font-size: 10.5px; padding: 2px 8px;">-1.0g</button>
+              <div style="display: flex; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px;">
+                <span style="font-size: 10.5px; color: var(--text-gray, #94a3b8); margin-right: auto;">Quick Adjust Gross:</span>
+                <button type="button" class="action-btn gold-tradein-step-btn" data-delta="0.5" style="font-size: 11px; padding: 3px 8px; border-radius: 6px;">+0.5g</button>
+                <button type="button" class="action-btn gold-tradein-step-btn" data-delta="1.0" style="font-size: 11px; padding: 3px 8px; border-radius: 6px;">+1.0g</button>
+                <button type="button" class="action-btn gold-tradein-step-btn" data-delta="5.0" style="font-size: 11px; padding: 3px 8px; border-radius: 6px;">+5.0g</button>
+                <button type="button" class="action-btn gold-tradein-step-btn" data-delta="-1.0" style="font-size: 11px; padding: 3px 8px; border-radius: 6px;">-1.0g</button>
               </div>
             </div>
 
             <!-- Melting / Katt % & Wastage -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: center;">
+            <div class="buyback-2col-grid" style="align-items: center;">
               <div>
                 <label for="gold-tradein-katt-pct" style="font-size: 11px; font-weight: 700; color: var(--text-white, #fff); display: block; margin-bottom: 4px;">Melting Loss / Katt (% کاٹ)</label>
-                <div style="position: relative;">
+                <div class="pos-input-group gold-focus">
                   <input type="number" id="gold-tradein-katt-pct" class="pos-input" placeholder="e.g. 2.0" min="0" max="50" step="0.1" value="2.0" style="font-size: 12px; font-weight: 700;" aria-label="Melting Katt Percentage">
-                  <span style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 11px; color: var(--text-gray, #94a3b8);">%</span>
+                  <span class="pos-input-suffix gold-text">%</span>
                 </div>
               </div>
-              <div>
-                <span style="font-size: 10.5px; color: var(--text-gray, #94a3b8); display: block; margin-bottom: 4px;">Pure Melt Yield:</span>
-                <div id="gold-tradein-effective-weight-display" style="font-size: 12px; font-weight: 800; color: var(--text-white, #fff);">9.800 g (98%)</div>
+              <div style="background: rgba(255,255,255,0.02); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-titanium, rgba(255,255,255,0.08));">
+                <span style="font-size: 10px; color: var(--text-gray, #94a3b8); display: block; margin-bottom: 2px;">Pure Melt Yield:</span>
+                <div id="gold-tradein-effective-weight-display" style="font-size: 12px; font-weight: 800; color: var(--text-white, #fff);">9.800 g (98.0%)</div>
               </div>
             </div>
 
             <!-- Customer Legal Details (Brief) -->
-            <div style="border-top: 1px solid var(--border-titanium, rgba(255,255,255,0.08)); padding-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="buyback-2col-grid" style="border-top: 1px solid var(--border-titanium, rgba(255,255,255,0.08)); padding-top: 10px;">
               <div>
                 <label for="gold-tradein-seller-name" style="font-size: 10.5px; font-weight: 700; color: var(--text-white, #fff); display: block; margin-bottom: 4px;">Seller Name</label>
-                <input type="text" id="gold-tradein-seller-name" class="pos-input" placeholder="Walk-in Client" style="font-size: 11.5px;" aria-label="Seller Name">
+                <input type="text" id="gold-tradein-seller-name" class="pos-input" placeholder="Walk-in Client" style="font-size: 11.5px; width: 100%; box-sizing: border-box;" aria-label="Seller Name">
               </div>
               <div>
                 <label for="gold-tradein-seller-cnic" style="font-size: 10.5px; font-weight: 700; color: var(--text-white, #fff); display: block; margin-bottom: 4px;">CNIC / Phone #</label>
-                <input type="text" id="gold-tradein-seller-cnic" class="pos-input" placeholder="CNIC or Mobile #" style="font-size: 11.5px;" aria-label="Seller CNIC or Phone">
+                <input type="text" id="gold-tradein-seller-cnic" class="pos-input" placeholder="CNIC or Mobile #" style="font-size: 11.5px; width: 100%; box-sizing: border-box;" aria-label="Seller CNIC or Phone">
               </div>
             </div>
 
             <!-- Total Valuation Banner -->
-            <div style="background: linear-gradient(135deg, rgba(255,215,0,0.12), rgba(0,214,143,0.1)); border: 1px solid rgba(255,215,0,0.4); border-radius: 10px; padding: 14px; display: flex; justify-content: space-between; align-items: center;">
+            <div class="buyback-valuation-card">
               <div>
-                <span style="font-size: 10.5px; font-weight: 800; color: #ffd700; text-transform: uppercase; letter-spacing: 0.5px; display: block;">Total Trade-In Valuation</span>
-                <span style="font-size: 10px; color: var(--text-gray, #94a3b8);">Net Metal &times; Rate &minus; Katt</span>
+                <span class="val-title">Total Trade-In Valuation</span>
+                <span class="val-sub">Net Metal &times; Rate &minus; Melting Katt</span>
               </div>
-              <div style="text-align: right;">
-                <span id="gold-tradein-total-valuation-display" style="font-size: 20px; font-weight: 900; color: #ffd700; font-family: var(--font-display, sans-serif); display: block;">Rs. 0</span>
+              <div>
+                <span id="gold-tradein-total-valuation-display" class="val-amount">Rs. 0</span>
               </div>
             </div>
 
           </div>
 
           <!-- Modal Footer Actions -->
-          <div style="padding: 14px 20px; border-top: 1px solid var(--border-titanium, rgba(255,255,255,0.1)); display: flex; gap: 10px; justify-content: flex-end; background: rgba(0,0,0,0.2);">
+          <div style="padding: 14px 20px; border-top: 1px solid var(--border-titanium, rgba(255,255,255,0.1)); display: flex; gap: 10px; justify-content: flex-end; background: rgba(0,0,0,0.08); box-sizing: border-box;">
             <button type="button" id="btn-cancel-gold-tradein-modal" class="action-btn" style="font-size: 12px; padding: 8px 16px;">Cancel</button>
             <button type="button" id="btn-apply-gold-tradein-cart" class="action-btn action-success" style="font-size: 12px; font-weight: 800; padding: 8px 18px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 14px rgba(0,214,143,0.3);">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>

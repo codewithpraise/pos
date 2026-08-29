@@ -180,8 +180,8 @@ window.detectAppSurface = function() {
   return Object.freeze({
     kind: kind,
     isWeb: isWeb,
-    canInstallApps: isWeb,
-    showGetApps: isWeb,
+    canInstallApps: true,
+    showGetApps: true,
     isNative: !isWeb,
     toString: function() { return kind; },
     valueOf: function() { return kind; }
@@ -189,15 +189,13 @@ window.detectAppSurface = function() {
 };
 
 window.applyAppSurfaceVisibility = function() {
-  const surface = window.APP_SURFACE || window.detectAppSurface();
-  if (!surface || !surface.showGetApps) {
-    const targets = document.querySelectorAll(
-      '#btn-topbar-apps-download, #nav-apps-download, #nav-item-apps-download, [data-screen="apps-download"], .btn-apps, .web-only-btn'
-    );
-    targets.forEach(el => {
-      try { el.remove(); } catch (_) { el.style.display = 'none'; }
-    });
-  }
+  // Native Apps and companion downloads are available across all platforms
+  const targets = document.querySelectorAll(
+    '#btn-topbar-apps-download, #nav-item-apps-download, .btn-apps'
+  );
+  targets.forEach(el => {
+    el.style.display = 'flex';
+  });
 };
 
 window.APP_SURFACE = window.detectAppSurface();

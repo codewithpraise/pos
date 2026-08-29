@@ -49,6 +49,9 @@
     html {
       scroll-behavior: smooth;
       background: var(--bg-canvas);
+      overflow-x: clip;
+      overflow-y: auto;
+      height: 100%;
     }
 
     body {
@@ -56,7 +59,8 @@
       color: var(--text-white);
       font-family: var(--font-body);
       line-height: 1.6;
-      overflow-x: hidden;
+      overflow: visible;
+      min-height: 100%;
       -webkit-font-smoothing: antialiased;
     }
 
@@ -717,17 +721,20 @@
         </div>
       </div>
 
-    </section>
+    </div><!-- /.platforms-grid -->
 
-    <!-- Unified Single Account & Sync Architecture Banner -->
+    <!-- How Sync Works Banner -->
     <section class="sync-architecture-banner">
       <div class="sync-icon-glow">
         <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
       </div>
       <div>
-        <h3 style="font-family: var(--font-display); font-size: 18px; font-weight: 800; color: var(--text-white); margin-bottom: 4px;">Unified Single Store &amp; Multi-Device Sync</h3>
+        <h3 style="font-family: var(--font-display); font-size: 18px; font-weight: 800; color: var(--text-white); margin-bottom: 4px;">How Sync Works Across Devices</h3>
         <p style="font-size: 13px; color: var(--text-gray); line-height: 1.6;">
-          Whether your cashiers operate from the Android APK, the Windows Desktop register, or Web POS, all stock updates, transactions, customer credit ledgers, and staff records synchronize in real-time across your local network and cloud.
+          Each platform (Android APK, Windows Desktop, Web Register) has its own first-time setup where you enter your store's licence key. Once logged in with the <strong style="color:var(--text-white)">same licence key</strong>, all your products, sales history, customer records, and inventory automatically sync in real-time via Supabase. Think of it like signing into the same WhatsApp account on a new phone — the data follows your key, not the device.
+        </p>
+        <p style="font-size: 12px; color: var(--text-dim); margin-top: 8px; line-height: 1.5;">
+          ⓘ &nbsp;First-time setup on a new device takes 1–2 minutes. After that, all changes sync across every device instantly.
         </p>
       </div>
     </section>
@@ -801,8 +808,8 @@
         </div>
 
         <div class="faq-card">
-          <div class="faq-q">Can multiple cashiers work on different devices at the same store?</div>
-          <div class="faq-a">Yes. You can run one master register on Windows or Android and pair additional cashiers and mobile order-takers over local Wi-Fi or cloud sync without data conflicts.</div>
+          <div class="faq-q">Do I need to create a new account when I install the Android or Windows app?</div>
+          <div class="faq-a">Yes — each new device requires a quick one-time setup (1–2 minutes) where you enter your store's licence key. Once you log in with the <strong>same licence key</strong> that you use on the Web Register, all your products, sales, customers, and inventory will automatically sync down from the cloud. You don't need to re-enter your catalogue — it all pulls in automatically.</div>
         </div>
 
         <div class="faq-card">

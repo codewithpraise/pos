@@ -594,12 +594,17 @@ button:not(:disabled):active,
 @media (max-width: 768px) {
   .topbar-right .clock-badge,
   .topbar-right #lang-toggle-btn,
-  .topbar-right #btn-topbar-apps-download {
+  .topbar-right > #btn-topbar-apps-download {
     display: none !important;
   }
   .topbar-essential-badges .storage-lock-badge {
     display: none !important;
   }
+}
+
+.topbar-overflow-menu #btn-topbar-apps-download,
+.topbar-overflow-menu .btn-apps {
+  display: flex !important;
 }
 
 @media (max-width: 420px) {
@@ -9188,3 +9193,309 @@ body.theme-monochrome-ivory .bullion-rate-row {
 body.theme-monochrome-ivory .btn-dismiss-safety-note {
   color: #64748b;
 }
+
+/* ============================================================================
+   VALENIXIA COMMERCE — INPUT GROUPS & BUYBACK/TRADE-IN DESIGN SYSTEM
+   Zero-overlap input prefixes/suffixes, theme-aware cards, and pristine light mode
+   ============================================================================ */
+
+.pos-input-group {
+  display: flex !important;
+  align-items: stretch !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  border: 1px solid var(--border-titanium, rgba(255, 255, 255, 0.15)) !important;
+  border-radius: 8px !important;
+  background: var(--bg-surface-elevated, rgba(255, 255, 255, 0.04)) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+  overflow: hidden !important;
+  min-height: 38px !important;
+}
+
+.pos-input-group:focus-within {
+  border-color: var(--accent-emerald, #00d68f) !important;
+  box-shadow: 0 0 0 2px var(--accent-emerald-glow, rgba(0, 214, 143, 0.2)) !important;
+}
+
+.pos-input-group.gold-focus:focus-within {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25) !important;
+}
+
+.pos-input-prefix,
+.pos-input-suffix {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 12px !important;
+  font-weight: 800 !important;
+  font-size: 12px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--text-gray, #94a3b8) !important;
+  user-select: none !important;
+  flex-shrink: 0 !important;
+}
+
+.pos-input-prefix {
+  border-right: 1px solid var(--border-titanium, rgba(255, 255, 255, 0.1)) !important;
+}
+
+.pos-input-suffix {
+  border-left: 1px solid var(--border-titanium, rgba(255, 255, 255, 0.1)) !important;
+}
+
+.pos-input-prefix.gold-text,
+.pos-input-suffix.gold-text {
+  color: #ffd700 !important;
+}
+
+.pos-input-prefix.emerald-text,
+.pos-input-suffix.emerald-text {
+  color: var(--accent-emerald, #00d68f) !important;
+}
+
+.pos-input-group .pos-input,
+.pos-input-group input {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  padding: 8px 12px !important;
+  color: var(--text-white, #fff) !important;
+  font-size: 13px !important;
+  box-sizing: border-box !important;
+}
+
+/* ── Buyback Calculator Card (Zero Muddy Grey) ── */
+.buyback-calc-card {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid var(--border-titanium, rgba(255, 255, 255, 0.1)) !important;
+  border-radius: 12px !important;
+  padding: 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  box-sizing: border-box !important;
+}
+
+/* ── Buyback Valuation Card ── */
+.buyback-valuation-card {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(0, 214, 143, 0.08) 100%) !important;
+  border: 1px solid rgba(245, 158, 11, 0.35) !important;
+  border-radius: 10px !important;
+  padding: 12px 16px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 12px !important;
+  box-sizing: border-box !important;
+}
+
+.buyback-valuation-card .val-title {
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  color: #ffd700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  display: block !important;
+}
+
+.buyback-valuation-card .val-sub {
+  font-size: 10px !important;
+  color: var(--text-gray, #94a3b8) !important;
+}
+
+.buyback-valuation-card .val-amount {
+  font-size: 19px !important;
+  font-weight: 900 !important;
+  color: #ffd700 !important;
+  font-family: var(--font-display, sans-serif) !important;
+  white-space: nowrap !important;
+}
+
+/* ── Net Metal Weight Display ── */
+.buyback-net-wt-display {
+  padding: 8px 12px !important;
+  background: rgba(0, 214, 143, 0.1) !important;
+  border: 1px solid rgba(0, 214, 143, 0.3) !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  font-weight: 900 !important;
+  color: #00d68f !important;
+  text-align: right !important;
+  box-sizing: border-box !important;
+  min-height: 38px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+}
+
+.gold-meta-label {
+  color: #ffd700 !important;
+  font-weight: 800 !important;
+}
+
+/* ── Responsive Grids with Guaranteed No-Overlap ── */
+.buyback-weight-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)) !important;
+  gap: 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.buyback-2col-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
+  gap: 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* ── LIGHT THEME (theme-monochrome-ivory) VIBRANT OVERRIDES ── */
+body.theme-monochrome-ivory .pos-input-group {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+body.theme-monochrome-ivory .pos-input-prefix,
+body.theme-monochrome-ivory .pos-input-suffix {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+body.theme-monochrome-ivory .pos-input-prefix.gold-text,
+body.theme-monochrome-ivory .pos-input-suffix.gold-text {
+  color: #b45309 !important;
+}
+
+body.theme-monochrome-ivory .pos-input-prefix.emerald-text,
+body.theme-monochrome-ivory .pos-input-suffix.emerald-text {
+  color: #059669 !important;
+}
+
+body.theme-monochrome-ivory .pos-input-group .pos-input,
+body.theme-monochrome-ivory .pos-input-group input {
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory .buyback-calc-card {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04) !important;
+}
+
+body.theme-monochrome-ivory .buyback-valuation-card {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%) !important;
+  border: 1.5px solid #fcd34d !important;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.1) !important;
+}
+
+body.theme-monochrome-ivory .buyback-valuation-card .val-title {
+  color: #92400e !important;
+}
+
+body.theme-monochrome-ivory .buyback-valuation-card .val-sub {
+  color: #78350f !important;
+}
+
+body.theme-monochrome-ivory .buyback-valuation-card .val-amount {
+  color: #b45309 !important;
+}
+
+body.theme-monochrome-ivory .buyback-net-wt-display {
+  background: #ecfdf5 !important;
+  border: 1.5px solid #a7f3d0 !important;
+  color: #047857 !important;
+}
+
+body.theme-monochrome-ivory .gold-meta-label {
+  color: #b45309 !important;
+}
+
+body.theme-monochrome-ivory #modal-gold-tradein .pos-modal-card {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2) !important;
+}
+
+body.theme-monochrome-ivory #modal-gold-tradein .pos-modal-card h3 {
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory #modal-gold-tradein .pos-modal-card .modal-body-wrapper {
+  background: #ffffff !important;
+}
+
+/* ── Buyback Record Cards & Ledger Details ── */
+.buyback-record-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-titanium, rgba(255, 255, 255, 0.12));
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.2s ease, transform 0.15s ease;
+  box-sizing: border-box;
+}
+
+.buyback-record-card:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.buyback-record-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-gray, #94a3b8);
+  background: rgba(0, 0, 0, 0.2);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-titanium, rgba(255, 255, 255, 0.06));
+  box-sizing: border-box;
+}
+
+.buyback-record-details .rec-val {
+  color: var(--text-white, #fff);
+  font-weight: 600;
+}
+
+.buyback-record-details .rec-mono {
+  font-family: var(--font-mono, monospace);
+  color: var(--text-white, #fff);
+}
+
+/* ── Light Theme Overrides for Buyback Record Cards ── */
+body.theme-monochrome-ivory .buyback-record-card {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04) !important;
+}
+
+body.theme-monochrome-ivory .buyback-record-card:hover {
+  border-color: #059669 !important;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.1) !important;
+}
+
+body.theme-monochrome-ivory .buyback-record-card h4 {
+  color: #0f172a !important;
+}
+
+body.theme-monochrome-ivory .buyback-record-details {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+body.theme-monochrome-ivory .buyback-record-details .rec-val,
+body.theme-monochrome-ivory .buyback-record-details .rec-mono {
+  color: #0f172a !important;
+}
+

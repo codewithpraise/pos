@@ -128,26 +128,67 @@
 
     const btnDevTab = document.getElementById('btn-buyback-tab-device');
     const btnGoldTab = document.getElementById('btn-buyback-tab-gold');
-    if (btnDevTab && btnGoldTab) {
-      if (isJewellery) {
-        btnDevTab.style.setProperty('display', 'none', 'important');
-        btnGoldTab.style.removeProperty('display');
-        btnGoldTab.style.display = 'inline-flex';
-        if (typeof switchBuybackIntakeTab === 'function') {
-          const currentType = document.getElementById('buyback-intake-type')?.value;
-          if (currentType !== 'GOLD') switchBuybackIntakeTab('GOLD');
-        }
-      } else if (isElectronics) {
-        btnGoldTab.style.setProperty('display', 'none', 'important');
+    const toggleContainer = document.getElementById('buyback-intake-type-toggle');
+    const titleEl = document.getElementById('buyback-view-title');
+    const badgeEl = document.getElementById('buyback-view-badge');
+    const subtitleEl = document.getElementById('buyback-view-subtitle');
+    const kpiCountLbl = document.getElementById('buyback-kpi-count-lbl');
+    const kpiCountSub = document.getElementById('buyback-kpi-count-sub');
+    const kpiInvLbl = document.getElementById('buyback-kpi-inv-lbl');
+    const kpiInvSub = document.getElementById('buyback-kpi-inv-sub');
+    const searchInput = document.getElementById('buyback-search-input');
+
+    if (isJewellery) {
+      if (titleEl) titleEl.textContent = isUrdu ? 'سونے کا تبادلہ اور ویلیویشن' : 'Gold & Precious Metal Trade-In Hub';
+      if (badgeEl) {
+        badgeEl.textContent = 'GOLD & JEWELLERY';
+        badgeEl.style.background = 'rgba(245,158,11,0.15)';
+        badgeEl.style.color = '#f59e0b';
+        badgeEl.style.borderColor = 'rgba(245,158,11,0.35)';
+      }
+      if (subtitleEl) subtitleEl.textContent = isUrdu ? 'پرانے سونے اور زیورات کی کاٹ اور وزن کے مطابق قانونی ویلیویشن اور انورڈ واؤچر۔' : 'Appraise old gold & jewellery from walk-in customers, verify purity/karat, deduct stones/katt, and generate legal inward purchase vouchers.';
+      if (kpiCountLbl) kpiCountLbl.textContent = 'GOLD PURCHASED TODAY';
+      if (kpiCountSub) kpiCountSub.textContent = 'Inward Gold Vouchers';
+      if (kpiInvLbl) kpiInvLbl.textContent = 'MELTING GOLD STOCK';
+      if (kpiInvSub) kpiInvSub.textContent = 'Scrap Weight Units';
+      if (searchInput) searchInput.placeholder = isUrdu ? 'واؤچر نمبر، نام، شناختی کارڈ، کیرٹ یا زیور کے نام سے تلاش کریں...' : 'Search by Voucher #, Seller Name, CNIC, Karat, or Piece Type...';
+
+      if (toggleContainer) toggleContainer.style.display = 'none';
+      if (btnDevTab) btnDevTab.style.setProperty('display', 'none', 'important');
+      if (btnGoldTab) btnGoldTab.style.removeProperty('display');
+      if (typeof switchBuybackIntakeTab === 'function') {
+        const currentType = document.getElementById('buyback-intake-type')?.value;
+        if (currentType !== 'GOLD') switchBuybackIntakeTab('GOLD');
+      }
+    } else if (isElectronics) {
+      if (titleEl) titleEl.textContent = isUrdu ? 'ڈیوائس خریداری و ٹریڈ ان' : 'Device Buy-In & Trade-In Hub';
+      if (badgeEl) {
+        badgeEl.textContent = 'MOBILE & ELECTRONICS';
+        badgeEl.style.background = 'rgba(0,214,143,0.15)';
+        badgeEl.style.color = 'var(--accent-emerald)';
+        badgeEl.style.borderColor = 'rgba(0,214,143,0.3)';
+      }
+      if (subtitleEl) subtitleEl.textContent = isUrdu ? 'موبائل فون اور الیکٹرانکس کی قانونی خریداری، IMEI و شناختی کارڈ تصدیق۔' : 'Purchase phones & electronics from walk-in customers, verify CNIC/IMEI legality, and generate legal inward vouchers.';
+      if (kpiCountLbl) kpiCountLbl.textContent = 'DEVICES PURCHASED TODAY';
+      if (kpiCountSub) kpiCountSub.textContent = 'Inward Vouchers';
+      if (kpiInvLbl) kpiInvLbl.textContent = 'ACTIVE INVENTORY RESALE';
+      if (kpiInvSub) kpiInvSub.textContent = 'Used Stock Units';
+      if (searchInput) searchInput.placeholder = isUrdu ? 'IMEI، کسٹمر کا نام، شناختی کارڈ، یا واؤچر نمبر سے تلاش کریں...' : 'Search by IMEI, Seller Name, CNIC, or Voucher #...';
+
+      if (toggleContainer) toggleContainer.style.display = 'none';
+      if (btnGoldTab) btnGoldTab.style.setProperty('display', 'none', 'important');
+      if (btnDevTab) btnDevTab.style.removeProperty('display');
+      if (typeof switchBuybackIntakeTab === 'function') {
+        const currentType = document.getElementById('buyback-intake-type')?.value;
+        if (currentType !== 'DEVICE') switchBuybackIntakeTab('DEVICE');
+      }
+    } else {
+      if (toggleContainer) toggleContainer.style.display = 'flex';
+      if (btnDevTab) {
         btnDevTab.style.removeProperty('display');
         btnDevTab.style.display = 'inline-flex';
-        if (typeof switchBuybackIntakeTab === 'function') {
-          const currentType = document.getElementById('buyback-intake-type')?.value;
-          if (currentType !== 'DEVICE') switchBuybackIntakeTab('DEVICE');
-        }
-      } else {
-        btnDevTab.style.removeProperty('display');
-        btnDevTab.style.display = 'inline-flex';
+      }
+      if (btnGoldTab) {
         btnGoldTab.style.removeProperty('display');
         btnGoldTab.style.display = 'inline-flex';
       }
@@ -995,34 +1036,51 @@ window.__realHandlers = window.__realHandlers || {};
   window.isDesktopApp = isDesktopApp;
   window.isWebApp = isWebApp;
 
+  function isNativeEnvironment() {
+    var isFileProtocol = location.protocol === 'file:';
+    var isStandalone = (window.matchMedia && typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) || (window.navigator && window.navigator.standalone) || false;
+    return !!(
+      window.AndroidPOS ||
+      window.Android ||
+      window.AndroidHardware ||
+      window.electron ||
+      window.isDesktopApp ||
+      window.desktopNative ||
+      window.__VALENIXIA_DESKTOP__ ||
+      isFileProtocol ||
+      isStandalone
+    );
+  }
+  window.isNativeEnvironment = isNativeEnvironment;
+
   function updateDownloadAppVisibility() {
     if (window.__isUpdatingDownloadVisibility) return;
     window.__isUpdatingDownloadVisibility = true;
     try {
-      var isFileProtocol = location.protocol === 'file:';
-      var isWebView = /wv|WebView|(iPhone|iPod|iPad).*AppleWebKit(?!.*Safari)/i.test(navigator.userAgent);
-      var isAndroid = /Android/i.test(navigator.userAgent);
-      var isStandalone = (window.matchMedia && typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)') && window.matchMedia('(display-mode: standalone)').matches) || (window.navigator && window.navigator.standalone) || false;
-      var ua = (navigator.userAgent || '').toLowerCase();
-      var isMobile = (
-        !!window.AndroidPOS ||
-        !!window.Android ||
-        !!window.AndroidHardware ||
-        isFileProtocol || isWebView || isStandalone || isAndroid ||
-        /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|valenixi/i.test(ua) ||
-        window.innerWidth <= 1024 ||
-        ('ontouchstart' in window)
-      );
-      var isDesktop = !!(window.electron || window.isDesktopApp || window.desktopNative || window.__VALENIXIA_DESKTOP__);
-      var showDownloadUI = !isMobile && !isDesktop;
+      var isInstalledNative = isNativeEnvironment();
+      var showDownloadUI = !isInstalledNative;
       
-      var ids = ['nav-download-apps', 'btn-topbar-download-apps', 'card-settings-download-apps', 'bottom-nav-download-apps'];
+      var ids = ['nav-download-apps', 'btn-topbar-download-apps', 'card-settings-download-apps', 'bottom-nav-download-apps', 'btn-topbar-apps-download', 'nav-item-apps-download'];
       ids.forEach(function(id) {
         var el = document.getElementById(id);
-        if (el) el.style.display = showDownloadUI ? '' : 'none';
+        if (el) {
+          if (showDownloadUI) {
+            el.style.removeProperty('display');
+            el.removeAttribute('hidden');
+          } else {
+            el.style.setProperty('display', 'none', 'important');
+            el.setAttribute('hidden', '');
+          }
+        }
       });
-      document.querySelectorAll('.download-apps-btn, #download-apps-link, .app-download-banner, [data-download-apps]').forEach(function(el) {
-        el.style.display = showDownloadUI ? '' : 'none';
+      document.querySelectorAll('.download-apps-btn, #download-apps-link, .app-download-banner, [data-download-apps], .btn-apps').forEach(function(el) {
+        if (showDownloadUI) {
+          el.style.removeProperty('display');
+          el.removeAttribute('hidden');
+        } else {
+          el.style.setProperty('display', 'none', 'important');
+          el.setAttribute('hidden', '');
+        }
       });
     } catch (_) {
     } finally {
@@ -1318,6 +1376,8 @@ window.__realHandlers = window.__realHandlers || {};
     isCheckingOut: false,
     analyticsRange: 'today'  // 'today' | 'all' | 'week' | 'month' | 'custom'
   };
+  window.__valenixiaState = state;
+  window.state = state;
 
   // Global User-Friendly Error Boundary Modal
   const recentErrorsMax = 10;
@@ -4303,30 +4363,27 @@ setHtml(statusEl, `Sync failure: ${sanitizeHtml(error)}<br><br>
       }
     });
 
-    // Hide or wire web-only Get Apps download button based on APP_SURFACE
-    const showGetApps = window.APP_SURFACE ? window.APP_SURFACE.showGetApps : true;
-    if (!showGetApps) {
-      if (typeof window.applyAppSurfaceVisibility === 'function') {
-        window.applyAppSurfaceVisibility();
+    // Wire Native Apps download button in topbar overflow menu
+    const getAppsBtn = document.getElementById('btn-topbar-apps-download');
+    if (getAppsBtn) {
+      const isNative = (typeof isNativeEnvironment === 'function' ? isNativeEnvironment() : (location.protocol === 'file:' || !!window.AndroidPOS || !!window.Android || !!window.electron));
+      if (isNative) {
+        getAppsBtn.style.setProperty('display', 'none', 'important');
+        getAppsBtn.setAttribute('hidden', '');
       } else {
-        document.querySelectorAll('#btn-topbar-apps-download, #nav-apps-download, #nav-item-apps-download, [data-screen="apps-download"], .btn-apps, .web-only-btn').forEach(el => {
-          try { el.remove(); } catch(_) { el.style.display = 'none'; }
-        });
+        getAppsBtn.style.removeProperty('display');
+        getAppsBtn.style.display = 'flex';
+        getAppsBtn.removeAttribute('hidden');
       }
-    } else {
-      const getAppsBtn = document.getElementById('btn-topbar-apps-download');
-      if (getAppsBtn) {
-        getAppsBtn.style.setProperty('display', 'inline-flex', 'important');
-        if (!getAppsBtn.dataset.bound) {
-          getAppsBtn.dataset.bound = 'true';
-          getAppsBtn.addEventListener('click', () => {
-            if (window.ValenixiaRouter) {
-              window.ValenixiaRouter.navigateTo('apps-download', { push: true });
-            } else if (window.switchActiveScreen) {
-              window.switchActiveScreen('apps-download');
-            }
-          });
-        }
+      if (!getAppsBtn.dataset.bound) {
+        getAppsBtn.dataset.bound = 'true';
+        getAppsBtn.addEventListener('click', () => {
+          if (window.ValenixiaRouter) {
+            window.ValenixiaRouter.navigateTo('apps-download', { push: true });
+          } else if (window.switchActiveScreen) {
+            window.switchActiveScreen('apps-download');
+          }
+        });
       }
     }
 
@@ -4655,73 +4712,6 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
       submitEmployeeForm();
     });
 
-    // --- SYNC & HEALTH LOGS BUTTON BINDINGS ---
-    document.getElementById('btn-clear-logs-feed')?.addEventListener('click', () => {
-      playAudioSignal('click');
-      const feed = document.getElementById('sync-logs-feed-container');
-      if (feed) feed.replaceChildren();
-      const tbody = document.getElementById('sync-log-entries-tbody');
-      if (tbody) tbody.replaceChildren();
-      state.logs = [];
-      showNotificationToast('Log stream view cleared.', 'info', 2500);
-    });
-    document.getElementById('btn-tab-sync-logs')?.addEventListener('click', () => {
-      if (typeof playAudioSignal === 'function') playAudioSignal('click');
-      switchLogsViewTab('sync');
-    });
-    document.getElementById('btn-tab-health-logs')?.addEventListener('click', () => {
-      if (typeof playAudioSignal === 'function') playAudioSignal('click');
-      switchLogsViewTab('health');
-      if (typeof refreshSystemDiagnostics === 'function') refreshSystemDiagnostics();
-    });
-    document.getElementById('btn-tab-diag-logs')?.addEventListener('click', () => {
-      if (typeof window.copyValenixiaLogs === 'function') window.copyValenixiaLogs();
-    });
-    document.getElementById('btn-health-db-vacuum')?.addEventListener('click', async () => {
-      showNotificationToast('Optimizing database indexes and vacuuming free pages...', 'info', 3000);
-      try {
-        if (window.ValenixiaDB && typeof window.ValenixiaDB.vacuum === 'function') {
-          await window.ValenixiaDB.vacuum();
-        }
-        showNotificationToast('Database defrag and optimization complete!', 'success', 3000);
-      } catch (err) {
-        showNotificationToast('Database optimization finished.', 'success', 3000);
-      }
-    });
-    document.getElementById('btn-health-sync-reconnect')?.addEventListener('click', () => {
-      showNotificationToast('Forcing sync node reconnection...', 'info', 3000);
-      if (window.syncWorker) {
-        window.syncWorker.postMessage({ type: 'FORCE_RECONNECT' });
-      }
-      setTimeout(() => showNotificationToast('Sync reconnection signal sent!', 'success', 3000), 800);
-    });
-    document.getElementById('btn-health-storage-check')?.addEventListener('click', async () => {
-      if (typeof measureStorageUtilization === 'function') await measureStorageUtilization();
-      showNotificationToast('Storage diagnostic complete!', 'success', 3000);
-    });
-    document.getElementById('btn-health-export-errors')?.addEventListener('click', () => {
-      const logs = (window.__VALENIXIA_DIAG && window.__VALENIXIA_DIAG.logs) || [];
-      const errors = logs.filter(l => l.lvl === 'error' || l.lvl === 'warn');
-      const csvContent = 'data:text/csv;charset=utf-8,Timestamp,Level,Source,Message\n' +
-        errors.map(e => `"${new Date(e.t).toISOString()}","${e.lvl}","${e.src}","${(e.msg||'').replace(/"/g, '""')}"`).join('\n');
-      const link = document.createElement('a');
-      link.setAttribute('href', encodeURI(csvContent));
-      link.setAttribute('download', `valenixia_error_logs_${Date.now()}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      showNotificationToast(`Exported ${errors.length} diagnostic error log entries.`, 'success', 3000);
-    });
-    document.getElementById('btn-copy-all-diagnostic-logs')?.addEventListener('click', () => {
-      if (typeof window.copyValenixiaLogs === 'function') window.copyValenixiaLogs();
-    });
-    document.getElementById('btn-clear-diagnostic-logs')?.addEventListener('click', () => {
-      if (window.__VALENIXIA_DIAG) window.__VALENIXIA_DIAG.logs = [];
-      const logBox = document.getElementById('diagnostic-log-entries-container');
-      if (logBox) logBox.replaceChildren();
-      showNotificationToast('Diagnostic logs cleared.', 'info', 2500);
-    });
-
     // --- SUPPLIERS & FISCAL HUB & MULTI-STORE BINDINGS ---
     document.getElementById('btn-suppliers-create')?.addEventListener('click', () => {
       const modal = document.getElementById('modal-supplier') || document.getElementById('modal-product');
@@ -4854,6 +4844,84 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
         payload: { key: 'custom_bank_qr_image', val: '' }
       });
       if (typeof showNotificationToast === 'function') showNotificationToast('Custom QR code removed', 'info');
+    });
+
+    // Store Logo Upload & Management
+    document.getElementById('setting-store-logo-input')?.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      if (!file.type.match(/image\/(png|jpeg|jpg|webp|svg\+xml)/i)) {
+        if (typeof showNotificationToast === 'function') showNotificationToast('Please select a valid image file (PNG, JPG, WebP, SVG)', 'error');
+        return;
+      }
+      if (file.size > 2.5 * 1024 * 1024) {
+        if (typeof showNotificationToast === 'function') showNotificationToast('Store logo image must be under 2.5MB', 'error');
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const rawDataUrl = evt.target.result;
+        
+        // Compress & scale to crisp dimensions via Canvas
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const maxDim = 320;
+            let w = img.width;
+            let h = img.height;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) {
+                h = Math.round((h * maxDim) / w);
+                w = maxDim;
+              } else {
+                w = Math.round((w * maxDim) / h);
+                h = maxDim;
+              }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            const optimizedDataUrl = canvas.toDataURL('image/png');
+
+            state.preferences['store_logo'] = optimizedDataUrl;
+            try { localStorage.setItem('valenixia_store_logo', optimizedDataUrl); } catch(_) {}
+            
+            applyPreferencesFromState();
+            syncWorker.postMessage({
+              type: 'SAVE_PREFERENCE',
+              payload: { key: 'store_logo', val: optimizedDataUrl }
+            });
+            if (typeof showNotificationToast === 'function') showNotificationToast('Store branding logo updated successfully!', 'success');
+          } catch (err) {
+            state.preferences['store_logo'] = rawDataUrl;
+            try { localStorage.setItem('valenixia_store_logo', rawDataUrl); } catch(_) {}
+            applyPreferencesFromState();
+            syncWorker.postMessage({
+              type: 'SAVE_PREFERENCE',
+              payload: { key: 'store_logo', val: rawDataUrl }
+            });
+            if (typeof showNotificationToast === 'function') showNotificationToast('Store branding logo saved!', 'success');
+          }
+        };
+        img.src = rawDataUrl;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    document.getElementById('btn-remove-store-logo')?.addEventListener('click', () => {
+      state.preferences['store_logo'] = '';
+      try { localStorage.removeItem('valenixia_store_logo'); } catch(_) {}
+      const fileInput = document.getElementById('setting-store-logo-input');
+      if (fileInput) fileInput.value = '';
+      applyPreferencesFromState();
+      syncWorker.postMessage({
+        type: 'SAVE_PREFERENCE',
+        payload: { key: 'store_logo', val: '' }
+      });
+      if (typeof showNotificationToast === 'function') showNotificationToast('Store branding logo removed. Default icon restored.', 'info');
     });
 
     document.getElementById('setting-theme-palette')?.addEventListener('change', (e) => {
@@ -5425,17 +5493,6 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
         });
       }
 
-
-
-      // Hide 'Apps' download button in native Android / Electron apps, keep visible only in web app
-      const isMobileNative = !!(window.AndroidPOS || window.Android || window.AndroidHardware || (window.location.protocol === 'file:' && navigator.userAgent.includes('Android')) || window.Capacitor);
-      const isDesktopNative = !!(window.electron || window.isDesktopApp || window.desktopNative || window.__VALENIXIA_DESKTOP__);
-      const isWeb = !isMobileNative && !isDesktopNative;
-
-      const btnApps = document.getElementById('btn-topbar-download-apps');
-      if (btnApps) {
-        btnApps.style.display = isWeb ? 'inline-flex' : 'none';
-      }
     })();
 
     document.getElementById('btn-maintenance-reseed')?.addEventListener('click', async () => {
@@ -8102,6 +8159,37 @@ setHtml(overlay, `
         }
       }
 
+      const storeLogo = state.preferences['store_logo'] || (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_store_logo')) || '';
+      const logoPreview = document.getElementById('setting-store-logo-preview');
+      const removeLogoBtn = document.getElementById('btn-remove-store-logo');
+      const logoPlaceholder = document.getElementById('setting-store-logo-placeholder');
+      const sidebarLogoImg = document.getElementById('sidebar-store-logo-img');
+      const sidebarLogoSvg = document.getElementById('sidebar-default-logo-svg');
+
+      if (storeLogo) {
+        if (logoPreview) {
+          logoPreview.style.backgroundImage = `url(${storeLogo})`;
+          if (logoPlaceholder) logoPlaceholder.style.display = 'none';
+        }
+        if (removeLogoBtn) removeLogoBtn.style.display = 'inline-block';
+        if (sidebarLogoImg) {
+          sidebarLogoImg.src = storeLogo;
+          sidebarLogoImg.style.display = 'block';
+        }
+        if (sidebarLogoSvg) sidebarLogoSvg.style.display = 'none';
+      } else {
+        if (logoPreview) {
+          logoPreview.style.backgroundImage = '';
+          if (logoPlaceholder) logoPlaceholder.style.display = 'block';
+        }
+        if (removeLogoBtn) removeLogoBtn.style.display = 'none';
+        if (sidebarLogoImg) {
+          sidebarLogoImg.src = '';
+          sidebarLogoImg.style.display = 'none';
+        }
+        if (sidebarLogoSvg) sidebarLogoSvg.style.display = 'block';
+      }
+
       const width = state.preferences['store_receipt_width'] || '42';
       const settingReceiptWidth = document.getElementById('setting-receipt-width');
       if (settingReceiptWidth) settingReceiptWidth.value = width;
@@ -8860,8 +8948,11 @@ setHtml(overlay, `
 
   // Checkout Cart additions
   function addProductToCheckoutCart(sku, options = null) {
-    const prod = state.catalog.find(p => p.sku === sku);
-    if (!prod) return;
+    const prod = (state.catalog || []).find(p => p && (p.sku === sku || String(p.sku) === String(sku) || (p.id && String(p.id) === String(sku))));
+    if (!prod) {
+      console.warn('[Cart] Product not found for sku:', sku);
+      return false;
+    }
 
     const shopMode = state.preferences['shop_mode'] || 'simple-retail';
 
@@ -8903,7 +8994,7 @@ setHtml(overlay, `
             return true;
           }
         );
-        return;
+        return false;
       }
 
       if (shopMode === 'food-restaurant' && parsedFields.modifiers && parsedFields.modifiers.length > 0) {
@@ -8956,7 +9047,7 @@ setHtml(overlay, `
             return true;
           }
         );
-        return;
+        return false;
       }
 
       if (shopMode === 'services-appointments') {
@@ -9002,7 +9093,7 @@ setHtml(overlay, `
             return true;
           }
         );
-        return;
+        return false;
       }
 
       if (shopMode === 'electronics-highvalue' && parsedFields.serial_required) {
@@ -9030,7 +9121,7 @@ setHtml(overlay, `
             return true;
           }
         );
-        return;
+        return false;
       }
 
       if (shopMode === 'jewellery' && window.ValenixiaJewellery && typeof window.ValenixiaJewellery.openJewelPricingModal === 'function') {
@@ -9041,23 +9132,24 @@ setHtml(overlay, `
             jewelCalc: calc
           });
         });
-        return;
+        return false;
       }
     }
 
     const isOversellBlocked = state.preferences['oversell_block_enabled'] !== 'false';
+    const prodStock = (prod.stock_quantity !== undefined && prod.stock_quantity !== null) ? Number(prod.stock_quantity) : ((prod.stock_level !== undefined && prod.stock_level !== null) ? Number(prod.stock_level) : (prod.stock !== undefined ? Number(prod.stock) : 0));
 
-    if (prod.stock_level <= 0) {
+    if (prodStock <= 0) {
       if (isOversellBlocked) {
         playAudioSignal('error');
         showModal({ title: "Notice", message: `Oversell Blocked: Product "${prod.name}" (SKU ${sku}) is out of stock!`, type: "info" });
-        return;
+        return false;
       } else {
         showNotificationToast(`"${prod.name}" is out of stock. Proceeding with checkout.`, null, 3000);
       }
     }
 
-    let price = (options && options.priceOverride !== undefined) ? options.priceOverride : prod.base_price_minor_units;
+    let price = (options && options.priceOverride !== undefined) ? options.priceOverride : (prod.base_price_minor_units != null ? prod.base_price_minor_units : (prod.price != null ? Math.round(parseFloat(prod.price) * 100) : 0));
     let displayName = prod.name;
     if (options && options.priceAdjustment) {
       price += options.priceAdjustment;
@@ -9068,13 +9160,13 @@ setHtml(overlay, `
 
     const exists = state.activeCart.find(item => item.sku === sku && item.displayName === displayName);
     if (exists) {
-      if (exists.qty + 1 > prod.stock_level) {
+      if (exists.qty + 1 > prodStock) {
         if (isOversellBlocked) {
           playAudioSignal('error');
-          showModal({ title: "Notice", message: `Oversell Blocked: Exceeds available stock level (${prod.stock_level} remaining).`, type: "info" });
-          return;
+          showModal({ title: "Notice", message: `Oversell Blocked: Exceeds available stock level (${prodStock} remaining).`, type: "info" });
+          return false;
         } else {
-          showNotificationToast(`{prod.stock_level} remaining).`, null, 3000);
+          showNotificationToast(`Warning: Adding item beyond available stock (${prodStock} remaining).`, null, 3000);
         }
       }
       exists.qty++;
@@ -9094,7 +9186,9 @@ setHtml(overlay, `
     playAudioSignal('click');
     renderCart();
     announceToScreenReader(`${displayName} added to checkout cart.`);
+    return true;
   }
+  window.addProductToCheckoutCart = addProductToCheckoutCart;
 
   // Modify quantity in cart
   function modifyCartQty(sku, delta, displayName = null) {
@@ -10734,13 +10828,17 @@ setHtml(tr, `
     // 1. Populate category filters if filter container exists
     if (filtersContainer) {
       filtersContainer.replaceChildren();
-      const categories = ['ALL', ' LOW STOCK', ...new Set(state.catalog.map(p => p.category).filter(Boolean))];
+      const shopMode = (state.preferences && state.preferences['shop_mode']) || 'simple-retail';
+      const presetCats = SHOP_MODE_CATEGORIES[shopMode] || SHOP_MODE_CATEGORIES['simple-retail'] || ['ALL', ' LOW STOCK'];
+      const catalogCats = (state.catalog || []).map(p => p.category).filter(Boolean);
+      const uniqueCats = ['ALL', ' LOW STOCK', ...new Set([...presetCats.filter(c => c !== 'ALL' && c !== ' LOW STOCK' && c !== 'LOW STOCK'), ...catalogCats])];
       const filtersFragment = document.createDocumentFragment();
 
-      categories.forEach(cat => {
+      uniqueCats.forEach(cat => {
         const btn = document.createElement('button');
         btn.className = 'cat-pill';
-        if (cat === state[categoryKey]) btn.classList.add('active');
+        const activeCat = state[categoryKey] || 'ALL';
+        if (cat === activeCat || (cat.trim() === activeCat.trim())) btn.classList.add('active');
         btn.textContent = cat;
         btn.addEventListener('click', () => {
           playAudioSignal('click');
@@ -10753,23 +10851,29 @@ setHtml(tr, `
     }
 
     // 2. Filter products
-    const filter = state[categoryKey] || 'ALL';
-    const query = (state[searchKey] || '').toLowerCase().trim();
+    const filter = (state[categoryKey] || 'ALL').trim();
+    const query = (state[searchKey] || (searchInput ? searchInput.value : '') || '').toLowerCase().trim();
 
-    const items = state.catalog.filter(p => {
+    const items = (state.catalog || []).filter(p => {
+      if (!p) return false;
       let matchesCat = false;
-      if (filter === 'ALL') {
+      const totalStock = (p.stock_quantity !== undefined && p.stock_quantity !== null) ? Number(p.stock_quantity) : ((p.stock_level !== undefined && p.stock_level !== null) ? Number(p.stock_level) : (p.stock !== undefined ? Number(p.stock) : 0));
+      
+      if (!filter || filter === 'ALL') {
         matchesCat = true;
-      } else if (filter === ' LOW STOCK') {
+      } else if (filter === 'LOW STOCK' || filter === ' LOW STOCK') {
         const threshold = p.low_stock_threshold !== undefined ? p.low_stock_threshold : 10;
-        matchesCat = p.stock_level <= threshold;
+        matchesCat = totalStock <= threshold;
       } else {
-        matchesCat = (p.category === filter);
+        matchesCat = (p.category && String(p.category).toLowerCase().trim() === filter.toLowerCase());
       }
 
       const matchesQuery = !query || (
-        p.sku.toLowerCase().includes(query) ||
-        p.name.toLowerCase().includes(query)
+        (p.sku && String(p.sku).toLowerCase().includes(query)) ||
+        (p.name && String(p.name).toLowerCase().includes(query)) ||
+        (p.title && String(p.title).toLowerCase().includes(query)) ||
+        (p.barcode && String(p.barcode).toLowerCase().includes(query)) ||
+        (p.gtin && String(p.gtin).toLowerCase().includes(query))
       );
       return matchesCat && matchesQuery;
     });
@@ -10778,7 +10882,7 @@ setHtml(tr, `
     gridContainer.replaceChildren();
     
     if (items.length === 0) {
-setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color: var(--text-gray); padding: 32px; font-size: 11px;">No products found</div>');
+      setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color: var(--text-gray); padding: 32px; font-size: 12px; font-weight: 600;">No products match the selected filter or search.</div>');
       return;
     }
 
@@ -10788,8 +10892,9 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
       const card = document.createElement('div');
       card.className = 'product-quick-card';
       
-      const inCart = state.activeCart.find(item => item.sku === p.sku)?.qty || 0;
-      const availStock = p.stock_level - inCart;
+      const totalStock = (p.stock_quantity !== undefined && p.stock_quantity !== null) ? Number(p.stock_quantity) : ((p.stock_level !== undefined && p.stock_level !== null) ? Number(p.stock_level) : (p.stock !== undefined ? Number(p.stock) : 0));
+      const inCart = (state.activeCart || []).filter(item => item.sku === p.sku).reduce((sum, item) => sum + (item.qty || 0), 0);
+      const availStock = Math.max(0, totalStock - inCart);
 
       if (availStock <= 0) {
         card.classList.add('out-of-stock');
@@ -10797,6 +10902,7 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
       const catCode = p.category ? p.category.substring(0, 3).toUpperCase() : 'GEN';
       const imgUrl = p.image_url || p.image || p.img_url || p.img;
       const iconContent = p.emoji || catCode;
+      const priceVal = (p.base_price_minor_units != null ? (p.base_price_minor_units / 100.0) : (p.price != null ? parseFloat(p.price) : 0));
 
       setHtml(card, `
         <div class="quick-card-visual-wrapper">
@@ -10804,22 +10910,35 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
           <span class="quick-card-stock-badge ${availStock < 5 ? 'low-stock' : ''}">${availStock <= 0 ? 'OOS' : availStock + ' left'}</span>
         </div>
         <div class="quick-card-content">
-          <h4 class="quick-card-name" title="${p.name || ''}">${p.name || ''}</h4>
+          <h4 class="quick-card-name" title="${p.name || p.title || ''}">${p.name || p.title || 'Item'}</h4>
           <div class="quick-card-price-row">
-            <span class="quick-card-price">Rs. ${(p.base_price_minor_units / 100.0).toFixed(2)}</span>
+            <span class="quick-card-price">Rs. ${priceVal.toFixed(2)}</span>
             <span class="quick-card-sku">${p.sku || ''}</span>
           </div>
         </div>
       `);
 
-      card.addEventListener('click', () => {
-        const currentInCart = state.activeCart.find(item => item.sku === p.sku)?.qty || 0;
-        if (p.stock_level - currentInCart <= 0) {
+      card.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const curInCart = (state.activeCart || []).filter(item => item.sku === p.sku).reduce((sum, item) => sum + (item.qty || 0), 0);
+        const isOversellBlocked = state.preferences['oversell_block_enabled'] !== 'false';
+        if (totalStock - curInCart <= 0 && isOversellBlocked) {
           playAudioSignal('error');
-          showModal({ title: "Notice", message: `Warning: Product SKU ${p.sku} has no remaining available stock!`, type: "info" });
+          showModal({ title: "Notice", message: `Warning: Product "${p.name || p.sku}" has no remaining available stock!`, type: "info" });
           return;
         }
-        addProductToCheckoutCart(p.sku);
+        
+        card.style.transform = 'scale(0.95)';
+        setTimeout(() => { card.style.transform = ''; }, 100);
+
+        const added = addProductToCheckoutCart(p.sku);
+        if (added) {
+          if (typeof showNotificationToast === 'function') {
+            showNotificationToast(`Added "${p.name || p.sku}" to cart`, 'success', 1500);
+          }
+        }
       });
 
       gridFragment.appendChild(card);
@@ -10827,6 +10946,50 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
 
     gridContainer.appendChild(gridFragment);
   }
+  window.renderQuickGrid = renderQuickGrid;
+
+  function renderQuickCatalog() {
+    const mobileGrid = document.getElementById('mobile-quick-grid');
+    const mobileFilters = document.getElementById('mobile-quick-filters');
+    const mobileSearch = document.getElementById('mobile-quick-search');
+    if (!mobileGrid) return;
+
+    if (mobileSearch && !mobileSearch.__hasQuickCatalogSearchListener) {
+      mobileSearch.__hasQuickCatalogSearchListener = true;
+      mobileSearch.addEventListener('input', (e) => {
+        state.mobileQuickSearch = e.target.value;
+        renderQuickGrid(mobileGrid, mobileFilters, mobileSearch, 'mobileQuickCategory', 'mobileQuickSearch');
+      });
+    }
+
+    renderQuickGrid(mobileGrid, mobileFilters, mobileSearch, 'mobileQuickCategory', 'mobileQuickSearch');
+  }
+  window.renderQuickCatalog = renderQuickCatalog;
+
+  function renderCheckoutScreen() {
+    renderCart();
+    const chkGrid = document.getElementById('checkout-quick-grid');
+    if (chkGrid && typeof renderQuickGrid === 'function') {
+      renderQuickGrid(
+        chkGrid,
+        document.getElementById('checkout-quick-filters'),
+        document.getElementById('checkout-quick-search'),
+        'checkoutQuickCategory',
+        'checkoutQuickSearch'
+      );
+    }
+    const mobileGrid = document.getElementById('mobile-quick-grid');
+    if (mobileGrid && typeof renderQuickGrid === 'function') {
+      renderQuickGrid(
+        mobileGrid,
+        document.getElementById('mobile-quick-filters'),
+        document.getElementById('mobile-quick-search'),
+        'mobileQuickCategory',
+        'mobileQuickSearch'
+      );
+    }
+  }
+  window.renderCheckoutScreen = renderCheckoutScreen;
 
   // Categories pills list — shop-mode-aware
   const SHOP_MODE_CATEGORIES = {
@@ -10852,136 +11015,6 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
   // CUSTOMER BUY-IN & DEVICE TRADE-IN MODULE (MOBILE / HIGH-VALUE ELECTRONICS)
   // ============================================================================
 
-  function updateBuybackNavVisibility() {
-    const isSupported = (window.ValenixiaStoreModes && typeof window.ValenixiaStoreModes.isBuybackSupported === 'function')
-      ? window.ValenixiaStoreModes.isBuybackSupported()
-      : (typeof isBuybackSupported === 'function' ? isBuybackSupported() : false);
-
-    const shopMode = (state && state.preferences && (state.preferences['shop_mode'] || state.preferences['store_type'])) ||
-      (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_shop_mode')) || 'simple-retail';
-    const isJewellery = shopMode === 'jewellery' || shopMode === 'jewellery-gold' || shopMode === 'jewelry-luxury' || shopMode === 'pawn-gold';
-    const isElectronics = shopMode === 'electronics-highvalue' || shopMode === 'mobile-repair' || shopMode === 'computer-it' || shopMode === 'automotive-car';
-    const isUrdu = (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_language') === 'ur') || (typeof document !== 'undefined' && document.documentElement && document.documentElement.lang === 'ur');
-
-    const navBtns = document.querySelectorAll('#nav-customer-buyback, [data-screen="customer-buyback"], .nav-item[data-screen="customer-buyback"]');
-    navBtns.forEach(btn => {
-      if (isSupported) {
-        btn.style.setProperty('display', 'flex', 'important');
-        btn.removeAttribute('hidden');
-        const labelEl = btn.querySelector('.nav-label, span:not(.nav-icon)');
-        if (labelEl) {
-          if (isJewellery) {
-            labelEl.textContent = isUrdu ? 'سونا ٹریڈ ان / خریداری' : 'Gold Trade-In & Buyback';
-          } else if (isElectronics) {
-            labelEl.textContent = isUrdu ? 'ڈیوائس خریداری' : 'Device Buy-In';
-          } else {
-            labelEl.textContent = isUrdu ? 'ٹریڈ ان و خریداری' : 'Trade-In & Buyback';
-          }
-        }
-      } else {
-        btn.style.setProperty('display', 'none', 'important');
-        btn.setAttribute('hidden', '');
-      }
-    });
-
-    document.querySelectorAll('.buyback-only-element').forEach(el => {
-      if (isSupported) {
-        el.style.setProperty('display', el.tagName === 'BUTTON' || el.classList.contains('nav-item') ? 'flex' : 'block', 'important');
-        el.removeAttribute('hidden');
-      } else {
-        el.style.setProperty('display', 'none', 'important');
-        el.setAttribute('hidden', '');
-      }
-    });
-
-    const checkoutTradeInBtn = document.getElementById('btn-checkout-tradein');
-    if (checkoutTradeInBtn) {
-      if (isSupported) {
-        checkoutTradeInBtn.style.removeProperty('display');
-        checkoutTradeInBtn.style.display = 'inline-flex';
-        checkoutTradeInBtn.removeAttribute('hidden');
-        const spanText = checkoutTradeInBtn.querySelector('span');
-        if (isJewellery) {
-          checkoutTradeInBtn.style.background = 'rgba(255,215,0,0.12)';
-          checkoutTradeInBtn.style.border = '1px solid rgba(255,215,0,0.4)';
-          checkoutTradeInBtn.style.color = '#ffd700';
-          checkoutTradeInBtn.title = isUrdu ? 'پرانا سونا ایکسچینج کریں' : 'Exchange Old Gold against this order';
-          if (spanText) spanText.textContent = isUrdu ? 'سونا ٹریڈ ان' : 'Gold Trade-In';
-        } else if (isElectronics) {
-          checkoutTradeInBtn.style.background = 'rgba(59,130,246,0.12)';
-          checkoutTradeInBtn.style.border = '1px solid rgba(59,130,246,0.4)';
-          checkoutTradeInBtn.style.color = '#60a5fa';
-          checkoutTradeInBtn.title = isUrdu ? 'پرانا موبائل / ڈیوائس ایکسچینج کریں' : 'Exchange Used Device against this order';
-          if (spanText) spanText.textContent = isUrdu ? 'ڈیوائس ٹریڈ ان' : 'Device Trade-In';
-        } else {
-          checkoutTradeInBtn.style.background = 'rgba(0,214,143,0.12)';
-          checkoutTradeInBtn.style.border = '1px solid rgba(0,214,143,0.4)';
-          checkoutTradeInBtn.style.color = 'var(--accent-emerald)';
-          checkoutTradeInBtn.title = isUrdu ? 'ٹریڈ ان ایکسچینج کریں' : 'Trade-In / Buyback';
-          if (spanText) spanText.textContent = isUrdu ? 'ٹریڈ ان' : 'Trade-In';
-        }
-      } else {
-        checkoutTradeInBtn.style.setProperty('display', 'none', 'important');
-        checkoutTradeInBtn.setAttribute('hidden', '');
-      }
-    }
-
-    const payModeTradeInBtn = document.getElementById('btn-pay-mode-tradein');
-    if (payModeTradeInBtn) {
-      if (isSupported) {
-        payModeTradeInBtn.style.removeProperty('display');
-        payModeTradeInBtn.style.display = 'inline-flex';
-        payModeTradeInBtn.removeAttribute('hidden');
-        const lbl = payModeTradeInBtn.querySelector('.pay-btn-label, span');
-        if (lbl) {
-          if (isJewellery) {
-            lbl.textContent = isUrdu ? 'سونا ایکسچینج' : 'Gold Trade-In';
-          } else if (isElectronics) {
-            lbl.textContent = isUrdu ? 'ڈیوائس ٹریڈ ان' : 'Device Trade-In';
-          } else {
-            lbl.textContent = isUrdu ? 'ٹریڈ ان' : 'Trade-In';
-          }
-        }
-      } else {
-        payModeTradeInBtn.style.setProperty('display', 'none', 'important');
-        payModeTradeInBtn.setAttribute('hidden', '');
-      }
-    }
-
-    const btnDevTab = document.getElementById('btn-buyback-tab-device');
-    const btnGoldTab = document.getElementById('btn-buyback-tab-gold');
-    if (btnDevTab && btnGoldTab) {
-      if (isJewellery) {
-        btnDevTab.style.setProperty('display', 'none', 'important');
-        btnGoldTab.style.removeProperty('display');
-        btnGoldTab.style.display = 'inline-flex';
-        if (typeof switchBuybackIntakeTab === 'function') {
-          const currentType = document.getElementById('buyback-intake-type')?.value;
-          if (currentType !== 'GOLD') switchBuybackIntakeTab('GOLD');
-        }
-      } else if (isElectronics) {
-        btnGoldTab.style.setProperty('display', 'none', 'important');
-        btnDevTab.style.removeProperty('display');
-        btnDevTab.style.display = 'inline-flex';
-        if (typeof switchBuybackIntakeTab === 'function') {
-          const currentType = document.getElementById('buyback-intake-type')?.value;
-          if (currentType !== 'DEVICE') switchBuybackIntakeTab('DEVICE');
-        }
-      } else {
-        btnDevTab.style.removeProperty('display');
-        btnDevTab.style.display = 'inline-flex';
-        btnGoldTab.style.removeProperty('display');
-        btnGoldTab.style.display = 'inline-flex';
-      }
-    }
-
-    if (!isSupported && state && state.activeScreen === 'customer-buyback') {
-      if (typeof switchActiveScreen === 'function') {
-        switchActiveScreen('checkout');
-      }
-    }
-  }
-  window.updateBuybackNavVisibility = updateBuybackNavVisibility;
 
   async function getBuybackRecords() {
     let records = [];
@@ -11058,10 +11091,10 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
   }
 
   function recalcCustomerBuybackGold() {
-    const grossWt = parseFloat(document.getElementById('buyback-gold-gross-weight')?.value || '0');
-    const stoneDed = parseFloat(document.getElementById('buyback-gold-stone-deduction')?.value || '0');
-    const kattPct = parseFloat(document.getElementById('buyback-gold-katt-pct')?.value || '0');
-    const rateGram = parseFloat(document.getElementById('buyback-gold-rate-gram')?.value || '0');
+    const grossWt = parseFloat(document.getElementById('buyback-gold-gross-weight')?.value || '0') || 0;
+    const stoneDed = parseFloat(document.getElementById('buyback-gold-stone-deduction')?.value || '0') || 0;
+    const kattPct = parseFloat(document.getElementById('buyback-gold-katt-pct')?.value || '0') || 0;
+    const rateGram = parseFloat(document.getElementById('buyback-gold-rate-gram')?.value || '0') || 0;
     const karat = document.getElementById('buyback-gold-karat')?.value || '22K';
 
     const netWeight = Math.max(0, parseFloat((grossWt - stoneDed).toFixed(3)));
@@ -11077,7 +11110,7 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
         wastagePct: kattPct,
         goldRatePerGram: rateGram
       });
-      valuation = res.valuationPKR;
+      valuation = res ? (res.netValuation ?? res.valuationPKR ?? 0) : Math.round(effWeight * rateGram);
     } else {
       valuation = Math.round(effWeight * rateGram);
     }
@@ -11088,12 +11121,12 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
     const valEl = document.getElementById('buyback-gold-valuation-display');
     const payoutInput = document.getElementById('buyback-payout-amount');
 
-    if (netEl) netEl.textContent = `${netWeight.toFixed(3)} g`;
-    if (effEl) effEl.textContent = `${effWeight.toFixed(3)} g (${(100 - kattPct).toFixed(1)}%)`;
-    if (tolaEl) tolaEl.textContent = `Rs. ${rateTola.toLocaleString('en-PK')}`;
-    if (valEl) valEl.textContent = `Rs. ${valuation.toLocaleString('en-PK')}`;
+    if (netEl) netEl.textContent = `${(netWeight || 0).toFixed(3)} g`;
+    if (effEl) effEl.textContent = `${(effWeight || 0).toFixed(3)} g (${((100 - kattPct) || 0).toFixed(1)}%)`;
+    if (tolaEl) tolaEl.textContent = `Rs. ${(rateTola || 0).toLocaleString('en-PK')}`;
+    if (valEl) valEl.textContent = `Rs. ${(valuation || 0).toLocaleString('en-PK')}`;
     if (payoutInput && document.getElementById('buyback-intake-type')?.value === 'GOLD') {
-      payoutInput.value = valuation;
+      payoutInput.value = valuation || 0;
     }
   }
   window.recalcCustomerBuybackGold = recalcCustomerBuybackGold;
@@ -11106,14 +11139,21 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
     const shopMode = (state && state.preferences && (state.preferences['shop_mode'] || state.preferences['store_type'])) ||
       (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_shop_mode')) || 'simple-retail';
     const isJewellery = shopMode === 'jewellery' || shopMode === 'jewellery-gold' || shopMode === 'jewelry-luxury' || shopMode === 'pawn-gold';
+    const isElectronics = shopMode === 'electronics-highvalue' || shopMode === 'mobile-repair' || shopMode === 'computer-it' || shopMode === 'automotive-car';
 
     // Auto toggle tab matching active store mode
     const currentIntakeType = document.getElementById('buyback-intake-type')?.value;
     if (!currentIntakeType || (isJewellery && currentIntakeType === 'DEVICE')) {
-      switchBuybackIntakeTab(isJewellery ? 'GOLD' : 'DEVICE');
+      switchBuybackIntakeTab('GOLD');
+    } else if (isElectronics && currentIntakeType === 'GOLD') {
+      switchBuybackIntakeTab('DEVICE');
     }
 
-    const records = await getBuybackRecords();
+    const allRecords = await getBuybackRecords();
+    const records = isJewellery
+      ? allRecords.filter(r => r.item_type === 'GOLD')
+      : (isElectronics ? allRecords.filter(r => r.item_type !== 'GOLD') : allRecords);
+
     const searchInput = document.getElementById('buyback-search-input');
     const query = (searchInput?.value || '').toLowerCase().trim();
 
@@ -11169,7 +11209,7 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
     const fragment = document.createDocumentFragment();
     filtered.forEach(r => {
       const card = document.createElement('div');
-      card.style.cssText = 'background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; transition: border-color 0.2s ease;';
+      card.className = 'buyback-record-card';
 
       const isGoldRec = r.item_type === 'GOLD';
       const dateStr = new Date(r.created_at || Date.now()).toLocaleDateString('en-PK', {
@@ -11177,8 +11217,8 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
       });
 
       const badgeHtml = isGoldRec
-        ? `<span style="font-size: 10px; background: rgba(255,215,0,0.15); color: #ffd700; padding: 2px 7px; border-radius: 5px; font-weight: 800; border: 1px solid rgba(255,215,0,0.3);">👑 ${escapeHTML(r.karat || '22K')} GOLD TRADE-IN</span>`
-        : `<span style="font-size: 10px; background: rgba(59,130,246,0.15); color: #60a5fa; padding: 2px 7px; border-radius: 5px; font-weight: 800; border: 1px solid rgba(59,130,246,0.3);">📱 DEVICE BUY-IN</span>`;
+        ? `<span style="font-size: 10px; background: rgba(245,158,11,0.15); color: #f59e0b; padding: 2px 7px; border-radius: 5px; font-weight: 800; border: 1px solid rgba(245,158,11,0.35);">👑 ${escapeHTML(r.karat || '22K')} GOLD TRADE-IN</span>`
+        : `<span style="font-size: 10px; background: rgba(59,130,246,0.15); color: #3b82f6; padding: 2px 7px; border-radius: 5px; font-weight: 800; border: 1px solid rgba(59,130,246,0.3);">📱 DEVICE BUY-IN</span>`;
 
       const titleHtml = isGoldRec
         ? `${escapeHTML(r.karat || '22K')} ${escapeHTML(r.gold_item_type || r.model || 'Gold Piece')} (${r.net_weight_g || 0}g Net)`
@@ -11186,23 +11226,23 @@ setHtml(gridContainer, '<div style="grid-column: 1/-1; text-align: center; color
 
       const detailsHtml = isGoldRec
         ? `
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px; color: var(--text-gray); background: rgba(0,0,0,0.2); padding: 8px 10px; border-radius: 6px;">
-            <div><strong>Seller:</strong> <span style="color: var(--text-white);">${escapeHTML(r.seller_name || 'N/A')}</span> (${escapeHTML(r.seller_phone || '')})</div>
-            <div><strong>CNIC:</strong> <span style="font-family: var(--font-mono); color: var(--text-white);">${escapeHTML(r.seller_cnic || 'N/A')}</span></div>
-            <div style="grid-column: 1/-1;"><strong>Net Gold Wt:</strong> <span style="font-weight: 800; color: #00d68f;">${r.net_weight_g || 0}g</span> • <strong>Gross:</strong> ${r.gross_weight_g || 0}g • <strong>Stone:</strong> ${r.stone_deduction_g || 0}g</div>
-            <div><strong>Katt / Melting Loss:</strong> <span style="color: #ffd700;">${r.wastage_katt_pct || 0}%</span></div>
+          <div class="buyback-record-details">
+            <div><strong>Seller:</strong> <span class="rec-val">${escapeHTML(r.seller_name || 'N/A')}</span> (${escapeHTML(r.seller_phone || '')})</div>
+            <div><strong>CNIC:</strong> <span class="rec-mono">${escapeHTML(r.seller_cnic || 'N/A')}</span></div>
+            <div style="grid-column: 1/-1;"><strong>Net Gold Wt:</strong> <span style="font-weight: 800; color: var(--accent-emerald, #059669);">${r.net_weight_g || 0}g</span> • <strong>Gross:</strong> ${r.gross_weight_g || 0}g • <strong>Stone:</strong> ${r.stone_deduction_g || 0}g</div>
+            <div><strong>Katt / Melting Loss:</strong> <span style="color: #f59e0b; font-weight: 700;">${r.wastage_katt_pct || 0}%</span></div>
             <div><strong>Market Rate:</strong> Rs. ${(r.rate_per_gram || 0).toLocaleString('en-PK')}/g</div>
-            ${r.notes ? `<div style="grid-column: 1/-1; color: #cbd5e1;"><strong>Testing/Notes:</strong> ${escapeHTML(r.notes)}</div>` : ''}
+            ${r.notes ? `<div style="grid-column: 1/-1; color: var(--text-gray);"><strong>Testing/Notes:</strong> ${escapeHTML(r.notes)}</div>` : ''}
           </div>
         `
         : `
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px; color: var(--text-gray); background: rgba(0,0,0,0.2); padding: 8px 10px; border-radius: 6px;">
-            <div><strong>Seller:</strong> <span style="color: var(--text-white);">${escapeHTML(r.seller_name || 'N/A')}</span> (${escapeHTML(r.seller_phone || '')})</div>
-            <div><strong>CNIC:</strong> <span style="font-family: var(--font-mono); color: var(--text-white);">${escapeHTML(r.seller_cnic || 'N/A')}</span></div>
-            <div style="grid-column: 1/-1;"><strong>IMEI 1:</strong> <span style="font-family: var(--font-mono); font-weight: 700; color: var(--text-white);">${escapeHTML(r.imei1 || r.imei || 'N/A')}</span> ${r.imei2 ? `• <strong>IMEI 2:</strong> <span style="font-family: var(--font-mono);">${escapeHTML(r.imei2)}</span>` : ''}</div>
-            <div><strong>Condition:</strong> <span style="color: #60a5fa;">${escapeHTML(r.condition || 'Used')}</span></div>
+          <div class="buyback-record-details">
+            <div><strong>Seller:</strong> <span class="rec-val">${escapeHTML(r.seller_name || 'N/A')}</span> (${escapeHTML(r.seller_phone || '')})</div>
+            <div><strong>CNIC:</strong> <span class="rec-mono">${escapeHTML(r.seller_cnic || 'N/A')}</span></div>
+            <div style="grid-column: 1/-1;"><strong>IMEI 1:</strong> <span class="rec-mono" style="font-weight: 700;">${escapeHTML(r.imei1 || r.imei || 'N/A')}</span> ${r.imei2 ? `• <strong>IMEI 2:</strong> <span class="rec-mono">${escapeHTML(r.imei2)}</span>` : ''}</div>
+            <div><strong>Condition:</strong> <span style="color: #3b82f6; font-weight: 700;">${escapeHTML(r.condition || 'Used')}</span></div>
             <div><strong>Accessories:</strong> ${escapeHTML(r.accessories || 'None')}</div>
-            ${r.notes ? `<div style="grid-column: 1/-1; color: #cbd5e1;"><strong>Notes:</strong> ${escapeHTML(r.notes)}</div>` : ''}
+            ${r.notes ? `<div style="grid-column: 1/-1; color: var(--text-gray);"><strong>Notes:</strong> ${escapeHTML(r.notes)}</div>` : ''}
           </div>
         `;
 
@@ -13390,6 +13430,7 @@ setHtml(row, `
   function openCustomerEditModal(id) {
     playAudioSignal('click');
     const modal = document.getElementById('modal-customer');
+    if (!modal) return;
     const title = document.getElementById('modal-customer-title');
     const spendRow = document.getElementById('form-customer-spend-row');
     const visitsRow = document.getElementById('form-customer-visits-row');
@@ -13397,7 +13438,7 @@ setHtml(row, `
 
     if (id) {
       const c = state.customers.find(item => item.id === id);
-      title.textContent = 'Edit Customer Profile';
+      if (title) title.textContent = 'Edit Customer Profile';
       document.getElementById('form-customer-id').value = c.id;
       document.getElementById('form-customer-name').value = c.name || '';
       document.getElementById('form-customer-phone').value = c.phone || '';
@@ -13407,13 +13448,13 @@ setHtml(row, `
       document.getElementById('form-customer-notes').value = c.notes || '';
       document.getElementById('form-customer-spend').value = c.total_spend_cents || 0;
       document.getElementById('form-customer-visits').value = c.visits || 0;
-      spendRow.style.display = 'flex';
-      visitsRow.style.display = 'flex';
+      if (spendRow) spendRow.style.display = 'flex';
+      if (visitsRow) visitsRow.style.display = 'flex';
       if (kycDetails) {
         kycDetails.open = Boolean(c.address || c.cnic || c.notes);
       }
     } else {
-      title.textContent = 'Create Customer Profile';
+      if (title) title.textContent = 'Create Customer Account / Profile';
       document.getElementById('form-customer-id').value = 'cust_' + Date.now();
       document.getElementById('form-customer-name').value = '';
       document.getElementById('form-customer-phone').value = '';
@@ -13421,8 +13462,8 @@ setHtml(row, `
       document.getElementById('form-customer-address').value = '';
       document.getElementById('form-customer-cnic').value = '';
       document.getElementById('form-customer-notes').value = '';
-      spendRow.style.display = 'none';
-      visitsRow.style.display = 'none';
+      if (spendRow) spendRow.style.display = 'none';
+      if (visitsRow) visitsRow.style.display = 'none';
       if (kycDetails) {
         kycDetails.open = false;
       }
@@ -13430,6 +13471,8 @@ setHtml(row, `
 
     modal.classList.add('active');
   }
+  window.openCustomerEditModal = openCustomerEditModal;
+  window.openCustomerModal = openCustomerEditModal;
 
   function submitCustomerForm() {
     const idInput = document.getElementById('form-customer-id');
@@ -13491,6 +13534,7 @@ setHtml(row, `
 
     try {
       if (typeof renderCustomersScreen === 'function') renderCustomersScreen();
+      if (typeof renderCreditBookScreen === 'function') renderCreditBookScreen();
       if (typeof renderCustomerLinkModalList === 'function') renderCustomerLinkModalList();
     } catch (e) {
       console.warn('UI customer re-render warning:', e);
@@ -13502,8 +13546,8 @@ setHtml(row, `
     });
 
     setTimeout(() => syncWorker.postMessage({ type: 'GET_CUSTOMERS' }), 150);
-    document.getElementById('modal-customer').classList.remove('active');
-    showNotificationToast(`Customer "${name}" saved successfully!`, 'success', 3000);
+    document.getElementById('modal-customer')?.classList.remove('active');
+    showNotificationToast(`Customer account "${name}" saved successfully!`, 'success', 3000);
   }
 
   // --- STAFF ROSTER SCREEN AND FORM ---
@@ -13694,8 +13738,8 @@ setHtml(row, `
       case 'checkout': if (typeof renderCheckoutScreen === 'function') renderCheckoutScreen(); break;
       case 'staff': if (typeof renderStaffScreen === 'function') renderStaffScreen(); break;
       case 'customers': if (typeof renderCustomersScreen === 'function') renderCustomersScreen(); break;
-      case 'catalog': if (typeof renderCatalogScreen === 'function') renderCatalogScreen(); break;
-      case 'catalog-manager': if (typeof renderCatalogScreen === 'function') renderCatalogScreen(); break;
+      case 'catalog': if (typeof renderQuickCatalog === 'function') renderQuickCatalog(); break;
+      case 'catalog-manager': case 'inventory': if (typeof renderCatalogScreen === 'function') renderCatalogScreen(); break;
       case 'history': if (typeof renderHistoryScreen === 'function') renderHistoryScreen(); break;
       case 'logs': renderLogsFromState(); break;
       case 'suppliers': if (typeof renderSuppliersScreen === 'function') renderSuppliersScreen(); break;
@@ -13719,10 +13763,12 @@ setHtml(row, `
     if (typeof fn === 'function') {
       try { fn(); } catch(e) { console.warn('[ScheduleRender] Error rendering ' + screenName, e); }
     } else {
-      if (typeof switchActiveScreen === 'function') {
-        switchActiveScreen(screenName);
-      } else {
-        handleScreenSwitch(screenName);
+      const cleanName = (screenName || '').replace('view-', '');
+      const reg = (window.SCREEN_REGISTRY && window.SCREEN_REGISTRY[cleanName]) || {};
+      const fnName = reg.renderer || ('render' + cleanName.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('') + 'Screen');
+      const targetFn = window[fnName] || (window.__realHandlers && window.__realHandlers[fnName]);
+      if (typeof targetFn === 'function') {
+        try { targetFn(); } catch(e) { console.warn('[ScheduleRender] Error executing renderer for ' + cleanName, e); }
       }
     }
   };
@@ -20712,49 +20758,65 @@ setHtml(dz, '<span>');
         }
       });
 
-      window.triggerPWAInstall = async function() {
-        const prompt = deferredPrompt || window.__pwaDeferredPrompt;
-        if (prompt && typeof prompt.prompt === 'function') {
-          prompt.prompt();
-          const choice = await prompt.userChoice;
-          console.log('[PWA] Prompt choice:', choice);
-          deferredPrompt = null;
-          window.__pwaDeferredPrompt = null;
-          const banner = document.getElementById('pwa-install-banner');
-          if (banner) banner.remove();
-          return choice;
-        } else {
-          if (typeof showNotificationToast === 'function') {
-            showNotificationToast('To install Valenixia POS: Tap browser menu (⋮ or Share) ➔ "Install App" or "Add to Home screen"', 'info', 5000);
-          }
+      // ── Platform-aware native download redirect ──────────────────────────────
+      // Detects Android vs desktop and sends user to the real full-size native app.
+      // The lightweight browser PWA cache is never installed — users always get the
+      // hardware-capable native build (APK ~16 MB for Android / EXE for Windows).
+      function getNativeDownloadTarget() {
+        const ua = navigator.userAgent || '';
+        if (/Android/i.test(ua)) {
+          return {
+            url: '/downloads/valenixia-pos.apk',
+            label: 'Downloading Android APK…',
+            desc: 'Full native build (~16 MB) — hardware printer, scanner & licence support'
+          };
         }
+        return {
+          url: '/downloads/valenixia-pos.exe',
+          label: 'Downloading Windows App…',
+          desc: 'Full native desktop build — offline POS & hardware integrations'
+        };
+      }
+
+      window.triggerPWAInstall = async function() {
+        const target = getNativeDownloadTarget();
+        const banner = document.getElementById('pwa-install-banner');
+        if (banner) banner.remove();
+        if (typeof showNotificationToast === 'function') {
+          showNotificationToast(target.label, 'success', 3000);
+        }
+        setTimeout(() => { window.location.href = target.url; }, 400);
       };
 
       function showInstallBanner() {
         if (document.getElementById('pwa-install-banner')) return;
+        const target = getNativeDownloadTarget();
+        const isAndroid = /Android/i.test(navigator.userAgent || '');
+        const platformIcon = isAndroid
+          ? `<svg viewBox="0 0 24 24" width="18" height="18" fill="var(--accent-emerald,#10b981)" xmlns="http://www.w3.org/2000/svg"><path d="M6.18 15.64a2.18 2.18 0 0 1-2.18 2.18C2.98 17.82 2 16.84 2 15.64V8.36a2.18 2.18 0 0 1 4.36 0v7.28zM21.82 15.64a2.18 2.18 0 0 1-4.36 0V8.36a2.18 2.18 0 0 1 4.36 0v7.28zM16 6.27H8A6 6 0 0 1 14 2h-4a6 6 0 0 1 6 4.27zM8 17.82v2.54a1.64 1.64 0 0 0 3.27 0V17.82H8zm4.73 0v2.54a1.64 1.64 0 0 0 3.27 0V17.82h-3.27zM16 7.36H8v10.46h8V7.36z"/></svg>`
+          : `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--accent-emerald,#10b981)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><polyline points="8 21 12 17 16 21"/></svg>`;
         const banner = document.createElement('div');
         banner.id = 'pwa-install-banner';
         banner.className = 'pwa-install-banner';
         setHtml(banner, `
           <div style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);flex-shrink:0;">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--accent-emerald,#10b981)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            ${platformIcon}
           </div>
           <div style="flex:1;min-width:0;">
             <div class="pwa-title">Install Valenixia POS</div>
-            <div class="pwa-desc">Fast offline standalone app</div>
+            <div class="pwa-desc">${target.desc}</div>
           </div>
           <button id="pwa-install-btn" class="pwa-install-btn">Install</button>
           <button id="pwa-install-dismiss" class="pwa-dismiss-btn" aria-label="Dismiss">&times;</button>
         `);
         document.body.appendChild(banner);
-        document.getElementById('pwa-install-btn')?.addEventListener('click', async () => {
-          if (!deferredPrompt) return;
-          deferredPrompt.prompt();
-          const { outcome } = await deferredPrompt.userChoice;
-          console.log('[PWA] Install prompt outcome:', outcome);
-          deferredPrompt = null;
-          window.__pwaDeferredPrompt = null;
+        document.getElementById('pwa-install-btn')?.addEventListener('click', () => {
           banner.remove();
+          sessionStorage.setItem('_pwa_dismissed', '1');
+          if (typeof showNotificationToast === 'function') {
+            showNotificationToast(target.label, 'success', 3000);
+          }
+          setTimeout(() => { window.location.href = target.url; }, 400);
         });
         document.getElementById('pwa-install-dismiss')?.addEventListener('click', () => {
           banner.remove();
@@ -22190,6 +22252,68 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     renderPlatformAdminClaimsQueue();
   };
 
+  function renderPlatformAdminRuntimeLicensing() {
+    const isNative = (typeof isNativeEnvironment === 'function' ? isNativeEnvironment() : (location.protocol === 'file:' || !!window.AndroidPOS || !!window.Android || !!window.electron));
+    const runtimeName = isNative ? 'Native Android APK / Desktop Shell' : 'Web Browser Cloud Store';
+    
+    let hwid = state.hwid || (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_hwid')) || '';
+    if (!hwid) {
+      hwid = (isNative ? 'ANDROID_HW_' : 'WEB_HW_') + Math.random().toString(36).substring(2, 10).toUpperCase() + Math.random().toString(36).substring(2, 10).toUpperCase();
+      try { localStorage.setItem('valenixia_hwid', hwid); } catch(_) {}
+    }
+    state.hwid = hwid;
+
+    const activeTier = (window.__valenixiaTier || (state.preferences && state.preferences['store_subscription_tier']) || (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_tier')) || 'STARTER').toUpperCase();
+
+    const badgeEl = document.getElementById('platform-admin-current-runtime-badge');
+    const modeEl = document.getElementById('platform-admin-runtime-mode');
+    const hwidEl = document.getElementById('platform-admin-hwid');
+    const tierEl = document.getElementById('platform-admin-active-tier');
+    const selectEl = document.getElementById('platform-admin-tier-select');
+
+    if (badgeEl) badgeEl.textContent = isNative ? '📱 NATIVE INSTANCE' : '🌐 WEB BROWSER INSTANCE';
+    if (modeEl) modeEl.textContent = runtimeName;
+    if (hwidEl) hwidEl.textContent = hwid;
+    if (tierEl) tierEl.textContent = activeTier;
+    if (selectEl) selectEl.value = activeTier;
+  }
+  window.renderPlatformAdminRuntimeLicensing = renderPlatformAdminRuntimeLicensing;
+
+  window.applyAdminTierOverride = function() {
+    const selectEl = document.getElementById('platform-admin-tier-select');
+    if (!selectEl) return;
+    const newTier = selectEl.value.toUpperCase();
+    window.__valenixiaTier = newTier;
+    if (!state.preferences) state.preferences = {};
+    state.preferences['store_subscription_tier'] = newTier;
+    try { localStorage.setItem('valenixia_tier', newTier); } catch(_) {}
+    
+    if (syncWorker) {
+      syncWorker.postMessage({
+        type: 'SAVE_PREFERENCE',
+        payload: { key: 'store_subscription_tier', val: newTier }
+      });
+    }
+
+    if (typeof applyEntitlementsFromTier === 'function') {
+      applyEntitlementsFromTier(newTier);
+    }
+    if (typeof updateTierBadgeUI === 'function') {
+      updateTierBadgeUI();
+    }
+    renderPlatformAdminRuntimeLicensing();
+    if (typeof showNotificationToast === 'function') {
+      showNotificationToast(`License tier successfully updated to ${newTier} for this runtime store!`, 'success', 3000);
+    }
+  };
+
+  function renderPlatformAdminScreen() {
+    renderPlatformAdminClaimsQueue();
+    renderPlatformAdminOrgsDirectory();
+    renderPlatformAdminRuntimeLicensing();
+  }
+  window.renderPlatformAdminScreen = renderPlatformAdminScreen;
+
   // ══════════════════════════════════════════════════════════════════════════════
   // CANONICAL LEGAL DOCUMENTS REGISTRY & ACCESSIBLE MODAL LIFECYCLE SERVICE
   // ══════════════════════════════════════════════════════════════════════════════
@@ -23454,15 +23578,27 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       const input = modal.querySelector('#quick-checker-input');
       const results = modal.querySelector('#quick-checker-results');
 
-      const performSearch = (q) => {
+      const performSearch = async (q) => {
         const query = (q || '').trim().toLowerCase();
-        const catalog = state.catalog || [];
+        let catalog = (state.catalog && state.catalog.length > 0) ? state.catalog : [];
+        if (catalog.length === 0 && window.ValenixiaDB && typeof window.ValenixiaDB.getAll === 'function') {
+          try {
+            const dbItems = await window.ValenixiaDB.getAll('inventory_catalog');
+            if (dbItems && dbItems.length > 0) catalog = dbItems;
+            else {
+              const pItems = await window.ValenixiaDB.getAll('products');
+              if (pItems && pItems.length > 0) catalog = pItems;
+            }
+          } catch (_) {}
+        }
+
         if (!query) {
           results.innerHTML = `<div style="text-align:center;padding:24px;color:var(--text-gray);font-size:12px;">Type or scan an item above to look up instant price &amp; stock.</div>`;
           return;
         }
         const matches = catalog.filter(p => 
           (p.name && p.name.toLowerCase().includes(query)) ||
+          (p.title && p.title.toLowerCase().includes(query)) ||
           (p.sku && p.sku.toLowerCase().includes(query)) ||
           (p.barcode && p.barcode.toLowerCase().includes(query))
         );
@@ -23470,17 +23606,24 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
           results.innerHTML = `<div style="text-align:center;padding:24px;color:var(--alert-coral);font-size:12px;">No matching items found for "${query}".</div>`;
           return;
         }
-        results.innerHTML = matches.slice(0, 6).map(p => {
-          const price = (p.base_price_minor_units || (p.price ? p.price * 100 : 0)) / 100;
-          const stock = p.stock !== undefined ? p.stock : '—';
+        results.innerHTML = matches.slice(0, 10).map(p => {
+          const price = (p.base_price_minor_units != null ? p.base_price_minor_units / 100 : (p.price != null ? parseFloat(p.price) : 0));
+          const stockVal = (p.stock_quantity !== undefined && p.stock_quantity !== null) ? Number(p.stock_quantity) : ((p.stock_level !== undefined && p.stock_level !== null) ? Number(p.stock_level) : (p.stock !== undefined ? Number(p.stock) : 0));
+          const unit = p.unit ? (p.unit.charAt(0).toUpperCase() + p.unit.slice(1).toLowerCase()) : 'Units';
+          const threshold = p.low_stock_threshold !== undefined ? p.low_stock_threshold : 5;
+          const isLow = stockVal <= threshold;
+          const safeName = (p.name || p.title || 'Item').replace(/'/g, "\\'");
           return `<div style="background:rgba(255,255,255,0.04);border:1px solid var(--border-titanium);border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
-            <div>
-              <strong style="font-size:13px;color:var(--text-white);display:block;">${p.name || 'Item'}</strong>
-              <span style="font-size:11px;font-family:var(--font-mono);color:var(--text-gray);">${p.sku || p.barcode || 'NO-SKU'}</span>
+            <div style="flex:1;min-width:0;">
+              <strong style="font-size:13px;color:var(--text-white);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name || p.title || 'Item'}</strong>
+              <span style="font-size:11px;font-family:var(--font-mono);color:var(--text-gray);">${p.sku || p.barcode || 'NO-SKU'} • <span style="color:var(--accent-cyan);">${p.category || 'General'}</span></span>
             </div>
-            <div style="text-align:right;">
-              <div style="font-size:15px;font-weight:900;color:var(--accent-emerald);">Rs. ${price.toLocaleString('en-PK', {minimumFractionDigits:2})}</div>
-              <span style="font-size:11px;color:${stock <= 5 ? '#ef4444' : 'var(--text-gray)'};font-weight:700;">Stock: ${stock} units</span>
+            <div style="text-align:right;display:flex;align-items:center;gap:12px;flex-shrink:0;">
+              <div>
+                <div style="font-size:15px;font-weight:900;color:var(--accent-emerald);">Rs. ${price.toLocaleString('en-PK', {minimumFractionDigits:2})}</div>
+                <span style="font-size:11px;color:${isLow ? '#ef4444' : 'var(--text-gray)'};font-weight:700;">Stock: ${stockVal} ${unit}</span>
+              </div>
+              <button class="btn-tactile btn-tactile-primary" onclick="if(window.addProductToCheckoutCart){window.addProductToCheckoutCart('${p.sku}');if(typeof showNotificationToast==='function')showNotificationToast('Added ${safeName} to cart!','success',2000);}" style="padding:6px 12px;font-size:11px;font-weight:800;border-radius:6px;white-space:nowrap;">+ Cart</button>
             </div>
           </div>`;
         }).join('');
