@@ -162,10 +162,12 @@ const FEATURE_TIER_REQ = {
   'apps-download': 'FREE',
   'catalog-manager': 'FREE',
   'inventory': 'FREE',
-  'suppliers': 'FREE',
-  'analytics': 'FREE',
+  'customer-buyback': 'FREE',
+  'buyback': 'FREE',
 
   // Starter Tier Views & Modules (PKR 3,499/mo)
+  'suppliers': 'STARTER',
+  'analytics': 'STARTER',
   'credit-book': 'STARTER',
   'khata': 'STARTER',
   'customer-khata': 'STARTER',
@@ -205,6 +207,8 @@ const FEATURE_TIER_REQ = {
 };
 
 const FEATURE_DISPLAY_NAMES = {
+  'suppliers': 'Suppliers & Distributor Ledger',
+  'analytics': 'Financial Reports & Sales Analytics',
   'credit-book': 'Customer Khata & Udhaar Credit Ledger',
   'khata': 'Customer Khata & Udhaar Credit Ledger',
   'customer-khata': 'Customer Khata & Udhaar Credit Ledger',
@@ -674,7 +678,7 @@ function showUpgradeModal(featureName, requiredTier) {
       id: 'STARTER',
       name: 'Starter Register',
       price: 'Rs. 3,499',
-      features: '1 Terminal · Full Catalog & Deals · Credit Khata',
+      features: '1 Terminal · Suppliers & Distributors · Financial Analytics · Credit Khata',
       buttonText: activeTier === 'STARTER' ? 'Current Plan' : 'Select Starter',
       themeColor: '#06b6d4'
     },

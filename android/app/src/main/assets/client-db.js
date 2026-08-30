@@ -1047,7 +1047,7 @@
       // 6. Set Preferences
       const prefs = [
         { key: 'onboarding_complete', value_type: 'BOOL', value_payload: 'true', is_idempotent_flag: 1, updated_at: now },
-        { key: 'store_tax_rate', value_type: 'STR', value_payload: String(taxRate || 8.0), is_idempotent_flag: 0, updated_at: now },
+        { key: 'store_tax_rate', value_type: 'STR', value_payload: String((taxRate !== undefined && taxRate !== null && !isNaN(Number(taxRate))) ? taxRate : 8.0), is_idempotent_flag: 0, updated_at: now },
         { key: 'store_name', value_type: 'STR', value_payload: (storeName || 'VALENIXIA STORE').toUpperCase(), is_idempotent_flag: 0, updated_at: now },
         { key: 'store_theme_palette', value_type: 'STR', value_payload: theme || 'theme-obsidian-emerald', is_idempotent_flag: 0, updated_at: now },
         { key: 'store_logo_emoji', value_type: 'STR', value_payload: '', is_idempotent_flag: 0, updated_at: now },

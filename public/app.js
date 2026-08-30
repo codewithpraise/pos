@@ -5999,9 +5999,12 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
             }
             window.__valenixiaBootstrapDone = true;
 
-            console.log('[Bootstrap] Initializing local store bootstrap...');
             localStorage.setItem('onboarding_complete', 'true');
             localStorage.setItem('database_hydrated', 'true');
+            localStorage.setItem('valenixia_tax_rate', String(taxRate));
+            state.preferences = state.preferences || {};
+            state.preferences['store_tax_rate'] = String(taxRate);
+            state.preferences['store_name'] = storeName;
 
             if (window.ValenixiaBootstrap) {
               window.ValenixiaBootstrap.transition('AUTH_LOCK');
@@ -8161,7 +8164,9 @@ setHtml(overlay, `
         settingGDriveToken.value = gdriveToken;
       }
 
-      const tax = state.preferences['store_tax_rate'] || '8.0';
+      const tax = (state.preferences && state.preferences['store_tax_rate'] !== undefined && state.preferences['store_tax_rate'] !== null && String(state.preferences['store_tax_rate']).trim() !== '')
+        ? state.preferences['store_tax_rate']
+        : (localStorage.getItem('valenixia_tax_rate') !== null ? localStorage.getItem('valenixia_tax_rate') : '8.0');
       const settingTaxRate = document.getElementById('setting-tax-rate');
       if (settingTaxRate) settingTaxRate.value = parseFloat(tax).toFixed(1);
 
@@ -10063,7 +10068,10 @@ setHtml(tr, `
       const isUrdu = state.preferences['system_language'] === 'ur';
       label = isUrdu ? `ٹیکس (${rateStr})` : `FBR Tax (${rateStr})`;
     } else {
-      const taxRate = parseFloat(state.preferences['store_tax_rate'] || '8.0');
+      const rawTax = (state.preferences && state.preferences['store_tax_rate'] !== undefined && state.preferences['store_tax_rate'] !== null && String(state.preferences['store_tax_rate']).trim() !== '')
+        ? state.preferences['store_tax_rate']
+        : (localStorage.getItem('valenixia_tax_rate') !== null ? localStorage.getItem('valenixia_tax_rate') : '8.0');
+      const taxRate = parseFloat(rawTax);
       rateStr = `${taxRate.toFixed(1)}%`;
       const isUrdu = state.preferences['system_language'] === 'ur';
       label = isUrdu ? `ٹیکس (${rateStr})` : `Tax (${rateStr})`;

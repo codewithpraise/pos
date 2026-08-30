@@ -792,6 +792,7 @@ window.submitWizard = async function() {
   localStorage.setItem('valenixia_store_city', storeCity);
   localStorage.setItem('valenixia_store_ntn', storeNtn);
   localStorage.setItem('valenixia_admin_pin', adminPin);
+  localStorage.setItem('valenixia_tax_rate', String(taxRate));
   localStorage.setItem('valenixia_shop_mode', shopMode);
   localStorage.setItem('valenixia_tier', 'FREE'); // Explicit free tier until admin approves upgrade
 
@@ -847,6 +848,7 @@ window.submitWizard = async function() {
         await ValenixiaDB.setSecurePref('store_owner_email', ownerEmail);
         await ValenixiaDB.setSecurePref('store_city', storeCity);
         await ValenixiaDB.setSecurePref('store_ntn', storeNtn);
+        await ValenixiaDB.setSecurePref('store_tax_rate', String(taxRate));
         await ValenixiaDB.setSecurePref('valenixia_hwid', hwid);
       }
     }

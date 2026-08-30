@@ -16,8 +16,11 @@
       if (!cart || !Array.isArray(cart)) return 0;
       const prefs = preferences || {};
       
-      const ratePref = prefs['store_tax_rate'] || '8.0';
-      let ratePercent = parseFloat(ratePref);
+      const rawPref = (prefs['store_tax_rate'] !== undefined && prefs['store_tax_rate'] !== null && String(prefs['store_tax_rate']).trim() !== '')
+        ? prefs['store_tax_rate']
+        : (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_tax_rate') !== null ? localStorage.getItem('valenixia_tax_rate') : '8.0');
+      let ratePercent = parseFloat(rawPref);
+      if (isNaN(ratePercent)) ratePercent = 0.0;
 
       const taxMode = prefs['store_tax_mode'] || 'FLAT';
       if (taxMode === 'FBR_FOOD') {
