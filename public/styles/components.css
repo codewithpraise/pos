@@ -6056,11 +6056,16 @@ html {
 
 /* ── CATALOG MANAGER SCROLL & BUTTON CONTAINER HARDENING ───────────────── */
 #catalog-virtual-container {
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
+  overflow: visible !important;
+  width: 100% !important;
+  min-height: 0;
+  box-sizing: border-box !important;
+}
+.catalog-table-wrapper {
+  overflow-x: auto !important;
+  overflow-y: visible !important;
   -webkit-overflow-scrolling: touch;
   width: 100% !important;
-  box-sizing: border-box !important;
 }
 .catalog-grid-row {
   width: 100% !important;

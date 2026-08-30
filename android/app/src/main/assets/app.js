@@ -7648,8 +7648,10 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
           renderCategoryBreakdownChart(txs);
           renderPaymentMethodSplit(txs);
         }
-        if (syncWorker) syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
-      } else if (screenName === 'catalog' || screenName === 'catalog-manager') {
+      } else if (screenName === 'catalog') {
+        if (typeof renderQuickCatalog === 'function') renderQuickCatalog();
+        if (syncWorker) syncWorker.postMessage({ type: 'GET_CATALOG' });
+      } else if (screenName === 'catalog-manager' || screenName === 'inventory') {
         if (state.catalogVirtualList) {
           try { state.catalogVirtualList.destroy(); } catch (_) {}
           state.catalogVirtualList = null;
@@ -10583,6 +10585,122 @@ setHtml(tr, `
     }
   }
   window.deleteBulkSelectedProducts = deleteBulkSelectedProducts;
+
+  function renderDashboardScreen() {
+    const view = document.getElementById('view-dashboard');
+    if (!view) return;
+
+    // 1. Live Clock
+    const timeEl = document.getElementById('dash-live-time');
+    if (timeEl) {
+      const now = new Date();
+      timeEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' • Real-Time Engine';
+    }
+
+    // 2. Active Cashier & Shift Duration
+    const cashierNameEl = document.getElementById('dash-active-cashier-name');
+    const shiftDurEl = document.getElementById('dash-shift-duration');
+    if (cashierNameEl) {
+      const c = state.activeCashier || { name: 'Admin', role: 'ADMIN' };
+      cashierNameEl.textContent = (c.name || c.id || 'Admin').replace('emp_', '').toUpperCase();
+    }
+    if (shiftDurEl) {
+      if (state.activeCashier && state.activeCashier.clockIn) {
+        const diffMs = Date.now() - state.activeCashier.clockIn;
+        const diffMins = Math.max(1, Math.floor(diffMs / 60000));
+        const hrs = Math.floor(diffMins / 60);
+        const mins = diffMins % 60;
+        shiftDurEl.textContent = `Shift: ${hrs > 0 ? hrs + 'h ' : ''}${mins}m active`;
+      } else {
+        shiftDurEl.textContent = 'Shift Active';
+      }
+    }
+
+    // 3. Transactions & Drawer Stats
+    const todayCount = (typeof getDailyTransactionCount === 'function')
+      ? getDailyTransactionCount()
+      : (Array.isArray(state.transactions) ? state.transactions.length : 0);
+
+    const txCountEl = document.getElementById('dash-tx-count');
+    if (txCountEl) txCountEl.textContent = todayCount;
+
+    // Calculate Cash in Till
+    let tillCashCents = 0;
+    const allTxs = Array.isArray(state.transactions) ? state.transactions : (Array.isArray(state.history) ? state.history : []);
+    allTxs.forEach(tx => {
+      if (tx && (tx.payment_method === 'CASH' || tx.payment_mode === 'CASH' || !tx.payment_method)) {
+        tillCashCents += (tx.total_amount || tx.total_cents || (tx.total ? tx.total * 100 : 0));
+      }
+    });
+
+    const tillValEl = document.getElementById('dash-cash-till');
+    if (tillValEl) {
+      tillValEl.textContent = typeof formatCurrency === 'function' ? formatCurrency(tillCashCents) : `Rs. ${(tillCashCents / 100).toFixed(2)}`;
+    }
+
+    // 4. Low Stock Alerts List
+    const catalogItems = Array.isArray(state.catalog) ? state.catalog : [];
+    const lowStockItems = catalogItems.filter(p => {
+      if (!p) return false;
+      const stock = (p.stock_quantity != null) ? Number(p.stock_quantity) : ((p.stock_level != null) ? Number(p.stock_level) : (p.stock != null ? Number(p.stock) : 0));
+      const minStock = p.reorder_level != null ? Number(p.reorder_level) : (p.low_stock_threshold != null ? Number(p.low_stock_threshold) : 5);
+      return stock <= minStock;
+    });
+
+    const alertCountEl = document.getElementById('dash-alert-count');
+    if (alertCountEl) alertCountEl.textContent = lowStockItems.length;
+
+    const alertsListEl = document.getElementById('dash-alerts-list');
+    if (alertsListEl) {
+      if (lowStockItems.length === 0) {
+        alertsListEl.innerHTML = '<div style="text-align:center; padding: 16px; color: var(--text-gray); font-size: 11.5px;">All inventory shelves properly stocked.</div>';
+      } else {
+        alertsListEl.innerHTML = lowStockItems.slice(0, 8).map(p => {
+          const stock = (p.stock_quantity != null) ? Number(p.stock_quantity) : ((p.stock_level != null) ? Number(p.stock_level) : 0);
+          return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border-radius: 6px; background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2);">
+              <div style="min-width: 0; flex: 1;">
+                <div style="font-size: 11.5px; font-weight: 700; color: var(--text-white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name || p.sku}</div>
+                <div style="font-size: 10px; color: var(--alert-coral); font-family: var(--font-mono);">${p.sku || ''} · ${stock} Units Left</div>
+              </div>
+              <button class="action-btn" onclick="if(window.openProductEditModal)openProductEditModal('${p.sku}')" style="font-size: 10px; padding: 3px 8px; height: 24px; border-color: var(--alert-coral); color: var(--alert-coral);">Restock</button>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    // 5. Activity Feed / Timeline
+    const timelineListEl = document.getElementById('dash-timeline-list');
+    if (timelineListEl) {
+      if (allTxs.length === 0) {
+        timelineListEl.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-gray); font-size: 12px;">Awaiting register counter activity...</div>';
+      } else {
+        const recentTxs = allTxs.slice(-8).reverse();
+        timelineListEl.innerHTML = recentTxs.map(tx => {
+          const idStr = tx.receipt_number || tx.id || 'TX';
+          const amt = tx.total_amount || tx.total_cents || (tx.total ? tx.total * 100 : 0);
+          const timeStr = tx.created_at ? new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent';
+          const mode = tx.payment_method || tx.payment_mode || 'CASH';
+          return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium);">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 24px; height: 24px; border-radius: 6px; background: rgba(0,214,143,0.12); color: var(--accent-emerald); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800;">✓</div>
+                <div>
+                  <div style="font-size: 11.5px; font-weight: 700; color: var(--text-white); font-family: var(--font-mono);">${idStr}</div>
+                  <div style="font-size: 10px; color: var(--text-gray);">${timeStr} • ${mode}</div>
+                </div>
+              </div>
+              <div style="font-size: 12px; font-weight: 800; color: var(--accent-emerald); font-family: var(--font-display);">
+                ${typeof formatCurrency === 'function' ? formatCurrency(amt) : `Rs. ${(amt / 100).toFixed(2)}`}
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+  }
+  window.renderDashboardScreen = renderDashboardScreen;
 
   function renderCatalogScreen() {
     EventListenerRegistry.cleanupScreen('catalog');

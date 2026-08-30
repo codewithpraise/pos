@@ -878,7 +878,7 @@
 
         <!-- View 2: Quick-Access Catalog (For Mobile) -->
         <section class="content-view" id="view-catalog">
-          <div class="quick-catalog-mobile-view" style="padding: 20px; display: flex; flex-direction: column; gap: 16px; height: 100%; overflow: hidden;">
+          <div class="quick-catalog-mobile-view" style="padding: 10px 0; display: flex; flex-direction: column; gap: 16px; width: 100%; min-height: 100%; height: auto; overflow: visible;">
             <div class="quick-catalog-header" style="display: flex; flex-direction: column; align-items: stretch; gap: 8px; border-bottom: 1px solid var(--border-titanium); padding-bottom: 10px; flex-shrink: 0;">
               <div>
                 <h2 style="font-family: var(--font-display); font-size: 19px; color: var(--text-white); font-weight: 800; margin: 0; text-transform: uppercase;">Quick Products</h2>
@@ -891,7 +891,7 @@
             <div class="quick-catalog-search-row" style="flex-shrink: 0;">
               <input type="text" id="mobile-quick-search" class="pos-input" placeholder="Search products..." autocomplete="off" aria-label="Search products...">
             </div>
-            <div class="quick-catalog-grid" id="mobile-quick-grid" style="flex-grow: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 130px), 1fr)); gap: 12px; overflow-y: auto; padding-bottom: 20px;">
+            <div class="quick-catalog-grid" id="mobile-quick-grid" style="width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 130px), 1fr)); gap: 12px; overflow: visible; padding-bottom: 24px;">
               <!-- dynamic product cards -->
             </div>
           </div>

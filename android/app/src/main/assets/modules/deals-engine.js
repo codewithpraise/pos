@@ -697,19 +697,23 @@
     };
   }
 
-  // Auto-boot after app initialises
-  document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => {
-      const modeMap = {
-        'food-restaurant':'food-restaurant','bakery-cafe':'bakery-cafe',
-        'simple-retail':'simple-retail','grocery-mart':'grocery-mart',
-        'pharmacy-medical':'pharmacy-medical','services-appointments':'services-appointments'
-      };
-      const raw = (window.state&&window.state.preferences&&window.state.preferences.shop_mode)||'simple-retail';
-      VXDeals.init(modeMap[raw]||'simple-retail', () => {
-        if (window.state&&window.state.activeScreen==='deals') renderView();
-      });
-    }, 1400);
-  });
+  // Auto-boot immediately when script loads or DOM is ready
+  function bootDealsEngine() {
+    const modeMap = {
+      'food-restaurant':'food-restaurant','bakery-cafe':'bakery-cafe',
+      'simple-retail':'simple-retail','grocery-mart':'grocery-mart',
+      'pharmacy-medical':'pharmacy-medical','services-appointments':'services-appointments'
+    };
+    const raw = (window.state && window.state.preferences && window.state.preferences.shop_mode) || localStorage.getItem('valenixia_shop_mode') || 'simple-retail';
+    VXDeals.init(modeMap[raw] || 'simple-retail', () => {
+      if (window.state && (window.state.activeScreen === 'deals' || window.state.activeScreen === 'view-deals')) renderView();
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootDealsEngine);
+  } else {
+    bootDealsEngine();
+  }
 
 })();

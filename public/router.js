@@ -29,6 +29,12 @@
   global.requireRenderTarget = requireRenderTarget;
 
   const SCREEN_REGISTRY = Object.freeze({
+    'dashboard': {
+      viewId: 'view-dashboard',
+      title: 'Business Operations Hub',
+      renderer: 'renderDashboardScreen',
+      renderTargets: ['dash-tx-count', 'dash-cash-till', 'dash-timeline-list']
+    },
     'checkout': {
       viewId: 'view-checkout',
       title: 'Checkout Terminal',
