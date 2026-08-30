@@ -1,16 +1,36 @@
 // ============================================================================
 // VERCEL SERVERLESS FUNCTION: /api/claims (Unified Claims & Lifecycle Manager)
 // Supports GET (list), POST (create), and lifecycle actions (approve, reject, downgrade)
+// Fully compatible with PostgreSQL/Supabase UUID constraints
 // ============================================================================
 
 'use strict';
 
+const crypto = require('crypto');
+
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://wzvwyfyefbdrqscxhwsf.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6dnd5ZnllZmJkcnFzY3hod3NmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MzU3ODUsImV4cCI6MjA5ODQxMTc4NX0.W9O6U4tqETM6BcEjX7evt3LunpIZOC5c7wcZht2ajuk';
 
-// In-memory cache for serverless execution lifecycle
+// In-memory cache for fast local access
 if (!global.__valenixiaCloudClaimsCache) {
   global.__valenixiaCloudClaimsCache = [];
+}
+
+/**
+ * Deterministically maps any arbitrary string (e.g. 'CLM-123456', 'ANDROID_HW_XYZ', 'DEV-HWID')
+ * to a valid PostgreSQL RFC 4122 v4-formatted UUID.
+ */
+function toDeterministicUuid(str) {
+  if (!str || typeof str !== 'string') return crypto.randomUUID();
+  const trimmed = str.trim();
+  if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(trimmed)) {
+    return trimmed.toLowerCase();
+  }
+  if (/^[0-9a-fA-F]{32}$/.test(trimmed)) {
+    return `${trimmed.slice(0,8)}-${trimmed.slice(8,12)}-${trimmed.slice(12,16)}-${trimmed.slice(16,20)}-${trimmed.slice(20,32)}`.toLowerCase();
+  }
+  const hash = crypto.createHash('md5').update(trimmed).digest('hex');
+  return `${hash.slice(0,8)}-${hash.slice(8,12)}-4${hash.slice(13,16)}-a${hash.slice(17,20)}-${hash.slice(20,32)}`.toLowerCase();
 }
 
 function getSupabaseClient() {
@@ -58,7 +78,7 @@ module.exports = async (req, res) => {
       let resolvedTier = (targetTier || target_tier || 'STARTER').toUpperCase();
 
       if (global.__valenixiaCloudClaimsCache) {
-        const cached = global.__valenixiaCloudClaimsCache.find(c => String(c.id).trim() === effectiveClaimId || String(c.rawId).trim() === effectiveClaimId);
+        const cached = global.__valenixiaCloudClaimsCache.find(c => String(c.id).trim() === effectiveClaimId || String(c.rawId).trim() === effectiveClaimId || String(c.rrn).trim() === effectiveClaimId);
         if (cached) {
           cached.status = 'APPROVED';
           cached.resolvedAt = nowIso;
@@ -69,22 +89,15 @@ module.exports = async (req, res) => {
       const supabase = getSupabaseClient();
       if (supabase) {
         try {
+          const claimUuid = toDeterministicUuid(effectiveClaimId);
           await supabase
             .from('payment_proofs')
             .update({ status: 'approved', updated_at: nowIso })
-            .or(`id.eq.${effectiveClaimId},rrn_reference.eq.${effectiveClaimId}`);
+            .or(`id.eq.${claimUuid},rrn_reference.eq.${effectiveClaimId}`);
 
           const targetHwid = hwid || (global.__valenixiaCloudClaimsCache ? (global.__valenixiaCloudClaimsCache.find(c => String(c.id).trim() === effectiveClaimId)?.hwid) : null);
           if (targetHwid && targetHwid !== 'DEV-HWID-UNKNOWN') {
-            const cleanHwid = String(targetHwid).trim().toUpperCase();
-            const isHex32 = cleanHwid.length === 32 && /^[0-9a-fA-F]{32}$/.test(cleanHwid);
-            const formattedUuid = isHex32
-              ? `${cleanHwid.slice(0,8)}-${cleanHwid.slice(8,12)}-${cleanHwid.slice(12,16)}-${cleanHwid.slice(16,20)}-${cleanHwid.slice(20,32)}`.toLowerCase()
-              : cleanHwid;
-
-            const conds = [`id.eq.${cleanHwid}`, `id.eq.${cleanHwid.toLowerCase()}`];
-            if (formattedUuid !== cleanHwid) conds.push(`id.eq.${formattedUuid}`);
-
+            const userUuid = toDeterministicUuid(targetHwid);
             await supabase
               .from('stores')
               .update({
@@ -95,7 +108,7 @@ module.exports = async (req, res) => {
                 is_active: true,
                 updated_at: nowIso
               })
-              .or(conds.join(','));
+              .or(`id.eq.${userUuid},id.eq.${targetHwid}`);
           }
         } catch (sbErr) {
           console.warn('[ClaimsAPI] Supabase approve warning:', sbErr.message);
@@ -127,7 +140,7 @@ module.exports = async (req, res) => {
 
       const nowIso = new Date().toISOString();
       if (global.__valenixiaCloudClaimsCache) {
-        const cached = global.__valenixiaCloudClaimsCache.find(c => String(c.id).trim() === effectiveClaimId || String(c.rawId).trim() === effectiveClaimId);
+        const cached = global.__valenixiaCloudClaimsCache.find(c => String(c.id).trim() === effectiveClaimId || String(c.rawId).trim() === effectiveClaimId || String(c.rrn).trim() === effectiveClaimId);
         if (cached) {
           cached.status = 'REJECTED';
           cached.resolvedAt = nowIso;
@@ -137,6 +150,7 @@ module.exports = async (req, res) => {
       const supabase = getSupabaseClient();
       if (supabase) {
         try {
+          const claimUuid = toDeterministicUuid(effectiveClaimId);
           await supabase
             .from('payment_proofs')
             .update({
@@ -144,7 +158,7 @@ module.exports = async (req, res) => {
               rejection_reason: reason || 'Rejected by platform admin',
               updated_at: nowIso
             })
-            .or(`id.eq.${effectiveClaimId},rrn_reference.eq.${effectiveClaimId}`);
+            .or(`id.eq.${claimUuid},rrn_reference.eq.${effectiveClaimId}`);
         } catch (sbErr) {
           console.warn('[ClaimsAPI] Supabase reject warning:', sbErr.message);
         }
@@ -176,15 +190,7 @@ module.exports = async (req, res) => {
       const supabase = getSupabaseClient();
       if (supabase && hwid && hwid !== 'DEV-HWID-UNKNOWN') {
         try {
-          const cleanHwid = String(hwid).trim().toUpperCase();
-          const isHex32 = cleanHwid.length === 32 && /^[0-9a-fA-F]{32}$/.test(cleanHwid);
-          const formattedUuid = isHex32
-            ? `${cleanHwid.slice(0,8)}-${cleanHwid.slice(8,12)}-${cleanHwid.slice(12,16)}-${cleanHwid.slice(16,20)}-${cleanHwid.slice(20,32)}`.toLowerCase()
-            : cleanHwid;
-
-          const conds = [`id.eq.${cleanHwid}`, `id.eq.${cleanHwid.toLowerCase()}`];
-          if (formattedUuid !== cleanHwid) conds.push(`id.eq.${formattedUuid}`);
-
+          const userUuid = toDeterministicUuid(hwid);
           await supabase
             .from('stores')
             .update({
@@ -195,7 +201,7 @@ module.exports = async (req, res) => {
               is_active: effectiveTier !== 'FREE',
               updated_at: nowIso
             })
-            .or(conds.join(','));
+            .or(`id.eq.${userUuid},id.eq.${hwid}`);
         } catch (sbErr) {
           console.warn('[ClaimsAPI] Supabase downgrade warning:', sbErr.message);
         }
@@ -230,21 +236,27 @@ module.exports = async (req, res) => {
 
           if (!error && Array.isArray(data)) {
             dbClaims = data.map(p => {
-              const planId = (p.plan_id || 'STARTER').toUpperCase();
+              let meta = {};
+              if (p.proof_image_url && p.proof_image_url.startsWith('{')) {
+                try { meta = JSON.parse(p.proof_image_url); } catch (_) {}
+              }
+              const planId = (p.plan_id || meta.targetTier || 'STARTER').toUpperCase();
               const statusUpper = (p.status || 'pending').toUpperCase();
               const dateStr = p.created_at ? new Date(p.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
               const amountNum = parseFloat(p.amount) || (planId === 'ENTERPRISE' ? 14999 : (planId === 'PRO' ? 6999 : 2999));
+              const claimId = meta.claimId || (p.rrn_reference && p.rrn_reference.startsWith('CLM-') ? p.rrn_reference : ('CLM-' + String(p.id).replace(/-/g, '').slice(0, 6).toUpperCase()));
+
               return {
-                id: p.id && String(p.id).startsWith('CLM-') ? p.id : (p.claim_id || ('CLM-' + String(p.id || '').slice(0, 8).toUpperCase())),
+                id: claimId,
                 rawId: p.id,
-                hwid: p.hwid || p.user_id || 'DEV-HWID-UNKNOWN',
-                storeName: p.store_name || `Store (${String(p.user_id || p.hwid || '').slice(0, 8)})`,
-                ownerName: p.owner_name || 'Store Merchant',
-                phone: p.phone || '—',
-                category: p.category || 'General Retail',
-                module: p.module || `${planId} Plan`,
+                hwid: meta.hwid || p.user_id || 'DEV-HWID-UNKNOWN',
+                storeName: meta.storeName || `Store (${String(meta.hwid || p.user_id || '').slice(0, 8)})`,
+                ownerName: meta.ownerName || 'Store Merchant',
+                phone: meta.phone || '—',
+                category: meta.category || 'General Retail',
+                module: meta.module || `${planId} Plan`,
                 targetTier: planId,
-                rrn: p.rrn_reference || p.rrn || '—',
+                rrn: p.rrn_reference || meta.rrn || '—',
                 amount: `PKR ${amountNum.toLocaleString()}`,
                 amountVal: amountNum,
                 date: dateStr,
@@ -321,18 +333,31 @@ module.exports = async (req, res) => {
       const supabase = getSupabaseClient();
       if (supabase) {
         try {
+          const claimUuid = toDeterministicUuid(id || rrn);
+          const userUuid = toDeterministicUuid(hwid);
+          const metadataPayload = JSON.stringify({
+            claimId: id,
+            hwid,
+            storeName,
+            ownerName,
+            phone,
+            category,
+            module: moduleName,
+            targetTier,
+            rrn
+          });
+
           await supabase.from('payment_proofs').upsert({
-            id: id,
-            user_id: hwid,
+            id: claimUuid,
+            user_id: userUuid,
             plan_id: targetTier,
-            mode: 'subscription',
             rrn_reference: rrn,
             amount: amountVal,
-            proof_image_url: body.proofUrl || '',
+            proof_image_url: metadataPayload,
             status: status.toLowerCase(),
             created_at: new Date(timestamp).toISOString(),
             updated_at: new Date(timestamp).toISOString()
-          }, { onConflict: 'id' });
+          }, { onConflict: 'rrn_reference' });
         } catch (sbErr) {
           console.warn('[ClaimsAPI] Supabase payment_proofs insert warning:', sbErr.message);
         }

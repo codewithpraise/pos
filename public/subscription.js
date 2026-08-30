@@ -73,6 +73,18 @@
     OFFLINE_QUEUE_KEY: 'valenixia_offline_claims_queue',
     isSyncing: false,
 
+    getServerBase() {
+      let base = window.__valenixiaServerUrl;
+      if (!base || base.startsWith('file:') || base === 'null' || base === 'undefined') {
+        if (typeof location !== 'undefined' && location.origin && location.origin !== 'null' && !location.origin.startsWith('file:')) {
+          base = location.origin;
+        } else {
+          base = 'https://valenixia-pos.vercel.app';
+        }
+      }
+      return String(base).replace(/\/+$/, '');
+    },
+
     getAll() {
       try {
         const raw = localStorage.getItem(this.STORAGE_KEY);
@@ -107,7 +119,7 @@
       if (this.isSyncing) return this.getAll();
       this.isSyncing = true;
       try {
-        const serverBase = window.__valenixiaServerUrl || location.origin;
+        const serverBase = this.getServerBase();
         if (serverBase) {
           const resp = await fetch(`${serverBase}/api/claims`, {
             method: 'GET',
@@ -158,7 +170,7 @@
         const queue = JSON.parse(rawQueue);
         if (!Array.isArray(queue) || queue.length === 0) return;
 
-        const serverBase = window.__valenixiaServerUrl || location.origin;
+        const serverBase = this.getServerBase();
         if (!serverBase) return;
 
         const remaining = [];
@@ -228,7 +240,7 @@
 
       // Push approval to cloud
       try {
-        const serverBase = window.__valenixiaServerUrl || location.origin;
+        const serverBase = this.getServerBase();
         if (serverBase) {
           fetch(`${serverBase}/api/claims/approve`, {
             method: 'POST',
@@ -263,7 +275,7 @@
 
       // Push rejection to cloud
       try {
-        const serverBase = window.__valenixiaServerUrl || location.origin;
+        const serverBase = this.getServerBase();
         if (serverBase) {
           fetch(`${serverBase}/api/claims/reject`, {
             method: 'POST',
@@ -391,7 +403,7 @@
 
       // Push downgrade to cloud
       try {
-        const serverBase = window.__valenixiaServerUrl || location.origin;
+        const serverBase = this.getServerBase();
         if (serverBase) {
           fetch(`${serverBase}/api/claims/downgrade`, {
             method: 'POST',
@@ -783,23 +795,14 @@
       const waUrl = `https://wa.me/923315133226?text=${waText}`;
       window.open(waUrl, '_blank', 'noopener,noreferrer');
 
-      // 3. Post to backend server if online
+      // 3. Post to backend server (always on native and web)
       try {
-        const serverBase = window.__valenixiaServerUrl || location.origin;
-        if (location.protocol !== 'file:') {
-          await fetch(serverBase + '/api/payments/submit-proof', {
+        const serverBase = ValenixiaClaimsManager.getServerBase();
+        if (serverBase) {
+          fetch(`${serverBase}/api/claims`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              claim_id: newClaim.id,
-              plan_id: targetTier,
-              rrn_reference: newClaim.rrn,
-              amount: amount,
-              mode: activeCycle,
-              rail: activePaymentRail,
-              quote_id: activeQuote ? activeQuote.quoteId : null,
-              hwid: hwidVal
-            })
+            body: JSON.stringify(newClaim)
           }).catch(() => {});
         }
       } catch (_) {}

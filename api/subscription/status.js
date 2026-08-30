@@ -3,9 +3,25 @@
 // ============================================================================
 // Authoritative Hardware-Bound Tier & Countdown Status for Serverless
 // Prevents countdown drift, sliding windows, and infinite loop resets.
+// Deterministic UUID conversion prevents PostgreSQL type errors.
 // ============================================================================
 
 'use strict';
+
+const crypto = require('crypto');
+
+function toDeterministicUuid(str) {
+  if (!str || typeof str !== 'string') return crypto.randomUUID();
+  const trimmed = str.trim();
+  if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(trimmed)) {
+    return trimmed.toLowerCase();
+  }
+  if (/^[0-9a-fA-F]{32}$/.test(trimmed)) {
+    return `${trimmed.slice(0,8)}-${trimmed.slice(8,12)}-${trimmed.slice(12,16)}-${trimmed.slice(16,20)}-${trimmed.slice(20,32)}`.toLowerCase();
+  }
+  const hash = crypto.createHash('md5').update(trimmed).digest('hex');
+  return `${hash.slice(0,8)}-${hash.slice(8,12)}-4${hash.slice(13,16)}-a${hash.slice(17,20)}-${hash.slice(20,32)}`.toLowerCase();
+}
 
 module.exports = async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -42,15 +58,8 @@ module.exports = async (req, res) => {
         auth: { persistSession: false, autoRefreshToken: false }
       });
 
-      const isHex32 = cleanHwid.length === 32 && /^[0-9a-fA-F]{32}$/.test(cleanHwid);
-      const formattedUuid = isHex32
-        ? `${cleanHwid.slice(0,8)}-${cleanHwid.slice(8,12)}-${cleanHwid.slice(12,16)}-${cleanHwid.slice(16,20)}-${cleanHwid.slice(20,32)}`.toLowerCase()
-        : cleanHwid;
-
-      const conds = [`id.eq.${cleanHwid}`, `id.eq.${cleanHwid.toLowerCase()}`];
-      if (formattedUuid !== cleanHwid) {
-        conds.push(`id.eq.${formattedUuid}`);
-      }
+      const deterministicUuid = toDeterministicUuid(cleanHwid);
+      const conds = [`id.eq.${deterministicUuid}`];
 
       const { data, error } = await supabase
         .from('stores')
@@ -75,7 +84,7 @@ module.exports = async (req, res) => {
           const anchorStart = clientStartTime || nowIso;
           const anchorExp = new Date(Date.parse(anchorStart) + durationMs).toISOString();
           await supabase.from('stores').insert([{
-            id: formattedUuid,
+            id: deterministicUuid,
             name: `Store (${cleanHwid.slice(0, 8)})`,
             plan: 'starter',
             tier: 'STARTER',

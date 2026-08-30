@@ -23007,11 +23007,39 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     if (typeof playAudioSignal === 'function') playAudioSignal('success');
   };
 
+  let platformAdminPollTimer = null;
+
   function renderPlatformAdminScreen() {
     renderPlatformAdminStoreIdentity();
     renderPlatformAdminClaimsQueue();
     renderPlatformAdminActiveSubscribers();
     renderPlatformAdminRuntimeLicensing();
+
+    // Trigger immediate cloud claims sync
+    if (window.ValenixiaClaimsManager && typeof window.ValenixiaClaimsManager.fetchRemoteClaims === 'function') {
+      window.ValenixiaClaimsManager.fetchRemoteClaims().then(() => {
+        renderPlatformAdminClaimsQueue();
+        renderPlatformAdminActiveSubscribers();
+      }).catch(() => {});
+    }
+
+    // Start 4-second live cloud poller while on admin view
+    if (!platformAdminPollTimer) {
+      platformAdminPollTimer = setInterval(() => {
+        const adminView = document.getElementById('view-platform-admin');
+        if (adminView && (state.activeScreen === 'platform-admin' || adminView.classList.contains('active'))) {
+          if (window.ValenixiaClaimsManager && typeof window.ValenixiaClaimsManager.fetchRemoteClaims === 'function') {
+            window.ValenixiaClaimsManager.fetchRemoteClaims().then(() => {
+              renderPlatformAdminClaimsQueue();
+              renderPlatformAdminActiveSubscribers();
+            }).catch(() => {});
+          }
+        } else {
+          clearInterval(platformAdminPollTimer);
+          platformAdminPollTimer = null;
+        }
+      }, 4000);
+    }
   }
   window.renderPlatformAdminScreen = renderPlatformAdminScreen;
 
