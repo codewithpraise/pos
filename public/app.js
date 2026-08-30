@@ -20388,68 +20388,34 @@ setHtml(modal, `
     const tbody = document.getElementById('billing-history-tbody');
     if (!tbody) return;
 
-    if (!state.deviceToken) {
-      await refreshDeviceToken();
+    if (window.ValenixiaSubscription && typeof window.ValenixiaSubscription.renderClaimsHistory === 'function') {
+      window.ValenixiaSubscription.renderClaimsHistory();
+      return;
     }
-    if (!state.deviceToken) return;
 
-    try {
-      let resp = await fetch('/api/payments/my-proofs', {
-        headers: {
-          'Authorization': 'Bearer ' + state.deviceToken
-        }
-      });
-      if (resp.status === 401) {
-        const newToken = await refreshDeviceToken();
-        if (newToken) {
-          resp = await fetch('/api/payments/my-proofs', {
-            headers: {
-              'Authorization': 'Bearer ' + newToken
-            }
-          });
-        }
-      }
-      if (resp.status === 401) {
-        state.deviceToken = null;
-        await ValenixiaDB.delete('local_preferences', 'device_token');
-        return;
-      }
-      if (!resp.ok) return;
-      const history = await resp.json();
+    const claims = window.ValenixiaClaimsManager 
+      ? window.ValenixiaClaimsManager.getAll() 
+      : JSON.parse(localStorage.getItem('valenixia_admin_claims') || '[]');
 
-      if (history.length === 0) {
-setHtml(tbody, '<tr><td colspan="6" style="text-align: center; color: var(--text-gray); padding: 12px;">No subscription upgrade claims submitted yet.</td></tr>');
-        return;
-      }
-
-setHtml(tbody, history.map(row => {
-        const dateStr = new Date(row.created_at).toLocaleString();
-        let badgeColor = 'rgba(245,158,11,0.1)';
-        let textColor = '#f59e0b';
-        if (row.status === 'approved') {
-          badgeColor = 'rgba(0,214,143,0.1)';
-          textColor = 'var(--accent-emerald)';
-        } else if (row.status === 'rejected') {
-          badgeColor = 'rgba(239,68,68,0.1)';
-          textColor = 'var(--alert-coral)';
-        }
-        const note = row.rejection_reason || (row.status === 'pending' ? 'Verification in progress' : 'Active Subscription');
-        return `
-          <tr>
-            <td style="padding:8px; border-bottom:1px solid var(--border-titanium); font-size:11px;">${dateStr}</td>
-            <td style="padding:8px; border-bottom:1px solid var(--border-titanium); font-size:11px; font-weight:700;">${row.plan_id}</td>
-            <td style="padding:8px; border-bottom:1px solid var(--border-titanium); font-size:11px;">Rs. ${parseFloat(row.amount).toLocaleString()}</td>
-            <td style="padding:8px; border-bottom:1px solid var(--border-titanium); font-size:11px; font-family:var(--font-mono);">${row.rrn_reference}</td>
-            <td style="padding:8px; border-bottom:1px solid var(--border-titanium); font-size:11px;">
-              <span style="background:${badgeColor}; color:${textColor}; padding:2px 6px; border-radius:4px; font-weight:700;">${row.status.toUpperCase()}</span>
-            </td>
-            <td style="padding:8px; border-bottom:1px solid var(--border-titanium); font-size:10px; color:var(--text-gray);">${note}</td>
-          </tr>
-        `;
-      }).join(''));
-    } catch (e) {
-      console.error('[Billing] Failed to load history:', e);
+    if (!claims || claims.length === 0) {
+      setHtml(tbody, '<tr><td colspan="6" style="text-align: center; color: var(--text-dim); padding: 24px;">No subscription upgrade claims submitted yet.</td></tr>');
+      return;
     }
+
+    setHtml(tbody, claims.map(c => `
+      <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+        <td style="padding:10px; font-size:11px; color:var(--text-gray);">${c.date || '—'}</td>
+        <td style="padding:10px; font-size:11px; font-family:var(--font-mono); color:var(--text-white);">${c.hwid || '—'}</td>
+        <td style="padding:10px; font-size:11px; font-weight:700; color:var(--text-white);">${c.module || c.targetTier || 'PRO'}</td>
+        <td style="padding:10px; font-size:12px; font-weight:800; color:var(--text-white); font-family:var(--font-mono);">${c.amount || '—'}</td>
+        <td style="padding:10px; font-size:11px; font-family:var(--font-mono); color:var(--text-dim);">${c.rrn || '—'}</td>
+        <td style="padding:10px;">
+          <span style="padding:3px 10px; border-radius:12px; font-size:10px; font-weight:800; ${c.status === 'APPROVED' ? 'background:rgba(0,214,143,0.15); color:var(--accent-emerald); border:1px solid rgba(0,214,143,0.3);' : (c.status === 'REJECTED' ? 'background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3);' : 'background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.3);')}">
+            ${c.status}
+          </span>
+        </td>
+      </tr>
+    `).join(''));
   }
 
   // --- DATA PORTABILITY & SCHEMA MIGRATION SUITE BUSINESS LOGIC ---
@@ -22481,6 +22447,9 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   }
 
   function getPlatformAdminClaims() {
+    if (window.ValenixiaClaimsManager && typeof window.ValenixiaClaimsManager.getAll === 'function') {
+      return window.ValenixiaClaimsManager.getAll();
+    }
     try {
       const stored = localStorage.getItem('valenixia_admin_claims');
       if (stored) {
@@ -22488,43 +22457,15 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
         if (Array.isArray(parsed)) return parsed;
       }
     } catch (_) {}
-    const defaultStore = (state.preferences && state.preferences.store_name) || localStorage.getItem('valenixia_store_name') || 'Valenixia Commercial Mart';
-    const defaultOwner = (state.preferences && (state.preferences.store_owner || state.preferences.merchant_name)) || localStorage.getItem('valenixia_owner_name') || 'Muhammad Usman';
-    const defaultPhone = (state.preferences && state.preferences.store_phone) || '+92 331 5133226';
-
-    return [
-      { 
-        id: 'CLM-982401', 
-        hwid: 'DEV-HWID-91349748AF', 
-        storeName: defaultStore,
-        ownerName: defaultOwner,
-        phone: defaultPhone,
-        module: 'STARTER Plan (MONTHLY)', 
-        rrn: 'TRX-882194', 
-        amount: 'PKR 3,499', 
-        amountVal: 3499, 
-        date: '2026-08-30', 
-        status: 'PENDING', 
-        targetTier: 'STARTER' 
-      },
-      { 
-        id: 'CLM-982402', 
-        hwid: 'DEV-HWID-88140294CF', 
-        storeName: 'Boutique Branch Gulberg',
-        ownerName: 'Hamza Tariq',
-        phone: '+92 300 8492011',
-        module: 'PRO Plan (MONTHLY)', 
-        rrn: 'TRX-774012', 
-        amount: 'PKR 6,999', 
-        amountVal: 6999, 
-        date: '2026-08-30', 
-        status: 'PENDING', 
-        targetTier: 'PRO' 
-      }
-    ];
+    return [];
   }
+  window.getPlatformAdminClaims = getPlatformAdminClaims;
 
   function savePlatformAdminClaims(claims) {
+    if (window.ValenixiaClaimsManager && typeof window.ValenixiaClaimsManager.save === 'function') {
+      window.ValenixiaClaimsManager.save(claims);
+      return;
+    }
     try {
       localStorage.setItem('valenixia_admin_claims', JSON.stringify(claims));
       if (syncWorker) {
@@ -22534,15 +22475,16 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
         });
       }
       try {
-        window.dispatchEvent(new CustomEvent('valenixia_claim_updated', { detail: { claims } }));
+        window.dispatchEvent(new CustomEvent('valenixia_claims_changed', { detail: { claims } }));
         if (typeof BroadcastChannel !== 'undefined') {
-          const bc = new BroadcastChannel('valenixia_admin_bus');
+          const bc = new BroadcastChannel('valenixia_claims_bus');
           bc.postMessage({ type: 'CLAIMS_MUTATED', claims });
           bc.close();
         }
       } catch (_) {}
     } catch (_) {}
   }
+  window.savePlatformAdminClaims = savePlatformAdminClaims;
 
   function applyActiveTierToSystem(newTier) {
     const tier = (newTier || 'FREE').toUpperCase();
@@ -22656,10 +22598,10 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
               <td style="padding:12px 14px; font-family:var(--font-mono); color:var(--text-gray); font-size:11px;">${c.rrn}</td>
               <td style="padding:12px 14px; color:var(--text-gray); font-size:11px;">${c.date}</td>
               <td style="padding:12px 14px; text-align:right; white-space:nowrap;">
-                <button type="button" class="btn-tactile" onclick="if(window.approveClaimAdmin)window.approveClaimAdmin('${c.id}')" style="background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#080810; font-weight:900; font-size:11px; padding:6px 14px; border-radius:6px; border:none; cursor:pointer; box-shadow:0 2px 8px rgba(16,185,129,0.3); margin-right:6px;">
+                <button type="button" class="btn-tactile" data-action="approve-claim" data-claim-id="${c.id}" style="background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#080810; font-weight:900; font-size:11px; padding:6px 14px; border-radius:6px; border:none; cursor:pointer; box-shadow:0 2px 8px rgba(16,185,129,0.3); margin-right:6px;">
                   ✓ Approve &amp; Unlock
                 </button>
-                <button type="button" class="btn-tactile" onclick="if(window.rejectClaimAdmin)window.rejectClaimAdmin('${c.id}')" style="background:rgba(239,68,68,0.15); color:#ef4444; font-weight:800; font-size:11px; padding:6px 12px; border-radius:6px; border:1px solid rgba(239,68,68,0.35); cursor:pointer;">
+                <button type="button" class="btn-tactile" data-action="reject-claim" data-claim-id="${c.id}" style="background:rgba(239,68,68,0.15); color:#ef4444; font-weight:800; font-size:11px; padding:6px 12px; border-radius:6px; border:1px solid rgba(239,68,68,0.35); cursor:pointer;">
                   ✕ Reject
                 </button>
               </td>
@@ -22696,29 +22638,37 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   }
 
   window.approveClaimAdmin = function(claimId) {
-    const claims = getPlatformAdminClaims();
-    const claim = claims.find(c => c.id === claimId);
-    let targetTier = 'STARTER';
-    if (claim) {
-      claim.status = 'APPROVED';
-      claim.resolvedAt = new Date().toISOString();
-      if (claim.targetTier) {
-        targetTier = claim.targetTier.toUpperCase();
-      } else if (claim.module && claim.module.toLowerCase().includes('enterprise')) {
-        targetTier = 'ENTERPRISE';
-      } else if (claim.module && (claim.module.toLowerCase().includes('pro') || claim.module.toLowerCase().includes('growth'))) {
-        targetTier = 'PRO';
-      } else {
-        targetTier = 'STARTER';
+    if (!claimId) return;
+    let res = null;
+    if (window.ValenixiaClaimsManager && typeof window.ValenixiaClaimsManager.approveClaim === 'function') {
+      res = window.ValenixiaClaimsManager.approveClaim(claimId);
+    } else {
+      const claims = getPlatformAdminClaims();
+      const claim = claims.find(c => String(c.id).trim() === String(claimId).trim());
+      if (claim) {
+        claim.status = 'APPROVED';
+        claim.resolvedAt = new Date().toISOString();
+        let targetTier = 'STARTER';
+        if (claim.targetTier) {
+          targetTier = claim.targetTier.toUpperCase();
+        } else if (claim.module && claim.module.toLowerCase().includes('enterprise')) {
+          targetTier = 'ENTERPRISE';
+        } else if (claim.module && (claim.module.toLowerCase().includes('pro') || claim.module.toLowerCase().includes('growth'))) {
+          targetTier = 'PRO';
+        } else {
+          targetTier = 'STARTER';
+        }
+        savePlatformAdminClaims(claims);
+        applyActiveTierToSystem(targetTier);
+        res = { claim, targetTier };
       }
-      savePlatformAdminClaims(claims);
     }
     
-    applyActiveTierToSystem(targetTier);
     renderPlatformAdminClaimsQueue();
     renderPlatformAdminRuntimeLicensing();
     renderPlatformAdminStoreIdentity();
 
+    const targetTier = (res && res.targetTier) ? res.targetTier : 'PRO';
     if (typeof showNotificationToast === 'function') {
       showNotificationToast(`🎉 Claim ${claimId} APPROVED! Store upgraded to ${targetTier} plan. All features unlocked!`, 'success', 5000);
     }
@@ -22726,18 +22676,48 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   };
 
   window.rejectClaimAdmin = function(claimId) {
-    const claims = getPlatformAdminClaims();
-    const claim = claims.find(c => c.id === claimId);
-    if (claim) {
-      claim.status = 'REJECTED';
-      claim.resolvedAt = new Date().toISOString();
-      savePlatformAdminClaims(claims);
+    if (!claimId) return;
+    if (window.ValenixiaClaimsManager && typeof window.ValenixiaClaimsManager.rejectClaim === 'function') {
+      window.ValenixiaClaimsManager.rejectClaim(claimId);
+    } else {
+      const claims = getPlatformAdminClaims();
+      const claim = claims.find(c => String(c.id).trim() === String(claimId).trim());
+      if (claim) {
+        claim.status = 'REJECTED';
+        claim.resolvedAt = new Date().toISOString();
+        savePlatformAdminClaims(claims);
+      }
     }
     renderPlatformAdminClaimsQueue();
     if (typeof showNotificationToast === 'function') {
       showNotificationToast(`❌ Claim ${claimId} marked as rejected and removed from pending queue.`, 'warning', 3000);
     }
   };
+
+  // Document-Level Event Delegation for Approve & Reject buttons (100% CSP & DOMPurify safe)
+  document.addEventListener('click', (e) => {
+    const approveBtn = e.target.closest('[data-action="approve-claim"]');
+    if (approveBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const claimId = approveBtn.getAttribute('data-claim-id');
+      if (claimId && typeof window.approveClaimAdmin === 'function') {
+        window.approveClaimAdmin(claimId);
+      }
+      return;
+    }
+
+    const rejectBtn = e.target.closest('[data-action="reject-claim"]');
+    if (rejectBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const claimId = rejectBtn.getAttribute('data-claim-id');
+      if (claimId && typeof window.rejectClaimAdmin === 'function') {
+        window.rejectClaimAdmin(claimId);
+      }
+      return;
+    }
+  });
 
   function renderPlatformAdminRuntimeLicensing() {
     const isNative = (typeof isNativeEnvironment === 'function' ? isNativeEnvironment() : (location.protocol === 'file:' || !!window.AndroidPOS || !!window.Android || !!window.electron));
@@ -22787,6 +22767,13 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   window.renderPlatformAdminScreen = renderPlatformAdminScreen;
 
   // Real-Time Live Sync Watchers (Zero-refresh live updates)
+  window.addEventListener('valenixia_claims_changed', () => {
+    const adminView = document.getElementById('view-platform-admin');
+    if (adminView && (state.activeScreen === 'platform-admin' || adminView.classList.contains('active'))) {
+      renderPlatformAdminClaimsQueue();
+    }
+  });
+
   window.addEventListener('valenixia_claim_updated', () => {
     const adminView = document.getElementById('view-platform-admin');
     if (adminView && (state.activeScreen === 'platform-admin' || adminView.classList.contains('active'))) {
@@ -22800,6 +22787,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       if (adminView && (state.activeScreen === 'platform-admin' || adminView.classList.contains('active'))) {
         renderPlatformAdminClaimsQueue();
         renderPlatformAdminRuntimeLicensing();
+        renderPlatformAdminStoreIdentity();
       }
     }
   });
@@ -22808,6 +22796,16 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     try {
       const liveAdminBus = new BroadcastChannel('valenixia_admin_bus');
       liveAdminBus.onmessage = () => {
+        const adminView = document.getElementById('view-platform-admin');
+        if (adminView && (state.activeScreen === 'platform-admin' || adminView.classList.contains('active'))) {
+          renderPlatformAdminClaimsQueue();
+        }
+      };
+    } catch (_) {}
+
+    try {
+      const liveClaimsBus = new BroadcastChannel('valenixia_claims_bus');
+      liveClaimsBus.onmessage = () => {
         const adminView = document.getElementById('view-platform-admin');
         if (adminView && (state.activeScreen === 'platform-admin' || adminView.classList.contains('active'))) {
           renderPlatformAdminClaimsQueue();
@@ -22826,7 +22824,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
         renderPlatformAdminClaimsQueue();
       }
     }
-  }, 1200);
+  }, 1000);
 
   // ══════════════════════════════════════════════════════════════════════════════
   // MASTER PLATFORM ADMIN STEALTH GATEWAY & SECRET AUTHENTICATION CONTROLLER

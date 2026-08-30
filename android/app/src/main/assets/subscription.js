@@ -66,6 +66,89 @@
     }
   };
 
+  // Centralized Claims & Entitlements Store Manager
+  const ValenixiaClaimsManager = {
+    STORAGE_KEY: 'valenixia_admin_claims',
+
+    getAll() {
+      try {
+        const raw = localStorage.getItem(this.STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (_) {}
+      return [];
+    },
+
+    save(claims) {
+      try {
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(claims));
+        window.dispatchEvent(new CustomEvent('valenixia_claims_changed', { detail: { claims } }));
+        if (typeof BroadcastChannel !== 'undefined') {
+          try {
+            const bc = new BroadcastChannel('valenixia_claims_bus');
+            bc.postMessage({ type: 'CLAIMS_UPDATED', claims });
+            bc.close();
+          } catch (_) {}
+        }
+        if (window.syncWorker) {
+          window.syncWorker.postMessage({ type: 'SAVE_ADMIN_CLAIMS', payload: claims });
+        }
+      } catch (e) {
+        console.warn('[ValenixiaClaimsManager] Save error:', e);
+      }
+    },
+
+    addClaim(claim) {
+      const list = this.getAll();
+      list.unshift(claim);
+      this.save(list);
+      return list;
+    },
+
+    approveClaim(claimId) {
+      const list = this.getAll();
+      const claim = list.find(c => String(c.id).trim() === String(claimId).trim());
+      if (!claim) return false;
+
+      claim.status = 'APPROVED';
+      claim.resolvedAt = new Date().toISOString();
+
+      let targetTier = 'STARTER';
+      if (claim.targetTier) {
+        targetTier = claim.targetTier.toUpperCase();
+      } else if (claim.module && claim.module.toLowerCase().includes('enterprise')) {
+        targetTier = 'ENTERPRISE';
+      } else if (claim.module && (claim.module.toLowerCase().includes('pro') || claim.module.toLowerCase().includes('growth'))) {
+        targetTier = 'PRO';
+      } else {
+        targetTier = 'STARTER';
+      }
+
+      this.save(list);
+
+      if (typeof window.applyActiveTierToSystem === 'function') {
+        window.applyActiveTierToSystem(targetTier);
+      } else if (typeof window.applySubscriptionUpgrade === 'function') {
+        window.applySubscriptionUpgrade(targetTier, 30);
+      }
+      return { claim, targetTier };
+    },
+
+    rejectClaim(claimId) {
+      const list = this.getAll();
+      const claim = list.find(c => String(c.id).trim() === String(claimId).trim());
+      if (!claim) return false;
+
+      claim.status = 'REJECTED';
+      claim.resolvedAt = new Date().toISOString();
+      this.save(list);
+      return claim;
+    }
+  };
+  window.ValenixiaClaimsManager = ValenixiaClaimsManager;
+
   const ValenixiaSubscription = {
     getState() {
       return {
@@ -103,6 +186,53 @@
       console.log(`[ValenixiaSubscription] Set billing cycle to: ${activeCycle}`);
     },
 
+    renderClaimsHistory() {
+      const tbody = document.getElementById('billing-history-tbody');
+      if (!tbody) return;
+
+      const claims = ValenixiaClaimsManager.getAll();
+
+      if (!claims || claims.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" style="text-align:center; color:var(--text-dim); padding:28px 16px;">
+              <div style="font-size:24px; margin-bottom:6px;">📋</div>
+              <div style="font-weight:700; color:var(--text-white); font-size:13px;">No Upgrade Claims Submitted Yet</div>
+              <div style="font-size:11px; margin-top:3px; color:var(--text-gray);">Select any plan above and submit your payment proof to track claim approvals here.</div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = claims.map(c => {
+        const statusBadge = c.status === 'APPROVED'
+          ? `<span style="padding:3px 10px; border-radius:12px; font-size:10px; font-weight:800; background:rgba(0,214,143,0.15); color:var(--accent-emerald); border:1px solid rgba(0,214,143,0.35);">✓ APPROVED</span>`
+          : (c.status === 'REJECTED'
+            ? `<span style="padding:3px 10px; border-radius:12px; font-size:10px; font-weight:800; background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.35);">✕ REJECTED</span>`
+            : `<span style="padding:3px 10px; border-radius:12px; font-size:10px; font-weight:800; background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.35); animation: pulse 2s infinite;">⏳ PENDING REVIEW</span>`);
+
+        const tierBadge = c.targetTier === 'ENTERPRISE'
+          ? 'background:rgba(168,85,247,0.15); color:#a855f7; border:1px solid rgba(168,85,247,0.35);'
+          : (c.targetTier === 'PRO' || (c.module && c.module.includes('PRO'))
+            ? 'background:rgba(0,214,143,0.15); color:var(--accent-emerald); border:1px solid rgba(0,214,143,0.35);'
+            : 'background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.35);');
+
+        return `
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.04); transition: background 0.2s;">
+            <td style="padding:12px 10px; color:var(--text-gray); font-size:11px;">${c.date || '—'}</td>
+            <td style="padding:12px 10px; font-family:var(--font-mono); color:var(--text-white); font-size:11px;">${c.hwid || '—'}</td>
+            <td style="padding:12px 10px;">
+              <span style="padding:3px 8px; border-radius:10px; font-size:10px; font-weight:800; ${tierBadge}">${c.module || (c.targetTier + ' Plan')}</span>
+            </td>
+            <td style="padding:12px 10px; font-weight:800; color:var(--text-white); font-size:12px; font-family:var(--font-mono);">${c.amount || '—'}</td>
+            <td style="padding:12px 10px; font-family:var(--font-mono); color:var(--text-dim); font-size:11px;">${c.rrn || '—'}</td>
+            <td style="padding:12px 10px;">${statusBadge}</td>
+          </tr>
+        `;
+      }).join('');
+    },
+
     activateTab(tabName) {
       if (!tabName) return;
       const targetSubtab = tabName.toLowerCase();
@@ -136,6 +266,10 @@
           panel.style.display = 'none';
         }
       });
+
+      if (targetSubtab === 'history') {
+        this.renderClaimsHistory();
+      }
 
       console.log(`[ValenixiaSubscription] Activated sub-tab: ${targetSubtab}`);
     },
@@ -373,35 +507,7 @@
         status: 'PENDING'
       };
 
-      try {
-        let claims = [];
-        try {
-          const stored = localStorage.getItem('valenixia_admin_claims');
-          if (stored) claims = JSON.parse(stored);
-        } catch (_) {}
-        if (!Array.isArray(claims)) claims = [];
-        claims.unshift(newClaim);
-        localStorage.setItem('valenixia_admin_claims', JSON.stringify(claims));
-
-        // Instant cross-component & cross-tab real-time dispatch
-        try {
-          window.dispatchEvent(new CustomEvent('valenixia_claim_updated', { detail: newClaim }));
-          if (typeof BroadcastChannel !== 'undefined') {
-            const bc = new BroadcastChannel('valenixia_admin_bus');
-            bc.postMessage({ type: 'NEW_CLAIM', claim: newClaim });
-            bc.close();
-          }
-        } catch (_) {}
-
-        if (window.syncWorker) {
-          window.syncWorker.postMessage({
-            type: 'SAVE_ADMIN_CLAIM',
-            payload: newClaim
-          });
-        }
-      } catch (err) {
-        console.warn('[ValenixiaSubscription] Failed to persist admin claim:', err);
-      }
+      ValenixiaClaimsManager.addClaim(newClaim);
 
       // 2. Open WhatsApp prefilled message
       const waText = encodeURIComponent(
@@ -433,11 +539,12 @@
 
       // 4. Notify user that claim is pending admin approval (NO AUTOMATIC TIER UNLOCK)
       if (typeof showNotificationToast === 'function') {
-        showNotificationToast(` Payment claim ${newClaim.id} submitted! WhatsApp opened. Your claim is pending approval by the Platform Admin.`, 'success', 6000);
+        showNotificationToast(`🎉 Payment claim ${newClaim.id} submitted! WhatsApp opened. Your claim is pending approval by the Platform Admin.`, 'success', 6000);
       }
 
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Claim via WhatsApp '; }
       this.activateTab('history');
+      this.renderClaimsHistory();
     },
 
     async refresh() {
@@ -516,11 +623,14 @@
           btn.style.opacity = '1';
         }
       });
+
+      this.renderClaimsHistory();
     },
 
     init() {
       if (isInitialized) {
         this.refresh();
+        this.renderClaimsHistory();
         return;
       }
 
@@ -633,8 +743,21 @@
         });
       }
 
+      // Auto sync claims history when claims change anywhere
+      window.addEventListener('valenixia_claims_changed', () => {
+        this.renderClaimsHistory();
+      });
+
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'valenixia_admin_claims' || e.key === 'valenixia_tier') {
+          this.renderClaimsHistory();
+          this.refresh();
+        }
+      });
+
       isInitialized = true;
       this.refresh();
+      this.renderClaimsHistory();
     }
   };
 
