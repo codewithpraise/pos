@@ -95,7 +95,46 @@ const TIER_TO_PLAN = {
 const VALID_TIERS = ['FREE', 'STARTER', 'GROWTH', 'PRO', 'ENTERPRISE'];
 
 function getActiveTier() {
-  // Priority 0: Authoritative Approved Payment Claim in local store
+  // Priority 0: Explicit runtime active tier (authoritative for live session, upgrades & downgrades)
+  if (window.__valenixiaTier && VALID_TIERS.includes(String(window.__valenixiaTier).toUpperCase())) {
+    const norm = String(window.__valenixiaTier).toUpperCase();
+    window.__valenixiaPlan = PLANS[norm] || PLANS.FREE;
+    return norm;
+  }
+
+  // Priority 1: Store-Scoped Preference Tier (Isolates stores on same device)
+  const storeTier = (window.__valenixiaState && window.__valenixiaState.preferences && window.__valenixiaState.preferences['store_subscription_tier']) || (window.__valenixiaState && window.__valenixiaState.currentTier);
+  if (storeTier && VALID_TIERS.includes(String(storeTier).toUpperCase())) {
+    const norm = String(storeTier).toUpperCase();
+    window.__valenixiaTier = norm;
+    window.__valenixiaPlan = PLANS[norm] || PLANS.FREE;
+    return norm;
+  }
+
+  // Priority 2: Authoritative Stored Tier Key
+  try {
+    const storeId = (window.__valenixiaState?.preferences?.store_id) || (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_store_id'));
+    if (storeId) {
+      const scopedTier = (localStorage.getItem(`valenixia_store_${storeId}_tier`) || '').toUpperCase();
+      if (VALID_TIERS.includes(scopedTier)) {
+        window.__valenixiaTier = scopedTier;
+        window.__valenixiaPlan = PLANS[scopedTier] || PLANS.FREE;
+        return scopedTier;
+      }
+    }
+  } catch (_) {}
+
+  // Priority 3: Local Storage Global Tier
+  try {
+    const rawStored = (typeof localStorage !== 'undefined' ? (localStorage.getItem('valenixia_tier') || '') : '').toUpperCase();
+    if (VALID_TIERS.includes(rawStored)) {
+      window.__valenixiaTier = rawStored;
+      window.__valenixiaPlan = PLANS[rawStored] || PLANS.FREE;
+      return rawStored;
+    }
+  } catch (_) {}
+
+  // Priority 4: Approved Payment Claim in local store (if not overridden by downgrade)
   try {
     const claims = window.ValenixiaClaimsManager 
       ? window.ValenixiaClaimsManager.getAll() 
@@ -118,50 +157,10 @@ function getActiveTier() {
     }
   } catch (_) {}
 
-  // Priority 1: Use dynamically synced online tier if available
-  if (window.__valenixiaTier && VALID_TIERS.includes(window.__valenixiaTier)) {
-    window.__valenixiaPlan = PLANS[window.__valenixiaTier] || PLANS.FREE;
-    return window.__valenixiaTier;
-  }
-
-  // Priority 2: Use the server-verified license token payload
-  if (window.__valenixiaLicensePayload && window.__valenixiaLicensePayload.tier) {
-    const tokenTier = String(window.__valenixiaLicensePayload.tier).toUpperCase();
-    if (VALID_TIERS.includes(tokenTier)) {
-      window.__valenixiaTier = tokenTier;
-      window.__valenixiaPlan = PLANS[tokenTier] || PLANS.FREE;
-      return tokenTier;
-    }
-  }
-
-  // Priority 3: Store-Scoped Preference Tier (Isolates stores on same device)
-  const storeTier = (window.__valenixiaState && window.__valenixiaState.preferences && window.__valenixiaState.preferences['store_subscription_tier']) || (window.__valenixiaState && window.__valenixiaState.currentTier);
-  if (storeTier && VALID_TIERS.includes(String(storeTier).toUpperCase())) {
-    const norm = String(storeTier).toUpperCase();
-    window.__valenixiaTier = norm;
-    window.__valenixiaPlan = PLANS[norm] || PLANS.FREE;
-    return norm;
-  }
-
-  // Priority 4: Scoped store storage key (valenixia_store_{storeId}_tier)
-  try {
-    const storeId = (window.__valenixiaState?.preferences?.store_id) || (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_store_id'));
-    if (storeId) {
-      const scopedTier = (localStorage.getItem(`valenixia_store_${storeId}_tier`) || '').toUpperCase();
-      if (VALID_TIERS.includes(scopedTier)) {
-        window.__valenixiaTier = scopedTier;
-        window.__valenixiaPlan = PLANS[scopedTier] || PLANS.FREE;
-        return scopedTier;
-      }
-    }
-  } catch (_) {}
-
-  // Priority 5: Fallback to stored tier (MUST default to FREE for unverified stores/devices)
-  const rawStored = (typeof localStorage !== 'undefined' ? (localStorage.getItem('valenixia_tier') || '') : '').toUpperCase();
-  const storedTier = VALID_TIERS.includes(rawStored) ? rawStored : 'FREE';
-  window.__valenixiaTier = storedTier;
-  window.__valenixiaPlan = PLANS[storedTier] || PLANS.FREE;
-  return storedTier;
+  // Priority 5: Fallback to FREE baseline
+  window.__valenixiaTier = 'FREE';
+  window.__valenixiaPlan = PLANS.FREE;
+  return 'FREE';
 }
 
 function getLimits() {

@@ -213,21 +213,51 @@
       const subscribers = this.getActiveSubscribers();
       const sub = subscribers.find(s => String(s.id).trim() === String(subscriberId).trim() || String(s.hwid).trim() === String(subscriberId).trim());
       
+      const newExpiry = (normTier === 'FREE') ? 0 : (Date.now() + (30 * 86400000));
       if (sub) {
         sub.tier = normTier;
-        if (normTier === 'FREE') {
-          sub.expiresAt = 0;
-        } else {
-          sub.expiresAt = Date.now() + (30 * 86400000);
+        sub.expiresAt = newExpiry;
+      }
+
+      // Synchronize in claims list so getActiveTier or claims reload does not restore the higher tier
+      const claims = this.getAll();
+      let claimsModified = false;
+      claims.forEach(c => {
+        if (c && (c.id === subscriberId || (sub && c.hwid === sub.hwid) || subscriberId === 'current_store')) {
+          c.targetTier = normTier;
+          if (normTier === 'FREE') {
+            c.status = 'REJECTED';
+            c.resolvedAt = new Date().toISOString();
+          }
+          claimsModified = true;
         }
+      });
+      if (claimsModified) {
+        this.save(claims);
       }
 
       // If downgrading current local terminal or primary store:
-      if (!sub || sub.isLocalTerminal || sub.id === 'current_store' || sub.hwid === (window.__valenixiaHWID || localStorage.getItem('valenixia_hwid'))) {
+      const localHwid = window.__valenixiaHWID || localStorage.getItem('valenixia_hwid') || '';
+      const isCurrentStore = !sub || sub.isLocalTerminal || sub.id === 'current_store' || (localHwid && sub.hwid === localHwid);
+      
+      if (isCurrentStore) {
+        window.__valenixiaTier = normTier;
+        if (typeof PLANS !== 'undefined') {
+          window.__valenixiaPlan = PLANS[normTier] || PLANS.FREE;
+        }
+        try {
+          localStorage.setItem('valenixia_tier', normTier);
+          localStorage.setItem('valenixia_subscription_expires_at', String(newExpiry));
+          const storeId = (window.__valenixiaState?.preferences?.store_id) || localStorage.getItem('valenixia_store_id');
+          if (storeId) {
+            localStorage.setItem(`valenixia_store_${storeId}_tier`, normTier);
+          }
+        } catch (_) {}
+
         if (typeof window.applyActiveTierToSystem === 'function') {
           window.applyActiveTierToSystem(normTier, {
             daysToAdd: (normTier === 'FREE' ? 0 : 30),
-            expiryMs: (normTier === 'FREE' ? 0 : Date.now() + 30 * 86400000)
+            expiryMs: newExpiry
           });
         }
       }
@@ -237,6 +267,7 @@
       } catch (_) {}
 
       window.dispatchEvent(new CustomEvent('valenixia_claims_changed', { detail: { subscribers } }));
+      window.dispatchEvent(new CustomEvent('valenixia_tier_changed', { detail: { tier: normTier, expiresAt: newExpiry } }));
       return { success: true, targetTier: normTier, subscriber: sub };
     }
   };

@@ -2691,20 +2691,34 @@ setHtml(overlay, `
       container.id = 'notification-toast-container';
       container.style.cssText = `
         position: fixed;
-        bottom: 24px;
-        right: 24px;
-        z-index: 10000;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 100000;
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        align-items: center;
+        gap: 10px;
         pointer-events: none;
+        width: max-content;
+        max-width: calc(100vw - 32px);
       `;
       document.body.appendChild(container);
+    } else {
+      container.style.top = '20px';
+      container.style.bottom = 'auto';
+      container.style.left = '50%';
+      container.style.right = 'auto';
+      container.style.transform = 'translateX(-50%)';
+      container.style.alignItems = 'center';
     }
 
     const toast = document.createElement('div');
     const safeType = ['error', 'warning', 'success'].includes(toastType) ? toastType : 'info';
     toast.className = `premium-toast toast-${safeType}`;
+    toast.style.transform = 'translateY(-16px)';
+    toast.style.opacity = '0';
+    toast.style.pointerEvents = 'auto';
 
     let accentColor = 'var(--accent-emerald, #10b981)';
     let titleText = 'Notification';
@@ -2738,8 +2752,8 @@ setHtml(overlay, `
         try { callback(); } catch (e) { console.warn('[ToastCallback] Execution error:', e); }
       }
       toast.style.opacity = '0';
-      toast.style.transform = 'translateY(16px)';
-      setTimeout(() => toast.remove(), 300);
+      toast.style.transform = 'translateY(-16px)';
+      setTimeout(() => { if (toast.parentNode) toast.remove(); }, 300);
     });
 
     container.appendChild(toast);
@@ -7687,6 +7701,19 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
           if (typeof renderCatalogScreen === 'function') renderCatalogScreen();
         }, 50);
         if (syncWorker) syncWorker.postMessage({ type: 'GET_CATALOG' });
+      } else if (screenName === 'checkout') {
+        const chkSearch = document.getElementById('checkout-quick-search');
+        if (chkSearch && (!chkSearch.value || chkSearch.value.trim() === '')) {
+          state.checkoutQuickSearch = '';
+        }
+        const skuSearch = document.getElementById('checkout-sku-search');
+        if (skuSearch && (!skuSearch.value || skuSearch.value.trim() === '')) {
+          state.checkoutSkuSearch = '';
+        }
+        if (typeof renderCheckoutScreen === 'function') renderCheckoutScreen();
+        if (typeof renderQuickCatalog === 'function') renderQuickCatalog();
+        if (typeof renderCart === 'function') renderCart();
+        if (typeof renderCheckoutCategories === 'function') renderCheckoutCategories();
       } else if (screenName === 'history') {
         if (syncWorker) syncWorker.postMessage({ type: 'GET_TRANSACTIONS' });
       } else if (screenName === 'settings') {
@@ -23187,6 +23214,13 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
             e.preventDefault();
             e.stopPropagation();
             target.value = '';
+            state.checkoutQuickSearch = '';
+            state.mobileQuickSearch = '';
+            state.checkoutSkuSearch = '';
+            const chkQuick = document.getElementById('checkout-quick-search');
+            if (chkQuick) chkQuick.value = '';
+            const chkSku = document.getElementById('checkout-sku-search');
+            if (chkSku) chkSku.value = '';
             requestMasterAdminAccess();
           }
         }

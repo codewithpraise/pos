@@ -8703,8 +8703,10 @@ body.theme-monochrome-ivory .sync-log-message {
 /* ── PREMIUM TOAST SYSTEM (Light & Dark Theme Resilient) ── */
 .premium-toast {
   background: var(--panel-graphite, #1e293b);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--accent-emerald, #10b981);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 12px 18px;
   color: var(--text-white, #ffffff);
   font-size: 12px;
@@ -8714,14 +8716,14 @@ body.theme-monochrome-ivory .sync-log-message {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-width: 300px;
-  max-width: 440px;
+  min-width: 320px;
+  max-width: 520px;
   pointer-events: auto;
   cursor: pointer;
   opacity: 0;
-  transform: translateY(16px);
+  transform: translateY(-16px);
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  z-index: 10000;
+  z-index: 100000;
 }
 
 .premium-toast.toast-error {
