@@ -192,6 +192,12 @@
           </span>
           <span class="nav-label">Subscription</span>
         </button>
+        <button class="nav-item" data-screen="platform-admin" id="nav-platform-admin" title="Platform Admin & Tier Approvals" style="display:none;">
+          <span class="nav-icon">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/><circle cx="12" cy="12" r="9"/></svg>
+          </span>
+          <span class="nav-label" style="color:#f59e0b; font-weight:700;">👑 Tier Approvals</span>
+        </button>
         <button class="nav-item" data-screen="credit-book" id="nav-credit-book">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z"/><path d="M6 6h10M6 10h10"/></svg>
@@ -385,6 +391,13 @@
                   <span>Native Apps</span>
                 </span>
                 <span style="font-size: 10px; font-weight: 800; background: rgba(0,214,143,0.2); padding: 2px 6px; border-radius: 4px;">APK / EXE</span>
+              </button>
+              <button class="overflow-menu-btn" id="btn-topbar-platform-admin" onclick="if(window.requestMasterAdminAccess){window.requestMasterAdminAccess();}else if(window.switchActiveScreen){window.switchActiveScreen('platform-admin');}const m=document.getElementById('topbar-overflow-menu');if(m)m.style.display='none';" style="display:none; border: 1px solid rgba(245,158,11,0.3); background: rgba(245,158,11,0.08);">
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                  <span style="color: #f59e0b; font-weight: 800;">Tier Approvals (Admin)</span>
+                </span>
+                <span style="font-size: 10px; font-weight: 900; background: rgba(245,158,11,0.2); color: #f59e0b; padding: 2px 6px; border-radius: 4px;">ADMIN</span>
               </button>
               <div class="clock-badge-menu" style="display: flex; flex-direction: column; padding: 8px 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
                 <span class="badge-lbl" style="font-size: 9.5px; color: var(--text-gray); text-transform: uppercase; font-weight: 700;">HLC Sync Clock:</span>
@@ -2390,9 +2403,28 @@
                   <div style="font-size: 13px; font-weight: 700; color: var(--text-white); margin-top: 4px;" id="license-active-devices-val">Loading...</div>
                 </div>
               </div>
-              <div class="dm-actions" style="margin-top: 16px;">
+              <div class="dm-actions" style="margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap;">
                 <button class="action-btn dm-btn-primary" id="btn-sync-license-now" type="button">
                   Check for License Upgrades
+                </button>
+                <button class="action-btn" type="button" onclick="if(window.switchActiveScreen)window.switchActiveScreen('platform-admin');" style="background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.35); font-weight: 800; font-size: 11px; padding: 6px 14px; border-radius: 6px; cursor: pointer;">
+                  👑 Tier Approvals (Admin)
+                </button>
+              </div>
+            </div>
+
+            <!-- Platform Admin & Tier Approvals Access Card -->
+            <div class="settings-section full-width dm-card" style="border: 1px solid rgba(245,158,11,0.35); background: linear-gradient(135deg, rgba(245,158,11,0.06), rgba(18,20,30,0.95));">
+              <div class="dm-card-header">
+                <div class="dm-icon dm-icon-amber" style="color: #f59e0b;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
+                <div>
+                  <h3 style="margin:0;font-size:14px;font-weight:800;color:#f59e0b;">👑 Platform Admin Control &amp; Tier Approvals</h3>
+                  <p style="margin:4px 0 0;font-size:11px;color:var(--text-gray);">Review payment proofs, approve customer tier upgrade claims, or manually override store licenses.</p>
+                </div>
+              </div>
+              <div class="dm-actions" style="margin-top: 16px;">
+                <button class="action-btn" type="button" onclick="if(window.switchActiveScreen)window.switchActiveScreen('platform-admin');" style="background: #f59e0b; color: #0f172a; font-weight: 800; font-size: 12px; padding: 8px 18px; border-radius: 8px; border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(245,158,11,0.25);">
+                  Open Platform Admin Portal →
                 </button>
               </div>
             </div>
@@ -2947,6 +2979,20 @@
 
               <!-- Sub-Tab Panel 2: PLANS -->
               <div class="sub-tab-panel" id="sub-panel-plans" hidden aria-hidden="true">
+                <!-- Platform Admin Direct Shortcut Banner -->
+                <div style="background: linear-gradient(90deg, rgba(245, 158, 11, 0.14), rgba(16, 185, 129, 0.08)); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                  <div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span style="font-size: 14px;">👑</span>
+                      <strong style="color: #f59e0b; font-size: 14px; font-family: var(--font-display);">Platform Admin &amp; Tier Approval Portal</strong>
+                    </div>
+                    <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Approve pending payment claims, verify customer transfers, or manually switch active store license tier.</p>
+                  </div>
+                  <button type="button" class="btn-tactile" onclick="if(window.switchActiveScreen)window.switchActiveScreen('platform-admin');" style="background: #f59e0b; color: #0f172a; font-weight: 900; font-size: 12px; padding: 10px 18px; border-radius: 8px; border: none; cursor: pointer; box-shadow: 0 4px 14px rgba(245,158,11,0.3);">
+                    Open Tier Approvals Control Center →
+                  </button>
+                </div>
+
                 <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px; margin-bottom:20px;">
                   <div>
                     <h3 style="margin:0; font-size:18px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">Upgrade Commerce License</h3>
@@ -3287,8 +3333,29 @@
         <!-- View: Platform Admin -->
         <section class="content-view" id="view-platform-admin">
           <div style="max-width:1100px; margin:0 auto; padding:20px; display:flex; flex-direction:column; gap:20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; background: rgba(255,255,255,0.02); padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border-titanium);">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 20px;">👑</span>
+                <div>
+                  <h2 style="margin: 0; font-size: 18px; font-weight: 800; color: #f59e0b; font-family: var(--font-display);">Tier Approvals &amp; Platform Admin</h2>
+                  <p style="margin: 2px 0 0; font-size: 11px; color: var(--text-gray);">Manage customer upgrade claims, hardware licenses, and store tiers.</p>
+                </div>
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button type="button" class="btn-tactile" onclick="if(window.lockMasterAdminSession)window.lockMasterAdminSession();else if(window.switchActiveScreen)window.switchActiveScreen('checkout');" style="background: rgba(239,68,68,0.15); color: #ef4444; font-weight: 800; font-size: 11px; padding: 8px 14px; border-radius: 6px; border: 1px solid rgba(239,68,68,0.35); cursor: pointer;">
+                  🔒 Lock &amp; Exit Admin
+                </button>
+                <button type="button" class="btn-tactile" onclick="if(window.switchActiveScreen)window.switchActiveScreen('checkout');" style="background: rgba(255,255,255,0.08); color: var(--text-white); font-weight: 700; font-size: 11px; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--border-titanium); cursor: pointer;">
+                  ← Back to Checkout
+                </button>
+                <button type="button" class="btn-tactile" onclick="if(window.switchActiveScreen)window.switchActiveScreen('subscription');" style="background: rgba(0,214,143,0.15); color: var(--accent-emerald); font-weight: 700; font-size: 11px; padding: 8px 14px; border-radius: 6px; border: 1px solid rgba(0,214,143,0.3); cursor: pointer;">
+                  Subscription View →
+                </button>
+              </div>
+            </div>
+
             <div class="cloud-vault-card">
-              <h2 style="margin:0 0 8px; font-size:18px; font-weight:800; color:var(--text-white);">Platform Admin Control Center</h2>
+              <h2 style="margin:0 0 8px; font-size:16px; font-weight:800; color:var(--text-white);">Pending Tier Upgrades &amp; Payment Claims</h2>
               <div style="overflow-x:auto;">
                 <table class="pos-table" style="width:100%; border-collapse:collapse; font-size:12px;">
                   <thead>
@@ -4080,12 +4147,25 @@
 
         <div class="form-grid-2col">
           <div class="form-group">
-            <label for="form-product-sku">Product SKU (Unique Key)</label>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <label for="form-product-sku">Product SKU (Unique Key)</label>
+            </div>
             <input type="text" id="form-product-sku" class="pos-input" placeholder="e.g. COFFEE-CAP" aria-label="Product SKU">
           </div>
           <div class="form-group">
-            <label for="form-product-gtin">GTIN Barcode</label>
-            <input type="text" id="form-product-gtin" class="pos-input" placeholder="13-digit barcode number" aria-label="GTIN Barcode">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <label for="form-product-gtin" style="margin-bottom:0;">GTIN / EAN Barcode</label>
+              <button type="button" id="btn-form-scan-barcode" onclick="if(window.scanBarcodeForProductForm)window.scanBarcodeForProductForm();" style="display:inline-flex; align-items:center; gap:4px; padding:3px 8px; font-size:10.5px; font-weight:800; background:rgba(0,214,143,0.15); color:var(--accent-emerald); border:1px solid rgba(0,214,143,0.35); border-radius:6px; cursor:pointer; transition:all 0.15s ease;">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                <span>📸 Scan Barcode</span>
+              </button>
+            </div>
+            <div style="position:relative; display:flex; align-items:center;">
+              <input type="text" id="form-product-gtin" class="pos-input" placeholder="Scan or enter 13-digit barcode" aria-label="GTIN Barcode" style="padding-right:38px;">
+              <button type="button" title="Scan with camera" onclick="if(window.scanBarcodeForProductForm)window.scanBarcodeForProductForm();" style="position:absolute; right:4px; width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; background:transparent; border:none; color:var(--accent-emerald); cursor:pointer; border-radius:4px;">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 7h3v3H7zM14 7h3v3h-3zM7 14h3v3H7zM14 14h3v3h-3z"/></svg>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -5876,6 +5956,51 @@
         <button class="action-btn" id="btn-cancel-po-receive-modal">Cancel</button>
         <button class="action-btn action-success" id="btn-submit-po-receive-modal">Approve GRN & Update Inventory</button>
       </div>
+    </div>
+  </div>
+
+  <!-- MASTER PLATFORM ADMIN SECURITY AUTHENTICATION GATE -->
+  <div class="modal-overlay" id="modal-master-admin-auth" style="display: none; position: fixed; inset: 0; z-index: 2147483647; background: rgba(5,7,15,0.95); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); align-items: center; justify-content: center; padding: 16px; box-sizing: border-box;">
+    <div class="modal-card" style="width: 100%; max-width: 420px; background: #0c101d; border: 1px solid rgba(245,158,11,0.4); border-radius: 20px; box-shadow: 0 25px 60px rgba(0,0,0,0.9), 0 0 30px rgba(245,158,11,0.15); padding: 24px; color: #fff; position: relative;">
+      
+      <button type="button" id="btn-close-master-admin-modal" onclick="if(window.closeMasterAdminAuthModal)window.closeMasterAdminAuthModal();" style="position: absolute; top: 16px; right: 16px; width: 30px; height: 30px; border-radius: 50%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer;">×</button>
+
+      <div style="text-align: center; margin-bottom: 20px;">
+        <div style="display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 50%; background: rgba(245,158,11,0.15); border: 2px solid rgba(245,158,11,0.5); font-size: 26px; margin-bottom: 12px; box-shadow: 0 0 20px rgba(245,158,11,0.3);">
+          👑
+        </div>
+        <div style="font-size: 10px; font-weight: 900; letter-spacing: 1px; color: #f59e0b; text-transform: uppercase;">RESTRICTED PLATFORM GATEWAY</div>
+        <h3 style="margin: 4px 0 0; font-size: 18px; font-weight: 900; color: #fff; font-family: var(--font-display);">Master Admin Access</h3>
+        <p style="margin: 6px 0 0; font-size: 12px; color: #94a3b8; line-height: 1.4;">Enter authorized Master Cryptographic PIN to access customer tier approvals and license control.</p>
+      </div>
+
+      <form id="form-master-admin-auth" onsubmit="event.preventDefault(); if(window.submitMasterAdminAuth)window.submitMasterAdminAuth();" style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="position: relative;">
+          <input type="password" id="input-master-admin-pin" class="pos-input" placeholder="Enter Master Admin PIN" autocomplete="off" style="width: 100%; height: 46px; font-size: 18px; letter-spacing: 4px; text-align: center; font-weight: 900; background: rgba(0,0,0,0.5); border: 1.5px solid rgba(245,158,11,0.4); border-radius: 10px; color: #f59e0b; box-sizing: border-box;">
+        </div>
+
+        <div id="master-admin-auth-error" style="display: none; font-size: 11.5px; color: #ef4444; text-align: center; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); padding: 8px; border-radius: 8px; font-weight: 700;"></div>
+
+        <!-- Touch numeric keypad for mobile/phone access -->
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px;">
+          <button type="button" class="btn-pin-digit" onclick="window.appendMasterAdminDigit('1')" style="height: 42px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: #fff; font-size: 16px; font-weight: 800; cursor: pointer;">1</button>
+          <button type="button" class="btn-pin-digit" onclick="window.appendMasterAdminDigit('2')" style="height: 42px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: #fff; font-size: 16px; font-weight: 800; cursor: pointer;">2</button>
+          <button type="button" class="btn-pin-digit" onclick="window.appendMasterAdminDigit('3')" style="height: 42px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: #fff; font-size: 16px; font-weight: 800; cursor: pointer;">3</button>
+          <button type="button" class="btn-pin-digit" onclick="window.appendMasterAdminDigit('4')" style="height: 42px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: #fff; font-size: 16px; font-weight: 800; cursor: pointer;">4</button>
+          <button type="button" class="btn-pin-digit" onclick="window.appendMasterAdminDigit('5')" style="height: 42px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: #fff; font-size: 16px; font-weight: 800; cursor: pointer;">5</button>
+          <button type="button" class="btn-pin-digit" onclick="window.appendMasterAdminDigit('6')" style="height: 42px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: #fff; font-size: 16px; font-weight: 800; cursor: pointer;">6</button>
+          <button type="button" class="btn-pin-digit" onclick="window.appendMasterAdminDigit('7')" style="height: 42px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: #fff; font-size: 16px; font-weight: 800; cursor: pointer;">7</button>
+          <button type="button" class="btn-pin-digit" onclick="window.appendMasterAdminDigit('8')" style="height: 42px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: #fff; font-size: 16px; font-weight: 800; cursor: pointer;">8</button>
+          <button type="button" class="btn-pin-digit" onclick="window.appendMasterAdminDigit('9')" style="height: 42px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: #fff; font-size: 16px; font-weight: 800; cursor: pointer;">9</button>
+          <button type="button" class="btn-pin-digit" onclick="window.clearMasterAdminDigits()" style="height: 42px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(239,68,68,0.15); color: #ef4444; font-size: 12px; font-weight: 800; cursor: pointer;">CLR</button>
+          <button type="button" class="btn-pin-digit" onclick="window.appendMasterAdminDigit('0')" style="height: 42px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: #fff; font-size: 16px; font-weight: 800; cursor: pointer;">0</button>
+          <button type="button" class="btn-pin-digit" onclick="window.backspaceMasterAdminDigit()" style="height: 42px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: #fff; font-size: 14px; font-weight: 800; cursor: pointer;">⌫</button>
+        </div>
+
+        <button type="submit" id="btn-submit-master-auth" style="height: 44px; margin-top: 4px; background: #f59e0b; color: #0f172a; font-size: 13px; font-weight: 900; border: none; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 16px rgba(245,158,11,0.35);">
+          <span>🔓 Authenticate &amp; Unlock</span>
+        </button>
+      </form>
     </div>
   </div>
 

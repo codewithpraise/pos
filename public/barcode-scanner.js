@@ -104,6 +104,42 @@
       const normalized = this.normalizeBarcode(code);
       if (!normalized) return { success: false, reason: 'EMPTY_CODE' };
 
+      // If a dedicated scan callback or target input is active (e.g. from Add Product modal):
+      if (this.scanOptions && (typeof this.scanOptions.onScan === 'function' || this.scanOptions.targetInputId)) {
+        if (typeof this.scanOptions.onScan === 'function') {
+          try {
+            this.scanOptions.onScan(normalized);
+          } catch (e) {
+            console.error('[ValenixiaBarcodeScanner] onScan callback error:', e);
+          }
+        }
+        if (this.scanOptions.targetInputId) {
+          const inputEl = document.getElementById(this.scanOptions.targetInputId);
+          if (inputEl) {
+            inputEl.value = normalized;
+            inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+            inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }
+        if (this.scanOptions.autoFocusNext) {
+          const nextEl = document.getElementById(this.scanOptions.autoFocusNext);
+          if (nextEl) setTimeout(() => { try { nextEl.focus(); } catch (_) {} }, 100);
+        }
+
+        if (typeof window.playAudioSignal === 'function') {
+          window.playAudioSignal('success');
+        }
+        if (navigator.vibrate) {
+          try { navigator.vibrate(60); } catch (_) {}
+        }
+        if (typeof window.showNotificationToast === 'function') {
+          window.showNotificationToast(`✓ Barcode scanned: ${normalized}`, 'success', 3000);
+        }
+
+        this.close();
+        return { success: true, code: normalized };
+      }
+
       const products = (window.state && window.state.products) || window.products || [];
       const currentOrgId = (window.state && window.state.organization && window.state.organization.id) || window.currentOrgId || null;
 
@@ -182,7 +218,8 @@
      * Open Camera Scanner Modal Sheet
      */
     async open(options = {}) {
-      if (this.isOpen()) return;
+      if (this.isOpen()) this.close();
+      this.scanOptions = options || {};
       this.generationToken++;
       const currentToken = this.generationToken;
       this.state = 'OPENING';
@@ -192,7 +229,7 @@
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' } },
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false
         });
 
@@ -204,8 +241,11 @@
 
         this.mediaStream = stream;
         const videoEl = document.getElementById('camera-scanner-video');
-        if (videoEl && typeof videoEl.play === 'function') {
-          try { await videoEl.play(); } catch (_) {}
+        if (videoEl) {
+          videoEl.srcObject = stream;
+          if (typeof videoEl.play === 'function') {
+            try { await videoEl.play(); } catch (_) {}
+          }
         }
 
         this.state = 'CAMERA_READY';
@@ -239,25 +279,32 @@
           return;
         }
 
-        if (ctx && videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
-          canvasEl.width = videoEl.videoWidth;
-          canvasEl.height = videoEl.videoHeight;
-          ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
-          const imageData = ctx.getImageData(0, 0, canvasEl.width, canvasEl.height);
+        // Fast Direct Video Frame Decoding via BarcodeDetector if available
+        if (window.ValenixiaBarcodeDecoder) {
+          try {
+            let result = null;
+            if (window.BarcodeDetector) {
+              result = await window.ValenixiaBarcodeDecoder.decodeFrame(videoEl);
+            }
+            if (!result && ctx && videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
+              canvasEl.width = videoEl.videoWidth;
+              canvasEl.height = videoEl.videoHeight;
+              ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+              const imageData = ctx.getImageData(0, 0, canvasEl.width, canvasEl.height);
+              result = await window.ValenixiaBarcodeDecoder.decodeFrame(imageData);
+            }
 
-          if (window.ValenixiaBarcodeDecoder) {
-            try {
-              const result = await window.ValenixiaBarcodeDecoder.decodeFrame(imageData);
-              if (result && result.rawValue && this.generationToken === token) {
-                const now = Date.now();
-                const norm = this.normalizeBarcode(result.rawValue);
-                if (norm !== this.lastDetectedCode || (now - this.lastDetectedTimestamp) > this.duplicateWindowMs) {
-                  this.lastDetectedCode = norm;
-                  this.lastDetectedTimestamp = now;
-                  await this.resolveScannedCode(norm, 'CAMERA');
-                }
+            if (result && result.rawValue && this.generationToken === token) {
+              const now = Date.now();
+              const norm = this.normalizeBarcode(result.rawValue);
+              if (norm !== this.lastDetectedCode || (now - this.lastDetectedTimestamp) > this.duplicateWindowMs) {
+                this.lastDetectedCode = norm;
+                this.lastDetectedTimestamp = now;
+                await this.resolveScannedCode(norm, 'CAMERA');
               }
-            } catch (_) {}
+            }
+          } catch (_) {}
+        }
           }
         }
 

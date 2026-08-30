@@ -164,6 +164,7 @@ const FEATURE_TIER_REQ = {
   'inventory': 'FREE',
   'customer-buyback': 'FREE',
   'buyback': 'FREE',
+  'platform-admin': 'FREE',
 
   // Starter Tier Views & Modules (PKR 3,499/mo)
   'suppliers': 'STARTER',
@@ -826,6 +827,161 @@ function showUpgradeModal(featureName, requiredTier) {
 }
 window.showUpgradeModal = showUpgradeModal;
 window.showPaywallModal = showUpgradeModal;
+
+// ── Smart Free Tier Quota Limit Reached Modal ──────────────────────────────
+function showLimitReachedModal(limitType, currentCount, maxLimit) {
+  const existing = document.getElementById("limit-reached-modal") || document.getElementById("paywall-modal");
+  if (existing) existing.remove();
+
+  const limits = getLimits();
+  const remSec = getMidnightRemainingSeconds();
+  const countdownStr = formatCountdown(remSec);
+
+  let limitTitle = 'Free Plan Limit Reached';
+  let limitDesc = '';
+  let countStr = '';
+
+  if (limitType === 'daily_transactions' || limitType === 'transactions' || limitType === 'daily_transactions_quota') {
+    const cur = currentCount !== undefined ? currentCount : (getDailyTransactionCount().count);
+    const max = maxLimit || limits.transactionsPerDay || 20;
+    limitTitle = 'Daily Sales Quota Reached';
+    countStr = `${cur} / ${max} Daily Sales Used`;
+    limitDesc = `You have completed all <strong>${max} daily transactions</strong> included in the <strong>Free Basic Plan</strong> for today.<br><br>The free quota will automatically replenish at midnight (in <strong>${countdownStr}</strong>). Upgrade to <strong>Starter</strong> to process unlimited sales immediately without downtime.`;
+  } else if (limitType === 'products' || limitType === 'catalog') {
+    const cur = currentCount !== undefined ? currentCount : (window.state?.catalog?.length || 25);
+    const max = maxLimit || limits.products || 25;
+    limitTitle = 'Product Inventory Limit Reached';
+    countStr = `${cur} / ${max} SKUs Registered`;
+    limitDesc = `You have reached the maximum limit of <strong>${max} products</strong> allowed on the <strong>Free Basic Plan</strong>.<br><br>Upgrade to the <strong>Starter Plan</strong> to unlock <strong>Unlimited Products &amp; Catalog SKUs</strong> with full barcode scanning and inventory tracking.`;
+  } else if (limitType === 'customers') {
+    const cur = currentCount !== undefined ? currentCount : (window.state?.customers?.length || 50);
+    const max = maxLimit || limits.customers || 50;
+    limitTitle = 'Customer Directory Limit Reached';
+    countStr = `${cur} / ${max} Customers Saved`;
+    limitDesc = `You have reached the maximum limit of <strong>${max} customer records</strong> allowed on the <strong>Free Basic Plan</strong>.<br><br>Upgrade to <strong>Starter</strong> or <strong>Pro</strong> to store unlimited customers with loyalty points and credit history.`;
+  } else if (limitType === 'employees' || limitType === 'staff') {
+    limitTitle = 'Staff PIN & Cashier Limit Reached';
+    countStr = `1 / 1 Cashier Active`;
+    limitDesc = `The Free Basic Plan supports a single primary terminal operator. To register multiple staff members, manager PINs, and shift logs, upgrade to <strong>Starter</strong> or <strong>Growth (Pro)</strong>.`;
+  } else if (limitType === 'import_rows') {
+    limitTitle = 'Batch Import Size Limit';
+    countStr = `${currentCount || 25}+ Rows Detected`;
+    limitDesc = `Bulk Excel / CSV inventory import is limited to 25 items on Free Basic. Upgrade to <strong>Starter</strong> for unlimited bulk catalog imports.`;
+  } else if (limitType === 'buybacks') {
+    limitTitle = 'Device Buyback Limit Reached';
+    countStr = `5 / 5 Buybacks Today`;
+    limitDesc = `Daily device buyback and customer trade-in records reached. Upgrade to <strong>Starter</strong> for unlimited trade-in transactions.`;
+  } else {
+    limitTitle = 'Plan Limit Reached';
+    limitDesc = `You have reached the free tier allowance for this feature. Upgrade to <strong>Starter</strong> to unlock unlimited access.`;
+  }
+
+  const modal = document.createElement("div");
+  modal.id = "limit-reached-modal";
+  modal.className = "modal-overlay active";
+  modal.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:rgba(5,7,15,0.92);display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);overflow-y:auto;";
+
+  modal.innerHTML = `
+    <div style="width:100%;max-width:520px;background:#0d111c;border:1px solid rgba(245,158,11,0.35);border-radius:24px;padding:28px 24px;box-shadow:0 24px 64px rgba(0,0,0,0.95), 0 0 30px rgba(245,158,11,0.15);color:#fff;font-family:var(--font-sans, system-ui, sans-serif);margin:auto;position:relative;box-sizing:border-box;">
+      
+      <button id="__limit-close-btn" type="button" aria-label="Close" style="position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#94a3b8;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1;transition:all 0.15s ease;">×</button>
+
+      <div style="text-align:center;margin-bottom:20px;padding:0 10px;">
+        <div style="display:inline-flex;align-items:center;justify-content:center;width:60px;height:60px;background:rgba(245,158,11,0.15);border:2px solid rgba(245,158,11,0.4);border-radius:50%;font-size:28px;margin-bottom:12px;box-shadow:0 0 20px rgba(245,158,11,0.25);">
+          ⚠️
+        </div>
+        <div style="display:inline-block;padding:3px 10px;border-radius:12px;background:rgba(245,158,11,0.2);color:#f59e0b;font-size:10px;font-weight:900;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;">FREE TIER QUOTA LIMIT</div>
+        <h2 style="font-size:20px;font-weight:900;margin:0 0 6px;color:#fff;letter-spacing:-0.3px;">
+          ${limitTitle}
+        </h2>
+        ${countStr ? `<div style="font-size:12px;font-family:var(--font-mono, monospace);font-weight:800;color:#38bdf8;margin-bottom:12px;">📊 ${countStr}</div>` : ''}
+        <div style="font-size:13px;color:#cbd5e1;line-height:1.5;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);padding:12px;border-radius:12px;text-align:left;">
+          ${limitDesc}
+        </div>
+      </div>
+
+      <!-- High-Converting Starter Tier Offer Card -->
+      <div style="background:linear-gradient(135deg, rgba(6,182,212,0.12), rgba(16,185,129,0.08));border:1.5px solid rgba(6,182,212,0.4);border-radius:16px;padding:16px;margin-bottom:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div>
+            <span style="font-size:10px;font-weight:900;color:#06b6d4;text-transform:uppercase;letter-spacing:0.5px;">RECOMMENDED SOLUTION</span>
+            <div style="font-size:16px;font-weight:900;color:#fff;">Valenixia Starter Plan</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:18px;font-weight:900;color:#00d68f;">Rs. 3,499<span style="font-size:10px;color:#94a3b8;font-weight:500;">/mo</span></div>
+            <span style="font-size:9px;color:#cbd5e1;">Instant Activation</span>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;color:#e2e8f0;margin-bottom:14px;">
+          <div style="display:flex;align-items:center;gap:6px;"><span style="color:#00d68f;font-weight:900;">✓</span> Unlimited Daily Sales</div>
+          <div style="display:flex;align-items:center;gap:6px;"><span style="color:#00d68f;font-weight:900;">✓</span> Unlimited Inventory SKUs</div>
+          <div style="display:flex;align-items:center;gap:6px;"><span style="color:#00d68f;font-weight:900;">✓</span> Suppliers &amp; Ledger</div>
+          <div style="display:flex;align-items:center;gap:6px;"><span style="color:#00d68f;font-weight:900;">✓</span> Financial P&amp;L Analytics</div>
+          <div style="display:flex;align-items:center;gap:6px;"><span style="color:#00d68f;font-weight:900;">✓</span> Customer Credit Khata</div>
+          <div style="display:flex;align-items:center;gap:6px;"><span style="color:#00d68f;font-weight:900;">✓</span> Clean Thermal Printing</div>
+        </div>
+
+        <button id="__btn-limit-upgrade-starter" type="button" style="width:100%;padding:11px;background:linear-gradient(135deg, #06b6d4, #00d68f);color:#0f172a;font-size:13px;font-weight:900;border:none;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 16px rgba(6,182,212,0.35);transition:all 0.15s ease;">
+          <span>⚡ Upgrade to Starter Plan Now</span>
+          <span style="font-size:14px;">→</span>
+        </button>
+      </div>
+
+      <!-- Action Links -->
+      <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+        <button id="__btn-limit-view-plans" type="button" style="background:transparent;border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;font-size:11.5px;font-weight:700;padding:8px 14px;border-radius:8px;cursor:pointer;">
+          Compare All Plans
+        </button>
+        <button id="__btn-limit-enter-claim" type="button" style="background:transparent;border:1px solid rgba(0,214,143,0.3);color:#00d68f;font-size:11.5px;font-weight:700;padding:8px 14px;border-radius:8px;cursor:pointer;">
+          Enter Payment Claim
+        </button>
+        <button id="__limit-dismiss" type="button" style="background:transparent;border:none;color:#64748b;font-size:11.5px;cursor:pointer;padding:8px 10px;">
+          Close
+        </button>
+      </div>
+
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const dismiss = () => modal.remove();
+  document.getElementById("__limit-close-btn")?.addEventListener("click", dismiss);
+  document.getElementById("__limit-dismiss")?.addEventListener("click", dismiss);
+  modal.addEventListener("click", (e) => { if (e.target === modal) dismiss(); });
+
+  document.getElementById("__btn-limit-upgrade-starter")?.addEventListener("click", () => {
+    modal.remove();
+    if (typeof window.switchActiveScreen === 'function') {
+      window.switchActiveScreen('subscription');
+    }
+    if (window.ValenixiaSubscription && typeof window.ValenixiaSubscription.selectPlan === 'function') {
+      window.ValenixiaSubscription.selectPlan('STARTER');
+    }
+  });
+
+  document.getElementById("__btn-limit-view-plans")?.addEventListener("click", () => {
+    modal.remove();
+    if (typeof window.switchActiveScreen === 'function') {
+      window.switchActiveScreen('subscription');
+    }
+    if (window.ValenixiaSubscription && typeof window.ValenixiaSubscription.activateTab === 'function') {
+      window.ValenixiaSubscription.activateTab('plans');
+    }
+  });
+
+  document.getElementById("__btn-limit-enter-claim")?.addEventListener("click", () => {
+    modal.remove();
+    if (typeof window.switchActiveScreen === 'function') {
+      window.switchActiveScreen('subscription');
+    }
+    if (window.ValenixiaSubscription && typeof window.ValenixiaSubscription.activateTab === 'function') {
+      window.ValenixiaSubscription.activateTab('claim');
+    }
+  });
+}
+window.showLimitReachedModal = showLimitReachedModal;
 
 function renderTrialBanner() {
   const existing = document.getElementById("vx-trial-banner");

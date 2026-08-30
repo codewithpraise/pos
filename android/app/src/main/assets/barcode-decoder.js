@@ -1,5 +1,5 @@
 // ============================================================================
-// VALENIXIA POS v2.6.x — BUNDLED OFFLINE BARCODE DECODER FALLBACK
+// VALENIXIA POS v2.6.x — BUNDLED OFFLINE BARCODE DECODER ENGINE
 // 100% offline browser barcode decoding engine for 1D/2D symbologies.
 // Supports: EAN-13, EAN-8, UPC-A, UPC-E, Code 128, Code 39, ITF, QR Code.
 // ============================================================================
@@ -11,28 +11,34 @@
       this.supportedSymbologies = [
         'ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code'
       ];
+      this.nativeDetector = null;
+      this.zxingReader = null;
+      this.initDetector();
+    }
+
+    async initDetector() {
+      if (typeof window !== 'undefined' && typeof window.BarcodeDetector !== 'undefined') {
+        try {
+          this.nativeDetector = new window.BarcodeDetector({
+            formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code']
+          });
+        } catch (_) {}
+      }
     }
 
     /**
-     * Decode imageData / canvas frame offline using 1D/2D pattern matching algorithms
+     * Decode video element or canvas imageData using fastest available hardware path
      */
-    async decodeFrame(imageData) {
-      if (!imageData || !imageData.data || imageData.width <= 0 || imageData.height <= 0) {
-        return null;
-      }
+    async decodeFrame(source) {
+      if (!source) return null;
 
-      // Check if native BarcodeDetector is available on window as fast path
-      if (typeof window.BarcodeDetector !== 'undefined') {
+      // 1. Fast Path: Native Hardware BarcodeDetector API (Android Chrome, iOS Safari 17+)
+      if (this.nativeDetector) {
         try {
-          if (!this.nativeDetector) {
-            this.nativeDetector = new window.BarcodeDetector({
-              formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code']
-            });
-          }
-          const results = await this.nativeDetector.detect(imageData);
-          if (results && results.length > 0) {
+          const results = await this.nativeDetector.detect(source);
+          if (results && results.length > 0 && results[0].rawValue) {
             return {
-              rawValue: results[0].rawValue,
+              rawValue: String(results[0].rawValue).trim(),
               format: results[0].format || 'EAN-13',
               source: 'NATIVE_BARCODE_DETECTOR'
             };
@@ -40,35 +46,47 @@
         } catch (_) {}
       }
 
-      // Fallback local pattern decoder
-      return this.scanLocalImageDataPattern(imageData);
-    }
+      // 2. High-Performance ZXing Reader Fallback
+      if (typeof window !== 'undefined' && window.ZXing) {
+        try {
+          if (!this.zxingReader && window.ZXing.MultiFormatReader) {
+            this.zxingReader = new window.ZXing.MultiFormatReader();
+            const hints = new Map();
+            if (window.ZXing.DecodeHintType && window.ZXing.BarcodeFormat) {
+              const formats = [
+                window.ZXing.BarcodeFormat.EAN_13,
+                window.ZXing.BarcodeFormat.EAN_8,
+                window.ZXing.BarcodeFormat.CODE_128,
+                window.ZXing.BarcodeFormat.CODE_39,
+                window.ZXing.BarcodeFormat.UPC_A,
+                window.ZXing.BarcodeFormat.UPC_E,
+                window.ZXing.BarcodeFormat.QR_CODE
+              ];
+              hints.set(window.ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+              hints.set(window.ZXing.DecodeHintType.TRY_HARDER, true);
+            }
+            this.zxingReader.setHints(hints);
+          }
 
-    /**
-     * Local Offline 1D Pattern Scan Algorithm
-     */
-    scanLocalImageDataPattern(imageData) {
-      const width = imageData.width;
-      const height = imageData.height;
-      const data = imageData.data;
-
-      // Sample center horizontal scanlines for 1D barcodes
-      const scanlines = [
-        Math.floor(height * 0.5),
-        Math.floor(height * 0.4),
-        Math.floor(height * 0.6)
-      ];
-
-      for (const y of scanlines) {
-        let lineBinary = '';
-        for (let x = 0; x < width; x++) {
-          const idx = (y * width + x) * 4;
-          const r = data[idx];
-          const g = data[idx + 1];
-          const b = data[idx + 2];
-          const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-          lineBinary += brightness < 110 ? '1' : '0';
-        }
+          if (this.zxingReader && source.data && source.width && source.height) {
+            const len = source.width * source.height;
+            const luminances = new Uint8ClampedArray(len);
+            for (let i = 0; i < len; i++) {
+              const idx = i * 4;
+              luminances[i] = (source.data[idx] * 299 + source.data[idx + 1] * 587 + source.data[idx + 2] * 114) >> 10;
+            }
+            const lumSource = new window.ZXing.RGBLuminanceSource(luminances, source.width, source.height);
+            const binaryBitmap = new window.ZXing.BinaryBitmap(new window.ZXing.HybridBinarizer(lumSource));
+            const result = this.zxingReader.decodeWithState(binaryBitmap);
+            if (result && result.getText()) {
+              return {
+                rawValue: result.getText().trim(),
+                format: result.getBarcodeFormat() ? String(result.getBarcodeFormat()) : 'BARCODE',
+                source: 'ZXING_DECODER'
+              };
+            }
+          }
+        } catch (_) {}
       }
 
       return null;

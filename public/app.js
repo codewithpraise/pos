@@ -7510,9 +7510,19 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
   async function switchActiveScreen(screenName) {
     if (!screenName) return false;
 
+    // Master Platform Admin Security Gate Check
+    if (screenName === 'platform-admin') {
+      if (typeof window.isMasterAdminAuthenticated === 'function' && !window.isMasterAdminAuthenticated()) {
+        if (typeof window.requestMasterAdminAccess === 'function') {
+          window.requestMasterAdminAccess();
+        }
+        return false; // Intercept: require master pin before entering admin
+      }
+    }
+
     // Strict Tier Permission Check via window.can()
-    // 'checkout', 'subscription', and 'settings' are always accessible
-    if (screenName !== 'checkout' && screenName !== 'subscription' && screenName !== 'settings') {
+    // 'checkout', 'subscription', 'settings', and 'platform-admin' are always accessible
+    if (screenName !== 'checkout' && screenName !== 'subscription' && screenName !== 'settings' && screenName !== 'platform-admin') {
       if (typeof window.can === 'function' && !window.can(screenName)) {
         if (typeof showPaywallModal === 'function') {
           showPaywallModal(screenName);
@@ -7782,6 +7792,8 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
         if (typeof renderMarketingScreen === 'function') renderMarketingScreen();
       } else if (screenName === 'stock-transfer') {
         if (typeof renderStockTransferScreen === 'function') renderStockTransferScreen();
+      } else if (screenName === 'platform-admin') {
+        if (typeof renderPlatformAdminScreen === 'function') renderPlatformAdminScreen();
       }
     } catch (renderErr) {
       console.error(`[Navigation] Screen renderer error for ${screenName}:`, renderErr);
@@ -10173,7 +10185,9 @@ setHtml(tr, `
         playAudioSignal('error');
         state.isCheckingOut = false;
         window.__isSubmitting = false;
-        if (typeof showUpgradeModal === 'function') {
+        if (typeof showLimitReachedModal === 'function') {
+          showLimitReachedModal(limitStatus.type || 'daily_transactions', limitStatus.current, limitStatus.limit);
+        } else if (typeof showUpgradeModal === 'function') {
           showUpgradeModal(limitStatus.type || 'daily_transactions_quota');
         } else {
           showModal({
@@ -13196,7 +13210,8 @@ setHtml(container, `
       if (window.checkLimit) {
         const limit = window.checkLimit('products', (state.catalog || []).length);
         if (!limit.allowed) {
-          if (window.showUpgradeModal) window.showUpgradeModal('products');
+          if (window.showLimitReachedModal) window.showLimitReachedModal('products', (state.catalog || []).length, limit.limit);
+          else if (window.showUpgradeModal) window.showUpgradeModal('products');
           return;
         }
       }
@@ -13300,7 +13315,8 @@ setHtml(container, `
     if (isNew && window.checkLimit) {
       const limit = window.checkLimit('products', state.catalog ? state.catalog.length : 0);
       if (!limit.allowed) {
-        if (window.showUpgradeModal) window.showUpgradeModal('products');
+        if (window.showLimitReachedModal) window.showLimitReachedModal('products', state.catalog ? state.catalog.length : 0, limit.limit);
+        else if (window.showUpgradeModal) window.showUpgradeModal('products');
         return;
       }
     }
@@ -13760,7 +13776,8 @@ setHtml(row, `
     if (isNew && window.checkLimit) {
       const limit = window.checkLimit('customers', (state.customers || []).length);
       if (!limit.allowed) {
-        if (window.showUpgradeModal) window.showUpgradeModal('customers');
+        if (window.showLimitReachedModal) window.showLimitReachedModal('customers', (state.customers || []).length, limit.limit);
+        else if (window.showUpgradeModal) window.showUpgradeModal('customers');
         else showModal({ title: 'Customer Quota Reached', message: limit.reason, type: 'info' });
         return;
       }
@@ -13957,7 +13974,8 @@ setHtml(row, `
       const activeCount = (state.employees || []).filter(e => e.is_active === 1).length;
       const limit = window.checkLimit('employees', activeCount);
       if (!limit.allowed) {
-        if (window.showUpgradeModal) window.showUpgradeModal('employees');
+        if (window.showLimitReachedModal) window.showLimitReachedModal('employees', activeCount, limit.limit);
+        else if (window.showUpgradeModal) window.showUpgradeModal('employees');
         return;
       }
     }
@@ -22462,32 +22480,69 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     });
   }
 
+  function getPlatformAdminClaims() {
+    try {
+      const stored = localStorage.getItem('valenixia_admin_claims');
+      if (stored) return JSON.parse(stored);
+    } catch (_) {}
+    return [
+      { id: 'CLAIM-9824', hwid: '91349748AFE9DB...', module: 'STARTER (Full Standard POS)', rrn: 'TRX-882194', amount: 'PKR 3,499', date: '2026-08-30', status: 'PENDING', targetTier: 'STARTER' },
+      { id: 'CLAIM-9825', hwid: '88140294CFA8BB...', module: 'GROWTH (PRO) Multi-Device Cloud Sync', rrn: 'TRX-774012', amount: 'PKR 6,999', date: '2026-08-30', status: 'PENDING', targetTier: 'PRO' },
+      { id: 'CLAIM-9826', hwid: '77210842DBA9CC...', module: 'ENTERPRISE Unlimited Multi-Branch', rrn: 'TRX-993410', amount: 'PKR 11,999', date: '2026-08-29', status: 'APPROVED', targetTier: 'ENTERPRISE' }
+    ];
+  }
+
+  function savePlatformAdminClaims(claims) {
+    try {
+      localStorage.setItem('valenixia_admin_claims', JSON.stringify(claims));
+    } catch (_) {}
+  }
+
+  function applyActiveTierToSystem(newTier) {
+    const tier = (newTier || 'FREE').toUpperCase();
+    window.__valenixiaTier = tier;
+    if (!state.preferences) state.preferences = {};
+    state.preferences['store_subscription_tier'] = tier;
+    state.currentTier = tier;
+    try { localStorage.setItem('valenixia_tier', tier); } catch(_) {}
+    
+    if (syncWorker) {
+      syncWorker.postMessage({
+        type: 'SAVE_PREFERENCE',
+        payload: { key: 'store_subscription_tier', val: tier }
+      });
+    }
+
+    if (typeof applyTierLocks === 'function') applyTierLocks(tier);
+    if (typeof renderNavbarByTier === 'function') renderNavbarByTier(tier);
+    if (typeof applyEntitlementsFromTier === 'function') applyEntitlementsFromTier(tier);
+    if (typeof updateTierBadgeUI === 'function') updateTierBadgeUI();
+    if (typeof renderPlatformAdminRuntimeLicensing === 'function') renderPlatformAdminRuntimeLicensing();
+  }
+  window.applyActiveTierToSystem = applyActiveTierToSystem;
+
   function renderPlatformAdminClaimsQueue() {
     const tbody = document.getElementById('admin-claims-queue-tbody');
     if (!tbody) return;
 
-    // Default active claims
-    const dummyClaims = [
-      { id: 'CLAIM-9824', hwid: '91349748AFE9DB...', module: 'Official FBR Fiscal POS Integration', rrn: 'TRX-882194', amount: 'PKR 2,999', date: '2026-08-11', status: 'PENDING' },
-      { id: 'CLAIM-9810', hwid: '88140294CFA8BB...', module: 'Multi-Branch HQ Stock Transfer', rrn: 'TRX-774012', amount: 'PKR 3,999', date: '2026-08-10', status: 'APPROVED' }
-    ];
+    const claims = getPlatformAdminClaims();
 
-    const rowsHtml = dummyClaims.map(c => `
-      <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+    const rowsHtml = claims.map(c => `
+      <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
         <td style="padding:10px; font-family:var(--font-mono); font-weight:800; color:var(--accent-emerald);">${c.id}</td>
-        <td style="padding:10px; font-family:var(--font-mono); color:var(--text-white);">${c.hwid}</td>
+        <td style="padding:10px; font-family:var(--font-mono); color:var(--text-white); font-size:11px;">${c.hwid}</td>
         <td style="padding:10px; font-weight:700; color:var(--text-white);">${c.module}</td>
         <td style="padding:10px; font-family:var(--font-mono); color:var(--text-gray);">${c.rrn}</td>
-        <td style="padding:10px; font-weight:800; color:var(--text-white);">${c.amount}</td>
-        <td style="padding:10px; color:var(--text-gray);">${c.date}</td>
+        <td style="padding:10px; font-weight:800; color:var(--accent-emerald);">${c.amount}</td>
+        <td style="padding:10px; color:var(--text-gray); font-size:11px;">${c.date}</td>
         <td style="padding:10px;">
-          <span style="padding:3px 8px; border-radius:12px; font-size:10px; font-weight:800; ${c.status === 'APPROVED' ? 'background:rgba(0,214,143,0.15); color:var(--accent-emerald); border:1px solid rgba(0,214,143,0.3);' : 'background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.3);'}">${c.status}</span>
+          <span style="padding:3px 8px; border-radius:12px; font-size:10px; font-weight:800; ${c.status === 'APPROVED' ? 'background:rgba(0,214,143,0.15); color:var(--accent-emerald); border:1px solid rgba(0,214,143,0.3);' : (c.status === 'REJECTED' ? 'background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3);' : 'background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.3);')}">${c.status}</span>
         </td>
         <td style="padding:10px; text-align:right;">
           ${c.status === 'PENDING' ? `
-            <button type="button" class="action-btn dm-btn-emerald" onclick="if(window.approveClaimAdmin)window.approveClaimAdmin('${c.id}')" style="padding:4px 10px; font-size:10px; font-weight:800;">Approve</button>
-            <button type="button" class="action-btn action-danger" onclick="if(window.rejectClaimAdmin)window.rejectClaimAdmin('${c.id}')" style="padding:4px 10px; font-size:10px; font-weight:800; margin-left:6px;">Reject</button>
-          ` : '<span style="font-size:11px; color:var(--text-dim);">Completed</span>'}
+            <button type="button" class="action-btn dm-btn-emerald" onclick="if(window.approveClaimAdmin)window.approveClaimAdmin('${c.id}')" style="padding:5px 12px; font-size:11px; font-weight:800; border-radius:6px; cursor:pointer;">✓ Approve</button>
+            <button type="button" class="action-btn action-danger" onclick="if(window.rejectClaimAdmin)window.rejectClaimAdmin('${c.id}')" style="padding:5px 12px; font-size:11px; font-weight:800; border-radius:6px; margin-left:6px; cursor:pointer;">✕ Reject</button>
+          ` : `<span style="font-size:11px; color:var(--text-dim); font-weight:700;">${c.status === 'APPROVED' ? 'Active Entitlement' : 'Dismissed'}</span>`}
         </td>
       </tr>
     `).join('');
@@ -22522,13 +22577,42 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   }
 
   window.approveClaimAdmin = function(claimId) {
-    if (typeof showNotificationToast === 'function') showNotificationToast(`Claim ${claimId} APPROVED! Entitlement unlocked for customer store.`, 'success');
+    const claims = getPlatformAdminClaims();
+    const claim = claims.find(c => c.id === claimId);
+    let targetTier = 'STARTER';
+    if (claim) {
+      claim.status = 'APPROVED';
+      if (claim.targetTier) {
+        targetTier = claim.targetTier;
+      } else if (claim.module && claim.module.toLowerCase().includes('enterprise')) {
+        targetTier = 'ENTERPRISE';
+      } else if (claim.module && (claim.module.toLowerCase().includes('pro') || claim.module.toLowerCase().includes('growth'))) {
+        targetTier = 'PRO';
+      } else {
+        targetTier = 'STARTER';
+      }
+      savePlatformAdminClaims(claims);
+    }
+    
+    applyActiveTierToSystem(targetTier);
     renderPlatformAdminClaimsQueue();
+    if (typeof showNotificationToast === 'function') {
+      showNotificationToast(`Claim ${claimId} APPROVED! Store upgraded to ${targetTier} plan. All features unlocked!`, 'success', 5000);
+    }
+    if (typeof playAudioSignal === 'function') playAudioSignal('success');
   };
 
   window.rejectClaimAdmin = function(claimId) {
-    if (typeof showNotificationToast === 'function') showNotificationToast(`Claim ${claimId} rejected.`, 'warning');
+    const claims = getPlatformAdminClaims();
+    const claim = claims.find(c => c.id === claimId);
+    if (claim) {
+      claim.status = 'REJECTED';
+      savePlatformAdminClaims(claims);
+    }
     renderPlatformAdminClaimsQueue();
+    if (typeof showNotificationToast === 'function') {
+      showNotificationToast(`Claim ${claimId} marked as rejected.`, 'warning', 3000);
+    }
   };
 
   function renderPlatformAdminRuntimeLicensing() {
@@ -22562,28 +22646,11 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     const selectEl = document.getElementById('platform-admin-tier-select');
     if (!selectEl) return;
     const newTier = selectEl.value.toUpperCase();
-    window.__valenixiaTier = newTier;
-    if (!state.preferences) state.preferences = {};
-    state.preferences['store_subscription_tier'] = newTier;
-    try { localStorage.setItem('valenixia_tier', newTier); } catch(_) {}
-    
-    if (syncWorker) {
-      syncWorker.postMessage({
-        type: 'SAVE_PREFERENCE',
-        payload: { key: 'store_subscription_tier', val: newTier }
-      });
-    }
-
-    if (typeof applyEntitlementsFromTier === 'function') {
-      applyEntitlementsFromTier(newTier);
-    }
-    if (typeof updateTierBadgeUI === 'function') {
-      updateTierBadgeUI();
-    }
-    renderPlatformAdminRuntimeLicensing();
+    applyActiveTierToSystem(newTier);
     if (typeof showNotificationToast === 'function') {
-      showNotificationToast(`License tier successfully updated to ${newTier} for this runtime store!`, 'success', 3000);
+      showNotificationToast(`License tier successfully updated to ${newTier}! All ${newTier} features are now unlocked.`, 'success', 5000);
     }
+    if (typeof playAudioSignal === 'function') playAudioSignal('success');
   };
 
   function renderPlatformAdminScreen() {
