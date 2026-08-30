@@ -1,7 +1,7 @@
 // ============================================================================
 // VERCEL SERVERLESS FUNCTION: /api/claims (Unified Claims & Lifecycle Manager)
 // Supports GET (list), POST (create), and lifecycle actions (approve, reject, downgrade)
-// Fully compatible with PostgreSQL/Supabase UUID constraints
+// Full support for cross-app, multi-store claims synchronization
 // ============================================================================
 
 'use strict';
@@ -11,15 +11,11 @@ const crypto = require('crypto');
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://wzvwyfyefbdrqscxhwsf.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6dnd5ZnllZmJkcnFzY3hod3NmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MzU3ODUsImV4cCI6MjA5ODQxMTc4NX0.W9O6U4tqETM6BcEjX7evt3LunpIZOC5c7wcZht2ajuk';
 
-// In-memory cache for fast local access
+// In-memory cache for fast access
 if (!global.__valenixiaCloudClaimsCache) {
   global.__valenixiaCloudClaimsCache = [];
 }
 
-/**
- * Deterministically maps any arbitrary string (e.g. 'CLM-123456', 'ANDROID_HW_XYZ', 'DEV-HWID')
- * to a valid PostgreSQL RFC 4122 v4-formatted UUID.
- */
 function toDeterministicUuid(str) {
   if (!str || typeof str !== 'string') return crypto.randomUUID();
   const trimmed = str.trim();
@@ -97,18 +93,14 @@ module.exports = async (req, res) => {
 
           const targetHwid = hwid || (global.__valenixiaCloudClaimsCache ? (global.__valenixiaCloudClaimsCache.find(c => String(c.id).trim() === effectiveClaimId)?.hwid) : null);
           if (targetHwid && targetHwid !== 'DEV-HWID-UNKNOWN') {
-            const userUuid = toDeterministicUuid(targetHwid);
             await supabase
               .from('stores')
               .upsert({
-                id: userUuid,
-                name: `Store (${targetHwid.slice(0, 8)})`,
-                tier: resolvedTier,
+                id: String(targetHwid).trim().toUpperCase(),
+                name: `Store (${String(targetHwid).slice(0, 8)})`,
                 plan: resolvedTier.toLowerCase(),
-                subscription_start_time: nowIso,
-                expires_at: expiresAtIso,
                 is_active: true,
-                updated_at: nowIso
+                last_seen_at: nowIso
               }, { onConflict: 'id' });
           }
         } catch (sbErr) {
@@ -191,18 +183,14 @@ module.exports = async (req, res) => {
       const supabase = getSupabaseClient();
       if (supabase && hwid && hwid !== 'DEV-HWID-UNKNOWN') {
         try {
-          const userUuid = toDeterministicUuid(hwid);
           await supabase
             .from('stores')
             .upsert({
-              id: userUuid,
-              name: `Store (${hwid.slice(0, 8)})`,
-              tier: effectiveTier,
+              id: String(hwid).trim().toUpperCase(),
+              name: `Store (${String(hwid).slice(0, 8)})`,
               plan: effectiveTier.toLowerCase(),
-              subscription_start_time: nowIso,
-              expires_at: expiresAtIso,
               is_active: effectiveTier !== 'FREE',
-              updated_at: nowIso
+              last_seen_at: nowIso
             }, { onConflict: 'id' });
         } catch (sbErr) {
           console.warn('[ClaimsAPI] Supabase downgrade warning:', sbErr.message);

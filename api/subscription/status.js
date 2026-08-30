@@ -2,26 +2,10 @@
 // VERCEL SERVERLESS FUNCTION: GET /api/subscription/status
 // ============================================================================
 // Authoritative Hardware-Bound Tier & Countdown Status for Serverless
-// Prevents countdown drift, sliding windows, and infinite loop resets.
-// Deterministic UUID conversion prevents PostgreSQL type errors.
+// Matches live Supabase `stores` table schema.
 // ============================================================================
 
 'use strict';
-
-const crypto = require('crypto');
-
-function toDeterministicUuid(str) {
-  if (!str || typeof str !== 'string') return crypto.randomUUID();
-  const trimmed = str.trim();
-  if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(trimmed)) {
-    return trimmed.toLowerCase();
-  }
-  if (/^[0-9a-fA-F]{32}$/.test(trimmed)) {
-    return `${trimmed.slice(0,8)}-${trimmed.slice(8,12)}-${trimmed.slice(12,16)}-${trimmed.slice(16,20)}-${trimmed.slice(20,32)}`.toLowerCase();
-  }
-  const hash = crypto.createHash('md5').update(trimmed).digest('hex');
-  return `${hash.slice(0,8)}-${hash.slice(8,12)}-4${hash.slice(13,16)}-a${hash.slice(17,20)}-${hash.slice(20,32)}`.toLowerCase();
-}
 
 module.exports = async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -58,8 +42,7 @@ module.exports = async (req, res) => {
         auth: { persistSession: false, autoRefreshToken: false }
       });
 
-      const deterministicUuid = toDeterministicUuid(cleanHwid);
-      const conds = [`id.eq.${deterministicUuid}`];
+      const conds = [`id.eq.${cleanHwid}`, `id.eq.${cleanHwid.toLowerCase()}`];
 
       const { data, error } = await supabase
         .from('stores')
@@ -69,7 +52,7 @@ module.exports = async (req, res) => {
       if (!error && data && data.length > 0) {
         const store = data[0];
         effectiveTier = String(store.plan || store.tier || 'STARTER').toUpperCase();
-        subStartTime = store.subscription_start_time || store.created_at || store.updated_at || subStartTime;
+        subStartTime = store.subscription_start_time || store.created_at || store.updated_at || store.last_seen_at || subStartTime;
         firstActivatedAt = store.created_at || subStartTime;
         expiresAt = store.expires_at || null;
         if (!expiresAt && billingCycle !== 'LIFETIME') {
@@ -83,16 +66,14 @@ module.exports = async (req, res) => {
         try {
           const anchorStart = clientStartTime || nowIso;
           const anchorExp = new Date(Date.parse(anchorStart) + durationMs).toISOString();
-          await supabase.from('stores').insert([{
-            id: deterministicUuid,
+          await supabase.from('stores').upsert([{
+            id: cleanHwid,
             name: `Store (${cleanHwid.slice(0, 8)})`,
             plan: 'starter',
-            tier: 'STARTER',
-            subscription_start_time: anchorStart,
-            expires_at: anchorExp,
-            created_at: anchorStart,
-            is_active: true
-          }]);
+            is_active: true,
+            last_seen_at: anchorStart,
+            created_at: anchorStart
+          }], { onConflict: 'id' });
           subStartTime = anchorStart;
           firstActivatedAt = anchorStart;
           expiresAt = anchorExp;
