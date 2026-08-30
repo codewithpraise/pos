@@ -22488,25 +22488,89 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
 
   function applyActiveTierToSystem(newTier) {
     const tier = (newTier || 'FREE').toUpperCase();
+    const now = Date.now();
+    const expiryMs = now + (30 * 24 * 60 * 60 * 1000); // 30 days active
+
     window.__valenixiaTier = tier;
+    window.__lastSyncedTier = tier;
+    if (typeof PLANS !== 'undefined') {
+      window.__valenixiaPlan = PLANS[tier] || PLANS.FREE;
+    }
+    
     if (!state.preferences) state.preferences = {};
     state.preferences['store_subscription_tier'] = tier;
     state.currentTier = tier;
-    try { localStorage.setItem('valenixia_tier', tier); } catch(_) {}
+
+    try {
+      localStorage.setItem('valenixia_tier', tier);
+      localStorage.setItem('valenixia_subscription_expires_at', String(expiryMs));
+      localStorage.setItem('valenixia_trial_active', 'false');
+      
+      const storeId = (state.preferences && state.preferences.store_id) || localStorage.getItem('valenixia_store_id');
+      if (storeId) {
+        localStorage.setItem(`valenixia_store_${storeId}_tier`, tier);
+      }
+    } catch(_) {}
+
+    if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
+      ValenixiaDB.put('local_preferences', {
+        key: 'valenixia_tier',
+        value_type: 'STR',
+        value_payload: tier,
+        is_idempotent_flag: 0,
+        updated_at: now
+      }).catch(() => {});
+      ValenixiaDB.put('local_preferences', {
+        key: 'valenixia_subscription_expires_at',
+        value_type: 'STR',
+        value_payload: String(expiryMs),
+        is_idempotent_flag: 0,
+        updated_at: now
+      }).catch(() => {});
+      ValenixiaDB.put('local_preferences', {
+        key: 'valenixia_trial_active',
+        value_type: 'BOOL',
+        value_payload: 'false',
+        is_idempotent_flag: 0,
+        updated_at: now
+      }).catch(() => {});
+    }
     
     if (syncWorker) {
       syncWorker.postMessage({
         type: 'SAVE_PREFERENCE',
         payload: { key: 'store_subscription_tier', val: tier }
       });
+      syncWorker.postMessage({
+        type: 'SAVE_PREFERENCE',
+        payload: { key: 'valenixia_tier', val: tier }
+      });
     }
 
     if (typeof applyTierLocks === 'function') applyTierLocks(tier);
     if (typeof renderNavbarByTier === 'function') renderNavbarByTier(tier);
-    if (typeof applyEntitlementsFromTier === 'function') applyEntitlementsFromTier(tier);
+    if (typeof applyTierRestrictions === 'function') applyTierRestrictions();
     if (typeof updateTierBadgeUI === 'function') updateTierBadgeUI();
+    if (typeof renderLicenseInfoCard === 'function') renderLicenseInfoCard();
     if (typeof renderPlatformAdminRuntimeLicensing === 'function') renderPlatformAdminRuntimeLicensing();
     if (typeof renderPlatformAdminStoreIdentity === 'function') renderPlatformAdminStoreIdentity();
+
+    if (window.ValenixiaSubscription && typeof window.ValenixiaSubscription.refresh === 'function') {
+      window.ValenixiaSubscription.refresh();
+    }
+    if (window.ValenixiaSubscription && typeof window.ValenixiaSubscription.renderClaimsHistory === 'function') {
+      window.ValenixiaSubscription.renderClaimsHistory();
+    }
+
+    // Cross-component broadcast
+    try {
+      window.dispatchEvent(new CustomEvent('valenixia_tier_changed', { detail: { tier, expiresAt: expiryMs } }));
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('valenixia_tier_bus');
+        bc.postMessage({ type: 'TIER_UPGRADED', tier, expiresAt: expiryMs });
+        bc.close();
+      }
+    } catch (_) {}
   }
   window.applyActiveTierToSystem = applyActiveTierToSystem;
 
@@ -22659,18 +22723,23 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
           targetTier = 'STARTER';
         }
         savePlatformAdminClaims(claims);
-        applyActiveTierToSystem(targetTier);
         res = { claim, targetTier };
       }
     }
-    
+
+    const targetTier = (res && res.targetTier) ? res.targetTier : 'PRO';
+
+    if (typeof window.applySubscriptionUpgrade === 'function') {
+      window.applySubscriptionUpgrade(targetTier, 30);
+    }
+    applyActiveTierToSystem(targetTier);
+
     renderPlatformAdminClaimsQueue();
     renderPlatformAdminRuntimeLicensing();
     renderPlatformAdminStoreIdentity();
 
-    const targetTier = (res && res.targetTier) ? res.targetTier : 'PRO';
     if (typeof showNotificationToast === 'function') {
-      showNotificationToast(`🎉 Claim ${claimId} APPROVED! Store upgraded to ${targetTier} plan. All features unlocked!`, 'success', 5000);
+      showNotificationToast(`🎉 Claim ${claimId} APPROVED! Store upgraded to ${targetTier} plan. All features unlocked instantly without refresh!`, 'success', 5000);
     }
     if (typeof playAudioSignal === 'function') playAudioSignal('success');
   };

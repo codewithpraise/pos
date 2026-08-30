@@ -128,10 +128,11 @@
 
       this.save(list);
 
+      if (typeof window.applySubscriptionUpgrade === 'function') {
+        window.applySubscriptionUpgrade(targetTier, 30);
+      }
       if (typeof window.applyActiveTierToSystem === 'function') {
         window.applyActiveTierToSystem(targetTier);
-      } else if (typeof window.applySubscriptionUpgrade === 'function') {
-        window.applySubscriptionUpgrade(targetTier, 30);
       }
       return { claim, targetTier };
     },
@@ -549,12 +550,40 @@
 
     async refresh() {
       const rawTier = (typeof window.getActiveTier === 'function' ? window.getActiveTier() : (window.__valenixiaTier || localStorage.getItem('valenixia_tier') || 'FREE')).toUpperCase();
-      const curTier = rawTier === 'GROWTH' ? 'PRO' : rawTier;
+      const curTier = (rawTier === 'GROWTH' ? 'PRO' : rawTier);
       const isTrialActive = localStorage.getItem('valenixia_trial_active') === 'true';
 
       const badgeEl = document.getElementById('badge-active-tier-pill');
       if (badgeEl) {
-        badgeEl.textContent = isTrialActive ? '7-DAY FREE TRIAL' : `${curTier} TIER`;
+        badgeEl.textContent = isTrialActive ? '7-DAY FREE TRIAL (GROWTH)' : `${curTier} TIER`;
+        if (curTier === 'ENTERPRISE') {
+          badgeEl.style.background = 'rgba(168,85,247,0.15)';
+          badgeEl.style.color = '#a855f7';
+          badgeEl.style.border = '1px solid rgba(168,85,247,0.35)';
+        } else if (curTier === 'PRO' || curTier === 'GROWTH') {
+          badgeEl.style.background = 'rgba(0,214,143,0.15)';
+          badgeEl.style.color = 'var(--accent-emerald)';
+          badgeEl.style.border = '1px solid rgba(0,214,143,0.35)';
+        } else if (curTier === 'STARTER') {
+          badgeEl.style.background = 'rgba(59,130,246,0.15)';
+          badgeEl.style.color = '#3b82f6';
+          badgeEl.style.border = '1px solid rgba(59,130,246,0.35)';
+        } else {
+          badgeEl.style.background = 'rgba(245,158,11,0.15)';
+          badgeEl.style.color = '#f59e0b';
+          badgeEl.style.border = '1px solid rgba(245,158,11,0.35)';
+        }
+      }
+
+      const expiryTxtEl = document.getElementById('txt-license-expiry');
+      if (expiryTxtEl) {
+        expiryTxtEl.textContent = isTrialActive ? '7 Days Active Trial' : `Active ${curTier} (30 Days)`;
+        expiryTxtEl.style.color = 'var(--accent-emerald)';
+      }
+
+      const trialBanner = document.getElementById('free-trial-banner-card');
+      if (trialBanner) {
+        trialBanner.style.display = (curTier === 'PRO' || curTier === 'GROWTH' || curTier === 'ENTERPRISE' || isTrialActive) ? 'none' : 'flex';
       }
 
       const hwidCodeEl = document.getElementById('billing-form-device-hwid');

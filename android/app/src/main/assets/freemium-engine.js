@@ -95,6 +95,29 @@ const TIER_TO_PLAN = {
 const VALID_TIERS = ['FREE', 'STARTER', 'GROWTH', 'PRO', 'ENTERPRISE'];
 
 function getActiveTier() {
+  // Priority 0: Authoritative Approved Payment Claim in local store
+  try {
+    const claims = window.ValenixiaClaimsManager 
+      ? window.ValenixiaClaimsManager.getAll() 
+      : JSON.parse(localStorage.getItem('valenixia_admin_claims') || '[]');
+    const approved = claims.find(c => c && c.status === 'APPROVED');
+    if (approved) {
+      let claimTier = 'STARTER';
+      if (approved.targetTier) {
+        claimTier = approved.targetTier.toUpperCase();
+      } else if (approved.module && approved.module.toLowerCase().includes('enterprise')) {
+        claimTier = 'ENTERPRISE';
+      } else if (approved.module && (approved.module.toLowerCase().includes('pro') || approved.module.toLowerCase().includes('growth'))) {
+        claimTier = 'PRO';
+      }
+      if (VALID_TIERS.includes(claimTier)) {
+        window.__valenixiaTier = claimTier;
+        window.__valenixiaPlan = PLANS[claimTier] || PLANS.PRO;
+        return claimTier;
+      }
+    }
+  } catch (_) {}
+
   // Priority 1: Use dynamically synced online tier if available
   if (window.__valenixiaTier && VALID_TIERS.includes(window.__valenixiaTier)) {
     window.__valenixiaPlan = PLANS[window.__valenixiaTier] || PLANS.FREE;
@@ -339,6 +362,14 @@ async function syncOnlineSubscriptionTier() {
     }
 
     const fetchedTier = data && data.tier ? String(data.tier).toUpperCase() : (localStorage.getItem('valenixia_tier') || 'FREE').toUpperCase();
+    const currentActive = getActiveTier();
+    const currentRank = TIER_HIERARCHY[currentActive] ?? 0;
+    const incomingRank = TIER_HIERARCHY[fetchedTier] ?? 0;
+    if (currentRank > incomingRank) {
+      // Local approved claim/tier takes precedence over un-synced server default
+      return;
+    }
+
     if (VALID_TIERS.includes(fetchedTier)) {
       window.__valenixiaTier = fetchedTier;
       window.__valenixiaPlan = PLANS[fetchedTier] || PLANS.FREE;
@@ -358,17 +389,11 @@ async function syncOnlineSubscriptionTier() {
         const serverExpMs = data?.expires_at_ms || (serverExpIso ? Date.parse(serverExpIso) : NaN);
 
         // ── Server Start Time Guard ─────────────────────────────────────────────
-        // CRITICAL: Only accept the server's subscription_start_time if it is EARLIER
-        // (older) than what we have locally. A server returning a NEWER start_time
-        // means it had no stored record and just initialized fresh (device_initialized).
-        // In that case, the local stored anchor is authoritative and must be preserved.
         const serverSource = data?.source || '';
         const isServerInitializedFresh = serverSource === 'device_initialized' || serverSource === 'local_fallback';
 
         if (!isNaN(serverStartMs) && serverStartMs > 0 && !isServerInitializedFresh) {
           const startDiff = serverStartMs - existingStartMs;
-          // Accept server start only if it is EARLIER than local (true older activation date)
-          // or if we have no local start yet (existingStartMs is 0).
           const serverIsEarlier = (existingStartMs <= 0) || (startDiff < -300000);
           if (serverIsEarlier) {
             existingStartMs = serverStartMs;
@@ -384,20 +409,14 @@ async function syncOnlineSubscriptionTier() {
             }
           }
         } else if ((existingStartMs <= 0) && !isServerInitializedFresh && !isNaN(serverStartMs) && serverStartMs > 0) {
-          // First ever boot with a real anchored server time
           existingStartMs = serverStartMs;
           localStorage.setItem('valenixia_subscription_start_time', String(existingStartMs));
         }
-        // If server returned device_initialized or local_fallback: ignore server's start time entirely.
-        // The local existing start is the authoritative anchor.
 
         // ── Server Expiry Guard ─────────────────────────────────────────────────
-        // Only accept server expires_at if the server's start time is trustworthy
-        // (i.e., it is real and not a fresh device_initialized reset)
         const currentExpMs = parseInt(localStorage.getItem('valenixia_subscription_expires_at') || '0', 10);
         if (!isNaN(serverExpMs) && serverExpMs > 0 && !isServerInitializedFresh) {
           const expDiff = Math.abs(serverExpMs - currentExpMs);
-          // Only overwrite if initial setup (currentExpMs is 0) or genuine renewal > 5 minutes
           if (currentExpMs === 0 || expDiff > 300000) {
             localStorage.setItem('valenixia_subscription_expires_at', String(serverExpMs));
             if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
@@ -411,7 +430,6 @@ async function syncOnlineSubscriptionTier() {
             }
           }
         } else if (currentExpMs === 0 && existingStartMs > 0) {
-          // Establish initial 30-day default expiry anchored from existingStartMs
           const initialExp = existingStartMs + (30 * 24 * 60 * 60 * 1000);
           localStorage.setItem('valenixia_subscription_expires_at', String(initialExp));
           if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
@@ -451,6 +469,37 @@ async function syncOnlineSubscriptionTier() {
 if (typeof window !== 'undefined') {
   setTimeout(syncOnlineSubscriptionTier, 500);
   setInterval(syncOnlineSubscriptionTier, 30000); // 30-second stable cloud sync
+
+  // Listen for real-time tier mutations across app
+  window.addEventListener('valenixia_tier_changed', (e) => {
+    const newTier = e.detail && e.detail.tier ? e.detail.tier : getActiveTier();
+    window.__valenixiaTier = newTier;
+    if (typeof applyTierLocks === 'function') applyTierLocks(newTier);
+    if (typeof renderNavbarByTier === 'function') renderNavbarByTier(newTier);
+    if (typeof applyTierRestrictions === 'function') applyTierRestrictions();
+    if (typeof renderLicenseInfoCard === 'function') renderLicenseInfoCard();
+    if (window.ValenixiaSubscription && typeof window.ValenixiaSubscription.refresh === 'function') {
+      window.ValenixiaSubscription.refresh();
+    }
+  });
+
+  if (typeof BroadcastChannel !== 'undefined') {
+    try {
+      const tierBus = new BroadcastChannel('valenixia_tier_bus');
+      tierBus.onmessage = (e) => {
+        if (e.data && e.data.tier) {
+          window.__valenixiaTier = e.data.tier;
+          if (typeof applyTierLocks === 'function') applyTierLocks(e.data.tier);
+          if (typeof renderNavbarByTier === 'function') renderNavbarByTier(e.data.tier);
+          if (typeof applyTierRestrictions === 'function') applyTierRestrictions();
+          if (typeof renderLicenseInfoCard === 'function') renderLicenseInfoCard();
+          if (window.ValenixiaSubscription && typeof window.ValenixiaSubscription.refresh === 'function') {
+            window.ValenixiaSubscription.refresh();
+          }
+        }
+      };
+    } catch (_) {}
+  }
 }
 window.syncOnlineSubscriptionTier = syncOnlineSubscriptionTier;
 
