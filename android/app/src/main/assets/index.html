@@ -192,12 +192,6 @@
           </span>
           <span class="nav-label">Subscription</span>
         </button>
-        <button class="nav-item" data-screen="platform-admin" id="nav-platform-admin" title="Platform Admin & Tier Approvals" style="display:none;">
-          <span class="nav-icon">
-            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/><circle cx="12" cy="12" r="9"/></svg>
-          </span>
-          <span class="nav-label" style="color:#f59e0b; font-weight:700;">👑 Tier Approvals</span>
-        </button>
         <button class="nav-item" data-screen="credit-book" id="nav-credit-book">
           <span class="nav-icon">
             <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z"/><path d="M6 6h10M6 10h10"/></svg>
@@ -391,13 +385,6 @@
                   <span>Native Apps</span>
                 </span>
                 <span style="font-size: 10px; font-weight: 800; background: rgba(0,214,143,0.2); padding: 2px 6px; border-radius: 4px;">APK / EXE</span>
-              </button>
-              <button class="overflow-menu-btn" id="btn-topbar-platform-admin" onclick="if(window.requestMasterAdminAccess){window.requestMasterAdminAccess();}else if(window.switchActiveScreen){window.switchActiveScreen('platform-admin');}const m=document.getElementById('topbar-overflow-menu');if(m)m.style.display='none';" style="display:none; border: 1px solid rgba(245,158,11,0.3); background: rgba(245,158,11,0.08);">
-                <span style="display: flex; align-items: center; gap: 6px;">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                  <span style="color: #f59e0b; font-weight: 800;">Tier Approvals (Admin)</span>
-                </span>
-                <span style="font-size: 10px; font-weight: 900; background: rgba(245,158,11,0.2); color: #f59e0b; padding: 2px 6px; border-radius: 4px;">ADMIN</span>
               </button>
               <div class="clock-badge-menu" style="display: flex; flex-direction: column; padding: 8px 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
                 <span class="badge-lbl" style="font-size: 9.5px; color: var(--text-gray); text-transform: uppercase; font-weight: 700;">HLC Sync Clock:</span>
@@ -2407,25 +2394,6 @@
                 <button class="action-btn dm-btn-primary" id="btn-sync-license-now" type="button">
                   Check for License Upgrades
                 </button>
-                <button class="action-btn" type="button" onclick="if(window.switchActiveScreen)window.switchActiveScreen('platform-admin');" style="background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.35); font-weight: 800; font-size: 11px; padding: 6px 14px; border-radius: 6px; cursor: pointer;">
-                  👑 Tier Approvals (Admin)
-                </button>
-              </div>
-            </div>
-
-            <!-- Platform Admin & Tier Approvals Access Card -->
-            <div class="settings-section full-width dm-card" style="border: 1px solid rgba(245,158,11,0.35); background: linear-gradient(135deg, rgba(245,158,11,0.06), rgba(18,20,30,0.95));">
-              <div class="dm-card-header">
-                <div class="dm-icon dm-icon-amber" style="color: #f59e0b;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
-                <div>
-                  <h3 style="margin:0;font-size:14px;font-weight:800;color:#f59e0b;">👑 Platform Admin Control &amp; Tier Approvals</h3>
-                  <p style="margin:4px 0 0;font-size:11px;color:var(--text-gray);">Review payment proofs, approve customer tier upgrade claims, or manually override store licenses.</p>
-                </div>
-              </div>
-              <div class="dm-actions" style="margin-top: 16px;">
-                <button class="action-btn" type="button" onclick="if(window.switchActiveScreen)window.switchActiveScreen('platform-admin');" style="background: #f59e0b; color: #0f172a; font-weight: 800; font-size: 12px; padding: 8px 18px; border-radius: 8px; border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(245,158,11,0.25);">
-                  Open Platform Admin Portal →
-                </button>
               </div>
             </div>
 
@@ -2979,20 +2947,6 @@
 
               <!-- Sub-Tab Panel 2: PLANS -->
               <div class="sub-tab-panel" id="sub-panel-plans" hidden aria-hidden="true">
-                <!-- Platform Admin Direct Shortcut Banner -->
-                <div style="background: linear-gradient(90deg, rgba(245, 158, 11, 0.14), rgba(16, 185, 129, 0.08)); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-                  <div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      <span style="font-size: 14px;">👑</span>
-                      <strong style="color: #f59e0b; font-size: 14px; font-family: var(--font-display);">Platform Admin &amp; Tier Approval Portal</strong>
-                    </div>
-                    <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-gray);">Approve pending payment claims, verify customer transfers, or manually switch active store license tier.</p>
-                  </div>
-                  <button type="button" class="btn-tactile" onclick="if(window.switchActiveScreen)window.switchActiveScreen('platform-admin');" style="background: #f59e0b; color: #0f172a; font-weight: 900; font-size: 12px; padding: 10px 18px; border-radius: 8px; border: none; cursor: pointer; box-shadow: 0 4px 14px rgba(245,158,11,0.3);">
-                    Open Tier Approvals Control Center →
-                  </button>
-                </div>
-
                 <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px; margin-bottom:20px;">
                   <div>
                     <h3 style="margin:0; font-size:18px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">Upgrade Commerce License</h3>
@@ -3332,98 +3286,191 @@
 
         <!-- View: Platform Admin -->
         <section class="content-view" id="view-platform-admin">
-          <div style="max-width:1100px; margin:0 auto; padding:20px; display:flex; flex-direction:column; gap:20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; background: rgba(255,255,255,0.02); padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border-titanium);">
-              <div style="display: flex; align-items: center; gap: 10px;">
-                <span style="font-size: 20px;">👑</span>
+          <div style="max-width:1240px; margin:0 auto; padding:20px; display:flex; flex-direction:column; gap:20px;">
+            <!-- Header Bar -->
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(18,20,30,0.95)); padding: 16px 20px; border-radius: 14px; border: 1px solid rgba(245,158,11,0.3); box-shadow: 0 10px 30px rgba(0,0,0,0.35);">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.4); display: flex; align-items: center; justify-content: center; font-size: 24px;">👑</div>
                 <div>
-                  <h2 style="margin: 0; font-size: 18px; font-weight: 800; color: #f59e0b; font-family: var(--font-display);">Tier Approvals &amp; Platform Admin</h2>
-                  <p style="margin: 2px 0 0; font-size: 11px; color: var(--text-gray);">Manage customer upgrade claims, hardware licenses, and store tiers.</p>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <h2 style="margin: 0; font-size: 19px; font-weight: 900; color: #f59e0b; font-family: var(--font-display); letter-spacing: -0.2px;">Platform Governance &amp; Tier Approvals</h2>
+                    <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; background: rgba(0,214,143,0.15); color: var(--accent-emerald); font-size: 10px; font-weight: 800; border: 1px solid rgba(0,214,143,0.3);">
+                      <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent-emerald); box-shadow: 0 0 8px var(--accent-emerald); animation: pulse 1.5s infinite;"></span>
+                      REAL-TIME LIVE SYNC
+                    </span>
+                  </div>
+                  <p style="margin: 3px 0 0; font-size: 12px; color: var(--text-gray);">Authorized Master Control: Review customer upgrade claims, verify payment proofs &amp; manage store entitlements instantly.</p>
                 </div>
               </div>
-              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <button type="button" class="btn-tactile" onclick="if(window.lockMasterAdminSession)window.lockMasterAdminSession();else if(window.switchActiveScreen)window.switchActiveScreen('checkout');" style="background: rgba(239,68,68,0.15); color: #ef4444; font-weight: 800; font-size: 11px; padding: 8px 14px; border-radius: 6px; border: 1px solid rgba(239,68,68,0.35); cursor: pointer;">
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                <button type="button" class="btn-tactile" onclick="if(window.renderPlatformAdminScreen)window.renderPlatformAdminScreen();" style="background: rgba(255,255,255,0.06); color: var(--text-white); font-weight: 700; font-size: 11px; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border-titanium); cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                  🔄 Force Refresh
+                </button>
+                <button type="button" class="btn-tactile" onclick="if(window.lockMasterAdminSession)window.lockMasterAdminSession();else if(window.switchActiveScreen)window.switchActiveScreen('checkout');" style="background: rgba(239,68,68,0.15); color: #ef4444; font-weight: 800; font-size: 11px; padding: 8px 16px; border-radius: 8px; border: 1px solid rgba(239,68,68,0.4); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(239,68,68,0.2);">
                   🔒 Lock &amp; Exit Admin
-                </button>
-                <button type="button" class="btn-tactile" onclick="if(window.switchActiveScreen)window.switchActiveScreen('checkout');" style="background: rgba(255,255,255,0.08); color: var(--text-white); font-weight: 700; font-size: 11px; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--border-titanium); cursor: pointer;">
-                  ← Back to Checkout
-                </button>
-                <button type="button" class="btn-tactile" onclick="if(window.switchActiveScreen)window.switchActiveScreen('subscription');" style="background: rgba(0,214,143,0.15); color: var(--accent-emerald); font-weight: 700; font-size: 11px; padding: 8px 14px; border-radius: 6px; border: 1px solid rgba(0,214,143,0.3); cursor: pointer;">
-                  Subscription View →
                 </button>
               </div>
             </div>
 
-            <div class="cloud-vault-card">
-              <h2 style="margin:0 0 8px; font-size:16px; font-weight:800; color:var(--text-white);">Pending Tier Upgrades &amp; Payment Claims</h2>
-              <div style="overflow-x:auto;">
-                <table class="pos-table" style="width:100%; border-collapse:collapse; font-size:12px;">
+            <!-- Store & Owner Business Identity Overview Card -->
+            <div class="cloud-vault-card" style="border: 1px solid rgba(255,255,255,0.08); background: linear-gradient(135deg, rgba(255,255,255,0.02), rgba(18,20,30,0.9)); border-radius: 14px; padding: 18px 22px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 16px;">🏪</span>
+                  <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Store &amp; Business Profile Identity</h3>
+                </div>
+                <span id="platform-admin-current-runtime-badge" style="padding: 4px 10px; border-radius: 8px; font-size: 10px; font-weight: 800; background: rgba(0,214,143,0.15); color: var(--accent-emerald); border: 1px solid rgba(0,214,143,0.3);">Detecting Runtime...</span>
+              </div>
+
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 14px;">
+                <!-- Store Name -->
+                <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 12px 14px; border-radius: 10px;">
+                  <span style="font-size: 10px; color: var(--text-gray); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Store / Business Name</span>
+                  <div id="admin-store-name" style="font-size: 14px; font-weight: 900; color: var(--text-white); margin-top: 4px; font-family: var(--font-display);">Loading Store Name...</div>
+                </div>
+
+                <!-- Owner Name -->
+                <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 12px 14px; border-radius: 10px;">
+                  <span style="font-size: 10px; color: var(--text-gray); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Merchant / Owner Name</span>
+                  <div id="admin-owner-name" style="font-size: 14px; font-weight: 900; color: var(--accent-emerald); margin-top: 4px;">Loading Owner Name...</div>
+                </div>
+
+                <!-- Contact Phone -->
+                <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 12px 14px; border-radius: 10px;">
+                  <span style="font-size: 10px; color: var(--text-gray); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Store Contact / WhatsApp</span>
+                  <div id="admin-store-phone" style="font-size: 13px; font-weight: 800; color: var(--text-white); margin-top: 4px; font-family: var(--font-mono);">Loading Phone...</div>
+                </div>
+
+                <!-- Store Mode / Category -->
+                <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 12px 14px; border-radius: 10px;">
+                  <span style="font-size: 10px; color: var(--text-gray); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Store Vertical &amp; Category</span>
+                  <div id="admin-store-category" style="font-size: 13px; font-weight: 800; color: var(--accent-cyan); margin-top: 4px;">General Retail</div>
+                </div>
+
+                <!-- Live Inventory SKU Count -->
+                <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 12px 14px; border-radius: 10px;">
+                  <span style="font-size: 10px; color: var(--text-gray); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Indexed Product Catalog</span>
+                  <div id="admin-store-catalog-size" style="font-size: 13px; font-weight: 800; color: var(--text-white); margin-top: 4px; font-family: var(--font-mono);">0 Products Active</div>
+                </div>
+
+                <!-- Total Sales Invoices -->
+                <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 12px 14px; border-radius: 10px;">
+                  <span style="font-size: 10px; color: var(--text-gray); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Total Processed Sales</span>
+                  <div id="admin-store-sales-count" style="font-size: 13px; font-weight: 800; color: var(--accent-emerald); margin-top: 4px; font-family: var(--font-mono);">0 Transactions</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Platform KPI Summary Cards -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 14px;">
+              <!-- KPI: Active Tier -->
+              <div class="kpi-card accent-amber" style="background: rgba(245,158,11,0.05); border: 1px solid rgba(245,158,11,0.25); padding: 16px; border-radius: 12px;">
+                <span class="kpi-lbl" style="font-size: 10px; font-weight: 800; color: #f59e0b; text-transform: uppercase;">Active Store License Tier</span>
+                <span class="kpi-val" id="platform-admin-active-tier" style="font-size: 22px; font-weight: 900; color: #ffffff; margin-top: 4px; display: block; font-family: var(--font-display);">FREE</span>
+                <span style="font-size: 10px; color: var(--text-gray); margin-top: 4px; display: block;">Local &amp; cloud entitlement state</span>
+              </div>
+
+              <!-- KPI: Pending Claims -->
+              <div class="kpi-card accent-coral" style="background: rgba(239,68,68,0.05); border: 1px solid rgba(239,68,68,0.25); padding: 16px; border-radius: 12px;">
+                <span class="kpi-lbl" style="font-size: 10px; font-weight: 800; color: #ef4444; text-transform: uppercase;">Pending Upgrade Claims</span>
+                <span class="kpi-val" id="platform-admin-pending-claims-kpi" style="font-size: 22px; font-weight: 900; color: #ef4444; margin-top: 4px; display: block; font-family: var(--font-mono);">0</span>
+                <span style="font-size: 10px; color: var(--text-gray); margin-top: 4px; display: block;">Live queue (updates in real-time)</span>
+              </div>
+
+              <!-- KPI: Hardware HWID -->
+              <div class="kpi-card accent-cyan" style="background: rgba(6,182,212,0.05); border: 1px solid rgba(6,182,212,0.25); padding: 16px; border-radius: 12px;">
+                <span class="kpi-lbl" style="font-size: 10px; font-weight: 800; color: var(--accent-cyan); text-transform: uppercase;">Device Hardware ID (HWID)</span>
+                <span class="kpi-val" id="platform-admin-hwid" style="font-size: 13px; font-weight: 800; color: var(--text-white); margin-top: 8px; display: block; font-family: var(--font-mono); word-break: break-all;">—</span>
+                <span style="font-size: 10px; color: var(--text-gray); margin-top: 4px; display: block;">Hardware cryptographic key</span>
+              </div>
+
+              <!-- KPI: Runtime Mode -->
+              <div class="kpi-card accent-emerald" style="background: rgba(0,214,143,0.05); border: 1px solid rgba(0,214,143,0.25); padding: 16px; border-radius: 12px;">
+                <span class="kpi-lbl" style="font-size: 10px; font-weight: 800; color: var(--accent-emerald); text-transform: uppercase;">Runtime Architecture</span>
+                <span class="kpi-val" id="platform-admin-runtime-mode" style="font-size: 13px; font-weight: 800; color: var(--accent-emerald); margin-top: 8px; display: block; font-family: var(--font-mono);">—</span>
+                <span style="font-size: 10px; color: var(--text-gray); margin-top: 4px; display: block;">Sandboxed local database</span>
+              </div>
+            </div>
+
+            <!-- Pending Upgrade Claims Section -->
+            <div class="cloud-vault-card" style="border: 1px solid rgba(255,255,255,0.08); background: rgba(18,20,30,0.85); border-radius: 14px; padding: 20px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                <div>
+                  <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: var(--text-white); font-family: var(--font-display); display: flex; align-items: center; gap: 8px;">
+                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 8px #ef4444;"></span>
+                    Live Pending Customer Upgrade Claims Queue
+                  </h3>
+                  <p style="margin: 4px 0 0; font-size: 11px; color: var(--text-gray);">Requests submitted via WhatsApp &amp; Bank Transfer. Approve to instantly unlock plan entitlements without reload.</p>
+                </div>
+              </div>
+
+              <div style="overflow-x: auto; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                <table class="pos-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
                   <thead>
-                    <tr style="border-bottom:1px solid rgba(255,255,255,0.08); color:var(--text-gray); text-align:left;">
-                      <th style="padding:10px;">Claim ID</th>
-                      <th style="padding:10px;">HWID</th>
-                      <th style="padding:10px;">Module</th>
-                      <th style="padding:10px;">Ref / RRN</th>
-                      <th style="padding:10px;">Amount</th>
-                      <th style="padding:10px;">Date</th>
-                      <th style="padding:10px;">Status</th>
-                      <th style="padding:10px; text-align:right;">Actions</th>
+                    <tr style="background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.08); color: var(--text-gray); text-align: left;">
+                      <th style="padding: 12px 14px;">Claim ID</th>
+                      <th style="padding: 12px 14px;">Store &amp; Merchant Identity</th>
+                      <th style="padding: 12px 14px;">Target Tier</th>
+                      <th style="padding: 12px 14px;">Amount (PKR)</th>
+                      <th style="padding: 12px 14px;">RRN / Transfer Ref</th>
+                      <th style="padding: 12px 14px;">Date</th>
+                      <th style="padding: 12px 14px; text-align: right;">Decision Action</th>
                     </tr>
                   </thead>
                   <tbody id="admin-claims-queue-tbody">
-                    <tr><td colspan="8" style="text-align:center; color:var(--text-dim); padding:16px;">Loading platform admin claims queue...</td></tr>
+                    <tr><td colspan="7" style="text-align: center; color: var(--text-dim); padding: 24px;">Listening for live claims...</td></tr>
                   </tbody>
                 </table>
               </div>
             </div>
 
-            <!-- Device Multi-Store & Multi-Runtime Licensing Engine -->
-            <div class="cloud-vault-card" style="border:1px solid rgba(0,214,143,0.3); background:linear-gradient(180deg, rgba(17,17,24,0.95), rgba(10,25,18,0.7));">
-              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+            <!-- Instant Manual License Override Switcher -->
+            <div class="cloud-vault-card" style="border: 1px solid rgba(0,214,143,0.3); background: linear-gradient(180deg, rgba(17,17,24,0.95), rgba(10,25,18,0.7)); border-radius: 14px; padding: 20px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
                 <div>
-                  <h3 style="margin:0 0 4px; font-size:16px; font-weight:800; color:var(--text-white); display:flex; align-items:center; gap:8px;">
-                    <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--accent-emerald); box-shadow:0 0 8px var(--accent-emerald);"></span>
-                    Device Runtime &amp; Multi-Store Tier Controller
+                  <h3 style="margin: 0 0 4px; font-size: 16px; font-weight: 800; color: var(--text-white); display: flex; align-items: center; gap: 8px;">
+                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent-emerald); box-shadow: 0 0 8px var(--accent-emerald);"></span>
+                    Direct Manual License Tier Override
                   </h3>
-                  <p style="margin:0; font-size:11px; color:var(--text-gray);">Independent paid tiers and storage sandboxes for Web App vs Native App on the same device</p>
-                </div>
-                <div style="display:flex; align-items:center; gap:8px;">
-                  <span id="platform-admin-current-runtime-badge" style="padding:4px 10px; border-radius:8px; font-size:10px; font-weight:800; background:rgba(0,214,143,0.15); color:var(--accent-emerald); border:1px solid rgba(0,214,143,0.3);">Detecting Runtime...</span>
+                  <p style="margin: 0; font-size: 11px; color: var(--text-gray);">Instantly switch or test any subscription plan tier for this store instance with zero delays.</p>
                 </div>
               </div>
 
-              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-bottom:16px;">
-                <!-- Active Device Details -->
-                <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-titanium); border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:8px;">
-                  <span style="font-size:11px; font-weight:800; color:var(--accent-cyan); text-transform:uppercase; letter-spacing:0.5px;">Active Instance Hardware Info</span>
-                  <div style="display:flex; justify-content:space-between; font-size:12px;">
-                    <span style="color:var(--text-gray);">Runtime Mode:</span>
-                    <strong id="platform-admin-runtime-mode" style="color:var(--text-white); font-family:var(--font-mono);">—</strong>
-                  </div>
-                  <div style="display:flex; justify-content:space-between; font-size:12px;">
-                    <span style="color:var(--text-gray);">Device HWID:</span>
-                    <strong id="platform-admin-hwid" style="color:var(--accent-emerald); font-family:var(--font-mono); font-size:11px;">—</strong>
-                  </div>
-                  <div style="display:flex; justify-content:space-between; font-size:12px;">
-                    <span style="color:var(--text-gray);">Active Store Tier:</span>
-                    <strong id="platform-admin-active-tier" style="color:#ffc107; font-weight:800;">—</strong>
-                  </div>
+              <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-titanium); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                  <select id="platform-admin-tier-select" class="pos-input" style="flex: 1; min-width: 240px; height: 42px; font-size: 13px; font-weight: 800; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; color: var(--text-white); padding: 0 12px;">
+                    <option value="FREE">FREE TIER (Basic Sales &amp; Invoicing)</option>
+                    <option value="STARTER">STARTER TIER (Full Standard POS &amp; Inventory)</option>
+                    <option value="PRO">PRO TIER (Cloud Sync, Analytics &amp; Multi-Staff)</option>
+                    <option value="ENTERPRISE">ENTERPRISE TIER (Unlimited Multi-Store &amp; FBR Fiscal)</option>
+                  </select>
+                  <button type="button" class="btn-tactile btn-tactile-primary" id="btn-admin-apply-tier" onclick="if(window.applyAdminTierOverride)window.applyAdminTierOverride();" style="padding: 0 20px; height: 42px; font-size: 12px; font-weight: 900; white-space: nowrap; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,214,143,0.35);">
+                    ⚡ Force Apply Tier
+                  </button>
                 </div>
+                <span style="font-size: 11px; color: var(--text-gray);">Applying a tier immediately recalculates feature locks, entitlement quotas, and UI permissions across all views.</span>
+              </div>
+            </div>
 
-                <!-- Independent License Switcher -->
-                <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-titanium); border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:10px;">
-                  <span style="font-size:11px; font-weight:800; color:var(--accent-emerald); text-transform:uppercase; letter-spacing:0.5px;">Switch Instance License Tier</span>
-                  <div style="display:flex; gap:8px; align-items:center;">
-                    <select id="platform-admin-tier-select" class="pos-input" style="flex:1; height:38px; font-size:12px; font-weight:700;">
-                      <option value="FREE">FREE TIER (Basic Counter &amp; Sales)</option>
-                      <option value="STARTER">STARTER TIER (Full Standard POS)</option>
-                      <option value="PRO">PRO TIER (Cloud Sync &amp; Multi-Staff)</option>
-                      <option value="ENTERPRISE">ENTERPRISE TIER (Unlimited Multi-Store)</option>
-                    </select>
-                    <button type="button" class="btn-tactile btn-tactile-primary" id="btn-admin-apply-tier" onclick="if(window.applyAdminTierOverride)window.applyAdminTierOverride();" style="padding:0 14px; height:38px; font-size:11px; font-weight:800; white-space:nowrap;">Apply Tier</button>
-                  </div>
-                  <span style="font-size:10px; color:var(--text-gray);">Changes apply immediately to this specific runtime sandbox without affecting other stores.</span>
-                </div>
+            <!-- Resolved Claims History (Audit Trail) -->
+            <div class="cloud-vault-card" style="border: 1px solid rgba(255,255,255,0.06); background: rgba(18,20,30,0.65); border-radius: 14px; padding: 20px;">
+              <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 800; color: var(--text-white); font-family: var(--font-display);">Resolved Claims History</h3>
+              <div style="overflow-x: auto; border-radius: 8px; border: 1px solid rgba(255,255,255,0.04);">
+                <table class="pos-table" style="width: 100%; border-collapse: collapse; font-size: 11px;">
+                  <thead>
+                    <tr style="background: rgba(255,255,255,0.02); color: var(--text-gray); text-align: left;">
+                      <th style="padding: 10px 12px;">Claim ID</th>
+                      <th style="padding: 10px 12px;">Store / Merchant</th>
+                      <th style="padding: 10px 12px;">Tier / Module</th>
+                      <th style="padding: 10px 12px;">Amount</th>
+                      <th style="padding: 10px 12px;">RRN Ref</th>
+                      <th style="padding: 10px 12px;">Resolved Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin-resolved-claims-tbody">
+                    <tr><td colspan="6" style="text-align: center; color: var(--text-dim); padding: 16px;">No past resolved claims.</td></tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

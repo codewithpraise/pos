@@ -22483,18 +22483,64 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   function getPlatformAdminClaims() {
     try {
       const stored = localStorage.getItem('valenixia_admin_claims');
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed;
+      }
     } catch (_) {}
+    const defaultStore = (state.preferences && state.preferences.store_name) || localStorage.getItem('valenixia_store_name') || 'Valenixia Commercial Mart';
+    const defaultOwner = (state.preferences && (state.preferences.store_owner || state.preferences.merchant_name)) || localStorage.getItem('valenixia_owner_name') || 'Muhammad Usman';
+    const defaultPhone = (state.preferences && state.preferences.store_phone) || '+92 331 5133226';
+
     return [
-      { id: 'CLAIM-9824', hwid: '91349748AFE9DB...', module: 'STARTER (Full Standard POS)', rrn: 'TRX-882194', amount: 'PKR 3,499', date: '2026-08-30', status: 'PENDING', targetTier: 'STARTER' },
-      { id: 'CLAIM-9825', hwid: '88140294CFA8BB...', module: 'GROWTH (PRO) Multi-Device Cloud Sync', rrn: 'TRX-774012', amount: 'PKR 6,999', date: '2026-08-30', status: 'PENDING', targetTier: 'PRO' },
-      { id: 'CLAIM-9826', hwid: '77210842DBA9CC...', module: 'ENTERPRISE Unlimited Multi-Branch', rrn: 'TRX-993410', amount: 'PKR 11,999', date: '2026-08-29', status: 'APPROVED', targetTier: 'ENTERPRISE' }
+      { 
+        id: 'CLM-982401', 
+        hwid: 'DEV-HWID-91349748AF', 
+        storeName: defaultStore,
+        ownerName: defaultOwner,
+        phone: defaultPhone,
+        module: 'STARTER Plan (MONTHLY)', 
+        rrn: 'TRX-882194', 
+        amount: 'PKR 3,499', 
+        amountVal: 3499, 
+        date: '2026-08-30', 
+        status: 'PENDING', 
+        targetTier: 'STARTER' 
+      },
+      { 
+        id: 'CLM-982402', 
+        hwid: 'DEV-HWID-88140294CF', 
+        storeName: 'Boutique Branch Gulberg',
+        ownerName: 'Hamza Tariq',
+        phone: '+92 300 8492011',
+        module: 'PRO Plan (MONTHLY)', 
+        rrn: 'TRX-774012', 
+        amount: 'PKR 6,999', 
+        amountVal: 6999, 
+        date: '2026-08-30', 
+        status: 'PENDING', 
+        targetTier: 'PRO' 
+      }
     ];
   }
 
   function savePlatformAdminClaims(claims) {
     try {
       localStorage.setItem('valenixia_admin_claims', JSON.stringify(claims));
+      if (syncWorker) {
+        syncWorker.postMessage({
+          type: 'SAVE_ADMIN_CLAIMS',
+          payload: claims
+        });
+      }
+      try {
+        window.dispatchEvent(new CustomEvent('valenixia_claim_updated', { detail: { claims } }));
+        if (typeof BroadcastChannel !== 'undefined') {
+          const bc = new BroadcastChannel('valenixia_admin_bus');
+          bc.postMessage({ type: 'CLAIMS_MUTATED', claims });
+          bc.close();
+        }
+      } catch (_) {}
     } catch (_) {}
   }
 
@@ -22518,62 +22564,135 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     if (typeof applyEntitlementsFromTier === 'function') applyEntitlementsFromTier(tier);
     if (typeof updateTierBadgeUI === 'function') updateTierBadgeUI();
     if (typeof renderPlatformAdminRuntimeLicensing === 'function') renderPlatformAdminRuntimeLicensing();
+    if (typeof renderPlatformAdminStoreIdentity === 'function') renderPlatformAdminStoreIdentity();
   }
   window.applyActiveTierToSystem = applyActiveTierToSystem;
 
-  function renderPlatformAdminClaimsQueue() {
-    const tbody = document.getElementById('admin-claims-queue-tbody');
-    if (!tbody) return;
+  function renderPlatformAdminStoreIdentity() {
+    const prefs = state.preferences || {};
+    const storeName = prefs.store_name || localStorage.getItem('valenixia_store_name') || localStorage.getItem('store_name') || 'Valenixia Commercial Store';
+    const ownerName = prefs.store_owner || prefs.merchant_name || localStorage.getItem('valenixia_owner_name') || 'Valenixia Primary Merchant';
+    const phone = prefs.store_phone || localStorage.getItem('valenixia_store_phone') || '+92 331 5133226';
+    const category = prefs.store_mode || localStorage.getItem('valenixia_store_mode') || 'General Retail & Commerce';
+    
+    const catalogCount = state.inventory ? state.inventory.length : 0;
+    const salesCount = state.orders ? state.orders.length : (state.salesHistory ? state.salesHistory.length : 0);
 
-    const claims = getPlatformAdminClaims();
+    const storeNameEl = document.getElementById('admin-store-name');
+    const ownerNameEl = document.getElementById('admin-owner-name');
+    const phoneEl = document.getElementById('admin-store-phone');
+    const catEl = document.getElementById('admin-store-category');
+    const catalogEl = document.getElementById('admin-store-catalog-size');
+    const salesEl = document.getElementById('admin-store-sales-count');
 
-    const rowsHtml = claims.map(c => `
-      <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
-        <td style="padding:10px; font-family:var(--font-mono); font-weight:800; color:var(--accent-emerald);">${c.id}</td>
-        <td style="padding:10px; font-family:var(--font-mono); color:var(--text-white); font-size:11px;">${c.hwid}</td>
-        <td style="padding:10px; font-weight:700; color:var(--text-white);">${c.module}</td>
-        <td style="padding:10px; font-family:var(--font-mono); color:var(--text-gray);">${c.rrn}</td>
-        <td style="padding:10px; font-weight:800; color:var(--accent-emerald);">${c.amount}</td>
-        <td style="padding:10px; color:var(--text-gray); font-size:11px;">${c.date}</td>
-        <td style="padding:10px;">
-          <span style="padding:3px 8px; border-radius:12px; font-size:10px; font-weight:800; ${c.status === 'APPROVED' ? 'background:rgba(0,214,143,0.15); color:var(--accent-emerald); border:1px solid rgba(0,214,143,0.3);' : (c.status === 'REJECTED' ? 'background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3);' : 'background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.3);')}">${c.status}</span>
-        </td>
-        <td style="padding:10px; text-align:right;">
-          ${c.status === 'PENDING' ? `
-            <button type="button" class="action-btn dm-btn-emerald" onclick="if(window.approveClaimAdmin)window.approveClaimAdmin('${c.id}')" style="padding:5px 12px; font-size:11px; font-weight:800; border-radius:6px; cursor:pointer;">✓ Approve</button>
-            <button type="button" class="action-btn action-danger" onclick="if(window.rejectClaimAdmin)window.rejectClaimAdmin('${c.id}')" style="padding:5px 12px; font-size:11px; font-weight:800; border-radius:6px; margin-left:6px; cursor:pointer;">✕ Reject</button>
-          ` : `<span style="font-size:11px; color:var(--text-dim); font-weight:700;">${c.status === 'APPROVED' ? 'Active Entitlement' : 'Dismissed'}</span>`}
-        </td>
-      </tr>
-    `).join('');
-
-    setHtml(tbody, rowsHtml);
+    if (storeNameEl) storeNameEl.textContent = storeName;
+    if (ownerNameEl) ownerNameEl.textContent = ownerName;
+    if (phoneEl) phoneEl.textContent = phone;
+    if (catEl) catEl.textContent = category.toUpperCase();
+    if (catalogEl) catalogEl.textContent = `${catalogCount.toLocaleString()} SKUs Indexed`;
+    if (salesEl) salesEl.textContent = `${salesCount.toLocaleString()} Invoices Processed`;
   }
+  window.renderPlatformAdminStoreIdentity = renderPlatformAdminStoreIdentity;
 
-  function renderPlatformAdminOrgsDirectory() {
-    const tbody = document.getElementById('admin-orgs-directory-tbody');
-    if (!tbody) return;
+  let lastRenderedPendingClaimsCount = -1;
+  let lastRenderedClaimsJson = '';
 
-    const dummyOrgs = [
-      { id: 'ORG_MAIN_01', name: 'Master Retail Store', tier: 'ENTERPRISE', limit: '10 Terminals / 5 Branches', addons: 'FBR Fiscal, Multi-Store, WhatsApp', status: 'ACTIVE' },
-      { id: 'ORG_BRANCH_02', name: 'Boutique Branch Gulberg', tier: 'GROWTH', limit: '3 Terminals / 1 Branch', addons: 'WhatsApp Receipts', status: 'ACTIVE' }
-    ];
+  function renderPlatformAdminClaimsQueue() {
+    const claims = getPlatformAdminClaims();
+    const pendingClaims = claims.filter(c => c.status === 'PENDING');
+    const resolvedClaims = claims.filter(c => c.status !== 'PENDING');
 
-    const rowsHtml = dummyOrgs.map(o => `
-      <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
-        <td style="padding:10px; font-family:var(--font-mono); color:var(--text-white); font-weight:700;">${o.id}</td>
-        <td style="padding:10px; font-weight:800; color:var(--text-white);">${o.name}</td>
-        <td style="padding:10px;"><span style="padding:3px 8px; border-radius:12px; background:rgba(0,214,143,0.15); color:var(--accent-emerald); font-size:10px; font-weight:800; border:1px solid rgba(0,214,143,0.3);">${o.tier}</span></td>
-        <td style="padding:10px; color:var(--text-white); font-size:11px;">${o.limit}</td>
-        <td style="padding:10px; color:var(--text-gray); font-size:11px;">${o.addons}</td>
-        <td style="padding:10px;"><span style="padding:3px 8px; border-radius:12px; background:rgba(0,214,143,0.15); color:var(--accent-emerald); font-size:10px; font-weight:800;">${o.status}</span></td>
-        <td style="padding:10px; text-align:right;">
-          <button type="button" class="action-btn action-secondary" style="padding:4px 10px; font-size:10px; font-weight:700;">Grant Add-on</button>
-        </td>
-      </tr>
-    `).join('');
+    // Notify if new claims arrived live while admin screen is active
+    if (lastRenderedPendingClaimsCount !== -1 && pendingClaims.length > lastRenderedPendingClaimsCount) {
+      const newestClaim = pendingClaims[0];
+      if (typeof showNotificationToast === 'function') {
+        showNotificationToast(`🔔 New payment claim ${newestClaim.id} received from ${newestClaim.storeName || 'Store'}!`, 'info', 5000);
+      }
+      if (typeof playAudioSignal === 'function') playAudioSignal('success');
+    }
+    lastRenderedPendingClaimsCount = pendingClaims.length;
+    lastRenderedClaimsJson = JSON.stringify(claims);
 
-    setHtml(tbody, rowsHtml);
+    // Update Live KPI Counter
+    const kpiCountEl = document.getElementById('platform-admin-pending-claims-kpi');
+    if (kpiCountEl) kpiCountEl.textContent = pendingClaims.length;
+
+    // Render Pending Claims Queue
+    const tbody = document.getElementById('admin-claims-queue-tbody');
+    if (tbody) {
+      if (pendingClaims.length === 0) {
+        setHtml(tbody, `
+          <tr>
+            <td colspan="7" style="text-align: center; padding: 36px 16px; color: var(--text-gray);">
+              <div style="font-size: 32px; margin-bottom: 8px;">✨</div>
+              <div style="font-weight: 800; color: var(--text-white); font-size: 14px;">No Pending Claims in Queue</div>
+              <div style="font-size: 12px; margin-top: 4px; color: var(--text-dim);">Listening live: customer upgrade claims submitted via WhatsApp or Bank Transfer will appear here instantly.</div>
+            </td>
+          </tr>
+        `);
+      } else {
+        const rowsHtml = pendingClaims.map(c => {
+          const tierBadgeColor = c.targetTier === 'ENTERPRISE' 
+            ? 'background:rgba(168,85,247,0.15); color:#a855f7; border:1px solid rgba(168,85,247,0.35);' 
+            : (c.targetTier === 'PRO' || (c.module && c.module.includes('PRO'))
+              ? 'background:rgba(0,214,143,0.15); color:var(--accent-emerald); border:1px solid rgba(0,214,143,0.35);'
+              : 'background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.35);');
+
+          const sName = c.storeName || 'Valenixia Commercial Store';
+          const oName = c.ownerName || 'Store Merchant';
+          const phone = c.phone || '—';
+
+          return `
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.06); transition: background 0.2s;">
+              <td style="padding:12px 14px; font-family:var(--font-mono); font-weight:800; color:var(--accent-emerald); font-size:12px;">${c.id}</td>
+              <td style="padding:12px 14px;">
+                <div style="font-weight:800; color:var(--text-white); font-size:13px;">${sName}</div>
+                <div style="font-size:11px; color:var(--text-gray); margin-top:2px;">👤 ${oName} • <span style="font-family:var(--font-mono); color:var(--accent-cyan);">${phone}</span></div>
+              </td>
+              <td style="padding:12px 14px;">
+                <span style="display:inline-block; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:800; ${tierBadgeColor}">${c.module || (c.targetTier + ' Plan')}</span>
+              </td>
+              <td style="padding:12px 14px; font-weight:900; color:var(--text-white); font-size:13px; font-family:var(--font-mono);">${c.amount}</td>
+              <td style="padding:12px 14px; font-family:var(--font-mono); color:var(--text-gray); font-size:11px;">${c.rrn}</td>
+              <td style="padding:12px 14px; color:var(--text-gray); font-size:11px;">${c.date}</td>
+              <td style="padding:12px 14px; text-align:right; white-space:nowrap;">
+                <button type="button" class="btn-tactile" onclick="if(window.approveClaimAdmin)window.approveClaimAdmin('${c.id}')" style="background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#080810; font-weight:900; font-size:11px; padding:6px 14px; border-radius:6px; border:none; cursor:pointer; box-shadow:0 2px 8px rgba(16,185,129,0.3); margin-right:6px;">
+                  ✓ Approve &amp; Unlock
+                </button>
+                <button type="button" class="btn-tactile" onclick="if(window.rejectClaimAdmin)window.rejectClaimAdmin('${c.id}')" style="background:rgba(239,68,68,0.15); color:#ef4444; font-weight:800; font-size:11px; padding:6px 12px; border-radius:6px; border:1px solid rgba(239,68,68,0.35); cursor:pointer;">
+                  ✕ Reject
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+        setHtml(tbody, rowsHtml);
+      }
+    }
+
+    // Render Resolved Claims History Table
+    const resolvedTbody = document.getElementById('admin-resolved-claims-tbody');
+    if (resolvedTbody) {
+      if (resolvedClaims.length === 0) {
+        setHtml(resolvedTbody, `<tr><td colspan="6" style="text-align:center; color:var(--text-dim); padding:16px;">No past resolved claims.</td></tr>`);
+      } else {
+        const resolvedRowsHtml = resolvedClaims.slice(0, 10).map(c => `
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+            <td style="padding:10px 12px; font-family:var(--font-mono); font-weight:700; color:var(--text-gray); font-size:11px;">${c.id}</td>
+            <td style="padding:10px 12px; color:var(--text-white); font-size:11px; font-weight:700;">${c.storeName || 'Store'} <span style="color:var(--text-dim); font-size:10px;">(${c.ownerName || 'Merchant'})</span></td>
+            <td style="padding:10px 12px; font-weight:700; color:var(--text-white); font-size:11px;">${c.module || c.targetTier}</td>
+            <td style="padding:10px 12px; font-weight:800; color:var(--text-white); font-size:11px; font-family:var(--font-mono);">${c.amount}</td>
+            <td style="padding:10px 12px; font-family:var(--font-mono); color:var(--text-dim); font-size:10px;">${c.rrn}</td>
+            <td style="padding:10px 12px;">
+              <span style="padding:2px 8px; border-radius:10px; font-size:10px; font-weight:800; ${c.status === 'APPROVED' ? 'background:rgba(0,214,143,0.15); color:var(--accent-emerald); border:1px solid rgba(0,214,143,0.3);' : 'background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3);'}">
+                ${c.status}
+              </span>
+            </td>
+          </tr>
+        `).join('');
+        setHtml(resolvedTbody, resolvedRowsHtml);
+      }
+    }
   }
 
   window.approveClaimAdmin = function(claimId) {
@@ -22582,8 +22701,9 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     let targetTier = 'STARTER';
     if (claim) {
       claim.status = 'APPROVED';
+      claim.resolvedAt = new Date().toISOString();
       if (claim.targetTier) {
-        targetTier = claim.targetTier;
+        targetTier = claim.targetTier.toUpperCase();
       } else if (claim.module && claim.module.toLowerCase().includes('enterprise')) {
         targetTier = 'ENTERPRISE';
       } else if (claim.module && (claim.module.toLowerCase().includes('pro') || claim.module.toLowerCase().includes('growth'))) {
@@ -22596,8 +22716,11 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     
     applyActiveTierToSystem(targetTier);
     renderPlatformAdminClaimsQueue();
+    renderPlatformAdminRuntimeLicensing();
+    renderPlatformAdminStoreIdentity();
+
     if (typeof showNotificationToast === 'function') {
-      showNotificationToast(`Claim ${claimId} APPROVED! Store upgraded to ${targetTier} plan. All features unlocked!`, 'success', 5000);
+      showNotificationToast(`🎉 Claim ${claimId} APPROVED! Store upgraded to ${targetTier} plan. All features unlocked!`, 'success', 5000);
     }
     if (typeof playAudioSignal === 'function') playAudioSignal('success');
   };
@@ -22607,11 +22730,12 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     const claim = claims.find(c => c.id === claimId);
     if (claim) {
       claim.status = 'REJECTED';
+      claim.resolvedAt = new Date().toISOString();
       savePlatformAdminClaims(claims);
     }
     renderPlatformAdminClaimsQueue();
     if (typeof showNotificationToast === 'function') {
-      showNotificationToast(`Claim ${claimId} marked as rejected.`, 'warning', 3000);
+      showNotificationToast(`❌ Claim ${claimId} marked as rejected and removed from pending queue.`, 'warning', 3000);
     }
   };
 
@@ -22634,7 +22758,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     const tierEl = document.getElementById('platform-admin-active-tier');
     const selectEl = document.getElementById('platform-admin-tier-select');
 
-    if (badgeEl) badgeEl.textContent = isNative ? '📱 NATIVE INSTANCE' : '🌐 WEB BROWSER INSTANCE';
+    if (badgeEl) badgeEl.textContent = isNative ? '📱 NATIVE RUNTIME INSTANCE' : '🌐 WEB BROWSER INSTANCE';
     if (modeEl) modeEl.textContent = runtimeName;
     if (hwidEl) hwidEl.textContent = hwid;
     if (tierEl) tierEl.textContent = activeTier;
@@ -22647,6 +22771,8 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     if (!selectEl) return;
     const newTier = selectEl.value.toUpperCase();
     applyActiveTierToSystem(newTier);
+    renderPlatformAdminRuntimeLicensing();
+    renderPlatformAdminStoreIdentity();
     if (typeof showNotificationToast === 'function') {
       showNotificationToast(`License tier successfully updated to ${newTier}! All ${newTier} features are now unlocked.`, 'success', 5000);
     }
@@ -22654,11 +22780,53 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   };
 
   function renderPlatformAdminScreen() {
+    renderPlatformAdminStoreIdentity();
     renderPlatformAdminClaimsQueue();
-    renderPlatformAdminOrgsDirectory();
     renderPlatformAdminRuntimeLicensing();
   }
   window.renderPlatformAdminScreen = renderPlatformAdminScreen;
+
+  // Real-Time Live Sync Watchers (Zero-refresh live updates)
+  window.addEventListener('valenixia_claim_updated', () => {
+    const adminView = document.getElementById('view-platform-admin');
+    if (adminView && (state.activeScreen === 'platform-admin' || adminView.classList.contains('active'))) {
+      renderPlatformAdminClaimsQueue();
+    }
+  });
+
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'valenixia_admin_claims' || e.key === 'valenixia_tier') {
+      const adminView = document.getElementById('view-platform-admin');
+      if (adminView && (state.activeScreen === 'platform-admin' || adminView.classList.contains('active'))) {
+        renderPlatformAdminClaimsQueue();
+        renderPlatformAdminRuntimeLicensing();
+      }
+    }
+  });
+
+  if (typeof BroadcastChannel !== 'undefined') {
+    try {
+      const liveAdminBus = new BroadcastChannel('valenixia_admin_bus');
+      liveAdminBus.onmessage = () => {
+        const adminView = document.getElementById('view-platform-admin');
+        if (adminView && (state.activeScreen === 'platform-admin' || adminView.classList.contains('active'))) {
+          renderPlatformAdminClaimsQueue();
+        }
+      };
+    } catch (_) {}
+  }
+
+  // Fast background watcher interval: updates claims queue live if changes detected
+  setInterval(() => {
+    const adminView = document.getElementById('view-platform-admin');
+    if (adminView && (state.activeScreen === 'platform-admin' || adminView.classList.contains('active'))) {
+      const currentClaims = getPlatformAdminClaims();
+      const currentJson = JSON.stringify(currentClaims);
+      if (currentJson !== lastRenderedClaimsJson) {
+        renderPlatformAdminClaimsQueue();
+      }
+    }
+  }, 1200);
 
   // ══════════════════════════════════════════════════════════════════════════════
   // MASTER PLATFORM ADMIN STEALTH GATEWAY & SECRET AUTHENTICATION CONTROLLER
@@ -22684,10 +22852,6 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     try {
       if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem('valenixia_master_admin_auth');
     } catch (_) {}
-    const navBtn = document.getElementById('nav-platform-admin');
-    if (navBtn) navBtn.style.display = 'none';
-    const topbarBtn = document.getElementById('btn-topbar-platform-admin');
-    if (topbarBtn) topbarBtn.style.display = 'none';
     if (typeof showNotificationToast === 'function') {
       showNotificationToast('🔒 Platform Admin session locked.', 'info', 3000);
     }
@@ -22699,10 +22863,6 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
 
   async function requestMasterAdminAccess(onSuccessCallback) {
     if (isMasterAdminAuthenticated()) {
-      const navBtn = document.getElementById('nav-platform-admin');
-      if (navBtn) navBtn.style.display = 'inline-flex';
-      const topbarBtn = document.getElementById('btn-topbar-platform-admin');
-      if (topbarBtn) topbarBtn.style.display = 'flex';
       if (typeof switchActiveScreen === 'function') switchActiveScreen('platform-admin');
       if (typeof onSuccessCallback === 'function') onSuccessCallback();
       return true;
@@ -22755,12 +22915,6 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
         if (typeof sessionStorage !== 'undefined') sessionStorage.setItem('valenixia_master_admin_auth', 'true');
       } catch (_) {}
 
-      // Reveal session nav items
-      const navBtn = document.getElementById('nav-platform-admin');
-      if (navBtn) navBtn.style.display = 'inline-flex';
-      const topbarBtn = document.getElementById('btn-topbar-platform-admin');
-      if (topbarBtn) topbarBtn.style.display = 'flex';
-
       if (typeof showNotificationToast === 'function') {
         showNotificationToast('👑 Master Platform Admin Unlocked for this session.', 'success', 4000);
       }
@@ -22795,73 +22949,16 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   window.unlockAdmin = requestMasterAdminAccess;
 
   // ══════════════════════════════════════════════════════════════════════════════
-  // STEALTH GESTURE & SECRET TRIGGER LISTENERS (5-Tap, Hotkeys, Secret Codes)
+  // STEALTH TRIGGER 2 ONLY: SECRET BARCODE / SEARCH CODE LISTENER
   // ══════════════════════════════════════════════════════════════════════════════
   function initMasterAdminStealthTriggers() {
-    let secretTapCount = 0;
-    let lastTapTimestamp = 0;
-
-    function handleSecretTap(e) {
-      const now = Date.now();
-      if (now - lastTapTimestamp > 2000) {
-        secretTapCount = 0;
-      }
-      lastTapTimestamp = now;
-      secretTapCount++;
-
-      // Subtle haptic response on mobile
-      if (secretTapCount >= 3 && typeof navigator !== 'undefined' && navigator.vibrate) {
-        try { navigator.vibrate(secretTapCount === 5 ? [50, 50, 50] : 30); } catch (_) {}
-      }
-
-      if (secretTapCount >= 5) {
-        secretTapCount = 0;
-        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-        if (e && typeof e.preventDefault === 'function') e.preventDefault();
-        requestMasterAdminAccess();
-      }
-    }
-
-    // Attach 5-tap gesture to stealth target elements (Brand title, active screen title, lock screen header)
-    const stealthTargets = [
-      'active-view-title',
-      'sidebar-store-name',
-      'sidebar-logo-icon-container',
-      'topbar-brand-title',
-      'app-sidebar',
-      'pin-lock-header'
-    ];
-
-    stealthTargets.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.addEventListener('click', handleSecretTap);
-        el.addEventListener('touchend', handleSecretTap);
-      }
-    });
-
-    const sidebarBrand = document.querySelector('.sidebar-brand');
-    if (sidebarBrand) {
-      sidebarBrand.addEventListener('click', handleSecretTap);
-      sidebarBrand.addEventListener('touchend', handleSecretTap);
-    }
-
-    // Desktop Keyboard Shortcut: Ctrl + Shift + A / Cmd + Shift + A
-    window.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
-        e.preventDefault();
-        requestMasterAdminAccess();
-      }
-    });
-
-    // Secret Barcode / Search Code Listener
-    const secretCodes = ['**9999**', '*#9999#', '*#ADMIN#', '*#MASTER#', '*#777#'];
+    const secretCodes = ['**9999**', '*#9999#', '*#ADMIN#', '*#MASTER#', '*#777#', '9999', 'ADMIN9999', '**9999', '##9999'];
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         const target = e.target;
         if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
           const val = (target.value || '').trim();
-          if (secretCodes.includes(val) || val === '**9999' || val === '##9999') {
+          if (secretCodes.includes(val)) {
             e.preventDefault();
             e.stopPropagation();
             target.value = '';

@@ -345,17 +345,72 @@
       const planId = claimData.planId || document.getElementById('form-billing-selected-tier')?.value || 'PRO_SUBSCRIPTION';
       const amount = claimData.amount || parseFloat(document.getElementById('form-billing-amount')?.value || 6999);
       const hwidVal = window.__valenixiaHWID || localStorage.getItem('valenixia_hwid') || 'DEV-HWID-LOCAL-NODE';
+      const targetTier = (planId.split('_')[0] || 'PRO').toUpperCase();
+
+      const storeNameVal = (window.state && window.state.preferences && window.state.preferences.store_name) || localStorage.getItem('valenixia_store_name') || localStorage.getItem('store_name') || 'Valenixia Commercial Store';
+      const ownerNameVal = (window.state && window.state.preferences && (window.state.preferences.store_owner || window.state.preferences.merchant_name)) || localStorage.getItem('valenixia_owner_name') || localStorage.getItem('owner_name') || 'Store Merchant';
+      const phoneVal = (window.state && window.state.preferences && window.state.preferences.store_phone) || localStorage.getItem('valenixia_store_phone') || '+92 331 5133226';
+      const categoryVal = (window.state && window.state.preferences && window.state.preferences.store_mode) || 'General Retail';
 
       const submitBtn = document.getElementById('btn-billing-upgrade-submit');
       if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting Claim…'; }
 
-      // Open WhatsApp prefilled message
+      // 1. Instantly log claim into Platform Admin Claims Queue
+      const newClaim = {
+        id: 'CLM-' + Math.floor(100000 + Math.random() * 900000),
+        hwid: hwidVal,
+        storeName: storeNameVal,
+        ownerName: ownerNameVal,
+        phone: phoneVal,
+        category: categoryVal,
+        module: `${targetTier} Plan (${activeCycle.toUpperCase()})`,
+        targetTier: targetTier,
+        rrn: rrn || 'WA_TX_' + Math.random().toString(36).substring(2, 8).toUpperCase(),
+        amount: `PKR ${amount.toLocaleString()}`,
+        amountVal: amount,
+        date: new Date().toISOString().split('T')[0],
+        timestamp: Date.now(),
+        status: 'PENDING'
+      };
+
+      try {
+        let claims = [];
+        try {
+          const stored = localStorage.getItem('valenixia_admin_claims');
+          if (stored) claims = JSON.parse(stored);
+        } catch (_) {}
+        if (!Array.isArray(claims)) claims = [];
+        claims.unshift(newClaim);
+        localStorage.setItem('valenixia_admin_claims', JSON.stringify(claims));
+
+        // Instant cross-component & cross-tab real-time dispatch
+        try {
+          window.dispatchEvent(new CustomEvent('valenixia_claim_updated', { detail: newClaim }));
+          if (typeof BroadcastChannel !== 'undefined') {
+            const bc = new BroadcastChannel('valenixia_admin_bus');
+            bc.postMessage({ type: 'NEW_CLAIM', claim: newClaim });
+            bc.close();
+          }
+        } catch (_) {}
+
+        if (window.syncWorker) {
+          window.syncWorker.postMessage({
+            type: 'SAVE_ADMIN_CLAIM',
+            payload: newClaim
+          });
+        }
+      } catch (err) {
+        console.warn('[ValenixiaSubscription] Failed to persist admin claim:', err);
+      }
+
+      // 2. Open WhatsApp prefilled message
       const waText = encodeURIComponent(
-        `Assalam-o-Alaikum,\nI have transferred payment for Valenixia POS Upgrade.\n\nPlan: ${planId}\nAmount: PKR ${amount.toLocaleString()}\nDevice ID (HWID): ${hwidVal}\nTransaction Ref / RRN: ${rrn || 'Attached in Screenshot'}\n\nPlease verify and activate my account. Thank you!`
+        `Assalam-o-Alaikum,\nI have transferred payment for Valenixia POS Upgrade.\n\nClaim ID: ${newClaim.id}\nPlan: ${targetTier} (${activeCycle.toUpperCase()})\nAmount: PKR ${amount.toLocaleString()}\nDevice ID (HWID): ${hwidVal}\nTransaction Ref / RRN: ${rrn || 'Attached in Screenshot'}\n\nPlease verify and activate my account. Thank you!`
       );
       const waUrl = `https://wa.me/923315133226?text=${waText}`;
       window.open(waUrl, '_blank', 'noopener,noreferrer');
 
+      // 3. Post to backend server if online
       try {
         const serverBase = window.__valenixiaServerUrl || location.origin;
         if (location.protocol !== 'file:') {
@@ -363,8 +418,9 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              plan_id: planId.split('_')[0],
-              rrn_reference: rrn || 'WHATSAPP_SCREENSHOT_CLAIM',
+              claim_id: newClaim.id,
+              plan_id: targetTier,
+              rrn_reference: newClaim.rrn,
               amount: amount,
               mode: activeCycle,
               rail: activePaymentRail,
@@ -373,22 +429,15 @@
             })
           }).catch(() => {});
         }
+      } catch (_) {}
 
-        const targetTier = planId.split('_')[0] || 'PRO';
-        if (typeof window.applySubscriptionUpgrade === 'function') {
-          window.applySubscriptionUpgrade(targetTier, 30);
-        }
-
-        if (typeof showNotificationToast === 'function') {
-          showNotificationToast(' Payment claim logged! WhatsApp opened and 30 days added to your subscription.', 'success', 5000);
-        }
-
-        this.activateTab('history');
-      } catch (err) {
-        console.warn('[ValenixiaSubscription] Claim error:', err);
-      } finally {
-        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Claim via WhatsApp '; }
+      // 4. Notify user that claim is pending admin approval (NO AUTOMATIC TIER UNLOCK)
+      if (typeof showNotificationToast === 'function') {
+        showNotificationToast(` Payment claim ${newClaim.id} submitted! WhatsApp opened. Your claim is pending approval by the Platform Admin.`, 'success', 6000);
       }
+
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Claim via WhatsApp '; }
+      this.activateTab('history');
     },
 
     async refresh() {
