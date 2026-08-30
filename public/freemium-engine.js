@@ -35,7 +35,7 @@ const PLAN_LIMITS = {
   [PLANS.FREE]: {
     displayName: "Valenixia Free Basic",
     monthlyPKR: 0, annualPKR: 0, lifetimePKR: null,
-    devices: 1, branches: 1, transactionsPerDay: 20, transactionsPerMonth: 50, products: 25, customers: 50, employees: 1,
+    devices: 1, branches: 1, transactionsPerDay: 20, transactionsPerMonth: 600, products: 25, customers: 50, employees: 1,
     buybacks: 5,
     transactionHistoryDays: 30, receiptBranding: "valenixia",
     backup: "manual", fbrCompliance: false, multiDeviceSync: false, apiAccess: false,

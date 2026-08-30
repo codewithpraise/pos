@@ -68,7 +68,7 @@ console.log('2. Testing Free Tier Limits...');
 const freeLimits = getLimits('FREE');
 console.log('   Free tier limits:', JSON.stringify(freeLimits));
 assert.strictEqual(freeLimits.transactionsPerDay, 20);
-assert.strictEqual(freeLimits.transactionsPerMonth, 50);
+assert.strictEqual(freeLimits.transactionsPerMonth, 600);
 assert.strictEqual(freeLimits.products, 25);
 assert.strictEqual(freeLimits.customers, 50);
 assert.strictEqual(freeLimits.devices, 1);
