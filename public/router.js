@@ -189,7 +189,7 @@
       viewId: 'view-platform-admin',
       title: 'Platform Admin',
       renderer: 'renderPlatformAdminScreen',
-      renderTargets: ['admin-claims-queue-tbody']
+      renderTargets: ['admin-claims-queue-tbody', 'admin-active-subscribers-tbody']
     },
     'apps-download': {
       viewId: 'view-apps-download',

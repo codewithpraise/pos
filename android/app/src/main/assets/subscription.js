@@ -69,6 +69,7 @@
   // Centralized Claims & Entitlements Store Manager
   const ValenixiaClaimsManager = {
     STORAGE_KEY: 'valenixia_admin_claims',
+    SUBSCRIBERS_KEY: 'valenixia_admin_subscribers',
 
     getAll() {
       try {
@@ -146,6 +147,97 @@
       claim.resolvedAt = new Date().toISOString();
       this.save(list);
       return claim;
+    },
+
+    getActiveSubscribers() {
+      const activeTier = (typeof window.getActiveTier === 'function' ? window.getActiveTier() : (window.__valenixiaTier || localStorage.getItem('valenixia_tier') || 'FREE')).toUpperCase();
+      const currentExpMs = parseInt(localStorage.getItem('valenixia_subscription_expires_at') || '0', 10);
+      const isLifetime = (localStorage.getItem('valenixia_billing_cycle') || '').toUpperCase() === 'LIFETIME';
+      const hwid = window.__valenixiaHWID || localStorage.getItem('valenixia_hwid') || 'DEV-HWID-LOCAL-NODE';
+      const storeName = localStorage.getItem('valenixia_store_name') || localStorage.getItem('store_name') || 'Valenixia Commercial Store';
+      const ownerName = localStorage.getItem('valenixia_owner_name') || 'Valenixia Primary Merchant';
+      const phone = localStorage.getItem('valenixia_store_phone') || '+92 331 5133226';
+
+      let subscribers = [];
+      try {
+        const raw = localStorage.getItem(this.SUBSCRIBERS_KEY);
+        if (raw) subscribers = JSON.parse(raw);
+      } catch (_) {}
+      if (!Array.isArray(subscribers)) subscribers = [];
+
+      // Ensure current active store node is represented in the directory
+      const primaryIndex = subscribers.findIndex(s => s.id === 'current_store' || s.hwid === hwid);
+      const currentStoreEntry = {
+        id: 'current_store',
+        hwid,
+        storeName,
+        ownerName,
+        phone,
+        tier: activeTier,
+        agreementType: isLifetime ? 'Perpetual AMC' : 'Monthly Cloud SaaS',
+        isLifetime,
+        expiresAt: currentExpMs,
+        isLocalTerminal: true
+      };
+
+      if (primaryIndex >= 0) {
+        subscribers[primaryIndex] = { ...subscribers[primaryIndex], ...currentStoreEntry };
+      } else {
+        subscribers.unshift(currentStoreEntry);
+      }
+
+      // Merge approved claims as active subscriber records
+      const claims = this.getAll();
+      claims.filter(c => c.status === 'APPROVED').forEach(c => {
+        if (!subscribers.some(s => s.hwid === c.hwid || s.id === c.id)) {
+          subscribers.push({
+            id: c.id,
+            hwid: c.hwid || 'HW-' + c.id,
+            storeName: c.storeName || 'Valenixia Branch',
+            ownerName: c.ownerName || 'Merchant',
+            phone: c.phone || '—',
+            tier: c.targetTier || 'PRO',
+            agreementType: 'Monthly Cloud SaaS',
+            isLifetime: false,
+            expiresAt: Date.now() + (30 * 86400000),
+            isLocalTerminal: false
+          });
+        }
+      });
+
+      return subscribers;
+    },
+
+    downgradeSubscriber(subscriberId, targetTier = 'STARTER') {
+      const normTier = (targetTier || 'STARTER').toUpperCase();
+      const subscribers = this.getActiveSubscribers();
+      const sub = subscribers.find(s => String(s.id).trim() === String(subscriberId).trim() || String(s.hwid).trim() === String(subscriberId).trim());
+      
+      if (sub) {
+        sub.tier = normTier;
+        if (normTier === 'FREE') {
+          sub.expiresAt = 0;
+        } else {
+          sub.expiresAt = Date.now() + (30 * 86400000);
+        }
+      }
+
+      // If downgrading current local terminal or primary store:
+      if (!sub || sub.isLocalTerminal || sub.id === 'current_store' || sub.hwid === (window.__valenixiaHWID || localStorage.getItem('valenixia_hwid'))) {
+        if (typeof window.applyActiveTierToSystem === 'function') {
+          window.applyActiveTierToSystem(normTier, {
+            daysToAdd: (normTier === 'FREE' ? 0 : 30),
+            expiryMs: (normTier === 'FREE' ? 0 : Date.now() + 30 * 86400000)
+          });
+        }
+      }
+
+      try {
+        localStorage.setItem(this.SUBSCRIBERS_KEY, JSON.stringify(subscribers));
+      } catch (_) {}
+
+      window.dispatchEvent(new CustomEvent('valenixia_claims_changed', { detail: { subscribers } }));
+      return { success: true, targetTier: normTier, subscriber: sub };
     }
   };
   window.ValenixiaClaimsManager = ValenixiaClaimsManager;

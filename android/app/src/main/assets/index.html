@@ -3424,6 +3424,42 @@
               </div>
             </div>
 
+            <!-- Active Subscriptions & Perpetual AMC License Directory (SEPARATE SECTION) -->
+            <div class="cloud-vault-card" style="border: 1px solid rgba(0,214,143,0.3); background: rgba(14,22,28,0.92); border-radius: 14px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.35);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+                <div>
+                  <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: var(--text-white); font-family: var(--font-display); display: flex; align-items: center; gap: 8px;">
+                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent-emerald); box-shadow: 0 0 8px var(--accent-emerald);"></span>
+                    Active Subscriptions &amp; Perpetual AMC License Directory
+                  </h3>
+                  <p style="margin: 4px 0 0; font-size: 11px; color: var(--text-gray);">Live database of merchants and terminals with active SaaS subscriptions or Perpetual AMC plans. Downgrade or manage individual tier entitlements directly.</p>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <span id="platform-admin-active-subscribers-kpi" style="padding: 5px 14px; border-radius: 20px; font-size: 11px; font-weight: 800; background: rgba(0,214,143,0.15); color: var(--accent-emerald); border: 1px solid rgba(0,214,143,0.35); text-transform: uppercase;">
+                    1 Active Subscriber
+                  </span>
+                </div>
+              </div>
+
+              <div style="overflow-x: auto; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);">
+                <table class="pos-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                  <thead>
+                    <tr style="background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.08); color: var(--text-gray); text-align: left;">
+                      <th style="padding: 12px 14px;">Store &amp; Merchant</th>
+                      <th style="padding: 12px 14px;">Terminal Device HWID</th>
+                      <th style="padding: 12px 14px;">Active Plan Tier</th>
+                      <th style="padding: 12px 14px;">Agreement Type</th>
+                      <th style="padding: 12px 14px;">Expiry / Remaining Days</th>
+                      <th style="padding: 12px 14px; text-align: right;">Tier Downgrade Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin-active-subscribers-tbody">
+                    <tr><td colspan="6" style="text-align: center; color: var(--text-dim); padding: 24px;">Loading active subscriber directory...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
             <!-- Instant Manual License Override Switcher -->
             <div class="cloud-vault-card" style="border: 1px solid rgba(0,214,143,0.3); background: linear-gradient(180deg, rgba(17,17,24,0.95), rgba(10,25,18,0.7)); border-radius: 14px; padding: 20px;">
               <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">

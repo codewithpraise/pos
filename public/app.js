@@ -19158,12 +19158,12 @@ setHtml(container, `<p style="color: var(--text-gray); font-size:12px;">License 
       const expiryClockEl = document.getElementById('license-expiry-clock');
       const existingTierVal = document.getElementById('license-card-active-tier-text');
 
-      // If already rendered with matching HWID and Tier, simply update values in place without destroying DOM or ticking intervals
+      // If already rendered with matching HWID and Tier, simply update values in place without destroying DOM
       if (expiryClockEl && existingTierVal && container.querySelector('#settings-card-hwid-text')) {
         const hwidEl = document.getElementById('settings-card-hwid-text');
         if (hwidEl) hwidEl.textContent = hwid;
         if (existingTierVal) existingTierVal.textContent = tier;
-        if (!window.__licenseClockInterval && expiryMs !== null && expiryMs > 0) {
+        if (expiryMs !== null && expiryMs > 0) {
           startLicenseClock();
         }
         return;
@@ -22486,10 +22486,19 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   }
   window.savePlatformAdminClaims = savePlatformAdminClaims;
 
-  function applyActiveTierToSystem(newTier) {
+  function applyActiveTierToSystem(newTier, options = {}) {
     const tier = (newTier || 'FREE').toUpperCase();
     const now = Date.now();
-    const expiryMs = now + (30 * 24 * 60 * 60 * 1000); // 30 days active
+    const currentTier = (typeof getActiveTier === 'function' ? getActiveTier() : (window.__valenixiaTier || (state.preferences && state.preferences['store_subscription_tier']) || localStorage.getItem('valenixia_tier') || 'FREE')).toUpperCase();
+    const currentExpMs = parseInt(localStorage.getItem('valenixia_subscription_expires_at') || '0', 10);
+
+    // Tier-change vs Same-tier Stacking Logic:
+    // - If renewing the SAME tier and active time remains -> Stack additively
+    // - If changing/upgrading to a DIFFERENT tier -> Fresh 30-day countdown from now!
+    const daysToAdd = options.daysToAdd !== undefined ? options.daysToAdd : (tier === 'FREE' ? 0 : 30);
+    const isSameTierRenewal = (currentTier === tier) && (currentExpMs > now);
+    const baseTime = isSameTierRenewal ? currentExpMs : now;
+    const expiryMs = options.expiryMs !== undefined ? options.expiryMs : (tier === 'FREE' ? 0 : baseTime + (daysToAdd * 24 * 60 * 60 * 1000));
 
     window.__valenixiaTier = tier;
     window.__lastSyncedTier = tier;
@@ -22504,6 +22513,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     try {
       localStorage.setItem('valenixia_tier', tier);
       localStorage.setItem('valenixia_subscription_expires_at', String(expiryMs));
+      localStorage.setItem('valenixia_subscription_start_time', String(now));
       localStorage.setItem('valenixia_trial_active', 'false');
       
       const storeId = (state.preferences && state.preferences.store_id) || localStorage.getItem('valenixia_store_id');
@@ -22524,6 +22534,13 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
         key: 'valenixia_subscription_expires_at',
         value_type: 'STR',
         value_payload: String(expiryMs),
+        is_idempotent_flag: 0,
+        updated_at: now
+      }).catch(() => {});
+      ValenixiaDB.put('local_preferences', {
+        key: 'valenixia_subscription_start_time',
+        value_type: 'STR',
+        value_payload: String(now),
         is_idempotent_flag: 0,
         updated_at: now
       }).catch(() => {});
@@ -22554,6 +22571,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     if (typeof renderLicenseInfoCard === 'function') renderLicenseInfoCard();
     if (typeof renderPlatformAdminRuntimeLicensing === 'function') renderPlatformAdminRuntimeLicensing();
     if (typeof renderPlatformAdminStoreIdentity === 'function') renderPlatformAdminStoreIdentity();
+    if (typeof renderPlatformAdminActiveSubscribers === 'function') renderPlatformAdminActiveSubscribers();
 
     if (window.ValenixiaSubscription && typeof window.ValenixiaSubscription.refresh === 'function') {
       window.ValenixiaSubscription.refresh();
@@ -22763,7 +22781,131 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     }
   };
 
-  // Document-Level Event Delegation for Approve & Reject buttons (100% CSP & DOMPurify safe)
+  // Render Active Subscriptions & Perpetual AMC License Directory
+  function renderPlatformAdminActiveSubscribers() {
+    const tbody = document.getElementById('admin-active-subscribers-tbody');
+    const kpiEl = document.getElementById('platform-admin-active-subscribers-kpi');
+    if (!tbody) return;
+
+    let subscribers = [];
+    if (window.ValenixiaClaimsManager && typeof window.ValenixiaClaimsManager.getActiveSubscribers === 'function') {
+      subscribers = window.ValenixiaClaimsManager.getActiveSubscribers();
+    } else {
+      const activeTier = (typeof getActiveTier === 'function' ? getActiveTier() : (window.__valenixiaTier || (state.preferences && state.preferences['store_subscription_tier']) || localStorage.getItem('valenixia_tier') || 'FREE')).toUpperCase();
+      subscribers = [{
+        id: 'current_store',
+        hwid: state.hwid || localStorage.getItem('valenixia_hwid') || 'DEV-HWID-LOCAL-NODE',
+        storeName: (state.preferences && state.preferences.store_name) || localStorage.getItem('valenixia_store_name') || 'Valenixia Commercial Store',
+        ownerName: (state.preferences && state.preferences.store_owner) || localStorage.getItem('valenixia_owner_name') || 'Valenixia Primary Merchant',
+        phone: (state.preferences && state.preferences.store_phone) || localStorage.getItem('valenixia_store_phone') || '+92 331 5133226',
+        tier: activeTier,
+        agreementType: localStorage.getItem('valenixia_billing_cycle') === 'LIFETIME' ? 'Perpetual AMC' : 'Monthly Cloud SaaS',
+        isLifetime: localStorage.getItem('valenixia_billing_cycle') === 'LIFETIME',
+        expiresAt: parseInt(localStorage.getItem('valenixia_subscription_expires_at') || '0', 10),
+        isLocalTerminal: true
+      }];
+    }
+
+    if (kpiEl) {
+      kpiEl.textContent = `${subscribers.length} Active Subscriber${subscribers.length === 1 ? '' : 's'}`;
+    }
+
+    if (subscribers.length === 0) {
+      setHtml(tbody, `<tr><td colspan="6" style="text-align:center; color:var(--text-dim); padding:24px;">No active subscribers in directory.</td></tr>`);
+      return;
+    }
+
+    const now = Date.now();
+    const rowsHtml = subscribers.map(s => {
+      const tierBadgeColor = s.tier === 'ENTERPRISE' 
+        ? 'background:rgba(168,85,247,0.15); color:#a855f7; border:1px solid rgba(168,85,247,0.35);' 
+        : (s.tier === 'PRO' || s.tier === 'GROWTH'
+          ? 'background:rgba(0,214,143,0.15); color:var(--accent-emerald); border:1px solid rgba(0,214,143,0.35);'
+          : (s.tier === 'STARTER'
+            ? 'background:rgba(59,130,246,0.15); color:#3b82f6; border:1px solid rgba(59,130,246,0.35);'
+            : 'background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.35);'));
+
+      let expiryDisplay = 'Active Perpetual';
+      let expiryColor = 'color:var(--accent-emerald);';
+      if (!s.isLifetime) {
+        if (s.expiresAt && s.expiresAt > now) {
+          const totalSec = Math.floor((s.expiresAt - now) / 1000);
+          const days = Math.floor(totalSec / 86400);
+          const hrs = Math.floor((totalSec % 86400) / 3600);
+          expiryDisplay = `${days}d ${hrs}h remaining`;
+          expiryColor = days <= 3 ? 'color:var(--alert-amber);' : 'color:var(--accent-emerald);';
+        } else if (s.tier === 'FREE') {
+          expiryDisplay = 'Standard Baseline (Free)';
+          expiryColor = 'color:var(--text-gray);';
+        } else {
+          expiryDisplay = 'Expired';
+          expiryColor = 'color:var(--alert-coral);';
+        }
+      }
+
+      return `
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.05); transition: background 0.2s;">
+          <td style="padding:12px 14px;">
+            <div style="font-weight:800; color:var(--text-white); font-size:13px;">${s.storeName}</div>
+            <div style="font-size:11px; color:var(--text-gray); margin-top:2px;">👤 ${s.ownerName} • <span style="font-family:var(--font-mono); color:var(--accent-cyan);">${s.phone}</span></div>
+          </td>
+          <td style="padding:12px 14px; font-family:var(--font-mono); color:var(--text-gray); font-size:11px; word-break:break-all;">
+            ${s.hwid}
+            ${s.isLocalTerminal ? ' <span style="font-size:9px; padding:2px 6px; border-radius:4px; background:rgba(0,214,143,0.12); color:var(--accent-emerald); font-weight:800; border:1px solid rgba(0,214,143,0.25);">THIS DEVICE</span>' : ''}
+          </td>
+          <td style="padding:12px 14px;">
+            <span style="display:inline-block; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:800; ${tierBadgeColor}">${s.tier} TIER</span>
+          </td>
+          <td style="padding:12px 14px; font-weight:700; color:var(--text-white); font-size:12px;">
+            ${s.agreementType || 'Monthly Cloud SaaS'}
+          </td>
+          <td style="padding:12px 14px; font-family:var(--font-mono); font-weight:800; font-size:12px; ${expiryColor}">
+            ${expiryDisplay}
+          </td>
+          <td style="padding:12px 14px; text-align:right; white-space:nowrap;">
+            <button type="button" class="btn-tactile" data-action="downgrade-subscriber" data-subscriber-id="${s.id}" data-current-tier="${s.tier}" style="background:rgba(239,68,68,0.12); color:#ef4444; font-weight:800; font-size:11px; padding:6px 12px; border-radius:6px; border:1px solid rgba(239,68,68,0.35); cursor:pointer;">
+              🔻 Downgrade Tier
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    setHtml(tbody, rowsHtml);
+  }
+  window.renderPlatformAdminActiveSubscribers = renderPlatformAdminActiveSubscribers;
+
+  window.promptDowngradeSubscriber = function(subscriberId, currentTier) {
+    const defaultTarget = currentTier === 'ENTERPRISE' ? 'PRO' : (currentTier === 'PRO' || currentTier === 'GROWTH' ? 'STARTER' : 'FREE');
+    const choice = prompt(`[Platform Admin] Downgrade Tier\nSubscriber ID: ${subscriberId}\nCurrent Tier: ${currentTier}\n\nEnter target tier (ENTERPRISE, PRO, STARTER, or FREE):`, defaultTarget);
+    if (!choice) return;
+
+    const validChoice = choice.trim().toUpperCase();
+    if (!['FREE', 'STARTER', 'GROWTH', 'PRO', 'ENTERPRISE'].includes(validChoice)) {
+      if (typeof showNotificationToast === 'function') {
+        showNotificationToast('Invalid tier entered. Valid options: FREE, STARTER, PRO, ENTERPRISE.', 'warning', 4000);
+      }
+      return;
+    }
+
+    if (window.ValenixiaClaimsManager && typeof window.ValenixiaClaimsManager.downgradeSubscriber === 'function') {
+      window.ValenixiaClaimsManager.downgradeSubscriber(subscriberId, validChoice);
+    } else {
+      applyActiveTierToSystem(validChoice);
+    }
+
+    renderPlatformAdminActiveSubscribers();
+    renderPlatformAdminRuntimeLicensing();
+    renderPlatformAdminClaimsQueue();
+    renderPlatformAdminStoreIdentity();
+
+    if (typeof showNotificationToast === 'function') {
+      showNotificationToast(`🔻 Subscriber ${subscriberId} downgraded to ${validChoice} tier successfully!`, 'success', 5000);
+    }
+    if (typeof playAudioSignal === 'function') playAudioSignal('success');
+  };
+
+  // Document-Level Event Delegation for Approve, Reject, and Downgrade buttons (100% CSP & DOMPurify safe)
   document.addEventListener('click', (e) => {
     const approveBtn = e.target.closest('[data-action="approve-claim"]');
     if (approveBtn) {
@@ -22783,6 +22925,18 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       const claimId = rejectBtn.getAttribute('data-claim-id');
       if (claimId && typeof window.rejectClaimAdmin === 'function') {
         window.rejectClaimAdmin(claimId);
+      }
+      return;
+    }
+
+    const downgradeBtn = e.target.closest('[data-action="downgrade-subscriber"]');
+    if (downgradeBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const subscriberId = downgradeBtn.getAttribute('data-subscriber-id');
+      const currentTier = downgradeBtn.getAttribute('data-current-tier') || 'PRO';
+      if (subscriberId && typeof window.promptDowngradeSubscriber === 'function') {
+        window.promptDowngradeSubscriber(subscriberId, currentTier);
       }
       return;
     }
@@ -22822,6 +22976,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     applyActiveTierToSystem(newTier);
     renderPlatformAdminRuntimeLicensing();
     renderPlatformAdminStoreIdentity();
+    renderPlatformAdminActiveSubscribers();
     if (typeof showNotificationToast === 'function') {
       showNotificationToast(`License tier successfully updated to ${newTier}! All ${newTier} features are now unlocked.`, 'success', 5000);
     }
@@ -22831,6 +22986,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   function renderPlatformAdminScreen() {
     renderPlatformAdminStoreIdentity();
     renderPlatformAdminClaimsQueue();
+    renderPlatformAdminActiveSubscribers();
     renderPlatformAdminRuntimeLicensing();
   }
   window.renderPlatformAdminScreen = renderPlatformAdminScreen;
@@ -22840,6 +22996,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     const adminView = document.getElementById('view-platform-admin');
     if (adminView && (state.activeScreen === 'platform-admin' || adminView.classList.contains('active'))) {
       renderPlatformAdminClaimsQueue();
+      renderPlatformAdminActiveSubscribers();
     }
   });
 
@@ -22847,6 +23004,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     const adminView = document.getElementById('view-platform-admin');
     if (adminView && (state.activeScreen === 'platform-admin' || adminView.classList.contains('active'))) {
       renderPlatformAdminClaimsQueue();
+      renderPlatformAdminActiveSubscribers();
     }
   });
 

@@ -503,20 +503,24 @@ if (typeof window !== 'undefined') {
 }
 window.syncOnlineSubscriptionTier = syncOnlineSubscriptionTier;
 
-// ── STRICT ADDITIVE SUBSCRIPTION TIME EXTENSION ENGINE ───────────────────────
-// When user upgrades or renews (e.g. 7 days remaining + 30 days = 37 days):
+// ── STRICT TIER-CHANGE RESET & ADDITIVE SAME-TIER RENEWAL ENGINE ─────────────
 function applySubscriptionUpgrade(newTier = 'PRO', daysToAdd = 30) {
   const normTier = String(newTier).toUpperCase();
+  const currentTier = (typeof getActiveTier === 'function' ? getActiveTier() : (window.__valenixiaTier || localStorage.getItem('valenixia_tier') || 'FREE')).toUpperCase();
   const currentExpMs = parseInt(localStorage.getItem('valenixia_subscription_expires_at') || '0', 10);
   const now = Date.now();
 
-  // Strict Additive Logic: If active time remains, stack onto current expiry. If expired/unset, stack from now.
-  const baseTime = (currentExpMs > now) ? currentExpMs : now;
+  // Tier-change vs Same-tier Stacking Logic:
+  // - If renewing the SAME tier and active time remains -> Stack additively (currentExpMs + additionalMs)
+  // - If upgrading or switching to a DIFFERENT tier (e.g. STARTER -> ENTERPRISE) -> Start fresh 30-day countdown from now (now + additionalMs)!
+  const isSameTierRenewal = (currentTier === normTier) && (currentExpMs > now);
+  const baseTime = isSameTierRenewal ? currentExpMs : now;
   const additionalMs = (daysToAdd || 30) * 24 * 60 * 60 * 1000;
   const newExpiresAt = baseTime + additionalMs;
 
   localStorage.setItem('valenixia_tier', normTier);
   localStorage.setItem('valenixia_subscription_expires_at', String(newExpiresAt));
+  localStorage.setItem('valenixia_subscription_start_time', String(now));
   localStorage.setItem('valenixia_trial_active', 'false');
   window.__valenixiaTier = normTier;
   window.__valenixiaPlan = PLANS[normTier] || PLANS.PRO;
@@ -526,6 +530,13 @@ function applySubscriptionUpgrade(newTier = 'PRO', daysToAdd = 30) {
       key: 'valenixia_subscription_expires_at',
       value_type: 'STR',
       value_payload: String(newExpiresAt),
+      is_idempotent_flag: 0,
+      updated_at: now
+    }).catch(() => {});
+    ValenixiaDB.put('local_preferences', {
+      key: 'valenixia_subscription_start_time',
+      value_type: 'STR',
+      value_payload: String(now),
       is_idempotent_flag: 0,
       updated_at: now
     }).catch(() => {});
@@ -549,9 +560,10 @@ function applySubscriptionUpgrade(newTier = 'PRO', daysToAdd = 30) {
     window.ValenixiaSubscription.refresh();
   }
 
-  if (typeof showNotificationToast === 'function') {
-    showNotificationToast(` Plan upgraded to ${normTier}! ${daysToAdd} days added (Total: ${remainingDays} days active).`, 'success', 5000);
-  }
+  // Cross-component broadcast
+  try {
+    window.dispatchEvent(new CustomEvent('valenixia_tier_changed', { detail: { tier: normTier, expiresAt: newExpiresAt } }));
+  } catch(_) {}
 
   return {
     tier: normTier,
