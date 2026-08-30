@@ -783,7 +783,10 @@ button:not(:disabled):active,
   flex-direction: column !important;
 }
 
-.content-view:not(#view-checkout) > * {
+/* Direct children of non-checkout scrollable views must not shrink —
+   this forces overflow within the view so overflow-y:auto triggers scroll.
+   EXCLUDE: screen-shell and screen-main which use full-height layout. */
+.content-view:not(#view-checkout):not(#view-subscription) > *:not(.screen-shell) {
   flex-shrink: 0 !important;
 }
 
@@ -815,7 +818,9 @@ button:not(:disabled):active,
   min-width: 0;
   min-height: 0;
   display: flex;
-  overflow: hidden;
+  /* overflow: hidden caused scroll trapping inside screen-shell, clipping
+     content that should scroll via the parent .content-view container */
+  overflow: visible;
 }
 
 .screen-main {

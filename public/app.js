@@ -7539,12 +7539,22 @@ const resp = await fetch(window.__valenixiaServerUrl + '/api/admin/commissions/e
         if (isTarget) {
           view.classList.add('active');
           view.removeAttribute('hidden');
+          view.setAttribute('aria-hidden', 'false');
           view.style.setProperty('display', 'flex', 'important');
+          // CRITICAL FIX: Remove inert — router.navigateTo() sets inert=true on all
+          // non-active views during initial boot. Without this, the view is rendered
+          // but completely frozen: all wheel (scroll), pointer, and keyboard events
+          // are swallowed by the browser's inert implementation.
+          view.inert = false;
+          view.removeAttribute('inert');
           view.scrollTop = 0;
         } else {
           view.classList.remove('active');
           view.setAttribute('hidden', 'true');
+          view.setAttribute('aria-hidden', 'true');
           view.style.setProperty('display', 'none', 'important');
+          // Mirror router's inert state on hidden views to block focus trapping
+          view.inert = true;
         }
       });
       try {
