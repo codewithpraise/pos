@@ -602,9 +602,22 @@ button:not(:disabled):active,
   }
 }
 
-.topbar-overflow-menu #btn-topbar-apps-download,
-.topbar-overflow-menu .btn-apps {
+.topbar-overflow-menu #btn-topbar-apps-download:not([hidden]):not(.hidden),
+.topbar-overflow-menu .btn-apps:not([hidden]):not(.hidden) {
   display: flex !important;
+}
+
+/* Explicit native app environment override: download buttons are strictly for Web POS */
+body.is-native-env .btn-apps,
+body.is-native .btn-apps,
+body.is-native-env #btn-topbar-apps-download,
+body.is-native #btn-topbar-apps-download,
+body.is-native-env #nav-item-apps-download,
+body.is-native #nav-item-apps-download,
+.btn-apps[hidden],
+#btn-topbar-apps-download[hidden],
+#nav-item-apps-download[hidden] {
+  display: none !important;
 }
 
 @media (max-width: 420px) {
@@ -783,7 +796,10 @@ button:not(:disabled):active,
   flex-direction: column !important;
 }
 
-.content-view:not(#view-checkout) > * {
+/* Direct children of non-checkout scrollable views must not shrink —
+   this forces overflow within the view so overflow-y:auto triggers scroll.
+   EXCLUDE: screen-shell and screen-main which use full-height layout. */
+.content-view:not(#view-checkout):not(#view-subscription) > *:not(.screen-shell) {
   flex-shrink: 0 !important;
 }
 
@@ -815,7 +831,9 @@ button:not(:disabled):active,
   min-width: 0;
   min-height: 0;
   display: flex;
-  overflow: hidden;
+  /* overflow: hidden caused scroll trapping inside screen-shell, clipping
+     content that should scroll via the parent .content-view container */
+  overflow: visible;
 }
 
 .screen-main {

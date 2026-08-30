@@ -1066,6 +1066,10 @@ window.__realHandlers = window.__realHandlers || {};
     try {
       var isInstalledNative = isNativeEnvironment();
       var showDownloadUI = !isInstalledNative;
+      if (document.body) {
+        document.body.classList.toggle('is-native-env', isInstalledNative);
+        document.body.classList.toggle('is-web-env', showDownloadUI);
+      }
       
       var ids = ['nav-download-apps', 'btn-topbar-download-apps', 'card-settings-download-apps', 'bottom-nav-download-apps', 'btn-topbar-apps-download', 'nav-item-apps-download'];
       ids.forEach(function(id) {

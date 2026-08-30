@@ -205,6 +205,10 @@ window.isNativeEnvironment = function() {
 
 window.applyAppSurfaceVisibility = function() {
   const isNative = (typeof window.isNativeEnvironment === 'function' ? window.isNativeEnvironment() : false);
+  if (document.body) {
+    document.body.classList.toggle('is-native-env', isNative);
+    document.body.classList.toggle('is-web-env', !isNative);
+  }
   const targets = document.querySelectorAll(
     '#btn-topbar-apps-download, #nav-item-apps-download, .btn-apps, [data-screen="apps-download"]'
   );
