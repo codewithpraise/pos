@@ -13762,6 +13762,15 @@ setHtml(row, `
         kycDetails.open = Boolean(c.address || c.cnic || c.notes);
       }
     } else {
+      if (window.checkLimit) {
+        const limit = window.checkLimit('customers', (state.customers || []).length);
+        if (!limit.allowed) {
+          if (window.showLimitReachedModal) window.showLimitReachedModal('customers', (state.customers || []).length, limit.limit);
+          else if (window.showUpgradeModal) window.showUpgradeModal('customers');
+          else showModal({ title: 'Customer Quota Reached', message: limit.reason, type: 'info' });
+          return;
+        }
+      }
       if (title) title.textContent = 'Create Customer Account / Profile';
       document.getElementById('form-customer-id').value = 'cust_' + Date.now();
       document.getElementById('form-customer-name').value = '';

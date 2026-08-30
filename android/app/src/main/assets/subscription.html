@@ -251,6 +251,27 @@
       <!-- Tier Cards Grid -->
       <div class="pricing-grid">
 
+        <!-- FREE TIER -->
+        <div class="pricing-card" data-tier="FREE" style="border-color: rgba(255,255,255,0.06);">
+          <div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <h4 style="margin:0; font-size:16px; font-weight:800; color:var(--text-gray); font-family:var(--font-display);">FREE BASIC</h4>
+            </div>
+            <div style="font-size:24px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:16px;">
+              PKR 0 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ forever</span>
+            </div>
+            <ul style="font-size:12px; color:var(--text-muted); padding-left:18px; margin:0 0 20px; line-height:1.8;">
+              <li><strong style="color:var(--text-white);">1 Register Terminal</strong></li>
+              <li>20 Transactions / Day (50 / month)</li>
+              <li>25 Products Catalog Limit</li>
+              <li>50 Customers Profile Limit</li>
+              <li>Fast Offline Checkout &amp; Receipts</li>
+              <li>Basic Daily Sales History (30 Days)</li>
+            </ul>
+          </div>
+          <button class="action-btn dm-btn-secondary" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase; opacity:0.6; cursor:default;">Free Default Tier</button>
+        </div>
+
         <!-- STARTER TIER -->
         <div class="pricing-card" data-tier="STARTER">
           <div>
@@ -261,12 +282,13 @@
               PKR 3,499 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>
             </div>
             <ul style="font-size:12px; color:var(--text-muted); padding-left:18px; margin:0 0 20px; line-height:1.8;">
-              <li><strong style="color:var(--text-white);">1 Register Terminal</strong></li>
-              <li><strong style="color:var(--accent-emerald);">Unlimited Products &amp; Catalog</strong></li>
-              <li>Petty Cash &amp; Daily Till Float (Z-Report)</li>
-              <li>Barcode Label &amp; Price Tag Studio</li>
-              <li>Offline-First SQLite Database</li>
+              <li><strong style="color:var(--text-white);">1 Register Terminal</strong> (1 Branch)</li>
+              <li><strong style="color:var(--accent-emerald);">Unlimited Transactions &amp; Products</strong></li>
+              <li>Suppliers &amp; Distributor Ledger</li>
               <li>Customer Udhaar Khata Credit Book</li>
+              <li>Financial Reports &amp; Sales Analytics</li>
+              <li>Petty Cash &amp; Daily Till Float (Z-Report)</li>
+              <li>Device Buyback &amp; Trade-In Ledger</li>
             </ul>
           </div>
           <button class="action-btn dm-btn-secondary btn-select-tier" data-tier="STARTER" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase;">Select Starter Plan</button>
@@ -283,13 +305,14 @@
               PKR 6,999 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>
             </div>
             <ul style="font-size:12px; color:var(--text-muted); padding-left:18px; margin:0 0 20px; line-height:1.8;">
-              <li><strong style="color:var(--text-white);">2 Terminals + P2P Multi-Device Sync</strong></li>
+              <li><strong style="color:var(--text-white);">2 Terminals + Cloud Sync</strong></li>
               <li><strong style="color:var(--accent-emerald);">Everything in Starter, plus:</strong></li>
-              <li>Live Kitchen Display System (KDS Board)</li>
-              <li>Staff Time Clock &amp; Commission Tracker</li>
-              <li>VIP Customer Loyalty Club &amp; Cashback</li>
-              <li>Supplier Purchase Orders &amp; GRN Receive</li>
-              <li>COGS &amp; Gross Margin Analytics</li>
+              <li>Deals, Combos &amp; Promotion Rules Engine</li>
+              <li>Kitchen Display System (KDS &amp; KOT Routing)</li>
+              <li>Staff Time Clock &amp; Attendance Tracking</li>
+              <li>Barcode Label &amp; Shelf Tag Designer</li>
+              <li>Stock Velocity &amp; Low-Stock Restock Alerts</li>
+              <li>Automated Daily Cloud Backups</li>
             </ul>
           </div>
           <button class="action-btn dm-btn-emerald btn-select-tier" data-tier="PRO" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase; box-shadow:0 4px 14px rgba(0,214,143,0.3);">Select Growth Plan</button>
@@ -299,20 +322,24 @@
         <div class="pricing-card" data-tier="ENTERPRISE">
           <div>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-              <h4 style="margin:0; font-size:16px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">ENTERPRISE</h4>
+              <h4 style="margin:0; font-size:16px; font-weight:800; color:var(--text-white); font-family:var(--font-display);">ENTERPRISE HQ</h4>
             </div>
             <div style="font-size:24px; font-weight:900; color:var(--text-white); font-family:var(--font-display); margin-bottom:16px;" id="price-val-ENTERPRISE">
               PKR 11,999 <span style="font-size:12px; font-weight:600; color:var(--text-gray);">/ month</span>
             </div>
             <ul style="font-size:12px; color:var(--text-muted); padding-left:18px; margin:0 0 20px; line-height:1.8;">
-              <li><strong style="color:var(--text-white);">3+ Register Terminals (Multi-Branch)</strong></li>
+              <li><strong style="color:var(--text-white);">3 Terminals + 2 Branches</strong> (Expandable)</li>
               <li><strong style="color:var(--accent-emerald);">Everything in Growth, plus:</strong></li>
-              <li>Statistical Inventory &amp; Dead-Stock Forecast</li>
-              <li>WhatsApp &amp; SMS Marketing Broadcast Studio</li>
-              <li>Inter-Branch Stock Transfer (STN) Manifests</li>
-              <li>FBR Digital Fiscal Tax &amp; PRAL Integration</li>
-              <li>Multi-Store Central HQ Consolidation</li>
-              <li>Full Database Portability &amp; JSON Migration</li>
+              <li>Official FBR Fiscal POS &amp; PRAL Live Tax</li>
+              <li>Multi-Store Central HQ &amp; Chain Operations</li>
+              <li>Inter-Branch Stock Transfers (STN) Manifests</li>
+              <li>VIP Loyalty Club &amp; Cashback Wallets</li>
+              <li>SMS &amp; WhatsApp Marketing Broadcast Studio</li>
+              <li>Automated WhatsApp Digital Receipts Delivery</li>
+              <li>Custom Staff Roles &amp; Granular RBAC Permissions</li>
+              <li>Diagnostics, Sync Streams &amp; Real-Time Audit Logs</li>
+              <li>Full Database Portability &amp; Cross-Chain JSON Exports</li>
+              <li>AI Audio Sales Pitch Evaluation &amp; Speech Coach</li>
             </ul>
           </div>
           <button class="action-btn dm-btn-secondary btn-select-tier" data-tier="ENTERPRISE" style="width:100%; padding:12px; font-weight:800; font-size:12px; border-radius:10px; text-transform:uppercase;">Select Enterprise</button>

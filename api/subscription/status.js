@@ -26,7 +26,7 @@ module.exports = async (req, res) => {
   const SUPABASE_URL = process.env.SUPABASE_URL || 'https://wzvwyfyefbdrqscxhwsf.supabase.co';
   const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6dnd5ZnllZmJkcnFzY3hod3NmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MzU3ODUsImV4cCI6MjA5ODQxMTc4NX0.W9O6U4tqETM6BcEjX7evt3LunpIZOC5c7wcZht2ajuk';
 
-  let effectiveTier = 'STARTER';
+  let effectiveTier = 'FREE';
   let subStartTime = clientStartTime || nowIso;
   let firstActivatedAt = clientStartTime || nowIso;
   let expiresAt = null;
@@ -51,7 +51,7 @@ module.exports = async (req, res) => {
 
       if (!error && data && data.length > 0) {
         const store = data[0];
-        effectiveTier = String(store.plan || store.tier || 'STARTER').toUpperCase();
+        effectiveTier = String(store.plan || store.tier || 'FREE').toUpperCase();
         subStartTime = store.subscription_start_time || store.created_at || store.updated_at || store.last_seen_at || subStartTime;
         firstActivatedAt = store.created_at || subStartTime;
         expiresAt = store.expires_at || null;
@@ -69,7 +69,7 @@ module.exports = async (req, res) => {
           await supabase.from('stores').upsert([{
             id: cleanHwid,
             name: `Store (${cleanHwid.slice(0, 8)})`,
-            plan: 'starter',
+            plan: 'free',
             is_active: true,
             last_seen_at: anchorStart,
             created_at: anchorStart

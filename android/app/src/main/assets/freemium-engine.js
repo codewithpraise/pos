@@ -178,14 +178,11 @@ const FEATURE_TIER_REQ = {
   'history': 'FREE',
   'customers': 'FREE',
   'settings': 'FREE',
-  'deals': 'FREE',
   'dashboard': 'FREE',
   'business-hub': 'FREE',
   'apps-download': 'FREE',
   'catalog-manager': 'FREE',
   'inventory': 'FREE',
-  'customer-buyback': 'FREE',
-  'buyback': 'FREE',
   'platform-admin': 'FREE',
 
   // Starter Tier Views & Modules (PKR 3,499/mo)
@@ -194,29 +191,30 @@ const FEATURE_TIER_REQ = {
   'credit-book': 'STARTER',
   'khata': 'STARTER',
   'customer-khata': 'STARTER',
+  'petty-cash': 'STARTER',
+  'staff': 'STARTER',
+  'customer-buyback': 'STARTER',
+  'buyback': 'STARTER',
 
-  // Growth / Pro Tier Views & Modules (PKR 6,999/mo)
-  'logs': 'PRO', // System Health, CRDT Broadcast & Sync Stream logs
-  'sync-logs': 'PRO',
-  'system-health': 'PRO',
+  // Growth Tier Views & Modules (PKR 6,999/mo) — Streamlined Core Operations
+  'deals': 'PRO',
   'kds': 'PRO',
-  'petty-cash': 'PRO',
   'attendance': 'PRO',
-  'staff': 'PRO',
   'label-designer': 'PRO',
   'inventory-ai': 'PRO',
   'inventory-forecast': 'PRO',
-  'loyalty': 'PRO',
-  'marketing': 'PRO',
-  'automated-whatsapp': 'PRO',
-  'stock-transfer': 'PRO',
-  'customer-buyback': 'FREE',
-  'buyback': 'FREE',
   'multi-device': 'PRO',
   'cloud-backup': 'PRO',
   'google_drive_backup': 'PRO',
 
-  // Enterprise HQ Tier Views & Modules (PKR 11,999/mo)
+  // Enterprise HQ Tier Views & Modules (PKR 11,999/mo) — Flagship Enterprise Powerhouse
+  'loyalty': 'ENTERPRISE',
+  'marketing': 'ENTERPRISE',
+  'automated-whatsapp': 'ENTERPRISE',
+  'stock-transfer': 'ENTERPRISE',
+  'logs': 'ENTERPRISE',
+  'sync-logs': 'ENTERPRISE',
+  'system-health': 'ENTERPRISE',
   'fbr-fiscal': 'ENTERPRISE',
   'fbr_fiscal': 'ENTERPRISE',
   'fbr': 'ENTERPRISE',
@@ -230,29 +228,32 @@ const FEATURE_TIER_REQ = {
 };
 
 const FEATURE_DISPLAY_NAMES = {
+  'deals': 'Deals, Combos & Promotional Campaigns',
   'suppliers': 'Suppliers & Distributor Ledger',
   'analytics': 'Financial Reports & Sales Analytics',
   'credit-book': 'Customer Khata & Udhaar Credit Ledger',
   'khata': 'Customer Khata & Udhaar Credit Ledger',
   'customer-khata': 'Customer Khata & Udhaar Credit Ledger',
   'customer-buyback': 'Customer Device Buy-In & Legal Transfer Ledger',
-  'logs': 'CRDT Sync Stream & System Diagnostics',
-  'sync-logs': 'Live Replication Stream & Sync Logs',
-  'system-health': 'System Health & Engine Diagnostics',
-  'kds': 'Kitchen Display System (KDS)',
-  'petty-cash': 'Petty Cash Float & Z-Report Reconciliation',
+  'buyback': 'Customer Device Buy-In & Legal Transfer Ledger',
+  'kds': 'Kitchen Display System (KDS) & Order Routing',
+  'petty-cash': 'Petty Cash Float & Drawer Reconciliation',
   'attendance': 'Staff Time Clock & Attendance Tracking',
   'staff': 'Cashier Security PINs & Staff Management',
   'label-designer': 'Barcode Label & Shelf Tag Studio',
-  'inventory-ai': 'Statistical Inventory Reorder & Dead-Stock Forecast',
-  'inventory-forecast': 'Statistical Inventory Reorder & Dead-Stock Forecast',
+  'inventory-ai': 'Stock Velocity & Low-Stock Alerts',
+  'inventory-forecast': 'Stock Velocity & Low-Stock Alerts',
+  'multi-device': 'Multi-Device Real-Time Cloud Sync',
+  'google_drive_backup': 'Automated Daily Cloud Backups',
+  'cloud-backup': 'Automated Daily Cloud Backups',
+  // Enterprise Exclusive Features
   'loyalty': 'VIP Loyalty Club & Customer Cashback Wallet',
   'marketing': 'SMS & WhatsApp Marketing Broadcast Studio',
-  'automated-whatsapp': 'Automated WhatsApp Receipt Delivery',
+  'automated-whatsapp': 'Automated WhatsApp Digital Receipt Delivery',
   'stock-transfer': 'Inter-Branch Stock Transfer (STN) Manifests',
-  'multi-device': 'Multi-Device Real-Time Cloud Sync & Backup',
-  'google_drive_backup': 'Automated Cloud Database Backup',
-  'cloud-backup': 'Real-Time Cloud Backup & Replication',
+  'logs': 'CRDT Sync Stream & System Diagnostics',
+  'sync-logs': 'Live Replication Stream & Sync Logs',
+  'system-health': 'System Health & Engine Diagnostics',
   'fbr-fiscal': 'Official FBR Fiscal POS & PRAL Tax Integration',
   'fbr_fiscal': 'Official FBR Fiscal POS & PRAL Tax Integration',
   'fbr': 'Official FBR Fiscal POS & PRAL Tax Integration',
@@ -265,7 +266,7 @@ const FEATURE_DISPLAY_NAMES = {
   'chain-operations': 'Enterprise Multi-Branch Chain Operations'
 };
 
-const TIER_HIERARCHY = { FREE: 0, STARTER: 1, GROWTH: 2, PRO: 3, ENTERPRISE: 4 };
+const TIER_HIERARCHY = { FREE: 0, STARTER: 1, GROWTH: 2, PRO: 2, ENTERPRISE: 3 };
 
 function can(feature) {
   const reqTier = FEATURE_TIER_REQ[feature] || 'FREE';
@@ -740,23 +741,23 @@ function showUpgradeModal(featureName, requiredTier) {
       id: 'STARTER',
       name: 'Starter Register',
       price: 'Rs. 3,499',
-      features: '1 Terminal · Suppliers & Distributors · Financial Analytics · Credit Khata',
+      features: '1 Terminal · Suppliers · Financial Analytics · Credit Khata · Petty Cash',
       buttonText: activeTier === 'STARTER' ? 'Current Plan' : 'Select Starter',
       themeColor: '#06b6d4'
     },
     PRO: {
       id: 'PRO',
-      name: 'Growth (Pro Store)',
+      name: 'Growth Plan',
       price: 'Rs. 6,999',
-      features: '2 Terminals · Real-Time Sync · KDS & Statistical Forecast',
-      buttonText: (activeTier === 'PRO' || activeTier === 'GROWTH') ? 'Current Plan' : 'Upgrade Growth (Pro)',
+      features: '2 Terminals · Deals & Combos · KDS / KOT · Time Clock · Barcode Studio · Cloud Sync',
+      buttonText: (activeTier === 'PRO' || activeTier === 'GROWTH') ? 'Current Plan' : 'Upgrade Growth',
       themeColor: '#10b981'
     },
     ENTERPRISE: {
       id: 'ENTERPRISE',
       name: 'Enterprise HQ',
       price: 'Rs. 11,999',
-      features: '3 Terminals & 2 Branches · FBR Fiscal POS · Multi-Store HQ',
+      features: '3 Terminals & 2 Branches · FBR Fiscal POS · Multi-Store HQ · Stock Transfers · VIP Loyalty · WhatsApp Receipts · Marketing Studio · Custom RBAC',
       buttonText: activeTier === 'ENTERPRISE' ? 'Current Plan' : 'Upgrade Enterprise HQ',
       themeColor: '#f59e0b'
     }
@@ -778,7 +779,7 @@ function showUpgradeModal(featureName, requiredTier) {
   if (reqTier === 'ENTERPRISE') {
     subText = `This feature is exclusively available on the <strong style="color:#f59e0b;">Enterprise HQ Plan</strong>.<br><span style="font-size:12px;color:#94a3b8;">Starter and Growth plans do not include this feature. Upgrade to Enterprise to unlock instant access.</span>`;
   } else if (reqTier === 'PRO' || reqTier === 'GROWTH') {
-    subText = `This feature requires the <strong style="color:#10b981;">Growth (Pro) Plan</strong> or higher.<br><span style="font-size:12px;color:#94a3b8;">Upgrade to Growth or Enterprise to unlock multi-device sync, KDS, logs, and advanced tools.</span>`;
+    subText = `This feature requires the <strong style="color:#10b981;">Growth Plan</strong> or higher.<br><span style="font-size:12px;color:#94a3b8;">Upgrade to Growth or Enterprise to unlock multi-terminal sync, KDS, deals & combos, and barcode studio.</span>`;
   } else {
     subText = `This feature requires the <strong style="color:#06b6d4;">Starter Plan</strong> or higher.<br><span style="font-size:12px;color:#94a3b8;">Active Plan: Valenixia ${activeTier}</span>`;
   }
