@@ -66,10 +66,12 @@
     }
   };
 
-  // Centralized Claims & Entitlements Store Manager
+  // Centralized Claims & Entitlements Store Manager (Cloud-Synchronized & Offline-Resilient)
   const ValenixiaClaimsManager = {
     STORAGE_KEY: 'valenixia_admin_claims',
     SUBSCRIBERS_KEY: 'valenixia_admin_subscribers',
+    OFFLINE_QUEUE_KEY: 'valenixia_offline_claims_queue',
+    isSyncing: false,
 
     getAll() {
       try {
@@ -101,14 +103,109 @@
       }
     },
 
+    async fetchRemoteClaims() {
+      if (this.isSyncing) return this.getAll();
+      this.isSyncing = true;
+      try {
+        const serverBase = window.__valenixiaServerUrl || location.origin;
+        if (serverBase) {
+          const resp = await fetch(`${serverBase}/api/claims`, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+          }).catch(() => null);
+
+          if (resp && resp.ok) {
+            const data = await resp.json().catch(() => null);
+            const remoteClaims = data && Array.isArray(data.claims) ? data.claims : [];
+            if (remoteClaims.length > 0) {
+              const localList = this.getAll();
+              const mergedMap = new Map();
+              // Add local claims first
+              localList.forEach(c => {
+                if (c && c.id) mergedMap.set(String(c.id).trim(), c);
+              });
+              // Merge remote claims (cloud wins if status changed, but keep local fields)
+              remoteClaims.forEach(rc => {
+                if (rc && rc.id) {
+                  const key = String(rc.id).trim();
+                  const existing = mergedMap.get(key);
+                  if (existing) {
+                    mergedMap.set(key, { ...existing, ...rc });
+                  } else {
+                    mergedMap.set(key, rc);
+                  }
+                }
+              });
+
+              const mergedList = Array.from(mergedMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+              this.save(mergedList);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[ValenixiaClaimsManager] Remote fetch warning:', e.message);
+      } finally {
+        this.isSyncing = false;
+        this.flushOfflineClaimsQueue();
+      }
+      return this.getAll();
+    },
+
+    async flushOfflineClaimsQueue() {
+      try {
+        const rawQueue = localStorage.getItem(this.OFFLINE_QUEUE_KEY);
+        if (!rawQueue) return;
+        const queue = JSON.parse(rawQueue);
+        if (!Array.isArray(queue) || queue.length === 0) return;
+
+        const serverBase = window.__valenixiaServerUrl || location.origin;
+        if (!serverBase) return;
+
+        const remaining = [];
+        for (const claim of queue) {
+          try {
+            const resp = await fetch(`${serverBase}/api/claims`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(claim)
+            }).catch(() => null);
+            if (!resp || !resp.ok) {
+              remaining.push(claim);
+            }
+          } catch (_) {
+            remaining.push(claim);
+          }
+        }
+        localStorage.setItem(this.OFFLINE_QUEUE_KEY, JSON.stringify(remaining));
+      } catch (_) {}
+    },
+
     addClaim(claim) {
       const list = this.getAll();
-      list.unshift(claim);
+      const existingIdx = list.findIndex(c => c.id === claim.id || (c.rrn && c.rrn === claim.rrn));
+      if (existingIdx >= 0) {
+        list[existingIdx] = { ...list[existingIdx], ...claim };
+      } else {
+        list.unshift(claim);
+      }
       this.save(list);
+
+      // Queue for cloud push
+      try {
+        const rawQueue = localStorage.getItem(this.OFFLINE_QUEUE_KEY);
+        const queue = rawQueue ? JSON.parse(rawQueue) : [];
+        if (Array.isArray(queue)) {
+          queue.push(claim);
+          localStorage.setItem(this.OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+        }
+      } catch (_) {}
+
+      // Trigger asynchronous push
+      this.flushOfflineClaimsQueue();
       return list;
     },
 
-    approveClaim(claimId) {
+    async approveClaim(claimId) {
       const list = this.getAll();
       const claim = list.find(c => String(c.id).trim() === String(claimId).trim());
       if (!claim) return false;
@@ -129,6 +226,23 @@
 
       this.save(list);
 
+      // Push approval to cloud
+      try {
+        const serverBase = window.__valenixiaServerUrl || location.origin;
+        if (serverBase) {
+          fetch(`${serverBase}/api/claims/approve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              claimId: claim.id,
+              hwid: claim.hwid,
+              targetTier: targetTier,
+              daysToAdd: 30
+            })
+          }).catch(() => {});
+        }
+      } catch (_) {}
+
       if (typeof window.applySubscriptionUpgrade === 'function') {
         window.applySubscriptionUpgrade(targetTier, 30);
       }
@@ -138,7 +252,7 @@
       return { claim, targetTier };
     },
 
-    rejectClaim(claimId) {
+    async rejectClaim(claimId) {
       const list = this.getAll();
       const claim = list.find(c => String(c.id).trim() === String(claimId).trim());
       if (!claim) return false;
@@ -146,6 +260,19 @@
       claim.status = 'REJECTED';
       claim.resolvedAt = new Date().toISOString();
       this.save(list);
+
+      // Push rejection to cloud
+      try {
+        const serverBase = window.__valenixiaServerUrl || location.origin;
+        if (serverBase) {
+          fetch(`${serverBase}/api/claims/reject`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ claimId: claim.id })
+          }).catch(() => {});
+        }
+      } catch (_) {}
+
       return claim;
     },
 
@@ -261,6 +388,22 @@
           });
         }
       }
+
+      // Push downgrade to cloud
+      try {
+        const serverBase = window.__valenixiaServerUrl || location.origin;
+        if (serverBase) {
+          fetch(`${serverBase}/api/claims/downgrade`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              subscriberId,
+              hwid: sub ? sub.hwid : localHwid,
+              targetTier: normTier
+            })
+          }).catch(() => {});
+        }
+      } catch (_) {}
 
       try {
         localStorage.setItem(this.SUBSCRIBERS_KEY, JSON.stringify(subscribers));
@@ -915,6 +1058,20 @@
 
   window.ValenixiaSubscription = ValenixiaSubscription;
   window.initSubscriptionPage = () => ValenixiaSubscription.init();
+
+  // Auto-sync offline claims when network reconnects or on boot
+  window.addEventListener('online', () => {
+    try {
+      ValenixiaClaimsManager.flushOfflineClaimsQueue();
+      ValenixiaClaimsManager.fetchRemoteClaims();
+    } catch (_) {}
+  });
+
+  setTimeout(() => {
+    try {
+      ValenixiaClaimsManager.fetchRemoteClaims();
+    } catch (_) {}
+  }, 1000);
 
   if (document.readyState === 'interactive' || document.readyState === 'complete') {
     ValenixiaSubscription.init();

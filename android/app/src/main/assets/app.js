@@ -22749,42 +22749,46 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   window.approveClaimAdmin = function(claimId) {
     if (!claimId) return;
     let res = null;
+    const claims = getPlatformAdminClaims();
+    const claim = claims.find(c => String(c.id).trim() === String(claimId).trim());
+
     if (window.ValenixiaClaimsManager && typeof window.ValenixiaClaimsManager.approveClaim === 'function') {
       res = window.ValenixiaClaimsManager.approveClaim(claimId);
-    } else {
-      const claims = getPlatformAdminClaims();
-      const claim = claims.find(c => String(c.id).trim() === String(claimId).trim());
-      if (claim) {
-        claim.status = 'APPROVED';
-        claim.resolvedAt = new Date().toISOString();
-        let targetTier = 'STARTER';
-        if (claim.targetTier) {
-          targetTier = claim.targetTier.toUpperCase();
-        } else if (claim.module && claim.module.toLowerCase().includes('enterprise')) {
-          targetTier = 'ENTERPRISE';
-        } else if (claim.module && (claim.module.toLowerCase().includes('pro') || claim.module.toLowerCase().includes('growth'))) {
-          targetTier = 'PRO';
-        } else {
-          targetTier = 'STARTER';
-        }
-        savePlatformAdminClaims(claims);
-        res = { claim, targetTier };
+    } else if (claim) {
+      claim.status = 'APPROVED';
+      claim.resolvedAt = new Date().toISOString();
+      let targetTier = 'STARTER';
+      if (claim.targetTier) {
+        targetTier = claim.targetTier.toUpperCase();
+      } else if (claim.module && claim.module.toLowerCase().includes('enterprise')) {
+        targetTier = 'ENTERPRISE';
+      } else if (claim.module && (claim.module.toLowerCase().includes('pro') || claim.module.toLowerCase().includes('growth'))) {
+        targetTier = 'PRO';
+      } else {
+        targetTier = 'STARTER';
       }
+      savePlatformAdminClaims(claims);
+      res = { claim, targetTier };
     }
 
-    const targetTier = (res && res.targetTier) ? res.targetTier : 'PRO';
+    const targetTier = (res && res.targetTier) ? res.targetTier : (claim && claim.targetTier ? claim.targetTier : 'PRO');
+    const localHwid = window.__valenixiaHWID || localStorage.getItem('valenixia_hwid') || '';
+    const isCurrentDevice = !claim || !claim.hwid || claim.hwid === localHwid || claim.hwid === 'DEV-HWID-LOCAL-NODE';
 
-    if (typeof window.applySubscriptionUpgrade === 'function') {
-      window.applySubscriptionUpgrade(targetTier, 30);
+    if (isCurrentDevice) {
+      if (typeof window.applySubscriptionUpgrade === 'function') {
+        window.applySubscriptionUpgrade(targetTier, 30);
+      }
+      applyActiveTierToSystem(targetTier);
     }
-    applyActiveTierToSystem(targetTier);
 
     renderPlatformAdminClaimsQueue();
+    renderPlatformAdminActiveSubscribers();
     renderPlatformAdminRuntimeLicensing();
     renderPlatformAdminStoreIdentity();
 
     if (typeof showNotificationToast === 'function') {
-      showNotificationToast(`🎉 Claim ${claimId} APPROVED! Store upgraded to ${targetTier} plan. All features unlocked instantly without refresh!`, 'success', 5000);
+      showNotificationToast(`🎉 Claim ${claimId} APPROVED! Target store upgraded to ${targetTier} plan. All features unlocked instantly without refresh!`, 'success', 5000);
     }
     if (typeof playAudioSignal === 'function') playAudioSignal('success');
   };
@@ -22803,6 +22807,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       }
     }
     renderPlatformAdminClaimsQueue();
+    renderPlatformAdminActiveSubscribers();
     if (typeof showNotificationToast === 'function') {
       showNotificationToast(`❌ Claim ${claimId} marked as rejected and removed from pending queue.`, 'warning', 3000);
     }
@@ -22818,19 +22823,11 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     if (window.ValenixiaClaimsManager && typeof window.ValenixiaClaimsManager.getActiveSubscribers === 'function') {
       subscribers = window.ValenixiaClaimsManager.getActiveSubscribers();
     } else {
-      const activeTier = (typeof getActiveTier === 'function' ? getActiveTier() : (window.__valenixiaTier || (state.preferences && state.preferences['store_subscription_tier']) || localStorage.getItem('valenixia_tier') || 'FREE')).toUpperCase();
-      subscribers = [{
-        id: 'current_store',
-        hwid: state.hwid || localStorage.getItem('valenixia_hwid') || 'DEV-HWID-LOCAL-NODE',
-        storeName: (state.preferences && state.preferences.store_name) || localStorage.getItem('valenixia_store_name') || 'Valenixia Commercial Store',
-        ownerName: (state.preferences && state.preferences.store_owner) || localStorage.getItem('valenixia_owner_name') || 'Valenixia Primary Merchant',
-        phone: (state.preferences && state.preferences.store_phone) || localStorage.getItem('valenixia_store_phone') || '+92 331 5133226',
-        tier: activeTier,
-        agreementType: localStorage.getItem('valenixia_billing_cycle') === 'LIFETIME' ? 'Perpetual AMC' : 'Monthly Cloud SaaS',
-        isLifetime: localStorage.getItem('valenixia_billing_cycle') === 'LIFETIME',
-        expiresAt: parseInt(localStorage.getItem('valenixia_subscription_expires_at') || '0', 10),
-        isLocalTerminal: true
-      }];
+      try {
+        const raw = localStorage.getItem('valenixia_admin_subscribers');
+        if (raw) subscribers = JSON.parse(raw);
+      } catch (_) {}
+      if (!Array.isArray(subscribers)) subscribers = [];
     }
 
     if (kpiEl) {

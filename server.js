@@ -3684,6 +3684,173 @@ app.post('/api/payments/submit-proof', billingLimiter, requireAuth, requireBody(
   }
 });
 
+// ── CLAIMS API (Cross-Platform Synchronized Claims Management) ──
+let globalServerClaimsCache = [];
+
+app.get('/api/claims', async (req, res) => {
+  try {
+    const proofs = await db.all("SELECT * FROM payment_proofs ORDER BY created_at DESC").catch(() => []);
+    const localClaims = (proofs || []).map(p => {
+      const planId = (p.plan_id || 'STARTER').toUpperCase();
+      const statusUpper = (p.status || 'pending').toUpperCase();
+      const dateStr = p.created_at ? new Date(p.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+      const amountNum = parseFloat(p.amount) || 0;
+      return {
+        id: p.id && String(p.id).startsWith('CLM-') ? p.id : (p.claim_id || ('CLM-' + String(p.id || '').slice(0, 8).toUpperCase())),
+        rawId: p.id,
+        hwid: p.hwid || p.user_id || 'DEV-HWID-UNKNOWN',
+        storeName: p.store_name || `Store (${String(p.user_id || p.hwid || '').slice(0, 8)})`,
+        ownerName: p.owner_name || 'Store Merchant',
+        phone: p.phone || '—',
+        category: p.category || 'General Retail',
+        module: p.module || `${planId} Plan`,
+        targetTier: planId,
+        rrn: p.rrn_reference || p.rrn || '—',
+        amount: `PKR ${amountNum.toLocaleString()}`,
+        amountVal: amountNum,
+        date: dateStr,
+        timestamp: p.created_at ? new Date(p.created_at).getTime() : Date.now(),
+        status: statusUpper === 'APPROVED' ? 'APPROVED' : (statusUpper === 'REJECTED' ? 'REJECTED' : 'PENDING'),
+        resolvedAt: p.updated_at || null
+      };
+    });
+
+    const map = new Map();
+    globalServerClaimsCache.forEach(c => { if (c && c.id) map.set(String(c.id).trim(), c); });
+    localClaims.forEach(c => { if (c && c.id) map.set(String(c.id).trim(), c); });
+
+    const claims = Array.from(map.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    res.json({ ok: true, success: true, count: claims.length, claims });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/claims', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const id = body.id || ('CLM-' + Math.floor(100000 + Math.random() * 900000));
+    const hwid = body.hwid || req.headers['x-device-hwid'] || 'DEV-HWID-LOCAL-NODE';
+    const storeName = body.storeName || body.store_name || 'Valenixia Commercial Store';
+    const ownerName = body.ownerName || body.owner_name || 'Store Merchant';
+    const phone = body.phone || '+92 331 5133226';
+    const category = body.category || 'General Retail';
+    const targetTier = (body.targetTier || body.plan_id || 'PRO').toUpperCase();
+    const moduleName = body.module || `${targetTier} Plan (MONTHLY)`;
+    const rrn = body.rrn || body.rrn_reference || ('WA_TX_' + Math.random().toString(36).substring(2, 8).toUpperCase());
+    const amountVal = parseFloat(body.amountVal || body.amount || 6999);
+    const date = body.date || new Date().toISOString().split('T')[0];
+    const timestamp = body.timestamp || Date.now();
+    const status = (body.status || 'PENDING').toUpperCase();
+
+    const claim = {
+      id,
+      hwid,
+      storeName,
+      ownerName,
+      phone,
+      category,
+      module: moduleName,
+      targetTier,
+      rrn,
+      amount: `PKR ${amountVal.toLocaleString()}`,
+      amountVal,
+      date,
+      timestamp,
+      status
+    };
+
+    const existingIdx = globalServerClaimsCache.findIndex(c => c.id === id || (c.rrn && c.rrn === rrn));
+    if (existingIdx >= 0) globalServerClaimsCache[existingIdx] = claim;
+    else globalServerClaimsCache.unshift(claim);
+
+    // Save to local sqlite payment_proofs if table exists
+    try {
+      await db.run(
+        `INSERT OR REPLACE INTO payment_proofs (id, user_id, plan_id, mode, rrn_reference, amount, proof_image_url, status, created_at, updated_at)
+         VALUES (?, ?, ?, 'subscription', ?, ?, '', ?, ?, ?)`,
+        [id, hwid, targetTier, rrn, amountVal, status.toLowerCase(), timestamp, timestamp]
+      ).catch(() => {});
+    } catch (_) {}
+
+    res.status(201).json({ ok: true, success: true, claim });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/claims/approve', async (req, res) => {
+  try {
+    const { claimId, claim_id, hwid, targetTier, target_tier, daysToAdd, isLifetime } = req.body || {};
+    const effectiveClaimId = String(claimId || claim_id || '').trim();
+    if (!effectiveClaimId) return res.status(400).json({ error: 'Missing claimId' });
+
+    const now = Date.now();
+    const nowIso = new Date(now).toISOString();
+    const days = parseInt(daysToAdd || 30, 10);
+    const expiresAtMs = isLifetime ? null : (now + days * 24 * 60 * 60 * 1000);
+    const expiresAtIso = expiresAtMs ? new Date(expiresAtMs).toISOString() : null;
+
+    let resolvedTier = (targetTier || target_tier || 'STARTER').toUpperCase();
+
+    const cached = globalServerClaimsCache.find(c => String(c.id).trim() === effectiveClaimId || String(c.rawId).trim() === effectiveClaimId);
+    if (cached) {
+      cached.status = 'APPROVED';
+      cached.resolvedAt = nowIso;
+      if (!targetTier && cached.targetTier) resolvedTier = cached.targetTier.toUpperCase();
+    }
+
+    try {
+      await db.run("UPDATE payment_proofs SET status = 'approved', updated_at = ? WHERE id = ? OR rrn_reference = ?", [now, effectiveClaimId, effectiveClaimId]).catch(() => {});
+      const targetHwid = hwid || (cached ? cached.hwid : null);
+      if (targetHwid) {
+        await db.run("UPDATE stores SET tier = ?, updated_at = ? WHERE id = ?", [resolvedTier, now, targetHwid]).catch(() => {});
+      }
+    } catch (_) {}
+
+    res.json({ ok: true, success: true, claimId: effectiveClaimId, status: 'APPROVED', targetTier: resolvedTier, expiresAt: expiresAtIso, expiresAtMs });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/claims/reject', async (req, res) => {
+  try {
+    const { claimId, claim_id, reason } = req.body || {};
+    const effectiveClaimId = String(claimId || claim_id || '').trim();
+    if (!effectiveClaimId) return res.status(400).json({ error: 'Missing claimId' });
+
+    const cached = globalServerClaimsCache.find(c => String(c.id).trim() === effectiveClaimId || String(c.rawId).trim() === effectiveClaimId);
+    if (cached) {
+      cached.status = 'REJECTED';
+      cached.resolvedAt = new Date().toISOString();
+    }
+
+    try {
+      await db.run("UPDATE payment_proofs SET status = 'rejected', rejection_reason = ?, updated_at = ? WHERE id = ? OR rrn_reference = ?", [reason || 'Rejected', Date.now(), effectiveClaimId, effectiveClaimId]).catch(() => {});
+    } catch (_) {}
+
+    res.json({ ok: true, success: true, claimId: effectiveClaimId, status: 'REJECTED' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/claims/downgrade', async (req, res) => {
+  try {
+    const { subscriberId, hwid, targetTier } = req.body || {};
+    const effectiveTier = (targetTier || 'FREE').toUpperCase();
+    try {
+      if (hwid) {
+        await db.run("UPDATE stores SET tier = ?, updated_at = ? WHERE id = ?", [effectiveTier, Date.now(), hwid]).catch(() => {});
+      }
+    } catch (_) {}
+    res.json({ ok: true, success: true, subscriberId, targetTier: effectiveTier });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/addons/list — Commercial Add-ons Catalog
 app.get('/api/addons/list', (req, res) => {
   const catalog = require('./lib/commercial-catalog');

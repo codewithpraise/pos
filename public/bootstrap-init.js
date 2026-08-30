@@ -2149,10 +2149,18 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     if (localUrl && localUrl.trim()) {
       return localUrl.trim();
     }
-    if (window.location.protocol !== 'file:') {
+    const isNativeOrFile = window.location.protocol === 'file:' || 
+                           window.location.protocol.includes('capacitor') || 
+                           (typeof window.AndroidPOS !== 'undefined') || 
+                           (typeof window.Capacitor !== 'undefined') ||
+                           (window.location.hostname === 'localhost' && /Android|Mobile/i.test(navigator.userAgent));
+    if (isNativeOrFile) {
+      return 'https://valenixia-pos.vercel.app';
+    }
+    if (window.location.protocol !== 'file:' && window.location.origin && !window.location.origin.includes('localhost:8080')) {
       return window.location.origin;
     }
-    return 'http://localhost:8080';
+    return 'https://valenixia-pos.vercel.app';
   }
   try {
     window.__valenixiaServerUrl = resolveServerUrl();
@@ -2163,7 +2171,7 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
     if (window.__valenixiaIsLocal) {
         console.error('[Bootstrap] URL Resolution Error:', err.message);
     }
-    window.__valenixiaServerUrl = '';
+    window.__valenixiaServerUrl = 'https://valenixia-pos.vercel.app';
   }
 })();
 

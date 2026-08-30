@@ -451,6 +451,7 @@ async function syncOnlineSubscriptionTier() {
       // Only trigger full UI re-renders on genuine state mutations or initial boot
       if (tierChanged || expChanged || !window.__initialTierRendered) {
         window.__initialTierRendered = true;
+        if (typeof applyActiveTierToSystem === 'function') applyActiveTierToSystem(fetchedTier, { expiryMs: curExpNum });
         if (typeof applyTierLocks === 'function') applyTierLocks(fetchedTier);
         if (typeof renderNavbarByTier === 'function') renderNavbarByTier(fetchedTier);
         if (typeof applyTierRestrictions === 'function') applyTierRestrictions();
@@ -459,7 +460,7 @@ async function syncOnlineSubscriptionTier() {
 
       if (tierChanged && prevTier !== 'TRIAL') {
         if (typeof showNotificationToast === 'function') {
-          showNotificationToast(` Subscription License Sync: Active Plan is ${fetchedTier}.`, 'info', 4000);
+          showNotificationToast(`🎉 Subscription License Sync: Active Plan is ${fetchedTier}.`, 'success', 5000);
         }
       }
     }
