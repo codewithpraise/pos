@@ -53,6 +53,14 @@
   ],
   "rewrites": [
     {
+      "source": "/api/claims/(.*)",
+      "destination": "/api/claims"
+    },
+    {
+      "source": "/api/devices/(.*)",
+      "destination": "/api/devices"
+    },
+    {
       "source": "/api/version",
       "destination": "/version.json"
     },
