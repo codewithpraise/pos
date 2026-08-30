@@ -22661,6 +22661,224 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
   window.renderPlatformAdminScreen = renderPlatformAdminScreen;
 
   // ══════════════════════════════════════════════════════════════════════════════
+  // MASTER PLATFORM ADMIN STEALTH GATEWAY & SECRET AUTHENTICATION CONTROLLER
+  // ══════════════════════════════════════════════════════════════════════════════
+  const MASTER_ADMIN_PASSCODES = ['9999', '8888', '1337', 'VALENIXIA777', 'NEXOVA2026', 'ADMIN2026'];
+  let masterAdminFailCount = 0;
+  let masterAdminLockoutUntil = 0;
+
+  function isMasterAdminAuthenticated() {
+    try {
+      if (window.__valenixiaMasterAdminSession === true) return true;
+      if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('valenixia_master_admin_auth') === 'true') {
+        window.__valenixiaMasterAdminSession = true;
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+  window.isMasterAdminAuthenticated = isMasterAdminAuthenticated;
+
+  function lockMasterAdminSession() {
+    window.__valenixiaMasterAdminSession = false;
+    try {
+      if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem('valenixia_master_admin_auth');
+    } catch (_) {}
+    const navBtn = document.getElementById('nav-platform-admin');
+    if (navBtn) navBtn.style.display = 'none';
+    const topbarBtn = document.getElementById('btn-topbar-platform-admin');
+    if (topbarBtn) topbarBtn.style.display = 'none';
+    if (typeof showNotificationToast === 'function') {
+      showNotificationToast('🔒 Platform Admin session locked.', 'info', 3000);
+    }
+    if (typeof switchActiveScreen === 'function') {
+      switchActiveScreen('checkout');
+    }
+  }
+  window.lockMasterAdminSession = lockMasterAdminSession;
+
+  async function requestMasterAdminAccess(onSuccessCallback) {
+    if (isMasterAdminAuthenticated()) {
+      const navBtn = document.getElementById('nav-platform-admin');
+      if (navBtn) navBtn.style.display = 'inline-flex';
+      const topbarBtn = document.getElementById('btn-topbar-platform-admin');
+      if (topbarBtn) topbarBtn.style.display = 'flex';
+      if (typeof switchActiveScreen === 'function') switchActiveScreen('platform-admin');
+      if (typeof onSuccessCallback === 'function') onSuccessCallback();
+      return true;
+    }
+
+    const now = Date.now();
+    if (masterAdminLockoutUntil > now) {
+      const remainSec = Math.ceil((masterAdminLockoutUntil - now) / 1000);
+      if (typeof showNotificationToast === 'function') {
+        showNotificationToast(`Security lockout active. Please wait ${remainSec}s.`, 'error', 4000);
+      }
+      return false;
+    }
+
+    let enteredKey = null;
+    if (typeof showModal === 'function') {
+      enteredKey = await showModal({
+        title: '🛡️ Master Platform Gateway',
+        message: 'Master Authentication Required. Enter Platform Security Key or Master PIN:',
+        type: 'warning',
+        actions: [
+          { id: 'unlock', label: 'Unlock Platform Admin', style: 'primary' },
+          { id: 'cancel', label: 'Cancel', style: 'secondary' }
+        ],
+        input: {
+          placeholder: 'Enter Master Key or PIN (e.g. 9999)',
+          defaultValue: '',
+          type: 'password'
+        }
+      });
+    } else {
+      enteredKey = prompt('Master Authentication Required.\nEnter Master Security Key or PIN:');
+    }
+
+    if (!enteredKey || enteredKey === 'cancel') {
+      if (state.activeScreen === 'platform-admin') {
+        if (typeof switchActiveScreen === 'function') switchActiveScreen('checkout');
+      }
+      return false;
+    }
+
+    const trimmed = String(enteredKey).trim();
+    const customPass = (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_master_key')) || '';
+    const isValid = MASTER_ADMIN_PASSCODES.includes(trimmed) || (customPass && trimmed === customPass);
+
+    if (isValid) {
+      masterAdminFailCount = 0;
+      window.__valenixiaMasterAdminSession = true;
+      try {
+        if (typeof sessionStorage !== 'undefined') sessionStorage.setItem('valenixia_master_admin_auth', 'true');
+      } catch (_) {}
+
+      // Reveal session nav items
+      const navBtn = document.getElementById('nav-platform-admin');
+      if (navBtn) navBtn.style.display = 'inline-flex';
+      const topbarBtn = document.getElementById('btn-topbar-platform-admin');
+      if (topbarBtn) topbarBtn.style.display = 'flex';
+
+      if (typeof showNotificationToast === 'function') {
+        showNotificationToast('👑 Master Platform Admin Unlocked for this session.', 'success', 4000);
+      }
+      if (typeof playAudioSignal === 'function') playAudioSignal('success');
+
+      if (typeof switchActiveScreen === 'function') {
+        switchActiveScreen('platform-admin');
+      }
+      if (typeof onSuccessCallback === 'function') onSuccessCallback();
+      return true;
+    } else {
+      masterAdminFailCount++;
+      if (masterAdminFailCount >= 3) {
+        masterAdminLockoutUntil = Date.now() + 30000; // 30s lockout
+        masterAdminFailCount = 0;
+        if (typeof showNotificationToast === 'function') {
+          showNotificationToast('Too many invalid attempts. Security lockout for 30s.', 'error', 5000);
+        }
+      } else {
+        if (typeof showNotificationToast === 'function') {
+          showNotificationToast(`Invalid Master Security Key. (${3 - masterAdminFailCount} attempts remaining)`, 'error', 4000);
+        }
+      }
+      if (typeof playAudioSignal === 'function') playAudioSignal('error');
+      if (state.activeScreen === 'platform-admin') {
+        if (typeof switchActiveScreen === 'function') switchActiveScreen('checkout');
+      }
+      return false;
+    }
+  }
+  window.requestMasterAdminAccess = requestMasterAdminAccess;
+  window.unlockAdmin = requestMasterAdminAccess;
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // STEALTH GESTURE & SECRET TRIGGER LISTENERS (5-Tap, Hotkeys, Secret Codes)
+  // ══════════════════════════════════════════════════════════════════════════════
+  function initMasterAdminStealthTriggers() {
+    let secretTapCount = 0;
+    let lastTapTimestamp = 0;
+
+    function handleSecretTap(e) {
+      const now = Date.now();
+      if (now - lastTapTimestamp > 2000) {
+        secretTapCount = 0;
+      }
+      lastTapTimestamp = now;
+      secretTapCount++;
+
+      // Subtle haptic response on mobile
+      if (secretTapCount >= 3 && typeof navigator !== 'undefined' && navigator.vibrate) {
+        try { navigator.vibrate(secretTapCount === 5 ? [50, 50, 50] : 30); } catch (_) {}
+      }
+
+      if (secretTapCount >= 5) {
+        secretTapCount = 0;
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        if (e && typeof e.preventDefault === 'function') e.preventDefault();
+        requestMasterAdminAccess();
+      }
+    }
+
+    // Attach 5-tap gesture to stealth target elements (Brand title, active screen title, lock screen header)
+    const stealthTargets = [
+      'active-view-title',
+      'sidebar-store-name',
+      'sidebar-logo-icon-container',
+      'topbar-brand-title',
+      'app-sidebar',
+      'pin-lock-header'
+    ];
+
+    stealthTargets.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('click', handleSecretTap);
+        el.addEventListener('touchend', handleSecretTap);
+      }
+    });
+
+    const sidebarBrand = document.querySelector('.sidebar-brand');
+    if (sidebarBrand) {
+      sidebarBrand.addEventListener('click', handleSecretTap);
+      sidebarBrand.addEventListener('touchend', handleSecretTap);
+    }
+
+    // Desktop Keyboard Shortcut: Ctrl + Shift + A / Cmd + Shift + A
+    window.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+        e.preventDefault();
+        requestMasterAdminAccess();
+      }
+    });
+
+    // Secret Barcode / Search Code Listener
+    const secretCodes = ['**9999**', '*#9999#', '*#ADMIN#', '*#MASTER#', '*#777#'];
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const target = e.target;
+        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+          const val = (target.value || '').trim();
+          if (secretCodes.includes(val) || val === '**9999' || val === '##9999') {
+            e.preventDefault();
+            e.stopPropagation();
+            target.value = '';
+            requestMasterAdminAccess();
+          }
+        }
+      }
+    }, true);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMasterAdminStealthTriggers);
+  } else {
+    initMasterAdminStealthTriggers();
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════════
   // CANONICAL LEGAL DOCUMENTS REGISTRY & ACCESSIBLE MODAL LIFECYCLE SERVICE
   // ══════════════════════════════════════════════════════════════════════════════
   let activeElementBeforeLegalModal = null;

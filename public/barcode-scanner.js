@@ -305,8 +305,6 @@
             }
           } catch (_) {}
         }
-          }
-        }
 
         if (this.generationToken === token && this.isOpen()) {
           this.animFrameId = reqAnimFrame(step);

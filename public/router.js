@@ -278,8 +278,18 @@
         }
       }
 
+      // Master Platform Admin Security Gate Check
+      if (cleanName === 'platform-admin') {
+        if (typeof global.isMasterAdminAuthenticated === 'function' && !global.isMasterAdminAuthenticated()) {
+          if (typeof global.requestMasterAdminAccess === 'function') {
+            global.requestMasterAdminAccess();
+          }
+          return false;
+        }
+      }
+
       // Feature Tier & Freemium Access Gate
-      if (cleanName !== 'checkout' && cleanName !== 'settings' && cleanName !== 'subscription' && cleanName !== 'apps-download') {
+      if (cleanName !== 'checkout' && cleanName !== 'settings' && cleanName !== 'subscription' && cleanName !== 'apps-download' && cleanName !== 'platform-admin') {
         if (typeof global.can === 'function' && !global.can(cleanName)) {
           if (typeof global.showUpgradeModal === 'function') {
             global.showUpgradeModal(cleanName);
