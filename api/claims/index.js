@@ -100,15 +100,16 @@ module.exports = async (req, res) => {
             const userUuid = toDeterministicUuid(targetHwid);
             await supabase
               .from('stores')
-              .update({
+              .upsert({
+                id: userUuid,
+                name: `Store (${targetHwid.slice(0, 8)})`,
                 tier: resolvedTier,
                 plan: resolvedTier.toLowerCase(),
                 subscription_start_time: nowIso,
                 expires_at: expiresAtIso,
                 is_active: true,
                 updated_at: nowIso
-              })
-              .or(`id.eq.${userUuid},id.eq.${targetHwid}`);
+              }, { onConflict: 'id' });
           }
         } catch (sbErr) {
           console.warn('[ClaimsAPI] Supabase approve warning:', sbErr.message);
@@ -193,15 +194,16 @@ module.exports = async (req, res) => {
           const userUuid = toDeterministicUuid(hwid);
           await supabase
             .from('stores')
-            .update({
+            .upsert({
+              id: userUuid,
+              name: `Store (${hwid.slice(0, 8)})`,
               tier: effectiveTier,
               plan: effectiveTier.toLowerCase(),
               subscription_start_time: nowIso,
               expires_at: expiresAtIso,
               is_active: effectiveTier !== 'FREE',
               updated_at: nowIso
-            })
-            .or(`id.eq.${userUuid},id.eq.${hwid}`);
+            }, { onConflict: 'id' });
         } catch (sbErr) {
           console.warn('[ClaimsAPI] Supabase downgrade warning:', sbErr.message);
         }
