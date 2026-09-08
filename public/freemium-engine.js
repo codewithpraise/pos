@@ -95,48 +95,36 @@ const TIER_TO_PLAN = {
 const VALID_TIERS = ['FREE', 'STARTER', 'GROWTH', 'PRO', 'ENTERPRISE'];
 
 function getActiveTier() {
-  // Priority 0: Explicit runtime active tier (authoritative for live session, upgrades & downgrades)
-  if (window.__valenixiaTier && VALID_TIERS.includes(String(window.__valenixiaTier).toUpperCase())) {
-    const norm = String(window.__valenixiaTier).toUpperCase();
-    window.__valenixiaPlan = PLANS[norm] || PLANS.FREE;
-    return norm;
-  }
-
-  // Priority 1: Store-Scoped Preference Tier (Isolates stores on same device)
-  const storeTier = (window.__valenixiaState && window.__valenixiaState.preferences && window.__valenixiaState.preferences['store_subscription_tier']) || (window.__valenixiaState && window.__valenixiaState.currentTier);
-  if (storeTier && VALID_TIERS.includes(String(storeTier).toUpperCase())) {
-    const norm = String(storeTier).toUpperCase();
-    window.__valenixiaTier = norm;
-    window.__valenixiaPlan = PLANS[norm] || PLANS.FREE;
-    return norm;
-  }
-
-  // Priority 2: Authoritative Stored Tier Key
+  // Priority 0: Active User-Initiated Free Trial Check
   try {
-    const storeId = (window.__valenixiaState?.preferences?.store_id) || (typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_store_id'));
-    if (storeId) {
-      const scopedTier = (localStorage.getItem(`valenixia_store_${storeId}_tier`) || '').toUpperCase();
-      if (VALID_TIERS.includes(scopedTier)) {
-        window.__valenixiaTier = scopedTier;
-        window.__valenixiaPlan = PLANS[scopedTier] || PLANS.FREE;
-        return scopedTier;
+    const isTrialActive = typeof localStorage !== 'undefined' && localStorage.getItem('valenixia_trial_active') === 'true';
+    if (isTrialActive) {
+      const expMs = parseInt(localStorage.getItem('valenixia_subscription_expires_at') || '0', 10);
+      if (expMs > 0 && Date.now() < expMs) {
+        window.__valenixiaTier = 'PRO';
+        window.__valenixiaPlan = PLANS.PRO;
+        return 'PRO';
+      } else {
+        // Trial expired - automatically downgrade to FREE
+        localStorage.removeItem('valenixia_trial_active');
+        localStorage.setItem('valenixia_tier', 'FREE');
+        localStorage.setItem('valenixia_subscription_expires_at', '0');
+        if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
+          ValenixiaDB.put('local_preferences', {
+            key: 'valenixia_trial_active',
+            value_type: 'BOOL',
+            value_payload: 'false',
+            is_idempotent_flag: 0,
+            updated_at: Date.now()
+          }).catch(() => {});
+        }
       }
     }
   } catch (_) {}
 
-  // Priority 3: Local Storage Global Tier
+  // Priority 1: Approved Payment Claim in local store or cloud
   try {
-    const rawStored = (typeof localStorage !== 'undefined' ? (localStorage.getItem('valenixia_tier') || '') : '').toUpperCase();
-    if (VALID_TIERS.includes(rawStored)) {
-      window.__valenixiaTier = rawStored;
-      window.__valenixiaPlan = PLANS[rawStored] || PLANS.FREE;
-      return rawStored;
-    }
-  } catch (_) {}
-
-  // Priority 4: Approved Payment Claim in local store (if not overridden by downgrade)
-  try {
-    const claims = window.ValenixiaClaimsManager 
+    const claims = (window.ValenixiaClaimsManager && typeof window.ValenixiaClaimsManager.getAll === 'function') 
       ? window.ValenixiaClaimsManager.getAll() 
       : JSON.parse(localStorage.getItem('valenixia_admin_claims') || '[]');
     const approved = claims.find(c => c && c.status === 'APPROVED');
@@ -157,7 +145,30 @@ function getActiveTier() {
     }
   } catch (_) {}
 
-  // Priority 5: Fallback to FREE baseline
+  // Priority 2: Cloud-synced paid tier (validated by non-expired end date or lifetime billing AND verified by approved claim or server status)
+  try {
+    const storedTier = (typeof localStorage !== 'undefined' ? (localStorage.getItem('valenixia_tier') || '') : '').toUpperCase();
+    const isPaid = (storedTier === 'STARTER' || storedTier === 'GROWTH' || storedTier === 'PRO' || storedTier === 'ENTERPRISE');
+    const expMs = parseInt(localStorage.getItem('valenixia_subscription_expires_at') || '0', 10);
+    const isLifetime = (localStorage.getItem('valenixia_billing_cycle') || '').toUpperCase() === 'LIFETIME';
+
+    if (isPaid && (isLifetime || (expMs > 0 && Date.now() < expMs))) {
+      // Guard against tampering: Starter, Pro, and Enterprise require an approved claim, active trial, or lifetime admin grant
+      const claims = (window.ValenixiaClaimsManager && typeof window.ValenixiaClaimsManager.getAll === 'function') 
+        ? window.ValenixiaClaimsManager.getAll() 
+        : JSON.parse(localStorage.getItem('valenixia_admin_claims') || '[]');
+      const hasApproved = Array.isArray(claims) && claims.some(c => c && c.status === 'APPROVED');
+      const hasTrial = localStorage.getItem('valenixia_trial_active') === 'true';
+
+      if (hasApproved || hasTrial || isLifetime) {
+        window.__valenixiaTier = storedTier;
+        window.__valenixiaPlan = PLANS[storedTier] || PLANS.FREE;
+        return storedTier;
+      }
+    }
+  } catch (_) {}
+
+  // Strict Baseline: New & Un-upgraded Stores ALWAYS get FREE Tier (Starter, Pro, Enterprise require Admin approval)
   window.__valenixiaTier = 'FREE';
   window.__valenixiaPlan = PLANS.FREE;
   return 'FREE';
@@ -184,6 +195,7 @@ const FEATURE_TIER_REQ = {
   'catalog-manager': 'FREE',
   'inventory': 'FREE',
   'platform-admin': 'FREE',
+  'deals': 'FREE',
 
   // Starter Tier Views & Modules (PKR 3,499/mo)
   'suppliers': 'STARTER',
@@ -197,7 +209,6 @@ const FEATURE_TIER_REQ = {
   'buyback': 'STARTER',
 
   // Growth Tier Views & Modules (PKR 6,999/mo) — Streamlined Core Operations
-  'deals': 'PRO',
   'kds': 'PRO',
   'attendance': 'PRO',
   'label-designer': 'PRO',
@@ -322,13 +333,16 @@ async function syncOnlineSubscriptionTier() {
     }
 
     let data = null;
+    const activeStoreName = (typeof localStorage !== 'undefined' ? (localStorage.getItem('valenixia_store_name') || localStorage.getItem('store_name') || '') : '');
     if (serverBase && !serverBase.startsWith('file:')) {
       try {
         const startParam = existingStartMs ? '&start_time=' + encodeURIComponent(new Date(existingStartMs).toISOString()) : '';
-        const endpoint = serverBase + '/api/subscription/status' + (hwid ? '?hwid=' + encodeURIComponent(hwid) + startParam : '');
+        const storeParam = activeStoreName ? '&store_name=' + encodeURIComponent(activeStoreName) : '';
+        const endpoint = serverBase + '/api/subscription/status' + (hwid ? '?hwid=' + encodeURIComponent(hwid) + startParam + storeParam : (storeParam ? '?' + storeParam.slice(1) : ''));
         const resp = await fetch(endpoint, {
           headers: {
             ...(hwid ? { 'x-device-hwid': hwid } : {}),
+            ...(activeStoreName ? { 'x-store-name': activeStoreName } : {}),
             ...(existingStartMs ? { 'x-subscription-start-time': new Date(existingStartMs).toISOString() } : {})
           }
         });
@@ -415,7 +429,7 @@ async function syncOnlineSubscriptionTier() {
 
         // ── Server Expiry Guard ─────────────────────────────────────────────────
         const currentExpMs = parseInt(localStorage.getItem('valenixia_subscription_expires_at') || '0', 10);
-        if (!isNaN(serverExpMs) && serverExpMs > 0 && !isServerInitializedFresh) {
+        if (fetchedTier !== 'FREE' && !isNaN(serverExpMs) && serverExpMs > 0 && !isServerInitializedFresh) {
           const expDiff = Math.abs(serverExpMs - currentExpMs);
           if (currentExpMs === 0 || expDiff > 300000) {
             localStorage.setItem('valenixia_subscription_expires_at', String(serverExpMs));
@@ -429,18 +443,8 @@ async function syncOnlineSubscriptionTier() {
               }).catch(() => {});
             }
           }
-        } else if (currentExpMs === 0 && existingStartMs > 0) {
-          const initialExp = existingStartMs + (30 * 24 * 60 * 60 * 1000);
-          localStorage.setItem('valenixia_subscription_expires_at', String(initialExp));
-          if (typeof ValenixiaDB !== 'undefined' && ValenixiaDB.put) {
-            ValenixiaDB.put('local_preferences', {
-              key: 'valenixia_subscription_expires_at',
-              value_type: 'STR',
-              value_payload: String(initialExp),
-              is_idempotent_flag: 0,
-              updated_at: Date.now()
-            }).catch(() => {});
-          }
+        } else if (fetchedTier === 'FREE' && localStorage.getItem('valenixia_trial_active') !== 'true') {
+          localStorage.setItem('valenixia_subscription_expires_at', '0');
         }
       } catch(_) {}
 
@@ -461,7 +465,7 @@ async function syncOnlineSubscriptionTier() {
 
       if (tierChanged && prevTier !== 'TRIAL') {
         if (typeof showNotificationToast === 'function') {
-          showNotificationToast(`🎉 Subscription License Sync: Active Plan is ${fetchedTier}.`, 'success', 5000);
+          showNotificationToast(`Subscription License Sync: Active Plan is ${fetchedTier}.`, 'success', 5000);
         }
       }
     }
@@ -749,7 +753,7 @@ function showUpgradeModal(featureName, requiredTier) {
       id: 'PRO',
       name: 'Growth Plan',
       price: 'Rs. 6,999',
-      features: '2 Terminals · Deals & Combos · KDS / KOT · Time Clock · Barcode Studio · Cloud Sync',
+      features: '2 Terminals · KDS / KOT Routing · Staff Time Clock · Barcode Designer · Cloud Sync',
       buttonText: (activeTier === 'PRO' || activeTier === 'GROWTH') ? 'Current Plan' : 'Upgrade Growth',
       themeColor: '#10b981'
     },
@@ -779,7 +783,7 @@ function showUpgradeModal(featureName, requiredTier) {
   if (reqTier === 'ENTERPRISE') {
     subText = `This feature is exclusively available on the <strong style="color:#f59e0b;">Enterprise HQ Plan</strong>.<br><span style="font-size:12px;color:#94a3b8;">Starter and Growth plans do not include this feature. Upgrade to Enterprise to unlock instant access.</span>`;
   } else if (reqTier === 'PRO' || reqTier === 'GROWTH') {
-    subText = `This feature requires the <strong style="color:#10b981;">Growth Plan</strong> or higher.<br><span style="font-size:12px;color:#94a3b8;">Upgrade to Growth or Enterprise to unlock multi-terminal sync, KDS, deals & combos, and barcode studio.</span>`;
+    subText = `This feature requires the <strong style="color:#10b981;">Growth Plan</strong> or higher.<br><span style="font-size:12px;color:#94a3b8;">Upgrade to Growth or Enterprise to unlock multi-terminal sync, KDS / KOT, staff time clock, and barcode studio.</span>`;
   } else {
     subText = `This feature requires the <strong style="color:#06b6d4;">Starter Plan</strong> or higher.<br><span style="font-size:12px;color:#94a3b8;">Active Plan: Valenixia ${activeTier}</span>`;
   }
@@ -817,8 +821,8 @@ function showUpgradeModal(featureName, requiredTier) {
       <button id="__paywall-close-btn" type="button" aria-label="Close" style="position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#94a3b8;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1;transition:all 0.15s ease;">×</button>
 
       <div style="text-align:center;margin-bottom:20px;padding-right:20px;padding-left:20px;">
-        <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;background:${reqTier==='ENTERPRISE'?'rgba(245,158,11,0.15)':'rgba(16,185,129,0.15)'};border:1px solid ${reqTier==='ENTERPRISE'?'rgba(245,158,11,0.4)':'rgba(16,185,129,0.4)'};border-radius:50%;font-size:26px;margin-bottom:12px;">
-          🔒
+        <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;background:${reqTier==='ENTERPRISE'?'rgba(245,158,11,0.15)':'rgba(16,185,129,0.15)'};border:1px solid ${reqTier==='ENTERPRISE'?'rgba(245,158,11,0.4)' : 'rgba(16,185,129,0.4)'};border-radius:50%;margin-bottom:12px;">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="${reqTier==='ENTERPRISE'?'#f59e0b':'#10b981'}" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         </div>
         <h2 style="font-size:19px;font-weight:900;margin:0 0 8px;color:#fff;letter-spacing:-0.3px;">
           ${cleanName} LOCKED
@@ -949,14 +953,14 @@ function showLimitReachedModal(limitType, currentCount, maxLimit) {
       <button id="__limit-close-btn" type="button" aria-label="Close" style="position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#94a3b8;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1;transition:all 0.15s ease;">×</button>
 
       <div style="text-align:center;margin-bottom:20px;padding:0 10px;">
-        <div style="display:inline-flex;align-items:center;justify-content:center;width:60px;height:60px;background:rgba(245,158,11,0.15);border:2px solid rgba(245,158,11,0.4);border-radius:50%;font-size:28px;margin-bottom:12px;box-shadow:0 0 20px rgba(245,158,11,0.25);">
-          ⚠️
+        <div style="display:inline-flex;align-items:center;justify-content:center;width:60px;height:60px;background:rgba(245,158,11,0.15);border:2px solid rgba(245,158,11,0.4);border-radius:50%;margin-bottom:12px;box-shadow:0 0 20px rgba(245,158,11,0.25);">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         </div>
         <div style="display:inline-block;padding:3px 10px;border-radius:12px;background:rgba(245,158,11,0.2);color:#f59e0b;font-size:10px;font-weight:900;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;">FREE TIER QUOTA LIMIT</div>
         <h2 style="font-size:20px;font-weight:900;margin:0 0 6px;color:#fff;letter-spacing:-0.3px;">
           ${limitTitle}
         </h2>
-        ${countStr ? `<div style="font-size:12px;font-family:var(--font-mono, monospace);font-weight:800;color:#38bdf8;margin-bottom:12px;">📊 ${countStr}</div>` : ''}
+        ${countStr ? `<div style="font-size:12px;font-family:var(--font-mono, monospace);font-weight:800;color:#38bdf8;margin-bottom:12px;">${countStr}</div>` : ''}
         <div style="font-size:13px;color:#cbd5e1;line-height:1.5;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);padding:12px;border-radius:12px;text-align:left;">
           ${limitDesc}
         </div>
@@ -976,16 +980,16 @@ function showLimitReachedModal(limitType, currentCount, maxLimit) {
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;color:#e2e8f0;margin-bottom:14px;">
-          <div style="display:flex;align-items:center;gap:6px;"><span style="color:#00d68f;font-weight:900;">✓</span> Unlimited Daily Sales</div>
-          <div style="display:flex;align-items:center;gap:6px;"><span style="color:#00d68f;font-weight:900;">✓</span> Unlimited Inventory SKUs</div>
-          <div style="display:flex;align-items:center;gap:6px;"><span style="color:#00d68f;font-weight:900;">✓</span> Suppliers &amp; Ledger</div>
-          <div style="display:flex;align-items:center;gap:6px;"><span style="color:#00d68f;font-weight:900;">✓</span> Financial P&amp;L Analytics</div>
-          <div style="display:flex;align-items:center;gap:6px;"><span style="color:#00d68f;font-weight:900;">✓</span> Customer Credit Khata</div>
-          <div style="display:flex;align-items:center;gap:6px;"><span style="color:#00d68f;font-weight:900;">✓</span> Clean Thermal Printing</div>
+          <div style="display:flex;align-items:center;gap:6px;"><span style="color:#00d68f;font-weight:900;">•</span> Unlimited Daily Sales</div>
+          <div style="display:flex;align-items:center;gap:6px;"><span style="color:#00d68f;font-weight:900;">•</span> Unlimited Inventory SKUs</div>
+          <div style="display:flex;align-items:center;gap:6px;"><span style="color:#00d68f;font-weight:900;">•</span> Suppliers &amp; Ledger</div>
+          <div style="display:flex;align-items:center;gap:6px;"><span style="color:#00d68f;font-weight:900;">•</span> Financial P&amp;L Analytics</div>
+          <div style="display:flex;align-items:center;gap:6px;"><span style="color:#00d68f;font-weight:900;">•</span> Customer Credit Khata</div>
+          <div style="display:flex;align-items:center;gap:6px;"><span style="color:#00d68f;font-weight:900;">•</span> Clean Thermal Printing</div>
         </div>
 
         <button id="__btn-limit-upgrade-starter" type="button" style="width:100%;padding:11px;background:linear-gradient(135deg, #06b6d4, #00d68f);color:#0f172a;font-size:13px;font-weight:900;border:none;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 16px rgba(6,182,212,0.35);transition:all 0.15s ease;">
-          <span>⚡ Upgrade to Starter Plan Now</span>
+          <span>Upgrade to Starter Plan Now</span>
           <span style="font-size:14px;">→</span>
         </button>
       </div>

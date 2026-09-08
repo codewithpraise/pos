@@ -4,8 +4,8 @@ const crypto = require('crypto');
 
 const { execSync } = require('child_process');
 
-const VERSION = '3.2.0';
-let GIT_COMMIT = 'badda34f768186762f400ba553eef5e7dc46a5b8';
+const VERSION = '3.2.4';
+let GIT_COMMIT = '03b8e718bdf88f572a1e64923e3cb8bc6a9fae9a4f4efbca9283e74b34ad7231';
 try {
   GIT_COMMIT = execSync('git rev-parse HEAD', { cwd: path.join(__dirname, '..') }).toString().trim();
 } catch (_) {}
@@ -53,14 +53,14 @@ const versionJson = {
   version: VERSION,
   build_id: BUILD_ID,
   git_commit: GIT_COMMIT,
-  updated_at: '2026-08-27',
-  changelog: `Valenixia POS v${VERSION} Real-Time Dynamic Analytics Engine, Top Products Revenue & Unit Velocity Leaderboards, Zero-Mock Empty States, Immutable Cloud Entitlements & PWA Performance Polish.`,
+  updated_at: '2026-09-08',
+  changelog: `Valenixia POS v${VERSION} — Perpetual license and annual maintenance contract (AMC) pricing realignment, native mobile/desktop binaries rebuild, and store isolation hardening.`,
   changes: [
-    'Fully dynamic Top Products by Units Sold (Velocity) and Revenue Leaderboard with paisa-safe revenue aggregation and catalog name resolution',
-    'Replaced all static fallback and mock placeholders across Analytics with authentic dynamic zero-state messaging',
-    'Enhanced multi-store branch performance telemetry matrix, Kamai business recommendations, and gold jewellery karat purity analytics',
-    'Sanitized cloud database queries and hardened hardware-anchored device entitlement countdowns',
-    'Optimized PWA installation lifecycle and eliminated console intervention warnings across desktop and mobile browsers'
+    'Updated Perpetual + AMC pricing matrix: Starter at PKR 79,000 (+15,000/yr AMC), Pro at PKR 149,000 (+28,000/yr AMC), and Enterprise at PKR 249,000 (+45,000/yr AMC)',
+    'Rebuilt production native Android APK (v3.2.4) and Windows desktop executables (MSI/EXE) with full offline runtime support',
+    'Hardened multi-store and native-vs-web hardware fingerprint isolation preventing cross-store entitlement overwrites on shared devices',
+    'Updated subresource integrity (SRI) hashes and service worker asset caches',
+    'Streamlined documentation covering cryptographic device ID generation, cloud claims reconciliation, and zero-downtime store upgrades'
   ]
 };
 fs.writeFileSync(path.join(publicDir, 'version.json'), JSON.stringify(versionJson, null, 2) + '\n');

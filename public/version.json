@@ -1,12 +1,14 @@
 {
-  "version": "3.2.2",
-  "build_id": "v3.2.2-prod-fae3cfe",
-  "git_commit": "fae3cfe0ee35af5c527e1dac2b66ccf03d934fd5eb6b5951fb91bd024b84f4f4",
-  "updated_at": "2026-08-29",
-  "changelog": "Valenixia POS v3.2.2 — Install button now downloads real native APK/EXE instead of lightweight PWA cache.",
+  "version": "3.2.4",
+  "build_id": "v3.2.4-prod-06ba21d",
+  "git_commit": "06ba21de338e3fbae6614df6c462eb7f4a4edbc5",
+  "updated_at": "2026-09-08",
+  "changelog": "Valenixia POS v3.2.4 — Perpetual license and annual maintenance contract (AMC) pricing realignment, native mobile/desktop binaries rebuild, and store isolation hardening.",
   "changes": [
-    "Install banner now redirects to full native APK (~16 MB) on Android or Windows EXE on desktop",
-    "Platform-aware banner icon and description (Android robot icon vs desktop monitor icon)",
-    "Browser PWA install (1.55 MB cache) is fully suppressed — users always get the hardware-capable native build"
+    "Updated Perpetual + AMC pricing matrix: Starter at PKR 79,000 (+15,000/yr AMC), Pro at PKR 149,000 (+28,000/yr AMC), and Enterprise at PKR 249,000 (+45,000/yr AMC)",
+    "Rebuilt production native Android APK (v3.2.4) and Windows desktop executables (MSI/EXE) with full offline runtime support",
+    "Hardened multi-store and native-vs-web hardware fingerprint isolation preventing cross-store entitlement overwrites on shared devices",
+    "Updated subresource integrity (SRI) hashes and service worker asset caches",
+    "Streamlined documentation covering cryptographic device ID generation, cloud claims reconciliation, and zero-downtime store upgrades"
   ]
 }

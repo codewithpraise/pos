@@ -2920,6 +2920,17 @@ app.get('/api/subscription/status', async (req, res) => {
   }
 });
 
+// GET /api/subscription/restore - Cloud Store & Entitlement Recovery Endpoint
+app.get('/api/subscription/restore', async (req, res) => {
+  try {
+    const restoreHandler = require('./api/subscription/restore');
+    return await restoreHandler(req, res);
+  } catch (err) {
+    console.error('[Server] /api/subscription/restore error:', err);
+    return res.status(500).json({ ok: false, success: false, error: err.message });
+  }
+});
+
 // POST /api/admin/devices/entitlement - Admin Endpoint to Grant, Upgrade or Extend Device Subscription
 app.post('/api/admin/devices/entitlement', requireAdmin, adminActionLimiter, async (req, res) => {
   try {
@@ -3041,41 +3052,6 @@ app.post('/api/billing/claim', billingLimiter, async (req, res) => {
     }
   } catch (err) {
     return res.status(500).json({ error: 'Failed to process upgrade claim: ' + err.message });
-  }
-});
-
-// Download endpoints for native companion applications (Mobile APK & Desktop app)
-app.get(['/downloads/valenixia-pos.apk', '/downloads/valenixia.apk', '/downloads/app-debug.apk', '/downloads/valenixia-pos-mobile.apk', '/downloads/valenixia-pos-latest.apk'], (req, res) => {
-  const canonicalApk = path.join(__dirname, 'public', 'downloads', 'valenixia-pos.apk');
-  const localApk = path.join(__dirname, 'android', 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk');
-  
-  if (fs.existsSync(canonicalApk)) {
-    res.download(canonicalApk, 'valenixia-pos.apk');
-  } else if (fs.existsSync(localApk)) {
-    res.download(localApk, 'valenixia-pos.apk');
-  } else {
-    res.status(404).send('APK build not found.');
-  }
-});
-
-app.get(['/downloads/valenixia-pos.exe', '/downloads/valenixia-pos-desktop.exe', '/downloads/valenixia.exe', '/downloads/nexova-pos-setup.exe'], (req, res) => {
-  const canonicalExe = path.join(__dirname, 'public', 'downloads', 'valenixia-pos.exe');
-  const distExe = path.join(__dirname, 'dist', 'valenixia-pos-desktop.exe');
-  if (fs.existsSync(canonicalExe)) {
-    res.download(canonicalExe, 'valenixia-pos.exe');
-  } else if (fs.existsSync(distExe)) {
-    res.download(distExe, 'valenixia-pos.exe');
-  } else {
-    res.redirect('/');
-  }
-});
-
-app.get(['/downloads/valenixia-pos.msi', '/downloads/valenixia-pos-setup.msi', '/downloads/nexova-pos-setup.msi'], (req, res) => {
-  const canonicalMsi = path.join(__dirname, 'public', 'downloads', 'valenixia-pos.msi');
-  if (fs.existsSync(canonicalMsi)) {
-    res.download(canonicalMsi, 'valenixia-pos.msi');
-  } else {
-    res.redirect('/');
   }
 });
 

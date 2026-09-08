@@ -91,6 +91,56 @@
 
       return null;
     }
+
+    /**
+     * Parse and normalize 1D/2D scanned raw payloads (QR codes, GS1 Digital Link, JSON, plain GTINs)
+     */
+    parsePayload(rawValue) {
+      if (!rawValue) return { code: '', metadata: null };
+      const raw = String(rawValue).replace(/[\r\n\t]/g, '').trim();
+
+      // 1. JSON payload (e.g. {"gtin":"001234567890", "sku":"COFFEE-01", "name":"Latte", "price":350})
+      if ((raw.startsWith('{') && raw.endsWith('}')) || (raw.startsWith('[') && raw.endsWith(']'))) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') {
+            const extractedCode = parsed.gtin || parsed.barcode || parsed.sku || parsed.id || parsed.code || '';
+            return {
+              code: String(extractedCode).trim(),
+              metadata: parsed,
+              isJson: true
+            };
+          }
+        } catch (_) {}
+      }
+
+      // 2. GS1 Digital Link or URI: https://id.gs1.org/01/00012345678905... or /gtin/123456 or /sku/123456
+      if (raw.includes('http://') || raw.includes('https://') || raw.includes('/01/') || raw.includes('gtin=')) {
+        try {
+          // Check query parameters first (?gtin=... or ?sku=... or ?barcode=...)
+          const urlObj = new URL(raw, 'https://valenixia.local');
+          const qGtin = urlObj.searchParams.get('gtin') || urlObj.searchParams.get('barcode') || urlObj.searchParams.get('sku') || urlObj.searchParams.get('code');
+          if (qGtin) {
+            return { code: qGtin.trim(), metadata: { sourceUrl: raw }, isGs1: true };
+          }
+
+          // Check standard GS1 Digital Link path structure /01/{gtin}
+          const gs1Match = raw.match(/\/01\/(\d{8,14})/);
+          if (gs1Match && gs1Match[1]) {
+            return { code: gs1Match[1], metadata: { gs1AIType: '01', sourceUrl: raw }, isGs1: true };
+          }
+
+          // Check path ending with numeric barcode or SKU: /products/001234567890
+          const pathMatch = raw.match(/\/([a-zA-Z0-9_\-]{3,32})\/?$/);
+          if (pathMatch && pathMatch[1] && !['index.html', 'index', 'view', 'item'].includes(pathMatch[1].toLowerCase())) {
+            return { code: pathMatch[1].trim(), metadata: { sourceUrl: raw } };
+          }
+        } catch (_) {}
+      }
+
+      // 3. Standard 1D/2D string representation (preserve leading zeros)
+      return { code: raw, metadata: null };
+    }
   }
 
   const decoderInstance = new ValenixiaOfflineBarcodeDecoder();
@@ -102,3 +152,4 @@
     window.ValenixiaBarcodeDecoder = decoderInstance;
   }
 })();
+

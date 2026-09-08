@@ -51,10 +51,19 @@
       ]
     }
   ],
+  "redirects": [],
   "rewrites": [
     {
       "source": "/api/claims/(.*)",
       "destination": "/api/claims"
+    },
+    {
+      "source": "/api/subscription/restore",
+      "destination": "/api/subscription/restore"
+    },
+    {
+      "source": "/api/subscription/status",
+      "destination": "/api/subscription/status"
     },
     {
       "source": "/api/devices/(.*)",
@@ -78,10 +87,6 @@
     },
     {
       "source": "/downloads/valenixia-pos-mobile.apk",
-      "destination": "/downloads/valenixia-pos.apk"
-    },
-    {
-      "source": "/downloads/valenixia-pos-latest.apk",
       "destination": "/downloads/valenixia-pos.apk"
     },
     {

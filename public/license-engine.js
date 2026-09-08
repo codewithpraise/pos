@@ -20,15 +20,17 @@ const LicenseEngine = (() => {
   const GRACE_PERIOD_MS         = 48 * 60 * 60 * 1000; // 48h offline grace
 
   // ── Hardware Fingerprint (Native Android priority, browser fallback) ─────
-  async function generateHWID() {
+  async function generateHWID(storeName) {
     if (window.__valenixiaHWID && window.__valenixiaHWID !== 'Unknown') {
       return String(window.__valenixiaHWID).toUpperCase().trim();
     }
+    // 1. Native Android Container Check
     try {
       if (window.AndroidPOS && typeof window.AndroidPOS.getDeviceID === 'function') {
         const nativeId = window.AndroidPOS.getDeviceID();
-        if (nativeId && String(nativeId).trim().length >= 6) {
-          const cleanNative = String(nativeId).toUpperCase().trim();
+        if (nativeId && String(nativeId).trim().length >= 4) {
+          const raw = String(nativeId).trim().toUpperCase();
+          const cleanNative = raw.startsWith('AND-') ? raw : ('AND-' + raw);
           window.__valenixiaHWID = cleanNative;
           try { localStorage.setItem('valenixia_hwid', cleanNative); } catch(_) {}
           return cleanNative;
@@ -36,8 +38,9 @@ const LicenseEngine = (() => {
       }
       if (window.Android && typeof window.Android.getDeviceID === 'function') {
         const nativeId = window.Android.getDeviceID();
-        if (nativeId && String(nativeId).trim().length >= 6) {
-          const cleanNative = String(nativeId).toUpperCase().trim();
+        if (nativeId && String(nativeId).trim().length >= 4) {
+          const raw = String(nativeId).trim().toUpperCase();
+          const cleanNative = raw.startsWith('AND-') ? raw : ('AND-' + raw);
           window.__valenixiaHWID = cleanNative;
           try { localStorage.setItem('valenixia_hwid', cleanNative); } catch(_) {}
           return cleanNative;
@@ -46,6 +49,7 @@ const LicenseEngine = (() => {
     } catch (e) {
       console.warn('[License] Native Android HWID query error:', e.message);
     }
+
     try {
       const storedHwid = localStorage.getItem('valenixia_hwid');
       if (storedHwid && storedHwid !== 'Unknown') {
@@ -54,14 +58,25 @@ const LicenseEngine = (() => {
       }
     } catch (_) {}
 
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    ctx.textBaseline = 'top';
-    ctx.font = '14px Arial';
-    ctx.fillText('ValenixiaPOS-HWID-Seed', 2, 2);
-    const canvasData = canvas.toDataURL();
+    // 2. Web App Browser Sandbox — Prefix with WEB- and incorporate store name hash
+    const activeStore = storeName || (typeof localStorage !== 'undefined' ? (localStorage.getItem('valenixia_store_name') || localStorage.getItem('store_name') || 'store') : 'store');
+    const storeNormalized = String(activeStore).toLowerCase().replace(/[^a-z0-9]/g, '_');
+
+    let canvasData = 'canvas_seed';
+    try {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas && canvas.getContext ? canvas.getContext('2d') : null;
+      if (ctx) {
+        ctx.textBaseline = 'top';
+        ctx.font = '14px Arial';
+        ctx.fillText('ValenixiaPOS-HWID-Seed-' + storeNormalized, 2, 2);
+      }
+      canvasData = (canvas && canvas.toDataURL) ? canvas.toDataURL() : 'canvas_seed';
+    } catch (_) {}
 
     const components = [
+      'WEB_APP',
+      storeNormalized,
       navigator.userAgent,
       navigator.language,
       String(screen.width * screen.height),
@@ -73,6 +88,7 @@ const LicenseEngine = (() => {
     ].join('|');
 
     // Use crypto.subtle if available (HTTPS), fall back to pure-JS SHA-256 on HTTP
+    let hashStr = '';
     try {
       if (crypto && crypto.subtle) {
         const encoded = new TextEncoder().encode(components);
@@ -81,25 +97,32 @@ const LicenseEngine = (() => {
           new Promise((_, reject) => setTimeout(() => reject(new Error('SubtleCrypto timeout')), 1000))
         ]);
         const hashArr = Array.from(new Uint8Array(hashBuf));
-        return hashArr.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase().slice(0, 32);
+        hashStr = hashArr.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase().slice(0, 20);
       }
     } catch (e) {
       console.warn('[License] crypto.subtle unavailable or timed out, using JS fallback HWID.');
     }
-    // Pure-JS fallback: djb2 hash — deterministic, no crypto API needed
-    let h = 5381;
-    for (let i = 0; i < components.length; i++) {
-      h = ((h << 5) + h) ^ components.charCodeAt(i);
-      h = h >>> 0; // keep unsigned
+
+    if (!hashStr) {
+      // Pure-JS fallback: djb2 hash — deterministic, no crypto API needed
+      let h = 5381;
+      for (let i = 0; i < components.length; i++) {
+        h = ((h << 5) + h) ^ components.charCodeAt(i);
+        h = h >>> 0; // keep unsigned
+      }
+      let result = '';
+      let seed = h;
+      while (result.length < 20) {
+        seed = ((seed << 5) + seed + result.length * 31) >>> 0;
+        result += seed.toString(16).padStart(8, '0');
+      }
+      hashStr = result.toUpperCase().slice(0, 20);
     }
-    // Stretch to 32 chars using chained hashes
-    let result = '';
-    let seed = h;
-    while (result.length < 32) {
-      seed = ((seed << 5) + seed + result.length * 31) >>> 0;
-      result += seed.toString(16).padStart(8, '0');
-    }
-    return result.toUpperCase().slice(0, 32);
+
+    const finalWebHwid = 'WEB-' + hashStr;
+    window.__valenixiaHWID = finalWebHwid;
+    try { localStorage.setItem('valenixia_hwid', finalWebHwid); } catch(_) {}
+    return finalWebHwid;
   }
 
   // â”€â”€ Import public key for verification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1304,3 +1327,6 @@ const LicenseEngine = (() => {
 
   return { init, updateTimeAnchor, generateHWID, pollLicenseUpdate, verifyStored, getExpiryMs, getGraceRemainingMs };
 })();
+
+if (typeof window !== 'undefined') window.LicenseEngine = LicenseEngine;
+if (typeof module !== 'undefined' && module.exports) module.exports = LicenseEngine;

@@ -2228,7 +2228,7 @@ setInterval(async () => {
       await flushFBRQueue();
     }
   } catch (err) {
-    console.error('[FBR Cron] Background sweep failed:', err.message);
+    console.warn('[FBR Cron] Background sweep notice:', err.message);
   }
 }, 60000);
 

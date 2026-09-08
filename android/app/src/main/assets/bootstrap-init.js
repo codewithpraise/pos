@@ -534,13 +534,20 @@ window.executeWizardBack = function() {
 
 // Universal Capture-Phase Click Delegate for Setup Wizard Buttons
 document.addEventListener('click', function(e) {
-  const wizardBtn = e.target.closest('#btn-wiz-choose-new, #btn-wiz-choose-join, #btn-wizard-scan-qr-direct, #btn-wiz-next, #btn-wiz-back');
+  const wizardBtn = e.target.closest('#btn-wiz-choose-new, #btn-wiz-choose-join, #btn-wiz-choose-restore, #btn-wizard-scan-qr-direct, #btn-wiz-next, #btn-wiz-back');
   if (!wizardBtn) return;
 
   const id = wizardBtn.id;
   console.log('[WizardCaptureDelegate] Button tapped:', id);
 
-  if (id === 'btn-wiz-choose-new') {
+  if (id === 'btn-wiz-choose-restore') {
+    e.preventDefault();
+    if (typeof window.openSubscriptionRestoreModal === 'function') {
+      window.openSubscriptionRestoreModal();
+    } else if (window.ValenixiaSubscription && typeof window.ValenixiaSubscription.openRestoreSubscriptionModal === 'function') {
+      window.ValenixiaSubscription.openRestoreSubscriptionModal();
+    }
+  } else if (id === 'btn-wiz-choose-new') {
     e.preventDefault();
     if (typeof window.executeWizardGoTo === 'function') window.executeWizardGoTo(2, 'NEW');
   } else if (id === 'btn-wiz-choose-join') {
@@ -556,6 +563,14 @@ document.addEventListener('click', function(e) {
   } else if (id === 'btn-wiz-back') {
     e.preventDefault();
     if (typeof window.executeWizardBack === 'function') window.executeWizardBack();
+  }
+}, true);
+
+// Real-time input error clearing for setup wizard inputs
+document.addEventListener('input', function(e) {
+  if (e.target && e.target.id && e.target.id.startsWith('wizard-')) {
+    e.target.style.borderColor = '';
+    e.target.style.boxShadow = '';
   }
 }, true);
 
@@ -674,9 +689,10 @@ window.validateWizardStep = function(step, path) {
         return false;
       }
       if (ownerEmail.trim()) {
-        if (!ownerEmail.includes('@') || !ownerEmail.includes('.')) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(ownerEmail.trim())) {
           const el = document.getElementById('wizard-owner-email');
-          if (el) { el.style.borderColor = '#ef4444'; el.style.boxShadow = '0 0 10px rgba(239,68,68,0.4)'; el.focus(); }
+          if (el) { el.style.borderColor = '#ef4444'; el.style.boxShadow = '0 0 10px rgba(239,68,68,0.4)'; }
           if (typeof showNotificationToast === 'function') showNotificationToast('Please enter a valid Business Email address, or leave it blank.', 'error', 3000);
           return false;
         }
@@ -852,6 +868,31 @@ window.submitWizard = async function() {
         await ValenixiaDB.setSecurePref('valenixia_hwid', hwid);
       }
     }
+
+    // Anchor store profile to cloud Supabase registry for instant cross-device restoration
+    try {
+      const supaUrl = 'https://wzvwyfyefbdrqscxhwsf.supabase.co';
+      const supaKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6dnd5ZnllZmJkcnFzY3hod3NmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MzU3ODUsImV4cCI6MjA5ODQxMTc4NX0.W9O6U4tqETM6BcEjX7evt3LunpIZOC5c7wcZht2ajuk';
+      const nowIso = new Date().toISOString();
+      fetch(`${supaUrl}/rest/v1/stores`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supaKey,
+          'Authorization': `Bearer ${supaKey}`,
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify({
+          id: hwid,
+          name: storeName,
+          region: ownerPhone,
+          plan: 'pro',
+          is_active: true,
+          created_at: nowIso,
+          last_seen_at: nowIso
+        })
+      }).catch(() => {});
+    } catch (_) {}
   } catch (err) {
     console.warn('[Wizard] Background store bootstrap finished with notice:', err);
   }
@@ -1750,6 +1791,8 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
         'ONBOARDING':      'WIZARD',
         'AUTH_LOCK':       'LOCK',
         'READY':           'LAYOUT',
+        'APP':             'LAYOUT',
+        'CHECKOUT':        'LAYOUT',
         'PAIRING_REQUIRED':'PAIRING',
         'PAIRING_PENDING': 'PAIRING'
       };
@@ -1865,6 +1908,8 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
           break;
 
         case 'READY':
+        case 'APP':
+        case 'CHECKOUT':
           _clearTimeout();
           _showSurface('LAYOUT');
           // Both bootstrap decision AND application fully ready.
@@ -1874,9 +1919,13 @@ window.copyAllDiagnosticLogs = window.copyDiagnostics;
           window.appInitialized = true;
           window.__valenixiaAuthenticated = true;
           try {
+            document.body.classList.remove('wizard-active');
             if (typeof window.updateKdsNavVisibility === 'function') window.updateKdsNavVisibility();
             if (typeof window.switchActiveScreen === 'function') {
-              window.switchActiveScreen((window.state && window.state.activeScreen) ? window.state.activeScreen : 'checkout');
+              window.switchActiveScreen('checkout');
+            }
+            if (typeof window.renderCheckoutScreen === 'function') {
+              window.renderCheckoutScreen();
             }
           } catch (_) {}
           break;
@@ -2507,6 +2556,13 @@ document.addEventListener('DOMContentLoaded', function() {
   } catch(_) {}
 
   // Explicit event listener bindings for CSP compliance
+  document.getElementById('btn-wiz-choose-restore')?.addEventListener('click', function() {
+    if (typeof window.openSubscriptionRestoreModal === 'function') {
+      window.openSubscriptionRestoreModal();
+    } else if (window.ValenixiaSubscription && typeof window.ValenixiaSubscription.openRestoreSubscriptionModal === 'function') {
+      window.ValenixiaSubscription.openRestoreSubscriptionModal();
+    }
+  });
   document.getElementById('btn-wiz-choose-new')?.addEventListener('click', function() {
     if (typeof window.executeWizardGoTo === 'function') window.executeWizardGoTo(2, 'NEW');
   });

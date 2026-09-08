@@ -37,10 +37,13 @@ The merchant (Registered Person) remains 100% legally responsible for:
 
 ## 4. PAYMENT CLAIMS & ADD-ON MARKETPLACE
 Upgrade claims submitted via NayaPay or bank transfers are subject to verification. Add-ons (FBR POS, Multi-Store HQ, WhatsApp Receipts, Custom RBAC, Data Portability) remain active while subscription fees are in good standing.
+
+## 5. MINTED ACCOUNTS, DEVICE DELETION & SUBSCRIPTION PRESERVATION
+Valenixia POS operates as a local-first application. Uninstalling the application or clearing browser/device cache clears local sandbox databases. However, all active minted licenses, payment claims, and prepaid subscription durations are permanently preserved in the cloud ledger. Upon re-installing on the same hardware identifier (HWID / ANDROID_ID) or verifying via Claim ID / Transaction RRN / Phone number, active tier entitlements and remaining subscription days are reinstated with zero lost time and zero fees.
     `,
 
     EULA: `
-# VALENIXIA POS — END USER LICENSE AGREEMENT (EULA v2.4.6)
+# VALENIXIA POS — END USER LICENSE AGREEMENT (EULA v3.2.4)
 
 ## 1. GRANT OF LICENSE
 Valenixia grants you a revocable, non-exclusive, non-transferable license to execute Valenixia POS software on physical hardware devices (PC, Android, POS Terminal).
@@ -48,8 +51,8 @@ Valenixia grants you a revocable, non-exclusive, non-transferable license to exe
 ## 2. HARDWARE FINGERPRINTING & DEVICE BINDING
 Each license token is cryptographically bound to a unique Hardware Identifier (HWID) derived from CPU, motherboard, storage, and network interface signatures. Licenses cannot be transferred without administrative re-pairing.
 
-## 3. OFFLINE OPERATION & DATABASE LOCALITY
-Valenixia POS operates as a local-first software system. All transactions, catalog edits, and customer records are written to local SQLite / IndexedDB databases. Offline capability does NOT waive license fee obligations or subscription renewal dates.
+## 3. OFFLINE OPERATION, RE-INSTALLATION & DATABASE LOCALITY
+Valenixia POS operates as a local-first software system. All transactions, catalog edits, and customer records are written to local SQLite / IndexedDB databases. Uninstallation clears local cache, but minted subscription entitlements remain stored in the cloud control plane and are restorable upon re-installation.
 
 ## 4. PROHIBITED USAGE
 You shall not:

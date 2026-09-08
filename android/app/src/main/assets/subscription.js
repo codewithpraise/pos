@@ -19,9 +19,9 @@
       ENTERPRISE: { pkr: 11999, label: 'PKR 11,999', period: '/ month', note: '3 Included Terminals & 2 Included Branches' }
     },
     lifetime: {
-      STARTER: { pkr: 35000, label: 'PKR 35,000', period: 'one-time + PKR 5,000/yr AMC', note: '1 Terminal License (Perpetual)' },
-      PRO: { pkr: 75000, label: 'PKR 75,000', period: 'one-time + PKR 12,000/yr AMC', note: '2 Terminal License (Perpetual)' },
-      ENTERPRISE: { pkr: 149000, label: 'PKR 149,000', period: 'one-time + PKR 20,000/yr AMC', note: '3 Terminals + 2 Branches (Perpetual)' }
+      STARTER: { pkr: 79000, label: 'PKR 79,000', period: 'one-time + PKR 15,000/yr AMC', note: '1 Terminal License (Perpetual)' },
+      PRO: { pkr: 149000, label: 'PKR 149,000', period: 'one-time + PKR 28,000/yr AMC', note: '2 Terminal License (Perpetual)' },
+      ENTERPRISE: { pkr: 249000, label: 'PKR 249,000', period: 'one-time + PKR 45,000/yr AMC', note: '3 Terminals + 2 Branches (Perpetual)' }
     }
   };
 
@@ -424,6 +424,317 @@
       window.dispatchEvent(new CustomEvent('valenixia_claims_changed', { detail: { subscribers } }));
       window.dispatchEvent(new CustomEvent('valenixia_tier_changed', { detail: { tier: normTier, expiresAt: newExpiry } }));
       return { success: true, targetTier: normTier, subscriber: sub };
+    },
+
+    /**
+     * Restore store subscription using Claim ID, Transaction RRN, Phone number, or Store Name
+     * Supports single-store and multi-store disambiguation.
+     */
+    async restoreSubscriptionByLookup(lookupQuery) {
+      if (!lookupQuery || typeof lookupQuery !== 'string' || lookupQuery.trim().length === 0) {
+        return { success: false, error: 'Please enter a valid Claim ID, Transaction RRN, Phone number, or Store Name.' };
+      }
+      const q = lookupQuery.trim().toUpperCase();
+      const rawQ = lookupQuery.trim();
+      const cleanPhone = rawQ.replace(/[\s\-\+\(\)]/g, '').replace(/^92/, '0');
+
+      // 1. Refresh remote cloud claims
+      try {
+        await this.fetchRemoteClaims();
+      } catch (_) {}
+
+      const allClaims = this.getAll();
+
+      // 2. Search local and cloud claims cache for all matches
+      const isClaimMatch = (c) => {
+        if (!c) return false;
+        const idMatch = c.id && String(c.id).toUpperCase().includes(q);
+        const rrnMatch = c.rrn && String(c.rrn).toUpperCase().includes(q);
+        const cPhone = c.phone ? String(c.phone).replace(/[\s\-\+\(\)]/g, '').replace(/^92/, '0') : '';
+        const phoneMatch = cPhone && (cPhone.includes(cleanPhone) || (cleanPhone.length >= 7 && cleanPhone.includes(cPhone)));
+        const hwidMatch = c.hwid && String(c.hwid).toUpperCase() === q;
+        const storeMatch = c.storeName && String(c.storeName).toLowerCase().includes(rawQ.toLowerCase());
+        return idMatch || rrnMatch || phoneMatch || hwidMatch || storeMatch;
+      };
+
+      let approvedMatches = allClaims.filter(c => isClaimMatch(c) && c.status === 'APPROVED');
+      let otherMatches = allClaims.filter(c => isClaimMatch(c) && c.status !== 'APPROVED');
+
+      // 3. Query authoritative /api/subscription/restore cloud endpoint
+      if (approvedMatches.length === 0 && otherMatches.length === 0) {
+        try {
+          const serverBase = this.getServerBase();
+          if (serverBase) {
+            const resp = await fetch(`${serverBase}/api/subscription/restore?query=${encodeURIComponent(rawQ)}`, {
+              headers: { 'Accept': 'application/json' }
+            }).catch(() => null);
+            if (resp && resp.ok) {
+              const data = await resp.json().catch(() => null);
+              if (data && data.success && Array.isArray(data.stores) && data.stores.length > 0) {
+                data.stores.forEach(s => {
+                  approvedMatches.push({
+                    id: s.id,
+                    hwid: s.hwid,
+                    targetTier: s.tier,
+                    storeName: s.storeName,
+                    ownerName: s.ownerName,
+                    phone: s.phone,
+                    status: s.status || 'APPROVED',
+                    expiresAt: s.expiresAt,
+                    daysRemaining: s.daysRemaining,
+                    platform: s.platform
+                  });
+                });
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      // 4. Direct Supabase Cloud REST fallback if local server was unreachable or on Android
+      if (approvedMatches.length === 0 && otherMatches.length === 0) {
+        try {
+          const supaUrl = 'https://wzvwyfyefbdrqscxhwsf.supabase.co';
+          const supaKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6dnd5ZnllZmJkcnFzY3hod3NmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MzU3ODUsImV4cCI6MjA5ODQxMTc4NX0.W9O6U4tqETM6BcEjX7evt3LunpIZOC5c7wcZht2ajuk';
+          const headers = { 'apikey': supaKey, 'Authorization': `Bearer ${supaKey}` };
+
+          // Query `stores` table
+          const sResp = await fetch(`${supaUrl}/rest/v1/stores?or=(id.ilike.%25${encodeURIComponent(q)}%25,name.ilike.%25${encodeURIComponent(rawQ)}%25,region.ilike.%25${encodeURIComponent(cleanPhone)}%25)`, { headers }).catch(() => null);
+          if (sResp && sResp.ok) {
+            const sRows = await sResp.json().catch(() => []);
+            if (Array.isArray(sRows)) {
+              sRows.forEach(row => {
+                const sTier = String(row.plan || row.tier || 'PRO').toUpperCase();
+                const expMs = row.expires_at ? Date.parse(row.expires_at) : (Date.now() + 30 * 86400000);
+                approvedMatches.push({
+                  id: 'STORE_' + row.id.slice(0, 8),
+                  hwid: row.id,
+                  targetTier: sTier,
+                  storeName: row.name || `Store (${row.id.slice(0, 8)})`,
+                  ownerName: 'Store Merchant',
+                  phone: row.region || cleanPhone,
+                  status: row.is_active !== false ? 'APPROVED' : 'INACTIVE',
+                  expiresAt: expMs
+                });
+              });
+            }
+          }
+
+          // Query `payment_proofs` table
+          const pResp = await fetch(`${supaUrl}/rest/v1/payment_proofs?or=(invoice_id.ilike.%25${encodeURIComponent(q)}%25,proof_url.ilike.%25${encodeURIComponent(cleanPhone)}%25,proof_url.ilike.%25${encodeURIComponent(rawQ)}%25)`, { headers }).catch(() => null);
+          if (pResp && pResp.ok) {
+            const pRows = await pResp.json().catch(() => []);
+            if (Array.isArray(pRows)) {
+              pRows.forEach(p => {
+                let meta = {};
+                if (p.proof_url && p.proof_url.startsWith('{')) {
+                  try { meta = JSON.parse(p.proof_url); } catch (_) {}
+                }
+                const pTier = String(p.plan_id || meta.targetTier || 'PRO').toUpperCase();
+                const pClaimId = meta.claimId || p.invoice_id || ('CLM-' + String(p.id).replace(/-/g, '').slice(0, 6).toUpperCase());
+                approvedMatches.push({
+                  id: pClaimId,
+                  hwid: meta.hwid || p.store_id,
+                  targetTier: pTier,
+                  storeName: meta.storeName || `Store (${String(meta.hwid || p.store_id || '').slice(0, 8)})`,
+                  ownerName: meta.ownerName || 'Store Merchant',
+                  phone: meta.phone || cleanPhone,
+                  status: String(p.status || 'APPROVED').toUpperCase(),
+                  expiresAt: meta.expiresAt || (Date.now() + 30 * 86400000)
+                });
+              });
+            }
+          }
+        } catch (_) {}
+      }
+
+      const candidateList = approvedMatches.length > 0 ? approvedMatches : otherMatches;
+
+      if (candidateList.length === 0) {
+        return {
+          success: false,
+          error: `No subscription claim found for '${lookupQuery}'. Please check the Transaction RRN, Claim ID, or Phone number.`
+        };
+      }
+
+      // If multiple stores are found under this phone / query, return them for user disambiguation
+      if (candidateList.length > 1) {
+        return {
+          success: true,
+          multiple: true,
+          stores: candidateList.map(c => {
+            const expMs = c.expiresAt || (Date.now() + 30 * 86400000);
+            const remDays = Math.max(0, Math.ceil((expMs - Date.now()) / 86400000));
+            const isNative = (c.hwid && c.hwid.includes('AND-')) || (c.platform === 'NATIVE') || (c.storeName && c.storeName.includes('Mobile'));
+            return {
+              id: c.id,
+              claim: c,
+              storeName: c.storeName || 'Valenixia Store',
+              ownerName: c.ownerName || c.name || 'Store Owner',
+              phone: c.phone || '',
+              tier: (c.targetTier || c.tier || 'STARTER').toUpperCase(),
+              daysRemaining: remDays,
+              platform: isNative ? 'Android Native App' : 'Web Application',
+              hwid: c.hwid || '',
+              status: c.status || 'APPROVED',
+              expiresAt: expMs
+            };
+          })
+        };
+      }
+
+      // Single match -> apply immediately
+      return this.applyStoreRestoration(candidateList[0]);
+    },
+
+    /**
+     * Apply specific restored store claim to runtime environment
+     */
+    applyStoreRestoration(claimObj) {
+      if (!claimObj) return { success: false, error: 'Invalid store claim object' };
+
+      const targetTier = (claimObj.targetTier || claimObj.tier || 'STARTER').toUpperCase();
+      const expiresAtMs = claimObj.expiresAt || (Date.now() + 30 * 86400000);
+      const remainingDays = Math.max(1, Math.ceil((expiresAtMs - Date.now()) / 86400000));
+      const storeName = claimObj.storeName || 'Restored Store';
+
+      // 1. Update localStorage & Runtime globals
+      window.__valenixiaTier = targetTier;
+      localStorage.setItem('valenixia_tier', targetTier);
+      localStorage.setItem('valenixia_subscription_expires_at', String(expiresAtMs));
+      localStorage.setItem('valenixia_store_name', storeName);
+      if (claimObj.ownerName) localStorage.setItem('valenixia_owner_name', claimObj.ownerName);
+      if (claimObj.phone) localStorage.setItem('valenixia_owner_phone', claimObj.phone);
+      if (claimObj.hwid) localStorage.setItem('valenixia_restored_hwid', claimObj.hwid);
+
+      // 2. Mark onboarding complete & initialize authenticated owner cashier session
+      localStorage.setItem('onboarding_complete', 'true');
+      const ownerCashier = {
+        id: 'emp_admin',
+        name: (claimObj.ownerName || 'Store Owner').replace('emp_', ''),
+        role: 'ADMIN'
+      };
+
+      if (window.state) {
+        window.state.storeName = storeName;
+        window.state.tier = targetTier;
+        window.state.activeCashier = ownerCashier;
+        window.state.currentPin = '';
+        window.state.activeScreen = 'checkout';
+        if (window.state.storeProfile) {
+          window.state.storeProfile.name = storeName;
+          if (claimObj.ownerName) window.state.storeProfile.ownerName = claimObj.ownerName;
+          if (claimObj.phone) window.state.storeProfile.phone = claimObj.phone;
+        }
+      }
+
+      try {
+        sessionStorage.setItem('valenixia_session_authenticated', '1');
+        sessionStorage.setItem('valenixia_auth_session', 'true');
+        sessionStorage.setItem('valenixia_active_cashier', JSON.stringify(ownerCashier));
+        document.documentElement.classList.add('session-authenticated');
+      } catch (_) {}
+
+      // 3. Apply subscription tier upgrade to system
+      if (typeof window.applySubscriptionUpgrade === 'function') {
+        window.applySubscriptionUpgrade(targetTier, remainingDays);
+      }
+      if (typeof window.applyActiveTierToSystem === 'function') {
+        window.applyActiveTierToSystem(targetTier);
+      }
+
+      // 4. Update claim status in local store
+      claimObj.status = 'APPROVED';
+      this.addClaim(claimObj);
+
+      // 5. Dismiss restore modal, setup wizard, auth lock, and pairing overlays immediately
+      const restoreModal = document.getElementById('valenixia-restore-subscription-modal');
+      if (restoreModal && restoreModal.parentNode) {
+        try { restoreModal.parentNode.removeChild(restoreModal); } catch (_) {}
+      }
+
+      const wiz = document.getElementById('first-boot-wizard');
+      if (wiz) {
+        wiz.style.setProperty('display', 'none', 'important');
+        wiz.style.setProperty('visibility', 'hidden', 'important');
+        wiz.style.setProperty('opacity', '0', 'important');
+        wiz.classList.remove('active');
+      }
+      try { document.body.classList.remove('wizard-active'); } catch (_) {}
+
+      const lockScreen = document.getElementById('auth-lock-screen');
+      if (lockScreen) {
+        lockScreen.style.setProperty('display', 'none', 'important');
+        lockScreen.style.setProperty('visibility', 'hidden', 'important');
+        lockScreen.style.setProperty('opacity', '0', 'important');
+        lockScreen.classList.remove('active');
+      }
+
+      const pairingOverlay = document.getElementById('device-pairing-overlay');
+      if (pairingOverlay) {
+        pairingOverlay.style.setProperty('display', 'none', 'important');
+        pairingOverlay.classList.remove('active');
+      }
+
+      const licenseOverlay = document.getElementById('license-lockout-overlay');
+      if (licenseOverlay) {
+        licenseOverlay.style.setProperty('display', 'none', 'important');
+        licenseOverlay.classList.remove('active');
+      }
+
+      // 6. Set runtime flags and transition ValenixiaBootstrap to READY
+      window.__valenixiaAuthenticated = true;
+      window.appReady = true;
+      window.appInitialized = true;
+      window.bootstrapDecisionReady = true;
+      window.bootstrapReady = true;
+
+      if (window.ValenixiaBootstrap && typeof window.ValenixiaBootstrap.transition === 'function') {
+        window.ValenixiaBootstrap.transition('READY');
+      }
+
+      // 7. Explicitly display main POS grid layout and route directly to checkout screen
+      const appLayout = document.getElementById('pos-app-layout');
+      if (appLayout) {
+        appLayout.style.setProperty('display', 'grid', 'important');
+        appLayout.style.setProperty('visibility', 'visible', 'important');
+        appLayout.style.setProperty('opacity', '1', 'important');
+        appLayout.classList.add('active');
+      }
+
+      const nameEl = document.getElementById('cashier-display-name');
+      const roleDispEl = document.getElementById('cashier-display-role');
+      if (nameEl) nameEl.textContent = (ownerCashier.name || 'OWNER').toUpperCase();
+      if (roleDispEl) roleDispEl.textContent = 'ADMIN';
+
+      const storeNameDisplay = document.getElementById('store-name-display');
+      if (storeNameDisplay) storeNameDisplay.textContent = storeName;
+
+      if (typeof window.applyRoleNavigationLimits === 'function') {
+        try { window.applyRoleNavigationLimits('ADMIN'); } catch (_) {}
+      }
+
+      if (typeof window.switchActiveScreen === 'function') {
+        window.switchActiveScreen('checkout');
+      }
+      if (typeof window.renderCheckoutScreen === 'function') {
+        window.renderCheckoutScreen();
+      }
+
+      // 8. Audio celebration & toast
+      if (typeof window.playAudioSignal === 'function') window.playAudioSignal('success');
+      if (typeof window.triggerConfetti === 'function') window.triggerConfetti();
+      if (typeof window.showNotificationToast === 'function') {
+        window.showNotificationToast(`Restored ${storeName} (${targetTier} Plan · ${remainingDays} days remaining)`, 'success', 4500);
+      }
+
+      return {
+        success: true,
+        tier: targetTier,
+        storeName: storeName,
+        daysRemaining: remainingDays,
+        claim: claimObj
+      };
     }
   };
   window.ValenixiaClaimsManager = ValenixiaClaimsManager;
@@ -475,9 +786,8 @@
         tbody.innerHTML = `
           <tr>
             <td colspan="6" style="text-align:center; color:var(--text-dim); padding:28px 16px;">
-              <div style="font-size:24px; margin-bottom:6px;">📋</div>
-              <div style="font-weight:700; color:var(--text-white); font-size:13px;">No Upgrade Claims Submitted Yet</div>
-              <div style="font-size:11px; margin-top:3px; color:var(--text-gray);">Select any plan above and submit your payment proof to track claim approvals here.</div>
+              <div style="font-weight:700; color:var(--text-white); font-size:13px; margin-bottom:4px;">No Upgrade Claims Submitted Yet</div>
+              <div style="font-size:11px; color:var(--text-gray);">Select any plan above and submit your payment proof to track claim approvals here.</div>
             </td>
           </tr>
         `;
@@ -486,10 +796,10 @@
 
       tbody.innerHTML = claims.map(c => {
         const statusBadge = c.status === 'APPROVED'
-          ? `<span style="padding:3px 10px; border-radius:12px; font-size:10px; font-weight:800; background:rgba(0,214,143,0.15); color:var(--accent-emerald); border:1px solid rgba(0,214,143,0.35);">✓ APPROVED</span>`
+          ? `<span style="padding:3px 10px; border-radius:12px; font-size:10px; font-weight:800; background:rgba(0,214,143,0.15); color:var(--accent-emerald); border:1px solid rgba(0,214,143,0.35);">APPROVED</span>`
           : (c.status === 'REJECTED'
-            ? `<span style="padding:3px 10px; border-radius:12px; font-size:10px; font-weight:800; background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.35);">✕ REJECTED</span>`
-            : `<span style="padding:3px 10px; border-radius:12px; font-size:10px; font-weight:800; background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.35); animation: pulse 2s infinite;">⏳ PENDING REVIEW</span>`);
+            ? `<span style="padding:3px 10px; border-radius:12px; font-size:10px; font-weight:800; background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.35);">REJECTED</span>`
+            : `<span style="padding:3px 10px; border-radius:12px; font-size:10px; font-weight:800; background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.35); animation: pulse 2s infinite;">PENDING REVIEW</span>`);
 
         const tierBadge = c.targetTier === 'ENTERPRISE'
           ? 'background:rgba(168,85,247,0.15); color:#a855f7; border:1px solid rgba(168,85,247,0.35);'
@@ -716,7 +1026,7 @@
         this.refresh();
 
         if (typeof showNotificationToast === 'function') {
-          showNotificationToast(' 7-Day Free Growth Trial Activated! All Pro features unlocked.', 'success', 4500);
+          showNotificationToast('7-Day Free Growth Trial Activated! All Pro features unlocked.', 'success', 4500);
         }
       } catch (err) {
         console.error('[ValenixiaSubscription] Free trial error:', err);
@@ -809,10 +1119,10 @@
 
       // 4. Notify user that claim is pending admin approval (NO AUTOMATIC TIER UNLOCK)
       if (typeof showNotificationToast === 'function') {
-        showNotificationToast(`🎉 Payment claim ${newClaim.id} submitted! WhatsApp opened. Your claim is pending approval by the Platform Admin.`, 'success', 6000);
+        showNotificationToast(`Payment claim ${newClaim.id} submitted! WhatsApp opened. Your claim is pending approval by the Platform Admin.`, 'success', 6000);
       }
 
-      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Claim via WhatsApp '; }
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Claim via WhatsApp'; }
       this.activateTab('history');
       this.renderClaimsHistory();
     },
@@ -822,22 +1132,40 @@
       const curTier = (rawTier === 'GROWTH' ? 'PRO' : rawTier);
       const isTrialActive = localStorage.getItem('valenixia_trial_active') === 'true';
 
+      const allClaims = ValenixiaClaimsManager.getAll();
+      const hasApprovedPaidClaim = allClaims.some(c => c && c.status === 'APPROVED' && (c.targetTier === curTier || (curTier === 'PRO' && c.targetTier === 'GROWTH')));
+
+      const expMs = parseInt(localStorage.getItem('valenixia_subscription_expires_at') || '0', 10);
+      const remainingMs = expMs > 0 ? Math.max(0, expMs - Date.now()) : 0;
+      const remDays = Math.floor(remainingMs / 86400000);
+      const remHours = Math.floor((remainingMs % 86400000) / 3600000);
+
+      const isPaidActive = (hasApprovedPaidClaim || curTier === 'ENTERPRISE' || curTier === 'PRO' || curTier === 'STARTER') && curTier !== 'FREE' && remainingMs > 0;
+
       const badgeEl = document.getElementById('badge-active-tier-pill');
       if (badgeEl) {
-        badgeEl.textContent = isTrialActive ? '7-DAY FREE TRIAL (GROWTH)' : `${curTier} TIER`;
-        if (curTier === 'ENTERPRISE') {
-          badgeEl.style.background = 'rgba(168,85,247,0.15)';
-          badgeEl.style.color = '#a855f7';
-          badgeEl.style.border = '1px solid rgba(168,85,247,0.35)';
-        } else if (curTier === 'PRO' || curTier === 'GROWTH') {
+        if (isTrialActive && remainingMs > 0) {
+          badgeEl.textContent = '7-DAY FREE TRIAL (PRO)';
           badgeEl.style.background = 'rgba(0,214,143,0.15)';
           badgeEl.style.color = 'var(--accent-emerald)';
           badgeEl.style.border = '1px solid rgba(0,214,143,0.35)';
-        } else if (curTier === 'STARTER') {
+        } else if (curTier === 'ENTERPRISE' && isPaidActive) {
+          badgeEl.textContent = 'ENTERPRISE TIER (PAID)';
+          badgeEl.style.background = 'rgba(168,85,247,0.15)';
+          badgeEl.style.color = '#a855f7';
+          badgeEl.style.border = '1px solid rgba(168,85,247,0.35)';
+        } else if ((curTier === 'PRO' || curTier === 'GROWTH') && isPaidActive) {
+          badgeEl.textContent = 'PRO TIER (PAID)';
+          badgeEl.style.background = 'rgba(0,214,143,0.15)';
+          badgeEl.style.color = 'var(--accent-emerald)';
+          badgeEl.style.border = '1px solid rgba(0,214,143,0.35)';
+        } else if (curTier === 'STARTER' && isPaidActive) {
+          badgeEl.textContent = 'STARTER TIER (PAID)';
           badgeEl.style.background = 'rgba(59,130,246,0.15)';
           badgeEl.style.color = '#3b82f6';
           badgeEl.style.border = '1px solid rgba(59,130,246,0.35)';
         } else {
+          badgeEl.textContent = 'FREE TIER';
           badgeEl.style.background = 'rgba(245,158,11,0.15)';
           badgeEl.style.color = '#f59e0b';
           badgeEl.style.border = '1px solid rgba(245,158,11,0.35)';
@@ -846,13 +1174,21 @@
 
       const expiryTxtEl = document.getElementById('txt-license-expiry');
       if (expiryTxtEl) {
-        expiryTxtEl.textContent = isTrialActive ? '7 Days Active Trial' : `Active ${curTier} (30 Days)`;
-        expiryTxtEl.style.color = 'var(--accent-emerald)';
+        if (isTrialActive && remainingMs > 0) {
+          expiryTxtEl.textContent = `${remDays} days, ${remHours} hrs left (Free Trial)`;
+          expiryTxtEl.style.color = 'var(--accent-emerald)';
+        } else if (isPaidActive) {
+          expiryTxtEl.textContent = `${remDays} days left (Active Subscription)`;
+          expiryTxtEl.style.color = 'var(--accent-emerald)';
+        } else {
+          expiryTxtEl.textContent = 'Free Lifetime Baseline';
+          expiryTxtEl.style.color = 'var(--text-gray)';
+        }
       }
 
       const trialBanner = document.getElementById('free-trial-banner-card');
       if (trialBanner) {
-        trialBanner.style.display = (curTier === 'PRO' || curTier === 'GROWTH' || curTier === 'ENTERPRISE' || isTrialActive) ? 'none' : 'flex';
+        trialBanner.style.display = (isPaidActive || isTrialActive) ? 'none' : 'flex';
       }
 
       const hwidCodeEl = document.getElementById('billing-form-device-hwid');
@@ -1023,6 +1359,14 @@
           return;
         }
 
+        // 8b. Restore Subscription Modal Trigger
+        const restoreBtn = e.target.closest('#btn-restore-subscription-claim, #btn-restore-sub-modal-trigger, .btn-trigger-restore-sub');
+        if (restoreBtn) {
+          e.preventDefault();
+          this.openRestoreSubscriptionModal();
+          return;
+        }
+
         // 9. Cancel Upgrade Form
         const cancelBtn = e.target.closest('#btn-billing-upgrade-cancel');
         if (cancelBtn) {
@@ -1056,8 +1400,408 @@
       isInitialized = true;
       this.refresh();
       this.renderClaimsHistory();
+    },
+
+    async openRestoreSubscriptionModal() {
+      // Remove any existing instance
+      const existing = document.getElementById('valenixia-restore-subscription-modal');
+      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+
+      const modal = document.createElement('div');
+      modal.id = 'valenixia-restore-subscription-modal';
+      modal.style.cssText = 'position: fixed; inset: 0; z-index: 999999; background: rgba(0,0,0,0.88); display: flex; align-items: center; justify-content: center; padding: 16px; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); overflow-y: auto; box-sizing: border-box;';
+
+      modal.innerHTML = `
+        <div style="background: var(--bg-card, #131722); border: 1px solid rgba(255,255,255,0.12); border-radius: 18px; width: 100%; max-width: 520px; overflow: hidden; color: #fff; box-shadow: 0 30px 60px -15px rgba(0,0,0,0.85); animation: modalIn 0.2s cubic-bezier(0.16,1,0.3,1); max-height: calc(100vh - 32px); display: flex; flex-direction: column;">
+          
+          <!-- Header -->
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02); flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 34px; height: 34px; border-radius: 8px; background: rgba(245,158,11,0.15); display: flex; align-items: center; justify-content: center; color: #fbbf24;">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+              </div>
+              <div>
+                <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #fff;">Account &amp; Store Restoration</h3>
+                <span style="font-size: 11px; color: var(--text-gray, #94a3b8);">Recover your active subscription or restore a data backup</span>
+              </div>
+            </div>
+            <button type="button" id="btn-close-restore-modal" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; font-size: 18px; cursor: pointer; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">&times;</button>
+          </div>
+
+          <!-- Nav Tabs -->
+          <div style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.2); flex-shrink: 0;">
+            <button type="button" id="tab-restore-cloud" style="flex: 1; padding: 12px 14px; font-size: 12px; font-weight: 700; border: none; background: transparent; color: var(--accent-emerald, #00d68f); border-bottom: 2px solid var(--accent-emerald, #00d68f); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+              <span>Cloud &amp; Subscription</span>
+            </button>
+            <button type="button" id="tab-restore-file" style="flex: 1; padding: 12px 14px; font-size: 12px; font-weight: 700; border: none; background: transparent; color: #94a3b8; border-bottom: 2px solid transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+              <span>Backup File (.json)</span>
+            </button>
+          </div>
+
+          <!-- Body Container -->
+          <div style="padding: 20px; overflow-y: auto; flex: 1;">
+            
+            <!-- PANEL 1: Cloud & Subscription Lookup -->
+            <div id="panel-restore-cloud">
+              <p style="font-size: 12.5px; color: #94a3b8; line-height: 1.5; margin: 0 0 16px;">
+                Re-installed app or switching devices? Enter your <strong>Merchant Mobile Phone</strong>, <strong>Claim ID</strong> (e.g. <code>CLM-123456</code>), or <strong>Transaction RRN</strong> to recover your store and remaining days.
+              </p>
+
+              <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 11px; font-weight: 700; color: #cbd5e1; text-transform: uppercase; margin-bottom: 6px;">Phone / Claim ID / RRN / Store Name</label>
+                <input type="text" id="input-restore-lookup-query" placeholder="e.g. 03001234567 or CLM-123456 or WA_TX_894123" style="width: 100%; padding: 12px 14px; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; color: #fff; font-size: 14px; outline: none; font-family: var(--font-mono, monospace); box-sizing: border-box;">
+              </div>
+
+              <!-- Multi-Store Disambiguation Card Container -->
+              <div id="restore-multistore-container" style="display: none; margin-bottom: 16px;">
+                <div style="font-size: 11px; font-weight: 700; color: #fbbf24; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                  <span>Multiple Stores Found — Select Which Store to Restore:</span>
+                </div>
+                <div id="restore-multistore-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 220px; overflow-y: auto; padding-right: 4px;"></div>
+              </div>
+
+              <div id="restore-modal-feedback" style="display: none; padding: 12px; border-radius: 8px; font-size: 12.5px; margin-bottom: 16px; line-height: 1.4;"></div>
+
+              <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" id="btn-cancel-restore" style="padding: 10px 18px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0; font-weight: 600; font-size: 13px; border-radius: 8px; cursor: pointer;">Cancel</button>
+                <button type="button" id="btn-submit-restore" style="padding: 10px 22px; background: #10b981; border: none; color: #07090e; font-weight: 700; font-size: 13px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                  <span>Verify &amp; Restore</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- PANEL 2: Backup File Restore -->
+            <div id="panel-restore-file" style="display: none;">
+              <p style="font-size: 12.5px; color: #94a3b8; line-height: 1.5; margin: 0 0 16px;">
+                Restore an entire database archive (products, customers, history, settings) exported from another register or device.
+              </p>
+
+              <div id="restore-drop-zone" style="border: 2px dashed rgba(0,214,143,0.35); border-radius: 12px; padding: 24px 16px; text-align: center; background: rgba(0,214,143,0.03); cursor: pointer; transition: all 0.2s ease; margin-bottom: 16px;">
+                <div style="font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 4px;">Click to Select or Drop Backup File</div>
+                <div style="font-size: 11px; color: #94a3b8;">Supports .valenixia, .json, and .db backup archives</div>
+                <input type="file" id="input-restore-backup-file" accept=".json,.valenixia,.db" style="display: none;">
+              </div>
+
+              <div id="restore-file-feedback" style="display: none; padding: 12px; border-radius: 8px; font-size: 12.5px; margin-bottom: 16px;"></div>
+
+              <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" id="btn-cancel-restore-file" style="padding: 10px 18px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0; font-weight: 600; font-size: 13px; border-radius: 8px; cursor: pointer;">Cancel</button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(modal);
+
+      const closeBtn = document.getElementById('btn-close-restore-modal');
+      const cancelBtn = document.getElementById('btn-cancel-restore');
+      const cancelFileBtn = document.getElementById('btn-cancel-restore-file');
+      const submitBtn = document.getElementById('btn-submit-restore');
+      const queryInput = document.getElementById('input-restore-lookup-query');
+      const feedbackEl = document.getElementById('restore-modal-feedback');
+      const multiStoreBox = document.getElementById('restore-multistore-container');
+      const multiStoreList = document.getElementById('restore-multistore-list');
+
+      const tabCloud = document.getElementById('tab-restore-cloud');
+      const tabFile = document.getElementById('tab-restore-file');
+      const panelCloud = document.getElementById('panel-restore-cloud');
+      const panelFile = document.getElementById('panel-restore-file');
+
+      const closeModal = () => {
+        if (modal && modal.parentNode) modal.parentNode.removeChild(modal);
+      };
+
+      closeBtn.onclick = closeModal;
+      if (cancelBtn) cancelBtn.onclick = closeModal;
+      if (cancelFileBtn) cancelFileBtn.onclick = closeModal;
+
+      // Tab switching
+      tabCloud.onclick = () => {
+        tabCloud.style.color = 'var(--accent-emerald, #00d68f)';
+        tabCloud.style.borderBottomColor = 'var(--accent-emerald, #00d68f)';
+        tabFile.style.color = '#94a3b8';
+        tabFile.style.borderBottomColor = 'transparent';
+        panelCloud.style.display = 'block';
+        panelFile.style.display = 'none';
+      };
+
+      tabFile.onclick = () => {
+        tabFile.style.color = 'var(--accent-emerald, #00d68f)';
+        tabFile.style.borderBottomColor = 'var(--accent-emerald, #00d68f)';
+        tabCloud.style.color = '#94a3b8';
+        tabCloud.style.borderBottomColor = 'transparent';
+        panelFile.style.display = 'block';
+        panelCloud.style.display = 'none';
+      };
+
+      // Lookup execution
+      submitBtn.onclick = async () => {
+        const q = queryInput.value.trim();
+        if (!q) {
+          feedbackEl.style.display = 'block';
+          feedbackEl.style.background = 'rgba(239,68,68,0.15)';
+          feedbackEl.style.color = '#ef4444';
+          feedbackEl.style.border = '1px solid rgba(239,68,68,0.3)';
+          feedbackEl.textContent = 'Please enter a Claim ID, Transaction RRN, or Phone number.';
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Verifying...';
+        feedbackEl.style.display = 'none';
+        if (multiStoreBox) multiStoreBox.style.display = 'none';
+
+        const result = await ValenixiaClaimsManager.restoreSubscriptionByLookup(q);
+
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Verify & Restore';
+
+        if (result.success) {
+          // Check if multiple stores matched under this phone / query
+          if (result.multiple && Array.isArray(result.stores)) {
+            multiStoreBox.style.display = 'block';
+            multiStoreList.replaceChildren();
+
+            result.stores.forEach(store => {
+              const card = document.createElement('div');
+              card.style.cssText = 'background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; transition: all 0.2s ease;';
+              
+              card.innerHTML = `
+                <div style="flex: 1;">
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 3px;">
+                    <span style="font-weight: 700; font-size: 13px; color: #fff;">${store.storeName}</span>
+                    <span style="padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 800; background: rgba(0,214,143,0.15); color: #00d68f;">${store.tier}</span>
+                  </div>
+                  <div style="font-size: 11px; color: #94a3b8; display: flex; align-items: center; gap: 8px;">
+                    <span>${store.platform}</span>
+                    <span>•</span>
+                    <span style="color: #fbbf24; font-weight: 600;">${store.daysRemaining} days left</span>
+                  </div>
+                </div>
+                <button type="button" class="btn-restore-single-store" style="padding: 7px 14px; background: #00d68f; border: none; color: #060d0d; font-weight: 700; font-size: 11.5px; border-radius: 6px; cursor: pointer; flex-shrink: 0;">
+                  Restore
+                </button>
+              `;
+
+              card.querySelector('.btn-restore-single-store')?.addEventListener('click', () => {
+                const applied = ValenixiaClaimsManager.applyStoreRestoration(store.claim);
+                if (applied.success) {
+                  feedbackEl.style.display = 'block';
+                  feedbackEl.style.background = 'rgba(16,185,129,0.15)';
+                  feedbackEl.style.color = '#10b981';
+                  feedbackEl.style.border = '1px solid rgba(16,185,129,0.3)';
+                  feedbackEl.innerHTML = `<strong>${store.storeName} Restored!</strong><br>Plan: <strong>${store.tier}</strong> (${store.daysRemaining} days remaining)`;
+                  multiStoreBox.style.display = 'none';
+
+                  ValenixiaSubscription.refresh();
+                  ValenixiaSubscription.renderClaimsHistory();
+
+                  setTimeout(() => {
+                    closeModal();
+                  }, 600);
+                }
+              });
+
+              multiStoreList.appendChild(card);
+            });
+            return;
+          }
+
+          // Single store restored
+          feedbackEl.style.display = 'block';
+          feedbackEl.style.background = 'rgba(16,185,129,0.15)';
+          feedbackEl.style.color = '#10b981';
+          feedbackEl.style.border = '1px solid rgba(16,185,129,0.3)';
+          feedbackEl.innerHTML = `<strong>Subscription Restored!</strong><br>Plan: <strong>${result.tier}</strong> (${result.daysRemaining} days remaining)<br>Store: ${result.storeName}`;
+
+          ValenixiaSubscription.refresh();
+          ValenixiaSubscription.renderClaimsHistory();
+
+          setTimeout(() => {
+            closeModal();
+          }, 600);
+        } else {
+          feedbackEl.style.display = 'block';
+          feedbackEl.style.background = 'rgba(239,68,68,0.15)';
+          feedbackEl.style.color = '#ef4444';
+          feedbackEl.style.border = '1px solid rgba(239,68,68,0.3)';
+          feedbackEl.textContent = result.error || 'No matching active subscription found.';
+        }
+      };
+
+      queryInput.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          submitBtn.click();
+        }
+      };
+
+      // File Backup Drop Zone
+      const dropZone = document.getElementById('restore-drop-zone');
+      const fileInput = document.getElementById('input-restore-backup-file');
+      const fileFeedback = document.getElementById('restore-file-feedback');
+
+      if (dropZone && fileInput) {
+        dropZone.onclick = () => fileInput.click();
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--accent-emerald)'; };
+        dropZone.ondragleave = () => { dropZone.style.borderColor = 'rgba(0,214,143,0.35)'; };
+        dropZone.ondrop = (e) => {
+          e.preventDefault();
+          dropZone.style.borderColor = 'rgba(0,214,143,0.35)';
+          if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            handleBackupFileIngestion(e.dataTransfer.files[0]);
+          }
+        };
+
+        fileInput.onchange = (e) => {
+          if (e.target.files && e.target.files[0]) {
+            handleBackupFileIngestion(e.target.files[0]);
+          }
+        };
+      }
+
+      async function handleBackupFileIngestion(file) {
+        if (!file) return;
+        if (fileFeedback) {
+          fileFeedback.style.display = 'block';
+          fileFeedback.style.background = 'rgba(59,130,246,0.15)';
+          fileFeedback.style.color = '#3b82f6';
+          fileFeedback.style.border = '1px solid rgba(59,130,246,0.3)';
+          fileFeedback.textContent = `Reading & unpacking ${file.name}...`;
+        }
+
+        try {
+          const text = await file.text();
+          const parsed = JSON.parse(text);
+          let restoredProds = 0;
+
+          // 1. Restore Catalog
+          const catalogList = parsed.catalog || parsed.products || parsed.inventory || [];
+          if (Array.isArray(catalogList) && catalogList.length > 0) {
+            state.catalog = catalogList;
+            restoredProds = catalogList.length;
+            if (window.ValenixiaDB && typeof window.ValenixiaDB.put === 'function') {
+              for (const p of catalogList) {
+                try {
+                  await window.ValenixiaDB.put('inventory_catalog', p);
+                  await window.ValenixiaDB.put('products', p);
+                } catch (_) {}
+              }
+            }
+          }
+
+          // 2. Restore Store Identity & Tier
+          const storeName = parsed.storeName || parsed.store_name || (parsed.storeProfile && parsed.storeProfile.name) || 'Restored Store';
+          const tier = (parsed.tier || parsed.valenixia_tier || 'STARTER').toUpperCase();
+          const expiresAt = parsed.subscription_expires_at || (Date.now() + 30 * 86400000);
+
+          window.__valenixiaTier = tier;
+          localStorage.setItem('valenixia_tier', tier);
+          localStorage.setItem('valenixia_store_name', storeName);
+          localStorage.setItem('valenixia_subscription_expires_at', String(expiresAt));
+          localStorage.setItem('onboarding_complete', 'true');
+
+          const ownerCashier = {
+            id: 'emp_admin',
+            name: 'Store Owner',
+            role: 'ADMIN'
+          };
+
+          if (window.state) {
+            window.state.storeName = storeName;
+            window.state.tier = tier;
+            window.state.activeCashier = ownerCashier;
+            window.state.currentPin = '';
+            window.state.activeScreen = 'checkout';
+          }
+
+          try {
+            sessionStorage.setItem('valenixia_session_authenticated', '1');
+            sessionStorage.setItem('valenixia_auth_session', 'true');
+            sessionStorage.setItem('valenixia_active_cashier', JSON.stringify(ownerCashier));
+            document.documentElement.classList.add('session-authenticated');
+          } catch (_) {}
+
+          // 3. Close wizard, lock overlays & launch app
+          const wiz = document.getElementById('first-boot-wizard');
+          if (wiz) {
+            wiz.style.setProperty('display', 'none', 'important');
+            wiz.style.setProperty('visibility', 'hidden', 'important');
+            wiz.style.setProperty('opacity', '0', 'important');
+            wiz.classList.remove('active');
+          }
+          try { document.body.classList.remove('wizard-active'); } catch (_) {}
+
+          const lockScreen = document.getElementById('auth-lock-screen');
+          if (lockScreen) {
+            lockScreen.style.setProperty('display', 'none', 'important');
+            lockScreen.style.setProperty('visibility', 'hidden', 'important');
+            lockScreen.style.setProperty('opacity', '0', 'important');
+            lockScreen.classList.remove('active');
+          }
+
+          window.__valenixiaAuthenticated = true;
+          window.appReady = true;
+          window.appInitialized = true;
+          window.bootstrapDecisionReady = true;
+          window.bootstrapReady = true;
+
+          if (window.ValenixiaBootstrap && typeof window.ValenixiaBootstrap.transition === 'function') {
+            window.ValenixiaBootstrap.transition('READY');
+          }
+
+          const appLayout = document.getElementById('pos-app-layout');
+          if (appLayout) {
+            appLayout.style.setProperty('display', 'grid', 'important');
+            appLayout.style.setProperty('visibility', 'visible', 'important');
+            appLayout.style.setProperty('opacity', '1', 'important');
+            appLayout.classList.add('active');
+          }
+
+          if (typeof window.applyActiveTierToSystem === 'function') window.applyActiveTierToSystem(tier);
+          if (typeof window.applyRoleNavigationLimits === 'function') {
+            try { window.applyRoleNavigationLimits('ADMIN'); } catch (_) {}
+          }
+          if (typeof window.switchActiveScreen === 'function') window.switchActiveScreen('checkout');
+          if (typeof window.renderCheckoutScreen === 'function') window.renderCheckoutScreen();
+
+          if (fileFeedback) {
+            fileFeedback.style.background = 'rgba(16,185,129,0.15)';
+            fileFeedback.style.color = '#10b981';
+            fileFeedback.style.border = '1px solid rgba(16,185,129,0.3)';
+            fileFeedback.innerHTML = `<strong>Backup Ingested Successfully!</strong><br>Restored ${restoredProds} products &amp; store profile: <strong>${storeName}</strong>.`;
+          }
+
+          if (typeof window.playAudioSignal === 'function') window.playAudioSignal('success');
+          if (typeof window.triggerConfetti === 'function') window.triggerConfetti();
+          if (typeof window.showNotificationToast === 'function') {
+            window.showNotificationToast(`Restored ${storeName} with ${restoredProds} products!`, 'success', 4000);
+          }
+
+          setTimeout(() => {
+            closeModal();
+          }, 800);
+
+        } catch (err) {
+          console.error('[Backup Restore] Failed:', err);
+          if (fileFeedback) {
+            fileFeedback.style.background = 'rgba(239,68,68,0.15)';
+            fileFeedback.style.color = '#ef4444';
+            fileFeedback.style.border = '1px solid rgba(239,68,68,0.3)';
+            fileFeedback.textContent = `Invalid backup file: ${err.message}`;
+          }
+        }
+      }
+
+      setTimeout(() => { try { queryInput.focus(); } catch (_) {} }, 100);
     }
   };
+
+  window.openSubscriptionRestoreModal = () => ValenixiaSubscription.openRestoreSubscriptionModal();
 
   window.ValenixiaSubscription = ValenixiaSubscription;
   window.initSubscriptionPage = () => ValenixiaSubscription.init();

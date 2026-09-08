@@ -40,6 +40,15 @@
   <h2>5. Payment Terms</h2>
   <p>Subscription fees are charged in Pakistani Rupees (PKR) via NayaPay, Raast, EasyPaisa, or SadaPay. All fees are subject to our Refund Policy. You are responsible for all applicable taxes, including any sales tax or FBR-mandated charges applicable to your business registration. Subscription fees are billed in advance and are non-refundable except as stated in our Refund Policy.</p>
 
+  <h2>5.1 Minted Accounts, Device Deletion, Re-installation &amp; Subscription Preservation</h2>
+  <p>Valenixia POS operates on a local-first software architecture. Transactional catalogs, sales ledgers, and local databases are maintained securely within the local sandbox of the client device (e.g. browser storage or native application directory). In the event that a user uninstalls the native mobile application, clears browser cache, or deletes local application data on a physical device:</p>
+  <ul>
+    <li><strong>Preservation of Minted Subscriptions &amp; Entitlements:</strong> All approved payment claims, minted tier licenses (Starter, Pro, Enterprise), and prepaid subscription periods remain permanently recorded in Valenixia's cloud ledger. Uninstallation or local data deletion does <em>not</em> forfeit or terminate any remaining days of an active prepaid subscription.</li>
+    <li><strong>Seamless Entitlement Restoration:</strong> Upon re-installing the application on the same hardware identifier (HWID / ANDROID_ID), or by providing the original Claim ID (e.g. <code>CLM-XXXXXX</code>), Transaction RRN reference, or registered Merchant Phone Number, the system will automatically reinstate the active tier entitlement and all remaining prepaid days with zero additional fees or penalty.</li>
+    <li><strong>Multi-Store Device Independence:</strong> Multiple stores configured on the same physical device across separate runtimes (e.g. Web browser vs Native Android package) maintain independent, non-conflicting cryptographic identities. Deleting one client application runtime does not impact the subscription or data isolation of the other.</li>
+    <li><strong>Store Data Recovery &amp; Liability Limitation:</strong> Merchants are strongly advised to enable automated cloud synchronization (Supabase sync / Google Drive backup) or perform periodic manual backup exports. While Valenixia guarantees the 100% restoration of all prepaid subscription time and tier privileges, Valenixia is not liable for the loss of unsynchronized local business records resulting from intentional or accidental local application deletion by the user without a prior backup archive.</li>
+  </ul>
+
   <h2>6. FBR Compliance</h2>
   <p>If you are a registered taxpayer in Pakistan and have enabled FBR integration, transaction data may be transmitted to the Federal Board of Revenue (FBR) in accordance with applicable Pakistani tax law. You are solely responsible for ensuring your use of the Service complies with your FBR registration obligations.</p>
 

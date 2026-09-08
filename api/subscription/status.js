@@ -17,9 +17,12 @@ module.exports = async (req, res) => {
     return res.status(204).end();
   }
 
-  const rawHwid = (req.query && req.query.hwid) || req.headers['x-device-hwid'] || null;
+  const headers = req.headers || {};
+  const rawHwid = (req.query && req.query.hwid) || headers['x-device-hwid'] || null;
   const cleanHwid = rawHwid ? String(rawHwid).trim().toUpperCase() : 'DEFAULT_DEVICE';
-  const clientStartTime = (req.query && req.query.start_time) || req.headers['x-subscription-start-time'] || null;
+  const rawStoreName = (req.query && (req.query.store_name || req.query.name || req.query.store)) || headers['x-store-name'] || null;
+  const cleanStoreName = rawStoreName ? String(rawStoreName).trim() : null;
+  const clientStartTime = (req.query && req.query.start_time) || headers['x-subscription-start-time'] || null;
   const nowIso = new Date().toISOString();
   const nowMs = Date.now();
 
@@ -66,9 +69,10 @@ module.exports = async (req, res) => {
         try {
           const anchorStart = clientStartTime || nowIso;
           const anchorExp = new Date(Date.parse(anchorStart) + durationMs).toISOString();
+          const storeDisplayName = cleanStoreName || `Store (${cleanHwid.slice(0, 8)})`;
           await supabase.from('stores').upsert([{
             id: cleanHwid,
-            name: `Store (${cleanHwid.slice(0, 8)})`,
+            name: storeDisplayName,
             plan: 'free',
             is_active: true,
             last_seen_at: anchorStart,
@@ -87,12 +91,15 @@ module.exports = async (req, res) => {
     }
   }
 
-  if (!expiresAt && billingCycle !== 'LIFETIME') {
+  if (effectiveTier === 'FREE') {
+    expiresAt = '0';
+    durationMs = 0;
+  } else if (!expiresAt && billingCycle !== 'LIFETIME') {
     const sMs = Date.parse(subStartTime) || nowMs;
     expiresAt = new Date(sMs + durationMs).toISOString();
   }
 
-  const expiresAtMs = expiresAt ? Date.parse(expiresAt) : (Date.parse(subStartTime) + durationMs);
+  const expiresAtMs = (effectiveTier === 'FREE') ? 0 : (expiresAt ? Date.parse(expiresAt) : (Date.parse(subStartTime) + durationMs));
 
   return res.status(200).json({
     ok: true,

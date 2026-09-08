@@ -987,18 +987,18 @@
       const existingCatalog = await this.getAll('inventory_catalog').catch(() => []);
       if (!existingCatalog || existingCatalog.length === 0) {
         const baselineProducts = [
-          { sku: 'COFFEE-ESP', gtin: '0000000000001', name: 'Signature Espresso', name_ur: 'سگنیچر ایسپریسو', base_price_minor_units: 350, stock_level: 100, reserved_stock: 0, category: 'Beverages', category_ur: 'مشروبات', emoji: '☕', cost_price_minor_units: 120, low_stock_threshold: 15, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
-          { sku: 'COFFEE-LAT', gtin: '0000000000002', name: 'Cold Brew Latte', name_ur: 'کولڈ برُو لاٹے', base_price_minor_units: 475, stock_level: 80, reserved_stock: 0, category: 'Beverages', category_ur: 'مشروبات', emoji: '🥛', cost_price_minor_units: 180, low_stock_threshold: 15, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
-          { sku: 'COFFEE-CBD', gtin: '0000000000003', name: 'Nitro Cold Brew', name_ur: 'نائٹرو کولڈ برُو', base_price_minor_units: 550, stock_level: 60, reserved_stock: 0, category: 'Beverages', category_ur: 'مشروبات', emoji: '🧋', cost_price_minor_units: 200, low_stock_threshold: 10, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
-          { sku: 'PASTRY-CRO', gtin: '0000000000004', name: 'Butter Croissant', name_ur: 'مکھن کروسینٹ', base_price_minor_units: 325, stock_level: 40, reserved_stock: 0, category: 'Bakery', category_ur: 'بیکری', emoji: '🥐', cost_price_minor_units: 110, low_stock_threshold: 10, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
-          { sku: 'PASTRY-MUF', gtin: '0000000000005', name: 'Blueberry Muffin', name_ur: 'بلیو بیری مفن', base_price_minor_units: 375, stock_level: 30, reserved_stock: 0, category: 'Bakery', category_ur: 'بیکری', emoji: '🧁', cost_price_minor_units: 130, low_stock_threshold: 10, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
-          { sku: 'PASTRY-COK', gtin: '0000000000006', name: 'Choco Chip Cookie', name_ur: 'چوکو چپ کوکی', base_price_minor_units: 250, stock_level: 50, reserved_stock: 0, category: 'Bakery', category_ur: 'بیکری', emoji: '🍪', cost_price_minor_units: 80, low_stock_threshold: 15, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
-          { sku: 'TECH-CHG',  gtin: '0000000000007', name: 'Rapid USB-C Charger', name_ur: 'فاسٹ یو ایس بی سی چارجر', base_price_minor_units: 1999, stock_level: 25, reserved_stock: 0, category: 'Electronics', category_ur: 'الیکٹرانکس', emoji: '🔌', cost_price_minor_units: 950, low_stock_threshold: 5, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
-          { sku: 'TECH-CBL',  gtin: '0000000000008', name: 'Braid Type-C Cable 1m', name_ur: 'ٹائپ سی کیبل 1 میٹر', base_price_minor_units: 999, stock_level: 45, reserved_stock: 0, category: 'Electronics', category_ur: 'الیکٹرانکس', emoji: '⚡', cost_price_minor_units: 350, low_stock_threshold: 10, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
-          { sku: 'RETAIL-MUG', gtin: '0000000000009', name: 'Valenixia Ceramic Mug', name_ur: 'سرامک چائے مگ', base_price_minor_units: 1450, stock_level: 20, reserved_stock: 0, category: 'Merchandise', category_ur: 'سامان تجارت', emoji: '🍵', cost_price_minor_units: 550, low_stock_threshold: 5, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
-          { sku: 'RETAIL-TSH', gtin: '0000000000010', name: 'Nova Cotton Tee (L)', name_ur: 'کاٹن ٹی شرٹ', base_price_minor_units: 2499, stock_level: 15, reserved_stock: 0, category: 'Merchandise', category_ur: 'سامان تجارت', emoji: '👕', cost_price_minor_units: 950, low_stock_threshold: 5, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
-          { sku: 'RETAIL-BAG', gtin: '0000000000011', name: 'Canvas Tote Bag', name_ur: 'کپڑے کا شاپنگ بیگ', base_price_minor_units: 1200, stock_level: 35, reserved_stock: 0, category: 'Merchandise', category_ur: 'سامان تجارت', emoji: '👜', cost_price_minor_units: 400, low_stock_threshold: 8, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
-          { sku: 'WATER-SPK',  gtin: '0000000000012', name: 'Sparkling Mineral Water', name_ur: 'منرل واٹر بوتل', base_price_minor_units: 200, stock_level: 120, reserved_stock: 0, category: 'Beverages', category_ur: 'مشروبات', emoji: '💧', cost_price_minor_units: 60, low_stock_threshold: 20, col_version: 1, sync_hlc: '0000000000000:000001:seed' }
+          { sku: 'COFFEE-ESP', gtin: '0000000000001', name: 'Signature Espresso', name_ur: 'سگنیچر ایسپریسو', base_price_minor_units: 350, stock_level: 100, reserved_stock: 0, category: 'Beverages', category_ur: 'مشروبات', emoji: '', cost_price_minor_units: 120, low_stock_threshold: 15, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
+          { sku: 'COFFEE-LAT', gtin: '0000000000002', name: 'Cold Brew Latte', name_ur: 'کولڈ برُو لاٹے', base_price_minor_units: 475, stock_level: 80, reserved_stock: 0, category: 'Beverages', category_ur: 'مشروبات', emoji: '', cost_price_minor_units: 180, low_stock_threshold: 15, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
+          { sku: 'COFFEE-CBD', gtin: '0000000000003', name: 'Nitro Cold Brew', name_ur: 'نائٹرو کولڈ برُو', base_price_minor_units: 550, stock_level: 60, reserved_stock: 0, category: 'Beverages', category_ur: 'مشروبات', emoji: '', cost_price_minor_units: 200, low_stock_threshold: 10, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
+          { sku: 'PASTRY-CRO', gtin: '0000000000004', name: 'Butter Croissant', name_ur: 'مکھن کروسینٹ', base_price_minor_units: 325, stock_level: 40, reserved_stock: 0, category: 'Bakery', category_ur: 'بیکری', emoji: '', cost_price_minor_units: 110, low_stock_threshold: 10, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
+          { sku: 'PASTRY-MUF', gtin: '0000000000005', name: 'Blueberry Muffin', name_ur: 'بلیو بیری مفن', base_price_minor_units: 375, stock_level: 30, reserved_stock: 0, category: 'Bakery', category_ur: 'بیکری', emoji: '', cost_price_minor_units: 130, low_stock_threshold: 10, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
+          { sku: 'PASTRY-COK', gtin: '0000000000006', name: 'Choco Chip Cookie', name_ur: 'چوکو چپ کوکی', base_price_minor_units: 250, stock_level: 50, reserved_stock: 0, category: 'Bakery', category_ur: 'بیکری', emoji: '', cost_price_minor_units: 80, low_stock_threshold: 15, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
+          { sku: 'TECH-CHG',  gtin: '0000000000007', name: 'Rapid USB-C Charger', name_ur: 'فاسٹ یو ایس بی سی چارجر', base_price_minor_units: 1999, stock_level: 25, reserved_stock: 0, category: 'Electronics', category_ur: 'الیکٹرانکس', emoji: '', cost_price_minor_units: 950, low_stock_threshold: 5, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
+          { sku: 'TECH-CBL',  gtin: '0000000000008', name: 'Braid Type-C Cable 1m', name_ur: 'ٹائپ سی کیبل 1 میٹر', base_price_minor_units: 999, stock_level: 45, reserved_stock: 0, category: 'Electronics', category_ur: 'الیکٹرانکس', emoji: '', cost_price_minor_units: 350, low_stock_threshold: 10, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
+          { sku: 'RETAIL-MUG', gtin: '0000000000009', name: 'Valenixia Ceramic Mug', name_ur: 'سرامک چائے مگ', base_price_minor_units: 1450, stock_level: 20, reserved_stock: 0, category: 'Merchandise', category_ur: 'سامان تجارت', emoji: '', cost_price_minor_units: 550, low_stock_threshold: 5, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
+          { sku: 'RETAIL-TSH', gtin: '0000000000010', name: 'Nova Cotton Tee (L)', name_ur: 'کاٹن ٹی شرٹ', base_price_minor_units: 2499, stock_level: 15, reserved_stock: 0, category: 'Merchandise', category_ur: 'سامان تجارت', emoji: '', cost_price_minor_units: 950, low_stock_threshold: 5, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
+          { sku: 'RETAIL-BAG', gtin: '0000000000011', name: 'Canvas Tote Bag', name_ur: 'کپڑے کا شاپنگ بیگ', base_price_minor_units: 1200, stock_level: 35, reserved_stock: 0, category: 'Merchandise', category_ur: 'سامان تجارت', emoji: '', cost_price_minor_units: 400, low_stock_threshold: 8, col_version: 1, sync_hlc: '0000000000000:000001:seed' },
+          { sku: 'WATER-SPK',  gtin: '0000000000012', name: 'Sparkling Mineral Water', name_ur: 'منرل واٹر بوتل', base_price_minor_units: 200, stock_level: 120, reserved_stock: 0, category: 'Beverages', category_ur: 'مشروبات', emoji: '', cost_price_minor_units: 60, low_stock_threshold: 20, col_version: 1, sync_hlc: '0000000000000:000001:seed' }
         ];
 
         for (const prod of baselineProducts) {
@@ -1119,68 +1119,83 @@
     // CRUD Helper methods
     // CRUD Helper methods
     async get(storeName, key, tx = null) {
-      const row = await new Promise((resolve, reject) => {
-        if (!this.db && !tx) return resolve(null);
-        const store = tx ? tx.objectStore(storeName) : this.db.transaction([storeName], 'readonly').objectStore(storeName);
-        const request = store.get(key);
+      if (!this.db && !tx) return null;
+      try {
+        const row = await new Promise((resolve, reject) => {
+          try {
+            if (!this.db && !tx) return resolve(null);
+            const store = tx ? tx.objectStore(storeName) : this.db.transaction([storeName], 'readonly').objectStore(storeName);
+            const request = store.get(key);
 
-        request.onsuccess = (event) => resolve(event.target.result || null);
-        request.onerror = (event) => reject(event.target.error);
-      });
-      if (!row) return null;
-      let passphrase = '';
-      if (storeName === 'customers' || storeName === 'transactions') {
-        passphrase = await this.getSyncPassphrase(tx);
+            request.onsuccess = (event) => resolve(event.target.result || null);
+            request.onerror = (event) => reject(event.target.error);
+          } catch (txErr) {
+            resolve(null);
+          }
+        });
+        if (!row) return null;
+        let passphrase = '';
+        if (storeName === 'customers' || storeName === 'transactions') {
+          passphrase = await this.getSyncPassphrase(tx);
+        }
+        return await decryptItem(storeName, row, passphrase);
+      } catch (err) {
+        return null;
       }
-      return await decryptItem(storeName, row, passphrase);
     },
 
     async put(storeName, item, tx = null) {
-      let passphrase = '';
-      if (storeName === 'customers' || storeName === 'transactions') {
-        if (this._passphraseCache === undefined) {
-          this._passphraseCache = await this.getSyncPassphrase(tx);
+      if (!this.db && !tx) return true;
+      try {
+        let passphrase = '';
+        if (storeName === 'customers' || storeName === 'transactions') {
+          if (this._passphraseCache === undefined) {
+            this._passphraseCache = await this.getSyncPassphrase(tx);
+          }
+          passphrase = this._passphraseCache || '';
         }
-        passphrase = this._passphraseCache || '';
-      }
-      const encryptedItem = await encryptItem(storeName, item, passphrase);
-      return new Promise((resolve, reject) => {
-        if (!this.db && !tx) return resolve(true);
-        try {
-          const store = tx ? tx.objectStore(storeName) : this.db.transaction([storeName], 'readwrite').objectStore(storeName);
-          const request = store.put(encryptedItem);
+        const encryptedItem = await encryptItem(storeName, item, passphrase);
+        return new Promise((resolve, reject) => {
+          try {
+            if (!this.db && !tx) return resolve(true);
+            const store = tx ? tx.objectStore(storeName) : this.db.transaction([storeName], 'readwrite').objectStore(storeName);
+            const request = store.put(encryptedItem);
 
-          request.onsuccess = () => {
-            if (!tx) this.triggerOpfsBackupDebounced();
-            resolve(true);
-          };
-          request.onerror = (event) => {
-            const err = event.target.error;
+            request.onsuccess = () => {
+              if (!tx) this.triggerOpfsBackupDebounced();
+              resolve(true);
+            };
+            request.onerror = (event) => {
+              const err = event.target.error;
+              if (err && (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || err.code === 22)) {
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('CRITICAL_STORAGE_ERROR', { detail: 'Device storage is full. Please free up space immediately.' }));
+                }
+              }
+              resolve(false);
+            };
+          } catch (err) {
+            if (err && err.name === 'TransactionInactiveError') {
+              return resolve(false);
+            }
             if (err && (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || err.code === 22)) {
               if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('CRITICAL_STORAGE_ERROR', { detail: 'Device storage is full. Please free up space immediately.' }));
               }
             }
-            reject(err);
-          };
-        } catch (err) {
-          if (err && err.name === 'TransactionInactiveError') {
-            return reject(new Error('IDB transaction went inactive before write (mobile deadlock). Aborting.'));
+            resolve(false);
           }
-          if (err && (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || err.code === 22)) {
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('CRITICAL_STORAGE_ERROR', { detail: 'Device storage is full. Please free up space immediately.' }));
-            }
-          }
-          reject(err);
-        }
-      });
+        });
+      } catch (err) {
+        return false;
+      }
     },
 
     delete(storeName, key, tx = null) {
+      if (!this.db && !tx) return Promise.resolve(true);
       return new Promise((resolve, reject) => {
-        if (!this.db && !tx) return resolve(true);
         try {
+          if (!this.db && !tx) return resolve(true);
           const store = tx ? tx.objectStore(storeName) : this.db.transaction([storeName], 'readwrite').objectStore(storeName);
           const request = store.delete(key);
 
@@ -1195,32 +1210,28 @@
                 window.dispatchEvent(new CustomEvent('CRITICAL_STORAGE_ERROR', { detail: 'Device storage is full. Please free up space immediately.' }));
               }
             }
-            reject(err);
+            resolve(false);
           };
         } catch (err) {
-          if (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || err.code === 22) {
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('CRITICAL_STORAGE_ERROR', { detail: 'Device storage is full. Please free up space immediately.' }));
-            }
-          }
-          reject(err);
+          resolve(false);
         }
       });
     },
 
     clear(storeName, tx = null) {
+      if (!this.db && !tx) return Promise.resolve(true);
       return new Promise((resolve, reject) => {
-        if (!this.db && !tx) return resolve(true);
         try {
+          if (!this.db && !tx) return resolve(true);
           const store = tx ? tx.objectStore(storeName) : this.db.transaction([storeName], 'readwrite').objectStore(storeName);
           const request = store.clear();
           request.onsuccess = () => {
             if (!tx) this.triggerOpfsBackupDebounced();
             resolve(true);
           };
-          request.onerror = (e) => reject(e.target.error);
+          request.onerror = (e) => resolve(false);
         } catch (err) {
-          reject(err);
+          resolve(false);
         }
       });
     },
@@ -1233,7 +1244,7 @@
           const store = tx.objectStore(storeName);
           const req = store.count();
           req.onsuccess = () => resolve(req.result);
-          req.onerror = () => reject(req.error);
+          req.onerror = () => resolve(0);
         } catch (e) {
           resolve(0);
         }
@@ -1725,37 +1736,28 @@
 
 
     async destructReset() {
-      // Wipes out local IndexedDB content (except catalog and settings which are seeded on next load)
+      // Wipes out local IndexedDB content cleanly and safely
       console.warn('[IndexedDB] Triggering destructive reset...');
-      if (!this.db) return;
-      
-      const stores = [
-        'transactions', 'line_items', 'crsql_changes', 
-        'speech_analytics_logs', 'customers', 'stock_movements', 'employee_shifts',
-        'distributors', 'purchase_orders', 'po_line_items', 'distributor_payments', 'customer_credit'
-      ];
-
-      for (const storeName of stores) {
-        await new Promise((resolve, reject) => {
-          const transaction = this.db.transaction([storeName], 'readwrite');
-          const store = transaction.objectStore(storeName);
-          const request = store.clear();
-          request.onsuccess = () => resolve();
-          request.onerror = (e) => reject(e.target.error);
+      try {
+        if (this.db) {
+          try { this.db.close(); } catch (_) {}
+          this.db = null;
+        }
+        await new Promise((resolve) => {
+          try {
+            const delReq = globalScope.indexedDB.deleteDatabase(this.dbName);
+            delReq.onsuccess = () => resolve();
+            delReq.onerror = () => resolve();
+            delReq.onblocked = () => resolve();
+          } catch (_) {
+            resolve();
+          }
         });
+        await this.init();
+        await this.seedIfNeeded();
+      } catch (err) {
+        console.warn('[IndexedDB] destructReset notice:', err);
       }
-      
-      // Wipe preferences & catalog then re-seed
-      await new Promise((resolve, reject) => {
-        const transaction = this.db.transaction(['local_preferences', 'inventory_catalog', 'categories'], 'readwrite');
-        transaction.objectStore('local_preferences').clear();
-        transaction.objectStore('inventory_catalog').clear();
-        transaction.objectStore('categories').clear();
-        transaction.oncomplete = () => resolve();
-        transaction.onerror = (e) => reject(e.target.error);
-      });
-
-      await this.seedIfNeeded();
     }
   };
 

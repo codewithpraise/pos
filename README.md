@@ -29,7 +29,125 @@ Valenixia is a zero-trust, masterless, offline-first Point of Sale (POS) system 
 - **Asymmetric Verification**: Validates developer-signed base64 license keys using an Ed25519 public key entirely offline via the WebCrypto SubtleCrypto API.
 - **Monotonic Time Anchor**: Writes a secure monotonic time anchor to SQLite on every transaction. Detects and blocks local machine clock rollback attempts instantly.
 
-### 2. PN-Counter CRDT Inventory Integrity
+---
+
+## 💎 Dual-Namespace Device ID & Multi-Store Isolation Architecture
+
+One of the most complex challenges in distributed, local-first retail software is allowing **multiple independent store instances** to operate on the **same physical hardware** (or switching between Web and Native Android apps) without state collision, license leakage, or entitlement corruption.
+
+Valenixia POS implements an advanced **Dual-Namespace Hardware Identification (HWID) & Entitlement Isolation Engine**.
+
+### 1. The Dual-Namespace Fingerprint Partition (`AND-` vs `WEB-`)
+
+Hardware identifiers are divided into two mutually exclusive cryptographic namespaces:
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        PHYSICAL REGISTER HARDWARE                      │
+├───────────────────────────────────┬────────────────────────────────────┤
+│         NATIVE CONTAINER          │        WEB BROWSER SANDBOX         │
+│          (Android App)            │           (PWA / Web)              │
+├───────────────────────────────────┼────────────────────────────────────┤
+│  Queries AndroidPOS.getDeviceID() │  Store-bound 2D Canvas Seed        │
+│  Tied to Android ID / HW Serial   │  + CPU concurrency + Memory + Res  │
+│                                   │  + WebCrypto SHA-256 / djb2 Hash   │
+├───────────────────────────────────┼────────────────────────────────────┤
+│     Namespace: AND-<HEX_ID>       │    Namespace: WEB-<STORE_HASH>     │
+└───────────────────────────────────┴────────────────────────────────────┘
+```
+
+#### Native Android Architecture (`AND-` Namespace)
+- When executing inside the native Android Kotlin shell (Sunmi, iMin, Pax, Android tablets), the JavaScript engine invokes `window.AndroidPOS.getDeviceID()` or `window.Android.getDeviceID()`.
+- The native layer extracts the hardware-rooted `Settings.Secure.ANDROID_ID` or telephonic serial number via the Android Keystore.
+- The runtime automatically normalizes and prefixes this identifier with `AND-` (e.g., `AND-7C3F81A90B2E`).
+- **Advantage**: Impervious to app uninstalls, cache clearing, or APK updates. The register retains its identity permanently.
+
+#### Web Sandbox Architecture (`WEB-` Namespace)
+- In standard desktop browsers (Chrome, Edge, Safari), direct hardware serial numbers are blocked by browser sandboxing.
+- Instead of using a naive random UUID that gets erased when cookies are cleared, Valenixia generates a **deterministic store-bound fingerprint**:
+  1. **Store Identity Ingestion**: Retrieves the active store name (`valenixia_store_name`) and normalizes it (`storeNormalized = storeName.toLowerCase().replace(/[^a-z0-9]/g, '_')`).
+  2. **Invisible Canvas 2D Seed**: Renders an off-screen HTML5 Canvas drawing with context font `14px Arial` writing `ValenixiaPOS-HWID-Seed-${storeNormalized}`. Different GPU drivers, antialiasing engines, and subpixel rendering pipelines generate micro-variations unique to that device and that specific store.
+  3. **Multi-Vector Entropy String**:
+     ```javascript
+     const components = [
+       'WEB_APP',
+       storeNormalized,
+       navigator.userAgent,
+       navigator.language,
+       String(screen.width * screen.height),
+       String(screen.colorDepth),
+       String(navigator.hardwareConcurrency || 0),
+       String(navigator.deviceMemory || 0),
+       new Intl.DateTimeFormat().resolvedOptions().timeZone,
+       canvasData.slice(-128)
+     ].join('|');
+     ```
+  4. **Cryptographic Hashing**: Hashes this payload via `crypto.subtle.digest('SHA-256')`. If running in legacy or non-HTTPS contexts where `SubtleCrypto` is inaccessible, it gracefully fails over to a deterministic 64-bit `djb2` bitwise XOR algorithm.
+  5. **Namespace Anchoring**: Formats the result as `WEB-<HEX_20>`, e.g., `WEB-A8E2B150F9C7D43A12E8`.
+
+---
+
+### 2. Perfect & Separate Store Upgrades on the Same Device
+
+#### The Problem Solved
+In commercial POS operations, a merchant frequently runs two separate retail stores on the same cashier PC or tablet:
+- **Store A**: "Downtown Electronics" (running on the **Enterprise Plan** with FBR Fiscal POS and 3 terminals).
+- **Store B**: "Quick Fix Accessories" (running on the **Starter Plan** or **Free Basic** tier).
+
+In conventional software, upgrading Store A would overwrite local database limits, causing Store B to accidentally inherit Enterprise features (entitlement bleed) or, conversely, downgrading Store B would strip Store A's active paid license!
+
+#### How Valenixia Guarantees Zero-Collision Store Isolation:
+1. **Store-Bound HWID Generation**:
+   Because `storeNormalized` is embedded directly into the canvas draw seed and the entropy components, Store Alpha and Store Beta generate **mathematically distinct HWIDs** on the exact same computer screen:
+   - `HWID_Alpha = WEB-6FA901...`
+   - `HWID_Beta  = WEB-3BC482...`
+   - Test suite verification: `assert.notStrictEqual(webHwidA, webHwidB)` enforces this contract across all releases.
+
+2. **Isolated SQLite Hardware Entitlement Ledger**:
+   All tier limits, feature locks, and prepaid day countdowns are recorded in SQLite under:
+   ```sql
+   CREATE TABLE hardware_entitlements (
+     hwid TEXT PRIMARY KEY,
+     tier TEXT NOT NULL,
+     mode TEXT NOT NULL,          -- 'subscription' | 'lifetime'
+     expires_at INTEGER,          -- Monotonic UTC timestamp (null for Perpetual)
+     granted_at INTEGER NOT NULL,
+     updated_at INTEGER NOT NULL
+   );
+   ```
+   Upgrades, payment proofs, and activation codes target `(store_id, hwid)` pairs. Modifying Store Alpha's record in `hardware_entitlements` has zero effect on Store Beta's entry.
+
+3. **Cloud-Anchored Multi-Store Subscription Restoration**:
+   If the merchant reinstalls the app, clears browser storage, or swaps hardware:
+   - The `/api/subscription/restore` engine queries the central Supabase cloud ledger matching the merchant's authenticated identity and store name.
+   - It re-anchors the active prepaid days and re-issues the asymmetric Ed25519 token specifically to the requesting store's fresh HWID without consuming additional terminal seats!
+
+---
+
+## 💳 Commercial Plans & Perpetual Licensing Matrix (v3.2.4)
+
+Valenixia POS supports both flexible monthly cloud SaaS subscriptions and standalone, offline-first **Perpetual Lifetime Licenses** with **Annual Maintenance Contracts (AMC)** for enterprise retailers:
+
+| Feature / Limit | Free Basic | Starter Plan | Growth / Pro Plan | Enterprise HQ Plan |
+|---|---|---|---|---|
+| **Monthly Subscription** | **PKR 0** / forever | **PKR 3,499** / mo | **PKR 6,999** / mo | **PKR 11,999** / mo |
+| **Perpetual License (One-Time)** | N/A | **PKR 79,000** | **PKR 149,000** | **PKR 249,000** |
+| **Annual Maintenance (AMC)** | N/A | **PKR 15,000** / year | **PKR 28,000** / year | **PKR 45,000** / year |
+| **Included Terminals** | 1 Terminal | 1 Terminal | 2 Terminals | 3 Terminals (Expandable) |
+| **Included Branches** | 1 Branch | 1 Branch | 1 Branch | 2 Branches (Expandable) |
+| **Transactions Limit** | 20 / day (600 / mo) | **Unlimited** | **Unlimited** | **Unlimited** |
+| **Catalog Products Limit** | 25 Items | **Unlimited** | **Unlimited** | **Unlimited** |
+| **FBR Fiscal POS (PRAL Live)** | ❌ | ✅ | ✅ | ✅ |
+| **Kitchen Display (KDS / KOT)** | ❌ | ❌ | ✅ | ✅ |
+| **Multi-Store Central HQ** | ❌ | ❌ | ❌ | ✅ |
+| **Inter-Branch Stock Transfers (STN)**| ❌ | ❌ | ❌ | ✅ |
+| **WhatsApp Digital Receipts** | ❌ | ❌ | Optional Add-on | ✅ Included |
+| **Cloud Disaster Recovery** | Manual Export | Manual Export | Automated Daily | Real-Time Continuous |
+| **Deals & Bundle Builder** | ✅ Free Included | ✅ Included | ✅ Included | ✅ Included |
+
+---
+
+### 3. PN-Counter CRDT Inventory Integrity
 - Decouples simple LWW integer stock levels into Positive-Negative counter columns (`stock_additions` and `stock_subtractions`) to guarantee eventual consistency during asynchronous merges.
 - Features real-time stock level reconciliation alerts in the client UI if computed levels drop below zero (Oversell Guard).
 

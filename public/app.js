@@ -1511,9 +1511,26 @@ setHtml(overlay, `
   });
 
   window.addEventListener('unhandledrejection', (event) => {
-    console.error('[Global Promise Rejection Interceptor]', event.reason);
     const reason = event.reason || {};
-    renderCrashModal('E-104 - UNHANDLED REJECTION', reason.message || String(reason), reason.stack || '');
+    const msg = reason.message || String(reason || '');
+    // Suppress benign/non-fatal/transient rejections from crashing the whole app
+    if (
+      msg.includes('connection is closing') ||
+      msg.includes('Database connection is closing') ||
+      msg.includes('The database connection is closing') ||
+      msg.includes('AbortError') ||
+      msg.includes('Failed to fetch') ||
+      msg.includes('NetworkError') ||
+      msg.includes('ResizeObserver') ||
+      msg.includes('beforeinstallpromptevent') ||
+      event.defaultPrevented
+    ) {
+      console.warn('[Non-Fatal Rejection Suppressed]', msg);
+      try { event.preventDefault(); } catch (_) {}
+      return;
+    }
+    console.error('[Global Promise Rejection Interceptor]', event.reason);
+    renderCrashModal('E-104 - UNHANDLED REJECTION', msg, reason.stack || '');
   });
 
   // Screen Reader Accessibility Live Region Announcer
@@ -5464,9 +5481,9 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
           ENTERPRISE: { amount: 11999, text: 'PKR 11,999 / mo' }
         },
         lifetime: {
-          STARTER: { amount: 79000, text: 'PKR 79,000 (Perpetual + AMC)' },
-          PRO: { amount: 149000, text: 'PKR 149,000 (Perpetual + AMC)' },
-          ENTERPRISE: { amount: 249000, text: 'PKR 249,000 (Perpetual + AMC)' }
+          STARTER: { amount: 79000, text: 'PKR 79,000 (Perpetual + PKR 15,000/yr AMC)' },
+          PRO: { amount: 149000, text: 'PKR 149,000 (Perpetual + PKR 28,000/yr AMC)' },
+          ENTERPRISE: { amount: 249000, text: 'PKR 249,000 (Perpetual + PKR 45,000/yr AMC)' }
         }
       };
 
@@ -6271,13 +6288,17 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
           try {
             const serverBase = (window.__valenixiaServerUrl || location.origin);
             if (location.protocol !== 'file:') {
-              await fetch(serverBase + '/api/system/reset', { method: 'POST' });
+              await fetch(serverBase + '/api/system/reset', { method: 'POST' }).catch(() => {});
             }
           } catch (err) {
             console.warn('Failed to contact server for reset:', err);
           }
-          await ValenixiaDB.destructReset();
-          localStorage.clear();
+          try {
+            await ValenixiaDB.destructReset();
+          } catch (dbErr) {
+            console.warn('[Reset] ClientDB reset notice:', dbErr);
+          }
+          try { localStorage.clear(); } catch (_) {}
           window.location.reload();
         }
       });
@@ -6290,13 +6311,17 @@ setHtml(voidOverlay, '<div style="background:var(--panel-graphite);border:1px so
           try {
             const serverBase = (window.__valenixiaServerUrl || location.origin);
             if (location.protocol !== 'file:') {
-              await fetch(serverBase + '/api/system/reset', { method: 'POST' });
+              await fetch(serverBase + '/api/system/reset', { method: 'POST' }).catch(() => {});
             }
           } catch (err) {
             console.warn('Failed to contact server for reset:', err);
           }
-          await ValenixiaDB.destructReset();
-          localStorage.clear();
+          try {
+            await ValenixiaDB.destructReset();
+          } catch (dbErr) {
+            console.warn('[Reset] ClientDB reset notice:', dbErr);
+          }
+          try { localStorage.clear(); } catch (_) {}
           window.location.reload();
         }
       });
@@ -8916,10 +8941,10 @@ setHtml(qrContainer, '<span style="font-size: 8px; color: var(--text-gray); text
       }
     }
 
-    // 4. Default to GROWTH Tier (Matching active Supabase store subscription)
-    window.__valenixiaTier = 'GROWTH';
-    window.__valenixiaPlan = 'growth';
-    try { localStorage.setItem('valenixia_tier', 'GROWTH'); } catch (_) {}
+    // 4. Default to FREE Tier (Strict baseline - all stores start free until admin approved)
+    window.__valenixiaTier = 'FREE';
+    window.__valenixiaPlan = 'free';
+    try { localStorage.setItem('valenixia_tier', 'FREE'); } catch (_) {}
     lockoutOverlay.style.display = 'none';
     applyTierRestrictions();
   }
@@ -9704,7 +9729,12 @@ setHtml(overlay, `
       }
     }
 
-    const prod = state.catalog.find(p => p.sku === cleanCode || (p.gtin && String(p.gtin) === cleanCode) || (p.barcode && String(p.barcode) === cleanCode));
+    if (window.ValenixiaBarcodeScanner && typeof window.ValenixiaBarcodeScanner.resolveScannedCode === 'function') {
+      window.ValenixiaBarcodeScanner.resolveScannedCode(cleanCode, 'CAMERA');
+      return;
+    }
+
+    const prod = (state.catalog || []).find(p => p && (p.sku === cleanCode || (p.gtin && String(p.gtin) === cleanCode) || (p.barcode && String(p.barcode) === cleanCode)));
     if (prod) {
       addProductToCheckoutCart(prod.sku);
       if (typeof playAudioSignal === 'function') playAudioSignal('beep');
@@ -9807,7 +9837,7 @@ setHtml(overlay, `
           ? `<span class="cart-bargain-tag" style="background:rgba(234,179,8,0.15);color:#eab308;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-left:4px;border:1px solid rgba(234,179,8,0.3);" title="Agreed selling price (MRP: Rs. ${(item.originalPrice/100).toFixed(0)})">Bargained (MRP: Rs. ${(item.originalPrice/100).toFixed(0)})</span>`
           : '';
         const customNoteHtml = item.customNote
-          ? `<div class="cart-item-custom-note" style="font-size:10px;color:#38bdf8;margin-top:2px;font-weight:600;display:flex;align-items:center;gap:4px;"><span>📱</span><span>${escapeHtml(item.customNote)}</span></div>`
+          ? `<div class="cart-item-custom-note" style="font-size:10px;color:#38bdf8;margin-top:2px;font-weight:600;display:flex;align-items:center;gap:4px;"><span>${escapeHtml(item.customNote)}</span></div>`
           : '';
 
 setHtml(tr, `
@@ -9828,7 +9858,7 @@ setHtml(tr, `
             <div class="cart-row-bottom">
               <div class="cart-row-meta">
                 <span class="cart-product-sku">${item.sku}</span>
-                <span class="cart-unit-price btn-edit-price" data-sku="${item.sku}" style="cursor:pointer;text-decoration:underline dotted;padding:2px 4px;border-radius:4px;transition:background 0.2s;" title="Click to negotiate selling price / enter IMEI / Device notes">• @ Rs. ${(item.price / 100.0).toFixed(2)} <span style="font-size:10px;opacity:0.75;">✎</span></span>
+                <span class="cart-unit-price btn-edit-price" data-sku="${item.sku}" style="cursor:pointer;text-decoration:underline dotted;padding:2px 4px;border-radius:4px;transition:background 0.2s;" title="Click to negotiate selling price / enter IMEI / Device notes">• @ Rs. ${(item.price / 100.0).toFixed(2)}</span>
                 ${bargainBadge}
               </div>
               <div class="qty-controls">
@@ -10748,7 +10778,9 @@ setHtml(tr, `
           return `
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-titanium);">
               <div style="display: flex; align-items: center; gap: 8px;">
-                <div style="width: 24px; height: 24px; border-radius: 6px; background: rgba(0,214,143,0.12); color: var(--accent-emerald); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800;">✓</div>
+                <div style="width: 24px; height: 24px; border-radius: 6px; background: rgba(0,214,143,0.12); color: var(--accent-emerald); display: flex; align-items: center; justify-content: center;">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
                 <div>
                   <div style="font-size: 11.5px; font-weight: 700; color: var(--text-white); font-family: var(--font-mono);">${idStr}</div>
                   <div style="font-size: 10px; color: var(--text-gray);">${timeStr} • ${mode}</div>
@@ -11511,8 +11543,8 @@ setHtml(tr, `
       });
 
       const badgeHtml = isGoldRec
-        ? `<span style="font-size: 10px; background: rgba(245,158,11,0.15); color: #f59e0b; padding: 2px 7px; border-radius: 5px; font-weight: 800; border: 1px solid rgba(245,158,11,0.35);">👑 ${escapeHTML(r.karat || '22K')} GOLD TRADE-IN</span>`
-        : `<span style="font-size: 10px; background: rgba(59,130,246,0.15); color: #3b82f6; padding: 2px 7px; border-radius: 5px; font-weight: 800; border: 1px solid rgba(59,130,246,0.3);">📱 DEVICE BUY-IN</span>`;
+        ? `<span style="font-size: 10px; background: rgba(245,158,11,0.15); color: #f59e0b; padding: 2px 7px; border-radius: 5px; font-weight: 800; border: 1px solid rgba(245,158,11,0.35);">${escapeHTML(r.karat || '22K')} GOLD TRADE-IN</span>`
+        : `<span style="font-size: 10px; background: rgba(59,130,246,0.15); color: #3b82f6; padding: 2px 7px; border-radius: 5px; font-weight: 800; border: 1px solid rgba(59,130,246,0.3);">DEVICE BUY-IN</span>`;
 
       const titleHtml = isGoldRec
         ? `${escapeHTML(r.karat || '22K')} ${escapeHTML(r.gold_item_type || r.model || 'Gold Piece')} (${r.net_weight_g || 0}g Net)`
@@ -11560,7 +11592,7 @@ setHtml(tr, `
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
           <span style="font-size: 10px; font-weight: 700; color: ${r.added_to_inventory ? 'var(--accent-emerald)' : 'var(--text-gray)'};">
-            ${r.added_to_inventory ? (isGoldRec ? '✓ Scrap Gold Stock Added' : '✓ Added to Inventory') : '• Purchase Log Only'}
+            ${r.added_to_inventory ? (isGoldRec ? 'Scrap Gold Stock Added' : 'Added to Inventory') : '• Purchase Log Only'}
           </span>
           <div style="display: flex; gap: 8px; align-items: center;">
             <button type="button" class="btn-view-buyback-voucher" style="padding: 6px 14px; font-size: 11px; font-weight: 800; border-radius: 7px; background: rgba(0,214,143,0.15); border: 1px solid rgba(0,214,143,0.4); color: var(--accent-emerald); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.15s ease;">
@@ -11775,7 +11807,7 @@ setHtml(tr, `
             stock_quantity: record.net_weight_g,
             stock: record.net_weight_g,
             unit: 'g',
-            emoji: '👑',
+            emoji: '',
             low_stock_threshold: 0,
             mode_fields: {
               karat: record.karat,
@@ -11807,7 +11839,7 @@ setHtml(tr, `
             stock_quantity: 1,
             stock: 1,
             unit: 'pcs',
-            emoji: '📱',
+            emoji: '',
             low_stock_threshold: 0,
             mode_fields: { imei: record.imei1, condition: record.condition, warranty: 'Used / Testing' },
             created_at: Date.now(),
@@ -12034,7 +12066,7 @@ setHtml(tr, `
       cost: 0,
       quantity: 1,
       qty: 1,
-      emoji: '🪙',
+      emoji: '',
       isTradeInCredit: true,
       tradeInVoucher: tradeInRecord.voucher_no,
       tradeInRecord: tradeInRecord
@@ -13282,6 +13314,71 @@ setHtml(container, `
 
     modal.classList.add('active');
   }
+  window.openProductEditModal = openProductEditModal;
+
+  /**
+   * Barcode & QR Code Camera / Laser Scanner for Product Add/Edit Form
+   */
+  window.scanBarcodeForProductForm = function() {
+    try { if (typeof playAudioSignal === 'function') playAudioSignal('click'); } catch(_) {}
+    if (!window.ValenixiaBarcodeScanner) {
+      if (typeof showNotificationToast === 'function') {
+        showNotificationToast('Barcode scanner engine is initializing. Please try again.', 'warning', 3000);
+      }
+      return;
+    }
+
+    const gtinInput = document.getElementById('form-product-gtin');
+    const skuInput = document.getElementById('form-product-sku');
+    const nameInput = document.getElementById('form-product-name');
+    const priceInput = document.getElementById('form-product-price');
+
+    window.ValenixiaBarcodeScanner.open({
+      targetInputId: 'form-product-gtin',
+      autoFocusNext: 'form-product-name',
+      onScan: (scannedCode, metadata) => {
+        const normalized = window.ValenixiaBarcodeScanner.normalizeBarcode(scannedCode);
+        if (!normalized) return;
+
+        if (gtinInput) {
+          gtinInput.value = normalized;
+          gtinInput.dispatchEvent(new Event('input', { bubbles: true }));
+          gtinInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        // If SKU is empty, populate with scanned code
+        if (skuInput && (!skuInput.value || skuInput.value.trim() === '')) {
+          skuInput.value = normalized;
+          skuInput.dispatchEvent(new Event('input', { bubbles: true }));
+          skuInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        // If QR code contained structured metadata (JSON / GS1), auto-fill name & price
+        if (metadata && typeof metadata === 'object') {
+          if (metadata.name && nameInput && !nameInput.value) {
+            nameInput.value = metadata.name;
+            nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          if (metadata.price && priceInput && !priceInput.value) {
+            priceInput.value = (parseFloat(metadata.price) || 0).toFixed(2);
+            priceInput.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        }
+
+        if (nameInput) {
+          setTimeout(() => {
+            try { nameInput.focus(); } catch (_) {}
+          }, 150);
+        }
+
+        if (typeof playAudioSignal === 'function') playAudioSignal('success');
+        if (navigator.vibrate) { try { navigator.vibrate(60); } catch (_) {} }
+        if (typeof showNotificationToast === 'function') {
+          showNotificationToast(`Barcode / QR scanned: ${normalized}`, 'success', 3000);
+        }
+      }
+    });
+  };
 
   async function submitProductForm() {
     let sku = (document.getElementById('form-product-sku')?.value || '').toUpperCase().trim();
@@ -13692,8 +13789,8 @@ setHtml(list, `<p class="text-center text-muted" style="padding: 12px 0;">No mat
       const metaDetails = [
         c.phone ? `Phone: ${escapeHtml(c.phone)}` : '',
         `Visits: ${c.visits || 0}`,
-        c.address ? `📍 ${escapeHtml(c.address)}` : '',
-        c.cnic ? `🪪 CNIC: ${escapeHtml(c.cnic)}` : ''
+        c.address ? `Address: ${escapeHtml(c.address)}` : '',
+        c.cnic ? `CNIC: ${escapeHtml(c.cnic)}` : ''
       ].filter(Boolean).join(' | ');
 
 setHtml(row, `
@@ -13712,8 +13809,8 @@ setHtml(row, `
               <span class="cashier-name">${escapeHtml(c.name)}</span>
               <div style="font-size: 9px; color: var(--text-gray); margin-top: 2px;">
                 ${c.phone ? 'Phone: ' + escapeHtml(c.phone) + ' • ' : ''}Visits: ${c.visits || 0}
-                ${c.address ? `<br><span style="color:var(--accent-emerald);">📍 ${escapeHtml(c.address)}</span>` : ''}
-                ${c.cnic ? `<span style="color:var(--accent-cyan); margin-left: 4px;">🪪 CNIC: ${escapeHtml(c.cnic)}</span>` : ''}
+                ${c.address ? `<br><span style="color:var(--accent-emerald);">Address: ${escapeHtml(c.address)}</span>` : ''}
+                ${c.cnic ? `<span style="color:var(--accent-cyan); margin-left: 4px;">CNIC: ${escapeHtml(c.cnic)}</span>` : ''}
               </div>
             </div>
             <button class="btn-unlink-customer" id="btn-detach-customer">Detach</button>
@@ -13850,8 +13947,8 @@ setHtml(row, `
               <span class="cashier-name">${escapeHtml(customerObj.name)}</span>
               <div style="font-size: 9px; color: var(--text-gray); margin-top: 2px;">
                 ${customerObj.phone ? 'Phone: ' + escapeHtml(customerObj.phone) + ' • ' : ''}Visits: ${customerObj.visits || 0}
-                ${customerObj.address ? `<br><span style="color:var(--accent-emerald);">📍 ${escapeHtml(customerObj.address)}</span>` : ''}
-                ${customerObj.cnic ? `<span style="color:var(--accent-cyan); margin-left: 4px;">🪪 CNIC: ${escapeHtml(customerObj.cnic)}</span>` : ''}
+                ${customerObj.address ? `<br><span style="color:var(--accent-emerald);">Address: ${escapeHtml(customerObj.address)}</span>` : ''}
+                ${customerObj.cnic ? `<span style="color:var(--accent-cyan); margin-left: 4px;">CNIC: ${escapeHtml(customerObj.cnic)}</span>` : ''}
               </div>
             </div>
             <button class="btn-unlink-customer" id="btn-detach-customer">Detach</button>
@@ -15205,7 +15302,7 @@ setHtml(row, `
       });
       const myNodeShort = (window.nodeId || 'Local Node').substring(0, 8);
       let optionsHtml = '<option value="ALL">All Terminals (Fleet)</option>';
-      optionsHtml += `<option value="THIS_DEVICE" ${cur === 'THIS_DEVICE' ? 'selected' : ''}>📱 This Device (${myNodeShort})</option>`;
+      optionsHtml += `<option value="THIS_DEVICE" ${cur === 'THIS_DEVICE' ? 'selected' : ''}>This Device (${myNodeShort})</option>`;
       optionsHtml += Array.from(termSet.entries()).map(([id, name]) => `<option value="${id}" ${id === cur ? 'selected' : ''}>${name}</option>`).join('');
       setHtml(termSelect, optionsHtml);
       termSelect.value = cur;
@@ -15225,7 +15322,7 @@ setHtml(row, `
       });
       let cashierOptionsHtml = '<option value="ALL">All Cashiers (Store-Wide)</option>';
       if (state.activeCashier && state.activeCashier.name) {
-        cashierOptionsHtml += `<option value="MY_ACCOUNT" ${cur === 'MY_ACCOUNT' ? 'selected' : ''}>👤 My Account (${state.activeCashier.name})</option>`;
+        cashierOptionsHtml += `<option value="MY_ACCOUNT" ${cur === 'MY_ACCOUNT' ? 'selected' : ''}>My Account (${state.activeCashier.name})</option>`;
       }
       cashierOptionsHtml += Array.from(cashierSet.values()).map(c => `<option value="${c}" ${c === cur ? 'selected' : ''}>${c}</option>`).join('');
       setHtml(cashierSelect, cashierOptionsHtml);
@@ -15965,13 +16062,13 @@ setHtml(row, `
     const insights = [];
 
     if (orderCount === 0) {
-      insights.push({ icon: '📊', title: 'Start Processing Transactions', text: 'Register sales in this timeframe to trigger real-time smart inventory velocity & margin analysis.' });
-      insights.push({ icon: '💼', title: 'Khata & Credit Ledgers Active', text: 'Distributor payables and customer receivables are continuously monitored under Business Intelligence.' });
+      insights.push({ title: 'Start Processing Transactions', text: 'Register sales in this timeframe to trigger real-time smart inventory velocity & margin analysis.' });
+      insights.push({ title: 'Khata & Credit Ledgers Active', text: 'Distributor payables and customer receivables are continuously monitored under Business Intelligence.' });
     } else {
       if (avgTicket < 150000) {
-        insights.push({ icon: '🎯', title: 'Basket Size Opportunity', text: 'Average ticket is Rs. ' + (avgTicket/100).toFixed(2) + '. Consider bundling high-margin add-on items at checkout.' });
+        insights.push({ title: 'Basket Size Opportunity', text: 'Average ticket is Rs. ' + (avgTicket/100).toFixed(2) + '. Consider bundling high-margin add-on items at checkout.' });
       } else {
-        insights.push({ icon: '💎', title: 'Strong Average Ticket', text: 'High ticket size (Rs. ' + (avgTicket/100).toFixed(2) + ') indicates strong product value perception.' });
+        insights.push({ title: 'Strong Average Ticket', text: 'High ticket size (Rs. ' + (avgTicket/100).toFixed(2) + ') indicates strong product value perception.' });
       }
 
       let totalUdhaar = 0;
@@ -15983,21 +16080,20 @@ setHtml(row, `
       });
 
       if (totalUdhaar > 500000) {
-        insights.push({ icon: '⚠️', title: 'Khata Credit Risk Alert', text: 'Outstanding Udhaar receivables are Rs. ' + (totalUdhaar/100).toFixed(2) + '. Send automated WhatsApp debt reminders to recover liquid cash.' });
+        insights.push({ title: 'Khata Credit Risk Alert', text: 'Outstanding Udhaar receivables are Rs. ' + (totalUdhaar/100).toFixed(2) + '. Send automated WhatsApp debt reminders to recover liquid cash.' });
       } else {
-        insights.push({ icon: '✅', title: 'Liquid Cash Health', text: 'Credit receivables are well within safety thresholds. Working capital remains liquid.' });
+        insights.push({ title: 'Liquid Cash Health', text: 'Credit receivables are well within safety thresholds. Working capital remains liquid.' });
       }
 
       const lowStockCount = (state.catalog || []).filter(p => p && (p.stock_level || 0) < (p.low_stock_threshold || 10)).length;
       if (lowStockCount > 0) {
-        insights.push({ icon: '📦', title: 'Stock Replenishment Needed', text: lowStockCount + ' products are below safety thresholds. Generate auto purchase orders to prevent lost sales.' });
+        insights.push({ title: 'Stock Replenishment Needed', text: lowStockCount + ' products are below safety thresholds. Generate auto purchase orders to prevent lost sales.' });
       }
     }
 
     setHtml(container, insights.map(item => `
       <div style="padding: 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
         <div style="font-weight: 700; color: var(--text-white); margin-bottom: 2px; display: flex; align-items: center; gap: 6px;">
-          <span>${item.icon}</span>
           <span>${item.title}</span>
         </div>
         <div style="font-size: 11px; color: var(--text-gray); line-height: 1.4;">${item.text}</div>
@@ -18890,6 +18986,100 @@ setHtml(tr, `
       });
     }
 
+    async function handleCsvImport(file) {
+      if (!file) return;
+      const statusEl = document.getElementById('csv-import-status');
+      const progressEl = document.getElementById('csv-import-progress');
+
+      if (statusEl) statusEl.textContent = `Reading ${file.name}...`;
+      if (progressEl) progressEl.style.width = '10%';
+
+      try {
+        const text = await file.text();
+        if (!window.ValenixiaImportEngine || typeof window.ValenixiaImportEngine.parseCsv !== 'function') {
+          throw new Error('Import Engine not initialized');
+        }
+
+        const parsed = window.ValenixiaImportEngine.parseCsv(text);
+        if (!parsed.rows || parsed.rows.length === 0) {
+          if (statusEl) statusEl.textContent = 'No data rows found in CSV.';
+          if (progressEl) progressEl.style.width = '0%';
+          if (typeof showNotificationToast === 'function') showNotificationToast('No products found in CSV file.', 'error', 3000);
+          return;
+        }
+
+        const mapping = window.ValenixiaImportEngine.autoMapHeaders(parsed.headers);
+        if (!mapping.name || !mapping.price) {
+          if (statusEl) statusEl.textContent = 'Missing required columns (name, price). Opening Import Studio...';
+          const studioModal = document.getElementById('modal-data-import-studio');
+          if (studioModal) {
+            studioModal.style.display = 'flex';
+            window.ValenixiaImportEngine.activeParsedData = parsed;
+            window.ValenixiaImportEngine.activeMapping = mapping;
+            const telemetry = document.getElementById('import-file-telemetry');
+            if (telemetry) telemetry.style.display = 'block';
+            const nameEl = document.getElementById('import-file-name');
+            if (nameEl) nameEl.textContent = file.name;
+            const rowsEl = document.getElementById('import-detected-rows-count');
+            if (rowsEl) rowsEl.textContent = parsed.rows.length;
+            const colsEl = document.getElementById('import-detected-cols-count');
+            if (colsEl) colsEl.textContent = parsed.headers.length;
+            const delimEl = document.getElementById('import-detected-delimiter');
+            if (delimEl) delimEl.textContent = `${parsed.delimiter === '\t' ? 'TAB' : (parsed.delimiter === ';' ? 'SEMICOLON' : 'COMMA')} DELIMITED`;
+            
+            const btnNext = document.getElementById('btn-goto-mapping');
+            if (btnNext) {
+              btnNext.disabled = false;
+              btnNext.style.opacity = '1';
+            }
+
+            const panels = document.querySelectorAll('.import-studio-panel');
+            panels.forEach(p => { p.style.display = p.id === 'import-panel-mapping' ? 'block' : 'none'; });
+            const tabs = document.querySelectorAll('.import-tab-btn');
+            tabs.forEach(b => {
+              const isMatch = b.getAttribute('data-tab') === 'mapping';
+              b.classList.toggle('active', isMatch);
+              b.style.color = isMatch ? 'var(--accent-emerald)' : 'var(--text-gray)';
+              b.style.borderBottomColor = isMatch ? 'var(--accent-emerald)' : 'transparent';
+            });
+          }
+          return;
+        }
+
+        if (statusEl) statusEl.textContent = `Importing ${parsed.rows.length} products...`;
+
+        const result = await window.ValenixiaImportEngine.executeImport({
+          rows: parsed.rows,
+          mapping: mapping,
+          duplicatePolicy: 'update',
+          onProgress: (prog) => {
+            if (progressEl) progressEl.style.width = `${prog.percent}%`;
+            if (statusEl) statusEl.textContent = `Imported ${prog.current} of ${prog.total}...`;
+          }
+        });
+
+        if (progressEl) progressEl.style.width = '100%';
+        if (statusEl) statusEl.textContent = `Done! ${result.importedCount} added, ${result.updatedCount} updated.`;
+
+        if (typeof showNotificationToast === 'function') {
+          showNotificationToast(`Imported ${result.importedCount} products (${result.updatedCount} updated).`, 'success', 3500);
+        }
+        if (typeof playAudioSignal === 'function') playAudioSignal('success');
+
+        setTimeout(() => {
+          if (progressEl) progressEl.style.width = '0%';
+          if (statusEl) statusEl.textContent = '';
+        }, 4000);
+
+      } catch (err) {
+        console.error('[CSV Import] Failed:', err);
+        if (statusEl) statusEl.textContent = `Error: ${err.message}`;
+        if (progressEl) progressEl.style.width = '0%';
+        if (typeof showNotificationToast === 'function') showNotificationToast(`CSV import error: ${err.message}`, 'error', 4000);
+      }
+    }
+    window.handleCsvImport = handleCsvImport;
+
     const csvInput = document.getElementById('csv-import-file');
     if (csvInput) {
       csvInput.addEventListener('change', (e) => {
@@ -19004,11 +19194,11 @@ setHtml(tr, `
 
         <!-- Download links -->
         <div style="display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap;">
-          <a href="/downloads/valenixia-pos.apk" download="valenixia-pos.apk" target="_blank" style="flex: 1; min-width: 130px; text-align: center; text-decoration: none; padding: 11px 14px; background: rgba(16,185,129,0.16); color: #34d399; border: 1px solid rgba(16,185,129,0.35); border-radius: 8px; font-size: 12px; font-weight: 800; letter-spacing: 0.03em; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+          <a href="/downloads/valenixia-pos.apk" download="valenixia-pos.apk" style="flex: 1; min-width: 130px; text-align: center; text-decoration: none; padding: 11px 14px; background: rgba(16,185,129,0.16); color: #34d399; border: 1px solid rgba(16,185,129,0.35); border-radius: 8px; font-size: 12px; font-weight: 800; letter-spacing: 0.03em; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             GET APK (Android)
           </a>
-          <a href="/downloads/valenixia-pos.exe" download="valenixia-pos.exe" target="_blank" style="flex: 1; min-width: 130px; text-align: center; text-decoration: none; padding: 11px 14px; background: rgba(255,255,255,0.08); color: #f8fafc; border: 1px solid rgba(255,255,255,0.22); border-radius: 8px; font-size: 12px; font-weight: 800; letter-spacing: 0.03em; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+          <a href="/downloads/valenixia-pos.exe" download="valenixia-pos.exe" style="flex: 1; min-width: 130px; text-align: center; text-decoration: none; padding: 11px 14px; background: rgba(255,255,255,0.08); color: #f8fafc; border: 1px solid rgba(255,255,255,0.22); border-radius: 8px; font-size: 12px; font-weight: 800; letter-spacing: 0.03em; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             GET WINDOWS
           </a>
@@ -22666,7 +22856,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     if (lastRenderedPendingClaimsCount !== -1 && pendingClaims.length > lastRenderedPendingClaimsCount) {
       const newestClaim = pendingClaims[0];
       if (typeof showNotificationToast === 'function') {
-        showNotificationToast(`🔔 New payment claim ${newestClaim.id} received from ${newestClaim.storeName || 'Store'}!`, 'info', 5000);
+        showNotificationToast(`New payment claim ${newestClaim.id} received from ${newestClaim.storeName || 'Store'}!`, 'info', 5000);
       }
       if (typeof playAudioSignal === 'function') playAudioSignal('success');
     }
@@ -22684,7 +22874,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
         setHtml(tbody, `
           <tr>
             <td colspan="7" style="text-align: center; padding: 36px 16px; color: var(--text-gray);">
-              <div style="font-size: 32px; margin-bottom: 8px;">✨</div>
+              <div style="margin-bottom: 8px;"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--accent-emerald)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
               <div style="font-weight: 800; color: var(--text-white); font-size: 14px;">No Pending Claims in Queue</div>
               <div style="font-size: 12px; margin-top: 4px; color: var(--text-dim);">Listening live: customer upgrade claims submitted via WhatsApp or Bank Transfer will appear here instantly.</div>
             </td>
@@ -22707,7 +22897,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
               <td style="padding:12px 14px; font-family:var(--font-mono); font-weight:800; color:var(--accent-emerald); font-size:12px;">${c.id}</td>
               <td style="padding:12px 14px;">
                 <div style="font-weight:800; color:var(--text-white); font-size:13px;">${sName}</div>
-                <div style="font-size:11px; color:var(--text-gray); margin-top:2px;">👤 ${oName} • <span style="font-family:var(--font-mono); color:var(--accent-cyan);">${phone}</span></div>
+                <div style="font-size:11px; color:var(--text-gray); margin-top:2px;">${oName} • <span style="font-family:var(--font-mono); color:var(--accent-cyan);">${phone}</span></div>
               </td>
               <td style="padding:12px 14px;">
                 <span style="display:inline-block; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:800; ${tierBadgeColor}">${c.module || (c.targetTier + ' Plan')}</span>
@@ -22717,10 +22907,10 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
               <td style="padding:12px 14px; color:var(--text-gray); font-size:11px;">${c.date}</td>
               <td style="padding:12px 14px; text-align:right; white-space:nowrap;">
                 <button type="button" class="btn-tactile" data-action="approve-claim" data-claim-id="${c.id}" style="background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#080810; font-weight:900; font-size:11px; padding:6px 14px; border-radius:6px; border:none; cursor:pointer; box-shadow:0 2px 8px rgba(16,185,129,0.3); margin-right:6px;">
-                  ✓ Approve &amp; Unlock
+                  Approve &amp; Unlock
                 </button>
                 <button type="button" class="btn-tactile" data-action="reject-claim" data-claim-id="${c.id}" style="background:rgba(239,68,68,0.15); color:#ef4444; font-weight:800; font-size:11px; padding:6px 12px; border-radius:6px; border:1px solid rgba(239,68,68,0.35); cursor:pointer;">
-                  ✕ Reject
+                  Reject
                 </button>
               </td>
             </tr>
@@ -22797,7 +22987,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     renderPlatformAdminStoreIdentity();
 
     if (typeof showNotificationToast === 'function') {
-      showNotificationToast(`🎉 Claim ${claimId} APPROVED! Target store upgraded to ${targetTier} plan. All features unlocked instantly without refresh!`, 'success', 5000);
+      showNotificationToast(`Claim ${claimId} APPROVED! Target store upgraded to ${targetTier} plan. All features unlocked instantly without refresh!`, 'success', 5000);
     }
     if (typeof playAudioSignal === 'function') playAudioSignal('success');
   };
@@ -22818,7 +23008,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     renderPlatformAdminClaimsQueue();
     renderPlatformAdminActiveSubscribers();
     if (typeof showNotificationToast === 'function') {
-      showNotificationToast(`❌ Claim ${claimId} marked as rejected and removed from pending queue.`, 'warning', 3000);
+      showNotificationToast(`Claim ${claimId} marked as rejected and removed from pending queue.`, 'warning', 3000);
     }
   };
 
@@ -22880,7 +23070,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
         <tr style="border-bottom:1px solid rgba(255,255,255,0.05); transition: background 0.2s;">
           <td style="padding:12px 14px;">
             <div style="font-weight:800; color:var(--text-white); font-size:13px;">${s.storeName}</div>
-            <div style="font-size:11px; color:var(--text-gray); margin-top:2px;">👤 ${s.ownerName} • <span style="font-family:var(--font-mono); color:var(--accent-cyan);">${s.phone}</span></div>
+            <div style="font-size:11px; color:var(--text-gray); margin-top:2px;">${s.ownerName} • <span style="font-family:var(--font-mono); color:var(--accent-cyan);">${s.phone}</span></div>
           </td>
           <td style="padding:12px 14px; font-family:var(--font-mono); color:var(--text-gray); font-size:11px; word-break:break-all;">
             ${s.hwid}
@@ -22897,7 +23087,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
           </td>
           <td style="padding:12px 14px; text-align:right; white-space:nowrap;">
             <button type="button" class="btn-tactile" data-action="downgrade-subscriber" data-subscriber-id="${s.id}" data-current-tier="${s.tier}" style="background:rgba(239,68,68,0.12); color:#ef4444; font-weight:800; font-size:11px; padding:6px 12px; border-radius:6px; border:1px solid rgba(239,68,68,0.35); cursor:pointer;">
-              🔻 Downgrade Tier
+              Downgrade Tier
             </button>
           </td>
         </tr>
@@ -22933,7 +23123,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     renderPlatformAdminStoreIdentity();
 
     if (typeof showNotificationToast === 'function') {
-      showNotificationToast(`🔻 Subscriber ${subscriberId} downgraded to ${validChoice} tier successfully!`, 'success', 5000);
+      showNotificationToast(`Subscriber ${subscriberId} downgraded to ${validChoice} tier successfully!`, 'success', 5000);
     }
     if (typeof playAudioSignal === 'function') playAudioSignal('success');
   };
@@ -22994,7 +23184,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     const tierEl = document.getElementById('platform-admin-active-tier');
     const selectEl = document.getElementById('platform-admin-tier-select');
 
-    if (badgeEl) badgeEl.textContent = isNative ? '📱 NATIVE RUNTIME INSTANCE' : '🌐 WEB BROWSER INSTANCE';
+    if (badgeEl) badgeEl.textContent = isNative ? 'NATIVE RUNTIME INSTANCE' : 'WEB BROWSER INSTANCE';
     if (modeEl) modeEl.textContent = runtimeName;
     if (hwidEl) hwidEl.textContent = hwid;
     if (tierEl) tierEl.textContent = activeTier;
@@ -23139,7 +23329,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem('valenixia_master_admin_auth');
     } catch (_) {}
     if (typeof showNotificationToast === 'function') {
-      showNotificationToast('🔒 Platform Admin session locked.', 'info', 3000);
+      showNotificationToast('Platform Admin session locked.', 'info', 3000);
     }
     if (typeof switchActiveScreen === 'function') {
       switchActiveScreen('checkout');
@@ -23166,7 +23356,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
     let enteredKey = null;
     if (typeof showModal === 'function') {
       enteredKey = await showModal({
-        title: '🛡️ Master Platform Gateway',
+        title: 'Master Platform Gateway',
         message: 'Master Authentication Required. Enter Platform Security Key or Master PIN:',
         type: 'warning',
         actions: [
@@ -23202,7 +23392,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       } catch (_) {}
 
       if (typeof showNotificationToast === 'function') {
-        showNotificationToast('👑 Master Platform Admin Unlocked for this session.', 'success', 4000);
+        showNotificationToast('Master Platform Admin Unlocked for this session.', 'success', 4000);
       }
       if (typeof playAudioSignal === 'function') playAudioSignal('success');
 
@@ -23745,26 +23935,30 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
         name: '',
         price: '',
         sku: '',
+        barcode: '',
         cost: '',
         stock: '',
         category: '',
         unit: '',
+        emoji: '',
         batch: '',
         expiry: '',
         tax: ''
       };
 
       const matchPatterns = {
-        name: [/^product[\s_]?name$/i, /^name$/i, /^title$/i, /^item[\s_]?name$/i, /^item$/i, /^description$/i, /^product$/i],
-        price: [/^selling[\s_]?price$/i, /^sale[\s_]?price$/i, /^retail[\s_]?price$/i, /^price$/i, /^rate$/i, /^mrp$/i, /^unit[\s_]?price$/i],
-        sku: [/^sku$/i, /^barcode$/i, /^gtin$/i, /^upc$/i, /^ean$/i, /^item[\s_]?code$/i, /^code$/i],
-        cost: [/^cost[\s_]?price$/i, /^purchase[\s_]?price$/i, /^cost$/i, /^supplier[\s_]?cost$/i, /^buy[\s_]?price$/i],
-        stock: [/^stock[\s_]?quantity$/i, /^stock$/i, /^qty$/i, /^quantity$/i, /^inventory$/i, /^count$/i, /^units$/i],
-        category: [/^category$/i, /^group$/i, /^department$/i, /^dept$/i, /^type$/i, /^section$/i],
-        unit: [/^unit[\s_]?of[\s_]?measure$/i, /^uom$/i, /^unit$/i, /^measure$/i],
+        name: [/^product[\s_]?name$/i, /^name$/i, /^title$/i, /^item[\s_]?name$/i, /^item$/i, /^description$/i, /^product$/i, /^item[\s_]?desc$/i],
+        price: [/^selling[\s_]?price$/i, /^sale[\s_]?price$/i, /^retail[\s_]?price$/i, /^price$/i, /^rate$/i, /^mrp$/i, /^unit[\s_]?price$/i, /^selling[\s_]?rate$/i],
+        sku: [/^sku$/i, /^item[\s_]?code$/i, /^code$/i, /^product[\s_]?code$/i, /^id$/i, /^part[\s_]?number$/i, /^part[\s_]?no$/i],
+        barcode: [/^barcode$/i, /^gtin$/i, /^upc$/i, /^ean$/i, /^qr[\s_]?code$/i, /^item[\s_]?barcode$/i],
+        cost: [/^cost[\s_]?price$/i, /^purchase[\s_]?price$/i, /^cost$/i, /^supplier[\s_]?cost$/i, /^buy[\s_]?price$/i, /^purchase[\s_]?rate$/i],
+        stock: [/^stock[\s_]?quantity$/i, /^stock$/i, /^qty$/i, /^quantity$/i, /^inventory$/i, /^count$/i, /^units$/i, /^available[\s_]?stock$/i, /^stock[\s_]?level$/i],
+        category: [/^category$/i, /^group$/i, /^department$/i, /^dept$/i, /^type$/i, /^section$/i, /^item[\s_]?group$/i],
+        unit: [/^unit[\s_]?of[\s_]?measure$/i, /^uom$/i, /^unit$/i, /^measure$/i, /^pack[\s_]?size$/i],
+        emoji: [/^emoji$/i, /^icon$/i],
         batch: [/^batch[\s_]?number$/i, /^batch$/i, /^lot[\s_]?number$/i, /^lot$/i, /^batch[\s_]?no$/i],
-        expiry: [/^expiry[\s_]?date$/i, /^expiry$/i, /^best[\s_]?before$/i, /^exp[\s_]?date$/i, /^exp$/i],
-        tax: [/^tax[\s_]?override$/i, /^tax[\s_]?rate$/i, /^tax$/i, /^gst$/i, /^vat$/i]
+        expiry: [/^expiry[\s_]?date$/i, /^expiry$/i, /^best[\s_]?before$/i, /^exp[\s_]?date$/i, /^exp$/i, /^expiration$/i],
+        tax: [/^tax[\s_]?override$/i, /^tax[\s_]?rate$/i, /^tax$/i, /^gst$/i, /^vat$/i, /^sales[\s_]?tax$/i]
       };
 
       headers.forEach(h => {
@@ -23777,6 +23971,217 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       });
 
       return mapping;
+    },
+
+    /**
+     * Unified, transactional CSV product import execution
+     */
+    async executeImport({ rows, mapping, duplicatePolicy = 'update', onProgress = null }) {
+      if (!Array.isArray(rows) || rows.length === 0) {
+        return { success: false, reason: 'NO_ROWS', importedCount: 0, updatedCount: 0, skippedCount: 0 };
+      }
+
+      if (!Array.isArray(state.catalog)) state.catalog = [];
+
+      let importedCount = 0;
+      let updatedCount = 0;
+      let skippedCount = 0;
+      const totalRows = rows.length;
+      const newProducts = [];
+      const updatedProducts = [];
+
+      for (let i = 0; i < totalRows; i++) {
+        const r = rows[i];
+        const name = (mapping.name && r[mapping.name] ? String(r[mapping.name]).trim() : '');
+        const rawPrice = mapping.price ? String(r[mapping.price] || '0').replace(/[^0-9.]/g, '') : '0';
+        const priceMinor = Math.round((parseFloat(rawPrice) || 0) * 100);
+
+        if (!name || priceMinor <= 0) {
+          skippedCount++;
+          continue;
+        }
+
+        let sku = mapping.sku && r[mapping.sku] ? String(r[mapping.sku]).trim() : '';
+        const barcode = mapping.barcode && r[mapping.barcode]
+          ? String(r[mapping.barcode]).trim()
+          : (mapping.sku && r[mapping.sku] ? String(r[mapping.sku]).trim() : '');
+
+        if (!sku) {
+          sku = barcode || ('SKU-' + Date.now().toString(36).toUpperCase() + '-' + (i + 1));
+        }
+
+        const rawCost = mapping.cost ? String(r[mapping.cost] || '0').replace(/[^0-9.]/g, '') : '0';
+        const costMinor = Math.round((parseFloat(rawCost) || 0) * 100);
+
+        const rawStock = mapping.stock ? String(r[mapping.stock] || '100').replace(/[^0-9-]/g, '') : '100';
+        const stock = parseInt(rawStock || '100', 10);
+
+        const category = (mapping.category && r[mapping.category] ? String(r[mapping.category]).trim() : 'General') || 'General';
+        const unit = (mapping.unit && r[mapping.unit] ? String(r[mapping.unit]).trim() : 'pcs') || 'pcs';
+        const batch = (mapping.batch && r[mapping.batch] ? String(r[mapping.batch]).trim() : '');
+        const expiry = (mapping.expiry && r[mapping.expiry] ? String(r[mapping.expiry]).trim() : '');
+        const taxRaw = mapping.tax && r[mapping.tax] ? parseFloat(String(r[mapping.tax]).replace(/[^0-9.]/g, '')) : null;
+        const emoji = (mapping.emoji && r[mapping.emoji] ? String(r[mapping.emoji]).trim() : '');
+
+        const existingIndex = state.catalog.findIndex(p => p && p.sku && p.sku.toUpperCase() === sku.toUpperCase());
+
+        if (existingIndex >= 0) {
+          if (duplicatePolicy === 'skip') {
+            skippedCount++;
+            continue;
+          } else {
+            // Update existing in-memory item
+            const existing = state.catalog[existingIndex];
+            existing.name = name;
+            existing.base_price_minor_units = priceMinor;
+            existing.price = priceMinor;
+            existing.cost_price_minor_units = costMinor;
+            existing.cost = costMinor;
+            existing.stock_quantity = stock;
+            existing.stock_level = stock;
+            existing.stock = stock;
+            existing.category = category;
+            existing.unit = unit;
+            if (barcode) {
+              existing.gtin = barcode;
+              existing.barcode = barcode;
+            }
+            if (batch) existing.batch_no = batch;
+            if (expiry) existing.expiry_date = expiry;
+            if (taxRaw !== null && !isNaN(taxRaw)) existing.tax_override = taxRaw;
+            if (emoji) existing.emoji = emoji;
+
+            updatedProducts.push(existing);
+            updatedCount++;
+
+            // Save to IndexedDB
+            try {
+              if (window.ValenixiaDB && typeof window.ValenixiaDB.put === 'function') {
+                await window.ValenixiaDB.put('inventory_catalog', existing);
+                await window.ValenixiaDB.put('products', existing);
+              }
+            } catch (_) {}
+
+            // Save to sync worker
+            if (window.syncWorker && typeof window.syncWorker.postMessage === 'function') {
+              window.syncWorker.postMessage({
+                type: 'SAVE_PRODUCT',
+                payload: {
+                  sku: existing.sku,
+                  name: existing.name,
+                  gtin: existing.gtin || existing.barcode || existing.sku,
+                  price: existing.base_price_minor_units,
+                  cost: existing.cost_price_minor_units,
+                  stock: existing.stock_level,
+                  category: existing.category,
+                  unit: existing.unit,
+                  emoji: existing.emoji,
+                  low_stock_threshold: existing.low_stock_threshold || 10
+                }
+              });
+            }
+          }
+        } else {
+          // Insert new product
+          const prodObj = {
+            id: sku,
+            sku: sku,
+            name: name,
+            gtin: barcode || sku,
+            barcode: barcode || sku,
+            base_price_minor_units: priceMinor,
+            price: priceMinor,
+            cost_price_minor_units: costMinor,
+            cost: costMinor,
+            stock_quantity: stock,
+            stock_level: stock,
+            stock: stock,
+            low_stock_threshold: 10,
+            category: category,
+            unit: unit,
+            batch_no: batch,
+            expiry_date: expiry,
+            tax_override: taxRaw !== null && !isNaN(taxRaw) ? taxRaw : null,
+            emoji: emoji || '',
+            image_url: '',
+            mode_fields: {},
+            created_at: new Date().toISOString()
+          };
+
+          state.catalog.unshift(prodObj);
+          newProducts.push(prodObj);
+          importedCount++;
+
+          // Save to IndexedDB
+          try {
+            if (window.ValenixiaDB && typeof window.ValenixiaDB.put === 'function') {
+              await window.ValenixiaDB.put('inventory_catalog', prodObj);
+              await window.ValenixiaDB.put('products', prodObj);
+            }
+          } catch (_) {}
+
+          // Save to sync worker
+          if (window.syncWorker && typeof window.syncWorker.postMessage === 'function') {
+            window.syncWorker.postMessage({
+              type: 'SAVE_PRODUCT',
+              payload: {
+                sku: prodObj.sku,
+                name: prodObj.name,
+                gtin: prodObj.gtin,
+                price: prodObj.base_price_minor_units,
+                cost: prodObj.cost_price_minor_units,
+                stock: prodObj.stock_level,
+                category: prodObj.category,
+                unit: prodObj.unit,
+                emoji: prodObj.emoji,
+                low_stock_threshold: 10
+              }
+            });
+          }
+        }
+
+        if (typeof onProgress === 'function') {
+          onProgress({ current: i + 1, total: totalRows, percent: Math.round(((i + 1) / totalRows) * 100) });
+        }
+      }
+
+      // Sync categories
+      if (Array.isArray(state.catalog)) {
+        const uniqueCats = [...new Set(state.catalog.map(p => p.category).filter(Boolean))];
+        state.categories = uniqueCats;
+      }
+
+      // Ask sync worker for full catalog refresh
+      if (window.syncWorker && typeof window.syncWorker.postMessage === 'function') {
+        setTimeout(() => window.syncWorker.postMessage({ type: 'GET_CATALOG' }), 100);
+      }
+
+      // Reset filters so imported items are immediately visible
+      state.catalogManagerCategory = 'ALL';
+      state.selectedCategory = 'ALL';
+      state.checkoutQuickCategory = 'ALL';
+      state.mobileQuickCategory = 'ALL';
+
+      // Re-render all catalog and checkout screens
+      try {
+        if (typeof renderCatalogScreen === 'function') renderCatalogScreen();
+        if (typeof renderCheckoutCategories === 'function') renderCheckoutCategories();
+        if (typeof renderCheckoutScreen === 'function') renderCheckoutScreen();
+        if (typeof renderQuickCatalog === 'function') renderQuickCatalog();
+        if (typeof renderDashboardScreen === 'function') renderDashboardScreen();
+      } catch (uiErr) {
+        console.warn('[ValenixiaImportEngine] UI re-render notice:', uiErr);
+      }
+
+      return {
+        success: true,
+        totalRows,
+        importedCount,
+        updatedCount,
+        skippedCount,
+        newProducts,
+        updatedProducts
+      };
     }
   };
   window.ValenixiaImportEngine = ValenixiaImportEngine;
@@ -23939,11 +24344,13 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       const targetFields = [
         { key: 'name', label: 'Product Name', req: true },
         { key: 'price', label: 'Selling Price (PKR)', req: true },
-        { key: 'sku', label: 'SKU / Barcode', req: false },
+        { key: 'sku', label: 'SKU / Code', req: false },
+        { key: 'barcode', label: 'Barcode / GTIN', req: false },
         { key: 'cost', label: 'Cost Price (PKR)', req: false },
         { key: 'stock', label: 'Stock Quantity', req: false },
         { key: 'category', label: 'Category', req: false },
         { key: 'unit', label: 'Unit of Measure', req: false },
+        { key: 'emoji', label: 'Emoji / Icon', req: false },
         { key: 'batch', label: 'Batch / Lot #', req: false },
         { key: 'expiry', label: 'Expiry Date', req: false }
       ];
@@ -24007,7 +24414,7 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
         const priceVal = parseFloat(rawPrice || '0').toFixed(2);
         const skuVal = (mapping.sku && r[mapping.sku]) || `SKU-AUTO-${idx + 1}`;
         const costVal = mapping.cost ? parseFloat(String(r[mapping.cost] || '0').replace(/[^0-9.]/g, '') || '0').toFixed(2) : '0.00';
-        const stockVal = mapping.stock ? parseInt(String(r[mapping.stock] || '100').replace(/[^0-9]/g, '') || '100', 10) : 100;
+        const stockVal = mapping.stock ? parseInt(String(r[mapping.stock] || '100').replace(/[^0-9-]/g, '') || '100', 10) : 100;
         const catVal = (mapping.category && r[mapping.category]) || 'General';
         const unitVal = (mapping.unit && r[mapping.unit]) || 'pcs';
 
@@ -24072,127 +24479,27 @@ setHtml(banner, '<span>"this.parentElement.remove()" style="background:transpare
       if (progressBox) progressBox.style.display = 'block';
       if (btnExec) btnExec.disabled = true;
 
-      let importedCount = 0;
-      let updatedCount = 0;
-      let skippedCount = 0;
-      const totalRows = parsed.rows.length;
-
-      const newProducts = [];
-      const newCategories = new Set(state.categories || []);
-
-      for (let i = 0; i < totalRows; i++) {
-        const r = parsed.rows[i];
-        const name = (mapping.name && r[mapping.name] ? String(r[mapping.name]).trim() : '');
-        const rawPrice = mapping.price ? String(r[mapping.price] || '0').replace(/[^0-9.]/g, '') : '0';
-        const price = Math.round(parseFloat(rawPrice || '0') * 100);
-
-        if (!name || price <= 0) {
-          skippedCount++;
-          continue;
+      const result = await ValenixiaImportEngine.executeImport({
+        rows: parsed.rows,
+        mapping: mapping,
+        duplicatePolicy: dupPolicy,
+        onProgress: (prog) => {
+          if (progressBar) progressBar.style.width = `${prog.percent}%`;
+          if (progressPct) progressPct.textContent = `${prog.percent}%`;
+          if (progressStatus) progressStatus.textContent = `Processing row ${prog.current} of ${prog.total}...`;
         }
+      });
 
-        let sku = mapping.sku && r[mapping.sku] ? String(r[mapping.sku]).trim() : '';
-        const barcode = (mapping.sku && r[mapping.sku]) ? String(r[mapping.sku]).trim() : '';
-        if (!sku) sku = 'SKU-' + Date.now().toString(36).toUpperCase() + '-' + (i + 1);
-
-        const rawCost = mapping.cost ? String(r[mapping.cost] || '0').replace(/[^0-9.]/g, '') : '0';
-        const cost = Math.round(parseFloat(rawCost || '0') * 100);
-        const stock = mapping.stock ? parseInt(String(r[mapping.stock] || '100').replace(/[^0-9]/g, '') || '100', 10) : 100;
-        const category = (mapping.category && r[mapping.category] ? String(r[mapping.category]).trim() : 'General');
-        const unit = (mapping.unit && r[mapping.unit] ? String(r[mapping.unit]).trim() : 'pcs');
-        const batch = (mapping.batch && r[mapping.batch] ? String(r[mapping.batch]).trim() : '');
-        const expiry = (mapping.expiry && r[mapping.expiry] ? String(r[mapping.expiry]).trim() : '');
-        const taxRaw = mapping.tax && r[mapping.tax] ? parseFloat(String(r[mapping.tax]).replace(/[^0-9.]/g, '')) : null;
-
-        newCategories.add(category);
-
-        const existingIndex = state.catalog.findIndex(p => p.sku.toUpperCase() === sku.toUpperCase());
-        if (existingIndex >= 0) {
-          if (dupPolicy === 'skip') {
-            skippedCount++;
-            continue;
-          } else {
-            // Update existing
-            const existingProd = state.catalog[existingIndex];
-            existingProd.name = name;
-            existingProd.base_price_minor_units = price;
-            existingProd.cost_price_minor_units = cost;
-            existingProd.stock_quantity = stock;
-            existingProd.stock_level = stock;
-            existingProd.category = category;
-            existingProd.unit = unit;
-            if (batch) existingProd.batch_no = batch;
-            if (expiry) existingProd.expiry_date = expiry;
-            if (taxRaw !== null && !isNaN(taxRaw)) existingProd.tax_override = taxRaw;
-            
-            try {
-              if (window.ClientDB && typeof window.ClientDB.putProductClient === 'function') {
-                await window.ClientDB.putProductClient(existingProd);
-              }
-            } catch (_) {}
-            updatedCount++;
-          }
-        } else {
-          // Insert new
-          const prodObj = {
-            sku,
-            name,
-            gtin: barcode || sku,
-            base_price_minor_units: price,
-            cost_price_minor_units: cost,
-            stock_quantity: stock,
-            stock_level: stock,
-            low_stock_threshold: 10,
-            category,
-            unit,
-            batch_no: batch,
-            expiry_date: expiry,
-            tax_override: taxRaw !== null && !isNaN(taxRaw) ? taxRaw : null,
-            created_at: new Date().toISOString()
-          };
-
-          try {
-            if (window.ClientDB && typeof window.ClientDB.putProductClient === 'function') {
-              await window.ClientDB.putProductClient(prodObj);
-            }
-          } catch (_) {}
-
-          state.catalog.push(prodObj);
-          newProducts.push(prodObj);
-          importedCount++;
-        }
-
-        // Update progress bar
-        if (i % 20 === 0 || i === totalRows - 1) {
-          const pct = Math.round(((i + 1) / totalRows) * 100);
-          if (progressBar) progressBar.style.width = `${pct}%`;
-          if (progressPct) progressPct.textContent = `${pct}%`;
-          if (progressStatus) progressStatus.textContent = `Processing row ${i + 1} of ${totalRows}...`;
-        }
-      }
-
-      // Update state categories and persist
-      state.categories = Array.from(newCategories);
-      try {
-        if (window.ClientDB && typeof window.ClientDB.saveCategoriesClient === 'function') {
-          await window.ClientDB.saveCategoriesClient(state.categories);
-        }
-      } catch (_) {}
-
-      // Refresh catalog table & quick pos grid in 0ms
-      if (typeof renderCatalogTable === 'function') renderCatalogTable();
-      if (typeof renderCategoryFilters === 'function') renderCategoryFilters();
-      if (typeof renderQuickAccessCatalog === 'function') renderQuickAccessCatalog();
       if (typeof triggerConfetti === 'function') triggerConfetti();
       if (typeof playAudioSignal === 'function') playAudioSignal('success');
 
       if (btnExec) btnExec.disabled = false;
-      if (progressStatus) progressStatus.textContent = `Completed! ${importedCount} added, ${updatedCount} updated, ${skippedCount} skipped.`;
+      if (progressStatus) progressStatus.textContent = `Completed! ${result.importedCount} added, ${result.updatedCount} updated, ${result.skippedCount} skipped.`;
 
       setTimeout(() => {
         modal.style.display = 'none';
         if (typeof showNotificationToast === 'function') {
-          showNotificationToast(`Import Complete: ${importedCount} products added, ${updatedCount} updated!`, 'success', 4000);
+          showNotificationToast(`Import Complete: ${result.importedCount} products added, ${result.updatedCount} updated!`, 'success', 4000);
         }
       }, 1200);
     });
