@@ -1,7 +1,7 @@
 {
   "version": "3.2.4",
-  "build_id": "v3.2.4-prod-06ba21d",
-  "git_commit": "06ba21de338e3fbae6614df6c462eb7f4a4edbc5",
+  "build_id": "v3.2.4-prod-2ffcbf2",
+  "git_commit": "2ffcbf259a209feb6b4921320f9b993da6a7344b",
   "updated_at": "2026-09-08",
   "changelog": "Valenixia POS v3.2.4 — Perpetual license and annual maintenance contract (AMC) pricing realignment, native mobile/desktop binaries rebuild, and store isolation hardening.",
   "changes": [
