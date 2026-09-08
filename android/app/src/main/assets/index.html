@@ -362,6 +362,9 @@
           <button class="topbar-btn" id="direct-lang-toggle-btn" onclick="if(window.toggleAppLanguage)window.toggleAppLanguage();" title="Switch Language (اردو / English)" style="display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--accent-emerald); background: rgba(0, 214, 143, 0.12); color: var(--accent-emerald); font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; font-family: var(--font-mono); -webkit-tap-highlight-color: transparent; touch-action: manipulation;">
             <span class="direct-lang-lbl">اردو</span>
           </button>
+          <button id="lang-toggle-btn" style="display: none;" onclick="if(window.toggleAppLanguage)window.toggleAppLanguage();" aria-hidden="true">
+            <span>🌐</span><span>اردو</span>
+          </button>
 
           <button class="theme-toggle-btn" id="theme-toggle-btn" title="Toggle Theme" aria-label="Toggle Theme">
             <svg class="svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M12 2a10 10 0 0 0 0 20Z" fill="currentColor"/></svg>
