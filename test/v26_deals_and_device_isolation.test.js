@@ -100,9 +100,12 @@ async function runSuite() {
 
   console.log('✔ Test 3 passed: Multi-store entitlement isolation verified on same machine.');
   console.log('--- All Deals & Multi-Store Isolation Tests Passed! ---');
+  process.exit(0);
 }
 
-runSuite().catch(err => {
+runSuite().then(() => {
+  process.exit(0);
+}).catch(err => {
   console.error('❌ Test failed:', err);
   process.exit(1);
 });

@@ -153,9 +153,12 @@ async function runRestoreSuite() {
   console.log('✔ Test 3 passed: Client-side applyStoreRestoration successfully dismisses wizard, sets session, and routes directly to checkout!');
 
   console.log('--- All Subscription Restoration Tests Passed! ---');
+  process.exit(0);
 }
 
-runRestoreSuite().catch(err => {
+runRestoreSuite().then(() => {
+  process.exit(0);
+}).catch(err => {
   console.error('❌ Test failed:', err);
   process.exit(1);
 });
