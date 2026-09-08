@@ -11,12 +11,7 @@ const stats = fs.statSync(srcApk);
 console.log(`Source APK size: ${(stats.size / 1024 / 1024).toFixed(2)} MB (${stats.size} bytes)`);
 
 const targets = [
-  'public/downloads/valenixia-pos.apk',
-  'public/downloads/valenixia-pos-v3.2.4.apk',
-  'public/downloads/Valenixia-POS-v3.2.4-arm64-v8a.apk',
-  'public/downloads/Valenixia-POS-v3.2.4-armeabi-v7a.apk',
-  'public/downloads/Valenixia-POS-v3.2.4-x86_64.apk',
-  'public/downloads/Valenixia-POS-v3.2.4-release.apk'
+  'public/downloads/valenixia-pos.apk'
 ];
 
 targets.forEach(relPath => {

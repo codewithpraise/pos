@@ -78,6 +78,14 @@
       "destination": "/version.json"
     },
     {
+      "source": "/downloads/Valenixia-POS-(.*)\\.apk",
+      "destination": "/downloads/valenixia-pos.apk"
+    },
+    {
+      "source": "/downloads/valenixia-pos-(.*)\\.apk",
+      "destination": "/downloads/valenixia-pos.apk"
+    },
+    {
       "source": "/downloads/valenixia.apk",
       "destination": "/downloads/valenixia-pos.apk"
     },
